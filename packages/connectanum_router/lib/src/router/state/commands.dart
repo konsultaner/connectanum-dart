@@ -13,6 +13,7 @@ class SubscriptionMetaEvent {
     required this.subscriptionId,
     required this.topic,
     required this.matchPolicy,
+    required this.created,
     required this.details,
     this.sessionId,
   });
@@ -22,6 +23,7 @@ class SubscriptionMetaEvent {
   final int subscriptionId;
   final String topic;
   final TopicMatchPolicy matchPolicy;
+  final DateTime created;
   final Map<String, Object?> details;
   final int? sessionId;
 }
@@ -35,6 +37,8 @@ class RegistrationMetaEvent {
     required this.registrationId,
     required this.procedure,
     required this.policy,
+    required this.matchPolicy,
+    required this.created,
     required this.details,
     this.sessionId,
   });
@@ -44,8 +48,56 @@ class RegistrationMetaEvent {
   final int registrationId;
   final String procedure;
   final InvocationPolicy policy;
+  final ProcedureMatchPolicy matchPolicy;
+  final DateTime created;
   final Map<String, Object?> details;
   final int? sessionId;
+}
+
+enum SessionMetaEventType { joined, left }
+
+class SessionMetaEvent {
+  SessionMetaEvent({
+    required this.realmUri,
+    required this.type,
+    required this.sessionId,
+    required this.authId,
+    required this.authRole,
+    required this.authMethod,
+    required this.authProvider,
+  });
+
+  final String realmUri;
+  final SessionMetaEventType type;
+  final int sessionId;
+  final String? authId;
+  final String? authRole;
+  final String? authMethod;
+  final String? authProvider;
+}
+
+class InvocationTimeoutEvent {
+  InvocationTimeoutEvent({
+    required this.realmUri,
+    required this.invocationId,
+    required this.callerRequestId,
+    required this.callerSessionId,
+    required this.calleeSessionId,
+    this.callerConnectionId,
+    this.calleeConnectionId,
+    this.callerInternalSendPort,
+    this.calleeInternalSendPort,
+  });
+
+  final String realmUri;
+  final int invocationId;
+  final int callerRequestId;
+  final int callerSessionId;
+  final int calleeSessionId;
+  final int? callerConnectionId;
+  final int? calleeConnectionId;
+  final SendPort? callerInternalSendPort;
+  final SendPort? calleeInternalSendPort;
 }
 
 /// Base type for all commands handled by [RouterStateStore].
@@ -226,6 +278,18 @@ class InvocationCancelCommand extends RouterStateCommand {
 
 class InvocationCompleteCommand extends RouterStateCommand {
   InvocationCompleteCommand({
+    required this.realmUri,
+    required this.invocationId,
+    this.replyPort,
+  });
+
+  final String realmUri;
+  final int invocationId;
+  final SendPort? replyPort;
+}
+
+class InvocationTouchCommand extends RouterStateCommand {
+  InvocationTouchCommand({
     required this.realmUri,
     required this.invocationId,
     this.replyPort,

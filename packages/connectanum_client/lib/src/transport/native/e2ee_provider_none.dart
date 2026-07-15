@@ -1,7 +1,7 @@
 import 'package:connectanum_core/connectanum_core.dart';
 
 class NativeWampCborXsalsa20Poly1305Provider
-    implements DisposableWampE2eeProvider {
+    implements DisposableWampE2eeProvider, WampE2eeProfileSupport {
   NativeWampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
     String? defaultKeyId,
@@ -43,4 +43,45 @@ class NativeWampCborXsalsa20Poly1305Provider
 
   @override
   void release() {}
+
+  @override
+  bool supportsE2eeProfile({
+    required int version,
+    required String scheme,
+    required String serializer,
+    required String cipher,
+  }) {
+    return version == ConnectanumE2eeProfile.version &&
+        scheme == ConnectanumE2eeProfile.scheme &&
+        serializer == ConnectanumE2eeProfile.serializer &&
+        cipher == ConnectanumE2eeProfile.xsalsa20Poly1305;
+  }
+}
+
+class NativeWampCborAes256GcmProvider
+    extends NativeWampCborXsalsa20Poly1305Provider {
+  NativeWampCborAes256GcmProvider({
+    required super.keys,
+    super.defaultKeyId,
+    super.keySelectionPolicy,
+  });
+
+  NativeWampCborAes256GcmProvider.single({
+    required super.keyId,
+    required super.key,
+    super.keySelectionPolicy,
+  }) : super.single();
+
+  @override
+  bool supportsE2eeProfile({
+    required int version,
+    required String scheme,
+    required String serializer,
+    required String cipher,
+  }) {
+    return version == ConnectanumE2eeProfile.version &&
+        scheme == ConnectanumE2eeProfile.scheme &&
+        serializer == ConnectanumE2eeProfile.serializer &&
+        cipher == ConnectanumE2eeProfile.aes256Gcm;
+  }
 }

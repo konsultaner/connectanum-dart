@@ -179,6 +179,7 @@ Focus for the next session:
   - ✅ Landed the richer per-message runtime-context slice: the shared provider contract now receives message family, URI/topic/procedure, local session auth identity, negotiated E2EE state, and disclosed peer metadata across outbound `CALL` / `PUBLISH` and inbound `RESULT` / `EVENT` / `INVOCATION`, including pending-call procedure recovery on the result path.
   - ✅ Landed provider-level key-selection policy surfaces on both the pure Dart and native provider lanes, so `WampCborXsalsa20Poly1305Provider` and `NativeWampCborXsalsa20Poly1305Provider` can derive `ppt_keyid` from `WampE2eeRuntimeContext` when the message itself does not set one.
   - ✅ Landed reusable negotiated/policy adapters on top of the shared provider callback surface, so negotiated `WELCOME.authextra.e2ee` fallback, peer identity, and trust metadata can now be composed through `WampE2eeKeySelectionPolicies` and `WampE2eeKeySelectionRule` instead of ad hoc callbacks in each application.
+  - ✅ Completed the versioned final-release profile with CBOR, XSalsa20-Poly1305 and AES-256-GCM, pure Dart/native interoperability, router-opaque forwarding, fail-closed validation, live encrypted RPC/pub-sub smoke coverage, and a checked-in 16-row throughput gate across RawSocket/WebSocket and Dart/native clients.
 
 12. **Packaging & Build Hooks**
   - ✅ Add Dart 3.10+ build hook that compiles the Rust `ct_ffi` backend during `dart run`/`dart test` (native assets build hooks).

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:isolate';
 
 import 'package:logging/logging.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
@@ -45,7 +46,9 @@ class Serializer extends AbstractSerializer {
   static const Set<String> _invocationDetailKeys = {
     'caller',
     'procedure',
+    'progress',
     'receive_progress',
+    'timeout',
     'ppt_scheme',
     'ppt_serializer',
     'ppt_cipher',
@@ -68,6 +71,7 @@ class Serializer extends AbstractSerializer {
     'ppt_keyid',
   };
   static const Set<String> _callOptionKeys = {
+    'progress',
     'receive_progress',
     'timeout',
     'disclose_me',
@@ -96,6 +100,7 @@ class Serializer extends AbstractSerializer {
     'disclose_caller',
     'match',
     'invoke',
+    'forward_timeout',
   };
   static const Set<String> _subscribeOptionKeys = {
     'match',
@@ -243,6 +248,7 @@ class Serializer extends AbstractSerializer {
         final detailsMap = message[3] as Map<dynamic, dynamic>;
         final caller = detailsMap['caller'];
         final procedure = detailsMap['procedure'];
+        final progress = detailsMap['progress'];
         final receiveProgress = detailsMap['receive_progress'];
         final pptScheme = detailsMap['ppt_scheme'];
         final pptSerializer = detailsMap['ppt_serializer'];
@@ -253,15 +259,17 @@ class Serializer extends AbstractSerializer {
             message[1],
             message[2],
             InvocationDetails(
-              caller,
-              procedure,
-              receiveProgress,
-              pptScheme,
-              pptSerializer,
-              pptCipher,
-              pptKeyId,
-              _extractCustomDetails(detailsMap, _invocationDetailKeys),
-            ),
+                caller,
+                procedure,
+                receiveProgress,
+                pptScheme,
+                pptSerializer,
+                pptCipher,
+                pptKeyId,
+                _extractCustomDetails(detailsMap, _invocationDetailKeys),
+              )
+              ..progress = progress
+              ..timeout = _coerceInt(detailsMap['timeout']),
           ),
           message,
           4,
@@ -503,15 +511,17 @@ class Serializer extends AbstractSerializer {
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[1])),
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[2])),
         InvocationDetails(
-          _coerceInt(detailsMap['caller']),
-          detailsMap['procedure'] as String?,
-          detailsMap['receive_progress'] as bool?,
-          detailsMap['ppt_scheme'] as String?,
-          detailsMap['ppt_serializer'] as String?,
-          detailsMap['ppt_cipher'] as String?,
-          detailsMap['ppt_keyid'] as String?,
-          _extractCustomDetails(detailsMap, _invocationDetailKeys),
-        ),
+            _coerceInt(detailsMap['caller']),
+            detailsMap['procedure'] as String?,
+            detailsMap['receive_progress'] as bool?,
+            detailsMap['ppt_scheme'] as String?,
+            detailsMap['ppt_serializer'] as String?,
+            detailsMap['ppt_cipher'] as String?,
+            detailsMap['ppt_keyid'] as String?,
+            _extractCustomDetails(detailsMap, _invocationDetailKeys),
+          )
+          ..progress = detailsMap['progress'] as bool?
+          ..timeout = _coerceInt(detailsMap['timeout']),
       );
       _setLazyMsgPackPayload(invocation, msgPack, ranges, 4);
       return invocation;
@@ -681,6 +691,7 @@ class Serializer extends AbstractSerializer {
       discloseCaller: optionsMap['disclose_caller'] as bool?,
       match: optionsMap['match'] as String?,
       invoke: optionsMap['invoke'] as String?,
+      forwardTimeout: optionsMap['forward_timeout'] as bool?,
       custom: custom.isEmpty ? null : custom,
     );
   }
@@ -691,6 +702,7 @@ class Serializer extends AbstractSerializer {
     }
     final custom = _copyWithoutKeys(optionsMap, _callOptionKeys);
     return CallOptions(
+      progress: optionsMap['progress'] as bool?,
       receiveProgress: optionsMap['receive_progress'] as bool?,
       timeout: _coerceInt(optionsMap['timeout']),
       discloseMe: optionsMap['disclose_me'] as bool?,
@@ -1141,6 +1153,10 @@ class Serializer extends AbstractSerializer {
               callerFeatures.payloadPassThruMode,
             ),
             MapEntry(
+              'progressive_call_invocations',
+              callerFeatures.progressiveCallInvocations,
+            ),
+            MapEntry(
               'progressive_call_results',
               callerFeatures.progressiveCallResults,
             ),
@@ -1178,6 +1194,10 @@ class Serializer extends AbstractSerializer {
               calleeFeatures.payloadPassThruMode,
             ),
             MapEntry(
+              'progressive_call_invocations',
+              calleeFeatures.progressiveCallInvocations,
+            ),
+            MapEntry(
               'progressive_call_results',
               calleeFeatures.progressiveCallResults,
             ),
@@ -1194,15 +1214,21 @@ class Serializer extends AbstractSerializer {
         if (subscriberFeatures != null) {
           var subscriberFeaturesMap = {};
           subscriberFeaturesMap.addEntries([
-            MapEntry('call_canceling', subscriberFeatures.callCanceling),
-            MapEntry('call_timeout', subscriberFeatures.callTimeout),
+            MapEntry(
+              'publisher_identification',
+              subscriberFeatures.publisherIdentification,
+            ),
+            MapEntry(
+              'publication_trustlevels',
+              subscriberFeatures.publicationTrustLevels,
+            ),
+            MapEntry(
+              'pattern_based_subscription',
+              subscriberFeatures.patternBasedSubscription,
+            ),
             MapEntry(
               'payload_passthru_mode',
               subscriberFeatures.payloadPassThruMode,
-            ),
-            MapEntry(
-              'progressive_call_results',
-              subscriberFeatures.progressiveCallResults,
             ),
             MapEntry(
               'subscription_revocation',
@@ -1282,6 +1308,8 @@ class Serializer extends AbstractSerializer {
             'session_meta_api': dealerFeatures.sessionMetaApi,
             'call_timeout': dealerFeatures.callTimeout,
             'call_canceling': dealerFeatures.callCanceling,
+            'progressive_call_invocations':
+                dealerFeatures.progressiveCallInvocations,
             'progressive_call_results': dealerFeatures.progressiveCallResults,
             'payload_passthru_mode': dealerFeatures.payloadPassThruMode,
           };
@@ -1362,6 +1390,9 @@ class Serializer extends AbstractSerializer {
       if (options.invoke != null) {
         registerOptions['invoke'] = options.invoke;
       }
+      if (options.forwardTimeout != null) {
+        registerOptions['forward_timeout'] = options.forwardTimeout;
+      }
       if (options.custom.isNotEmpty) {
         registerOptions.addAll(options.custom);
       }
@@ -1373,6 +1404,9 @@ class Serializer extends AbstractSerializer {
   Uint8List _serializeCallOptions(CallOptions? options) {
     final callOptions = <String, dynamic>{};
     if (options != null) {
+      if (options.progress != null) {
+        callOptions['progress'] = options.progress;
+      }
       if (options.receiveProgress != null) {
         callOptions['receive_progress'] = options.receiveProgress;
       }
@@ -1493,8 +1527,14 @@ class Serializer extends AbstractSerializer {
     if (details.procedure != null) {
       map['procedure'] = details.procedure;
     }
+    if (details.progress != null) {
+      map['progress'] = details.progress;
+    }
     if (details.receiveProgress != null) {
       map['receive_progress'] = details.receiveProgress;
+    }
+    if (details.timeout != null) {
+      map['timeout'] = details.timeout;
     }
     if (details.pptScheme != null) {
       map['ppt_scheme'] = details.pptScheme;
@@ -1533,28 +1573,40 @@ class Serializer extends AbstractSerializer {
         ? message.debugEncodedArgumentsKeywordsBytes
         : null;
     if (encodedArgs != null || encodedKwargs != null) {
-      final argsBytes =
-          encodedArgs ?? msgpack_dart.serialize(message.arguments ?? []);
+      final arguments = encodedArgs == null
+          ? _messagePackEncodablePayloadFragment(message.wireArguments)
+          : null;
+      final argumentsKeywords = encodedKwargs == null
+          ? _messagePackEncodablePayloadFragment(message.wireArgumentsKeywords)
+          : null;
+      final argsBytes = encodedArgs ?? msgpack_dart.serialize(arguments ?? []);
       final kwargsBytes =
           encodedKwargs ??
-          (message.argumentsKeywords == null
+          (argumentsKeywords == null
               ? null
-              : msgpack_dart.serialize(message.argumentsKeywords));
+              : msgpack_dart.serialize(argumentsKeywords));
       if (kwargsBytes != null) {
         return SerializedPayload(2, _concatBytes(argsBytes, kwargsBytes));
       }
       return SerializedPayload(1, argsBytes);
     }
-    if (message.argumentsKeywords != null) {
+
+    final arguments = _messagePackEncodablePayloadFragment(
+      message.wireArguments,
+    );
+    final argumentsKeywords = _messagePackEncodablePayloadFragment(
+      message.wireArgumentsKeywords,
+    );
+    if (argumentsKeywords != null) {
       return SerializedPayload(
         2,
         _concatBytes(
-          msgpack_dart.serialize(message.arguments ?? []),
-          msgpack_dart.serialize(message.argumentsKeywords),
+          msgpack_dart.serialize(arguments ?? []),
+          msgpack_dart.serialize(argumentsKeywords),
         ),
       );
-    } else if (message.arguments != null) {
-      return SerializedPayload(1, msgpack_dart.serialize(message.arguments));
+    } else if (arguments != null) {
+      return SerializedPayload(1, msgpack_dart.serialize(arguments));
     }
     return SerializedPayload(0, Uint8List(0));
   }
@@ -1564,6 +1616,27 @@ class Serializer extends AbstractSerializer {
     combined.setRange(0, left.length, left);
     combined.setRange(left.length, combined.length, right);
     return combined;
+  }
+
+  Object? _messagePackEncodablePayloadFragment(Object? value) {
+    if (value is TransferableTypedData) {
+      return value.materialize().asUint8List();
+    }
+    if (value is Uint8List) {
+      return value;
+    }
+    if (value is List) {
+      return value
+          .map<Object?>((entry) => _messagePackEncodablePayloadFragment(entry))
+          .toList(growable: false);
+    }
+    if (value is Map) {
+      return value.map<Object?, Object?>(
+        (key, entry) =>
+            MapEntry(key, _messagePackEncodablePayloadFragment(entry)),
+      );
+    }
+    return value;
   }
 
   Map<String, dynamic> _extractCustomDetails(

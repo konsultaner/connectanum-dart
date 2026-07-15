@@ -7,8 +7,11 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core show Error;
+import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
+    as cbor_serializer;
 import 'package:connectanum_core/src/message/goodbye.dart' as goodbye_msg;
 import 'package:connectanum_core/src/message/publish.dart' as publish_msg;
 import 'package:connectanum_core/src/message/event.dart' as event_msg;
@@ -661,6 +664,135 @@ void main() {
             (message) => message['type'] == 'worker_forward_message',
           ),
           isEmpty,
+        );
+
+        bossMessages.clear();
+        final encryptedPayload = Uint8List.fromList(
+          List<int>.generate(64, (index) => index),
+        );
+        final e2eeCall = call_msg.Call(
+          2103,
+          'com.parallel.proc',
+          options: call_msg.CallOptions(
+            pptScheme: 'wamp',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes256gcm',
+            pptKeyId: 'benchmark-key',
+          ),
+        );
+        final encodedEncryptedArguments = Uint8List.fromList(
+          cbor.cborEncode(cbor.CborValue([encryptedPayload])),
+        );
+        e2eeCall.setLazyPayload(
+          argumentsBytes: encodedEncryptedArguments,
+          argumentsDecoder: (_) => [encryptedPayload],
+          encoding: LazyPayloadEncoding.cbor,
+        );
+        final e2eeCallTakenHandles = <int>[];
+        final e2eeCallIncoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.json,
+          message: e2eeCall,
+          handle: 323,
+          onTake: (handle) {
+            e2eeCallTakenHandles.add(handle);
+            return handle;
+          },
+        );
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          connectionStates: connectionStates,
+          state: callerState,
+          message: e2eeCall,
+          connectionId: 32,
+          incomingMessage: e2eeCallIncoming,
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(e2eeCallTakenHandles, isEmpty);
+        expect(
+          bossMessages.where(
+            (message) => message['type'] == 'worker_forward_native_invocation',
+          ),
+          isEmpty,
+        );
+        final e2eeInvocation =
+            _extractForwardMessages(bossMessages).single['message']
+                as invocation_msg.Invocation;
+        expect(
+          e2eeInvocation.toLazyPayload().packedPayloadBytes,
+          orderedEquals(encryptedPayload),
+        );
+        bossMessages.clear();
+
+        final e2eeYield = yield_msg.Yield(
+          e2eeInvocation.requestId,
+          options: yield_msg.YieldOptions(
+            pptScheme: 'wamp',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes256gcm',
+            pptKeyId: 'benchmark-key',
+          ),
+        );
+        e2eeYield.setLazyPayload(
+          argumentsBytes: encodedEncryptedArguments,
+          argumentsDecoder: (_) => [encryptedPayload],
+          encoding: LazyPayloadEncoding.cbor,
+        );
+        final e2eeTakenHandles = <int>[];
+        final e2eeIncoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.json,
+          message: e2eeYield,
+          handle: 324,
+          onTake: (handle) {
+            e2eeTakenHandles.add(handle);
+            return handle;
+          },
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          connectionStates: connectionStates,
+          state: calleeState,
+          message: e2eeYield,
+          connectionId: 31,
+          incomingMessage: e2eeIncoming,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(e2eeTakenHandles, isEmpty);
+        expect(
+          bossMessages.where(
+            (message) => message['type'] == 'worker_forward_native_result',
+          ),
+          isEmpty,
+        );
+        final e2eeForward = _extractForwardMessages(bossMessages).single;
+        final e2eeResult = e2eeForward['message'] as result_msg.Result;
+        expect(e2eeResult.details.pptScheme, equals('wamp'));
+        expect(e2eeResult.details.pptCipher, equals('aes256gcm'));
+        expect(e2eeResult.wireArguments, hasLength(1));
+        expect(
+          e2eeResult.toLazyPayload().packedPayloadBytes,
+          orderedEquals(encryptedPayload),
+        );
+        final forwardedPayload = e2eeResult.wireArguments!.single;
+        expect(
+          forwardedPayload is TransferableTypedData
+              ? forwardedPayload.materialize().asUint8List()
+              : forwardedPayload,
+          orderedEquals(encryptedPayload),
+        );
+        final outerSerializer = cbor_serializer.Serializer();
+        final decodedE2eeResult =
+            outerSerializer.deserialize(outerSerializer.serialize(e2eeResult))!
+                as result_msg.Result;
+        expect(decodedE2eeResult.wireArguments, hasLength(1));
+        expect(
+          decodedE2eeResult.wireArguments!.single,
+          orderedEquals(encryptedPayload),
         );
       },
     );
@@ -2847,6 +2979,255 @@ void main() {
       expect(frame[1], equals(MessageTypes.codeCall));
       expect(frame[2], equals(4102));
       expect(frame[4], equals(wamp_core.Error.noSuchProcedure));
+    });
+
+    test('serves standard WAMP meta procedure calls directly', () async {
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
+
+      final listener = _buildListener();
+      final callerState =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      callerState
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 702;
+
+      _openSession(
+        stateStore,
+        sessionId: 702,
+        listener: listener,
+        connectionId: 46,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final registerReply = ReceivePort();
+      stateStore.commandPort.send(
+        ProcedureRegisterCommand(
+          realmUri: 'realm1',
+          sessionId: 702,
+          procedure: 'com.direct.meta.proc',
+          details: const {},
+          replyPort: registerReply.sendPort,
+        ),
+      );
+      final registrationId = await registerReply.first as int;
+      registerReply.close();
+
+      final subscribeReply = ReceivePort();
+      stateStore.commandPort.send(
+        SubscriptionAddCommand(
+          realmUri: 'realm1',
+          sessionId: 702,
+          topic: 'com.direct.meta.topic',
+          matchPolicy: TopicMatchPolicy.exact,
+          details: const {},
+          replyPort: subscribeReply.sendPort,
+        ),
+      );
+      final subscriptionId = await subscribeReply.first as int;
+      subscribeReply.close();
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      addTearDown(realmContexts.dispose);
+
+      Future<List<dynamic>> callMeta(call_msg.Call call) async {
+        bossMessages.clear();
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 46,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final workerSend = _extractWorkerSend(bossMessages);
+        return jsonDecode(utf8.decode(workerSend['payload'] as Uint8List))
+            as List<dynamic>;
+      }
+
+      final sessionCount = await callMeta(
+        call_msg.Call(4201, 'wamp.session.count'),
+      );
+      expect(sessionCount.first, equals(MessageTypes.codeResult));
+      expect(sessionCount[1], equals(4201));
+      expect(sessionCount[3], equals([1]));
+
+      final sessionList = await callMeta(
+        call_msg.Call(4202, 'wamp.session.list'),
+      );
+      expect(
+        sessionList[3],
+        equals([
+          [702],
+        ]),
+      );
+
+      final sessionGet = await callMeta(
+        call_msg.Call(4203, 'wamp.session.get', arguments: [702]),
+      );
+      expect(
+        ((sessionGet[3] as List).single as Map<String, Object?>)['session'],
+        equals(702),
+      );
+
+      final registrationList = await callMeta(
+        call_msg.Call(4204, 'wamp.registration.list'),
+      );
+      expect(
+        ((registrationList[3] as List).single as Map<String, Object?>)['exact'],
+        contains(registrationId),
+      );
+
+      final registrationLookup = await callMeta(
+        call_msg.Call(
+          4205,
+          'wamp.registration.lookup',
+          argumentsKeywords: const {
+            'procedure': 'com.direct.meta.proc',
+            'match': 'exact',
+          },
+        ),
+      );
+      expect(registrationLookup[3], equals([registrationId]));
+
+      final registrationMatch = await callMeta(
+        call_msg.Call(
+          4206,
+          'wamp.registration.match',
+          arguments: const ['com.direct.meta.proc'],
+        ),
+      );
+      expect(registrationMatch[3], equals([registrationId]));
+
+      final registrationGet = await callMeta(
+        call_msg.Call(
+          4207,
+          'wamp.registration.get',
+          arguments: [registrationId],
+        ),
+      );
+      expect(
+        ((registrationGet[3] as List).single as Map<String, Object?>)['uri'],
+        equals('com.direct.meta.proc'),
+      );
+      expect(
+        ((registrationGet[3] as List).single
+            as Map<String, Object?>)['created'],
+        isA<String>(),
+      );
+
+      final callees = await callMeta(
+        call_msg.Call(
+          4208,
+          'wamp.registration.list_callees',
+          arguments: [registrationId],
+        ),
+      );
+      expect(
+        callees[3],
+        equals([
+          [702],
+        ]),
+      );
+
+      final calleeCount = await callMeta(
+        call_msg.Call(
+          4209,
+          'wamp.registration.count_callees',
+          arguments: [registrationId],
+        ),
+      );
+      expect(calleeCount[3], equals([1]));
+
+      final subscriptionList = await callMeta(
+        call_msg.Call(4210, 'wamp.subscription.list'),
+      );
+      expect(
+        ((subscriptionList[3] as List).single as Map<String, Object?>)['exact'],
+        contains(subscriptionId),
+      );
+
+      final subscriptionLookup = await callMeta(
+        call_msg.Call(
+          4211,
+          'wamp.subscription.lookup',
+          argumentsKeywords: const {
+            'topic': 'com.direct.meta.topic',
+            'match': 'exact',
+          },
+        ),
+      );
+      expect(subscriptionLookup[3], equals([subscriptionId]));
+
+      final subscriptionMatch = await callMeta(
+        call_msg.Call(
+          4212,
+          'wamp.subscription.match',
+          arguments: const ['com.direct.meta.topic'],
+        ),
+      );
+      expect(
+        subscriptionMatch[3],
+        equals([
+          [subscriptionId],
+        ]),
+      );
+
+      final subscriptionGet = await callMeta(
+        call_msg.Call(
+          4213,
+          'wamp.subscription.get',
+          arguments: [subscriptionId],
+        ),
+      );
+      expect(
+        ((subscriptionGet[3] as List).single as Map<String, Object?>)['uri'],
+        equals('com.direct.meta.topic'),
+      );
+      expect(
+        ((subscriptionGet[3] as List).single
+            as Map<String, Object?>)['created'],
+        isA<String>(),
+      );
+
+      final subscribers = await callMeta(
+        call_msg.Call(
+          4214,
+          'wamp.subscription.list_subscribers',
+          arguments: [subscriptionId],
+        ),
+      );
+      expect(
+        subscribers[3],
+        equals([
+          [702],
+        ]),
+      );
+
+      final subscriberCount = await callMeta(
+        call_msg.Call(
+          4215,
+          'wamp.subscription.count_subscribers',
+          arguments: [subscriptionId],
+        ),
+      );
+      expect(subscriberCount[3], equals([1]));
     });
 
     test('rejects second REGISTER for non-shared procedure', () async {
@@ -6275,6 +6656,318 @@ void main() {
       expect(invocationRecord, isNull);
     });
 
+    test(
+      'pins progressive invocation chunks and freezes initiating options',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                    listener: listener,
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState
+              ..serializer = NativeMessageSerializer.json
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 761;
+        final calleeA =
+            createWorkerStateForTest(
+                    listener: listener,
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState
+              ..serializer = NativeMessageSerializer.json
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 762;
+        _openSession(
+          stateStore,
+          sessionId: 761,
+          listener: listener,
+          connectionId: 116,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 762,
+          listener: listener,
+          connectionId: 117,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 763,
+          listener: listener,
+          connectionId: 118,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        Future<void> registerCallee(int sessionId) async {
+          final reply = ReceivePort();
+          stateStore.commandPort.send(
+            ProcedureRegisterCommand(
+              realmUri: 'realm1',
+              sessionId: sessionId,
+              procedure: 'com.example.progressive_upload',
+              details: const {'invoke': 'roundrobin'},
+              replyPort: reply.sendPort,
+            ),
+          );
+          await reply.first;
+          reply.close();
+        }
+
+        await registerCallee(762);
+        await registerCallee(763);
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+
+        Future<invocation_msg.Invocation> sendChunk(call_msg.Call chunk) async {
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: callerState,
+            message: chunk,
+            connectionId: 116,
+          );
+          await Future<void>.delayed(Duration.zero);
+          final forwards = _extractForwardMessages(bossMessages);
+          expect(forwards, hasLength(1));
+          expect(forwards.single['connectionId'], equals(117));
+          bossMessages.clear();
+          return forwards.single['message'] as invocation_msg.Invocation;
+        }
+
+        final first = await sendChunk(
+          call_msg.Call(
+            9701,
+            'com.example.progressive_upload',
+            options: call_msg.CallOptions(
+              progress: true,
+              receiveProgress: true,
+              discloseMe: true,
+              pptScheme: 'wamp',
+              pptSerializer: 'cbor',
+              custom: const {'trace_id': 'initial'},
+            ),
+            arguments: const ['chunk-1'],
+          ),
+        );
+        expect(first.details.progress, isTrue);
+        expect(first.details.receiveProgress, isTrue);
+        expect(first.details.caller, equals(761));
+        expect(first.details.pptSerializer, equals('cbor'));
+        expect(first.details.custom['trace_id'], equals('initial'));
+
+        final second = await sendChunk(
+          call_msg.Call(
+            9701,
+            'com.example.progressive_upload',
+            options: call_msg.CallOptions(
+              progress: true,
+              receiveProgress: false,
+              discloseMe: false,
+              pptScheme: 'changed',
+              pptSerializer: 'changed',
+              custom: const {'trace_id': 'changed'},
+            ),
+            arguments: const ['chunk-2'],
+          ),
+        );
+        expect(second.requestId, equals(first.requestId));
+        expect(second.registrationId, equals(first.registrationId));
+        expect(second.details.progress, isTrue);
+        expect(second.details.receiveProgress, isTrue);
+        expect(second.details.caller, equals(761));
+        expect(second.details.pptScheme, equals('wamp'));
+        expect(second.details.pptSerializer, equals('cbor'));
+        expect(second.details.custom['trace_id'], equals('initial'));
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call_msg.Call(
+            9701,
+            'com.example.changed',
+            options: call_msg.CallOptions(progress: true),
+          ),
+          connectionId: 116,
+        );
+        await Future<void>.delayed(Duration.zero);
+        var rejected = _collectWorkerSends(bossMessages);
+        expect(rejected, hasLength(1));
+        expect(rejected.single['connectionId'], equals(116));
+        var rejectedFrame =
+            jsonDecode(utf8.decode(rejected.single['payload'] as Uint8List))
+                as List<dynamic>;
+        expect(rejectedFrame[4], equals(wamp_core.Error.invalidArgument));
+        bossMessages.clear();
+
+        final last = await sendChunk(
+          call_msg.Call(
+            9701,
+            'com.example.progressive_upload',
+            options: call_msg.CallOptions(progress: false),
+            arguments: const ['chunk-3'],
+          ),
+        );
+        expect(last.requestId, equals(first.requestId));
+        expect(last.registrationId, equals(first.registrationId));
+        expect(last.details.progress, isFalse);
+        expect(last.details.receiveProgress, isTrue);
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call_msg.Call(
+            9701,
+            'com.example.progressive_upload',
+            options: call_msg.CallOptions(progress: true),
+          ),
+          connectionId: 116,
+        );
+        await Future<void>.delayed(Duration.zero);
+        rejected = _collectWorkerSends(bossMessages);
+        expect(rejected, hasLength(1));
+        expect(rejected.single['connectionId'], equals(116));
+        rejectedFrame =
+            jsonDecode(utf8.decode(rejected.single['payload'] as Uint8List))
+                as List<dynamic>;
+        expect(rejectedFrame[4], equals(wamp_core.Error.invalidArgument));
+        bossMessages.clear();
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: calleeA,
+          message: yield_msg.Yield(first.requestId),
+          connectionId: 117,
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          await realmContexts
+              .contextFor('realm1')
+              .getInvocation(first.requestId),
+          isNull,
+        );
+      },
+    );
+
+    test('resets Dealer call timeout after progressive activity', () async {
+      final listener = _buildListener();
+      _openSession(
+        stateStore,
+        sessionId: 771,
+        listener: listener,
+        connectionId: 121,
+      );
+      _openSession(
+        stateStore,
+        sessionId: 772,
+        listener: listener,
+        connectionId: 122,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      addTearDown(realmContexts.dispose);
+      final context = realmContexts.contextFor('realm1');
+      await context.registerProcedure(
+        sessionId: 772,
+        procedure: 'com.example.timeout',
+        details: const {},
+      );
+      final timeoutEvent = stateStore.invocationTimeoutEvents.first;
+      final dispatch = await context.dispatchInvocation(
+        callerSessionId: 771,
+        requestId: 9801,
+        procedure: 'com.example.timeout',
+        options: const {'timeout': 80},
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(await context.touchInvocation(dispatch.invocationId), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        await context.getInvocation(dispatch.invocationId),
+        isNotNull,
+        reason: 'progressive activity must reset the inactivity deadline',
+      );
+
+      final event = await timeoutEvent.timeout(
+        const Duration(milliseconds: 100),
+      );
+      expect(event.invocationId, dispatch.invocationId);
+      expect(event.callerRequestId, 9801);
+      expect(event.callerConnectionId, 121);
+      expect(event.calleeConnectionId, 122);
+      expect(await context.getInvocation(dispatch.invocationId), isNull);
+    });
+
+    test('forward_timeout leaves timeout ownership with the Callee', () async {
+      final listener = _buildListener();
+      _openSession(
+        stateStore,
+        sessionId: 781,
+        listener: listener,
+        connectionId: 123,
+      );
+      _openSession(
+        stateStore,
+        sessionId: 782,
+        listener: listener,
+        connectionId: 124,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      addTearDown(realmContexts.dispose);
+      final context = realmContexts.contextFor('realm1');
+      await context.registerProcedure(
+        sessionId: 782,
+        procedure: 'com.example.forwarded_timeout',
+        details: const {'forward_timeout': true},
+      );
+      final timeoutEvents = <InvocationTimeoutEvent>[];
+      final subscription = stateStore.invocationTimeoutEvents.listen(
+        timeoutEvents.add,
+      );
+      addTearDown(subscription.cancel);
+
+      final dispatch = await context.dispatchInvocation(
+        callerSessionId: 781,
+        requestId: 9802,
+        procedure: 'com.example.forwarded_timeout',
+        options: const {'timeout': 30},
+      );
+      expect(dispatch.timeoutForwarded, isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(timeoutEvents, isEmpty);
+      expect(await context.getInvocation(dispatch.invocationId), isNotNull);
+      await context.completeInvocation(dispatch.invocationId);
+    });
+
     test('handles UNSUBSCRIBE by removing subscription', () async {
       final bossMessages = <Map<String, Object?>>[];
       final bossPort = ReceivePort()
@@ -6781,172 +7474,173 @@ void main() {
       expect(registrationEvents.first.sessionId, equals(902));
     });
 
-    test(
-      'emits registration meta events for shared registrations with distinct ids',
-      () async {
-        final registrationEvents = <RegistrationMetaEvent>[];
-        final sub = stateStore.registrationMetaEvents.listen(
-          registrationEvents.add,
-        );
-        addTearDown(sub.cancel);
+    test('emits shared registration meta events with the group id', () async {
+      final registrationEvents = <RegistrationMetaEvent>[];
+      final sub = stateStore.registrationMetaEvents.listen(
+        registrationEvents.add,
+      );
+      addTearDown(sub.cancel);
 
-        final bossMessages = <Map<String, Object?>>[];
-        final bossPort = ReceivePort()
-          ..listen((dynamic message) {
-            if (message is Map<String, Object?>) {
-              bossMessages.add(message);
-            }
-          });
-        addTearDown(bossPort.close);
+      final bossMessages = <Map<String, Object?>>[];
+      final bossPort = ReceivePort()
+        ..listen((dynamic message) {
+          if (message is Map<String, Object?>) {
+            bossMessages.add(message);
+          }
+        });
+      addTearDown(bossPort.close);
 
-        final listener = _buildListener();
-        final calleeA =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        calleeA
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 903;
+      final listener = _buildListener();
+      final calleeA =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      calleeA
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 903;
 
-        final calleeB =
-            createWorkerStateForTest(
-                  listener: listener,
-                  listenerSettings: routerSettings.listeners.first,
-                )
-                as WorkerConnectionState;
-        calleeB
-          ..serializer = NativeMessageSerializer.json
-          ..phase = HandshakePhase.open
-          ..realmUri = 'realm1'
-          ..realmSettings = routerSettings.realms.first
-          ..sessionId = 904;
+      final calleeB =
+          createWorkerStateForTest(
+                listener: listener,
+                listenerSettings: routerSettings.listeners.first,
+              )
+              as WorkerConnectionState;
+      calleeB
+        ..serializer = NativeMessageSerializer.json
+        ..phase = HandshakePhase.open
+        ..realmUri = 'realm1'
+        ..realmSettings = routerSettings.realms.first
+        ..sessionId = 904;
 
-        _openSession(stateStore, sessionId: 903, listener: listener);
-        _openSession(stateStore, sessionId: 904, listener: listener);
-        await Future<void>.delayed(Duration.zero);
+      _openSession(stateStore, sessionId: 903, listener: listener);
+      _openSession(stateStore, sessionId: 904, listener: listener);
+      await Future<void>.delayed(Duration.zero);
 
-        final realmContexts = RealmContextCache(
+      final realmContexts = RealmContextCache(
+        statePort: stateStore.commandPort,
+      );
+      addTearDown(realmContexts.dispose);
+
+      Future<int> register({
+        required WorkerConnectionState callee,
+        required int connectionId,
+        required int requestId,
+      }) async {
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
           statePort: stateStore.commandPort,
-        );
-        addTearDown(realmContexts.dispose);
-
-        Future<int> register({
-          required WorkerConnectionState callee,
-          required int connectionId,
-          required int requestId,
-        }) async {
-          await handleSessionMessageForTest(
-            bossPort: bossPort.sendPort,
-            statePort: stateStore.commandPort,
-            realmContexts: realmContexts,
-            state: callee,
-            message: register_msg.Register(
-              requestId,
-              'com.shared.proc',
-              options: register_msg.RegisterOptions(
-                invoke: register_msg.RegisterOptions.invocationPolicyRoundRobin,
-              ),
+          realmContexts: realmContexts,
+          state: callee,
+          message: register_msg.Register(
+            requestId,
+            'com.shared.proc',
+            options: register_msg.RegisterOptions(
+              invoke: register_msg.RegisterOptions.invocationPolicyRoundRobin,
             ),
-            connectionId: connectionId,
-          );
-          await Future<void>.delayed(Duration.zero);
-          final registeredFrame =
-              jsonDecode(
-                    utf8.decode(
-                      _extractWorkerSend(bossMessages)['payload'] as Uint8List,
-                    ),
-                  )
-                  as List<dynamic>;
-          bossMessages.clear();
-          expect(registeredFrame.first, equals(MessageTypes.codeRegistered));
-          return registeredFrame[2] as int;
-        }
+          ),
+          connectionId: connectionId,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final registeredFrame =
+            jsonDecode(
+                  utf8.decode(
+                    _extractWorkerSend(bossMessages)['payload'] as Uint8List,
+                  ),
+                )
+                as List<dynamic>;
+        bossMessages.clear();
+        expect(registeredFrame.first, equals(MessageTypes.codeRegistered));
+        return registeredFrame[2] as int;
+      }
 
-        Future<void> unregister({
-          required WorkerConnectionState callee,
-          required int connectionId,
-          required int requestId,
-          required int registrationId,
-        }) async {
-          await handleSessionMessageForTest(
-            bossPort: bossPort.sendPort,
-            statePort: stateStore.commandPort,
-            realmContexts: realmContexts,
-            state: callee,
-            message: unregister_msg.Unregister(requestId, registrationId),
-            connectionId: connectionId,
-          );
-          await Future<void>.delayed(Duration.zero);
-          final frame =
-              jsonDecode(
-                    utf8.decode(
-                      _extractWorkerSend(bossMessages)['payload'] as Uint8List,
-                    ),
-                  )
-                  as List<dynamic>;
-          bossMessages.clear();
-          expect(frame.first, equals(MessageTypes.codeUnregistered));
-          expect(frame[1], equals(requestId));
-        }
+      Future<void> unregister({
+        required WorkerConnectionState callee,
+        required int connectionId,
+        required int requestId,
+        required int registrationId,
+      }) async {
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callee,
+          message: unregister_msg.Unregister(requestId, registrationId),
+          connectionId: connectionId,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final frame =
+            jsonDecode(
+                  utf8.decode(
+                    _extractWorkerSend(bossMessages)['payload'] as Uint8List,
+                  ),
+                )
+                as List<dynamic>;
+        bossMessages.clear();
+        expect(frame.first, equals(MessageTypes.codeUnregistered));
+        expect(frame[1], equals(requestId));
+      }
 
-        final registrationIdA = await register(
-          callee: calleeA,
-          connectionId: 71,
-          requestId: 5201,
-        );
-        final registrationIdB = await register(
-          callee: calleeB,
-          connectionId: 72,
-          requestId: 5202,
-        );
+      final registrationIdA = await register(
+        callee: calleeA,
+        connectionId: 71,
+        requestId: 5201,
+      );
+      final registrationIdB = await register(
+        callee: calleeB,
+        connectionId: 72,
+        requestId: 5202,
+      );
 
-        await unregister(
-          callee: calleeB,
-          connectionId: 72,
-          requestId: 5203,
-          registrationId: registrationIdB,
-        );
-        await unregister(
-          callee: calleeA,
-          connectionId: 71,
-          requestId: 5204,
-          registrationId: registrationIdA,
-        );
+      await unregister(
+        callee: calleeB,
+        connectionId: 72,
+        requestId: 5203,
+        registrationId: registrationIdB,
+      );
+      await unregister(
+        callee: calleeA,
+        connectionId: 71,
+        requestId: 5204,
+        registrationId: registrationIdA,
+      );
 
-        expect(registrationEvents, hasLength(6));
-        expect(
-          registrationEvents.map((event) => event.type),
-          orderedEquals([
-            RegistrationMetaEventType.created,
-            RegistrationMetaEventType.registered,
-            RegistrationMetaEventType.registered,
-            RegistrationMetaEventType.unregistered,
-            RegistrationMetaEventType.unregistered,
-            RegistrationMetaEventType.deleted,
-          ]),
-        );
-        expect(
-          registrationEvents.map((event) => event.registrationId),
-          orderedEquals([
-            registrationIdA,
-            registrationIdA,
-            registrationIdB,
-            registrationIdB,
-            registrationIdA,
-            registrationIdA,
-          ]),
-        );
-        expect(
-          registrationEvents.map((event) => event.sessionId),
-          orderedEquals([903, 903, 904, 904, 903, 903]),
-        );
-      },
-    );
+      expect(registrationEvents, hasLength(6));
+      expect(
+        registrationEvents.map((event) => event.type),
+        orderedEquals([
+          RegistrationMetaEventType.created,
+          RegistrationMetaEventType.registered,
+          RegistrationMetaEventType.registered,
+          RegistrationMetaEventType.unregistered,
+          RegistrationMetaEventType.unregistered,
+          RegistrationMetaEventType.deleted,
+        ]),
+      );
+      expect(
+        registrationEvents.map((event) => event.registrationId),
+        orderedEquals([
+          registrationIdA,
+          registrationIdA,
+          registrationIdA,
+          registrationIdA,
+          registrationIdA,
+          registrationIdA,
+        ]),
+      );
+      expect(
+        registrationEvents.map((event) => event.created).toSet(),
+        hasLength(1),
+      );
+      expect(
+        registrationEvents.map((event) => event.sessionId),
+        orderedEquals([903, 903, 904, 904, 903, 903]),
+      );
+    });
   });
 
   group('Advanced profile placeholders', () {

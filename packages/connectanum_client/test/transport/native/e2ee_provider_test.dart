@@ -170,4 +170,90 @@ void main() {
     },
     skip: nativeClientRuntimeUnavailableReason,
   );
+
+  group('NativeWampCborAes256GcmProvider', () {
+    tearDown(NativeClientRuntime.shutdownShared);
+
+    test('interoperates between independent native providers', () {
+      final key = List<int>.generate(32, (index) => index + 1);
+      final encryptingProvider = NativeWampCborAes256GcmProvider.single(
+        keyId: 'kid-1',
+        key: key,
+      );
+      final decryptingProvider = NativeWampCborAes256GcmProvider.single(
+        keyId: 'kid-1',
+        key: key,
+      );
+      addTearDown(encryptingProvider.release);
+      addTearDown(decryptingProvider.release);
+      final options = PublishOptions(pptScheme: 'wamp');
+
+      final packed = encryptingProvider.packPayload(
+        const ['native-to-native'],
+        const {'path': 'independent'},
+        options,
+      );
+      final decoded = decryptingProvider.unpackPayload(packed, options);
+
+      expect(decoded.arguments, equals(const ['native-to-native']));
+      expect(decoded.argumentsKeywords, equals(const {'path': 'independent'}));
+    });
+
+    test('interoperates with the pure Dart provider in both directions', () {
+      final key = List<int>.generate(32, (index) => index + 1);
+      final nativeProvider = NativeWampCborAes256GcmProvider.single(
+        keyId: 'kid-1',
+        key: key,
+      );
+      addTearDown(nativeProvider.release);
+      final dartProvider = WampCborAes256GcmProvider.single(
+        keyId: 'kid-1',
+        key: key,
+      );
+
+      final nativeOptions = PublishOptions(pptScheme: 'wamp');
+      final nativePacked = nativeProvider.packPayload(
+        const ['native'],
+        const {'path': 'dart'},
+        nativeOptions,
+      );
+      expect(nativeOptions.pptCipher, equals('aes256gcm'));
+      final dartDecoded = dartProvider.unpackPayload(
+        nativePacked,
+        nativeOptions,
+      );
+      expect(dartDecoded.arguments, equals(const ['native']));
+      expect(dartDecoded.argumentsKeywords, equals(const {'path': 'dart'}));
+
+      final dartOptions = PublishOptions(pptScheme: 'wamp');
+      final dartPacked = dartProvider.packPayload(
+        const ['dart'],
+        const {'path': 'native'},
+        dartOptions,
+      );
+      final nativeDecoded = nativeProvider.unpackPayload(
+        dartPacked,
+        dartOptions,
+      );
+      expect(nativeDecoded.arguments, equals(const ['dart']));
+      expect(nativeDecoded.argumentsKeywords, equals(const {'path': 'native'}));
+    });
+
+    test('maps authenticated decrypt failures to the core exception', () {
+      final provider = NativeWampCborAes256GcmProvider.single(
+        keyId: 'kid-1',
+        key: List<int>.generate(32, (index) => index + 1),
+      );
+      addTearDown(provider.release);
+      final options = PublishOptions(pptScheme: 'wamp');
+      final packed = provider.packPayload(const ['wrapped'], null, options);
+      final tampered = Uint8List.fromList(packed.single as Uint8List);
+      tampered[tampered.length - 1] ^= 1;
+
+      expect(
+        () => provider.unpackPayload(<dynamic>[tampered], options),
+        throwsA(isA<WampE2eeDecryptionException>()),
+      );
+    });
+  }, skip: nativeClientRuntimeUnavailableReason);
 }

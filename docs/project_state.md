@@ -1,7 +1,85 @@
 # Project State
 
-Last updated: 2026-07-10
+Last updated: 2026-07-15
 Current branch: `add-router`
+Current milestone: implement the final WAMP release capabilities defined in
+`docs/exec-plans/2026-07-15-final-wamp-release-features.md`: progressive call
+invocations, Dealer/Callee call timeout lifecycles, routed standard WAMP Meta
+APIs and lifecycle events needed for operational statistics, and a
+production-ready versioned payload E2EE profile. All four capability slices
+are implemented and pass focused unit, integration, native, and benchmark
+verification. Full local `bin/verify` passed on 2026-07-15; hosted
+deployment-chain evidence remains pending until the implementation is pushed.
+
+Pre-change `bin/test-fast` passed on 2026-07-15. The routed statistics Meta API
+slice is now implemented and verified: all fifteen standard Session,
+Registration, and Subscription read procedures, stable creation timestamps,
+authorization-aware visibility, and all ten Registration and Subscription
+lifecycle events pass focused unit and live WebSocket consumer tests. Dealer
+`registration_meta_api` and Broker `subscription_meta_api` announcements are
+enabled. `session_meta_api` remains disabled because its broader contract also
+requires destructive `kill*` administration procedures, which are not part of
+the statistics requirement and are not implemented. Post-slice
+`bin/test-fast` passed, including router-hosted MCP, direct JSON, Streamable
+HTTP, authentication, pub/sub, Meta API, package consumer, and router CLI smoke
+coverage.
+
+Progressive call invocations are implemented across core serializers, the
+public client API, router worker and internal sessions, native metadata, and
+mixed-serializer live routing. The Dealer pins the original callee and
+invocation ID, freezes initiating options, and cleans up cancellation and
+completion state. Dealer-owned call timeouts now return
+`wamp.error.timeout`, interrupt the callee with `killnowait`, reset on
+progressive results, and atomically arbitrate timeout versus final completion.
+`REGISTER.Options.forward_timeout` transfers inactivity timeout ownership to
+the client responder, including native invocation metadata.
+
+Final local verification passed on 2026-07-15. `bin/verify` covered formatting,
+113 core Rust tests, 52 FFI tests including both E2EE ciphers, 351 core Dart
+tests, 84 MCP tests, all client/transport/auth suites, 96 benchmark-package
+tests including live release-feature workloads, isolated package-consumer and
+router-hosted MCP smokes, the complete 374-test router suite, focused native
+forwarding regressions, and Chrome/Dart2Wasm WebSocket coverage. The run also
+confirmed the final cross-serializer binary payload fixes for generic byte
+lists and MessagePack `Uint8List` preservation.
+
+The current Advanced Profile draft specifies progressive invocation and
+timeout wire/state behavior but classifies both as alpha; its payload E2EE
+chapter is still `TBD`, while PPT defines the standard `ppt_*` wire fields and
+CBOR/FlatBuffers plus XSalsa20-Poly1305/AES-256-GCM choices. The final release
+therefore exposes a versioned Connectanum E2EE profile over standard PPT, with
+CBOR, XSalsa20-Poly1305, AES-256-GCM, negotiated/policy key selection, and
+Dart/native provider parity. The router remains payload-opaque, unsupported or
+inconsistent combinations fail closed, and FlatBuffers remains outside this
+release because the workspace does not implement it.
+
+Local release-feature performance evidence now passes two checked-in policy
+gates. The sixteen-row E2EE matrix covers encrypted RPC and pub/sub over
+RawSocket/WebSocket with Dart/native clients and both release ciphers. The
+twelve-row final-feature matrix covers progressive invocations, timeout
+lifecycles, and a full fifteen-procedure statistics Meta API sweep over both
+transports and client implementations. E2EE response throughput was
+1.77-13.90 Mbps with 262.73-2824.47 ms p95 latency. The final-feature
+progressive rows delivered
+0.45-1.79 Mbps with 8.12-25.41 ms p95 latency, timeout rows completed at
+55.38-59.49 ms p95 for a 50 ms deadline, and full Meta sweeps completed at
+11.17-33.22 ms p95, with zero transport, backpressure, protocol, or internal
+error counters. These are production-ready gates for the measured release
+paths, not universal capacity certification; multi-worker/platform gates,
+soak/resource budgets, and broader upstream multi-session vectors remain.
+
+Previous milestone verification: pre-change `bin/test-fast`, focused
+feature-announcement and native-binding
+regressions, serializer and conformance tests, package analysis, formatting,
+`git diff --check`, the public-artifact reference check, and full local
+`bin/verify` passed on 2026-07-13. The latest hosted WAMP Profile Benchmarks run
+`29084302142` passed on commit `5034dc7`: cleartext throughput exceeded policy
+floors by 114-199%, TLS by 100-149%, and fan-out by 169-565%, while p95 latency
+was 36-76%, 58-72%, and 62-66% below the respective ceilings. Remaining
+production-evidence gaps are multi-worker/platform gates, soak and resource
+budgets, broader upstream multi-session conformance vectors, and performance
+gates for advanced behaviors.
+
 Last reviewed branch checkpoint: MCP request selector parsing now rejects
 malformed tool names, prompt names, resource URIs, and pagination cursors
 before standard `McpServer` handlers or router-hosted direct JSON endpoints
@@ -23,7 +101,14 @@ packages/connectanum_router/test/router_integration_native_test.dart -n
 analyze packages/connectanum_mcp packages/connectanum_router` passed after the
 change. `git diff --check`, `python3 tool/check_public_artifact_references.py`,
 full `bin/test-fast`, and full local `bin/verify` passed after the change on
-2026-07-10. Hosted evidence is pending for the implementation commit.
+2026-07-10. Hosted evidence after push: commit `5034dc7` passed GitHub CI run
+`29084302061` (`Fast Checks` and `Full Verify`), Dart Package Publish Dry Run
+`29084302075`, and WAMP Profile Benchmarks `29084302142` on 2026-07-10. The
+strict deployment-chain audit passed for `add-router` at `5034dc7` on
+2026-07-10 with required latest CI/log scan, Dart package dry-run, and WAMP
+profile benchmark evidence, plus the known operator-owned findings that
+`add-router` is unprotected and checked-in pub.dev publish workflows remain
+undiscoverable until promoted through `master`.
 
 Previous branch checkpoint: typed MCP content block response parsing now
 rejects unsupported server-provided content block types before typed tool and
@@ -23168,21 +23253,14 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active plan:
+  `docs/exec-plans/2026-07-13-wamp-profile-production-readiness-audit.md`.
+  Establish the Basic/Advanced Profile implementation matrix, make client and
+  router feature announcements honest, and assess whether conformance and
+  benchmark evidence support production use. Keep unsupported experimental
+  features disabled rather than treating the modular Advanced Profile as an
+  all-or-nothing target.
+- Most recent completed RC plan:
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
-  Keep hosted GitHub CI clean first, then continue release-candidate readiness
-  work from the GitHub default branch. MCP is treated as RC-ready unless a real
-  consumer integration bug appears. The current local checkpoint keeps the
-  installed router CLI generated Dart consumer smoke proving configured HTTP
-  file routes, router-hosted MCP/auth surfaces, and protected deleted
-  Streamable HTTP session replay rejection across the consumer MCP method
-  matrix. Baseline `bin/test-fast` passed before the matrix smoke change on
-  2026-07-05, focused boundary/shell/live smoke checks passed after the
-  change, and full local `bin/verify` passed on 2026-07-05. The latest fully
-  clean hosted checkpoint is `09267bc` on GitHub `master` and GitHub
-  `add-router`; hosted evidence for the current matrix extension is pending
-  push/CI. RC readiness remains blocked only by explicit RC
-  tag/prerelease/router image tag selection and deferred pub.dev
-  release-order/operator decisions.
 - Historical paused plan:
   `docs/exec-plans/2026-04-25-h2-isolated-regression-diagnosis.md`; do not
   resume it by default because the current continuation priority is GitHub

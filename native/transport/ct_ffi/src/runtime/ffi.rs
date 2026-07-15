@@ -21,6 +21,7 @@ use std::collections::VecDeque;
 #[cfg(feature = "ffi-test")]
 use tokio::runtime::Runtime as TokioRuntime;
 
+use aes_gcm::{Aes256Gcm, Key as AesKey, Nonce as AesNonce};
 #[cfg(feature = "ffi-test")]
 use ct_core::parse_message;
 use ct_core::{
@@ -94,6 +95,7 @@ use serde_value::Value as SerdeValue;
 
 const E2EE_KEY_LEN: usize = 32;
 const E2EE_NONCE_LEN: usize = 24;
+const E2EE_AES256_GCM_NONCE_LEN: usize = 12;
 
 // The router image builds with Rust 1.85, where raw pointers do not implement
 // Default. These repr(C) FFI output structs only contain scalar fields and raw
@@ -641,6 +643,38 @@ fn decrypt_e2ee_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, c_int>
     let cipher = XSalsa20Poly1305::new(&normalize_key_material(key)?);
     let (nonce_bytes, message) = ciphertext.split_at(E2EE_NONCE_LEN);
     let nonce = Nonce::from_slice(nonce_bytes);
+    cipher
+        .decrypt(nonce, message)
+        .map_err(|_| ERR_DECRYPT_FAILED)
+}
+
+fn normalize_aes256_gcm_key_material(key: &[u8]) -> Result<AesKey<Aes256Gcm>, c_int> {
+    if key.len() != E2EE_KEY_LEN {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    Ok(*AesKey::<Aes256Gcm>::from_slice(key))
+}
+
+fn encrypt_e2ee_aes256_gcm_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, c_int> {
+    let cipher = Aes256Gcm::new(&normalize_aes256_gcm_key_material(key)?);
+    let mut nonce = AesNonce::default();
+    OsRng.fill_bytes(nonce.as_mut_slice());
+    let ciphertext = cipher
+        .encrypt(&nonce, plaintext)
+        .map_err(|_| ERR_INTERNAL)?;
+    let mut combined = Vec::with_capacity(E2EE_AES256_GCM_NONCE_LEN + ciphertext.len());
+    combined.extend_from_slice(nonce.as_slice());
+    combined.extend_from_slice(&ciphertext);
+    Ok(combined)
+}
+
+fn decrypt_e2ee_aes256_gcm_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, c_int> {
+    if ciphertext.len() < E2EE_AES256_GCM_NONCE_LEN {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let cipher = Aes256Gcm::new(&normalize_aes256_gcm_key_material(key)?);
+    let (nonce_bytes, message) = ciphertext.split_at(E2EE_AES256_GCM_NONCE_LEN);
+    let nonce = AesNonce::from_slice(nonce_bytes);
     cipher
         .decrypt(nonce, message)
         .map_err(|_| ERR_DECRYPT_FAILED)
@@ -1674,6 +1708,72 @@ pub extern "C" fn ct_e2ee_session_decrypt(
             return Err(ERR_KEY_NOT_FOUND);
         };
         decrypt_e2ee_payload(key.as_ref(), &ciphertext)
+    });
+    match result {
+        Some(Ok(bytes)) => write_byte_buffer(out, bytes),
+        Some(Err(code)) => code,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_encrypt_aes256gcm(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    plaintext_ptr: *const u8,
+    plaintext_len: c_int,
+    out: *mut CtByteBuffer,
+) -> c_int {
+    if session_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let key_id = match read_optional_str(key_id_ptr, key_id_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let plaintext = match read_required_bytes(plaintext_ptr, plaintext_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let result = with_e2ee_session(session_handle as u32, |session| {
+        let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
+            return Err(ERR_KEY_NOT_FOUND);
+        };
+        encrypt_e2ee_aes256_gcm_payload(key.as_ref(), &plaintext)
+    });
+    match result {
+        Some(Ok(bytes)) => write_byte_buffer(out, bytes),
+        Some(Err(code)) => code,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_decrypt_aes256gcm(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    ciphertext_ptr: *const u8,
+    ciphertext_len: c_int,
+    out: *mut CtByteBuffer,
+) -> c_int {
+    if session_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let key_id = match read_optional_str(key_id_ptr, key_id_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let ciphertext = match read_required_bytes(ciphertext_ptr, ciphertext_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let result = with_e2ee_session(session_handle as u32, |session| {
+        let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
+            return Err(ERR_KEY_NOT_FOUND);
+        };
+        decrypt_e2ee_aes256_gcm_payload(key.as_ref(), &ciphertext)
     });
     match result {
         Some(Ok(bytes)) => write_byte_buffer(out, bytes),
@@ -2961,6 +3061,18 @@ fn populate_invocation_details_info(
                 Some(false) => {}
                 None => return false,
             },
+            Some("progress") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("timeout") => match serde_value_u64(value) {
+                Some(number) => {
+                    info.detail_number_b = number;
+                    info.flags |= CT_MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT;
+                }
+                None => return false,
+            },
             Some("ppt_scheme") => match serde_value_str(value) {
                 Some(text) => set_string_b(info, Some(text)),
                 None => return false,
@@ -3155,6 +3267,11 @@ fn populate_call_options_info(
                 Some(false) => {}
                 None => return false,
             },
+            Some("progress") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
             Some("timeout") => match serde_value_u64(value) {
                 Some(number) => {
                     info.detail_number_a = number;
@@ -3214,6 +3331,11 @@ fn populate_register_options_info(
         match serde_key_str(key) {
             Some("disclose_caller") => match serde_value_bool(value) {
                 Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
+                Some(false) => {}
+                None => return false,
+            },
+            Some("forward_timeout") => match serde_value_bool(value) {
+                Some(true) => info.flags |= CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
                 Some(false) => {}
                 None => return false,
             },
@@ -5581,11 +5703,15 @@ mod tests {
             SerdeValue::String("ppt_scheme".into()),
             SerdeValue::String("wamp".into()),
         );
+        call_options.insert(
+            SerdeValue::String("progress".into()),
+            SerdeValue::Bool(true),
+        );
         let call = StoredMessage {
             serializer: RawSocketSerializer::Json,
             code: 48,
             raw: StoredRawFrame::from_bytes(Bytes::from_static(
-                br#"[48,10,{"receive_progress":true,"timeout":1500,"ppt_scheme":"wamp"},"bench.proc"]"#,
+                br#"[48,10,{"receive_progress":true,"timeout":1500,"ppt_scheme":"wamp","progress":true},"bench.proc"]"#,
             )),
             message: WampMessage::Call {
                 request_id: 10,
@@ -5594,7 +5720,7 @@ mod tests {
                 payload: WampPayload::default(),
             },
             details: Some(Bytes::from_static(
-                br#"{"receive_progress":true,"timeout":1500,"ppt_scheme":"wamp"}"#,
+                br#"{"receive_progress":true,"timeout":1500,"ppt_scheme":"wamp","progress":true}"#,
             )),
             args: None,
             kwargs: None,
@@ -5610,10 +5736,35 @@ mod tests {
             CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
         );
         assert_eq!(
+            call_info.flags & CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE,
+            CT_MESSAGE_FLAG_DETAIL_BOOL_C_TRUE
+        );
+        assert_eq!(
             call_info.flags & CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT,
             CT_MESSAGE_FLAG_DETAIL_NUMBER_A_PRESENT
         );
         assert_eq!(call_info.detail_number_a, 1500);
+
+        let mut invocation_details = BTreeMap::new();
+        invocation_details.insert(
+            SerdeValue::String("progress".into()),
+            SerdeValue::Bool(true),
+        );
+        invocation_details.insert(SerdeValue::String("timeout".into()), SerdeValue::U64(250));
+        let mut invocation_info = CtMessageInfo::default();
+        assert!(populate_invocation_details_info(
+            &mut invocation_info,
+            &invocation_details,
+        ));
+        assert_eq!(
+            invocation_info.flags & CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
+            CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE
+        );
+        assert_eq!(
+            invocation_info.flags & CT_MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT,
+            CT_MESSAGE_FLAG_DETAIL_NUMBER_B_PRESENT
+        );
+        assert_eq!(invocation_info.detail_number_b, 250);
 
         let mut cancel_options = BTreeMap::new();
         cancel_options.insert(
@@ -5692,11 +5843,15 @@ mod tests {
             SerdeValue::String("invoke".into()),
             SerdeValue::String("roundrobin".into()),
         );
+        register_options.insert(
+            SerdeValue::String("forward_timeout".into()),
+            SerdeValue::Bool(true),
+        );
         let register = StoredMessage {
             serializer: RawSocketSerializer::Json,
             code: 64,
             raw: StoredRawFrame::from_bytes(Bytes::from_static(
-                br#"[64,11,{"disclose_caller":true,"invoke":"roundrobin"},"bench.proc"]"#,
+                br#"[64,11,{"disclose_caller":true,"invoke":"roundrobin","forward_timeout":true},"bench.proc"]"#,
             )),
             message: WampMessage::Register {
                 request_id: 11,
@@ -5704,7 +5859,7 @@ mod tests {
                 procedure: "bench.proc".into(),
             },
             details: Some(Bytes::from_static(
-                br#"{"disclose_caller":true,"invoke":"roundrobin"}"#,
+                br#"{"disclose_caller":true,"invoke":"roundrobin","forward_timeout":true}"#,
             )),
             args: None,
             kwargs: None,
@@ -5722,6 +5877,10 @@ mod tests {
         assert_eq!(
             register_info.flags & CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE,
             CT_MESSAGE_FLAG_DETAIL_BOOL_A_TRUE
+        );
+        assert_eq!(
+            register_info.flags & CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE,
+            CT_MESSAGE_FLAG_DETAIL_BOOL_B_TRUE
         );
         unsafe {
             let procedure =

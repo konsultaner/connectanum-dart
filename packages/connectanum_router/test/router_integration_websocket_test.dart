@@ -26,10 +26,12 @@ import 'package:connectanum_core/src/serializer/json/serializer.dart'
 import 'package:connectanum_core/connectanum_core.dart'
     show
         CallOptions,
+        ConnectanumE2eeProfile,
         LazyPayloadEncoding,
         MessageTypes,
         PublishOptions,
         Result,
+        WampCborAes256GcmProvider,
         YieldOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
@@ -156,6 +158,615 @@ void main() {
           timeout: const Duration(seconds: 5),
           reason: 'websocket acceptance events missing: $events',
         );
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'routes AES-256-GCM payload E2EE opaquely across websocket serializers',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+
+        final listener = binding.listeners.single;
+        final url = 'ws://127.0.0.1:${listener.port}/ws';
+        final key = List<int>.generate(32, (index) => index + 1);
+        final endpointAProvider = WampCborAes256GcmProvider.single(
+          keyId: 'release-key',
+          key: key,
+        );
+        final endpointBProvider = WampCborAes256GcmProvider.single(
+          keyId: 'release-key',
+          key: key,
+        );
+
+        final endpointAClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+          e2eeProvider: endpointAProvider,
+        );
+        final endpointBClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withMsgpackSerializer(url),
+          e2eeProvider: endpointBProvider,
+        );
+        final endpointASession = await endpointAClient.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('E2EE endpoint A connect timeout'),
+        );
+        final endpointBSession = await endpointBClient.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('E2EE endpoint B connect timeout'),
+        );
+        addTearDown(endpointASession.close);
+        addTearDown(endpointBSession.close);
+
+        final subscription = await endpointASession.subscribe(
+          'com.example.ws.e2ee.topic',
+        );
+        final eventFuture = subscription.eventStream!.first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('E2EE event timeout'),
+        );
+        final registration = await endpointASession.register(
+          'com.example.ws.e2ee.proc',
+        );
+        registration.onInvoke((invocation) {
+          expect(invocation.arguments, equals(const ['encrypted-call']));
+          invocation.respondWith(
+            arguments: const ['encrypted-result'],
+            argumentsKeywords: const {'endpoint': 'callee'},
+            options: YieldOptions(
+              pptScheme: ConnectanumE2eeProfile.scheme,
+              pptSerializer: ConnectanumE2eeProfile.serializer,
+              pptCipher: ConnectanumE2eeProfile.aes256Gcm,
+              pptKeyId: 'release-key',
+            ),
+          );
+        });
+
+        await endpointBSession
+            .publish(
+              'com.example.ws.e2ee.topic',
+              arguments: const ['encrypted-event'],
+              argumentsKeywords: const {'endpoint': 'publisher'},
+              options: PublishOptions(
+                acknowledge: true,
+                excludeMe: false,
+                pptScheme: ConnectanumE2eeProfile.scheme,
+                pptSerializer: ConnectanumE2eeProfile.serializer,
+                pptCipher: ConnectanumE2eeProfile.aes256Gcm,
+                pptKeyId: 'release-key',
+              ),
+            )
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('E2EE publish timeout'),
+            );
+        final event = await eventFuture;
+        expect(event.details.pptScheme, equals(ConnectanumE2eeProfile.scheme));
+        expect(
+          event.details.pptSerializer,
+          equals(ConnectanumE2eeProfile.serializer),
+        );
+        expect(
+          event.details.pptCipher,
+          equals(ConnectanumE2eeProfile.aes256Gcm),
+        );
+        expect(event.details.pptKeyId, equals('release-key'));
+        expect(event.e2eeProvider, same(endpointAProvider));
+        expect(event.hasDecodedPptPayload, isFalse);
+        expect(event.arguments, equals(const ['encrypted-event']));
+        expect(
+          event.argumentsKeywords,
+          equals(const {'endpoint': 'publisher'}),
+        );
+
+        final result = await endpointBSession
+            .call(
+              'com.example.ws.e2ee.proc',
+              arguments: const ['encrypted-call'],
+              options: CallOptions(
+                pptScheme: ConnectanumE2eeProfile.scheme,
+                pptSerializer: ConnectanumE2eeProfile.serializer,
+                pptCipher: ConnectanumE2eeProfile.aes256Gcm,
+                pptKeyId: 'release-key',
+              ),
+            )
+            .first
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('E2EE call timeout'),
+            );
+        expect(result.arguments, equals(const ['encrypted-result']));
+        expect(result.argumentsKeywords, equals(const {'endpoint': 'callee'}));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'routes progressive call invocations across websocket serializers',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+
+        final listener = binding.listeners.single;
+        final url = 'ws://127.0.0.1:${listener.port}/ws';
+        final calleeClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withMsgpackSerializer(url),
+        );
+        final callerClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+        );
+        final callee = await calleeClient.connect().first.timeout(
+          const Duration(seconds: 10),
+        );
+        final caller = await callerClient.connect().first.timeout(
+          const Duration(seconds: 10),
+        );
+        addTearDown(callee.close);
+        addTearDown(caller.close);
+
+        final invocationIds = <int>[];
+        final progress = <bool>[];
+        final chunks = <String>[];
+        final registration = await callee.register(
+          'com.example.ws.progressive_upload',
+        );
+        registration.onInvoke((invocation) {
+          invocationIds.add(invocation.requestId);
+          progress.add(invocation.details.progress ?? false);
+          chunks.add(invocation.arguments!.single as String);
+          if (invocation.details.progress != true) {
+            invocation.respondWith(arguments: [chunks.join('|')]);
+          }
+        });
+
+        final call = caller.startProgressiveCall(
+          'com.example.ws.progressive_upload',
+          arguments: const ['one'],
+        );
+        call.sendChunk(arguments: const ['two']);
+        call.finish(arguments: const ['three']);
+        final result = await call.results.single.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('progressive invocation result timeout'),
+        );
+
+        expect(invocationIds, hasLength(3));
+        expect(invocationIds.toSet(), hasLength(1));
+        expect(progress, equals(const [true, true, false]));
+        expect(chunks, equals(const ['one', 'two', 'three']));
+        expect(result.arguments, equals(const ['one|two|three']));
+      },
+      skip: skipReason,
+    );
+
+    test('enforces call timeout and interrupts the Callee', () async {
+      final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+      addTearDown(() {
+        runtime.shutdown();
+        runtime.dispose();
+      });
+
+      final events = <Map<String, Object?>>[];
+      final binding =
+          Router(
+            _buildWebSocketConfig(),
+            settings: _buildWebSocketSettings(),
+          ).start(
+            runtime,
+            onEvent: (event) {
+              if (event is Map<String, Object?>) {
+                events.add(event);
+              }
+            },
+            workerPollInterval: const Duration(milliseconds: 1),
+          );
+      addTearDown(binding.dispose);
+
+      final listener = binding.listeners.single;
+      final url = 'ws://127.0.0.1:${listener.port}/ws';
+      final calleeClient = client_pkg.Client(
+        realm: 'realm1',
+        transport: ws_transport.WebSocketTransport.withMsgpackSerializer(url),
+      );
+      final callerClient = client_pkg.Client(
+        realm: 'realm1',
+        transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+      );
+      final callee = await calleeClient.connect().first.timeout(
+        const Duration(seconds: 10),
+      );
+      final caller = await callerClient.connect().first.timeout(
+        const Duration(seconds: 10),
+      );
+      addTearDown(callee.close);
+      addTearDown(caller.close);
+
+      final invocationReceived = Completer<client_pkg.Invocation>();
+      final registration = await callee.register('com.example.ws.timeout');
+      registration.onInvoke((invocation) {
+        invocationReceived.complete(invocation);
+      });
+
+      Object? callError;
+      try {
+        await caller.callSinglePayload(
+          'com.example.ws.timeout',
+          options: CallOptions(timeout: 80),
+        );
+      } catch (error) {
+        callError = error;
+      }
+      expect(callError, isA<core_error.Error>());
+      expect((callError! as core_error.Error).error, core_error.Error.timeout);
+
+      final invocation = await invocationReceived.future.timeout(
+        const Duration(seconds: 5),
+      );
+      await _waitForCondition(
+        () => invocation.responseClosed,
+        timeout: const Duration(seconds: 5),
+        reason: 'timed-out Callee invocation was not interrupted',
+      );
+      await _waitForCondition(
+        () => events.any((event) => event['type'] == 'invocation_timeout'),
+        timeout: const Duration(seconds: 5),
+        reason: 'router invocation_timeout event missing: $events',
+      );
+    }, skip: skipReason);
+
+    test(
+      'serves standard WAMP meta procedure calls to client sessions',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+
+        final listener = binding.listeners.single;
+        final url = 'ws://127.0.0.1:${listener.port}/ws';
+        final client = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+        );
+        final session = await client.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('client connect timeout'),
+        );
+        addTearDown(session.close);
+
+        await session
+            .register('com.example.ws.meta.proc')
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('registration timeout'),
+            );
+        await session
+            .subscribe('com.example.ws.meta.topic')
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('subscription timeout'),
+            );
+
+        final sessionList = await session
+            .callSinglePayload('wamp.session.list')
+            .timeout(const Duration(seconds: 10));
+        expect(sessionList.arguments?.single as List, contains(session.id));
+
+        final sessionGet = await session
+            .callSinglePayload('wamp.session.get', arguments: [session.id])
+            .timeout(const Duration(seconds: 10));
+        expect(
+          (sessionGet.arguments?.single as Map<String, Object?>)['session'],
+          equals(session.id),
+        );
+
+        final registrationMatch = await session
+            .callSinglePayload(
+              'wamp.registration.match',
+              arguments: const ['com.example.ws.meta.proc'],
+            )
+            .timeout(const Duration(seconds: 10));
+        final registrationId = registrationMatch.arguments?.single as int;
+
+        final registrationGet = await session
+            .callSinglePayload(
+              'wamp.registration.get',
+              arguments: [registrationId],
+            )
+            .timeout(const Duration(seconds: 10));
+        expect(
+          (registrationGet.arguments?.single as Map<String, Object?>)['uri'],
+          equals('com.example.ws.meta.proc'),
+        );
+
+        final callees = await session
+            .callSinglePayload(
+              'wamp.registration.list_callees',
+              arguments: [registrationId],
+            )
+            .timeout(const Duration(seconds: 10));
+        expect(callees.arguments?.single as List, contains(session.id));
+
+        final subscriptionMatch = await session
+            .callSinglePayload(
+              'wamp.subscription.match',
+              arguments: const ['com.example.ws.meta.topic'],
+            )
+            .timeout(const Duration(seconds: 10));
+        final subscriptionId =
+            (subscriptionMatch.arguments?.single as List).single as int;
+
+        final subscriptionGet = await session
+            .callSinglePayload(
+              'wamp.subscription.get',
+              arguments: [subscriptionId],
+            )
+            .timeout(const Duration(seconds: 10));
+        expect(
+          (subscriptionGet.arguments?.single as Map<String, Object?>)['uri'],
+          equals('com.example.ws.meta.topic'),
+        );
+
+        final subscribers = await session
+            .callSinglePayload(
+              'wamp.subscription.list_subscribers',
+              arguments: [subscriptionId],
+            )
+            .timeout(const Duration(seconds: 10));
+        expect(subscribers.arguments?.single as List, contains(session.id));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'publishes standard WAMP meta lifecycle events to client sessions',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+
+        final listener = binding.listeners.single;
+        final url = 'ws://127.0.0.1:${listener.port}/ws';
+        final observerClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+        );
+        final observer = await observerClient.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('observer connect timeout'),
+        );
+        addTearDown(observer.close);
+
+        final sessionJoin = Completer<List<dynamic>>();
+        final sessionLeave = Completer<List<dynamic>>();
+        final registrationCreate = Completer<List<dynamic>>();
+        final registrationRegister = Completer<List<dynamic>>();
+        final registrationUnregister = Completer<List<dynamic>>();
+        final registrationDelete = Completer<List<dynamic>>();
+        final subscriptionCreate = Completer<List<dynamic>>();
+        final subscriptionSubscribe = Completer<List<dynamic>>();
+        final subscriptionUnsubscribe = Completer<List<dynamic>>();
+        final subscriptionDelete = Completer<List<dynamic>>();
+        final joinedEvents = <List<dynamic>>[];
+        int? actorSessionId;
+
+        Future<void> observe(
+          String topic,
+          void Function(List<dynamic>) onArguments,
+        ) async {
+          final subscription = await observer
+              .subscribe(topic)
+              .timeout(const Duration(seconds: 10));
+          subscription.onEvent((event) {
+            final arguments = event.arguments;
+            if (arguments != null) {
+              onArguments(arguments);
+            }
+          });
+        }
+
+        await observe('wamp.session.on_join', (arguments) {
+          joinedEvents.add(arguments);
+          final details = arguments.firstOrNull;
+          if (details is Map && details['session'] == actorSessionId) {
+            if (!sessionJoin.isCompleted) sessionJoin.complete(arguments);
+          }
+        });
+        await observe('wamp.session.on_leave', (arguments) {
+          if (arguments.firstOrNull == actorSessionId) {
+            if (!sessionLeave.isCompleted) sessionLeave.complete(arguments);
+          }
+        });
+        await observe('wamp.registration.on_create', (arguments) {
+          if (arguments.firstOrNull == actorSessionId) {
+            if (!registrationCreate.isCompleted) {
+              registrationCreate.complete(arguments);
+            }
+          }
+        });
+        await observe('wamp.registration.on_register', (arguments) {
+          if (arguments.firstOrNull == actorSessionId) {
+            if (!registrationRegister.isCompleted) {
+              registrationRegister.complete(arguments);
+            }
+          }
+        });
+        await observe('wamp.registration.on_unregister', (arguments) {
+          if (arguments.firstOrNull == actorSessionId) {
+            if (!registrationUnregister.isCompleted) {
+              registrationUnregister.complete(arguments);
+            }
+          }
+        });
+        await observe('wamp.registration.on_delete', (arguments) {
+          if (arguments.firstOrNull == actorSessionId) {
+            if (!registrationDelete.isCompleted) {
+              registrationDelete.complete(arguments);
+            }
+          }
+        });
+        await observe('wamp.subscription.on_create', (arguments) {
+          if (arguments.firstOrNull == actorSessionId) {
+            if (!subscriptionCreate.isCompleted) {
+              subscriptionCreate.complete(arguments);
+            }
+          }
+        });
+        await observe('wamp.subscription.on_subscribe', (arguments) {
+          if (arguments.firstOrNull == actorSessionId) {
+            if (!subscriptionSubscribe.isCompleted) {
+              subscriptionSubscribe.complete(arguments);
+            }
+          }
+        });
+        await observe('wamp.subscription.on_unsubscribe', (arguments) {
+          if (arguments.firstOrNull == actorSessionId) {
+            if (!subscriptionUnsubscribe.isCompleted) {
+              subscriptionUnsubscribe.complete(arguments);
+            }
+          }
+        });
+        await observe('wamp.subscription.on_delete', (arguments) {
+          if (arguments.firstOrNull == actorSessionId) {
+            if (!subscriptionDelete.isCompleted) {
+              subscriptionDelete.complete(arguments);
+            }
+          }
+        });
+
+        final actorClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+        );
+        final actor = await actorClient.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('actor connect timeout'),
+        );
+        actorSessionId = actor.id;
+        for (final arguments in joinedEvents) {
+          final details = arguments.firstOrNull;
+          if (details is Map && details['session'] == actorSessionId) {
+            if (!sessionJoin.isCompleted) sessionJoin.complete(arguments);
+          }
+        }
+
+        final joined = await sessionJoin.future.timeout(
+          const Duration(seconds: 10),
+        );
+        expect((joined.single as Map)['session'], equals(actor.id));
+
+        final registered = await actor
+            .register('com.example.ws.meta.lifecycle.proc')
+            .timeout(const Duration(seconds: 10));
+        final createdRegistration = await registrationCreate.future.timeout(
+          const Duration(seconds: 10),
+        );
+        final registrationDetails =
+            createdRegistration[1] as Map<String, Object?>;
+        expect(
+          registrationDetails['uri'],
+          equals('com.example.ws.meta.lifecycle.proc'),
+        );
+        expect(registrationDetails['created'], isA<String>());
+        final registeredEvent = await registrationRegister.future.timeout(
+          const Duration(seconds: 10),
+        );
+        expect(registeredEvent[1], equals(registrationDetails['id']));
+
+        final subscribed = await actor
+            .subscribe('com.example.ws.meta.lifecycle.topic')
+            .timeout(const Duration(seconds: 10));
+        final createdSubscription = await subscriptionCreate.future.timeout(
+          const Duration(seconds: 10),
+        );
+        final subscriptionDetails =
+            createdSubscription[1] as Map<String, Object?>;
+        expect(
+          subscriptionDetails['uri'],
+          equals('com.example.ws.meta.lifecycle.topic'),
+        );
+        expect(subscriptionDetails['created'], isA<String>());
+        final subscribedEvent = await subscriptionSubscribe.future.timeout(
+          const Duration(seconds: 10),
+        );
+        expect(subscribedEvent[1], equals(subscriptionDetails['id']));
+
+        await actor
+            .unregister(registered.registrationId)
+            .timeout(const Duration(seconds: 10));
+        expect(
+          (await registrationUnregister.future.timeout(
+            const Duration(seconds: 10),
+          ))[1],
+          equals(registrationDetails['id']),
+        );
+        expect(
+          (await registrationDelete.future.timeout(
+            const Duration(seconds: 10),
+          ))[1],
+          equals(registrationDetails['id']),
+        );
+
+        await actor
+            .unsubscribe(subscribed.subscriptionId)
+            .timeout(const Duration(seconds: 10));
+        expect(
+          (await subscriptionUnsubscribe.future.timeout(
+            const Duration(seconds: 10),
+          ))[1],
+          equals(subscriptionDetails['id']),
+        );
+        expect(
+          (await subscriptionDelete.future.timeout(
+            const Duration(seconds: 10),
+          ))[1],
+          equals(subscriptionDetails['id']),
+        );
+
+        await actor.close();
+        final left = await sessionLeave.future.timeout(
+          const Duration(seconds: 10),
+        );
+        expect(left.first, equals(actor.id));
+        expect(left, hasLength(3));
       },
       skip: skipReason,
     );
@@ -1070,6 +1681,9 @@ Uint8List _asBytes(Object? value) {
   }
   if (value is List<int>) {
     return Uint8List.fromList(value);
+  }
+  if (value is List) {
+    return Uint8List.fromList(value.cast<int>());
   }
   if (value is String) {
     if (value.startsWith('\u0000')) {

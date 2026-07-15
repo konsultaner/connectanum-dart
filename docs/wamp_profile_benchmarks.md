@@ -16,9 +16,12 @@ and on hosted Linux before declaring a release-ready performance baseline.
 | `wamp_transport_throughput` | Cleartext throughput gate | RawSocket and WebSocket, RPC and pub/sub, JSON/MsgPack/CBOR, 64 KiB payloads, Dart client | `native/bench/artifact_gate/wamp_transport_throughput.json` |
 | `wamp_secure_throughput` | TLS throughput gate | Same transport/profile/serializer shape as `wamp_transport_throughput`, routed through the secure WAMP listener and `bench.secure` ticket auth | `native/bench/artifact_gate/wamp_secure_throughput.json` |
 | `wamp_publish_fanout_throughput` | Pub/sub fan-out throughput gate | Native RawSocket and WebSocket pub/sub with eight subscribers per publisher session across JSON/MsgPack/CBOR at 64 KiB payloads | `native/bench/artifact_gate/wamp_publish_fanout_throughput.json` |
+| `wamp_e2ee_throughput` | Payload E2EE throughput gate | RawSocket/WebSocket RPC and pub/sub with 64 KiB CBOR payloads, Dart/native clients, and XSalsa20-Poly1305/AES-256-GCM | `native/bench/artifact_gate/wamp_e2ee_throughput.json` |
+| `wamp_final_release_features` | Final Advanced-feature gate | Progressive invocations, 50 ms timeout lifecycles, and full 15-procedure statistics Meta API sweeps over RawSocket/WebSocket and Dart/native clients | `native/bench/artifact_gate/wamp_final_release_features.json` |
 | `wamp_smoke` | Cleartext smoke gate | Fast RawSocket/WebSocket RPC and pub/sub coverage across JSON/MsgPack/CBOR | Default zero transport-counter gate |
 | `wamp_secure_smoke` | TLS smoke gate | Fast secure RawSocket/WebSocket RPC and pub/sub coverage | Default zero transport-counter gate |
 | `wamp_control_smoke` | Control-plane smoke gate | Publish acknowledgements, subscribe cycles, register cycles, and cancel/interrupt cycles across RawSocket/WebSocket and all supported serializers | Default zero transport-counter gate |
+| `wamp_e2ee_smoke` | Payload E2EE correctness smoke | Both release ciphers across transports, messaging patterns, client implementations, and mixed outer serializers | Default zero transport-counter gate |
 
 The throughput policies are deliberately conservative release floors, not
 performance targets. They are based on the first local Darwin arm64 baseline
@@ -86,6 +89,17 @@ first hosted Linux baselines.
 | `wamp_transport_throughput` | 12 | 57.65 Mbps (`websocket_pubsub_json_64k`) | 241.860 ms (`websocket_pubsub_json_64k`) | `native/bench/artifact_gate/wamp_transport_throughput.json` |
 | `wamp_secure_throughput` | 12 | 35.86 Mbps (`rawsocket_secure_pubsub_json_64k`) | 389.237 ms (`rawsocket_secure_pubsub_json_64k`) | `native/bench/artifact_gate/wamp_secure_throughput.json` |
 | `wamp_publish_fanout_throughput` | 6 | 24.49 Mbps (`websocket_pubsub_json_64k_fanout8`) | 508.916 ms (`rawsocket_pubsub_cbor_64k_fanout8`) | `native/bench/artifact_gate/wamp_publish_fanout_throughput.json` |
+
+The final-feature gates were added and validated locally on Darwin arm64 on
+2026-07-15 with the same one-worker, one-native-thread topology:
+
+| Scenario | Workloads | Throughput / latency evidence | Gate policy |
+| --- | ---: | --- | --- |
+| `wamp_e2ee_throughput` | 16 | 1.77-13.90 Mbps response throughput; 262.73-2824.47 ms p95 | `native/bench/artifact_gate/wamp_e2ee_throughput.json` |
+| `wamp_final_release_features` | 12 | Progressive: 0.45-1.79 Mbps and 8.12-25.41 ms p95; timeout: 55.38-59.49 ms p95; full Meta sweep: 11.17-33.22 ms p95 | `native/bench/artifact_gate/wamp_final_release_features.json` |
+
+Both gates passed with zero transport, backpressure, protocol, or internal
+error counters. Hosted Linux evidence remains required after push.
 
 The diagnostic runner was also validated locally on Darwin arm64 on 2026-04-23
 with `router_workers=1` and `native_runtime_threads=1`. All diagnostic artifact

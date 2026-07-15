@@ -85,6 +85,10 @@ class _RouterBoss {
     _eventSubscription = _eventPort.listen(_handleEvent);
     _commandPort.listen(_handleCommand);
     _stateStore.events.listen(_handleStateEvent);
+    _stateStore.sessionMetaEvents.listen(_handleSessionMetaEvent);
+    _stateStore.registrationMetaEvents.listen(_handleRegistrationMetaEvent);
+    _stateStore.subscriptionMetaEvents.listen(_handleSubscriptionMetaEvent);
+    _stateStore.invocationTimeoutEvents.listen(_handleInvocationTimeoutEvent);
     _stateStore.start();
   }
 
@@ -104,6 +108,7 @@ class _RouterBoss {
   final ReceivePort _eventPort;
   final ReceivePort _commandPort;
   late final StreamSubscription<dynamic> _eventSubscription;
+  Future<void> _metaEventPublishTail = Future<void>.value();
   final Map<int, RouterListener> _listenerById = {};
   final List<_WorkerHandle> _workers = [];
   final Map<int, _WorkerHandle> _connectionOwners = {};
@@ -215,6 +220,7 @@ class _RouterBoss {
       await loop;
     }
     await _eventSubscription.cancel();
+    await _metaEventPublishTail;
     _eventPort.close();
     _commandPort.close();
     _stateStore.dispose();
@@ -1995,6 +2001,219 @@ class _RouterBoss {
       'realmUri': event.realmUri,
       'version': event.version,
     });
+  }
+
+  void _handleInvocationTimeoutEvent(InvocationTimeoutEvent event) {
+    final callerPort = event.callerInternalSendPort;
+    if (callerPort != null) {
+      callerPort.send({
+        'type': 'call_error',
+        'requestId': event.callerRequestId,
+        'error': wamp_core.Error.timeout,
+        'arguments': const ['Call timed out'],
+      });
+    } else if (event.callerConnectionId case final connectionId?) {
+      final error = error_msg.Error(
+        MessageTypes.codeCall,
+        event.callerRequestId,
+        const {},
+        wamp_core.Error.timeout,
+        arguments: const ['Call timed out'],
+      );
+      try {
+        forwardMessageToConnection(connectionId, error);
+      } on StateError {
+        // The caller disconnected while the timeout event was being delivered.
+      }
+    }
+
+    final calleePort = event.calleeInternalSendPort;
+    if (calleePort != null) {
+      calleePort.send({
+        'type': 'interrupt',
+        'invocationId': event.invocationId,
+        'mode': cancel_msg.CancelOptions.modeKillNoWait,
+      });
+    } else if (event.calleeConnectionId case final connectionId?) {
+      final interrupt = interrupt_msg.Interrupt(
+        event.invocationId,
+        options: interrupt_msg.InterruptOptions()
+          ..mode = cancel_msg.CancelOptions.modeKillNoWait,
+      );
+      try {
+        forwardMessageToConnection(connectionId, interrupt);
+      } on StateError {
+        // The callee disconnected while the timeout event was being delivered.
+      }
+    }
+
+    _loopPacer.requestWake();
+    onEvent?.call({
+      'source': 'state',
+      'type': 'invocation_timeout',
+      'realmUri': event.realmUri,
+      'invocationId': event.invocationId,
+      'callerSessionId': event.callerSessionId,
+      'calleeSessionId': event.calleeSessionId,
+    });
+  }
+
+  void _handleSessionMetaEvent(SessionMetaEvent event) {
+    switch (event.type) {
+      case SessionMetaEventType.joined:
+        _enqueueStandardMetaEvent(
+          realmUri: event.realmUri,
+          topic: 'wamp.session.on_join',
+          arguments: [
+            <String, Object?>{
+              'session': event.sessionId,
+              if (event.authId != null) 'authid': event.authId,
+              if (event.authRole != null) 'authrole': event.authRole,
+              if (event.authMethod != null) 'authmethod': event.authMethod,
+              if (event.authProvider != null)
+                'authprovider': event.authProvider,
+            },
+          ],
+        );
+        return;
+      case SessionMetaEventType.left:
+        _enqueueStandardMetaEvent(
+          realmUri: event.realmUri,
+          topic: 'wamp.session.on_leave',
+          arguments: [event.sessionId, event.authId, event.authRole],
+        );
+        return;
+    }
+  }
+
+  void _handleRegistrationMetaEvent(RegistrationMetaEvent event) {
+    final topic = switch (event.type) {
+      RegistrationMetaEventType.created => 'wamp.registration.on_create',
+      RegistrationMetaEventType.registered => 'wamp.registration.on_register',
+      RegistrationMetaEventType.unregistered =>
+        'wamp.registration.on_unregister',
+      RegistrationMetaEventType.deleted => 'wamp.registration.on_delete',
+    };
+    final arguments = switch (event.type) {
+      RegistrationMetaEventType.created => <dynamic>[
+        event.sessionId,
+        <String, Object?>{
+          'id': event.registrationId,
+          'created': event.created.toUtc().toIso8601String(),
+          'uri': event.procedure,
+          'match': _procedureMatchPolicyName(event.matchPolicy),
+          'invoke': event.policy.name,
+        },
+      ],
+      _ => <dynamic>[event.sessionId, event.registrationId],
+    };
+    _enqueueStandardMetaEvent(
+      realmUri: event.realmUri,
+      topic: topic,
+      arguments: arguments,
+    );
+  }
+
+  void _handleSubscriptionMetaEvent(SubscriptionMetaEvent event) {
+    final topic = switch (event.type) {
+      SubscriptionMetaEventType.created => 'wamp.subscription.on_create',
+      SubscriptionMetaEventType.subscribed => 'wamp.subscription.on_subscribe',
+      SubscriptionMetaEventType.unsubscribed =>
+        'wamp.subscription.on_unsubscribe',
+      SubscriptionMetaEventType.deleted => 'wamp.subscription.on_delete',
+    };
+    final arguments = switch (event.type) {
+      SubscriptionMetaEventType.created => <dynamic>[
+        event.sessionId,
+        <String, Object?>{
+          'id': event.subscriptionId,
+          'created': event.created.toUtc().toIso8601String(),
+          'uri': event.topic,
+          'match': _topicMatchPolicyName(event.matchPolicy),
+        },
+      ],
+      _ => <dynamic>[event.sessionId, event.subscriptionId],
+    };
+    _enqueueStandardMetaEvent(
+      realmUri: event.realmUri,
+      topic: topic,
+      arguments: arguments,
+    );
+  }
+
+  void _enqueueStandardMetaEvent({
+    required String realmUri,
+    required String topic,
+    required List<dynamic> arguments,
+  }) {
+    _metaEventPublishTail = _metaEventPublishTail
+        .then(
+          (_) => _publishStandardMetaEvent(
+            realmUri: realmUri,
+            topic: topic,
+            arguments: arguments,
+          ),
+        )
+        .catchError((Object error, StackTrace stackTrace) {
+          onEvent?.call({
+            'source': 'boss',
+            'type': 'meta_event_publish_error',
+            'realmUri': realmUri,
+            'topic': topic,
+            'error': error.toString(),
+            'stackTrace': stackTrace.toString(),
+          });
+        });
+  }
+
+  Future<void> _publishStandardMetaEvent({
+    required String realmUri,
+    required String topic,
+    required List<dynamic> arguments,
+  }) async {
+    final replyPort = ReceivePort();
+    try {
+      _stateStore.commandPort.send(
+        SubscriptionMatchCommand(
+          realmUri: realmUri,
+          topic: topic,
+          publisherSessionId: 0,
+          options: const <String, Object?>{},
+          replyPort: replyPort.sendPort,
+        ),
+      );
+      final routing =
+          await replyPort.first.timeout(const Duration(seconds: 5))
+              as PublicationRouting;
+      for (final match in routing.matches) {
+        final matchedTopic = _eventTopicForMatch(match.details, topic);
+        final internalSendPort = match.internalSendPort;
+        if (internalSendPort != null) {
+          internalSendPort.send({
+            'type': _internalMsgSubscriptionEvent,
+            'subscriptionId': match.subscriptionId,
+            'publicationId': routing.publicationId,
+            'topic': matchedTopic,
+            'arguments': arguments,
+            'details': const <String, Object?>{},
+          });
+          continue;
+        }
+        final event = event_msg.Event(
+          match.subscriptionId,
+          routing.publicationId,
+          event_msg.EventDetails(topic: matchedTopic),
+          arguments: arguments,
+        );
+        try {
+          forwardMessageToConnection(match.connectionId, event);
+        } on StateError {
+          // The subscriber may have disconnected after state matching.
+        }
+      }
+    } finally {
+      replyPort.close();
+    }
   }
 
   void forwardMessageToConnection(int connectionId, AbstractMessage message) {

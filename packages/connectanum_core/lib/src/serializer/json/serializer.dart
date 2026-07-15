@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:isolate';
 
 import 'package:logging/logging.dart';
 
@@ -47,7 +48,9 @@ class Serializer extends AbstractSerializer {
   static const Set<String> _invocationDetailKeys = {
     'caller',
     'procedure',
+    'progress',
     'receive_progress',
+    'timeout',
     'ppt_scheme',
     'ppt_serializer',
     'ppt_cipher',
@@ -70,6 +73,7 @@ class Serializer extends AbstractSerializer {
     'ppt_keyid',
   };
   static const Set<String> _callOptionKeys = {
+    'progress',
     'receive_progress',
     'timeout',
     'disclose_me',
@@ -98,6 +102,7 @@ class Serializer extends AbstractSerializer {
     'disclose_caller',
     'match',
     'invoke',
+    'forward_timeout',
   };
   static const Set<String> _subscribeOptionKeys = {
     'match',
@@ -231,6 +236,7 @@ class Serializer extends AbstractSerializer {
         final detailsMap = message[3] as Map<dynamic, dynamic>;
         final caller = detailsMap['caller'];
         final procedure = detailsMap['procedure'];
+        final progress = detailsMap['progress'];
         final receiveProgress = detailsMap['receive_progress'];
         final pptScheme = detailsMap['ppt_scheme'];
         final pptSerializer = detailsMap['ppt_serializer'];
@@ -241,15 +247,17 @@ class Serializer extends AbstractSerializer {
             message[1],
             message[2],
             InvocationDetails(
-              caller,
-              procedure,
-              receiveProgress,
-              pptScheme,
-              pptSerializer,
-              pptCipher,
-              pptKeyId,
-              _extractCustomDetails(detailsMap, _invocationDetailKeys),
-            ),
+                caller,
+                procedure,
+                receiveProgress,
+                pptScheme,
+                pptSerializer,
+                pptCipher,
+                pptKeyId,
+                _extractCustomDetails(detailsMap, _invocationDetailKeys),
+              )
+              ..progress = progress
+              ..timeout = detailsMap['timeout'] as int?,
           ),
           message,
           4,
@@ -436,6 +444,7 @@ class Serializer extends AbstractSerializer {
       discloseCaller: optionsMap['disclose_caller'] as bool?,
       match: optionsMap['match'] as String?,
       invoke: optionsMap['invoke'] as String?,
+      forwardTimeout: optionsMap['forward_timeout'] as bool?,
       custom: custom.isEmpty ? null : custom,
     );
   }
@@ -446,6 +455,7 @@ class Serializer extends AbstractSerializer {
     }
     final custom = _copyWithoutKeys(optionsMap, _callOptionKeys);
     return CallOptions(
+      progress: optionsMap['progress'] as bool?,
       receiveProgress: optionsMap['receive_progress'] as bool?,
       timeout: optionsMap['timeout'] as int?,
       discloseMe: optionsMap['disclose_me'] as bool?,
@@ -572,13 +582,14 @@ class Serializer extends AbstractSerializer {
   void _convertMessagePayloadBinaryJsonStringToUint8List(
     AbstractMessageWithPayload message,
   ) {
-    if (message.arguments != null && message.arguments!.isNotEmpty) {
-      _convertListEntriesBinaryJsonStringToUint8List(message.arguments!);
+    final arguments = message.wireArguments;
+    final argumentsKeywords = message.wireArgumentsKeywords;
+    if (arguments != null && arguments.isNotEmpty) {
+      _convertListEntriesBinaryJsonStringToUint8List(arguments);
     }
 
-    if (message.argumentsKeywords != null &&
-        message.argumentsKeywords!.isNotEmpty) {
-      _convertMapEntriesBinaryJsonStringToUint8List(message.argumentsKeywords!);
+    if (argumentsKeywords != null && argumentsKeywords.isNotEmpty) {
+      _convertMapEntriesBinaryJsonStringToUint8List(argumentsKeywords);
     }
   }
 
@@ -858,6 +869,9 @@ class Serializer extends AbstractSerializer {
             '"payload_passthru_mode":${callerFeatures.payloadPassThruMode ? "true" : "false"}',
           );
           callerFeaturesJson.add(
+            '"progressive_call_invocations":${callerFeatures.progressiveCallInvocations ? "true" : "false"}',
+          );
+          callerFeaturesJson.add(
             '"progressive_call_results":${callerFeatures.progressiveCallResults ? "true" : "false"}',
           );
           rolesJson.add(
@@ -890,6 +904,9 @@ class Serializer extends AbstractSerializer {
             '"call_canceling":${calleeFeatures.callCanceling ? "true" : "false"}',
           );
           calleeFeaturesJson.add(
+            '"progressive_call_invocations":${calleeFeatures.progressiveCallInvocations ? "true" : "false"}',
+          );
+          calleeFeaturesJson.add(
             '"progressive_call_results":${calleeFeatures.progressiveCallResults ? "true" : "false"}',
           );
           calleeFeaturesJson.add(
@@ -907,13 +924,13 @@ class Serializer extends AbstractSerializer {
         if (subscriberFeatures != null) {
           var subscriberFeaturesJson = [];
           subscriberFeaturesJson.add(
-            '"call_timeout":${subscriberFeatures.callTimeout ? "true" : "false"}',
+            '"publisher_identification":${subscriberFeatures.publisherIdentification ? "true" : "false"}',
           );
           subscriberFeaturesJson.add(
-            '"call_canceling":${subscriberFeatures.callCanceling ? "true" : "false"}',
+            '"publication_trustlevels":${subscriberFeatures.publicationTrustLevels ? "true" : "false"}',
           );
           subscriberFeaturesJson.add(
-            '"progressive_call_results":${subscriberFeatures.progressiveCallResults ? "true" : "false"}',
+            '"pattern_based_subscription":${subscriberFeatures.patternBasedSubscription ? "true" : "false"}',
           );
           subscriberFeaturesJson.add(
             '"payload_passthru_mode":${subscriberFeatures.payloadPassThruMode ? "true" : "false"}',
@@ -992,6 +1009,7 @@ class Serializer extends AbstractSerializer {
             '"session_meta_api":${dealerFeatures.sessionMetaApi ? "true" : "false"}',
             '"call_timeout":${dealerFeatures.callTimeout ? "true" : "false"}',
             '"call_canceling":${dealerFeatures.callCanceling ? "true" : "false"}',
+            '"progressive_call_invocations":${dealerFeatures.progressiveCallInvocations ? "true" : "false"}',
             '"progressive_call_results":${dealerFeatures.progressiveCallResults ? "true" : "false"}',
             '"payload_passthru_mode":${dealerFeatures.payloadPassThruMode ? "true" : "false"}',
           ];
@@ -1086,6 +1104,9 @@ class Serializer extends AbstractSerializer {
     if (options.invoke != null) {
       map['invoke'] = options.invoke;
     }
+    if (options.forwardTimeout != null) {
+      map['forward_timeout'] = options.forwardTimeout;
+    }
     if (options.custom.isNotEmpty) {
       map.addAll(options.custom);
     }
@@ -1097,6 +1118,9 @@ class Serializer extends AbstractSerializer {
       return '{}';
     }
     final map = <String, dynamic>{};
+    if (options.progress != null) {
+      map['progress'] = options.progress;
+    }
     if (options.receiveProgress != null) {
       map['receive_progress'] = options.receiveProgress;
     }
@@ -1209,40 +1233,50 @@ class Serializer extends AbstractSerializer {
         ? message.debugEncodedArgumentsKeywordsBytes
         : null;
     if (encodedArgs != null || encodedKwargs != null) {
+      final arguments = encodedArgs == null ? message.wireArguments : null;
+      final argumentsKeywords = encodedKwargs == null
+          ? message.wireArgumentsKeywords
+          : null;
       final argsJson = encodedArgs == null
-          ? _encodeJsonObject(message.arguments ?? const [])
+          ? _encodeJsonObject(arguments ?? const [])
           : _utf8Decoder.convert(encodedArgs);
       if (encodedKwargs != null) {
         return ',$argsJson,${_utf8Decoder.convert(encodedKwargs)}';
       }
-      if (message.argumentsKeywords != null) {
-        return ',$argsJson,${_encodeJsonObject(message.argumentsKeywords)}';
+      if (argumentsKeywords != null) {
+        return ',$argsJson,${_encodeJsonObject(argumentsKeywords)}';
       }
       return ',$argsJson';
     }
-    _convertMessagePayloadUint8ListToBinaryJsonString(message);
+
+    final arguments = message.wireArguments;
+    final argumentsKeywords = message.wireArgumentsKeywords;
+    _convertMessagePayloadUint8ListToBinaryJsonString(
+      arguments,
+      argumentsKeywords,
+    );
     if (message.transparentBinaryPayload != null) {
       return ',${_encodeJsonObject(_convertUint8ListToString(message.transparentBinaryPayload!))}';
     } else {
-      if (message.argumentsKeywords != null) {
-        return ',${_encodeJsonObject(message.arguments ?? [])},${_encodeJsonObject(message.argumentsKeywords)}';
-      } else if (message.arguments != null) {
-        return ',${_encodeJsonObject(message.arguments)}';
+      if (argumentsKeywords != null) {
+        return ',${_encodeJsonObject(arguments ?? [])},${_encodeJsonObject(argumentsKeywords)}';
+      } else if (arguments != null) {
+        return ',${_encodeJsonObject(arguments)}';
       }
     }
     return '';
   }
 
   void _convertMessagePayloadUint8ListToBinaryJsonString(
-    AbstractMessageWithPayload message,
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
   ) {
-    if (message.arguments != null && message.arguments!.isNotEmpty) {
-      _convertListEntriesUint8ListToBinaryJsonString(message.arguments!);
+    if (arguments != null && arguments.isNotEmpty) {
+      _convertListEntriesUint8ListToBinaryJsonString(arguments);
     }
 
-    if (message.argumentsKeywords != null &&
-        message.argumentsKeywords!.isNotEmpty) {
-      _convertMapEntriesUint8ListToBinaryJsonString(message.argumentsKeywords!);
+    if (argumentsKeywords != null && argumentsKeywords.isNotEmpty) {
+      _convertMapEntriesUint8ListToBinaryJsonString(argumentsKeywords);
     }
   }
 
@@ -1256,6 +1290,11 @@ class Serializer extends AbstractSerializer {
       }
       if (element.value is Uint8List) {
         payload[element.key] = _convertUint8ListToString(element.value);
+      } else if (element.value is TransferableTypedData) {
+        final binary = (element.value as TransferableTypedData)
+            .materialize()
+            .asUint8List();
+        payload[element.key] = _convertUint8ListToString(binary);
       }
     }
   }
@@ -1278,6 +1317,11 @@ class Serializer extends AbstractSerializer {
       }
       if (payload[i] is Uint8List) {
         payload[i] = _convertUint8ListToString(payload[i]);
+      } else if (payload[i] is TransferableTypedData) {
+        final binary = (payload[i] as TransferableTypedData)
+            .materialize()
+            .asUint8List();
+        payload[i] = _convertUint8ListToString(binary);
       }
     }
   }
@@ -1289,6 +1333,9 @@ class Serializer extends AbstractSerializer {
   Object? _jsonEncodablePayloadFragment(Object? value) {
     if (value is Uint8List) {
       return _convertUint8ListToString(value);
+    }
+    if (value is TransferableTypedData) {
+      return _convertUint8ListToString(value.materialize().asUint8List());
     }
     if (value is List) {
       return value
@@ -1346,8 +1393,14 @@ class Serializer extends AbstractSerializer {
     if (details.procedure != null) {
       map['procedure'] = details.procedure;
     }
+    if (details.progress != null) {
+      map['progress'] = details.progress;
+    }
     if (details.receiveProgress != null) {
       map['receive_progress'] = details.receiveProgress;
+    }
+    if (details.timeout != null) {
+      map['timeout'] = details.timeout;
     }
     if (details.pptScheme != null) {
       map['ppt_scheme'] = details.pptScheme;

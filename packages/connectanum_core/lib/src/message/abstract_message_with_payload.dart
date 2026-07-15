@@ -552,6 +552,22 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
 
   bool get hasDecodedPptPayload => _pptPayloadDecoded;
 
+  List<dynamic>? get wireArguments {
+    final retainedLazyPayload = _retainedLazyPayload;
+    if (_pptPayloadDecoded && retainedLazyPayload != null) {
+      return retainedLazyPayload.arguments;
+    }
+    return _arguments ?? _decodeArgumentsBytes();
+  }
+
+  Map<String, dynamic>? get wireArgumentsKeywords {
+    final retainedLazyPayload = _retainedLazyPayload;
+    if (_pptPayloadDecoded && retainedLazyPayload != null) {
+      return retainedLazyPayload.argumentsKeywords;
+    }
+    return _argumentsKeywords ?? _decodeArgumentsKeywordsBytes();
+  }
+
   WampE2eeProvider? get e2eeProvider =>
       _retainedLazyPayload?.e2eeProvider ?? _e2eeProvider;
 
@@ -847,5 +863,7 @@ bool _payloadLooksPackedForPpt(
 }
 
 bool _isBinaryPayloadValue(Object? value) {
-  return value is Uint8List || value is List<int>;
+  return value is Uint8List ||
+      value is List<int> ||
+      (value is List && value.every((element) => element is int));
 }

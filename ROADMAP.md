@@ -140,12 +140,12 @@
     - [ ] Support structured metrics endpoints over HTTP/2 and HTTP/3 so observability stack can scrape without extra proxies.
       - [x] Router-native health/OpenMetrics route injection now enables HTTP/2 on matched or generated metrics listeners; HTTP/3 remains an explicit TLS + `http.http3.enabled` listener configuration path.
 - [x] Outbound frame bridge (`ct_send`/FFI) for CHALLENGE/WELCOME/EVENT delivery
-- [ ] End-to-end payload encryption (E2EE) strategy
+- [x] End-to-end payload encryption (E2EE) strategy for the final release profile
   - [x] Capture the current WAMP E2EE/PPT references and land the shared Dart-side phase-1 contract (`WampE2eeProvider`, `WampCborXsalsa20Poly1305Provider`, router passthrough, and client/core coverage) without forcing router-side decryption.
-  - [ ] Evaluate keeping encryption off the Dart hot-path (Dart’s 64-bit object model vs native/Rust or dedicated isolates with binary messaging).
-  - [ ] Prototype native encryption/decryption pipeline that preserves zero-copy semantics and works across serializers.
-  - [ ] Define key-management interfaces and handshake flow (HELLO/CHALLENGE payload negotiation).
-  - [ ] Add regression tests ensuring encrypted PUB/SUB and RPC payloads interoperate with unencrypted peers where allowed.
+  - [x] Keep encryption off the Dart hot path when requested through native XSalsa20-Poly1305 and AES-256-GCM providers while retaining pure Dart providers for portability.
+  - [x] Integrate the native encryption/decryption pipeline with lazy PPT payload handling and Dart/native interoperability tests.
+  - [x] Define negotiated and policy-driven key selection/rotation interfaces over the `HELLO`/`CHALLENGE`/`AUTHENTICATE`/`WELCOME` flow.
+  - [x] Cover encrypted PUB/SUB and RPC over RawSocket/WebSocket with Dart/native clients, both release ciphers, fail-closed negative tests, and a checked-in 16-row throughput gate.
 
 ## Router State & Infrastructure
 
@@ -296,9 +296,10 @@
   - [x] CLI demo covering hashed credentials, `CredentialRejection`, and remote delegates (`packages/connectanum_router/example`)
   - [ ] WebSocket transport demo (router and remote auth server)
   - [ ] Stub remote service integration (fake challenge parity)
-- [ ] Comprehensive WAMP feature test suites (basic and advanced)
-  - [ ] Basic profile: HELLO/WELCOME, PUB/SUB, RPC, error flows
-  - [ ] Advanced profile: pattern subscriptions, shared registrations, cancellation, progressive results
+- [ ] Comprehensive WAMP feature test suites for every Basic and Advanced module
+  - [x] Basic profile: `HELLO`/`WELCOME`, PUB/SUB, RPC, and error flows across JSON/MessagePack/CBOR and RawSocket/WebSocket.
+  - [x] Announced Advanced subset: pattern subscriptions/registrations, shared registrations, cancellation, progressive results/invocations, timeout, statistics Meta APIs, payload passthrough/E2EE, and feature negotiation.
+  - [ ] Add broader upstream multi-session vectors and tests for currently unsupported Advanced modules before claiming full Advanced Profile compatibility.
 - [x] Auth server scaffolding (`packages/connectanum_auth_server`) providing the same authenticator API for remote deployments
 - [ ] Auth server CLI (config loader, RPC loop, health endpoints)
 - [x] Remote auth secure transport (mTLS / signed tokens) and credential rotation

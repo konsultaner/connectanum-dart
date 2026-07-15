@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/src/message/abort.dart';
@@ -35,21 +36,23 @@ import 'package:connectanum_core/src/serializer/json/serializer.dart';
 import 'package:pinenacl/api.dart';
 import 'package:test/test.dart';
 
+import '../hello_wire_expectations.dart';
+
 void main() {
   var serializer = Serializer();
   group('serialize', () {
     test('Hello', () {
       expect(
-        serializer.serializeToString(Hello('my.realm', Details.forHello())),
-        equals(
-          '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_passthru_mode":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_passthru_mode":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_passthru_mode":true}}}}]',
+        jsonDecode(
+          serializer.serializeToString(Hello('my.realm', Details.forHello())),
         ),
+        equals(expectedHelloWire('my.realm')),
       );
       expect(
-        serializer.serializeToString(Hello(null, Details.forHello())),
-        equals(
-          '[1,null,{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_passthru_mode":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_passthru_mode":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_passthru_mode":true}}}}]',
+        jsonDecode(
+          serializer.serializeToString(Hello(null, Details.forHello())),
         ),
+        equals(expectedHelloWire(null)),
       );
     });
     test('Hello with auth information', () {
@@ -61,13 +64,16 @@ void main() {
       authHello.details.authextra!['channel_binding'] = null;
       var message = serializer.serializeToString(authHello);
       expect(
-        message,
-        startsWith(
-          '[1,"my.realm",{"roles":{"caller":{"features":{"call_canceling":false,"call_timeout":false,"caller_identification":true,"payload_passthru_mode":true,"progressive_call_results":true}},"callee":{"features":{"caller_identification":true,"call_trustlevels":false,"pattern_based_registration":false,"shared_registration":false,"call_timeout":false,"call_canceling":false,"progressive_call_results":true,"payload_passthru_mode":true}},"subscriber":{"features":{"call_timeout":false,"call_canceling":false,"progressive_call_results":false,"payload_passthru_mode":true,"subscription_revocation":true}},"publisher":{"features":{"publisher_identification":true,"subscriber_blackwhite_listing":true,"publisher_exclusion":true,"payload_passthru_mode":true}}},"authid":"Richard","authmethods":["WAMP-CRA"],"authextra":',
+        jsonDecode(message),
+        equals(
+          expectedHelloWire(
+            'my.realm',
+            authId: 'Richard',
+            authMethods: ['WAMP-CRA'],
+            authExtra: {'nonce': 'egVDf3DMJh0=', 'channel_binding': null},
+          ),
         ),
       );
-      expect(message, contains('"channel_binding":null'));
-      expect(message, contains('"nonce":"egVDf3DMJh0="'));
     });
     test('unsupported message reports type', () {
       expect(
@@ -753,6 +759,25 @@ void main() {
           '[16,239714735,{"exclude_me":false},"com.myapp.mytopic1",["Hello, world!"],{"color":"orange","sizes":[23,42,7]}]',
         ),
       );
+    });
+    test('Publish serializes isolate-transferred binary payloads', () {
+      final transferred = TransferableTypedData.fromList([
+        Uint8List.fromList(const [1, 2, 3, 4]),
+      ]);
+
+      final frame =
+          jsonDecode(
+                serializer.serializeToString(
+                  Publish(
+                    239714735,
+                    'com.myapp.encrypted',
+                    arguments: [transferred],
+                  ),
+                ),
+              )
+              as List<dynamic>;
+
+      expect(frame[4], [startsWith('\u0000')]);
     });
     test('Event', () {
       expect(

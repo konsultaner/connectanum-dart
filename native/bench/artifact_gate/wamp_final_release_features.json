@@ -1,0 +1,100 @@
+{
+  "metrics": [
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 0.5,
+      "scenario": "wamp_final_release_features",
+      "workload": "rawsocket_progressive_dart_json_to_cbor_1k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 50.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "rawsocket_progressive_dart_json_to_cbor_1k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 0.75,
+      "scenario": "wamp_final_release_features",
+      "workload": "rawsocket_progressive_native_cbor_to_json_1k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 35.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "rawsocket_progressive_native_cbor_to_json_1k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 0.5,
+      "scenario": "wamp_final_release_features",
+      "workload": "websocket_progressive_dart_msgpack_to_cbor_1k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 40.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "websocket_progressive_dart_msgpack_to_cbor_1k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 0.2,
+      "scenario": "wamp_final_release_features",
+      "workload": "websocket_progressive_native_cbor_to_msgpack_1k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 35.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "websocket_progressive_native_cbor_to_msgpack_1k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 100.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "rawsocket_timeout_dart_cbor_to_json_50ms"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 100.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "rawsocket_timeout_native_json_to_cbor_50ms"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 100.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "websocket_timeout_dart_msgpack_to_cbor_50ms"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 100.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "websocket_timeout_native_cbor_to_msgpack_50ms"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 75.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "rawsocket_meta_dart_json"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 75.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "rawsocket_meta_native_cbor"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 75.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "websocket_meta_dart_msgpack"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 75.0,
+      "scenario": "wamp_final_release_features",
+      "workload": "websocket_meta_native_json"
+    }
+  ]
+}

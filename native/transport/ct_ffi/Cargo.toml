@@ -27,6 +27,7 @@ h3 = { version = "0.0.8", default-features = false }
 h3-quinn = { version = "0.0.10", default-features = false }
 futures-util = { version = "0.3", default-features = false, features = ["std"], optional = true }
 rand_core = { version = "0.6", features = ["getrandom"] }
+aes-gcm = "0.10"
 xsalsa20poly1305 = "0.9"
 
 [dev-dependencies]

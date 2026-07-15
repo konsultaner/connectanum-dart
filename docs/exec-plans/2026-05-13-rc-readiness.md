@@ -91,8 +91,14 @@ decision because `connectanum_client` still depends on private
   ingress and sessions`, `dart analyze packages/connectanum_mcp
   packages/connectanum_router`, `git diff --check`, `python3
   tool/check_public_artifact_references.py`, full `bin/test-fast`, and full
-  local `bin/verify` passed after the change on 2026-07-10. Hosted evidence is
-  pending for the implementation commit.
+  local `bin/verify` passed after the change on 2026-07-10. Hosted evidence
+  after push: GitHub CI `29084302061`, Dart Package Publish Dry Run
+  `29084302075`, WAMP Profile Benchmarks `29084302142`, and the
+  deployment-chain audit with required latest CI/log scan, Dart package
+  dry-run, and WAMP profile benchmark evidence passed for `5034dc7`; the
+  audit still reports the expected operator-owned gaps that `add-router` is
+  unprotected and checked-in pub.dev workflows are not Actions-discoverable
+  until promoted through `master`.
 - 2026-07-10: Hardened typed MCP content block response parsing in
   `connectanum_client`. `McpStreamableHttpClient` now rejects unsupported
   server-provided content block types before typed tool and prompt results

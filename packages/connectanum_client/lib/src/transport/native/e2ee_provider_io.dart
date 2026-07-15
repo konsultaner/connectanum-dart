@@ -6,16 +6,34 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'runtime.dart';
 
 class NativeWampCborXsalsa20Poly1305Provider
-    implements DisposableWampE2eeProvider, WampE2eePolicyAwareProvider {
+    implements
+        DisposableWampE2eeProvider,
+        WampE2eePolicyAwareProvider,
+        WampE2eeProfileSupport {
   NativeWampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
+    String? defaultKeyId,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
+    NativeClientRuntime? runtime,
+  }) : this._(
+         keys: keys,
+         defaultKeyId: defaultKeyId,
+         keySelectionPolicy: keySelectionPolicy,
+         runtime: runtime,
+         cipher: supportedCipher,
+       );
+
+  NativeWampCborXsalsa20Poly1305Provider._({
+    required Map<String, List<int>> keys,
+    required String cipher,
     String? defaultKeyId,
     WampE2eeKeySelectionPolicy? keySelectionPolicy,
     NativeClientRuntime? runtime,
   }) : _runtime = runtime ?? NativeClientRuntime.instance(),
        _defaultKeyId = _resolveDefaultKeyId(keys, defaultKeyId),
        _knownKeyIds = Set.unmodifiable(keys.keys),
-       _keySelectionPolicy = keySelectionPolicy {
+       _keySelectionPolicy = keySelectionPolicy,
+       _cipher = cipher {
     final normalizedKeys = _normalizeKeys(keys);
     final keyringHandle = _runtime.createE2eeKeyring();
     var sessionHandle = 0;
@@ -55,8 +73,8 @@ class NativeWampCborXsalsa20Poly1305Provider
          runtime: runtime,
        );
 
-  static const supportedSerializer = 'cbor';
-  static const supportedCipher = 'xsalsa20poly1305';
+  static const supportedSerializer = ConnectanumE2eeProfile.serializer;
+  static const supportedCipher = ConnectanumE2eeProfile.xsalsa20Poly1305;
 
   static final cbor_serializer.Serializer _serializer =
       cbor_serializer.Serializer();
@@ -65,9 +83,23 @@ class NativeWampCborXsalsa20Poly1305Provider
   final Set<String> _knownKeyIds;
   final String? _defaultKeyId;
   final WampE2eeKeySelectionPolicy? _keySelectionPolicy;
+  final String _cipher;
   late final int _keyringHandle;
   late final int _sessionHandle;
   bool _released = false;
+
+  @override
+  bool supportsE2eeProfile({
+    required int version,
+    required String scheme,
+    required String serializer,
+    required String cipher,
+  }) {
+    return version == ConnectanumE2eeProfile.version &&
+        scheme == ConnectanumE2eeProfile.scheme &&
+        serializer == ConnectanumE2eeProfile.serializer &&
+        cipher == _cipher;
+  }
 
   String? get defaultKeyId => _defaultKeyId;
 
@@ -93,7 +125,7 @@ class NativeWampCborXsalsa20Poly1305Provider
 
     options.pptScheme ??= 'wamp';
     options.pptSerializer ??= supportedSerializer;
-    options.pptCipher ??= supportedCipher;
+    options.pptCipher ??= _cipher;
     options.pptKeyId ??= keyId;
 
     final plaintext = Uint8List.fromList(
@@ -107,6 +139,7 @@ class NativeWampCborXsalsa20Poly1305Provider
           _sessionHandle,
           plaintext,
           keyId: options.pptKeyId,
+          cipher: _cipher,
         ),
       ];
     } on NativeTransportException catch (error) {
@@ -135,6 +168,7 @@ class NativeWampCborXsalsa20Poly1305Provider
         _sessionHandle,
         encryptedBytes,
         keyId: keyId,
+        cipher: _cipher,
       );
       final decoded = _serializer.deserializePPT(plaintext);
       if (decoded == null) {
@@ -192,8 +226,8 @@ class NativeWampCborXsalsa20Poly1305Provider
   }
 
   String _resolveCipher(PPTOptions options, {required String operation}) {
-    final cipher = options.pptCipher ?? supportedCipher;
-    if (cipher != supportedCipher) {
+    final cipher = options.pptCipher ?? _cipher;
+    if (cipher != _cipher) {
       throw WampE2eeUnsupportedCipherException(operation, options: options);
     }
     return cipher;
@@ -334,4 +368,29 @@ class NativeWampCborXsalsa20Poly1305Provider
     }
     return keys.length == 1 ? keys.keys.single : null;
   }
+}
+
+class NativeWampCborAes256GcmProvider
+    extends NativeWampCborXsalsa20Poly1305Provider {
+  NativeWampCborAes256GcmProvider({
+    required super.keys,
+    super.defaultKeyId,
+    super.keySelectionPolicy,
+    super.runtime,
+  }) : super._(cipher: supportedCipher);
+
+  NativeWampCborAes256GcmProvider.single({
+    required String keyId,
+    required List<int> key,
+    WampE2eeKeySelectionPolicy? keySelectionPolicy,
+    NativeClientRuntime? runtime,
+  }) : this(
+         keys: {keyId: key},
+         defaultKeyId: keyId,
+         keySelectionPolicy: keySelectionPolicy,
+         runtime: runtime,
+       );
+
+  static const supportedSerializer = ConnectanumE2eeProfile.serializer;
+  static const supportedCipher = ConnectanumE2eeProfile.aes256Gcm;
 }

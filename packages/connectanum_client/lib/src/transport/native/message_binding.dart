@@ -258,19 +258,27 @@ AbstractMessage? _bindFromMetadata(
   }
   if (code == MessageTypes.codeInvocation) {
     final details = directBind
-        ? InvocationDetails(
-            metadata.hasFlag(NativeMessageMetadata.flagDetailNumberAPresent)
-                ? metadata.detailNumberA
-                : null,
-            metadata.stringA,
-            metadata.hasFlag(NativeMessageMetadata.flagDetailBoolATrue)
+        ? (InvocationDetails(
+              metadata.hasFlag(NativeMessageMetadata.flagDetailNumberAPresent)
+                  ? metadata.detailNumberA
+                  : null,
+              metadata.stringA,
+              metadata.hasFlag(NativeMessageMetadata.flagDetailBoolATrue)
+                  ? true
+                  : null,
+              metadata.stringB,
+              metadata.stringC,
+              metadata.stringD,
+              metadata.stringE,
+            )
+            ..progress =
+                metadata.hasFlag(NativeMessageMetadata.flagDetailBoolBTrue)
                 ? true
-                : null,
-            metadata.stringB,
-            metadata.stringC,
-            metadata.stringD,
-            metadata.stringE,
-          )
+                : null
+            ..timeout =
+                metadata.hasFlag(NativeMessageMetadata.flagDetailNumberBPresent)
+                ? metadata.detailNumberB
+                : null)
         : _mapInvocationDetails(
             _decodeOptionalMapFragment(serializer, metadata.detailsBytes),
           );
@@ -282,7 +290,9 @@ AbstractMessage? _bindFromMetadata(
         const {
           'caller',
           'procedure',
+          'progress',
           'receive_progress',
+          'timeout',
           'ppt_scheme',
           'ppt_serializer',
           'ppt_cipher',
@@ -783,23 +793,27 @@ ResultDetails _mapResultDetails(Map<String, dynamic>? map) {
 InvocationDetails _mapInvocationDetails(Map<String, dynamic>? map) {
   final safeMap = map ?? const <String, dynamic>{};
   return InvocationDetails(
-    _asInt(safeMap['caller']),
-    safeMap['procedure'] as String?,
-    safeMap['receive_progress'] as bool?,
-    safeMap['ppt_scheme'] as String?,
-    safeMap['ppt_serializer'] as String?,
-    safeMap['ppt_cipher'] as String?,
-    safeMap['ppt_keyid'] as String?,
-    _extractCustomFields(safeMap, const {
-      'caller',
-      'procedure',
-      'receive_progress',
-      'ppt_scheme',
-      'ppt_serializer',
-      'ppt_cipher',
-      'ppt_keyid',
-    }),
-  );
+      _asInt(safeMap['caller']),
+      safeMap['procedure'] as String?,
+      safeMap['receive_progress'] as bool?,
+      safeMap['ppt_scheme'] as String?,
+      safeMap['ppt_serializer'] as String?,
+      safeMap['ppt_cipher'] as String?,
+      safeMap['ppt_keyid'] as String?,
+      _extractCustomFields(safeMap, const {
+        'caller',
+        'procedure',
+        'progress',
+        'receive_progress',
+        'timeout',
+        'ppt_scheme',
+        'ppt_serializer',
+        'ppt_cipher',
+        'ppt_keyid',
+      }),
+    )
+    ..progress = safeMap['progress'] as bool?
+    ..timeout = _asInt(safeMap['timeout']);
 }
 
 UnsubscribedDetails? _mapUnsubscribedDetails(Map<String, dynamic>? map) {
@@ -950,7 +964,9 @@ BrokerFeatures? _mapBrokerFeatures(Map<String, dynamic>? map) {
   features.publisherIdentification =
       map['publisher_identification'] ?? features.publisherIdentification;
   features.publicationTrustLevels =
-      map['publication_trust_levels'] ?? features.publicationTrustLevels;
+      map['publication_trustlevels'] ??
+      map['publication_trust_levels'] ??
+      features.publicationTrustLevels;
   features.patternBasedSubscription =
       map['pattern_based_subscription'] ?? features.patternBasedSubscription;
   features.subscriptionMetaApi =
@@ -970,10 +986,12 @@ BrokerFeatures? _mapBrokerFeatures(Map<String, dynamic>? map) {
 SubscriberFeatures? _mapSubscriberFeatures(Map<String, dynamic>? map) {
   if (map == null) return null;
   final features = SubscriberFeatures();
-  features.callTimeout = map['call_timeout'] ?? features.callTimeout;
-  features.callCanceling = map['call_canceling'] ?? features.callCanceling;
-  features.progressiveCallResults =
-      map['progressive_call_results'] ?? features.progressiveCallResults;
+  features.publisherIdentification =
+      map['publisher_identification'] ?? features.publisherIdentification;
+  features.publicationTrustLevels =
+      map['publication_trustlevels'] ?? features.publicationTrustLevels;
+  features.patternBasedSubscription =
+      map['pattern_based_subscription'] ?? features.patternBasedSubscription;
   features.subscriptionRevocation =
       map['subscription_revocation'] ?? features.subscriptionRevocation;
   features.payloadPassThruMode =

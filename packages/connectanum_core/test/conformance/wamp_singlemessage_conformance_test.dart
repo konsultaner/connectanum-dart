@@ -470,6 +470,8 @@ Map<String, dynamic>? _normalizeRoles(Roles? roles) {
           'session_meta_api': roles.dealer!.features!.sessionMetaApi,
           'call_timeout': roles.dealer!.features!.callTimeout,
           'call_canceling': roles.dealer!.features!.callCanceling,
+          'progressive_call_invocations':
+              roles.dealer!.features!.progressiveCallInvocations,
           'progressive_call_results':
               roles.dealer!.features!.progressiveCallResults,
           'payload_passthru_mode': roles.dealer!.features!.payloadPassThruMode,
@@ -492,6 +494,7 @@ Map<String, dynamic> _normalizeRole(Object? features) {
         'call_timeout': features.callTimeout,
         'caller_identification': features.callerIdentification,
         'payload_passthru_mode': features.payloadPassThruMode,
+        'progressive_call_invocations': features.progressiveCallInvocations,
         'progressive_call_results': features.progressiveCallResults,
       },
     };
@@ -505,6 +508,7 @@ Map<String, dynamic> _normalizeRole(Object? features) {
         'shared_registration': features.sharedRegistration,
         'call_timeout': features.callTimeout,
         'call_canceling': features.callCanceling,
+        'progressive_call_invocations': features.progressiveCallInvocations,
         'progressive_call_results': features.progressiveCallResults,
         'payload_passthru_mode': features.payloadPassThruMode,
       },
@@ -523,9 +527,9 @@ Map<String, dynamic> _normalizeRole(Object? features) {
   if (features is SubscriberFeatures) {
     return {
       'features': {
-        'call_timeout': features.callTimeout,
-        'call_canceling': features.callCanceling,
-        'progressive_call_results': features.progressiveCallResults,
+        'publisher_identification': features.publisherIdentification,
+        'publication_trustlevels': features.publicationTrustLevels,
+        'pattern_based_subscription': features.patternBasedSubscription,
         'payload_passthru_mode': features.payloadPassThruMode,
         'subscription_revocation': features.subscriptionRevocation,
       },

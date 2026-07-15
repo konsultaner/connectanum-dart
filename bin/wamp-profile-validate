@@ -12,9 +12,12 @@ Runs the canonical WAMP profile release gates:
 1. cleartext RawSocket/WebSocket WAMP smoke
 2. TLS RawSocket/WebSocket WAMP smoke
 3. WAMP control-plane smoke
-4. cleartext RawSocket/WebSocket WAMP throughput
-5. TLS RawSocket/WebSocket WAMP throughput
-6. native-client WAMP pub/sub fan-out throughput
+4. payload E2EE smoke
+5. cleartext RawSocket/WebSocket WAMP throughput
+6. TLS RawSocket/WebSocket WAMP throughput
+7. native-client WAMP pub/sub fan-out throughput
+8. AES-256-GCM payload E2EE throughput
+9. final-release progressive invocation, call timeout, and Meta API gates
 
 Each scenario writes transformed bench artifacts and validates them. Smoke
 scenarios use the strict default transport-counter gate; throughput scenarios
@@ -152,6 +155,10 @@ run_gate \
   native/bench/scenarios/wamp_control_smoke.toml
 
 run_gate \
+  wamp_e2ee_smoke \
+  native/bench/scenarios/wamp_e2ee_smoke.toml
+
+run_gate \
   wamp_transport_throughput \
   native/bench/scenarios/wamp_transport_throughput.toml \
   native/bench/artifact_gate/wamp_transport_throughput.json
@@ -165,5 +172,15 @@ run_gate \
   wamp_publish_fanout_throughput \
   native/bench/scenarios/wamp_publish_fanout_throughput.toml \
   native/bench/artifact_gate/wamp_publish_fanout_throughput.json
+
+run_gate \
+  wamp_e2ee_throughput \
+  native/bench/scenarios/wamp_e2ee_throughput.toml \
+  native/bench/artifact_gate/wamp_e2ee_throughput.json
+
+run_gate \
+  wamp_final_release_features \
+  native/bench/scenarios/wamp_final_release_features.toml \
+  native/bench/artifact_gate/wamp_final_release_features.json
 
 printf 'WAMP profile validation artifacts written to %s\n' "$out_dir"

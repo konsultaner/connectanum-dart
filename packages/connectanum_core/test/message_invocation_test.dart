@@ -299,6 +299,33 @@ void main() {
       expect(response.argumentsKeywords, isNull);
     });
 
+    test('respondWith encrypts materialized lazy wamp payloads', () {
+      final provider = _testWampE2eeProvider();
+      final invocation = Invocation(1, 2, InvocationDetails(null, null, false));
+      final responses = <AbstractMessageWithPayload>[];
+      invocation.onResponse(responses.add);
+      final payload = LazyMessagePayload.materialized(
+        encoding: LazyPayloadEncoding.cbor,
+        arguments: const ['wrapped-response'],
+        argumentsKeywords: const {'worker': 12},
+        e2eeProvider: provider,
+      );
+
+      invocation.respondWith(
+        lazyPayload: payload,
+        options: YieldOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+      );
+
+      expect(responses, hasLength(1));
+      final response = responses.single as Yield;
+      final decoded = provider.unpackPayload(
+        response.arguments,
+        response.options!,
+      );
+      expect(decoded.arguments, equals(const ['wrapped-response']));
+      expect(decoded.argumentsKeywords, equals(const {'worker': 12}));
+    });
+
     test(
       'copyPayloadTo preserves materialized kwargs alongside encoded args',
       () {

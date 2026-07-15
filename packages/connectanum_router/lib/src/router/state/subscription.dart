@@ -25,8 +25,10 @@ class SubscriptionEntry {
     required this.matchPolicy,
     Map<int, SubscriberRecord>? subscribers,
     Map<String, Object?>? options,
+    DateTime? created,
   }) : subscribers = subscribers ?? SplayTreeMap<int, SubscriberRecord>(),
        options = options ?? {},
+       created = created ?? DateTime.now().toUtc(),
        _wildcardSegments = matchPolicy == TopicMatchPolicy.wildcard
            ? topic.split('.')
            : null,
@@ -48,6 +50,7 @@ class SubscriptionEntry {
   final TopicMatchPolicy matchPolicy;
   final Map<int, SubscriberRecord> subscribers;
   final Map<String, Object?> options;
+  final DateTime created;
   final List<String>? _wildcardSegments;
   final int matchPriority;
   final int matchSpecificity;
@@ -121,13 +124,15 @@ class SubscriptionSnapshot {
     required this.matchPolicy,
     required this.subscribers,
     required this.options,
-  });
+    DateTime? created,
+  }) : created = created ?? DateTime.now().toUtc();
 
   final int id;
   final String topic;
   final TopicMatchPolicy matchPolicy;
   final List<SubscriberRecord> subscribers;
   final Map<String, Object?> options;
+  final DateTime created;
 }
 
 /// Matched subscriber returned by routing logic when dispatching EVENTs.

@@ -11,6 +11,60 @@ import '../transport/native/message_protocol.dart';
 typedef SessionE2eeProviderResolver =
     FutureOr<WampE2eeProvider?> Function(SessionE2eeProviderContext context);
 
+class ProgressiveCall {
+  ProgressiveCall._({
+    required this.requestId,
+    required this.results,
+    required void Function(LazyMessagePayload payload, bool progress) send,
+  }) : _send = send;
+
+  final int requestId;
+  final Stream<Result> results;
+  final void Function(LazyMessagePayload payload, bool progress) _send;
+  bool _finished = false;
+
+  bool get isFinished => _finished;
+
+  void sendChunk({
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+  }) {
+    sendLazyChunk(
+      LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+    );
+  }
+
+  void sendLazyChunk(LazyMessagePayload payload) {
+    if (_finished) {
+      throw StateError('The progressive call is already finished');
+    }
+    _send(payload, true);
+  }
+
+  void finish({
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+  }) {
+    finishLazy(
+      LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+    );
+  }
+
+  void finishLazy(LazyMessagePayload payload) {
+    if (_finished) {
+      throw StateError('The progressive call is already finished');
+    }
+    _send(payload, false);
+    _finished = true;
+  }
+}
+
 class SessionE2eeProviderContext {
   const SessionE2eeProviderContext({
     required this.sessionId,
@@ -319,6 +373,7 @@ class Session {
     final resolver = _e2eeProviderResolver;
     if (resolver == null) {
       _sessionE2eeProvider = null;
+      negotiatedE2ee?.verifyRequiredProfile(provider: e2eeProvider);
       return;
     }
     _sessionE2eeProvider = await resolver(
@@ -334,6 +389,7 @@ class Session {
         configuredProvider: _configuredE2eeProvider,
       ),
     );
+    negotiatedE2ee?.verifyRequiredProfile(provider: e2eeProvider);
   }
 
   Stream<Object?> _receiveSessionMessages() {
@@ -584,6 +640,72 @@ class Session {
     _transport.send(call);
     _attachCallCancellation(call.requestId, cancelCompleter);
     return controller.stream;
+  }
+
+  ProgressiveCall startProgressiveCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    CallOptions? options,
+    Completer<String>? cancelCompleter,
+  }) {
+    final initiatingOptions = CallOptions(
+      progress: true,
+      receiveProgress: options?.receiveProgress,
+      timeout: options?.timeout,
+      discloseMe: options?.discloseMe,
+      pptScheme: options?.pptScheme,
+      pptSerializer: options?.pptSerializer,
+      pptCipher: options?.pptCipher,
+      pptKeyId: options?.pptKeyId,
+      custom: options?.custom,
+    );
+    final call = _buildCallLazyPayload(
+      procedure,
+      payload: LazyMessagePayload.materialized(
+        arguments: arguments,
+        argumentsKeywords: argumentsKeywords,
+      ),
+      options: initiatingOptions,
+    );
+    final controller = StreamController<Result>(
+      sync: true,
+      onCancel: () async {
+        final pending = _pendingCalls.remove(call.requestId);
+        if (pending != null) {
+          await pending.close();
+        }
+      },
+    );
+    _pendingCalls[call.requestId] = _PendingCallStream(
+      procedure: procedure,
+      controller: controller,
+    );
+    _transport.send(call);
+    _attachCallCancellation(call.requestId, cancelCompleter);
+
+    return ProgressiveCall._(
+      requestId: call.requestId,
+      results: controller.stream,
+      send: (payload, progress) {
+        if (!_pendingCalls.containsKey(call.requestId)) {
+          throw StateError('The progressive call is no longer active');
+        }
+        final chunk = Call(
+          call.requestId,
+          procedure,
+          options: CallOptions(progress: progress),
+        );
+        chunk.attachE2eeRuntimeContext(
+          _buildOutboundRuntimeContext(
+            messageType: WampE2eeMessageType.call,
+            uri: procedure,
+          ),
+        );
+        _applyOutboundLazyPayload(chunk, payload, initiatingOptions);
+        _transport.send(chunk);
+      },
+    );
   }
 
   /// This calls a [procedure] and waits for the final non-progressive [Result].
@@ -940,10 +1062,10 @@ class Session {
       if (registered != null) {
         message.onResponse((response) {
           _transport.send(response);
-          if (response is Error ||
-              response is! Yield ||
-              response.options?.progress != true) {
-            _pendingInvocations.remove(message.requestId);
+          if (response is Yield && response.options?.progress == true) {
+            _pendingInvocations[message.requestId]?.resetTimeout();
+          } else {
+            _takeInvocation(message.requestId);
           }
         });
         final responder = _PendingInvocationResponder(
@@ -958,8 +1080,18 @@ class Session {
               arguments: mode == null ? null : [mode],
             );
           },
+          timeout: () {
+            if (message.responseClosed) {
+              return;
+            }
+            message.respondWith(
+              isError: true,
+              errorUri: Error.timeout,
+              arguments: const ['Call timed out'],
+            );
+          },
         );
-        _pendingInvocations[message.requestId] = responder;
+        _trackInvocation(message.requestId, responder, message.details.timeout);
         if (_cancelInterruptedInvocation(message.requestId, responder)) {
           return;
         }
@@ -977,7 +1109,7 @@ class Session {
       return;
     }
     if (message is Interrupt) {
-      final pendingInvocation = _pendingInvocations.remove(message.requestId);
+      final pendingInvocation = _takeInvocation(message.requestId);
       if (pendingInvocation != null && !pendingInvocation.isClosed()) {
         pendingInvocation.cancel(message.options?.mode);
       } else {
@@ -1010,9 +1142,7 @@ class Session {
       return;
     }
     if (code == MessageTypes.codeInterrupt) {
-      final pendingInvocation = _pendingInvocations.remove(
-        message.metadata.primaryId,
-      );
+      final pendingInvocation = _takeInvocation(message.metadata.primaryId);
       if (pendingInvocation != null && !pendingInvocation.isClosed()) {
         pendingInvocation.cancel(message.metadata.stringA);
       } else {
@@ -1077,7 +1207,14 @@ class Session {
     }
     if (registered.hasMaterializedInvocationConsumers) {
       final invocation = message.materialize() as Invocation;
-      invocation.onResponse((response) => _transport.send(response));
+      invocation.onResponse((response) {
+        _transport.send(response);
+        if (response is Yield && response.options?.progress == true) {
+          _pendingInvocations[message.metadata.primaryId]?.resetTimeout();
+        } else {
+          _takeInvocation(message.metadata.primaryId);
+        }
+      });
       final responder = _PendingInvocationResponder(
         isClosed: () => invocation.responseClosed,
         cancel: (mode) {
@@ -1090,8 +1227,22 @@ class Session {
             arguments: mode == null ? null : [mode],
           );
         },
+        timeout: () {
+          if (invocation.responseClosed) {
+            return;
+          }
+          invocation.respondWith(
+            isError: true,
+            errorUri: Error.timeout,
+            arguments: const ['Call timed out'],
+          );
+        },
       );
-      _pendingInvocations[message.metadata.primaryId] = responder;
+      _trackInvocation(
+        message.metadata.primaryId,
+        responder,
+        invocation.details.timeout,
+      );
       if (_cancelInterruptedInvocation(message.metadata.primaryId, responder)) {
         return;
       }
@@ -1274,7 +1425,7 @@ class Session {
           ),
         );
         responseClosed = true;
-        _pendingInvocations.remove(message.metadata.primaryId);
+        _takeInvocation(message.metadata.primaryId);
         return;
       }
       final yieldMessage = Yield(
@@ -1325,9 +1476,11 @@ class Session {
       );
       yieldMessage.attachE2eeRuntimeContext(yieldRuntimeContext);
       _transport.send(yieldMessage);
-      if (options?.progress != true) {
+      if (options?.progress == true) {
+        _pendingInvocations[message.metadata.primaryId]?.resetTimeout();
+      } else {
         responseClosed = true;
-        _pendingInvocations.remove(message.metadata.primaryId);
+        _takeInvocation(message.metadata.primaryId);
       }
     }
 
@@ -1341,9 +1494,18 @@ class Session {
           ? message.metadata.detailNumberA
           : null,
       procedure: message.metadata.stringA,
+      progress: message.metadata.hasFlag(
+        NativeMessageMetadata.flagDetailBoolBTrue,
+      ),
       receiveProgress: message.metadata.hasFlag(
         NativeMessageMetadata.flagDetailBoolATrue,
       ),
+      timeout:
+          message.metadata.hasFlag(
+            NativeMessageMetadata.flagDetailNumberBPresent,
+          )
+          ? message.metadata.detailNumberB
+          : null,
       pptScheme: message.metadata.stringB,
       pptSerializer: message.metadata.stringC,
       pptCipher: message.metadata.stringD,
@@ -1377,20 +1539,30 @@ class Session {
         e2eeProvider: message.e2eeProvider,
       ),
     );
-    _pendingInvocations[message.metadata.primaryId] =
-        _PendingInvocationResponder(
-          isClosed: () => responseClosed,
-          cancel: (mode) {
-            if (responseClosed) {
-              return;
-            }
-            respondWith(
-              isError: true,
-              errorUri: Error.errorInvocationCanceled,
-              arguments: mode == null ? null : [mode],
-            );
-          },
+    final responder = _PendingInvocationResponder(
+      isClosed: () => responseClosed,
+      cancel: (mode) {
+        if (responseClosed) {
+          return;
+        }
+        respondWith(
+          isError: true,
+          errorUri: Error.errorInvocationCanceled,
+          arguments: mode == null ? null : [mode],
         );
+      },
+      timeout: () {
+        if (responseClosed) {
+          return;
+        }
+        respondWith(
+          isError: true,
+          errorUri: Error.timeout,
+          arguments: const ['Call timed out'],
+        );
+      },
+    );
+    _trackInvocation(message.metadata.primaryId, responder, invocation.timeout);
     return invocation;
   }
 
@@ -1466,6 +1638,9 @@ class Session {
 
     final activeSubscriptions = subscriptions.values.toList(growable: false);
     final activeRegistrations = registrations.values.toList(growable: false);
+    for (final invocation in _pendingInvocations.values) {
+      invocation.dispose();
+    }
     _pendingInvocations.clear();
     subscriptions.clear();
     registrations.clear();
@@ -1512,6 +1687,22 @@ class Session {
     return true;
   }
 
+  void _trackInvocation(
+    int requestId,
+    _PendingInvocationResponder responder,
+    int? timeoutMilliseconds,
+  ) {
+    _pendingInvocations.remove(requestId)?.dispose();
+    _pendingInvocations[requestId] = responder;
+    responder.armTimeout(timeoutMilliseconds);
+  }
+
+  _PendingInvocationResponder? _takeInvocation(int requestId) {
+    final responder = _pendingInvocations.remove(requestId);
+    responder?.dispose();
+    return responder;
+  }
+
   Call _buildCallLazyPayload(
     String procedure, {
     required LazyMessagePayload payload,
@@ -1555,7 +1746,12 @@ class Session {
     message.attachE2eeProvider(runtimeE2eeProvider);
     message.transparentBinaryPayload = payload.transparentBinaryPayload;
     Uint8List? packedPayload;
-    if (options?.pptScheme != null) {
+    if (options?.pptScheme == 'wamp') {
+      if (payload.packedPayloadBytes != null &&
+          _matchesPayloadEncoding(payload.encoding, options!.pptSerializer)) {
+        packedPayload = payload.packedPayloadBytes;
+      }
+    } else if (options?.pptScheme != null) {
       packedPayload = _packMatchingLazyPayload(payload, options!.pptSerializer);
     }
     if (options?.pptScheme == 'wamp') {
@@ -1681,6 +1877,16 @@ class Session {
   }
 }
 
+class SessionE2eeNegotiationException implements Exception {
+  SessionE2eeNegotiationException(this.reason, {required this.negotiated});
+
+  final String reason;
+  final Map<String, dynamic> negotiated;
+
+  @override
+  String toString() => 'SessionE2eeNegotiationException: $reason';
+}
+
 class NegotiatedSessionE2ee {
   NegotiatedSessionE2ee(this.raw);
 
@@ -1725,6 +1931,61 @@ class NegotiatedSessionE2ee {
   String? get peerPublicKey => raw['peer_pubkey'] as String?;
 
   Object? operator [](String key) => raw[key];
+
+  void verifyRequiredProfile({required WampE2eeProvider? provider}) {
+    if (isRequired != true) {
+      return;
+    }
+    if (version != ConnectanumE2eeProfile.version) {
+      _reject(
+        'Required E2EE uses unsupported profile version ${version ?? 'null'}',
+      );
+    }
+    if (established != true) {
+      _reject('Required E2EE was not established by the router');
+    }
+    if (scheme != ConnectanumE2eeProfile.scheme ||
+        serializer != ConnectanumE2eeProfile.serializer) {
+      _reject(
+        'Required E2EE must select wamp/cbor, got '
+        '${scheme ?? 'null'}/${serializer ?? 'null'}',
+      );
+    }
+    if (cipher != ConnectanumE2eeProfile.xsalsa20Poly1305 &&
+        cipher != ConnectanumE2eeProfile.aes256Gcm) {
+      _reject('Required E2EE selected unsupported cipher ${cipher ?? 'null'}');
+    }
+    if (outboundKeyId == null || inboundKeyId == null) {
+      _reject('Required E2EE must select outbound and inbound key ids');
+    }
+    if (provider == null) {
+      _reject('Required E2EE has no configured or resolved payload provider');
+    }
+    if (provider is! WampE2eeProfileSupport) {
+      _reject('Required E2EE provider does not declare profile support');
+    }
+    final profileSupport = provider as WampE2eeProfileSupport;
+    if (!profileSupport.supportsE2eeProfile(
+      version: version!,
+      scheme: scheme!,
+      serializer: serializer!,
+      cipher: cipher!,
+    )) {
+      _reject(
+        'Required E2EE provider does not support the negotiated '
+        '$scheme/$serializer/$cipher profile',
+      );
+    }
+  }
+
+  Never _reject(String reason) {
+    throw SessionE2eeNegotiationException(
+      reason,
+      negotiated: Map<String, dynamic>.unmodifiable(
+        Map<String, dynamic>.from(raw),
+      ),
+    );
+  }
 }
 
 class _NegotiatedSessionE2eeProvider implements WampE2eeProvider {
@@ -1911,10 +2172,40 @@ class _PendingCallLazyPayloadFuture implements _PendingCall {
 }
 
 class _PendingInvocationResponder {
-  _PendingInvocationResponder({required this.isClosed, required this.cancel});
+  _PendingInvocationResponder({
+    required this.isClosed,
+    required this.cancel,
+    required this.timeout,
+  });
 
   final bool Function() isClosed;
   final void Function(String? mode) cancel;
+  final void Function() timeout;
+  Timer? _timeoutTimer;
+  int? _timeoutMilliseconds;
+
+  void armTimeout(int? timeoutMilliseconds) {
+    _timeoutTimer?.cancel();
+    _timeoutMilliseconds = timeoutMilliseconds;
+    if (timeoutMilliseconds == null || timeoutMilliseconds <= 0) {
+      _timeoutTimer = null;
+      return;
+    }
+    _timeoutTimer = Timer(Duration(milliseconds: timeoutMilliseconds), () {
+      if (!isClosed()) {
+        timeout();
+      }
+    });
+  }
+
+  void resetTimeout() {
+    armTimeout(_timeoutMilliseconds);
+  }
+
+  void dispose() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
+  }
 }
 
 class _PendingSubscribe {

@@ -18,6 +18,86 @@ import 'wamp_echo_handler.dart';
 
 typedef WampSessionFactory =
     Future<WampSession> Function(WampScenario scenario);
+typedef WampE2eeProviderFactory = wamp_core.WampE2eeProvider Function();
+
+WampE2eeProviderFactory? e2eeProviderFactoryForScenario(WampScenario scenario) {
+  if (scenario.pptScheme != wamp_core.ConnectanumE2eeProfile.scheme) {
+    return null;
+  }
+  final keyId = scenario.pptKeyId;
+  final cipher = scenario.pptCipher;
+  if (keyId == null || keyId.isEmpty || cipher == null || cipher.isEmpty) {
+    throw StateError(
+      'WAMP E2EE benchmark scenarios require ppt_cipher and ppt_keyid',
+    );
+  }
+  const key = <int>[
+    0x63,
+    0x6f,
+    0x6e,
+    0x6e,
+    0x65,
+    0x63,
+    0x74,
+    0x61,
+    0x6e,
+    0x75,
+    0x6d,
+    0x2d,
+    0x65,
+    0x32,
+    0x65,
+    0x65,
+    0x2d,
+    0x62,
+    0x65,
+    0x6e,
+    0x63,
+    0x68,
+    0x2d,
+    0x6b,
+    0x65,
+    0x79,
+    0x2d,
+    0x76,
+    0x30,
+    0x30,
+    0x30,
+    0x31,
+  ];
+  return switch ((scenario.clientImplementation, cipher)) {
+    (
+      WampClientImplementation.dart,
+      wamp_core.ConnectanumE2eeProfile.xsalsa20Poly1305,
+    ) =>
+      () => wamp_core.WampCborXsalsa20Poly1305Provider.single(
+        keyId: keyId,
+        key: key,
+      ),
+    (
+      WampClientImplementation.dart,
+      wamp_core.ConnectanumE2eeProfile.aes256Gcm,
+    ) =>
+      () => wamp_core.WampCborAes256GcmProvider.single(keyId: keyId, key: key),
+    (
+      WampClientImplementation.native,
+      wamp_core.ConnectanumE2eeProfile.xsalsa20Poly1305,
+    ) =>
+      () => wamp_client.NativeWampCborXsalsa20Poly1305Provider.single(
+        keyId: keyId,
+        key: key,
+      ),
+    (
+      WampClientImplementation.native,
+      wamp_core.ConnectanumE2eeProfile.aes256Gcm,
+    ) =>
+      () => wamp_client.NativeWampCborAes256GcmProvider.single(
+        keyId: keyId,
+        key: key,
+      ),
+    _ => throw StateError('Unsupported WAMP E2EE benchmark cipher $cipher'),
+  };
+}
 
 class WampWorkloadRunner {
   WampWorkloadRunner({
@@ -48,6 +128,12 @@ class WampWorkloadRunner {
         return _runPubSubScenario(scenario);
       case WampMode.rpc:
         return _runRpcScenario(scenario);
+      case WampMode.progressiveRpc:
+        return _runProgressiveRpcScenario(scenario);
+      case WampMode.timeoutRpc:
+        return _runTimeoutRpcScenario(scenario);
+      case WampMode.metaApi:
+        return _runMetaApiScenario(scenario);
       case WampMode.publishAck:
         return _runPublishAckScenario(scenario);
       case WampMode.subscribeCycle:
@@ -643,6 +729,431 @@ class WampWorkloadRunner {
     );
   }
 
+  Future<List<WampSample>> _runProgressiveRpcScenario(
+    WampScenario scenario,
+  ) async {
+    final payload = _buildPayloadString(scenario.payloadBytes);
+    final workers = List.generate(
+      scenario.concurrency,
+      (workerId) => _runProgressiveRpcWorker(workerId, scenario, payload),
+    );
+    final results = await Future.wait(workers);
+    return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runProgressiveRpcWorker(
+    int workerId,
+    WampScenario scenario,
+    String payload,
+  ) async {
+    WampSession? caller;
+    WampSession? callee;
+    WampRegistration? registration;
+    final procedure = _externalProcedureUri(scenario.uri, workerId);
+    final chunksByInvocation = <int, int>{};
+    try {
+      caller = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'progressive_rpc_caller',
+        logLabel: 'progressive RPC caller',
+      );
+      final peerScenario = _peerScenario(scenario);
+      callee = await _openSession(
+        peerScenario,
+        workerId: workerId,
+        timeoutLabel: 'progressive_rpc_callee',
+        logLabel: 'progressive RPC callee',
+      );
+      registration = await _registerLazyPayloadHandler(
+        callee,
+        procedure,
+        (invocation) {
+          final chunkCount =
+              (chunksByInvocation[invocation.requestId] ?? 0) + 1;
+          chunksByInvocation[invocation.requestId] = chunkCount;
+          if (invocation.progress) {
+            return;
+          }
+          if (chunkCount != 3) {
+            final pendingChunks = Map<int, int>.from(chunksByInvocation);
+            chunksByInvocation.remove(invocation.requestId);
+            invocation.respondWith(
+              isError: true,
+              errorUri: wamp_core.Error.invalidArgument,
+              arguments: [
+                'expected 3 progressive chunks, got $chunkCount for '
+                    'invocation ${invocation.requestId}; pending '
+                    '$pendingChunks',
+              ],
+            );
+            return;
+          }
+          chunksByInvocation.remove(invocation.requestId);
+          respondEchoLazyInvocation(invocation, logger: _logger);
+        },
+        scenario: peerScenario,
+        workerId: workerId,
+        timeoutLabel: 'progressive_rpc_register_timeout',
+        logLabel: 'progressive RPC registration',
+      );
+      return await _runWithInFlightLimit(
+        iterations: scenario.iterations,
+        maxInFlight: scenario.inFlightPerSession,
+        launch: (iteration) => _runProgressiveRpcIteration(
+          workerId,
+          iteration,
+          scenario,
+          procedure,
+          payload,
+          caller!,
+        ),
+      );
+    } finally {
+      if (registration != null) {
+        await _runCleanupOperation(
+          registration.cancel,
+          logLabel: 'progressive RPC registration',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (callee != null) {
+        await _runCleanupOperation(
+          callee.close,
+          logLabel: 'progressive RPC callee session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (caller != null) {
+        await _runCleanupOperation(
+          caller.close,
+          logLabel: 'progressive RPC caller session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<WampSample> _runProgressiveRpcIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+    String procedure,
+    String payload,
+    WampSession session,
+  ) async {
+    final start = DateTime.now();
+    final call = session.startProgressiveCall(
+      procedure,
+      arguments: [payload],
+      options: _buildCallOptions(scenario),
+    );
+    call.sendChunk(arguments: [payload]);
+    call.finish(arguments: [payload]);
+    try {
+      await call.results.single.timeout(
+        _eventTimeout,
+        onTimeout: () => throw TimeoutException('progressive_rpc_timeout'),
+      );
+    } on wamp_core.Error catch (error) {
+      throw StateError(
+        'progressive RPC failed with ${error.error} '
+        'arguments=${error.arguments} kwargs=${error.argumentsKeywords}',
+      );
+    }
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: scenario.payloadBytes * 3,
+      responseBytes: scenario.payloadBytes,
+    );
+  }
+
+  Future<List<WampSample>> _runTimeoutRpcScenario(WampScenario scenario) async {
+    final workers = List.generate(
+      scenario.concurrency,
+      (workerId) => _runTimeoutRpcWorker(workerId, scenario),
+    );
+    final results = await Future.wait(workers);
+    return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runTimeoutRpcWorker(
+    int workerId,
+    WampScenario scenario,
+  ) async {
+    WampSession? caller;
+    WampSession? callee;
+    WampRegistration? registration;
+    final procedure = _externalProcedureUri(scenario.uri, workerId);
+    try {
+      caller = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'timeout_rpc_caller',
+        logLabel: 'timeout RPC caller',
+      );
+      final peerScenario = _peerScenario(scenario);
+      callee = await _openSession(
+        peerScenario,
+        workerId: workerId,
+        timeoutLabel: 'timeout_rpc_callee',
+        logLabel: 'timeout RPC callee',
+      );
+      registration = await _registerLazyPayloadHandler(
+        callee,
+        procedure,
+        (_) {},
+        scenario: peerScenario,
+        workerId: workerId,
+        timeoutLabel: 'timeout_rpc_register_timeout',
+        logLabel: 'timeout RPC registration',
+      );
+      return await _runWithInFlightLimit(
+        iterations: scenario.iterations,
+        maxInFlight: scenario.inFlightPerSession,
+        launch: (iteration) => _runTimeoutRpcIteration(
+          workerId,
+          iteration,
+          scenario,
+          procedure,
+          caller!,
+        ),
+      );
+    } finally {
+      if (registration != null) {
+        await _runCleanupOperation(
+          registration.cancel,
+          logLabel: 'timeout RPC registration',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (callee != null) {
+        await _runCleanupOperation(
+          callee.close,
+          logLabel: 'timeout RPC callee session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (caller != null) {
+        await _runCleanupOperation(
+          caller.close,
+          logLabel: 'timeout RPC caller session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<WampSample> _runTimeoutRpcIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+    String procedure,
+    WampSession session,
+  ) async {
+    final timeoutMilliseconds = scenario.callTimeoutMs ?? 50;
+    final start = DateTime.now();
+    try {
+      await session
+          .callSinglePayload(
+            procedure,
+            options: _buildCallOptions(scenario, timeout: timeoutMilliseconds),
+          )
+          .timeout(_eventTimeout);
+      throw StateError('timeout RPC completed without wamp.error.timeout');
+    } on wamp_core.Error catch (error) {
+      if (error.error != wamp_core.Error.timeout) {
+        rethrow;
+      }
+    }
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    final earliestAcceptedTimeoutMs = timeoutMilliseconds * 0.8;
+    if (latencyMs < earliestAcceptedTimeoutMs) {
+      throw StateError(
+        'timeout RPC fired too early: ${latencyMs.toStringAsFixed(3)}ms '
+        'for a ${timeoutMilliseconds}ms timeout',
+      );
+    }
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: 0,
+      responseBytes: 0,
+    );
+  }
+
+  Future<List<WampSample>> _runMetaApiScenario(WampScenario scenario) async {
+    final workers = List.generate(
+      scenario.concurrency,
+      (workerId) => _runMetaApiWorker(workerId, scenario),
+    );
+    final results = await Future.wait(workers);
+    return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runMetaApiWorker(
+    int workerId,
+    WampScenario scenario,
+  ) async {
+    WampSession? session;
+    WampRegistration? registration;
+    WampSubscription? subscription;
+    final procedure = _externalProcedureUri(
+      '${scenario.uri}.procedure',
+      workerId,
+    );
+    final topic = _externalProcedureUri('${scenario.uri}.topic', workerId);
+    try {
+      session = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'meta_api_session',
+        logLabel: 'Meta API',
+      );
+      registration = await _registerLazyPayloadHandler(
+        session,
+        procedure,
+        respondEchoLazyInvocation,
+        scenario: scenario,
+        workerId: workerId,
+        timeoutLabel: 'meta_api_register_timeout',
+        logLabel: 'Meta API registration',
+      );
+      subscription = await _subscribeLazyPayload(
+        session,
+        topic,
+        scenario: scenario,
+        workerId: workerId,
+        timeoutLabel: 'meta_api_subscribe_timeout',
+        logLabel: 'Meta API subscription',
+      );
+      final sessionId = session.id;
+      final registrationId = registration.id;
+      final subscriptionId = subscription.id;
+      if (sessionId == null ||
+          registrationId == null ||
+          subscriptionId == null) {
+        throw StateError('Meta API workload requires live entity identifiers');
+      }
+      return await _runWithInFlightLimit(
+        iterations: scenario.iterations,
+        maxInFlight: scenario.inFlightPerSession,
+        launch: (iteration) => _runMetaApiIteration(
+          workerId,
+          iteration,
+          scenario,
+          procedure,
+          topic,
+          sessionId,
+          registrationId,
+          subscriptionId,
+          session!,
+        ),
+      );
+    } finally {
+      if (subscription != null) {
+        await _runCleanupOperation(
+          subscription.cancel,
+          logLabel: 'Meta API subscription',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: topic,
+          ),
+        );
+      }
+      if (registration != null) {
+        await _runCleanupOperation(
+          registration.cancel,
+          logLabel: 'Meta API registration',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (session != null) {
+        await _runCleanupOperation(
+          session.close,
+          logLabel: 'Meta API session',
+          details: _operationDetails(scenario, workerId: workerId),
+        );
+      }
+    }
+  }
+
+  Future<WampSample> _runMetaApiIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+    String procedure,
+    String topic,
+    int sessionId,
+    int registrationId,
+    int subscriptionId,
+    WampSession session,
+  ) async {
+    Future<void> call(String uri, [List<dynamic>? arguments]) async {
+      await session
+          .callSinglePayload(uri, arguments: arguments)
+          .timeout(_eventTimeout);
+    }
+
+    final start = DateTime.now();
+    await call('wamp.session.list');
+    await call('wamp.session.count');
+    await call('wamp.session.get', [sessionId]);
+    await call('wamp.registration.list');
+    await call('wamp.registration.lookup', [procedure]);
+    await call('wamp.registration.match', [procedure]);
+    await call('wamp.registration.get', [registrationId]);
+    await call('wamp.registration.list_callees', [registrationId]);
+    await call('wamp.registration.count_callees', [registrationId]);
+    await call('wamp.subscription.list');
+    await call('wamp.subscription.lookup', [topic]);
+    await call('wamp.subscription.match', [topic]);
+    await call('wamp.subscription.get', [subscriptionId]);
+    await call('wamp.subscription.list_subscribers', [subscriptionId]);
+    await call('wamp.subscription.count_subscribers', [subscriptionId]);
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: 0,
+      responseBytes: 0,
+    );
+  }
+
   Future<List<WampSample>> _runPublishAckScenario(WampScenario scenario) async {
     final payload = _buildPayloadString(scenario.payloadBytes);
     final workers = List.generate(
@@ -1051,6 +1562,8 @@ class WampWorkloadRunner {
       acknowledge: true,
       pptScheme: scenario.pptScheme,
       pptSerializer: _resolvePptSerializer(scenario),
+      pptCipher: scenario.pptCipher,
+      pptKeyId: scenario.pptKeyId,
     );
   }
 
@@ -1061,6 +1574,8 @@ class WampWorkloadRunner {
       discloseMe: true,
       pptScheme: scenario.pptScheme,
       pptSerializer: _resolvePptSerializer(scenario),
+      pptCipher: scenario.pptCipher,
+      pptKeyId: scenario.pptKeyId,
     );
     _applyControlCustomFields(options, scenario);
     return options;
@@ -1101,19 +1616,28 @@ class WampWorkloadRunner {
     options.setCustomField('_serializer', scenario.serializer.name);
   }
 
-  wamp_core.CallOptions? _buildCallOptions(WampScenario scenario) {
-    if (scenario.pptScheme == null) {
+  wamp_core.CallOptions? _buildCallOptions(
+    WampScenario scenario, {
+    int? timeout,
+  }) {
+    if (scenario.pptScheme == null && timeout == null) {
       return null;
     }
     return wamp_core.CallOptions(
+      timeout: timeout,
       pptScheme: scenario.pptScheme,
       pptSerializer: _resolvePptSerializer(scenario),
+      pptCipher: scenario.pptCipher,
+      pptKeyId: scenario.pptKeyId,
     );
   }
 
   String? _resolvePptSerializer(WampScenario scenario) {
     if (scenario.pptScheme == null) {
       return null;
+    }
+    if (scenario.pptScheme == wamp_core.ConnectanumE2eeProfile.scheme) {
+      return wamp_core.ConnectanumE2eeProfile.serializer;
     }
     return scenario.pptSerializer ?? scenario.serializer.name;
   }
@@ -1175,6 +1699,7 @@ class WampWorkloadRunner {
 
 class WampSubscription {
   WampSubscription({
+    this.id,
     Stream<wamp_core.LazyEventPayload> Function()? eventStreamFactory,
     void Function(void Function(wamp_core.LazyEventPayload event) onEvent)?
     attachEventHandler,
@@ -1185,6 +1710,7 @@ class WampSubscription {
        _onRevoke = onRevoke,
        _onCancel = cancel;
 
+  final int? id;
   final Stream<wamp_core.LazyEventPayload> Function()? _eventStreamFactory;
   final void Function(void Function(wamp_core.LazyEventPayload event) onEvent)?
   _attachEventHandler;
@@ -1294,6 +1820,8 @@ class _PendingWampEvent {
 }
 
 abstract class WampSession {
+  int? get id;
+
   Future<dynamic> get onDisconnect;
 
   Future<WampRegistration> registerLazyPayloadHandler(
@@ -1365,6 +1893,13 @@ abstract class WampSession {
     wamp_core.CallOptions? options,
   });
 
+  WampProgressiveCall startProgressiveCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  });
+
   Future<void> cancelingCall(
     String procedure, {
     List<dynamic>? arguments,
@@ -1376,10 +1911,29 @@ abstract class WampSession {
   Future<void> close();
 }
 
+class WampProgressiveCall {
+  WampProgressiveCall({
+    required this.results,
+    required void Function({List<dynamic>? arguments}) sendChunk,
+    required void Function({List<dynamic>? arguments}) finish,
+  }) : _sendChunk = sendChunk,
+       _finish = finish;
+
+  final Stream<wamp_core.Result> results;
+  final void Function({List<dynamic>? arguments}) _sendChunk;
+  final void Function({List<dynamic>? arguments}) _finish;
+
+  void sendChunk({List<dynamic>? arguments}) =>
+      _sendChunk(arguments: arguments);
+
+  void finish({List<dynamic>? arguments}) => _finish(arguments: arguments);
+}
+
 class WampRegistration {
-  WampRegistration({required Future<void> Function() cancel})
+  WampRegistration({this.id, required Future<void> Function() cancel})
     : _cancel = cancel;
 
+  final int? id;
   final Future<void> Function() _cancel;
 
   Future<void> cancel() => _cancel();
@@ -1397,6 +1951,7 @@ class RawSocketWampSessionFactory {
     this.ssl = false,
     this.allowInsecureCertificates = false,
     this.nativeLibraryPath,
+    this.e2eeProviderFactory,
   });
 
   final String host;
@@ -1409,20 +1964,28 @@ class RawSocketWampSessionFactory {
   final bool ssl;
   final bool allowInsecureCertificates;
   final String? nativeLibraryPath;
+  final WampE2eeProviderFactory? e2eeProviderFactory;
 
   Future<WampSession> call() async {
     final transport = switch (clientImplementation) {
       WampClientImplementation.dart => _buildDartTransport(),
       WampClientImplementation.native => _buildNativeTransport(),
     };
+    final e2eeProvider = e2eeProviderFactory?.call();
     final client = wamp_client.Client(
       realm: realmUri,
       transport: transport,
       authId: authId,
       authenticationMethods: authenticationMethods,
+      e2eeProvider: e2eeProvider,
     );
-    final session = await client.connect().first;
-    return _ClientBackedWampSession(client, session);
+    try {
+      final session = await client.connect().first;
+      return _ClientBackedWampSession(client, session, e2eeProvider);
+    } catch (_) {
+      _releaseE2eeProvider(e2eeProvider);
+      rethrow;
+    }
   }
 
   wamp_client.AbstractTransport _buildDartTransport() {
@@ -1481,6 +2044,7 @@ class WebSocketWampSessionFactory {
     this.allowInsecureCertificates = false,
     this.websocketFragmentSize,
     this.nativeLibraryPath,
+    this.e2eeProviderFactory,
   });
 
   final String url;
@@ -1493,20 +2057,28 @@ class WebSocketWampSessionFactory {
   final bool allowInsecureCertificates;
   final int? websocketFragmentSize;
   final String? nativeLibraryPath;
+  final WampE2eeProviderFactory? e2eeProviderFactory;
 
   Future<WampSession> call() async {
     final transport = switch (clientImplementation) {
       WampClientImplementation.dart => _buildDartTransport(),
       WampClientImplementation.native => _buildNativeTransport(),
     };
+    final e2eeProvider = e2eeProviderFactory?.call();
     final client = wamp_client.Client(
       realm: realmUri,
       transport: transport,
       authId: authId,
       authenticationMethods: authenticationMethods,
+      e2eeProvider: e2eeProvider,
     );
-    final session = await client.connect().first;
-    return _ClientBackedWampSession(client, session);
+    try {
+      final session = await client.connect().first;
+      return _ClientBackedWampSession(client, session, e2eeProvider);
+    } catch (_) {
+      _releaseE2eeProvider(e2eeProvider);
+      rethrow;
+    }
   }
 
   wamp_client.AbstractTransport _buildDartTransport() {
@@ -1618,11 +2190,26 @@ List<wamp_auth.AbstractAuthentication>? authenticationMethodsForScenario(
   }
 }
 
+void _releaseE2eeProvider(wamp_core.WampE2eeProvider? provider) {
+  if (provider is wamp_core.DisposableWampE2eeProvider) {
+    provider.release();
+  }
+}
+
 class _ClientBackedWampSession implements WampSession {
-  _ClientBackedWampSession(this._client, this._session);
+  _ClientBackedWampSession(
+    this._client,
+    this._session,
+    this._ownedE2eeProvider,
+  );
 
   final wamp_client.Client _client;
   final wamp_client.Session _session;
+  final wamp_core.WampE2eeProvider? _ownedE2eeProvider;
+  bool _closed = false;
+
+  @override
+  int? get id => _session.id;
 
   @override
   Future<dynamic> get onDisconnect => _session.onDisconnect;
@@ -1662,6 +2249,7 @@ class _ClientBackedWampSession implements WampSession {
   }) async {
     final subscribed = await _session.subscribe(topic, options: options);
     return WampSubscription(
+      id: subscribed.subscriptionId,
       eventStreamFactory: () =>
           (subscribed.eventStream ?? const Stream<wamp_core.Event>.empty()).map(
             (event) => event.toLazyEventPayload(anchor: event),
@@ -1687,6 +2275,7 @@ class _ClientBackedWampSession implements WampSession {
       options: options,
     );
     return WampSubscription(
+      id: subscribed.subscriptionId,
       attachEventHandler: subscribed.onLazyEventPayload,
       onRevoke: () => subscribed.onRevoke.then((_) {}),
       cancel: () => _session.unsubscribe(subscribed.subscriptionId),
@@ -1704,6 +2293,7 @@ class _ClientBackedWampSession implements WampSession {
       options: options,
     );
     return WampSubscription(
+      id: subscribed.subscriptionId,
       attachEventHandler: subscribed.onLazyEventPayload,
       onRevoke: () => subscribed.onRevoke.then((_) {}),
       cancel: () => _session.unsubscribe(subscribed.subscriptionId),
@@ -1723,6 +2313,7 @@ class _ClientBackedWampSession implements WampSession {
       options: options,
     );
     return WampRegistration(
+      id: registered.registrationId,
       cancel: () => _session.unregister(registered.registrationId),
     );
   }
@@ -1802,6 +2393,26 @@ class _ClientBackedWampSession implements WampSession {
   }
 
   @override
+  WampProgressiveCall startProgressiveCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    final call = _session.startProgressiveCall(
+      procedure,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
+      options: options,
+    );
+    return WampProgressiveCall(
+      results: call.results,
+      sendChunk: ({arguments}) => call.sendChunk(arguments: arguments),
+      finish: ({arguments}) => call.finish(arguments: arguments),
+    );
+  }
+
+  @override
   Future<void> cancelingCall(
     String procedure, {
     List<dynamic>? arguments,
@@ -1850,7 +2461,15 @@ class _ClientBackedWampSession implements WampSession {
 
   @override
   Future<void> close() async {
-    await _client.disconnect();
+    if (_closed) {
+      return;
+    }
+    _closed = true;
+    try {
+      await _client.disconnect();
+    } finally {
+      _releaseE2eeProvider(_ownedE2eeProvider);
+    }
   }
 }
 
@@ -1873,9 +2492,12 @@ class WampScenario {
     this.peerCount = 1,
     required this.payloadBytes,
     this.websocketFragmentSize,
+    this.callTimeoutMs,
     this.controlCustomFields = false,
     this.pptScheme,
     this.pptSerializer,
+    this.pptCipher,
+    this.pptKeyId,
   });
 
   final String realmUri;
@@ -1895,9 +2517,12 @@ class WampScenario {
   final int peerCount;
   final int payloadBytes;
   final int? websocketFragmentSize;
+  final int? callTimeoutMs;
   final bool controlCustomFields;
   final String? pptScheme;
   final String? pptSerializer;
+  final String? pptCipher;
+  final String? pptKeyId;
 
   factory WampScenario.fromJson(Map<String, Object?> json) {
     final rawMode = json['mode'];
@@ -1919,6 +2544,25 @@ class WampScenario {
     );
     final peerCount = _readPositiveInt(json['peer_count'], fallback: 1);
     final payloadBytes = _readPositiveInt(json['payload_bytes'], fallback: 0);
+    final pptScheme = _readOptionalString(json['ppt_scheme']);
+    final pptSerializer = _readOptionalString(json['ppt_serializer']);
+    final pptCipher = _readOptionalString(json['ppt_cipher']);
+    final pptKeyId = _readOptionalString(json['ppt_keyid']);
+    if (pptScheme == wamp_core.ConnectanumE2eeProfile.scheme) {
+      if (pptSerializer != null &&
+          pptSerializer != wamp_core.ConnectanumE2eeProfile.serializer) {
+        throw FormatException('WAMP E2EE benchmark serializer must be cbor');
+      }
+      if (pptCipher != wamp_core.ConnectanumE2eeProfile.xsalsa20Poly1305 &&
+          pptCipher != wamp_core.ConnectanumE2eeProfile.aes256Gcm) {
+        throw FormatException(
+          'WAMP E2EE benchmark cipher must be xsalsa20poly1305 or aes256gcm',
+        );
+      }
+      if (pptKeyId == null) {
+        throw FormatException('WAMP E2EE benchmark requires ppt_keyid');
+      }
+    }
     return WampScenario(
       realmUri: rawRealm is String && rawRealm.trim().isNotEmpty
           ? rawRealm
@@ -1947,9 +2591,12 @@ class WampScenario {
       websocketFragmentSize: _readOptionalPositiveInt(
         json['websocket_fragment_size'],
       ),
+      callTimeoutMs: _readOptionalPositiveInt(json['call_timeout_ms']),
       controlCustomFields: json['control_custom_fields'] == true,
-      pptScheme: json['ppt_scheme'] as String?,
-      pptSerializer: json['ppt_serializer'] as String?,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+      pptCipher: pptCipher,
+      pptKeyId: pptKeyId,
     );
   }
 
@@ -1974,6 +2621,16 @@ class WampScenario {
     return parsed > 0 ? parsed : null;
   }
 
+  static String? _readOptionalString(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('Expected non-empty string, got $value');
+    }
+    return value;
+  }
+
   Map<String, Object?> toJson() => {
     'realm': realmUri,
     'auth_method': authMethod,
@@ -1993,9 +2650,12 @@ class WampScenario {
     'payload_bytes': payloadBytes,
     if (websocketFragmentSize != null)
       'websocket_fragment_size': websocketFragmentSize,
+    if (callTimeoutMs != null) 'call_timeout_ms': callTimeoutMs,
     if (controlCustomFields) 'control_custom_fields': true,
     if (pptScheme != null) 'ppt_scheme': pptScheme,
     if (pptSerializer != null) 'ppt_serializer': pptSerializer,
+    if (pptCipher != null) 'ppt_cipher': pptCipher,
+    if (pptKeyId != null) 'ppt_keyid': pptKeyId,
   };
 
   WampScenario copyWith({
@@ -2016,9 +2676,12 @@ class WampScenario {
     int? peerCount,
     int? payloadBytes,
     Object? websocketFragmentSize = _copySentinel,
+    Object? callTimeoutMs = _copySentinel,
     bool? controlCustomFields,
     Object? pptScheme = _copySentinel,
     Object? pptSerializer = _copySentinel,
+    Object? pptCipher = _copySentinel,
+    Object? pptKeyId = _copySentinel,
   }) {
     return WampScenario(
       realmUri: realmUri ?? this.realmUri,
@@ -2046,6 +2709,9 @@ class WampScenario {
       websocketFragmentSize: identical(websocketFragmentSize, _copySentinel)
           ? this.websocketFragmentSize
           : websocketFragmentSize as int?,
+      callTimeoutMs: identical(callTimeoutMs, _copySentinel)
+          ? this.callTimeoutMs
+          : callTimeoutMs as int?,
       controlCustomFields: controlCustomFields ?? this.controlCustomFields,
       pptScheme: identical(pptScheme, _copySentinel)
           ? this.pptScheme
@@ -2053,6 +2719,12 @@ class WampScenario {
       pptSerializer: identical(pptSerializer, _copySentinel)
           ? this.pptSerializer
           : pptSerializer as String?,
+      pptCipher: identical(pptCipher, _copySentinel)
+          ? this.pptCipher
+          : pptCipher as String?,
+      pptKeyId: identical(pptKeyId, _copySentinel)
+          ? this.pptKeyId
+          : pptKeyId as String?,
     );
   }
 }
@@ -2145,6 +2817,9 @@ enum WampMode {
   authenticate,
   pubsub,
   rpc,
+  progressiveRpc,
+  timeoutRpc,
+  metaApi,
   publishAck,
   subscribeCycle,
   registerCycle,
@@ -2154,6 +2829,9 @@ enum WampMode {
     WampMode.authenticate => 'authenticate',
     WampMode.pubsub => 'pubsub',
     WampMode.rpc => 'rpc',
+    WampMode.progressiveRpc => 'progressive_rpc',
+    WampMode.timeoutRpc => 'timeout_rpc',
+    WampMode.metaApi => 'meta_api',
     WampMode.publishAck => 'publish_ack',
     WampMode.subscribeCycle => 'subscribe_cycle',
     WampMode.registerCycle => 'register_cycle',
@@ -2172,6 +2850,18 @@ enum WampMode {
       case 'rpc':
       case 'wamp_rpc':
         return WampMode.rpc;
+      case 'progressive_rpc':
+      case 'progressiverpc':
+      case 'wamp_progressive_rpc':
+        return WampMode.progressiveRpc;
+      case 'timeout_rpc':
+      case 'timeoutrpc':
+      case 'wamp_timeout_rpc':
+        return WampMode.timeoutRpc;
+      case 'meta_api':
+      case 'metaapi':
+      case 'wamp_meta_api':
+        return WampMode.metaApi;
       case 'publish_ack':
       case 'publishack':
       case 'wamp_publish_ack':

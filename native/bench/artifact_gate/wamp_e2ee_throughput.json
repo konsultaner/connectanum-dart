@@ -1,0 +1,196 @@
+{
+  "metrics": [
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 1.3,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_rpc_aes_dart_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 3500.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_rpc_aes_dart_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 8.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_rpc_aes_native_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 700.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_rpc_aes_native_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 1.2,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_pubsub_aes_dart_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 4200.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_pubsub_aes_dart_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 3.3,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_pubsub_aes_native_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 1300.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_pubsub_aes_native_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 1.3,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_rpc_aes_dart_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 3500.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_rpc_aes_dart_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 7.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_rpc_aes_native_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 700.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_rpc_aes_native_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 1.2,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_pubsub_aes_dart_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 4200.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_pubsub_aes_dart_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 3.3,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_pubsub_aes_native_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 1300.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_pubsub_aes_native_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 1.3,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_rpc_xsalsa_dart_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 3500.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_rpc_xsalsa_dart_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 8.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_rpc_xsalsa_native_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 700.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_rpc_xsalsa_native_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 1.2,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_pubsub_xsalsa_dart_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 4200.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_pubsub_xsalsa_dart_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 3.3,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_pubsub_xsalsa_native_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 1300.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "rawsocket_pubsub_xsalsa_native_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 1.3,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_rpc_xsalsa_dart_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 3500.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_rpc_xsalsa_dart_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 7.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_rpc_xsalsa_native_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 700.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_rpc_xsalsa_native_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 1.2,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_pubsub_xsalsa_dart_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 4200.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_pubsub_xsalsa_dart_64k"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 3.3,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_pubsub_xsalsa_native_64k"
+    },
+    {
+      "kind": "latency_p95_ms_max",
+      "threshold": 1300.0,
+      "scenario": "wamp_e2ee_throughput",
+      "workload": "websocket_pubsub_xsalsa_native_64k"
+    }
+  ]
+}

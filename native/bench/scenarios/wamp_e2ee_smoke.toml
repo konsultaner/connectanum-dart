@@ -1,0 +1,62 @@
+name = "wamp_e2ee_smoke"
+description = "Payload E2EE smoke coverage across supported ciphers, client implementations, WAMP transports, messaging patterns, and mixed outer serializers."
+
+[[workloads]]
+name = "rawsocket_rpc_aes_dart_json_to_msgpack"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "json"
+peer_serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 8
+concurrency = 2
+request_bytes = 1024
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "rawsocket_pubsub_xsalsa_native_msgpack_to_json"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+peer_serializer = "json"
+path = "bench.wamp.topic"
+iterations = 8
+concurrency = 2
+request_bytes = 1024
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_rpc_xsalsa_dart_json_to_cbor"
+protocol = "wamp_websocket_rpc"
+client_impl = "dart"
+serializer = "json"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 8
+concurrency = 2
+request_bytes = 1024
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_pubsub_aes_native_cbor_to_json"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+peer_serializer = "json"
+path = "bench.wamp.topic"
+iterations = 8
+concurrency = 2
+request_bytes = 1024
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"

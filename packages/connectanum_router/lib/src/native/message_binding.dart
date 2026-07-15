@@ -7,7 +7,8 @@ import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
 import 'runtime.dart';
 
-const String _jsonBinaryPrefix = '\\u0000';
+const String _jsonBinaryPrefix = '\u0000';
+const String _jsonEscapedBinaryPrefix = '\\u0000';
 
 AbstractMessage bindMessage(
   NativeMessageSerializer serializer,
@@ -235,6 +236,7 @@ AbstractMessage? bindMessageFromMetadata(
         serializer,
         detailsBytes,
         const {
+          'progress',
           'receive_progress',
           'timeout',
           'disclose_me',
@@ -279,7 +281,7 @@ AbstractMessage? bindMessageFromMetadata(
         options,
         serializer,
         detailsBytes,
-        const {'disclose_caller', 'match', 'invoke'},
+        const {'disclose_caller', 'match', 'invoke', 'forward_timeout'},
       );
     }
     message = stringA == null
@@ -685,10 +687,13 @@ Object? _decodeCborBytes(Uint8List bytes) {
 }
 
 Object? _normalizeJsonBinaryPayload(Object? value) {
-  if (value is String && value.startsWith(_jsonBinaryPrefix)) {
-    return Uint8List.fromList(
-      base64.decode(value.substring(_jsonBinaryPrefix.length)),
-    );
+  if (value is String &&
+      (value.startsWith(_jsonBinaryPrefix) ||
+          value.startsWith(_jsonEscapedBinaryPrefix))) {
+    final prefix = value.startsWith(_jsonBinaryPrefix)
+        ? _jsonBinaryPrefix
+        : _jsonEscapedBinaryPrefix;
+    return Uint8List.fromList(base64.decode(value.substring(prefix.length)));
   }
   if (value is List) {
     return value
@@ -770,7 +775,9 @@ BrokerFeatures? _mapBrokerFeatures(Map<String, dynamic>? map) {
   features.publisherIdentification =
       map['publisher_identification'] ?? features.publisherIdentification;
   features.publicationTrustLevels =
-      map['publication_trust_levels'] ?? features.publicationTrustLevels;
+      map['publication_trustlevels'] ??
+      map['publication_trust_levels'] ??
+      features.publicationTrustLevels;
   features.patternBasedSubscription =
       map['pattern_based_subscription'] ?? features.patternBasedSubscription;
   features.subscriptionMetaApi =
@@ -790,10 +797,12 @@ BrokerFeatures? _mapBrokerFeatures(Map<String, dynamic>? map) {
 SubscriberFeatures? _mapSubscriberFeatures(Map<String, dynamic>? map) {
   if (map == null) return null;
   final features = SubscriberFeatures();
-  features.callTimeout = map['call_timeout'] ?? features.callTimeout;
-  features.callCanceling = map['call_canceling'] ?? features.callCanceling;
-  features.progressiveCallResults =
-      map['progressive_call_results'] ?? features.progressiveCallResults;
+  features.publisherIdentification =
+      map['publisher_identification'] ?? features.publisherIdentification;
+  features.publicationTrustLevels =
+      map['publication_trustlevels'] ?? features.publicationTrustLevels;
+  features.patternBasedSubscription =
+      map['pattern_based_subscription'] ?? features.patternBasedSubscription;
   features.subscriptionRevocation =
       map['subscription_revocation'] ?? features.subscriptionRevocation;
   features.payloadPassThruMode =
@@ -962,6 +971,7 @@ SubscribeOptions? _mapSubscribeOptionsFromMetadata(
 CallOptions? _mapCallOptions(Map<String, dynamic>? map) {
   if (map == null) return null;
   final options = CallOptions(
+    progress: map['progress'] as bool?,
     receiveProgress: map['receive_progress'] as bool?,
     timeout: _asInt(map['timeout']),
     discloseMe: map['disclose_me'] as bool?,
@@ -972,6 +982,7 @@ CallOptions? _mapCallOptions(Map<String, dynamic>? map) {
   );
   options.custom.addAll(
     _extractCustomFields(map, const {
+      'progress',
       'receive_progress',
       'timeout',
       'disclose_me',
@@ -994,10 +1005,12 @@ CallOptions? _mapCallOptionsFromMetadata(
 ) {
   final receiveProgress = (flags & _detailBoolATrueFlag) != 0 ? true : null;
   final discloseMe = (flags & _detailBoolBTrueFlag) != 0 ? true : null;
+  final progress = (flags & _detailBoolCTrueFlag) != 0 ? true : null;
   final resolvedTimeout = (flags & _detailNumberAPresentFlag) != 0
       ? timeout
       : null;
-  if (receiveProgress == null &&
+  if (progress == null &&
+      receiveProgress == null &&
       resolvedTimeout == null &&
       discloseMe == null &&
       pptScheme == null &&
@@ -1007,6 +1020,7 @@ CallOptions? _mapCallOptionsFromMetadata(
     return null;
   }
   return CallOptions(
+    progress: progress,
     receiveProgress: receiveProgress,
     timeout: resolvedTimeout,
     discloseMe: discloseMe,
@@ -1048,9 +1062,15 @@ RegisterOptions? _mapRegisterOptions(Map<String, dynamic>? map) {
     discloseCaller: map['disclose_caller'] as bool?,
     match: map['match'] as String?,
     invoke: map['invoke'] as String?,
+    forwardTimeout: map['forward_timeout'] as bool?,
   );
   options.custom.addAll(
-    _extractCustomFields(map, const {'disclose_caller', 'match', 'invoke'}),
+    _extractCustomFields(map, const {
+      'disclose_caller',
+      'match',
+      'invoke',
+      'forward_timeout',
+    }),
   );
   return options;
 }
@@ -1061,13 +1081,18 @@ RegisterOptions? _mapRegisterOptionsFromMetadata(
   String? invoke,
 ) {
   final discloseCaller = (flags & _detailBoolATrueFlag) != 0 ? true : null;
-  if (discloseCaller == null && match == null && invoke == null) {
+  final forwardTimeout = (flags & _detailBoolBTrueFlag) != 0 ? true : null;
+  if (discloseCaller == null &&
+      forwardTimeout == null &&
+      match == null &&
+      invoke == null) {
     return null;
   }
   return RegisterOptions(
     discloseCaller: discloseCaller,
     match: match,
     invoke: invoke,
+    forwardTimeout: forwardTimeout,
   );
 }
 

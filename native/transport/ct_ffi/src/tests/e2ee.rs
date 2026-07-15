@@ -2,8 +2,9 @@ use std::ptr;
 
 use crate::runtime::{
     ct_byte_buffer_free, ct_e2ee_keyring_add_key, ct_e2ee_keyring_new, ct_e2ee_keyring_release,
-    ct_e2ee_session_decrypt, ct_e2ee_session_encrypt, ct_e2ee_session_new, ct_e2ee_session_release,
-    CtByteBuffer, ERR_DECRYPT_FAILED, ERR_KEY_NOT_FOUND, SUCCESS,
+    ct_e2ee_session_decrypt, ct_e2ee_session_decrypt_aes256gcm, ct_e2ee_session_encrypt,
+    ct_e2ee_session_encrypt_aes256gcm, ct_e2ee_session_new, ct_e2ee_session_release, CtByteBuffer,
+    ERR_DECRYPT_FAILED, ERR_KEY_NOT_FOUND, SUCCESS,
 };
 
 use super::test_guard;
@@ -60,6 +61,71 @@ fn native_e2ee_round_trips_with_session_default_key() {
     assert_eq!(decrypt_result, SUCCESS);
     let decrypted_bytes = unsafe { std::slice::from_raw_parts(decrypted.ptr, decrypted.len) };
     assert_eq!(decrypted_bytes, plaintext);
+
+    ct_byte_buffer_free(encrypted.ptr, encrypted.len);
+    ct_byte_buffer_free(decrypted.ptr, decrypted.len);
+    assert_eq!(ct_e2ee_session_release(session), SUCCESS);
+    assert_eq!(ct_e2ee_keyring_release(keyring), SUCCESS);
+}
+
+#[test]
+fn native_e2ee_aes256gcm_round_trips_and_authenticates() {
+    let _guard = test_guard();
+    let keyring = ct_e2ee_keyring_new();
+    assert!(keyring > 0);
+    add_key(keyring, "kid-1", &(1u8..=32u8).collect::<Vec<_>>(), true);
+    let session = ct_e2ee_session_new(keyring, ptr::null(), 0);
+    assert!(session > 0);
+
+    let plaintext = b"native-e2ee-aes256gcm-round-trip";
+    let mut encrypted = CtByteBuffer {
+        ptr: ptr::null_mut(),
+        len: 0,
+    };
+    assert_eq!(
+        ct_e2ee_session_encrypt_aes256gcm(
+            session,
+            ptr::null(),
+            0,
+            plaintext.as_ptr(),
+            plaintext.len() as i32,
+            &mut encrypted,
+        ),
+        SUCCESS,
+    );
+    assert_eq!(encrypted.len, plaintext.len() + 12 + 16);
+
+    let mut decrypted = CtByteBuffer {
+        ptr: ptr::null_mut(),
+        len: 0,
+    };
+    assert_eq!(
+        ct_e2ee_session_decrypt_aes256gcm(
+            session,
+            ptr::null(),
+            0,
+            encrypted.ptr,
+            encrypted.len as i32,
+            &mut decrypted,
+        ),
+        SUCCESS,
+    );
+    let decrypted_bytes = unsafe { std::slice::from_raw_parts(decrypted.ptr, decrypted.len) };
+    assert_eq!(decrypted_bytes, plaintext);
+
+    let encrypted_bytes = unsafe { std::slice::from_raw_parts_mut(encrypted.ptr, encrypted.len) };
+    encrypted_bytes[encrypted.len - 1] ^= 1;
+    assert_eq!(
+        ct_e2ee_session_decrypt_aes256gcm(
+            session,
+            ptr::null(),
+            0,
+            encrypted.ptr,
+            encrypted.len as i32,
+            &mut decrypted,
+        ),
+        ERR_DECRYPT_FAILED,
+    );
 
     ct_byte_buffer_free(encrypted.ptr, encrypted.len);
     ct_byte_buffer_free(decrypted.ptr, decrypted.len);

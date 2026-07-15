@@ -112,6 +112,9 @@ void main() {
                 'realm': 'bench.realm',
                 'authid': 'bench-user',
                 'roles': {
+                  'broker': {
+                    'features': {'publication_trustlevels': true},
+                  },
                   'dealer': {
                     'features': {'call_timeout': true},
                   },
@@ -128,6 +131,10 @@ void main() {
       expect(welcome.sessionId, 42);
       expect(welcome.details.realm, 'bench.realm');
       expect(welcome.details.authid, 'bench-user');
+      expect(
+        welcome.details.roles?.broker?.features?.publicationTrustLevels,
+        isTrue,
+      );
       expect(welcome.details.roles?.dealer?.features?.callTimeout, isTrue);
       expect(welcome.details.custom['_custom_detail'], 'value');
     });
@@ -700,11 +707,14 @@ void main() {
           primaryId: 77,
           secondaryId: 12,
           detailNumberA: 5,
+          detailNumberB: 250,
           flags:
               NativeMessageMetadata.flagMetadataBind |
               NativeMessageMetadata.flagDirectBind |
               NativeMessageMetadata.flagDetailNumberAPresent |
-              NativeMessageMetadata.flagDetailBoolATrue,
+              NativeMessageMetadata.flagDetailNumberBPresent |
+              NativeMessageMetadata.flagDetailBoolATrue |
+              NativeMessageMetadata.flagDetailBoolBTrue,
           stringA: 'bench.rpc.echo',
           stringB: 'wamp',
           stringC: 'cbor',
@@ -725,7 +735,9 @@ void main() {
       expect(invocation.registrationId, 12);
       expect(invocation.details.caller, 5);
       expect(invocation.details.procedure, 'bench.rpc.echo');
+      expect(invocation.details.progress, isTrue);
       expect(invocation.details.receiveProgress, isTrue);
+      expect(invocation.details.timeout, 250);
       expect(invocation.details.pptScheme, 'wamp');
       expect(invocation.details.pptSerializer, 'cbor');
       expect(invocation.details.pptCipher, 'aes');
@@ -746,7 +758,9 @@ void main() {
               {
                 'caller': 5,
                 'procedure': 'bench.rpc.echo',
+                'progress': true,
                 'receive_progress': true,
+                'timeout': 250,
                 '_trace': 'ok',
               },
             ]),
@@ -766,7 +780,9 @@ void main() {
       expect(invocation.registrationId, 12);
       expect(invocation.details.caller, 5);
       expect(invocation.details.procedure, 'bench.rpc.echo');
+      expect(invocation.details.progress, isTrue);
       expect(invocation.details.receiveProgress, isTrue);
+      expect(invocation.details.timeout, 250);
       expect(invocation.details.custom['_trace'], 'ok');
       expect(invocation.arguments, ['payload']);
       expect(invocation.argumentsKeywords, {'flag': true});

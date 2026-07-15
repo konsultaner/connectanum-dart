@@ -1,6 +1,7 @@
 part of '../router_instance.dart';
 
-const String _jsonBinaryPrefix = '\\u0000';
+const String _jsonBinaryPrefix = '\u0000';
+const String _jsonEscapedBinaryPrefix = '\\u0000';
 
 class RouterSession {
   RouterSession._({
@@ -312,6 +313,7 @@ class RouterSession {
         message['pptCipher'] as String? ?? options['ppt_cipher'] as String?,
         message['pptKeyId'] as String? ?? options['ppt_keyid'] as String?,
       );
+      details.timeout = options['timeout'] as int?;
       final custom = _filteredInvocationOptionDetails(options);
       final callerAuthId = message['callerAuthId'] as String?;
       if (callerAuthId != null) {
@@ -774,6 +776,9 @@ class RouterSession {
     if (options.invoke != null) {
       map['invoke'] = options.invoke;
     }
+    if (options.forwardTimeout != null) {
+      map['forward_timeout'] = options.forwardTimeout;
+    }
     if (options.custom.isNotEmpty) {
       map.addAll(options.custom);
     }
@@ -1056,33 +1061,19 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   final argumentsKeywords =
       (raw[_transferredLazyPayloadArgumentsKeywordsKey] as Map?)
           ?.cast<String, dynamic>();
+  final decodedArgumentsForPpt =
+      arguments ??
+      (pptScheme != null && argumentsBytes != null && encoding != null
+          ? _payloadListDecoderForEncoding(encoding)(argumentsBytes)
+          : null);
   final retainedPackedPayloadBytes =
       packedPayloadBytes ??
       _extractTransferredWrappedPayloadBytes(
-        arguments,
+        decodedArgumentsForPpt,
         argumentsKeywords,
         pptScheme: pptScheme,
         pptSerializer: pptSerializer,
       );
-  if (argumentsBytes != null || argumentsKeywordsBytes != null) {
-    return LazyMessagePayload.encoded(
-      transparentBinaryPayload: transparentBinaryPayload,
-      encoding: encoding,
-      argumentsBytes: argumentsBytes,
-      argumentsKeywordsBytes: argumentsKeywordsBytes,
-      argumentsDecoder: argumentsBytes == null || encoding == null
-          ? null
-          : _payloadListDecoderForEncoding(encoding),
-      argumentsKeywordsDecoder:
-          argumentsKeywordsBytes == null || encoding == null
-          ? null
-          : _payloadMapDecoderForEncoding(encoding),
-      arguments: argumentsBytes == null ? arguments : null,
-      argumentsKeywords: argumentsKeywordsBytes == null
-          ? argumentsKeywords
-          : null,
-    );
-  }
   if (retainedPackedPayloadBytes != null) {
     return LazyMessagePayload.packed(
       transparentBinaryPayload: transparentBinaryPayload,
@@ -1104,6 +1095,25 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
         );
       },
       pptDecoded: pptDecoded,
+    );
+  }
+  if (argumentsBytes != null || argumentsKeywordsBytes != null) {
+    return LazyMessagePayload.encoded(
+      transparentBinaryPayload: transparentBinaryPayload,
+      encoding: encoding,
+      argumentsBytes: argumentsBytes,
+      argumentsKeywordsBytes: argumentsKeywordsBytes,
+      argumentsDecoder: argumentsBytes == null || encoding == null
+          ? null
+          : _payloadListDecoderForEncoding(encoding),
+      argumentsKeywordsDecoder:
+          argumentsKeywordsBytes == null || encoding == null
+          ? null
+          : _payloadMapDecoderForEncoding(encoding),
+      arguments: argumentsBytes == null ? arguments : null,
+      argumentsKeywords: argumentsKeywordsBytes == null
+          ? argumentsKeywords
+          : null,
     );
   }
   return LazyMessagePayload.materialized(
@@ -1247,6 +1257,9 @@ Uint8List? _extractTransferredWrappedPayloadBytes(
     return null;
   }
   final first = arguments.first;
+  if (first is TransferableTypedData) {
+    return first.materialize().asUint8List();
+  }
   if (first is Uint8List) {
     return first;
   }
@@ -1274,10 +1287,13 @@ Object? _decodeJsonPayloadFragment(Uint8List bytes) {
 }
 
 Object? _normalizeJsonBinaryPayload(Object? value) {
-  if (value is String && value.startsWith(_jsonBinaryPrefix)) {
-    return Uint8List.fromList(
-      base64.decode(value.substring(_jsonBinaryPrefix.length)),
-    );
+  if (value is String &&
+      (value.startsWith(_jsonBinaryPrefix) ||
+          value.startsWith(_jsonEscapedBinaryPrefix))) {
+    final prefix = value.startsWith(_jsonBinaryPrefix)
+        ? _jsonBinaryPrefix
+        : _jsonEscapedBinaryPrefix;
+    return Uint8List.fromList(base64.decode(value.substring(prefix.length)));
   }
   if (value is List) {
     return value
@@ -1857,6 +1873,15 @@ class _InternalSessionIsolate {
       procedure: procedure,
       options: options,
     );
+    final invocationOptions = Map<String, Object?>.from(
+      dispatch.initiatingOptions,
+    );
+    if (dispatch.progressiveInvocation) {
+      invocationOptions['progress'] = dispatch.progress;
+    }
+    if (!dispatch.timeoutForwarded) {
+      invocationOptions.remove('timeout');
+    }
 
     if (dispatch.calleeInternalSendPort != null) {
       final replyPort = ReceivePort();
@@ -1868,7 +1893,7 @@ class _InternalSessionIsolate {
         _internalMsgLazyPayload: transferredPayload,
         'arguments': arguments,
         'argumentsKeywords': argumentsKeywords,
-        'options': options,
+        'options': invocationOptions,
         'realmUri': _bootstrap.realmUri,
         'callerSessionId': dispatch.disclosedCallerSessionId,
         'callerAuthId': dispatch.disclosedCallerAuthId,
@@ -1894,7 +1919,11 @@ class _InternalSessionIsolate {
           final type = response['type'];
           if (type == 'result') {
             final progress = response['progress'] as bool? ?? false;
-            if (!progress) {
+            if (progress) {
+              if (!await context.touchInvocation(dispatch.invocationId)) {
+                break;
+              }
+            } else {
               await context.completeInvocation(dispatch.invocationId);
             }
             _bootstrap.controlPort.send({
@@ -1959,7 +1988,7 @@ class _InternalSessionIsolate {
     final invocationDetails = _invocationDetailsForInternalCall(
       dispatch: dispatch,
       procedure: procedure,
-      options: options,
+      options: invocationOptions,
     );
     final invocation = invocation_msg.Invocation(
       dispatch.invocationId,

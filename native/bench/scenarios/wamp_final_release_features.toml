@@ -1,0 +1,142 @@
+name = "wamp_final_release_features"
+description = "Release gate for progressive call invocations, call timeout enforcement, and all 15 read/statistics Meta API procedures across RawSocket/WebSocket and Dart/native clients."
+
+[[workloads]]
+name = "rawsocket_progressive_dart_json_to_cbor_1k"
+protocol = "wamp_rawsocket_progressive_rpc"
+client_impl = "dart"
+serializer = "json"
+peer_serializer = "cbor"
+path = "bench.release.progressive"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 1024
+
+[[workloads]]
+name = "rawsocket_progressive_native_cbor_to_json_1k"
+protocol = "wamp_rawsocket_progressive_rpc"
+client_impl = "native"
+serializer = "cbor"
+peer_serializer = "json"
+path = "bench.release.progressive"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 1024
+
+[[workloads]]
+name = "websocket_progressive_dart_msgpack_to_cbor_1k"
+protocol = "wamp_websocket_progressive_rpc"
+client_impl = "dart"
+serializer = "msgpack"
+peer_serializer = "cbor"
+path = "bench.release.progressive"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 1024
+
+[[workloads]]
+name = "websocket_progressive_native_cbor_to_msgpack_1k"
+protocol = "wamp_websocket_progressive_rpc"
+client_impl = "native"
+serializer = "cbor"
+peer_serializer = "msgpack"
+path = "bench.release.progressive"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 1024
+
+[[workloads]]
+name = "rawsocket_timeout_dart_cbor_to_json_50ms"
+protocol = "wamp_rawsocket_timeout_rpc"
+client_impl = "dart"
+serializer = "cbor"
+peer_serializer = "json"
+path = "bench.release.timeout"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_timeout_native_json_to_cbor_50ms"
+protocol = "wamp_rawsocket_timeout_rpc"
+client_impl = "native"
+serializer = "json"
+peer_serializer = "cbor"
+path = "bench.release.timeout"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_timeout_dart_msgpack_to_cbor_50ms"
+protocol = "wamp_websocket_timeout_rpc"
+client_impl = "dart"
+serializer = "msgpack"
+peer_serializer = "cbor"
+path = "bench.release.timeout"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_timeout_native_cbor_to_msgpack_50ms"
+protocol = "wamp_websocket_timeout_rpc"
+client_impl = "native"
+serializer = "cbor"
+peer_serializer = "msgpack"
+path = "bench.release.timeout"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_meta_dart_json"
+protocol = "wamp_rawsocket_meta_api"
+client_impl = "dart"
+serializer = "json"
+path = "bench.release.meta"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 0
+
+[[workloads]]
+name = "rawsocket_meta_native_cbor"
+protocol = "wamp_rawsocket_meta_api"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.release.meta"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_meta_dart_msgpack"
+protocol = "wamp_websocket_meta_api"
+client_impl = "dart"
+serializer = "msgpack"
+path = "bench.release.meta"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 0
+
+[[workloads]]
+name = "websocket_meta_native_json"
+protocol = "wamp_websocket_meta_api"
+client_impl = "native"
+serializer = "json"
+path = "bench.release.meta"
+iterations = 12
+concurrency = 2
+in_flight_per_session = 2
+request_bytes = 0

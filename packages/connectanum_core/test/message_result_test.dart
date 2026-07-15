@@ -165,6 +165,23 @@ void main() {
       expect(result.argumentsKeywords, equals(const {'worker': 10}));
       expect(result.hasDecodedPptPayload, isTrue);
     });
+
+    test('wamp payload access accepts dynamically typed byte lists', () {
+      final provider = _testWampE2eeProvider();
+      final details = ResultDetails(pptScheme: 'wamp', pptSerializer: 'cbor');
+      final packed = provider.packPayload(
+        const ['wrapped-result'],
+        const {'worker': 10},
+        details,
+      );
+      final dynamicBytes = <dynamic>[...(packed.single as Uint8List)];
+      final result = Result(1, details, arguments: [dynamicBytes])
+        ..attachE2eeProvider(provider);
+
+      expect(result.arguments, equals(const ['wrapped-result']));
+      expect(result.argumentsKeywords, equals(const {'worker': 10}));
+      expect(result.hasDecodedPptPayload, isTrue);
+    });
   });
 }
 

@@ -32,10 +32,14 @@ class RegisterOptions with CustomFieldContainer {
   // shared_registration
   String? invoke;
 
+  // call_timeout == true
+  bool? forwardTimeout;
+
   RegisterOptions({
     this.discloseCaller,
     this.match,
     this.invoke,
+    this.forwardTimeout,
     Map<String, dynamic>? custom,
   }) {
     if (custom != null) {

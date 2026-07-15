@@ -15,10 +15,13 @@ class RouterStateStore {
   RouterStateStore({required this.settings})
     : _commandPort = ReceivePort(),
       _eventController = StreamController<StateChangedEvent>.broadcast(),
+      _sessionMetaController = StreamController<SessionMetaEvent>.broadcast(),
       _subscriptionMetaController =
           StreamController<SubscriptionMetaEvent>.broadcast(),
       _registrationMetaController =
           StreamController<RegistrationMetaEvent>.broadcast(),
+      _invocationTimeoutController =
+          StreamController<InvocationTimeoutEvent>.broadcast(),
       _realmConfigs = Map.fromEntries(
         settings.realms.map((realm) => MapEntry(realm.name, realm)),
       );
@@ -27,19 +30,26 @@ class RouterStateStore {
 
   final ReceivePort _commandPort;
   final StreamController<StateChangedEvent> _eventController;
+  final StreamController<SessionMetaEvent> _sessionMetaController;
   final StreamController<SubscriptionMetaEvent> _subscriptionMetaController;
   final StreamController<RegistrationMetaEvent> _registrationMetaController;
+  final StreamController<InvocationTimeoutEvent> _invocationTimeoutController;
   final WampIdAllocatorRegistry ids = WampIdAllocatorRegistry();
   final Map<String, RealmRecord> _realms = {};
+  final Map<(String, int), Timer> _invocationTimeouts = {};
   final Map<String, RealmSettings> _realmConfigs;
   int _totalInvocationsDispatched = 0;
   int _totalPublicationsRouted = 0;
 
   Stream<StateChangedEvent> get events => _eventController.stream;
+  Stream<SessionMetaEvent> get sessionMetaEvents =>
+      _sessionMetaController.stream;
   Stream<SubscriptionMetaEvent> get subscriptionMetaEvents =>
       _subscriptionMetaController.stream;
   Stream<RegistrationMetaEvent> get registrationMetaEvents =>
       _registrationMetaController.stream;
+  Stream<InvocationTimeoutEvent> get invocationTimeoutEvents =>
+      _invocationTimeoutController.stream;
   SendPort get commandPort => _commandPort.sendPort;
 
   void start() {
@@ -47,10 +57,16 @@ class RouterStateStore {
   }
 
   void dispose() {
+    for (final timer in _invocationTimeouts.values) {
+      timer.cancel();
+    }
+    _invocationTimeouts.clear();
     _commandPort.close();
     _eventController.close();
+    _sessionMetaController.close();
     _subscriptionMetaController.close();
     _registrationMetaController.close();
+    _invocationTimeoutController.close();
     _realms.clear();
   }
 
@@ -201,6 +217,15 @@ class RouterStateStore {
         if (command.replyPort != null) {
           command.replyPort!.send(result);
         }
+      case InvocationTouchCommand():
+        final result = _guardedAction(
+          command: command,
+          action: () =>
+              _touchInvocation(command.realmUri, command.invocationId),
+        );
+        if (command.replyPort != null) {
+          command.replyPort!.send(result);
+        }
       case MetricsSnapshotCommand():
         _sendGuardedReply(
           command: command,
@@ -309,6 +334,17 @@ class RouterStateStore {
     _eventController.add(
       StateChangedEvent(realmUri: realmUri, version: realm.version),
     );
+    _sessionMetaController.add(
+      SessionMetaEvent(
+        realmUri: realmUri,
+        type: SessionMetaEventType.joined,
+        sessionId: session.id,
+        authId: session.authId,
+        authRole: session.authRole,
+        authMethod: session.authMethod,
+        authProvider: session.authProvider,
+      ),
+    );
   }
 
   void _closeSession(String realmUri, int sessionId) {
@@ -329,6 +365,17 @@ class RouterStateStore {
     realm.bumpVersion();
     _eventController.add(
       StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
+    _sessionMetaController.add(
+      SessionMetaEvent(
+        realmUri: realmUri,
+        type: SessionMetaEventType.left,
+        sessionId: session.id,
+        authId: session.authId,
+        authRole: session.authRole,
+        authMethod: session.authMethod,
+        authProvider: session.authProvider,
+      ),
     );
   }
 
@@ -366,6 +413,7 @@ class RouterStateStore {
           subscriptionId: entry.id,
           topic: entry.topic,
           matchPolicy: entry.matchPolicy,
+          created: entry.created,
           details: Map<String, Object?>.from(entry.options),
           sessionId: sessionId,
         ),
@@ -378,6 +426,7 @@ class RouterStateStore {
         subscriptionId: entry.id,
         topic: entry.topic,
         matchPolicy: entry.matchPolicy,
+        created: entry.created,
         details: Map<String, Object?>.from(entry.options),
         sessionId: sessionId,
       ),
@@ -405,6 +454,7 @@ class RouterStateStore {
           subscriptionId: entry.id,
           topic: entry.topic,
           matchPolicy: entry.matchPolicy,
+          created: entry.created,
           details: Map<String, Object?>.from(entry.options),
           sessionId: sessionId,
         ),
@@ -418,6 +468,7 @@ class RouterStateStore {
           subscriptionId: entry.id,
           topic: entry.topic,
           matchPolicy: entry.matchPolicy,
+          created: entry.created,
           details: Map<String, Object?>.from(entry.options),
           sessionId: sessionId,
         ),
@@ -492,9 +543,11 @@ class RouterStateStore {
         RegistrationMetaEvent(
           realmUri: realmUri,
           type: RegistrationMetaEventType.created,
-          registrationId: record.registrationId,
+          registrationId: entry.registrationId,
           procedure: entry.procedure,
           policy: entry.policy,
+          matchPolicy: entry.matchPolicy,
+          created: entry.created,
           details: Map<String, Object?>.from(record.details),
           sessionId: sessionId,
         ),
@@ -504,9 +557,11 @@ class RouterStateStore {
       RegistrationMetaEvent(
         realmUri: realmUri,
         type: RegistrationMetaEventType.registered,
-        registrationId: record.registrationId,
+        registrationId: entry.registrationId,
         procedure: entry.procedure,
         policy: entry.policy,
+        matchPolicy: entry.matchPolicy,
+        created: entry.created,
         details: Map<String, Object?>.from(record.details),
         sessionId: sessionId,
       ),
@@ -537,9 +592,11 @@ class RouterStateStore {
         RegistrationMetaEvent(
           realmUri: realmUri,
           type: RegistrationMetaEventType.unregistered,
-          registrationId: removed.registrationId,
+          registrationId: entry.registrationId,
           procedure: entry.procedure,
           policy: entry.policy,
+          matchPolicy: entry.matchPolicy,
+          created: entry.created,
           details: Map<String, Object?>.from(removed.details),
           sessionId: sessionId,
         ),
@@ -550,9 +607,11 @@ class RouterStateStore {
         RegistrationMetaEvent(
           realmUri: realmUri,
           type: RegistrationMetaEventType.deleted,
-          registrationId: removed?.registrationId ?? registrationId,
+          registrationId: entry.registrationId,
           procedure: entry.procedure,
           policy: entry.policy,
+          matchPolicy: entry.matchPolicy,
+          created: entry.created,
           details: removed != null
               ? Map<String, Object?>.from(removed.details)
               : const {},
@@ -575,6 +634,49 @@ class RouterStateStore {
     Map<String, Object?> options,
   ) {
     final realm = _getOrCreateRealm(realmUri);
+    final callerSession =
+        realm.sessions[callerSessionId] ??
+        (throw StoreCommandError('Caller session $callerSessionId not found'));
+    final progress = options['progress'] == true;
+    final existing = _findInvocationByCaller(
+      realmUri,
+      callerSessionId,
+      requestId,
+    );
+    if (existing != null) {
+      if (!existing.progressiveInvocationOpen) {
+        throw StoreCommandError(
+          'Invalid progressive invocation: invocation '
+          '${existing.invocationId} is not accepting more chunks',
+        );
+      }
+      if (existing.procedure != procedure) {
+        throw StoreCommandError(
+          'Invalid progressive invocation: procedure changed from '
+          '${existing.procedure} to $procedure',
+        );
+      }
+      existing.progressiveInvocationOpen = progress;
+      realm.bumpVersion();
+      return InvocationDispatchResult(
+        invocationId: existing.invocationId,
+        registrationId: existing.registrationId,
+        calleeSessionId: existing.calleeSessionId,
+        calleeConnectionId: existing.calleeConnectionId!,
+        calleeInternalSendPort: existing.calleeInternalSendPort,
+        callerInternalSendPort: existing.callerInternalSendPort,
+        disclosedCallerSessionId: existing.disclosedCallerSessionId,
+        disclosedCallerAuthId: existing.disclosedCallerAuthId,
+        disclosedCallerAuthRole: existing.disclosedCallerAuthRole,
+        initiatingOptions: Map<String, Object?>.from(
+          existing.initiatingOptions,
+        ),
+        progressiveInvocation: true,
+        progress: progress,
+        timeoutForwarded: existing.timeoutForwarded,
+      );
+    }
+
     final entry = realm.procedureAtlas.match(procedure);
     if (entry == null || entry.callees.isEmpty) {
       throw StoreCommandError('No registration for procedure $procedure');
@@ -584,26 +686,48 @@ class RouterStateStore {
       throw StoreCommandError('No available callee for procedure $procedure');
     }
     final invocationId = ids.invocation.next();
-    final callerSession =
-        realm.sessions[callerSessionId] ??
-        (throw StoreCommandError('Caller session $callerSessionId not found'));
     final calleeSession = realm.sessions[callee.sessionId];
+    final timeoutValue = options['timeout'];
+    if (timeoutValue != null && timeoutValue is! int) {
+      throw StoreCommandError('CALL timeout must be an integer');
+    }
+    if (timeoutValue is int && timeoutValue < 0) {
+      throw StoreCommandError('CALL timeout must be >= 0');
+    }
+    final timeout = timeoutValue is int && timeoutValue > 0
+        ? timeoutValue
+        : null;
+    final timeoutForwarded = callee.details['forward_timeout'] == true;
     final discloseCaller =
         options['disclose_me'] == true ||
         callee.details['disclose_caller'] == true;
+    final initiatingOptions = Map<String, Object?>.from(options)
+      ..remove('progress');
+    final calleeConnectionId = _connectionIdForSession(realm, callee.sessionId);
     final record = PendingInvocation(
       invocationId: invocationId,
       registrationId: callee.registrationId,
       procedure: procedure,
       callerRequestId: requestId,
       calleeSessionId: callee.sessionId,
-      calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),
+      calleeConnectionId: calleeConnectionId,
       allowProgress: options['receive_progress'] == true,
       callerSessionId: callerSessionId,
       calleeInternalSendPort: calleeSession?.internalSendPort,
       callerInternalSendPort: callerSession.internalSendPort,
+      initiatingOptions: initiatingOptions,
+      progressiveInvocation: progress,
+      progressiveInvocationOpen: progress,
+      timeout: timeout,
+      timeoutForwarded: timeoutForwarded,
+      disclosedCallerSessionId: discloseCaller ? callerSessionId : null,
+      disclosedCallerAuthId: discloseCaller ? callerSession.authId : null,
+      disclosedCallerAuthRole: discloseCaller ? callerSession.authRole : null,
     );
     realm.invocations[invocationId] = record;
+    if (timeout != null && !timeoutForwarded) {
+      _scheduleInvocationTimeout(realmUri, record);
+    }
     callee.lastInvocation = DateTime.now();
     _totalInvocationsDispatched += 1;
     realm.bumpVersion();
@@ -611,18 +735,82 @@ class RouterStateStore {
       invocationId: invocationId,
       registrationId: callee.registrationId,
       calleeSessionId: callee.sessionId,
-      calleeConnectionId: _connectionIdForSession(realm, callee.sessionId),
+      calleeConnectionId: calleeConnectionId,
       calleeInternalSendPort: calleeSession?.internalSendPort,
       callerInternalSendPort: callerSession.internalSendPort,
-      disclosedCallerSessionId: discloseCaller ? callerSessionId : null,
-      disclosedCallerAuthId: discloseCaller ? callerSession.authId : null,
-      disclosedCallerAuthRole: discloseCaller ? callerSession.authRole : null,
+      disclosedCallerSessionId: record.disclosedCallerSessionId,
+      disclosedCallerAuthId: record.disclosedCallerAuthId,
+      disclosedCallerAuthRole: record.disclosedCallerAuthRole,
+      initiatingOptions: Map<String, Object?>.from(initiatingOptions),
+      progressiveInvocation: progress,
+      progress: progress,
+      timeoutForwarded: timeoutForwarded,
     );
   }
 
   PendingInvocation? _completeInvocation(String realmUri, int invocationId) {
     final realm = _realms[realmUri];
+    _cancelInvocationTimeout(realmUri, invocationId);
     return realm?.invocations.remove(invocationId);
+  }
+
+  bool _touchInvocation(String realmUri, int invocationId) {
+    final invocation = _realms[realmUri]?.invocations[invocationId];
+    if (invocation == null) {
+      return false;
+    }
+    if (invocation.timeout == null || invocation.timeoutForwarded) {
+      return true;
+    }
+    _scheduleInvocationTimeout(realmUri, invocation);
+    return true;
+  }
+
+  void _scheduleInvocationTimeout(
+    String realmUri,
+    PendingInvocation invocation,
+  ) {
+    final timeout = invocation.timeout;
+    if (timeout == null || timeout <= 0 || invocation.timeoutForwarded) {
+      return;
+    }
+    final key = (realmUri, invocation.invocationId);
+    _invocationTimeouts.remove(key)?.cancel();
+    _invocationTimeouts[key] = Timer(
+      Duration(milliseconds: timeout),
+      () => _expireInvocation(realmUri, invocation.invocationId),
+    );
+  }
+
+  void _cancelInvocationTimeout(String realmUri, int invocationId) {
+    _invocationTimeouts.remove((realmUri, invocationId))?.cancel();
+  }
+
+  void _expireInvocation(String realmUri, int invocationId) {
+    _invocationTimeouts.remove((realmUri, invocationId));
+    final realm = _realms[realmUri];
+    final invocation = realm?.invocations.remove(invocationId);
+    if (realm == null || invocation == null) {
+      return;
+    }
+    realm.bumpVersion();
+    _eventController.add(
+      StateChangedEvent(realmUri: realmUri, version: realm.version),
+    );
+    final callerSession = realm.sessions[invocation.callerSessionId];
+    _invocationTimeoutController.add(
+      InvocationTimeoutEvent(
+        realmUri: realmUri,
+        invocationId: invocation.invocationId,
+        callerRequestId: invocation.callerRequestId,
+        callerSessionId: invocation.callerSessionId,
+        calleeSessionId: invocation.calleeSessionId,
+        callerConnectionId: callerSession?.connectionId,
+        calleeConnectionId: invocation.calleeConnectionId,
+        callerInternalSendPort: invocation.callerInternalSendPort,
+        calleeInternalSendPort: invocation.calleeInternalSendPort,
+      ),
+    );
   }
 
   PendingInvocation? _getInvocation(String realmUri, int invocationId) {
@@ -665,6 +853,7 @@ class RouterStateStore {
     invocation.cancelRequested = true;
     invocation.cancelMode = mode;
     invocation.waitForCancelAck = waitForAck;
+    _cancelInvocationTimeout(realmUri, invocationId);
     if (!waitForAck) {
       realm.invocations.remove(invocationId);
     }
@@ -969,6 +1158,7 @@ class RealmRecord {
         matchPolicy: entry.matchPolicy,
         subscribers: entry.subscribers.values.toList(growable: false),
         options: Map.unmodifiable(entry.options),
+        created: entry.created,
       );
     }).toList();
     final registrationSnapshots = procedureAtlas.values.map((entry) {
@@ -978,6 +1168,7 @@ class RealmRecord {
         policy: entry.policy,
         matchPolicy: entry.matchPolicy,
         callees: entry.callees.values.toList(growable: false),
+        created: entry.created,
       );
     }).toList();
     return RealmSnapshot(
@@ -1002,6 +1193,10 @@ class InvocationDispatchResult {
     this.disclosedCallerSessionId,
     this.disclosedCallerAuthId,
     this.disclosedCallerAuthRole,
+    this.initiatingOptions = const {},
+    this.progressiveInvocation = false,
+    this.progress = false,
+    this.timeoutForwarded = false,
   });
 
   final int invocationId;
@@ -1013,4 +1208,8 @@ class InvocationDispatchResult {
   final int? disclosedCallerSessionId;
   final String? disclosedCallerAuthId;
   final String? disclosedCallerAuthRole;
+  final Map<String, Object?> initiatingOptions;
+  final bool progressiveInvocation;
+  final bool progress;
+  final bool timeoutForwarded;
 }

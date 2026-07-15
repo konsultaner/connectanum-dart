@@ -13,6 +13,38 @@ import 'package:test/test.dart';
 
 void main() {
   group('bindMessage', () {
+    test('decodes standard Subscriber feature keys from Hello', () {
+      final message = bindMessage(
+        NativeMessageSerializer.json,
+        Uint8List.fromList(
+          utf8.encode(
+            jsonEncode([
+              MessageTypes.codeHello,
+              'bench.realm',
+              {
+                'roles': {
+                  'subscriber': {
+                    'features': {'publication_trustlevels': true},
+                  },
+                },
+              },
+            ]),
+          ),
+        ),
+      );
+
+      expect(message, isA<Hello>());
+      expect(
+        (message as Hello)
+            .details
+            .roles
+            ?.subscriber
+            ?.features
+            ?.publicationTrustLevels,
+        isTrue,
+      );
+    });
+
     test('decodes CBOR payloads with lazy args and kwargs', () {
       final frameBytes = Uint8List.fromList(
         cbor.cborEncode(
@@ -68,6 +100,7 @@ void main() {
             MessageTypes.codeCall,
             44,
             <String, Object?>{
+              'progress': true,
               'receive_progress': true,
               'trace_id': 'call-1',
               'nested': {'flag': true},
@@ -105,6 +138,7 @@ void main() {
         orderedEquals(Uint8List.fromList(const [1, 2, 3])),
       );
 
+      expect(call.options?.progress, isTrue);
       expect(call.options?.receiveProgress, isTrue);
       expect(call.options?.custom['trace_id'], equals('call-1'));
       expect(call.options?.custom['nested'], equals(const {'flag': true}));
@@ -326,7 +360,13 @@ void main() {
                 primaryId: 9,
                 secondaryId: 0,
                 detailNumberA: 1500,
-                flags: (1 << 4) | (1 << 0) | (1 << 1) | (1 << 3) | (1 << 5),
+                flags:
+                    (1 << 4) |
+                    (1 << 0) |
+                    (1 << 1) |
+                    (1 << 3) |
+                    (1 << 5) |
+                    (1 << 6),
                 stringA: 'bench.proc',
                 stringB: 'wamp',
                 stringC: 'cbor',
@@ -361,7 +401,7 @@ void main() {
                 primaryId: 11,
                 secondaryId: 0,
                 detailNumberA: 0,
-                flags: (1 << 4) | (1 << 0) | (1 << 3),
+                flags: (1 << 4) | (1 << 0) | (1 << 3) | (1 << 5),
                 stringA: 'bench.proc',
                 stringB: 'prefix',
                 stringC: 'roundrobin',
@@ -402,6 +442,7 @@ void main() {
       expect(subscribe.options?.metaTopic, 'meta.topic');
       expect(subscribe.options?.getRetained, isTrue);
 
+      expect(call.options?.progress, isTrue);
       expect(call.options?.receiveProgress, isTrue);
       expect(call.options?.discloseMe, isTrue);
       expect(call.options?.timeout, 1500);
@@ -414,6 +455,7 @@ void main() {
       expect(register.options?.discloseCaller, isTrue);
       expect(register.options?.match, 'prefix');
       expect(register.options?.invoke, 'roundrobin');
+      expect(register.options?.forwardTimeout, isTrue);
 
       expect(yield.options?.progress, isTrue);
       expect(yield.options?.pptScheme, 'wamp');

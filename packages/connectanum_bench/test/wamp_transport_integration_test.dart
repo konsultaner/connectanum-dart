@@ -3,7 +3,9 @@ library;
 
 import 'dart:io';
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:connectanum_bench/connectanum_bench.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
@@ -89,6 +91,133 @@ void main() {
             payloadBytes: 32,
             pptScheme: 'x_custom_scheme',
             pptSerializer: 'cbor',
+          ),
+        );
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'Dart same-serializer CBOR E2EE RPC runs against a real router',
+      () async {
+        harness!.e2eeTrace.reset(strict: true);
+        late final List<WampSample> samples;
+        try {
+          samples = await harness!.runDart(
+            WampScenario(
+              transport: WampTransport.rawsocket,
+              clientImplementation: WampClientImplementation.dart,
+              serializer: WampSerializer.cbor,
+              peerSerializer: WampSerializer.cbor,
+              mode: WampMode.rpc,
+              uri: 'bench.rpc.echo',
+              iterations: 1,
+              concurrency: 1,
+              payloadBytes: 1024,
+              pptScheme: 'wamp',
+              pptSerializer: 'cbor',
+              pptCipher: 'aes256gcm',
+              pptKeyId: 'benchmark-key',
+            ),
+          );
+        } finally {
+          harness!.e2eeTrace.strict = false;
+        }
+
+        expect(samples, hasLength(1));
+        expect(harness!.e2eeTrace.pendingCiphertexts, isZero);
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'Dart progressive RPC workload runs against a real router',
+      () async {
+        final samples = await harness!.runDart(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.dart,
+            serializer: WampSerializer.cbor,
+            peerSerializer: WampSerializer.cbor,
+            mode: WampMode.progressiveRpc,
+            uri: 'bench.progressive',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 32,
+          ),
+        );
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native CBOR progressive RPC preserves all chunks against a real router',
+      () async {
+        final samples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            peerSerializer: WampSerializer.json,
+            mode: WampMode.progressiveRpc,
+            uri: 'bench.progressive.native',
+            iterations: 1,
+            concurrency: 1,
+            inFlightPerSession: 1,
+            payloadBytes: 32,
+          ),
+        );
+
+        expect(samples, hasLength(1));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native timeout RPC workload runs against a real router',
+      () async {
+        final samples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.websocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            peerSerializer: WampSerializer.json,
+            mode: WampMode.timeoutRpc,
+            uri: 'bench.timeout',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 0,
+            callTimeoutMs: 40,
+          ),
+        );
+
+        expect(samples, hasLength(2));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'Dart statistics Meta API workload runs against a real router',
+      () async {
+        final samples = await harness!.runDart(
+          WampScenario(
+            transport: WampTransport.websocket,
+            clientImplementation: WampClientImplementation.dart,
+            serializer: WampSerializer.msgpack,
+            mode: WampMode.metaApi,
+            uri: 'bench.meta',
+            iterations: 2,
+            concurrency: 1,
+            payloadBytes: 0,
           ),
         );
 
@@ -813,6 +942,7 @@ class _WampTransportHarness {
     required this.protectedSession,
     required this.runner,
     required this.nativeWorker,
+    required this.e2eeTrace,
   });
 
   final NativeTransportRuntime runtime;
@@ -821,12 +951,14 @@ class _WampTransportHarness {
   final RouterSession protectedSession;
   final WampWorkloadRunner runner;
   final NativeWampWorker nativeWorker;
+  final _E2eeTrace e2eeTrace;
 
   static Future<_WampTransportHarness> start(String nativeLib) async {
     final workerScriptPath = _resolveBenchTool('wamp_client_main.dart');
     final rawSocketPort = await _reservePort();
     final webSocketPort = await _reservePort();
     final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+    final e2eeTrace = _E2eeTrace();
     final settings = RouterSettingsBuilder()
         .addRealmFromBuilder(
           RealmSettingsBuilder('bench.control')
@@ -965,6 +1097,9 @@ class _WampTransportHarness {
 
     final runner = WampWorkloadRunner(
       sessionFactory: (scenario) {
+        final e2eeProviderFactory = e2eeTrace.wrapFactory(
+          e2eeProviderFactoryForScenario(scenario),
+        );
         switch (scenario.transport) {
           case WampTransport.rawsocket:
             return RawSocketWampSessionFactory(
@@ -976,6 +1111,7 @@ class _WampTransportHarness {
               serializer: scenario.serializer,
               clientImplementation: scenario.clientImplementation,
               nativeLibraryPath: nativeLib,
+              e2eeProviderFactory: e2eeProviderFactory,
             ).call();
           case WampTransport.websocket:
             return WebSocketWampSessionFactory(
@@ -987,6 +1123,7 @@ class _WampTransportHarness {
               clientImplementation: scenario.clientImplementation,
               headers: const {'x-connectanum-bench': '1'},
               nativeLibraryPath: nativeLib,
+              e2eeProviderFactory: e2eeProviderFactory,
             ).call();
         }
       },
@@ -1023,6 +1160,7 @@ class _WampTransportHarness {
       protectedSession: protectedSession,
       runner: runner,
       nativeWorker: nativeWorker,
+      e2eeTrace: e2eeTrace,
     );
   }
 
@@ -1039,6 +1177,174 @@ class _WampTransportHarness {
     await binding.dispose();
     runtime.shutdown();
     runtime.dispose();
+  }
+}
+
+final class _E2eeTrace {
+  final Queue<Uint8List> _pendingCiphertexts = Queue<Uint8List>();
+  var _nextProviderId = 0;
+  bool strict = false;
+
+  int get pendingCiphertexts => _pendingCiphertexts.length;
+
+  void reset({required bool strict}) {
+    _pendingCiphertexts.clear();
+    _nextProviderId = 0;
+    this.strict = strict;
+  }
+
+  WampE2eeProviderFactory? wrapFactory(WampE2eeProviderFactory? factory) {
+    if (factory == null) {
+      return null;
+    }
+    return () => _TracingE2eeProvider(
+      delegate: factory(),
+      providerId: _nextProviderId++,
+      trace: this,
+    );
+  }
+
+  void recordPack(int providerId, List<dynamic> arguments) {
+    if (!strict) {
+      return;
+    }
+    _pendingCiphertexts.add(_ciphertext(arguments, providerId, 'pack'));
+  }
+
+  void recordUnpack(int providerId, List<dynamic>? arguments) {
+    if (!strict) {
+      return;
+    }
+    final actual = _ciphertext(arguments, providerId, 'unpack');
+    if (_pendingCiphertexts.isEmpty) {
+      throw StateError(
+        'E2EE provider $providerId unpacked without a prior pack',
+      );
+    }
+    final expected = _pendingCiphertexts.removeFirst();
+    if (_bytesEqual(expected, actual)) {
+      return;
+    }
+    final comparedLength = expected.length < actual.length
+        ? expected.length
+        : actual.length;
+    var firstDifference = comparedLength;
+    for (var index = 0; index < comparedLength; index++) {
+      if (expected[index] != actual[index]) {
+        firstDifference = index;
+        break;
+      }
+    }
+    throw StateError(
+      'E2EE ciphertext changed before provider $providerId unpack: '
+      'expected_length=${expected.length} actual_length=${actual.length} '
+      'first_difference=$firstDifference',
+    );
+  }
+
+  Uint8List _ciphertext(
+    List<dynamic>? arguments,
+    int providerId,
+    String operation,
+  ) {
+    if (arguments == null || arguments.length != 1) {
+      throw StateError(
+        'E2EE provider $providerId $operation received an invalid payload shape',
+      );
+    }
+    final ciphertext = arguments.single;
+    if (ciphertext is Uint8List) {
+      return Uint8List.fromList(ciphertext);
+    }
+    if (ciphertext is List) {
+      return Uint8List.fromList(ciphertext.cast<int>());
+    }
+    throw StateError(
+      'E2EE provider $providerId $operation received '
+      '${ciphertext.runtimeType} instead of bytes',
+    );
+  }
+
+  bool _bytesEqual(Uint8List left, Uint8List right) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+final class _TracingE2eeProvider extends wamp_core.DisposableWampE2eeProvider
+    implements wamp_core.WampE2eeProfileSupport {
+  _TracingE2eeProvider({
+    required this.delegate,
+    required this.providerId,
+    required this.trace,
+  });
+
+  final wamp_core.WampE2eeProvider delegate;
+  final int providerId;
+  final _E2eeTrace trace;
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    wamp_core.PPTOptions options, {
+    wamp_core.WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    final packed = delegate.packPayload(
+      arguments,
+      argumentsKeywords,
+      options,
+      runtimeContext: runtimeContext,
+    );
+    trace.recordPack(providerId, packed);
+    return packed;
+  }
+
+  @override
+  wamp_core.E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    wamp_core.PPTOptions options, {
+    wamp_core.WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    trace.recordUnpack(providerId, arguments);
+    return delegate.unpackPayload(
+      arguments,
+      options,
+      runtimeContext: runtimeContext,
+    );
+  }
+
+  @override
+  bool supportsE2eeProfile({
+    required int version,
+    required String scheme,
+    required String serializer,
+    required String cipher,
+  }) {
+    if (delegate is! wamp_core.WampE2eeProfileSupport) {
+      return false;
+    }
+    return (delegate as wamp_core.WampE2eeProfileSupport).supportsE2eeProfile(
+      version: version,
+      scheme: scheme,
+      serializer: serializer,
+      cipher: cipher,
+    );
+  }
+
+  @override
+  void release() {
+    final disposable = delegate;
+    if (disposable is wamp_core.DisposableWampE2eeProvider) {
+      disposable.release();
+    }
   }
 }
 

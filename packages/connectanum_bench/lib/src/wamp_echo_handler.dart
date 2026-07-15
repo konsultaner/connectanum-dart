@@ -26,8 +26,18 @@ void respondEchoLazyInvocation(
     'kwargs_encoded=${invocation.argumentsKeywordsBytes != null} '
     'packed=${invocation.packedPayloadBytes != null}',
   );
+  final responsePayload = invocation.pptScheme == 'wamp'
+      ? wamp_core.LazyMessagePayload.materialized(
+          transparentBinaryPayload: invocation.payload.transparentBinaryPayload,
+          encoding: invocation.payload.encoding,
+          arguments: invocation.arguments,
+          argumentsKeywords: invocation.argumentsKeywords,
+          e2eeProvider: invocation.payload.e2eeProvider,
+          e2eeRuntimeContext: invocation.payload.e2eeRuntimeContext,
+        )
+      : invocation.payload;
   invocation.respondWith(
-    lazyPayload: invocation.payload,
+    lazyPayload: responsePayload,
     options: yieldOptionsFromLazyInvocation(invocation),
   );
   logger?.fine('RPC echo responded requestId=${invocation.requestId}');

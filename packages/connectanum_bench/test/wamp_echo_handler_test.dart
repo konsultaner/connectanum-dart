@@ -104,5 +104,56 @@ void main() {
       expect(capturedOptions!.pptKeyId, 'key');
       expect(capturedOptions!.custom, const {'trace': 1});
     });
+
+    test('materializes E2EE payloads before producing a fresh response', () {
+      var decodeCount = 0;
+      final payload = wamp_core.LazyMessagePayload.packed(
+        encoding: wamp_core.LazyPayloadEncoding.cbor,
+        packedPayloadBytes: Uint8List.fromList(const [0x01, 0x02, 0x03]),
+        packedPayloadDecoder: (_) {
+          decodeCount += 1;
+          return (
+            arguments: const ['decrypted'],
+            argumentsKeywords: const <String, dynamic>{'worker': 4},
+          );
+        },
+        pptDecoded: true,
+      );
+
+      wamp_core.LazyMessagePayload? capturedLazyPayload;
+      wamp_core.YieldOptions? capturedOptions;
+      final invocation = wamp_core.LazyInvocationPayload(
+        requestId: 1,
+        registrationId: 2,
+        receiveProgress: false,
+        pptScheme: 'wamp',
+        pptSerializer: 'cbor',
+        pptCipher: 'aes256gcm',
+        pptKeyId: 'benchmark-key',
+        respondWith:
+            ({
+              wamp_core.LazyMessagePayload? lazyPayload,
+              List<dynamic>? arguments,
+              Map<String, dynamic>? argumentsKeywords,
+              bool isError = false,
+              String? errorUri,
+              wamp_core.YieldOptions? options,
+            }) {
+              capturedLazyPayload = lazyPayload;
+              capturedOptions = options;
+            },
+        isResponseClosed: () => false,
+        payload: payload,
+      );
+
+      respondEchoLazyInvocation(invocation);
+
+      expect(decodeCount, 1);
+      expect(capturedLazyPayload, isNot(same(payload)));
+      expect(capturedLazyPayload!.arguments, const ['decrypted']);
+      expect(capturedLazyPayload!.argumentsKeywords, const {'worker': 4});
+      expect(capturedOptions!.pptScheme, 'wamp');
+      expect(capturedOptions!.pptCipher, 'aes256gcm');
+    });
   });
 }

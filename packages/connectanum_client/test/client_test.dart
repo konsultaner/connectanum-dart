@@ -1107,6 +1107,63 @@ void main() {
       },
     );
     test(
+      'forwarded timeout resets after a progressive Callee result',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        final timeoutError = Completer<Error>();
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveMessage(
+              Registered((message as Register).requestId, 1012),
+            );
+            return;
+          }
+          if (message is Error &&
+              message.requestTypeId == MessageTypes.codeInvocation &&
+              !timeoutError.isCompleted) {
+            timeoutError.complete(message);
+          }
+        });
+
+        final session = await client.connect().first;
+        final registered = await session.registerHandler('bench.timeout.proc', (
+          invocation,
+        ) async {
+          await Future<void>.delayed(const Duration(milliseconds: 40));
+          invocation.respondWith(
+            options: YieldOptions(progress: true),
+            arguments: const ['still working'],
+          );
+        }, options: RegisterOptions(forwardTimeout: true));
+
+        transport.receiveMessage(
+          Invocation(
+            31340,
+            registered.registrationId,
+            InvocationDetails(null, 'bench.timeout.proc', true)..timeout = 80,
+          ),
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        expect(
+          timeoutError.isCompleted,
+          isFalse,
+          reason: 'the progressive result must refresh the timeout deadline',
+        );
+        final error = await timeoutError.future.timeout(
+          const Duration(milliseconds: 100),
+        );
+        expect(error.error, Error.timeout);
+        expect(error.arguments, const ['Call timed out']);
+      },
+    );
+    test(
       'registered invocationStream lazily receives routed invocations',
       () async {
         final transport = _MockTransport();
@@ -1694,6 +1751,54 @@ void main() {
       },
     );
     test(
+      'native direct lazy invocation exposes the progressive flag',
+      () async {
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveObject(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codeRegister) {
+            transport.receiveObject(
+              Registered((message as Register).requestId, 5354),
+            );
+          }
+        });
+
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final invocationCompleter = Completer<LazyInvocationPayload>();
+        final registered = await session.registerLazyPayloadHandler(
+          'progressive.proc',
+          (invocation) {
+            if (!invocationCompleter.isCompleted) {
+              invocationCompleter.complete(invocation);
+            }
+          },
+        );
+
+        transport.receiveObject(
+          _nativeDirectInvocationMessage(
+            requestId: 9402,
+            registrationId: registered.registrationId,
+            procedure: 'progressive.proc',
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            argsBytes: _encodeNativePptArguments(
+              arguments: const ['chunk'],
+              argumentsKeywords: const {},
+            ),
+            progress: true,
+          ),
+        );
+
+        final invocation = await invocationCompleter.future;
+        expect(invocation.progress, isTrue);
+      },
+    );
+    test(
       'registerHandler lazily unpacks PPT payloads on the native direct invocation path',
       () async {
         final transport = _SessionOptimizedMockTransport((message, transport) {
@@ -2223,6 +2328,108 @@ void main() {
       expect(session.negotiatedE2ee?.receiveKeyId, 'kid-client-a');
       expect(session.negotiatedE2ee?.peerPublicKey, 'server-pubkey');
     });
+    test('required E2EE fails closed when no provider is available', () async {
+      final transport = _MockTransport();
+      final client = Client(realm: 'test.realm', transport: transport);
+
+      transport.outbound.stream.listen((message) {
+        if (message.id != MessageTypes.codeHello) {
+          return;
+        }
+        transport.receiveMessage(
+          Welcome(
+            42,
+            Details.forWelcome(
+              authExtra: {
+                'e2ee': {
+                  'version': ConnectanumE2eeProfile.version,
+                  'required': true,
+                  'established': true,
+                  'scheme': 'wamp',
+                  'serializer': 'cbor',
+                  'cipher': 'aes256gcm',
+                  'send_key_id': 'kid-server-a',
+                  'receive_key_id': 'kid-client-a',
+                },
+              },
+            ),
+          ),
+        );
+      });
+
+      await expectLater(
+        client.connect(),
+        emitsError(isA<SessionE2eeNegotiationException>()),
+      );
+    });
+    test('required E2EE rejects unsupported profile versions', () async {
+      final transport = _MockTransport();
+      final client = Client(
+        realm: 'test.realm',
+        transport: transport,
+        e2eeProvider: _testWampE2eeNegotiatedProvider(),
+      );
+
+      transport.outbound.stream.listen((message) {
+        if (message.id != MessageTypes.codeHello) {
+          return;
+        }
+        transport.receiveMessage(
+          Welcome(
+            42,
+            Details.forWelcome(
+              authExtra: {
+                'e2ee': {
+                  'version': ConnectanumE2eeProfile.version + 1,
+                  'required': true,
+                  'established': true,
+                  'scheme': 'wamp',
+                  'serializer': 'cbor',
+                  'cipher': 'xsalsa20poly1305',
+                  'send_key_id': 'kid-server-a',
+                  'receive_key_id': 'kid-client-a',
+                },
+              },
+            ),
+          ),
+        );
+      });
+
+      await expectLater(
+        client.connect(),
+        emitsError(isA<SessionE2eeNegotiationException>()),
+      );
+    });
+    test('required E2EE rejects a provider cipher mismatch', () async {
+      final transport = _MockTransport();
+      final client = Client(
+        realm: 'test.realm',
+        transport: transport,
+        e2eeProvider: _testWampE2eeNegotiatedProvider(),
+      );
+
+      transport.outbound.stream.listen((message) {
+        if (message.id != MessageTypes.codeHello) {
+          return;
+        }
+        transport.receiveMessage(
+          Welcome(
+            42,
+            Details.forWelcome(
+              authExtra: _negotiatedE2eeAuthExtra(
+                cipher: ConnectanumE2eeProfile.aes256Gcm,
+                required: true,
+              ),
+            ),
+          ),
+        );
+      });
+
+      await expectLater(
+        client.connect(),
+        emitsError(isA<SessionE2eeNegotiationException>()),
+      );
+    });
     test(
       'session creation resolves an E2EE provider from session context',
       () async {
@@ -2397,6 +2604,66 @@ void main() {
       expect(registered.registrationId, equals(20));
       await session.unregister(registered.registrationId).timeout(stepTimeout);
     });
+    test(
+      'progressive call handle reuses its request id until finish',
+      () async {
+        const stepTimeout = Duration(seconds: 1);
+        final transport = _MockTransport();
+        final calls = <Call>[];
+        transport.outbound.stream.listen((message) {
+          if (message is Hello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+          } else if (message is Call) {
+            calls.add(message);
+          }
+        });
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first.timeout(stepTimeout);
+
+        final progressive = session.startProgressiveCall(
+          'bench.upload',
+          arguments: const ['chunk-1'],
+          options: CallOptions(
+            receiveProgress: true,
+            discloseMe: true,
+            custom: const {'trace_id': 'initial'},
+          ),
+        );
+        progressive.sendChunk(arguments: const ['chunk-2']);
+        progressive.finish(arguments: const ['chunk-3']);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(calls, hasLength(3));
+        expect(calls.map((call) => call.requestId).toSet(), hasLength(1));
+        expect(calls[0].options?.progress, isTrue);
+        expect(calls[0].options?.receiveProgress, isTrue);
+        expect(calls[0].options?.discloseMe, isTrue);
+        expect(calls[0].options?.custom['trace_id'], equals('initial'));
+        expect(calls[1].options?.progress, isTrue);
+        expect(calls[1].options?.receiveProgress, isNull);
+        expect(calls[1].options?.custom, isEmpty);
+        expect(calls[2].options?.progress, isFalse);
+        expect(progressive.isFinished, isTrue);
+        expect(
+          () => progressive.sendChunk(arguments: const ['too-late']),
+          throwsStateError,
+        );
+
+        transport.receiveMessage(
+          Result(
+            calls.first.requestId,
+            ResultDetails(progress: false),
+            arguments: const ['ok'],
+          ),
+        );
+        expect(
+          (await progressive.results.single.timeout(stepTimeout)).arguments,
+          equals(const ['ok']),
+        );
+      },
+    );
     test(
       'callSingle waits for final result and surfaces call errors',
       () async {
@@ -2849,6 +3116,62 @@ void main() {
       },
     );
     test(
+      'publishLazyPayload encrypts matching encoded wamp fragments',
+      () async {
+        final transport = _MockTransport();
+        final provider = _testWampE2eeProvider();
+        final client = Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        );
+        var decodeCount = 0;
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message.id == MessageTypes.codePublish) {
+            final publish = message as Publish;
+            expect(publish.options?.pptCipher, equals('xsalsa20poly1305'));
+            expect(publish.options?.pptKeyId, equals('test-key'));
+            final decoded = provider.unpackPayload(
+              publish.arguments,
+              publish.options!,
+            );
+            expect(decoded.arguments, equals(const ['wrapped']));
+            expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
+          }
+        });
+
+        final session = await client.connect().first;
+        await session.publishLazyPayload(
+          'ppt.topic',
+          payload: LazyMessagePayload.encoded(
+            encoding: LazyPayloadEncoding.cbor,
+            argumentsBytes: Uint8List.fromList(
+              cbor.cborEncode(cbor.CborValue(const ['wrapped'])),
+            ),
+            argumentsDecoder: (_) {
+              decodeCount += 1;
+              return const ['wrapped'];
+            },
+            argumentsKeywordsBytes: Uint8List.fromList(
+              cbor.cborEncode(cbor.CborValue(const {'worker': 4})),
+            ),
+            argumentsKeywordsDecoder: (_) {
+              decodeCount += 1;
+              return const {'worker': 4};
+            },
+          ),
+          options: PublishOptions(pptScheme: 'wamp', pptSerializer: 'cbor'),
+        );
+
+        expect(decodeCount, 2);
+      },
+    );
+    test(
       'publishLazyPayload throws for wamp payloads without an E2EE provider',
       () async {
         final transport = _ImmediateResponseTransport();
@@ -3011,6 +3334,65 @@ void main() {
           ),
           options: PublishOptions(pptScheme: 'wamp'),
         );
+      },
+    );
+    test(
+      'publishLazyPayload honors a required negotiated AES-256-GCM profile',
+      () async {
+        final transport = _MockTransport();
+        final provider = WampCborAes256GcmProvider(
+          keys: {
+            'kid-server-a': List<int>.generate(32, (index) => index + 1),
+            'kid-client-a': List<int>.generate(32, (index) => index + 65),
+          },
+        );
+        final inspected = Completer<void>();
+        final client = Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        );
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(
+              Welcome(
+                42,
+                Details.forWelcome(
+                  authExtra: _negotiatedE2eeAuthExtra(
+                    cipher: ConnectanumE2eeProfile.aes256Gcm,
+                    required: true,
+                  ),
+                ),
+              ),
+            );
+            return;
+          }
+          if (message.id == MessageTypes.codePublish) {
+            final publish = message as Publish;
+            expect(publish.options?.pptSerializer, equals('cbor'));
+            expect(publish.options?.pptCipher, equals('aes256gcm'));
+            expect(publish.options?.pptKeyId, equals('kid-server-a'));
+            final decoded = provider.unpackPayload(
+              publish.arguments,
+              publish.options!,
+            );
+            expect(decoded.arguments, equals(const ['wrapped']));
+            expect(decoded.argumentsKeywords, equals(const {'worker': 4}));
+            inspected.complete();
+          }
+        });
+
+        final session = await client.connect().first;
+        await session.publishLazyPayload(
+          'ppt.topic',
+          payload: LazyMessagePayload.materialized(
+            arguments: const ['wrapped'],
+            argumentsKeywords: const {'worker': 4},
+          ),
+          options: PublishOptions(pptScheme: 'wamp'),
+        );
+        await inspected.future;
       },
     );
     test(
@@ -3637,13 +4019,17 @@ Map<String, dynamic> _negotiatedE2eeAuthExtra({
   String sendKeyId = 'kid-server-a',
   String receiveKeyId = 'kid-client-a',
   String peerKeyId = 'kid-server-a',
+  String cipher = ConnectanumE2eeProfile.xsalsa20Poly1305,
+  bool required = false,
 }) {
   return {
     'e2ee': {
+      'version': ConnectanumE2eeProfile.version,
+      'required': required,
       'established': true,
       'scheme': 'wamp',
       'serializer': 'cbor',
-      'cipher': 'xsalsa20poly1305',
+      'cipher': cipher,
       'send_key_id': sendKeyId,
       'receive_key_id': receiveKeyId,
       'peer_key_id': peerKeyId,
@@ -3873,6 +4259,7 @@ NativeSessionMessage _nativeDirectInvocationMessage({
   required String pptScheme,
   required String pptSerializer,
   required Uint8List argsBytes,
+  bool progress = false,
 }) {
   return NativeSessionMessage(
     serializer: NativeMessageSerializer.cbor,
@@ -3884,7 +4271,8 @@ NativeSessionMessage _nativeDirectInvocationMessage({
       detailNumberB: 0,
       flags:
           NativeMessageMetadata.flagDirectBind |
-          NativeMessageMetadata.flagMetadataBind,
+          NativeMessageMetadata.flagMetadataBind |
+          (progress ? NativeMessageMetadata.flagDetailBoolBTrue : 0),
       stringA: procedure,
       stringB: pptScheme,
       stringC: pptSerializer,

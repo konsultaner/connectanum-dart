@@ -126,6 +126,59 @@ void main() {
     });
   });
 
+  group('WampCborAes256GcmProvider', () {
+    test('round-trips payloads and populates outbound ppt metadata', () {
+      final provider = WampCborAes256GcmProvider.single(
+        keyId: 'kid-current',
+        key: _testKey(),
+      );
+      final options = PublishOptions(pptScheme: 'wamp');
+
+      final packed = provider.packPayload(
+        const ['wrapped'],
+        const {'worker': 7},
+        options,
+      );
+      final unpacked = provider.unpackPayload(packed, options);
+
+      expect(options.pptSerializer, equals('cbor'));
+      expect(
+        options.pptCipher,
+        equals(WampCborAes256GcmProvider.supportedCipher),
+      );
+      expect(options.pptKeyId, equals('kid-current'));
+      expect((packed.single as Uint8List).length, greaterThan(28));
+      expect(unpacked.arguments, equals(const ['wrapped']));
+      expect(unpacked.argumentsKeywords, equals(const {'worker': 7}));
+    });
+
+    test('uses the selected rotation key and rejects tampering', () {
+      final provider = WampCborAes256GcmProvider(
+        keys: {'kid-old': _testKey(), 'kid-current': _testKey(seed: 32)},
+        keySelectionPolicy: (_, _) => 'kid-current',
+      );
+      final options = PublishOptions(pptScheme: 'wamp');
+
+      final packed = provider.packPayload(
+        const ['rotated'],
+        null,
+        options,
+        runtimeContext: const WampE2eeRuntimeContext(
+          direction: WampE2eeDirection.outbound,
+          messageType: WampE2eeMessageType.publish,
+        ),
+      );
+      expect(options.pptKeyId, equals('kid-current'));
+
+      final tampered = Uint8List.fromList(packed.single as Uint8List);
+      tampered[tampered.length - 1] ^= 1;
+      expect(
+        () => provider.unpackPayload(<dynamic>[tampered], options),
+        throwsA(isA<WampE2eeDecryptionException>()),
+      );
+    });
+  });
+
   group('WampE2eeKeySelectionPolicies', () {
     test(
       'uses negotiated session key ids for outbound and inbound fallback',

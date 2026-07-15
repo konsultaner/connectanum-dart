@@ -29,6 +29,8 @@ class LazyInvocationPayload {
     required this.respondWith,
     required this.isResponseClosed,
     required this.payload,
+    this.progress = false,
+    this.timeout,
     this.caller,
     this.procedure,
     this.pptScheme,
@@ -42,6 +44,8 @@ class LazyInvocationPayload {
   final int registrationId;
   final int? caller;
   final String? procedure;
+  final bool progress;
+  final int? timeout;
   final bool receiveProgress;
   final String? pptScheme;
   final String? pptSerializer;
@@ -80,6 +84,8 @@ class LazyInvocationPayload {
       registrationId: registrationId,
       caller: caller,
       procedure: procedure,
+      progress: progress,
+      timeout: timeout,
       receiveProgress: receiveProgress,
       pptScheme: pptScheme,
       pptSerializer: pptSerializer,
@@ -99,6 +105,8 @@ typedef InvocationPayload = ({
   int registrationId,
   int? caller,
   String? procedure,
+  bool progress,
+  int? timeout,
   bool receiveProgress,
   String? pptScheme,
   String? pptSerializer,
@@ -148,7 +156,12 @@ class Invocation extends AbstractMessageWithPayload {
       var invokeArgumentsKeywords = argumentsKeywords;
       Uint8List? packedPayload;
 
-      if (options?.pptScheme != null) {
+      if (options?.pptScheme == 'wamp') {
+        if (lazyPayload?.packedPayloadBytes != null &&
+            _matchesPackedPayloadEncoding(lazyPayload!, options!)) {
+          packedPayload = lazyPayload.packedPayloadBytes;
+        }
+      } else if (options?.pptScheme != null) {
         packedPayload = lazyPayload == null
             ? null
             : _packMatchingLazyPayload(lazyPayload, options!);
@@ -156,12 +169,10 @@ class Invocation extends AbstractMessageWithPayload {
 
       if (options?.pptScheme == 'wamp') {
         final runtimeContext = _responseRuntimeContext();
-        // Preserve matching wrapped payload bytes until actual E2EE decode is
-        // implemented, otherwise fall back to the current placeholder packer.
         invokeArguments = packedPayload == null
             ? E2EEPayload.packE2EEPayload(
-                arguments,
-                argumentsKeywords,
+                lazyPayload?.arguments ?? arguments,
+                lazyPayload?.argumentsKeywords ?? argumentsKeywords,
                 options!,
                 provider: lazyPayload?.e2eeProvider ?? e2eeProvider,
                 runtimeContext: runtimeContext,
@@ -306,6 +317,8 @@ class Invocation extends AbstractMessageWithPayload {
       registrationId: registrationId,
       caller: details.caller,
       procedure: details.procedure,
+      progress: details.progress ?? false,
+      timeout: details.timeout,
       receiveProgress: details.receiveProgress ?? false,
       pptScheme: details.pptScheme,
       pptSerializer: details.pptSerializer,
@@ -342,6 +355,8 @@ class Invocation extends AbstractMessageWithPayload {
       registrationId: registrationId,
       caller: details.caller,
       procedure: details.procedure,
+      progress: details.progress ?? false,
+      timeout: details.timeout,
       receiveProgress: details.receiveProgress ?? false,
       pptScheme: details.pptScheme,
       pptSerializer: details.pptSerializer,
@@ -420,6 +435,9 @@ Uint8List? _packMatchingLazyPayload(
 }
 
 class InvocationDetails extends PPTOptions with CustomFieldContainer {
+  // progressive_call_invocations == true
+  bool? progress;
+
   // caller_identification == true
   int? caller;
 
@@ -428,6 +446,9 @@ class InvocationDetails extends PPTOptions with CustomFieldContainer {
 
   // pattern_based_registration == true
   bool? receiveProgress;
+
+  // call_timeout == true with REGISTER.Options.forward_timeout
+  int? timeout;
 
   InvocationDetails(
     this.caller,
@@ -450,6 +471,9 @@ class InvocationDetails extends PPTOptions with CustomFieldContainer {
 
   @override
   bool verify() {
+    if (timeout != null && timeout! < 0) {
+      throw RangeError.value(timeout!, 'timeout', 'timeout must be >= 0');
+    }
     return verifyPPT();
   }
 }

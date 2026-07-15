@@ -27,6 +27,9 @@ class Call extends AbstractMessageWithPayload {
 
 /// Options used influence the call behavior
 class CallOptions extends PPTOptions with CustomFieldContainer {
+  // progressive_call_invocations == true
+  bool? progress;
+
   // progressive_call_results == true
   bool? receiveProgress;
 
@@ -37,6 +40,7 @@ class CallOptions extends PPTOptions with CustomFieldContainer {
   bool? discloseMe;
 
   CallOptions({
+    this.progress,
     this.receiveProgress,
     this.timeout,
     this.discloseMe,

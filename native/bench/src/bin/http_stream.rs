@@ -1310,6 +1310,8 @@ struct WorkloadConfig {
     client_impl: String,
     #[serde(default = "default_wamp_serializer")]
     serializer: String,
+    #[serde(default)]
+    peer_serializer: Option<String>,
     #[serde(default = "default_method")]
     method: String,
     #[serde(default = "default_path")]
@@ -1332,6 +1334,10 @@ struct WorkloadConfig {
     ppt_scheme: Option<String>,
     #[serde(default)]
     ppt_serializer: Option<String>,
+    #[serde(default)]
+    ppt_cipher: Option<String>,
+    #[serde(default)]
+    ppt_keyid: Option<String>,
     #[serde(default = "default_response_bytes")]
     response_bytes: u64,
     #[serde(default = "default_chunk_bytes")]
@@ -1498,6 +1504,9 @@ enum BenchWampMode {
     Authenticate,
     PubSub,
     Rpc,
+    ProgressiveRpc,
+    TimeoutRpc,
+    MetaApi,
     PublishAck,
     SubscribeCycle,
     RegisterCycle,
@@ -1510,6 +1519,9 @@ impl BenchWampMode {
             Self::Authenticate => "authenticate",
             Self::PubSub => "pubsub",
             Self::Rpc => "rpc",
+            Self::ProgressiveRpc => "progressive_rpc",
+            Self::TimeoutRpc => "timeout_rpc",
+            Self::MetaApi => "meta_api",
             Self::PublishAck => "publish_ack",
             Self::SubscribeCycle => "subscribe_cycle",
             Self::RegisterCycle => "register_cycle",
@@ -1529,6 +1541,15 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
         "wamp_rpc" | "wamp_rawsocket_rpc" => {
             Some((BenchWampTransport::RawSocket, BenchWampMode::Rpc))
         }
+        "wamp_progressive_rpc" | "wamp_rawsocket_progressive_rpc" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::ProgressiveRpc))
+        }
+        "wamp_timeout_rpc" | "wamp_rawsocket_timeout_rpc" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::TimeoutRpc))
+        }
+        "wamp_meta_api" | "wamp_rawsocket_meta_api" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::MetaApi))
+        }
         "wamp_publish_ack" | "wamp_rawsocket_publish_ack" => {
             Some((BenchWampTransport::RawSocket, BenchWampMode::PublishAck))
         }
@@ -1544,6 +1565,13 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
         "wamp_websocket_pubsub" => Some((BenchWampTransport::WebSocket, BenchWampMode::PubSub)),
         "wamp_websocket_auth" => Some((BenchWampTransport::WebSocket, BenchWampMode::Authenticate)),
         "wamp_websocket_rpc" => Some((BenchWampTransport::WebSocket, BenchWampMode::Rpc)),
+        "wamp_websocket_progressive_rpc" => {
+            Some((BenchWampTransport::WebSocket, BenchWampMode::ProgressiveRpc))
+        }
+        "wamp_websocket_timeout_rpc" => {
+            Some((BenchWampTransport::WebSocket, BenchWampMode::TimeoutRpc))
+        }
+        "wamp_websocket_meta_api" => Some((BenchWampTransport::WebSocket, BenchWampMode::MetaApi)),
         "wamp_websocket_publish_ack" => {
             Some((BenchWampTransport::WebSocket, BenchWampMode::PublishAck))
         }
@@ -1612,6 +1640,7 @@ struct PreparedWorkload {
     protocol: String,
     client_impl: String,
     serializer: String,
+    peer_serializer: Option<String>,
     method: HyperMethod,
     path: String,
     iterations: u32,
@@ -1623,6 +1652,8 @@ struct PreparedWorkload {
     secure_transport: bool,
     ppt_scheme: Option<String>,
     ppt_serializer: Option<String>,
+    ppt_cipher: Option<String>,
+    ppt_keyid: Option<String>,
     response_bytes: u64,
     request_chunk_bytes: u64,
     response_chunk_bytes: u64,
@@ -1756,6 +1787,7 @@ impl PreparedWorkload {
             protocol: config.protocol.clone(),
             client_impl,
             serializer: config.serializer.clone(),
+            peer_serializer: config.peer_serializer.clone(),
             method,
             path,
             iterations: config.iterations,
@@ -1767,6 +1799,8 @@ impl PreparedWorkload {
             secure_transport: config.secure_transport,
             ppt_scheme: config.ppt_scheme.clone(),
             ppt_serializer: config.ppt_serializer.clone(),
+            ppt_cipher: config.ppt_cipher.clone(),
+            ppt_keyid: config.ppt_keyid.clone(),
             response_bytes: config.response_bytes,
             request_chunk_bytes: config.request_chunk_bytes,
             response_chunk_bytes: config
@@ -2976,6 +3010,7 @@ fn run_wamp_workload(
         "transport": transport.as_str(),
         "client_impl": workload.client_impl,
         "serializer": workload.serializer,
+        "peer_serializer": workload.peer_serializer.clone(),
         "mode": mode.as_str(),
         "uri": workload.path,
         "iterations": workload.iterations,
@@ -2987,6 +3022,8 @@ fn run_wamp_workload(
         "secure_transport": workload.secure_transport,
         "ppt_scheme": workload.ppt_scheme.clone(),
         "ppt_serializer": workload.ppt_serializer.clone(),
+        "ppt_cipher": workload.ppt_cipher.clone(),
+        "ppt_keyid": workload.ppt_keyid.clone(),
     });
     let response = http_control.post_json("wamp", &body)?;
     let samples_value = response
@@ -6100,6 +6137,7 @@ mod tests {
             protocol: default_protocol(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
@@ -6110,6 +6148,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6139,6 +6179,7 @@ mod tests {
             protocol: "wamp_rawsocket_rpc".to_string(),
             client_impl: "fast".to_string(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
@@ -6149,6 +6190,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6189,6 +6232,18 @@ mod tests {
         assert_eq!(
             parse_wamp_protocol("wamp_websocket_rpc"),
             Some((BenchWampTransport::WebSocket, BenchWampMode::Rpc))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_rawsocket_progressive_rpc"),
+            Some((BenchWampTransport::RawSocket, BenchWampMode::ProgressiveRpc))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_websocket_timeout_rpc"),
+            Some((BenchWampTransport::WebSocket, BenchWampMode::TimeoutRpc))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_meta_api"),
+            Some((BenchWampTransport::RawSocket, BenchWampMode::MetaApi))
         );
         assert_eq!(
             parse_wamp_protocol("wamp_pubsub"),
@@ -6233,6 +6288,7 @@ mod tests {
             protocol: "wamp_rawsocket_rpc".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
@@ -6243,6 +6299,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6275,6 +6333,7 @@ mod tests {
             protocol: "wamp_rawsocket_auth_frames".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
@@ -6285,6 +6344,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: default_chunk_bytes(),
@@ -6318,6 +6379,7 @@ mod tests {
             protocol: "wamp_websocket_pubsub".to_string(),
             client_impl: "native".to_string(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: "bench.topic".to_string(),
             iterations: default_iterations(),
@@ -6328,6 +6390,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6357,6 +6421,7 @@ mod tests {
             protocol: "wamp_websocket_rpc".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
@@ -6367,6 +6432,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: true,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6398,6 +6465,7 @@ mod tests {
             protocol: "wamp_rawsocket_rpc".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: "msgpack".to_string(),
+            peer_serializer: Some("cbor".to_string()),
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
@@ -6406,8 +6474,10 @@ mod tests {
             peer_count: default_peer_count(),
             request_bytes: default_request_bytes(),
             websocket_fragment_size: None,
-            ppt_scheme: None,
-            ppt_serializer: None,
+            ppt_scheme: Some("wamp".to_string()),
+            ppt_serializer: Some("cbor".to_string()),
+            ppt_cipher: Some("aes256gcm".to_string()),
+            ppt_keyid: Some("benchmark-key".to_string()),
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6426,6 +6496,11 @@ mod tests {
         };
         let prepared = PreparedWorkload::from_config(&config).unwrap();
         assert_eq!(prepared.serializer, "msgpack");
+        assert_eq!(prepared.peer_serializer.as_deref(), Some("cbor"));
+        assert_eq!(prepared.ppt_scheme.as_deref(), Some("wamp"));
+        assert_eq!(prepared.ppt_serializer.as_deref(), Some("cbor"));
+        assert_eq!(prepared.ppt_cipher.as_deref(), Some("aes256gcm"));
+        assert_eq!(prepared.ppt_keyid.as_deref(), Some("benchmark-key"));
     }
 
     #[test]
@@ -6435,6 +6510,7 @@ mod tests {
             protocol: "wamp_websocket_rpc".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: "bench.rpc.echo".to_string(),
             iterations: default_iterations(),
@@ -6445,6 +6521,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6472,6 +6550,7 @@ mod tests {
             protocol: "wamp_websocket_pubsub".to_string(),
             client_impl: "native".to_string(),
             serializer: "msgpack".to_string(),
+            peer_serializer: None,
             method: default_method(),
             path: "bench.topic".to_string(),
             iterations: default_iterations(),
@@ -6482,6 +6561,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6509,6 +6590,7 @@ mod tests {
             protocol: "h2".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
@@ -6519,6 +6601,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6548,6 +6632,7 @@ mod tests {
             protocol: "h3".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
@@ -6558,6 +6643,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6587,6 +6674,7 @@ mod tests {
             protocol: "h1".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: default_path(),
             iterations: default_iterations(),
@@ -6597,6 +6685,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6628,6 +6718,7 @@ mod tests {
             protocol: "h1".to_string(),
             client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
             iterations: 1,
@@ -6638,6 +6729,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -6669,6 +6762,7 @@ mod tests {
             protocol: "h2".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: "/bench/secure-jwt".to_string(),
             iterations: default_iterations(),
@@ -6679,6 +6773,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6709,6 +6805,7 @@ mod tests {
             protocol: "h3".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: "/bench/secure-oauth".to_string(),
             iterations: default_iterations(),
@@ -6719,6 +6816,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6752,6 +6851,7 @@ mod tests {
             protocol: "h2".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: "/bench/secure".to_string(),
             iterations: default_iterations(),
@@ -6762,6 +6862,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6792,6 +6894,7 @@ mod tests {
             protocol: "h3".to_string(),
             client_impl: default_wamp_client_impl(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: default_method(),
             path: "/bench/auth".to_string(),
             iterations: default_iterations(),
@@ -6802,6 +6905,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: default_response_bytes(),
             request_chunk_bytes: default_chunk_bytes(),
@@ -6832,6 +6937,7 @@ mod tests {
             protocol: "h1".to_string(),
             client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: HyperMethod::POST,
             path: "/bench/auth".to_string(),
             iterations: 1,
@@ -6842,6 +6948,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -6872,6 +6980,7 @@ mod tests {
             protocol: "h1".to_string(),
             client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: HyperMethod::POST,
             path: "/bench/auth".to_string(),
             iterations: 1,
@@ -6882,6 +6991,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -6924,6 +7035,7 @@ mod tests {
             protocol: "h1".to_string(),
             client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: HyperMethod::POST,
             path: "/bench/auth".to_string(),
             iterations: 1,
@@ -6934,6 +7046,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -7395,6 +7509,7 @@ mod tests {
             protocol: "wamp_rawsocket_auth_frames".to_string(),
             client_impl: "n/a".to_string(),
             serializer: "json".to_string(),
+            peer_serializer: None,
             method: HyperMethod::POST,
             path: default_path(),
             iterations: 1,
@@ -7405,6 +7520,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -7489,6 +7606,7 @@ mod tests {
             protocol: "h1".to_string(),
             client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
             iterations: 3,
@@ -7499,6 +7617,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -7525,6 +7645,7 @@ mod tests {
             protocol: "h2".to_string(),
             client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
             iterations: 3,
@@ -7535,6 +7656,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,
@@ -7561,6 +7684,7 @@ mod tests {
             protocol: "h3".to_string(),
             client_impl: "n/a".to_string(),
             serializer: default_wamp_serializer(),
+            peer_serializer: None,
             method: HyperMethod::POST,
             path: "/bench/stream".to_string(),
             iterations: 3,
@@ -7571,6 +7695,8 @@ mod tests {
             websocket_fragment_size: None,
             ppt_scheme: None,
             ppt_serializer: None,
+            ppt_cipher: None,
+            ppt_keyid: None,
             secure_transport: false,
             response_bytes: 0,
             request_chunk_bytes: 1024,

@@ -287,24 +287,44 @@ class Details {
 
   static Details forHello() {
     final details = Details();
-    var roles = Roles();
-    var caller = Caller();
-    caller.features = CallerFeatures();
+    final roles = Roles();
 
-    var callee = Callee();
-    callee.features = CalleeFeatures();
-
-    var publisher = Publisher();
-    publisher.features = PublisherFeatures();
-
-    var subscriber = Subscriber();
-    subscriber.features = SubscriberFeatures();
+    final caller = Caller()
+      ..features = (CallerFeatures()
+        ..callerIdentification = true
+        ..callTimeout = true
+        ..callCanceling = true
+        ..progressiveCallInvocations = true
+        ..progressiveCallResults = true
+        ..payloadPassThruMode = true);
+    final callee = Callee()
+      ..features = (CalleeFeatures()
+        ..callerIdentification = true
+        ..patternBasedRegistration = true
+        ..sharedRegistration = true
+        ..callTimeout = true
+        ..callCanceling = true
+        ..progressiveCallInvocations = true
+        ..progressiveCallResults = true
+        ..payloadPassThruMode = true);
+    final publisher = Publisher()
+      ..features = (PublisherFeatures()
+        ..publisherIdentification = true
+        ..subscriberBlackWhiteListing = true
+        ..publisherExclusion = true
+        ..payloadPassThruMode = true);
+    final subscriber = Subscriber()
+      ..features = (SubscriberFeatures()
+        ..publisherIdentification = true
+        ..publicationTrustLevels = true
+        ..patternBasedSubscription = true
+        ..subscriptionRevocation = true
+        ..payloadPassThruMode = true);
 
     roles.caller = caller;
     roles.callee = callee;
     roles.publisher = publisher;
     roles.subscriber = subscriber;
-
     details.roles = roles;
 
     return details;
@@ -327,17 +347,29 @@ class Details {
     details.authrole = authRole;
     details.authextra = authExtra;
 
-    var roles = Roles();
-
-    var dealer = Dealer();
-    dealer.features = DealerFeatures();
-
-    var broker = Broker();
-    broker.features = BrokerFeatures();
+    final roles = Roles();
+    final dealer = Dealer()
+      ..features = (DealerFeatures()
+        ..callerIdentification = true
+        ..patternBasedRegistration = true
+        ..sharedRegistration = true
+        ..registrationMetaApi = true
+        ..callTimeout = true
+        ..callCanceling = true
+        ..progressiveCallInvocations = true
+        ..progressiveCallResults = true
+        ..payloadPassThruMode = true);
+    final broker = Broker()
+      ..features = (BrokerFeatures()
+        ..publisherIdentification = true
+        ..patternBasedSubscription = true
+        ..subscriptionMetaApi = true
+        ..subscriberBlackWhiteListing = true
+        ..publisherExclusion = true
+        ..payloadPassThruMode = true);
 
     roles.dealer = dealer;
     roles.broker = broker;
-
     details.roles = roles;
 
     return details;
@@ -445,7 +477,9 @@ BrokerFeatures? _mapBrokerFeatures(Map<String, dynamic>? map) {
   features.publisherIdentification =
       map['publisher_identification'] ?? features.publisherIdentification;
   features.publicationTrustLevels =
-      map['publication_trust_levels'] ?? features.publicationTrustLevels;
+      map['publication_trustlevels'] ??
+      map['publication_trust_levels'] ??
+      features.publicationTrustLevels;
   features.patternBasedSubscription =
       map['pattern_based_subscription'] ?? features.patternBasedSubscription;
   features.subscriptionMetaApi =
@@ -467,10 +501,12 @@ SubscriberFeatures? _mapSubscriberFeatures(Map<String, dynamic>? map) {
     return null;
   }
   final features = SubscriberFeatures();
-  features.callTimeout = map['call_timeout'] ?? features.callTimeout;
-  features.callCanceling = map['call_canceling'] ?? features.callCanceling;
-  features.progressiveCallResults =
-      map['progressive_call_results'] ?? features.progressiveCallResults;
+  features.publisherIdentification =
+      map['publisher_identification'] ?? features.publisherIdentification;
+  features.publicationTrustLevels =
+      map['publication_trustlevels'] ?? features.publicationTrustLevels;
+  features.patternBasedSubscription =
+      map['pattern_based_subscription'] ?? features.patternBasedSubscription;
   features.subscriptionRevocation =
       map['subscription_revocation'] ?? features.subscriptionRevocation;
   features.payloadPassThruMode =
@@ -496,6 +532,9 @@ DealerFeatures? _mapDealerFeatures(Map<String, dynamic>? map) {
   features.sessionMetaApi = map['session_meta_api'] ?? features.sessionMetaApi;
   features.callTimeout = map['call_timeout'] ?? features.callTimeout;
   features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallInvocations =
+      map['progressive_call_invocations'] ??
+      features.progressiveCallInvocations;
   features.progressiveCallResults =
       map['progressive_call_results'] ?? features.progressiveCallResults;
   features.payloadPassThruMode =
@@ -518,6 +557,9 @@ CalleeFeatures? _mapCalleeFeatures(Map<String, dynamic>? map) {
       map['shared_registration'] ?? features.sharedRegistration;
   features.callTimeout = map['call_timeout'] ?? features.callTimeout;
   features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallInvocations =
+      map['progressive_call_invocations'] ??
+      features.progressiveCallInvocations;
   features.progressiveCallResults =
       map['progressive_call_results'] ?? features.progressiveCallResults;
   features.payloadPassThruMode =
@@ -534,6 +576,9 @@ CallerFeatures? _mapCallerFeatures(Map<String, dynamic>? map) {
       map['caller_identification'] ?? features.callerIdentification;
   features.callTimeout = map['call_timeout'] ?? features.callTimeout;
   features.callCanceling = map['call_canceling'] ?? features.callCanceling;
+  features.progressiveCallInvocations =
+      map['progressive_call_invocations'] ??
+      features.progressiveCallInvocations;
   features.progressiveCallResults =
       map['progressive_call_results'] ?? features.progressiveCallResults;
   features.payloadPassThruMode =
@@ -555,10 +600,10 @@ class Publisher {
 }
 
 class PublisherFeatures {
-  bool publisherIdentification = true;
-  bool subscriberBlackWhiteListing = true;
-  bool publisherExclusion = true;
-  bool payloadPassThruMode = true;
+  bool publisherIdentification = false;
+  bool subscriberBlackWhiteListing = false;
+  bool publisherExclusion = false;
+  bool payloadPassThruMode = false;
 }
 
 class Broker {
@@ -583,11 +628,26 @@ class Subscriber {
 }
 
 class SubscriberFeatures {
+  bool publisherIdentification = false;
+  bool publicationTrustLevels = false;
+  bool patternBasedSubscription = false;
+  bool subscriptionRevocation = false;
+  bool payloadPassThruMode = false;
+
+  @Deprecated(
+    'RPC timeout support belongs to CallerFeatures and CalleeFeatures.',
+  )
   bool callTimeout = false;
+
+  @Deprecated(
+    'RPC cancellation support belongs to CallerFeatures and CalleeFeatures.',
+  )
   bool callCanceling = false;
+
+  @Deprecated(
+    'Progressive RPC results belong to CallerFeatures and CalleeFeatures.',
+  )
   bool progressiveCallResults = false;
-  bool subscriptionRevocation = true;
-  bool payloadPassThruMode = true;
 }
 
 class Dealer {
@@ -604,6 +664,7 @@ class DealerFeatures {
   bool sessionMetaApi = false;
   bool callTimeout = false;
   bool callCanceling = false;
+  bool progressiveCallInvocations = false;
   bool progressiveCallResults = false;
   bool payloadPassThruMode = false;
 }
@@ -613,14 +674,15 @@ class Callee {
 }
 
 class CalleeFeatures {
-  bool callerIdentification = true;
+  bool callerIdentification = false;
   bool callTrustlevels = false;
   bool patternBasedRegistration = false;
   bool sharedRegistration = false;
   bool callTimeout = false;
   bool callCanceling = false;
-  bool progressiveCallResults = true;
-  bool payloadPassThruMode = true;
+  bool progressiveCallInvocations = false;
+  bool progressiveCallResults = false;
+  bool payloadPassThruMode = false;
 }
 
 class Caller {
@@ -628,9 +690,10 @@ class Caller {
 }
 
 class CallerFeatures {
-  bool callerIdentification = true;
+  bool callerIdentification = false;
   bool callTimeout = false;
   bool callCanceling = false;
-  bool progressiveCallResults = true;
-  bool payloadPassThruMode = true;
+  bool progressiveCallInvocations = false;
+  bool progressiveCallResults = false;
+  bool payloadPassThruMode = false;
 }

@@ -86,6 +86,14 @@ class PendingInvocation {
     required this.callerSessionId,
     this.calleeInternalSendPort,
     this.callerInternalSendPort,
+    this.initiatingOptions = const {},
+    this.progressiveInvocation = false,
+    this.progressiveInvocationOpen = false,
+    this.timeout,
+    this.timeoutForwarded = false,
+    this.disclosedCallerSessionId,
+    this.disclosedCallerAuthId,
+    this.disclosedCallerAuthRole,
     this.cancelRequested = false,
     this.cancelMode,
     this.waitForCancelAck = false,
@@ -101,6 +109,14 @@ class PendingInvocation {
   final int callerSessionId;
   final SendPort? calleeInternalSendPort;
   final SendPort? callerInternalSendPort;
+  final Map<String, Object?> initiatingOptions;
+  final bool progressiveInvocation;
+  bool progressiveInvocationOpen;
+  final int? timeout;
+  final bool timeoutForwarded;
+  final int? disclosedCallerSessionId;
+  final String? disclosedCallerAuthId;
+  final String? disclosedCallerAuthRole;
   bool cancelRequested;
   String? cancelMode;
   bool waitForCancelAck;

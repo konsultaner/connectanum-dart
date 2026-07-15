@@ -4122,6 +4122,7 @@ Map<String, dynamic> _registrationDetails(RegistrationSnapshot registration) {
       : registration.callees.first.details;
   return <String, dynamic>{
     'id': registration.registrationId,
+    'created': registration.created.toUtc().toIso8601String(),
     'uri': registration.procedure,
     'match': _procedureMatchPolicyName(registration.matchPolicy),
     'invoke': registration.policy.name,
@@ -4133,6 +4134,7 @@ Map<String, dynamic> _registrationDetails(RegistrationSnapshot registration) {
 Map<String, dynamic> _subscriptionDetails(SubscriptionSnapshot subscription) {
   return <String, dynamic>{
     'id': subscription.id,
+    'created': subscription.created.toUtc().toIso8601String(),
     'uri': subscription.topic,
     'match': _topicMatchPolicyName(subscription.matchPolicy),
     if (subscription.options['_ai_meta_data'] != null)

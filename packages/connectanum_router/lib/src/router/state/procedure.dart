@@ -35,13 +35,15 @@ class RegistrationSnapshot {
     required this.policy,
     required this.matchPolicy,
     required this.callees,
-  });
+    DateTime? created,
+  }) : created = created ?? DateTime.now().toUtc();
 
   final int registrationId;
   final String procedure;
   final InvocationPolicy policy;
   final ProcedureMatchPolicy matchPolicy;
   final List<RegistrationRecord> callees;
+  final DateTime created;
 }
 
 /// Represents a procedure entry (possibly with multiple callees).
@@ -77,6 +79,7 @@ class ProcedureEntry {
       wildcardLiteralBlocks: wildcardBlocks,
       prefixLength: prefixLength,
       cacheVersion: orderedCallees.length,
+      created: DateTime.now().toUtc(),
     );
   }
 
@@ -91,6 +94,7 @@ class ProcedureEntry {
     required this.wildcardLiteralBlocks,
     required this.prefixLength,
     required int cacheVersion,
+    required this.created,
   }) : _wildcardSegments = wildcardSegments,
        _cacheVersion = cacheVersion;
 
@@ -103,6 +107,7 @@ class ProcedureEntry {
   final int wildcardSegmentCount;
   final List<int> wildcardLiteralBlocks;
   final int prefixLength;
+  final DateTime created;
 
   int _cursor = 0;
   int _cacheVersion;

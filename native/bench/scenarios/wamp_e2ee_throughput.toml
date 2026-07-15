@@ -1,0 +1,250 @@
+name = "wamp_e2ee_throughput"
+description = "Canonical payload E2EE throughput gate across both release ciphers, Dart/native clients, RawSocket/WebSocket, and RPC/pub-sub."
+
+[[workloads]]
+name = "rawsocket_rpc_aes_dart_64k"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "cbor"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "rawsocket_rpc_aes_native_64k"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "rawsocket_pubsub_aes_dart_64k"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "rawsocket_pubsub_aes_native_64k"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_rpc_aes_dart_64k"
+protocol = "wamp_websocket_rpc"
+client_impl = "dart"
+serializer = "cbor"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_rpc_aes_native_64k"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_pubsub_aes_dart_64k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_pubsub_aes_native_64k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "rawsocket_rpc_xsalsa_dart_64k"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "cbor"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "rawsocket_rpc_xsalsa_native_64k"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "rawsocket_pubsub_xsalsa_dart_64k"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "rawsocket_pubsub_xsalsa_native_64k"
+protocol = "wamp_rawsocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_rpc_xsalsa_dart_64k"
+protocol = "wamp_websocket_rpc"
+client_impl = "dart"
+serializer = "cbor"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_rpc_xsalsa_native_64k"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+peer_serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_pubsub_xsalsa_dart_64k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"
+
+[[workloads]]
+name = "websocket_pubsub_xsalsa_native_64k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 12
+concurrency = 4
+in_flight_per_session = 2
+request_bytes = 65536
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "xsalsa20poly1305"
+ppt_keyid = "benchmark-key"

@@ -213,6 +213,9 @@ class Client {
       _onSessionAbort(abort, options);
     } on Goodbye catch (goodbye) {
       _onSessionGoodbye(goodbye);
+    } on SessionE2eeNegotiationException catch (error, stackTrace) {
+      _controller.addError(error, stackTrace);
+      await disconnect();
     }
   }
 

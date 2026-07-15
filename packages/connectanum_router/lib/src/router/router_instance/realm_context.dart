@@ -288,6 +288,27 @@ class RealmContext {
     return completer.future;
   }
 
+  Future<bool> touchInvocation(int invocationId) async {
+    final completer = Completer<bool>();
+    final replyPort = ReceivePort();
+    replyPort.listen((dynamic message) {
+      replyPort.close();
+      if (message is StoreErrorResponse) {
+        completer.completeError(StateError(message.message));
+      } else {
+        completer.complete(message == true);
+      }
+    });
+    statePort.send(
+      InvocationTouchCommand(
+        realmUri: realmUri,
+        invocationId: invocationId,
+        replyPort: replyPort.sendPort,
+      ),
+    );
+    return completer.future;
+  }
+
   Future<RealmSnapshotResponse> _requestSnapshot({int? knownVersion}) async {
     final completer = Completer<RealmSnapshotResponse>();
     final replyPort = ReceivePort();

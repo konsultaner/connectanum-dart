@@ -262,14 +262,24 @@ class NativeClientRuntime {
     int sessionHandle,
     Uint8List plaintext, {
     String? keyId,
+    String cipher = 'xsalsa20poly1305',
   }) {
     ensureStarted();
+    final encrypt = switch (cipher) {
+      'xsalsa20poly1305' => _bindings.ctE2eeSessionEncrypt,
+      'aes256gcm' => _bindings.ctE2eeSessionEncryptAes256Gcm,
+      _ => throw ArgumentError.value(
+        cipher,
+        'cipher',
+        'Unsupported E2EE cipher',
+      ),
+    };
     final keyIdPtr = keyId?.toNativeUtf8().cast<ffi.Char>() ?? ffi.nullptr;
     final plaintextPtr = malloc<ffi.Uint8>(plaintext.length);
     final bufferPtr = calloc<CtByteBuffer>();
     try {
       plaintextPtr.asTypedList(plaintext.length).setAll(0, plaintext);
-      final result = _bindings.ctE2eeSessionEncrypt(
+      final result = encrypt(
         sessionHandle,
         keyIdPtr,
         keyId?.length ?? 0,
@@ -294,14 +304,24 @@ class NativeClientRuntime {
     int sessionHandle,
     Uint8List ciphertext, {
     String? keyId,
+    String cipher = 'xsalsa20poly1305',
   }) {
     ensureStarted();
+    final decrypt = switch (cipher) {
+      'xsalsa20poly1305' => _bindings.ctE2eeSessionDecrypt,
+      'aes256gcm' => _bindings.ctE2eeSessionDecryptAes256Gcm,
+      _ => throw ArgumentError.value(
+        cipher,
+        'cipher',
+        'Unsupported E2EE cipher',
+      ),
+    };
     final keyIdPtr = keyId?.toNativeUtf8().cast<ffi.Char>() ?? ffi.nullptr;
     final ciphertextPtr = malloc<ffi.Uint8>(ciphertext.length);
     final bufferPtr = calloc<CtByteBuffer>();
     try {
       ciphertextPtr.asTypedList(ciphertext.length).setAll(0, ciphertext);
-      final result = _bindings.ctE2eeSessionDecrypt(
+      final result = decrypt(
         sessionHandle,
         keyIdPtr,
         keyId?.length ?? 0,

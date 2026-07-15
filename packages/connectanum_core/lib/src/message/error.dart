@@ -22,6 +22,7 @@ class Error extends AbstractMessageWithPayload {
   static const String notSupported = 'wamp.error.not_supported';
   static const String couldNotConnect = 'wamp.error.could_not_connect';
   static const String runtimeError = 'wamp.error.runtime_error';
+  static const String timeout = 'wamp.error.timeout';
   static const String unknown = 'wamp.error.unknown';
 
   // AUTHORIZATION ERRORS

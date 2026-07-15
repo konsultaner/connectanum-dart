@@ -285,6 +285,14 @@ class CtFfiBindings {
           .lookupFunction<CtE2eeSessionDecryptNative, CtE2eeSessionDecryptDart>(
             'ct_e2ee_session_decrypt',
           ),
+      ctE2eeSessionEncryptAes256Gcm = library
+          .lookupFunction<CtE2eeSessionEncryptNative, CtE2eeSessionEncryptDart>(
+            'ct_e2ee_session_encrypt_aes256gcm',
+          ),
+      ctE2eeSessionDecryptAes256Gcm = library
+          .lookupFunction<CtE2eeSessionDecryptNative, CtE2eeSessionDecryptDart>(
+            'ct_e2ee_session_decrypt_aes256gcm',
+          ),
       ctClientConnectRawsocket = library
           .lookupFunction<
             CtClientConnectRawsocketNative,
@@ -350,6 +358,8 @@ class CtFfiBindings {
   final CtE2eeSessionReleaseDart ctE2eeSessionRelease;
   final CtE2eeSessionEncryptDart ctE2eeSessionEncrypt;
   final CtE2eeSessionDecryptDart ctE2eeSessionDecrypt;
+  final CtE2eeSessionEncryptDart ctE2eeSessionEncryptAes256Gcm;
+  final CtE2eeSessionDecryptDart ctE2eeSessionDecryptAes256Gcm;
   final CtClientConnectRawsocketDart ctClientConnectRawsocket;
   final CtClientConnectWebSocketDart ctClientConnectWebSocket;
   final CtConnectionCloseDart ctConnectionClose;

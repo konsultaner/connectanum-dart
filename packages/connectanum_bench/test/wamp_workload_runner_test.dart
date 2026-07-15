@@ -232,6 +232,84 @@ void main() {
       expect(broker.maxConcurrentCalls, greaterThanOrEqualTo(2));
     });
 
+    test('executes three-chunk progressive RPC workloads', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('progressive_rpc_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final samples = await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          mode: WampMode.progressiveRpc,
+          uri: 'bench.progressive',
+          iterations: 2,
+          concurrency: 1,
+          payloadBytes: 16,
+        ),
+      );
+
+      expect(samples, hasLength(2));
+      expect(samples.every((sample) => sample.requestBytes == 48), isTrue);
+      expect(broker.callCounts['bench.progressive.worker.0'], 2);
+    });
+
+    test('executes timeout RPC workloads only for timeout errors', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('timeout_rpc_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final samples = await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.json,
+          mode: WampMode.timeoutRpc,
+          uri: 'bench.timeout',
+          iterations: 2,
+          concurrency: 1,
+          payloadBytes: 0,
+          callTimeoutMs: 5,
+        ),
+      );
+
+      expect(samples, hasLength(2));
+      expect(samples.every((sample) => sample.latencyMs >= 5), isTrue);
+    });
+
+    test('executes all 15 statistics Meta API procedures', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('meta_api_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      final samples = await runner.run(
+        WampScenario(
+          transport: WampTransport.websocket,
+          serializer: WampSerializer.cbor,
+          mode: WampMode.metaApi,
+          uri: 'bench.meta',
+          iterations: 2,
+          concurrency: 1,
+          payloadBytes: 0,
+        ),
+      );
+
+      expect(samples, hasLength(2));
+      expect(
+        broker.callCounts.values.fold<int>(0, (sum, count) => sum + count),
+        30,
+      );
+      expect(broker.callCounts.keys, hasLength(15));
+      expect(broker.callCounts['wamp.session.count'], 2);
+      expect(broker.callCounts['wamp.registration.count_callees'], 2);
+      expect(broker.callCounts['wamp.subscription.count_subscribers'], 2);
+    });
+
     test(
       'executes authenticate scenario by opening and closing sessions',
       () async {
@@ -300,10 +378,14 @@ void main() {
           payloadBytes: 8,
           pptScheme: 'x_custom_scheme',
           pptSerializer: 'json',
+          pptCipher: 'x_test_cipher',
+          pptKeyId: 'test-key',
         ),
       );
       expect(broker.lastCallOptions?.pptScheme, 'x_custom_scheme');
       expect(broker.lastCallOptions?.pptSerializer, 'json');
+      expect(broker.lastCallOptions?.pptCipher, 'x_test_cipher');
+      expect(broker.lastCallOptions?.pptKeyId, 'test-key');
     });
 
     test(
@@ -919,6 +1001,90 @@ void main() {
       expect(scenario.pptSerializer, 'msgpack');
     });
 
+    test('parses and round-trips WAMP E2EE profile fields', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'ws',
+        'serializer': 'json',
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+        'ppt_scheme': wamp_core.ConnectanumE2eeProfile.scheme,
+        'ppt_serializer': wamp_core.ConnectanumE2eeProfile.serializer,
+        'ppt_cipher': wamp_core.ConnectanumE2eeProfile.aes256Gcm,
+        'ppt_keyid': 'benchmark-key',
+      });
+
+      expect(scenario.pptScheme, wamp_core.ConnectanumE2eeProfile.scheme);
+      expect(
+        scenario.pptSerializer,
+        wamp_core.ConnectanumE2eeProfile.serializer,
+      );
+      expect(scenario.pptCipher, wamp_core.ConnectanumE2eeProfile.aes256Gcm);
+      expect(scenario.pptKeyId, 'benchmark-key');
+      expect(scenario.toJson()['ppt_cipher'], 'aes256gcm');
+      expect(scenario.toJson()['ppt_keyid'], 'benchmark-key');
+    });
+
+    test('rejects incomplete or invalid WAMP E2EE benchmark profiles', () {
+      Map<String, Object?> profile({
+        String serializer = 'cbor',
+        String? cipher = 'aes256gcm',
+        String? keyId = 'benchmark-key',
+      }) => {
+        'mode': 'rpc',
+        'uri': 'bench.rpc.echo',
+        'ppt_scheme': 'wamp',
+        'ppt_serializer': serializer,
+        'ppt_cipher': ?cipher,
+        'ppt_keyid': ?keyId,
+      };
+
+      expect(
+        () => WampScenario.fromJson(profile(serializer: 'json')),
+        throwsFormatException,
+      );
+      expect(
+        () => WampScenario.fromJson(profile(cipher: null)),
+        throwsFormatException,
+      );
+      expect(
+        () => WampScenario.fromJson(profile(cipher: 'unsupported')),
+        throwsFormatException,
+      );
+      expect(
+        () => WampScenario.fromJson(profile(keyId: null)),
+        throwsFormatException,
+      );
+    });
+
+    test('builds a real Dart AES-GCM provider for E2EE scenarios', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'client_impl': 'dart',
+        'serializer': 'cbor',
+        'mode': 'pubsub',
+        'uri': 'bench.topic',
+        'ppt_scheme': 'wamp',
+        'ppt_serializer': 'cbor',
+        'ppt_cipher': 'aes256gcm',
+        'ppt_keyid': 'benchmark-key',
+      });
+      final provider = e2eeProviderFactoryForScenario(scenario)!();
+      final options = wamp_core.PublishOptions(pptScheme: 'wamp');
+
+      final packed = provider.packPayload(
+        const ['encrypted benchmark payload'],
+        const {'iteration': 7},
+        options,
+      );
+      final unpacked = provider.unpackPayload(packed, options);
+
+      expect(options.pptSerializer, 'cbor');
+      expect(options.pptCipher, 'aes256gcm');
+      expect(options.pptKeyId, 'benchmark-key');
+      expect(unpacked.arguments, const ['encrypted benchmark payload']);
+      expect(unpacked.argumentsKeywords, const {'iteration': 7});
+    });
+
     test('parses websocket fragmentation overrides', () {
       final scenario = WampScenario.fromJson({
         'transport': 'ws',
@@ -986,6 +1152,36 @@ void main() {
       expect(subscribeCycle.toJson()['mode'], 'subscribe_cycle');
       expect(registerCycle.toJson()['mode'], 'register_cycle');
       expect(cancelCycle.toJson()['mode'], 'cancel_cycle');
+    });
+
+    test('parses final release workload modes and timeout budget', () {
+      final progressive = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'json',
+        'mode': 'progressive_rpc',
+        'uri': 'bench.progressive',
+      });
+      final timeout = WampScenario.fromJson({
+        'transport': 'websocket',
+        'serializer': 'cbor',
+        'mode': 'timeout_rpc',
+        'uri': 'bench.timeout',
+        'call_timeout_ms': 40,
+      });
+      final meta = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'msgpack',
+        'mode': 'meta_api',
+        'uri': 'bench.meta',
+      });
+
+      expect(progressive.mode, WampMode.progressiveRpc);
+      expect(timeout.mode, WampMode.timeoutRpc);
+      expect(timeout.callTimeoutMs, 40);
+      expect(meta.mode, WampMode.metaApi);
+      expect(progressive.toJson()['mode'], 'progressive_rpc');
+      expect(timeout.toJson()['call_timeout_ms'], 40);
+      expect(meta.toJson()['mode'], 'meta_api');
     });
 
     test('parses realm and WAMP auth fields', () {
@@ -1491,6 +1687,10 @@ class _FakeWampSession implements WampSession {
   final List<WampSubscription> _subscriptions = [];
   final _disconnectCompleter = Completer<void>();
   var isClosed = false;
+  var _nextProgressiveRequestId = 1;
+
+  @override
+  int get id => 1;
 
   @override
   Future<dynamic> get onDisconnect => _disconnectCompleter.future;
@@ -1507,6 +1707,7 @@ class _FakeWampSession implements WampSession {
     }
     _broker.addLazyRegistration(procedure, onInvoke, options: options);
     return WampRegistration(
+      id: 1,
       cancel: () async {
         if (hangRegistrationCancel) {
           return Completer<void>().future;
@@ -1569,6 +1770,7 @@ class _FakeWampSession implements WampSession {
     if (useDirectEventHandler) {
       void Function(wamp_core.LazyEventPayload event)? callback;
       subscription = WampSubscription(
+        id: 1,
         attachEventHandler: (onEvent) {
           callback = onEvent;
           _broker.addPayloadCallbackSubscriber(topic, onEvent);
@@ -1589,6 +1791,7 @@ class _FakeWampSession implements WampSession {
           StreamController<wamp_core.LazyEventPayload>.broadcast();
       _broker.addPayloadSubscriber(topic, controller);
       subscription = WampSubscription(
+        id: 1,
         eventStreamFactory: () => controller.stream,
         cancel: () async {
           if (hangSubscriptionCancel) {
@@ -1616,6 +1819,7 @@ class _FakeWampSession implements WampSession {
     if (useDirectEventHandler) {
       void Function(wamp_core.LazyEventPayload event)? callback;
       subscription = WampSubscription(
+        id: 1,
         attachEventHandler: (onEvent) {
           callback = onEvent;
           _broker.addPayloadCallbackSubscriber(topic, onEvent);
@@ -1636,6 +1840,7 @@ class _FakeWampSession implements WampSession {
           StreamController<wamp_core.LazyEventPayload>.broadcast();
       _broker.addPayloadSubscriber(topic, controller);
       subscription = WampSubscription(
+        id: 1,
         eventStreamFactory: () => controller.stream,
         cancel: () async {
           if (hangSubscriptionCancel) {
@@ -1700,6 +1905,15 @@ class _FakeWampSession implements WampSession {
     Map<String, Object?>? argumentsKeywords,
     wamp_core.CallOptions? options,
   }) async {
+    if (options?.timeout != null) {
+      await Future<void>.delayed(Duration(milliseconds: options!.timeout!));
+      throw wamp_core.Error(
+        wamp_core.MessageTypes.codeCall,
+        1,
+        const {},
+        wamp_core.Error.timeout,
+      );
+    }
     _broker.recordCall(procedure);
     _broker.beginCall();
     try {
@@ -1796,6 +2010,70 @@ class _FakeWampSession implements WampSession {
   }
 
   @override
+  WampProgressiveCall startProgressiveCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    final requestId = _nextProgressiveRequestId++;
+    final controller = StreamController<wamp_core.Result>();
+    var responseClosed = false;
+    _broker.recordCall(procedure);
+
+    void dispatch(List<dynamic>? chunkArguments, bool progress) {
+      final handler = _broker._lazyRegistrations[procedure];
+      if (handler == null) {
+        controller.addError(StateError('No progressive callee for $procedure'));
+        return;
+      }
+      final invocation = wamp_core.LazyInvocationPayload(
+        requestId: requestId,
+        registrationId: 1,
+        progress: progress,
+        receiveProgress: false,
+        payload: wamp_core.LazyMessagePayload.materialized(
+          arguments: chunkArguments,
+        ),
+        isResponseClosed: () => responseClosed,
+        respondWith:
+            ({
+              wamp_core.LazyMessagePayload? lazyPayload,
+              List<dynamic>? arguments,
+              Map<String, dynamic>? argumentsKeywords,
+              bool isError = false,
+              String? errorUri,
+              wamp_core.YieldOptions? options,
+            }) {
+              responseClosed = true;
+              if (isError) {
+                controller.addError(StateError(errorUri ?? 'unknown'));
+              } else {
+                controller.add(
+                  wamp_core.Result(
+                    requestId,
+                    wamp_core.ResultDetails(progress: false),
+                    arguments: lazyPayload?.arguments ?? arguments,
+                    argumentsKeywords:
+                        lazyPayload?.argumentsKeywords ?? argumentsKeywords,
+                  ),
+                );
+              }
+              unawaited(controller.close());
+            },
+      );
+      Future.sync(() => handler(invocation)).catchError(controller.addError);
+    }
+
+    dispatch(arguments, true);
+    return WampProgressiveCall(
+      results: controller.stream,
+      sendChunk: ({arguments}) => dispatch(arguments, true),
+      finish: ({arguments}) => dispatch(arguments, false),
+    );
+  }
+
+  @override
   Future<void> cancelingCall(
     String procedure, {
     List<dynamic>? arguments,
@@ -1826,6 +2104,9 @@ class _FakeWampSession implements WampSession {
 
 class _HangingRpcSession implements WampSession {
   final _disconnectCompleter = Completer<void>();
+
+  @override
+  int get id => 1;
 
   @override
   Future<dynamic> get onDisconnect => _disconnectCompleter.future;
@@ -1918,6 +2199,16 @@ class _HangingRpcSession implements WampSession {
   }
 
   @override
+  WampProgressiveCall startProgressiveCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+    wamp_core.CallOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<void> cancelingCall(
     String procedure, {
     List<dynamic>? arguments,
@@ -1964,6 +2255,9 @@ class _CancelCleanupSession implements WampSession {
   final _disconnectCompleter = Completer<void>();
   int registrationCancelCalls = 0;
   bool closed = false;
+
+  @override
+  int get id => 1;
 
   @override
   Future<dynamic> get onDisconnect => _disconnectCompleter.future;
@@ -2051,6 +2345,16 @@ class _CancelCleanupSession implements WampSession {
   Future<wamp_core.LazyResultPayload> callSingleWithLazyPayload(
     String procedure, {
     required wamp_core.LazyMessagePayload payload,
+    wamp_core.CallOptions? options,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  WampProgressiveCall startProgressiveCall(
+    String procedure, {
+    List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
     wamp_core.CallOptions? options,
   }) {
     throw UnimplementedError();
