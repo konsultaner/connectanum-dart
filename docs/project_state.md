@@ -14,7 +14,15 @@ native JSON client-binding defect in one mixed MessagePack-to-JSON E2EE pub/sub
 row: WAMP binary sentinel strings were not restored to byte sequences before
 E2EE handling. The binder correction passes its focused 31-test suite, the
 complete canonical WAMP profile validator, and a second full local
-`bin/verify`; replacement hosted deployment-chain evidence remains pending.
+`bin/verify`. The correction was committed as `9aa9e9d` and pushed. Replacement
+hosted WAMP run `29416985303` then completed all workloads correctly with zero
+router error counters, but rejected a 57.945 ms progressive p95 against the
+unchanged 50 ms ceiling because its first two cold samples were 57.945/60.547
+ms while the remaining 22 were 11.902-31.796 ms. Progressive benchmark workers
+now prime one unmeasured in-flight window before sample collection. The focused
+51-test runner suite and complete canonical WAMP validator pass locally, with
+the corrected progressive row at 3.85-11.10 ms. Replacement hosted evidence
+remains pending after this benchmark-harness correction is pushed.
 
 Pre-change `bin/test-fast` passed on 2026-07-15. The routed statistics Meta API
 slice is now implemented and verified: all fifteen standard Session,
@@ -49,7 +57,10 @@ confirmed the final cross-serializer binary payload fixes for generic byte
 lists and MessagePack `Uint8List` preservation. After the first hosted WAMP
 run exposed the native JSON binary-sentinel gap, the complete canonical WAMP
 validator passed all smoke, secure, control, E2EE, throughput, fan-out, and
-final-release-feature gates locally, and the full verifier passed again.
+final-release-feature gates locally, and the full verifier passed again. After
+the hosted cold-start p95 finding, the validator passed again with progressive
+priming enabled while retaining the original 50 ms release ceiling, and a
+final full `bin/verify` rerun passed with the benchmark-harness correction.
 
 The current Advanced Profile draft specifies progressive invocation and
 timeout wire/state behavior but classifies both as alpha; its payload E2EE

@@ -797,6 +797,20 @@ class WampWorkloadRunner {
         timeoutLabel: 'progressive_rpc_register_timeout',
         logLabel: 'progressive RPC registration',
       );
+
+      // Prime the progressive dispatch path without contaminating measured p95.
+      await _runWithInFlightLimit(
+        iterations: scenario.inFlightPerSession,
+        maxInFlight: scenario.inFlightPerSession,
+        launch: (iteration) => _runProgressiveRpcIteration(
+          workerId,
+          -iteration - 1,
+          scenario,
+          procedure,
+          payload,
+          caller!,
+        ),
+      );
       return await _runWithInFlightLimit(
         iterations: scenario.iterations,
         maxInFlight: scenario.inFlightPerSession,

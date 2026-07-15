@@ -99,7 +99,12 @@ The final-feature gates were added and validated locally on Darwin arm64 on
 | `wamp_final_release_features` | 12 | Progressive: 0.45-1.79 Mbps and 8.12-25.41 ms p95; timeout: 55.38-59.49 ms p95; full Meta sweep: 11.17-33.22 ms p95 | `native/bench/artifact_gate/wamp_final_release_features.json` |
 
 Both gates passed with zero transport, backpressure, protocol, or internal
-error counters. Hosted Linux evidence remains required after push.
+error counters. Progressive workloads prime one unmeasured in-flight window
+per worker after their sessions and registrations are ready; throughput and
+p95 calculations include only the configured measured iterations. This keeps
+JIT and first-dispatch startup out of the steady-state release gate without
+weakening its latency ceiling. Cold-start latency requires separate evidence.
+Hosted Linux evidence remains required after push.
 
 The diagnostic runner was also validated locally on Darwin arm64 on 2026-04-23
 with `router_workers=1` and `native_runtime_threads=1`. All diagnostic artifact

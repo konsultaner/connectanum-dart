@@ -138,5 +138,14 @@ operational statistics, and production-ready payload end-to-end encryption.
   E2EE handling. The native binder now normalizes binary sentinels recursively
   for full and lazy payload fragments. Its focused 31-test suite, the complete
   canonical WAMP profile validator, and a second full `bin/verify` all pass.
-  Replacement hosted deployment-chain evidence is pending after the correction
-  is pushed.
+  The correction was committed as `9aa9e9d` and pushed.
+- 2026-07-15: Replacement hosted WAMP run `29416985303` completed every
+  workload correctly with zero router error counters, but the release gate
+  rejected a 57.945 ms progressive p95 against the unchanged 50 ms ceiling.
+  The first two cold samples were 57.945/60.547 ms while the remaining 22 were
+  11.902-31.796 ms. Progressive workers now prime one unmeasured in-flight
+  window before collecting samples. The focused 51-test benchmark-runner suite
+  and the complete canonical WAMP profile validator pass; the corrected local
+  progressive row measured 3.85-11.10 ms. A final full `bin/verify` rerun also
+  passes with the correction. Replacement hosted evidence remains pending after
+  this benchmark-harness correction is pushed.

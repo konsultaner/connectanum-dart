@@ -232,7 +232,7 @@ void main() {
       expect(broker.maxConcurrentCalls, greaterThanOrEqualTo(2));
     });
 
-    test('executes three-chunk progressive RPC workloads', () async {
+    test('warms up three-chunk progressive RPC workloads', () async {
       final broker = _FakeWampBroker();
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => _FakeWampSession(broker),
@@ -253,7 +253,7 @@ void main() {
 
       expect(samples, hasLength(2));
       expect(samples.every((sample) => sample.requestBytes == 48), isTrue);
-      expect(broker.callCounts['bench.progressive.worker.0'], 2);
+      expect(broker.callCounts['bench.progressive.worker.0'], 3);
     });
 
     test('executes timeout RPC workloads only for timeout errors', () async {
