@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+cd_repo_root
+dart_workspace_bootstrap
+
+coverage_root="${CONNECTANUM_COVERAGE_DIR:-}"
+if [[ -z "$coverage_root" ]]; then
+  coverage_root="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-coverage.XXXXXX")"
+elif [[ "$coverage_root" != /* ]]; then
+  coverage_root="$ROOT_DIR/$coverage_root"
+fi
+
+if [[ -d "$coverage_root/raw" || -f "$coverage_root/lcov.info" ]]; then
+  printf 'Coverage output already exists at %s; choose an empty CONNECTANUM_COVERAGE_DIR.\n' "$coverage_root" >&2
+  exit 2
+fi
+
+mkdir -p "$coverage_root/raw"
+
+if native_runtime_supported; then
+  build_native_ffi_test_release
+fi
+
+run_package_coverage() {
+  local package_name="$1"
+  local coverage_name="$2"
+  shift 2
+
+  printf 'Collecting Dart VM coverage for %s (%s).\n' "$package_name" "$coverage_name"
+  (
+    cd "$ROOT_DIR/packages/$package_name"
+    dart test -p vm "$@" --coverage="$coverage_root/raw/$coverage_name"
+  )
+}
+
+run_package_coverage connectanum_core connectanum_core test
+run_package_coverage connectanum_mcp connectanum_mcp test
+run_package_coverage connectanum connectanum test
+run_package_coverage connectanum_client connectanum_client_core test/client_test.dart
+run_package_coverage \
+  connectanum_client \
+  connectanum_client_io_events \
+  test/client_on_transport_io_events_test.dart
+run_package_coverage connectanum_client connectanum_client_local test/transport/local
+run_package_coverage \
+  connectanum_client \
+  connectanum_client_native_loader \
+  test/transport/native/native_library_loader_test.dart
+run_package_coverage \
+  connectanum_client \
+  connectanum_client_socket \
+  test/transport/socket/socket_transport_test.dart
+run_package_coverage \
+  connectanum_client \
+  connectanum_client_websocket_io \
+  test/transport/websocket/websocket_transport_io_test.dart
+run_package_coverage \
+  connectanum_client \
+  connectanum_client_native_binding \
+  test/transport/native/message_binding_test.dart
+run_package_coverage connectanum_client connectanum_client_mcp test/mcp
+run_package_coverage \
+  connectanum_client \
+  connectanum_client_native_e2ee \
+  test/transport/native/e2ee_provider_test.dart
+run_package_coverage \
+  connectanum_client \
+  connectanum_client_native_transport \
+  test/transport/native/native_transports_test.dart
+run_package_coverage connectanum_auth_server connectanum_auth_server test
+
+printf 'Collecting Dart VM coverage for connectanum_bench.\n'
+(
+  cd "$ROOT_DIR/packages/connectanum_bench"
+  env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 \
+    dart test -p vm test --coverage="$coverage_root/raw/connectanum_bench"
+)
+
+run_package_coverage \
+  connectanum_router \
+  connectanum_router \
+  test \
+  --exclude-tags zero_copy_publish
+
+printf 'Collecting zero-copy Dart VM coverage for connectanum_router.\n'
+(
+  cd "$ROOT_DIR/packages/connectanum_router"
+  CONNECTANUM_FORWARD_NATIVE_PUBLISH=1 \
+    dart test -p vm \
+      test/router_worker_session_test.dart \
+      test/router_integration_native_test.dart \
+      --tags zero_copy_publish \
+      --chain-stack-traces \
+      --coverage="$coverage_root/raw/connectanum_router_zero_copy"
+)
+
+report_on=()
+for package_name in \
+  connectanum_core \
+  connectanum_mcp \
+  connectanum \
+  connectanum_client \
+  connectanum_auth_server \
+  connectanum_bench \
+  connectanum_router; do
+  report_on+=(--report-on="packages/$package_name/lib")
+done
+
+dart pub global run coverage:format_coverage \
+  --lcov \
+  --check-ignore \
+  --in="$coverage_root/raw" \
+  --out="$coverage_root/lcov.info" \
+  --package="$ROOT_DIR" \
+  --base-directory="$ROOT_DIR" \
+  "${report_on[@]}"
+
+printf 'Dart VM coverage report written to %s\n' "$coverage_root/lcov.info"

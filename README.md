@@ -8,6 +8,7 @@ Build real-time applications with routed RPC and Pub/Sub, run an embeddable or
 standalone router, and expose WAMP services to AI agents through MCP.
 
 [![CI](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart.yml)
+[![Coverage](https://codecov.io/gh/konsultaner/connectanum-dart/branch/master/graph/badge.svg)](https://app.codecov.io/gh/konsultaner/connectanum-dart)
 [![WAMP Profile Benchmarks](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml)
 [![Package Dry Run](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml)
 [![Version](https://img.shields.io/badge/version-3.0.0--beta-f59e0b)](https://github.com/konsultaner/connectanum-dart)

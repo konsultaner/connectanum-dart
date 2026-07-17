@@ -64,3 +64,48 @@ jobs:
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
         run: bin/verify
+
+  coverage:
+    name: Dart VM Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: fast
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dart-lang/setup-dart@v1
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Bootstrap workspace
+        run: bin/bootstrap
+
+      - name: Activate coverage tooling
+        run: dart pub global activate coverage 1.15.1
+
+      - name: Collect Dart VM coverage
+        env:
+          CONNECTANUM_COVERAGE_DIR: out/coverage
+        run: bin/test-coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: out/coverage/lcov.info
+          flags: dart-vm
+          name: dart-vm
+          use_oidc: true
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dart-vm-coverage
+          path: out/coverage/lcov.info
+          if-no-files-found: error

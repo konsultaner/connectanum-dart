@@ -1,10 +1,11 @@
 # Project State
 
 Last updated: 2026-07-17
-Current branch: `add-router`
-Current milestone: promote the completed release line as a coordinated
-`3.0.0-beta` prerelease. The user approved merging `add-router` into `master`
-and requires every versioned package to share one version. All seven Dart
+Current branch: `master`
+Current milestone: maintain the promoted release line as a coordinated
+`3.0.0-beta` prerelease while testers exercise the public packages. The user
+approved merging `add-router` into `master` and requires every versioned
+package to share one version. All seven Dart
 packages, all three Rust crates, public workspace dependency constraints,
 runtime package self-identification, changelogs, and release validation are
 now synchronized at `3.0.0-beta`. A pre-promotion ancestry check found that
@@ -13,8 +14,19 @@ authentication string encoding. That release-relevant behavior is now
 preserved in the modular core before joining the histories: UTF-8 is the
 default and UTF-16 remains an explicit legacy compatibility mode. Review also
 identified and fixed a pre-existing SCRAM channel-binding crash by preserving
-decoded binding bytes instead of casting them to `String`. The active plan is
-`docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
+decoded binding bytes instead of casting them to `String`. The promotion plan
+is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
+
+The public README coverage badge is now backed by a dedicated workspace-wide
+Dart VM coverage gate instead of the stale 2023 Codecov result. The reusable
+`bin/test-coverage` collector covers all seven packages, preserves the native
+test isolation used by `bin/test-all`, and emits one root-relative LCOV report.
+The initial local baseline is 82.30% (24,811 of 30,148 reportable lines across
+141 files). Focused coverage collection and full local `bin/verify` passed on
+2026-07-17; one first-pass native HTTP/3 handshake timeout passed immediately
+in isolation and the complete verifier then passed cleanly on rerun. Hosted
+Codecov OIDC upload and badge refresh remain to be confirmed on the pushed
+implementation commit.
 
 Pre-change `bin/test-fast` passed on 2026-07-17, including the full profile
 and benchmark regression set, isolated package consumers, router CLI runtime,
