@@ -118,6 +118,44 @@ void main() {
       ).createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
       expect(authenticateSignature, equals(signatureArgon));
     });
+    test('PBKDF2 with non-ASCII password uses UTF-8 bytes', () {
+      final authenticateSignature = ScramAuthentication(
+        'Straße',
+      ).createSignature(user, helloNonce, challengeExtra, authExtra);
+      expect(
+        authenticateSignature,
+        equals('TZVudO0htKotRan67S3g8mpR+2+TfH3wLC4CZ7DidWo='),
+      );
+    });
+    test('PBKDF2 supports UTF-16 compatibility mode', () {
+      final authenticateSignature = ScramAuthentication(
+        'Straße',
+        stringEncoding: AuthenticationStringEncoding.utf16,
+      ).createSignature(user, helloNonce, challengeExtra, authExtra);
+      expect(
+        authenticateSignature,
+        equals('NrrMuWTWkdLdDhentdYKxc1Mog1il6vOPvtrd1dsNxU='),
+      );
+    });
+    test('Argon2id with non-ASCII password uses UTF-8 bytes', () {
+      final authenticateSignature = ScramAuthentication(
+        'Straße',
+      ).createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      expect(
+        authenticateSignature,
+        equals('j1eU8k4NK9CglyQSc4X0ZsVj2Jr9o8AfJrD3zwR8+pg='),
+      );
+    });
+    test('Argon2id supports UTF-16 compatibility mode', () {
+      final authenticateSignature = ScramAuthentication(
+        'Straße',
+        stringEncoding: AuthenticationStringEncoding.utf16,
+      ).createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
+      expect(
+        authenticateSignature,
+        equals('h1krogHvNHm3PelExNS1M+4Yf5L0yRNZyAGocLyHfUo='),
+      );
+    });
     test('reuse client key for authentication', () async {
       final authMethod = ScramAuthentication(secret);
       var authenticateSignature = authMethod.createSignature(
@@ -145,6 +183,20 @@ void main() {
       );
       expect(isVerified, equals(true));
     });
+    test('auth message preserves binary channel-binding data', () {
+      final message = ScramAuthentication.createAuthMessage(
+        user,
+        helloNonce,
+        HashMap<String, Object?>.from({
+          ...authExtra,
+          'channel_binding': 'tls-unique',
+          'cbind_data': base64.encode([0, 255, 1]),
+        }),
+        challengeExtra,
+      );
+
+      expect(message, contains('c=cD10bHMtdW5pcXVlLCwA/wE='));
+    });
     test('generate proof helper matches client signature', () {
       final proof = ScramAuthentication.generateProof(
         secret: secret,
@@ -154,6 +206,29 @@ void main() {
         challenge: challengeExtra,
       );
       expect(proof, equals(signature));
+    });
+    test('generate proof helper preserves both string encodings', () {
+      final utf8Proof = ScramAuthentication.generateProof(
+        secret: 'Straße',
+        authId: user,
+        clientNonce: helloNonce,
+        authExtra: authExtra,
+        challenge: challengeExtra,
+      );
+      final utf16Proof = ScramAuthentication.generateProof(
+        secret: 'Straße',
+        authId: user,
+        clientNonce: helloNonce,
+        authExtra: authExtra,
+        challenge: challengeExtra,
+        stringEncoding: AuthenticationStringEncoding.utf16,
+      );
+
+      expect(utf8Proof, equals('TZVudO0htKotRan67S3g8mpR+2+TfH3wLC4CZ7DidWo='));
+      expect(
+        utf16Proof,
+        equals('NrrMuWTWkdLdDhentdYKxc1Mog1il6vOPvtrd1dsNxU='),
+      );
     });
     test('verify helper detects invalid proof', () {
       final isValid = ScramAuthentication.verifySignature(

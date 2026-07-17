@@ -7,7 +7,13 @@ Current milestone: promote the completed release line as a coordinated
 and requires every versioned package to share one version. All seven Dart
 packages, all three Rust crates, public workspace dependency constraints,
 runtime package self-identification, changelogs, and release validation are
-being synchronized at `3.0.0-beta`. The active plan is
+now synchronized at `3.0.0-beta`. A pre-promotion ancestry check found that
+GitLab `master` contains one unique 2.2.7 commit for configurable CRA/SCRAM
+authentication string encoding. That release-relevant behavior is now
+preserved in the modular core before joining the histories: UTF-8 is the
+default and UTF-16 remains an explicit legacy compatibility mode. Review also
+identified and fixed a pre-existing SCRAM channel-binding crash by preserving
+decoded binding bytes instead of casting them to `String`. The active plan is
 `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
 Pre-change `bin/test-fast` passed on 2026-07-17, including the full profile
@@ -24,9 +30,18 @@ release-tool regressions, 351 core Dart tests, 84 MCP tests, all client,
 authentication, benchmark, and router suites, external consumer package and
 globally activated executable smokes, the complete 374-test router suite, and
 Chrome/Dart2Wasm WebSocket coverage. Every isolated consumer resolved the
-workspace packages at `3.0.0-beta`. The strict package archive check recognized
-the beta versions and stopped only on pub's expected dirty-tree warning; it
-must be rerun from the clean release commit before push.
+workspace packages at `3.0.0-beta`. The clean strict package archive check then
+passed all seven packages with zero warnings and confirmed their shared version
+and publication order. Exact-head package dry-run, kTLS validation, WAMP
+profile benchmark, and CI fast checks passed on `1002c21`; full hosted CI was
+still running when the divergent authentication commit was identified, so the
+complete hosted chain will be rerun for the joined release head.
+
+The post-port `bin/verify` rerun passed on 2026-07-17. It includes non-ASCII
+CRA/SCRAM UTF-8 vectors, explicit UTF-16 compatibility vectors, binary SCRAM
+channel-binding coverage, all modular package suites and consumer smokes, the
+374-test router suite, and Chrome/Dart2Wasm coverage. The release remains at a
+single `3.0.0-beta` version across all Dart packages and Rust crates.
 
 Pre-change `bin/test-fast` passed on 2026-07-15. The routed statistics Meta API
 slice is now implemented and verified: all fifteen standard Session,

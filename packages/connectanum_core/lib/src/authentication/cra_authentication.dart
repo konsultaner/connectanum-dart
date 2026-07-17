@@ -15,9 +15,21 @@ import 'package:pointycastle/pointycastle.dart';
 
 import 'abstract_authentication.dart';
 
+/// Controls how authentication strings are converted to bytes.
+enum AuthenticationStringEncoding {
+  /// UTF-8 bytes, as used by current WAMP implementations.
+  utf8,
+
+  /// Legacy UTF-16 code units for compatibility with older clients.
+  utf16,
+}
+
 /// WAMP-CRA authentication implementation (client & router shared).
 class CraAuthentication extends AbstractAuthentication {
-  CraAuthentication(this.secret);
+  CraAuthentication(
+    this.secret, {
+    this.stringEncoding = AuthenticationStringEncoding.utf8,
+  });
 
   final StreamController<Extra> _challengeStreamController =
       StreamController.broadcast();
@@ -26,6 +38,17 @@ class CraAuthentication extends AbstractAuthentication {
   static const int defaultIterations = 1000;
   static const int defaultKeyLength = 32;
   String secret;
+  final AuthenticationStringEncoding stringEncoding;
+
+  /// Encodes [value] using the selected authentication compatibility mode.
+  static List<int> encodeString(
+    String value, {
+    AuthenticationStringEncoding stringEncoding =
+        AuthenticationStringEncoding.utf8,
+  }) => switch (stringEncoding) {
+    AuthenticationStringEncoding.utf8 => utf8.encode(value),
+    AuthenticationStringEncoding.utf16 => value.codeUnits,
+  };
 
   @override
   Stream<Extra> get onChallenge => _challengeStreamController.stream;
@@ -55,17 +78,20 @@ class CraAuthentication extends AbstractAuthentication {
 
     Uint8List key;
     if (extra.salt == null) {
-      key = Uint8List.fromList(secret.codeUnits);
+      key = Uint8List.fromList(
+        encodeString(secret, stringEncoding: stringEncoding),
+      );
     } else {
       key = deriveKey(
         secret,
-        extra.salt!.codeUnits,
+        encodeString(extra.salt!, stringEncoding: stringEncoding),
         iterations: extra.iterations == null || extra.iterations! <= 0
             ? defaultIterations
             : extra.iterations!,
         keylen: extra.keyLen == null || extra.keyLen! <= 0
             ? defaultKeyLength
             : extra.keyLen!,
+        stringEncoding: stringEncoding,
       );
     }
 
@@ -74,7 +100,9 @@ class CraAuthentication extends AbstractAuthentication {
       extra.keyLen == null || extra.keyLen! <= 0
           ? defaultKeyLength
           : extra.keyLen!,
-      Uint8List.fromList(extra.challenge!.codeUnits),
+      Uint8List.fromList(
+        encodeString(extra.challenge!, stringEncoding: stringEncoding),
+      ),
     );
     return authenticate;
   }
@@ -85,10 +113,14 @@ class CraAuthentication extends AbstractAuthentication {
     int iterations = defaultIterations,
     int keylen = defaultKeyLength,
     int hmacLength = 64,
+    AuthenticationStringEncoding stringEncoding =
+        AuthenticationStringEncoding.utf8,
   }) {
     final derivator = PBKDF2KeyDerivator(HMac(SHA256Digest(), hmacLength))
       ..init(Pbkdf2Parameters(Uint8List.fromList(salt), iterations, keylen));
-    return derivator.process(Uint8List.fromList(secret.codeUnits));
+    return derivator.process(
+      Uint8List.fromList(encodeString(secret, stringEncoding: stringEncoding)),
+    );
   }
 
   static String encodeHmac(
@@ -122,6 +154,8 @@ class CraAuthentication extends AbstractAuthentication {
   static String signChallenge({
     required String secret,
     required Extra challenge,
+    AuthenticationStringEncoding stringEncoding =
+        AuthenticationStringEncoding.utf8,
   }) {
     if (challenge.challenge == null) {
       throw ArgumentError('challenge.challenge is required');
@@ -129,17 +163,20 @@ class CraAuthentication extends AbstractAuthentication {
 
     Uint8List key;
     if (challenge.salt == null) {
-      key = Uint8List.fromList(secret.codeUnits);
+      key = Uint8List.fromList(
+        encodeString(secret, stringEncoding: stringEncoding),
+      );
     } else {
       key = deriveKey(
         secret,
-        challenge.salt!.codeUnits,
+        encodeString(challenge.salt!, stringEncoding: stringEncoding),
         iterations: challenge.iterations == null || challenge.iterations! <= 0
             ? defaultIterations
             : challenge.iterations!,
         keylen: challenge.keyLen == null || challenge.keyLen! <= 0
             ? defaultKeyLength
             : challenge.keyLen!,
+        stringEncoding: stringEncoding,
       );
     }
 
@@ -150,7 +187,9 @@ class CraAuthentication extends AbstractAuthentication {
     return encodeHmac(
       Uint8List.fromList(base64.encode(key).codeUnits),
       keyLen,
-      Uint8List.fromList(challenge.challenge!.codeUnits),
+      Uint8List.fromList(
+        encodeString(challenge.challenge!, stringEncoding: stringEncoding),
+      ),
     );
   }
 
@@ -158,5 +197,13 @@ class CraAuthentication extends AbstractAuthentication {
     required String secret,
     required Extra challenge,
     required String signature,
-  }) => signChallenge(secret: secret, challenge: challenge) == signature;
+    AuthenticationStringEncoding stringEncoding =
+        AuthenticationStringEncoding.utf8,
+  }) =>
+      signChallenge(
+        secret: secret,
+        challenge: challenge,
+        stringEncoding: stringEncoding,
+      ) ==
+      signature;
 }

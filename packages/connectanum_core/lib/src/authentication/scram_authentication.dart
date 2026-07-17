@@ -22,6 +22,7 @@ class ScramAuthentication extends AbstractAuthentication {
   final StreamController<Extra> _challengeStreamController =
       StreamController.broadcast();
   late final bool _reuseClientKey;
+  final AuthenticationStringEncoding stringEncoding;
 
   String? _secret;
   String? _authid;
@@ -49,6 +50,7 @@ class ScramAuthentication extends AbstractAuthentication {
     String secret, {
     Duration? challengeTimeout,
     bool reuseClientKey = false,
+    this.stringEncoding = AuthenticationStringEncoding.utf8,
   }) {
     if (challengeTimeout != null) {
       _challengeTimeout = challengeTimeout;
@@ -60,6 +62,7 @@ class ScramAuthentication extends AbstractAuthentication {
   ScramAuthentication.fromClientKey(
     Uint8List clientKey, {
     Duration? challengeTimeout,
+    this.stringEncoding = AuthenticationStringEncoding.utf8,
   }) {
     if (challengeTimeout != null) {
       _challengeTimeout = challengeTimeout;
@@ -138,6 +141,7 @@ class ScramAuthentication extends AbstractAuthentication {
               : base64.decode(extra.salt!),
           iterations: extra.iterations!,
           keylen: defaultKeyLength,
+          stringEncoding: stringEncoding,
         );
       } else if (extra.kdf == kdfArgon) {
         saltedPassword = Uint8List(defaultKeyLength);
@@ -153,7 +157,12 @@ class ScramAuthentication extends AbstractAuthentication {
             ),
           )
           ..deriveKey(
-            Uint8List.fromList(_secret!.codeUnits),
+            Uint8List.fromList(
+              CraAuthentication.encodeString(
+                _secret!,
+                stringEncoding: stringEncoding,
+              ),
+            ),
             0,
             saltedPassword,
             0,
@@ -162,7 +171,7 @@ class ScramAuthentication extends AbstractAuthentication {
       _clientKey = CraAuthentication.encodeByteHmac(
         saltedPassword,
         defaultKeyLength,
-        'Client Key'.codeUnits,
+        utf8.encode('Client Key'),
       );
       if (!_firstClientKeyCompleter.isCompleted) {
         _firstClientKeyCompleter.complete(_clientKey);
@@ -173,7 +182,10 @@ class ScramAuthentication extends AbstractAuthentication {
     final clientSignature = CraAuthentication.encodeByteHmac(
       storedKey,
       defaultKeyLength,
-      createAuthMessage(authId, helloNonce, authExtra, extra).codeUnits,
+      CraAuthentication.encodeString(
+        createAuthMessage(authId, helloNonce, authExtra, extra),
+        stringEncoding: stringEncoding,
+      ),
     );
     final signature = [
       for (var i = 0; i < _clientKey!.length; i++)
@@ -194,24 +206,31 @@ class ScramAuthentication extends AbstractAuthentication {
     final cBindName = authExtra['channel_binding'];
     final cBindData = authExtra['cbind_data'];
     final cBindFlag = cBindName == null ? 'n' : 'p=$cBindName';
-    final cBindInput =
-        '$cBindFlag,,${cBindData == null ? '' : base64.decode(cBindData) as String}';
+    final cBindInput = <int>[
+      ...utf8.encode('$cBindFlag,,'),
+      if (cBindData != null) ...base64.decode(cBindData as String),
+    ];
     final clientFinalNoProof =
-        'c=${base64.encode(cBindInput.codeUnits)},r=${authExtra['nonce']}';
+        'c=${base64.encode(cBindInput)},r=${authExtra['nonce']}';
     return '$clientFirstBare,$serverFirst,$clientFinalNoProof';
   }
 
   static bool verifyClientProof(
     List<int> clientProof,
     Uint8List storedKey,
-    String authMessage,
-  ) {
+    String authMessage, {
+    AuthenticationStringEncoding stringEncoding =
+        AuthenticationStringEncoding.utf8,
+  }) {
     final clientSignature = base64
         .decode(
           CraAuthentication.encodeHmac(
             storedKey,
             defaultKeyLength,
-            authMessage.codeUnits,
+            CraAuthentication.encodeString(
+              authMessage,
+              stringEncoding: stringEncoding,
+            ),
           ),
         )
         .toList();
@@ -239,8 +258,12 @@ class ScramAuthentication extends AbstractAuthentication {
     required String kdf,
     required int iterations,
     int? memory,
+    AuthenticationStringEncoding stringEncoding =
+        AuthenticationStringEncoding.utf8,
   }) {
-    final secretBytes = Uint8List.fromList(secret.codeUnits);
+    final secretBytes = Uint8List.fromList(
+      CraAuthentication.encodeString(secret, stringEncoding: stringEncoding),
+    );
     final saltBytes = Uint8List.fromList(base64.decode(salt));
     if (kdf == kdfArgon) {
       final generator = Argon2BytesGenerator()
@@ -270,6 +293,8 @@ class ScramAuthentication extends AbstractAuthentication {
     required String clientNonce,
     required Map<String, Object?> authExtra,
     required Extra challenge,
+    AuthenticationStringEncoding stringEncoding =
+        AuthenticationStringEncoding.utf8,
   }) {
     if (challenge.salt == null) {
       throw ArgumentError('challenge.salt is required');
@@ -280,11 +305,12 @@ class ScramAuthentication extends AbstractAuthentication {
       kdf: challenge.kdf ?? kdfPbkdf2,
       iterations: challenge.iterations ?? CraAuthentication.defaultIterations,
       memory: challenge.memory,
+      stringEncoding: stringEncoding,
     );
     final clientKey = CraAuthentication.encodeByteHmac(
       saltedPassword,
       defaultKeyLength,
-      'Client Key'.codeUnits,
+      utf8.encode('Client Key'),
     );
     final storedKey = SHA256Digest().process(Uint8List.fromList(clientKey));
     final authMessage = createAuthMessage(
@@ -296,7 +322,10 @@ class ScramAuthentication extends AbstractAuthentication {
     final clientSignature = CraAuthentication.encodeByteHmac(
       storedKey,
       defaultKeyLength,
-      authMessage.codeUnits,
+      CraAuthentication.encodeString(
+        authMessage,
+        stringEncoding: stringEncoding,
+      ),
     );
     final proof = List<int>.generate(
       clientKey.length,
@@ -311,6 +340,8 @@ class ScramAuthentication extends AbstractAuthentication {
     String kdf = kdfPbkdf2,
     int iterations = CraAuthentication.defaultIterations,
     int? memory,
+    AuthenticationStringEncoding stringEncoding =
+        AuthenticationStringEncoding.utf8,
   }) {
     final saltedPassword = deriveSaltedPassword(
       secret: secret,
@@ -318,11 +349,12 @@ class ScramAuthentication extends AbstractAuthentication {
       kdf: kdf,
       iterations: iterations,
       memory: memory,
+      stringEncoding: stringEncoding,
     );
     final clientKey = CraAuthentication.encodeByteHmac(
       saltedPassword,
       defaultKeyLength,
-      'Client Key'.codeUnits,
+      utf8.encode('Client Key'),
     );
     final storedKeyBytes = SHA256Digest().process(
       Uint8List.fromList(clientKey),
@@ -330,7 +362,7 @@ class ScramAuthentication extends AbstractAuthentication {
     final serverKeyBytes = CraAuthentication.encodeByteHmac(
       saltedPassword,
       defaultKeyLength,
-      'Server Key'.codeUnits,
+      utf8.encode('Server Key'),
     );
     return ScramServerSecrets(
       storedKey: base64.encode(storedKeyBytes),
@@ -345,6 +377,8 @@ class ScramAuthentication extends AbstractAuthentication {
     required Map<String, Object?> authExtra,
     required Extra challenge,
     required String clientSignature,
+    AuthenticationStringEncoding stringEncoding =
+        AuthenticationStringEncoding.utf8,
   }) {
     final expected = generateProof(
       secret: secret,
@@ -352,6 +386,7 @@ class ScramAuthentication extends AbstractAuthentication {
       clientNonce: clientNonce,
       authExtra: authExtra,
       challenge: challenge,
+      stringEncoding: stringEncoding,
     );
     return expected == clientSignature;
   }

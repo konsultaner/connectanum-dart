@@ -180,12 +180,60 @@ void main() {
       for (var vector in pbkdf2HmacSha256TestVectors) {
         final key = CraAuthentication.deriveKey(
           vector[0] as String,
-          (vector[1] as String).codeUnits,
+          utf8.encode(vector[1] as String),
           iterations: vector[2] as int,
           keylen: vector[3] as int,
         );
         expect(key, equals(vector[4]));
       }
+    });
+    test('derive key with non-ASCII password uses UTF-8 bytes', () {
+      final key = CraAuthentication.deriveKey(
+        'Straße123!',
+        utf8.encode('pepper'),
+      );
+      expect(
+        base64.encode(key),
+        equals('r/FzWwojHwqx4KyAcilek57r9UxeJuJnunKCBkz7h9c='),
+      );
+    });
+    test('derive key can use UTF-16 compatibility mode', () {
+      final key = CraAuthentication.deriveKey(
+        'Straße123!',
+        'pepper'.codeUnits,
+        stringEncoding: AuthenticationStringEncoding.utf16,
+      );
+      expect(
+        base64.encode(key),
+        equals('mHqCy6oBzq25DALFw2KBuAhIdPo2TNibE9WZx6Qdj0o='),
+      );
+    });
+    test('challenge signing applies the configured string encoding', () async {
+      final extra = Extra(challenge: 'Grüße');
+      final utf8Signature = await CraAuthentication('Straße').challenge(extra);
+      final utf16Signature = await CraAuthentication(
+        'Straße',
+        stringEncoding: AuthenticationStringEncoding.utf16,
+      ).challenge(extra);
+
+      expect(utf8Signature.signature, isNot(utf16Signature.signature));
+      expect(
+        CraAuthentication.verifySignature(
+          secret: 'Straße',
+          challenge: extra,
+          signature: utf8Signature.signature!,
+        ),
+        isTrue,
+      );
+      expect(
+        CraAuthentication.verifySignature(
+          secret: 'Straße',
+          challenge: extra,
+          signature: utf16Signature.signature!,
+          stringEncoding: AuthenticationStringEncoding.utf16,
+        ),
+        isTrue,
+      );
     });
     test('hmac encode', () {
       final mac = CraAuthentication.encodeHmac(

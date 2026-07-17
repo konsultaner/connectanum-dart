@@ -117,6 +117,22 @@ The client supports the current Connectanum feature set for:
 - pattern-based subscriptions
 - payload passthrough mode
 
+CRA and SCRAM authentication strings use UTF-8 by default. For a legacy peer
+that expects Dart UTF-16 code units, select compatibility mode explicitly on
+the connecting side; both peers must derive and verify credentials with the
+same mode:
+
+```dart
+final cra = CraAuthentication(
+  'secret',
+  stringEncoding: AuthenticationStringEncoding.utf16,
+);
+final scram = ScramAuthentication(
+  'secret',
+  stringEncoding: AuthenticationStringEncoding.utf16,
+);
+```
+
 ## Progressive Results And Cancellation
 
 Progressive RPC callers should use `Session.call(...)` with

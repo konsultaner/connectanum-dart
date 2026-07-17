@@ -5,6 +5,8 @@
   payload E2EE profile, and native/Dart transport parity.
 - Add typed Streamable HTTP and direct JSON helpers for router-hosted MCP,
   authentication, tool/meta APIs, resources, prompts, and pub/sub.
+- Use UTF-8 for CRA and SCRAM authentication strings by default while retaining
+  an explicit UTF-16 compatibility mode for legacy peers.
 
 ### 2.2.6
 
