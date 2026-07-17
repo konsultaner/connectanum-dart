@@ -23,10 +23,16 @@ Dart VM coverage gate instead of the stale 2023 Codecov result. The reusable
 test isolation used by `bin/test-all`, and emits one root-relative LCOV report.
 The initial local baseline is 82.30% (24,811 of 30,148 reportable lines across
 141 files). Focused coverage collection and full local `bin/verify` passed on
-2026-07-17; one first-pass native HTTP/3 handshake timeout passed immediately
-in isolation and the complete verifier then passed cleanly on rerun. Hosted
-Codecov OIDC upload and badge refresh remain to be confirmed on the pushed
-implementation commit.
+2026-07-17. The same native HTTP/3 handshake test timed out on two first-pass
+full runs, passed immediately in isolation both times, and the complete
+verifier passed cleanly on both reruns. GitHub CI
+`29586879669` passed on `832c59b`, including the new coverage job and Codecov
+OIDC upload; Codecov indexed 82.28% hosted coverage and refreshed the badge.
+The first strict audit correctly rejected the new job as absent from its old
+two-job policy and reported third-party upload noise. The audit expectation,
+Codecov plugin selection, and Node 24 artifact uploader are now aligned;
+focused audit regressions, YAML and Codecov validation, and full local
+`bin/verify` passed before the hosted clean-log rerun.
 
 Pre-change `bin/test-fast` passed on 2026-07-17, including the full profile
 and benchmark regression set, isolated package consumers, router CLI runtime,

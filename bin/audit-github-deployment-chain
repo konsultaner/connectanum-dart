@@ -121,7 +121,7 @@ require_workflows_visible=0
 show_required_checks_plan=0
 show_rc_readiness=0
 require_rc_ready=0
-expected_ci_jobs=('Fast Checks' 'Full Verify')
+expected_ci_jobs=('Fast Checks' 'Dart VM Coverage' 'Full Verify')
 dart_package_publish_workflow='Dart Package Publish Dry Run'
 expected_dart_package_publish_jobs=('Publish Dry Run')
 native_release_workflow='Native Artifacts'
@@ -1034,7 +1034,9 @@ print_latest_ci_log_scan() {
     return 1
   fi
 
-  if LC_ALL=C grep -Eai "$ci_log_issue_pattern" "$log_file" >"$matches_file"; then
+  if LC_ALL=C grep -Eavi \
+    'Check for gpg only if validation is not being skipped|gpg: WARNING: This key is not certified with a trusted signature!' \
+    "$log_file" | grep -Eai "$ci_log_issue_pattern" >"$matches_file"; then
     printf 'Potential hosted CI log issues matching: %s\n' "$ci_log_issue_pattern"
     awk '
       NR <= 200 { print "- " $0 }

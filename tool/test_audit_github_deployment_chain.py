@@ -762,6 +762,9 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     elif args[:2] == ["run", "view"]:
                         if "--log" in args:
                             print("Fast Checks completed")
+                            print("Dart VM Coverage completed")
+                            print("# Check for gpg only if validation is not being skipped")
+                            print("gpg: WARNING: This key is not certified with a trusted signature!")
                             print("Full Verify completed")
                             sys.exit(0)
                         json_fields = args[args.index("--json") + 1]
@@ -772,6 +775,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             print(f"completed\\tsuccess\\t{ci_head}")
                         elif json_fields == "jobs":
                             print("Fast Checks\\tcompleted\\tsuccess")
+                            print("Dart VM Coverage\\tcompleted\\tsuccess")
                             print("Full Verify\\tcompleted\\tsuccess")
                         else:
                             sys.exit(1)
@@ -1472,6 +1476,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                     print("Artifact native-release-preview has been successfully uploaded!")
                             else:
                                 print("Fast Checks completed")
+                                print("Dart VM Coverage completed")
                                 print("Full Verify completed")
                             sys.exit(0)
 
@@ -1517,6 +1522,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif json_fields == "jobs":
                             if run_id == "123":
                                 print("Fast Checks\\tcompleted\\tsuccess")
+                                print("Dart VM Coverage\\tcompleted\\tsuccess")
                                 print("Full Verify\\tcompleted\\tsuccess")
                             elif run_id == "124":
                                 print("Publish Dry Run\\tcompleted\\tsuccess")
@@ -1834,6 +1840,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                                 print("Artifact native-release-preview has been successfully uploaded!")
                             else:
                                 print("Fast Checks completed")
+                                print("Dart VM Coverage completed")
                                 print("Full Verify completed")
                             sys.exit(0)
 
@@ -1879,6 +1886,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif json_fields == "jobs":
                             if run_id == "123":
                                 print("Fast Checks\\tcompleted\\tsuccess")
+                                print("Dart VM Coverage\\tcompleted\\tsuccess")
                                 print("Full Verify\\tcompleted\\tsuccess")
                             elif run_id == "124":
                                 print("Publish Dry Run\\tcompleted\\tsuccess")
