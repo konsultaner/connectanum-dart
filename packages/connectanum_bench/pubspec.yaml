@@ -1,6 +1,6 @@
 name: connectanum_bench
 description: Benchmark harness for the Connectanum router.
-version: 0.1.0
+version: 3.0.0-beta
 homepage: https://github.com/konsultaner/connectanum-dart
 repository: https://github.com/konsultaner/connectanum-dart
 issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
@@ -18,10 +18,10 @@ dependencies:
   logging: ^1.2.0
   msgpack_dart: ^1.0.1
   yaml: ^3.1.2
-  connectanum_router: ^0.1.0
-  connectanum_core: ^0.1.0
-  connectanum_client: ^2.2.6
-  connectanum_auth_server: ^0.1.0
+  connectanum_router: ^3.0.0-beta
+  connectanum_core: ^3.0.0-beta
+  connectanum_client: ^3.0.0-beta
+  connectanum_auth_server: ^3.0.0-beta
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.26.2

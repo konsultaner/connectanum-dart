@@ -382,7 +382,7 @@ final class McpStreamableHttpClient {
     McpJsonMap capabilities = const <String, Object?>{},
     McpJsonMap clientInfo = const <String, Object?>{
       'name': 'connectanum_client',
-      'version': '2.2.6',
+      'version': '3.0.0-beta',
     },
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},

@@ -2,7 +2,7 @@ name: connectanum_client
 homepage: https://github.com/konsultaner/connectanum-dart
 repository: https://github.com/konsultaner/connectanum-dart
 issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
-version: 2.2.6
+version: 3.0.0-beta
 description: >-
   Connectanum WAMP client implementation for Dart and Flutter.
 dependencies:
@@ -17,7 +17,7 @@ dependencies:
   code_assets: ^0.19.7
   collection: ^1.18.0
   pinenacl: ^0.6.0
-  connectanum_core: ^0.1.0
+  connectanum_core: ^3.0.0-beta
 dev_dependencies:
   test: ^1.26.2
   stream_channel: ^2.1.4

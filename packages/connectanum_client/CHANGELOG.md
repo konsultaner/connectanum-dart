@@ -1,3 +1,11 @@
+### 3.0.0-beta
+
+- Start the coordinated Connectanum 3.0 beta series.
+- Add progressive call invocations, call timeout handling, the versioned
+  payload E2EE profile, and native/Dart transport parity.
+- Add typed Streamable HTTP and direct JSON helpers for router-hosted MCP,
+  authentication, tool/meta APIs, resources, prompts, and pub/sub.
+
 ### 2.2.6
 
  - fixed abort reason to match a value of the listed `_abortReasons` in the client for local transport

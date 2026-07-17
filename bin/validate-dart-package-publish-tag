@@ -15,7 +15,7 @@ When [tag] is omitted, GITHUB_REF_NAME is used. Expected tag format:
 
 Example:
 
-  connectanum_core-v0.1.0
+  connectanum_core-v3.0.0-beta
 USAGE
 }
 

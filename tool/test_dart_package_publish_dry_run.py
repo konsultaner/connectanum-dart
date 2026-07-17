@@ -26,6 +26,12 @@ BENCH_CHANGELOG = (
 )
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
+EXPECTED_PACKAGE_VERSION = "3.0.0-beta"
+NATIVE_PACKAGE_MANIFESTS = (
+    REPO_ROOT / "native" / "bench" / "Cargo.toml",
+    REPO_ROOT / "native" / "transport" / "ct_core" / "Cargo.toml",
+    REPO_ROOT / "native" / "transport" / "ct_ffi" / "Cargo.toml",
+)
 PUBLISHABLE_PACKAGE_ORDER = (
     ("connectanum_core", "packages/connectanum_core"),
     ("connectanum_client", "packages/connectanum_client"),
@@ -51,10 +57,60 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                     r"(?m)^\s*publish_to:\s*['\"]?none['\"]?\s*$",
                 )
 
+    def test_versioned_workspace_packages_share_release_version(self) -> None:
+        for package_name, package_path in PUBLISHABLE_PACKAGE_ORDER:
+            with self.subTest(package=package_name):
+                version = self._pubspec_value(
+                    REPO_ROOT / package_path / "pubspec.yaml",
+                    "version",
+                )
+                self.assertEqual(version, EXPECTED_PACKAGE_VERSION)
+
+        for manifest in NATIVE_PACKAGE_MANIFESTS:
+            with self.subTest(package=manifest.parent.name):
+                self.assertIn(
+                    f'version = "{EXPECTED_PACKAGE_VERSION}"',
+                    manifest.read_text(encoding="utf-8"),
+                )
+
+    def test_workspace_dependency_constraints_use_release_version(self) -> None:
+        expected_dependencies = {
+            "connectanum": ("connectanum_client",),
+            "connectanum_auth_server": (
+                "connectanum_router",
+                "connectanum_core",
+            ),
+            "connectanum_bench": (
+                "connectanum_router",
+                "connectanum_core",
+                "connectanum_client",
+                "connectanum_auth_server",
+            ),
+            "connectanum_client": ("connectanum_core",),
+            "connectanum_mcp": ("connectanum_client", "connectanum_core"),
+            "connectanum_router": (
+                "connectanum_core",
+                "connectanum_client",
+                "connectanum_mcp",
+            ),
+        }
+        package_paths = dict(PUBLISHABLE_PACKAGE_ORDER)
+
+        for package_name, dependencies in expected_dependencies.items():
+            pubspec = (
+                REPO_ROOT / package_paths[package_name] / "pubspec.yaml"
+            ).read_text(encoding="utf-8")
+            for dependency in dependencies:
+                with self.subTest(package=package_name, dependency=dependency):
+                    self.assertIn(
+                        f"  {dependency}: ^{EXPECTED_PACKAGE_VERSION}",
+                        pubspec,
+                    )
+
     def test_auth_server_package_archive_metadata_has_changelog(self) -> None:
         changelog = AUTH_SERVER_CHANGELOG.read_text(encoding="utf-8")
 
-        self.assertIn("## 0.1.0", changelog)
+        self.assertIn(f"## {EXPECTED_PACKAGE_VERSION}", changelog)
         self.assertIn("remote-authentication service", changelog)
 
     def test_bench_package_archive_metadata_allows_known_test_fixtures(
@@ -63,7 +119,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         pubspec = BENCH_PUBSPEC.read_text(encoding="utf-8")
         changelog = BENCH_CHANGELOG.read_text(encoding="utf-8")
 
-        self.assertIn("## 0.1.0", changelog)
+        self.assertIn(f"## {EXPECTED_PACKAGE_VERSION}", changelog)
         self.assertIn("benchmark package", changelog)
         self.assertIn("false_secrets:", pubspec)
         self.assertIn("  - /test/wamp_transport_targets_test.dart", pubspec)
@@ -74,7 +130,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         pubspec = ROUTER_PUBSPEC.read_text(encoding="utf-8")
         changelog = ROUTER_CHANGELOG.read_text(encoding="utf-8")
 
-        self.assertIn("## 0.1.0", changelog)
+        self.assertIn(f"## {EXPECTED_PACKAGE_VERSION}", changelog)
         self.assertIn("router-hosted MCP", changelog)
         self.assertIn("false_secrets:", pubspec)
         for fixture in (
@@ -191,7 +247,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         result = self._run_tag_validator(
             "connectanum_core",
             "packages/connectanum_core",
-            "connectanum_client-v2.2.6",
+            "connectanum_client-v3.0.0-beta",
         )
 
         self.assertEqual(result.returncode, 65, result.stdout)
@@ -285,14 +341,19 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         )
         self.assertIn("Recommended publish order:", result.stdout)
         expected_order = (
-            "1. connectanum_core 0.1.0 (packages/connectanum_core)",
-            "2. connectanum_client 2.2.6 (packages/connectanum_client)",
-            "3. connectanum_mcp 0.1.0 (packages/connectanum_mcp)",
-            "4. connectanum_router 0.1.0 (packages/connectanum_router)",
-            "5. connectanum 2.2.8 (packages/connectanum)",
-            "6. connectanum_auth_server 0.1.0 "
+            f"1. connectanum_core {EXPECTED_PACKAGE_VERSION} "
+            "(packages/connectanum_core)",
+            f"2. connectanum_client {EXPECTED_PACKAGE_VERSION} "
+            "(packages/connectanum_client)",
+            f"3. connectanum_mcp {EXPECTED_PACKAGE_VERSION} "
+            "(packages/connectanum_mcp)",
+            f"4. connectanum_router {EXPECTED_PACKAGE_VERSION} "
+            "(packages/connectanum_router)",
+            f"5. connectanum {EXPECTED_PACKAGE_VERSION} (packages/connectanum)",
+            f"6. connectanum_auth_server {EXPECTED_PACKAGE_VERSION} "
             "(packages/connectanum_auth_server)",
-            "7. connectanum_bench 0.1.0 (packages/connectanum_bench)",
+            f"7. connectanum_bench {EXPECTED_PACKAGE_VERSION} "
+            "(packages/connectanum_bench)",
         )
         previous_index = -1
         for publish_order_line in expected_order:

@@ -45,10 +45,12 @@ and version-sequencing decisions.
   the selected package, then delegates to Dart's reusable
   `dart-lang/setup-dart/.github/workflows/publish.yml@v1` workflow with OIDC
   authentication and the `pub.dev` environment input.
-- As of 2026-07-08, pub.dev exposes the legacy public `connectanum` package at
-  `2.2.7`. The compatibility facade is staged at `2.2.8` so a future
-  `connectanum-v2.2.8` tag is above the currently published legacy package
-  version. The modular package names `connectanum_client`,
+- As of 2026-07-17, every versioned Dart package and Rust crate in the
+  workspace is synchronized at `3.0.0-beta`. Public Dart dependency constraints
+  use `^3.0.0-beta`, and the strict release gate rejects future package-version
+  drift. Pub.dev exposes the legacy public `connectanum` package at `2.2.7`, so
+  `connectanum-v3.0.0-beta` is above its currently published version. The
+  modular package names `connectanum_client`,
   `connectanum_core`, `connectanum_router`, `connectanum_mcp`, and
   `connectanum_auth_server` returned `404` from the pub.dev package API at the
   last checked probe. That makes package naming, publisher ownership, and exact
@@ -56,11 +58,12 @@ and version-sequencing decisions.
 
 ## Latest Evidence
 
-As of 2026-07-08:
+As of 2026-07-17:
 
 - `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
-  validates all seven publishable workspace packages with `Package has 0
-  warnings` and reports no private workspace dependency blockers.
+  validates all seven publishable workspace packages at `3.0.0-beta` with
+  `Package has 0 warnings`, reports no private workspace dependency blockers,
+  and enforces the synchronized-version contract.
 - The release-plan recommended publish order is `connectanum_core`,
   `connectanum_client`, `connectanum_mcp`, `connectanum_router`,
   `connectanum`, `connectanum_auth_server`, then `connectanum_bench`. The
@@ -120,8 +123,8 @@ When that decision exists, use this sequence:
 
 - No code-owned archive-readiness or private workspace dependency blockers
   remain for the workspace package graph.
-- The canonical Dart package release versions have not been chosen for the
-  modular workspace packages or the compatibility facade.
+- Promotion of the synchronized `3.0.0-beta` manifests through `master` and
+  the hosted deployment chain must complete before publish tags are created.
 - Package ownership and publisher configuration on pub.dev have not been
   confirmed in checked-in evidence.
 - First-version publication for any new modular package name still requires an

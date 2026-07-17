@@ -1,28 +1,32 @@
 # Project State
 
-Last updated: 2026-07-15
+Last updated: 2026-07-17
 Current branch: `add-router`
-Current milestone: implement the final WAMP release capabilities defined in
-`docs/exec-plans/2026-07-15-final-wamp-release-features.md`: progressive call
-invocations, Dealer/Callee call timeout lifecycles, routed standard WAMP Meta
-APIs and lifecycle events needed for operational statistics, and a
-production-ready versioned payload E2EE profile. All four capability slices
-are implemented and pass focused unit, integration, native, and benchmark
-verification. The implementation was committed as `232018a` and pushed on
-2026-07-15. Hosted WAMP Profile Benchmarks run `29415984452` then exposed a
-native JSON client-binding defect in one mixed MessagePack-to-JSON E2EE pub/sub
-row: WAMP binary sentinel strings were not restored to byte sequences before
-E2EE handling. The binder correction passes its focused 31-test suite, the
-complete canonical WAMP profile validator, and a second full local
-`bin/verify`. The correction was committed as `9aa9e9d` and pushed. Replacement
-hosted WAMP run `29416985303` then completed all workloads correctly with zero
-router error counters, but rejected a 57.945 ms progressive p95 against the
-unchanged 50 ms ceiling because its first two cold samples were 57.945/60.547
-ms while the remaining 22 were 11.902-31.796 ms. Progressive benchmark workers
-now prime one unmeasured in-flight window before sample collection. The focused
-51-test runner suite and complete canonical WAMP validator pass locally, with
-the corrected progressive row at 3.85-11.10 ms. Replacement hosted evidence
-remains pending after this benchmark-harness correction is pushed.
+Current milestone: promote the completed release line as a coordinated
+`3.0.0-beta` prerelease. The user approved merging `add-router` into `master`
+and requires every versioned package to share one version. All seven Dart
+packages, all three Rust crates, public workspace dependency constraints,
+runtime package self-identification, changelogs, and release validation are
+being synchronized at `3.0.0-beta`. The active plan is
+`docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
+
+Pre-change `bin/test-fast` passed on 2026-07-17, including the full profile
+and benchmark regression set, isolated package consumers, router CLI runtime,
+and authenticated router-hosted MCP direct JSON, Streamable HTTP, Meta API,
+resource/prompt, pub/sub, session lifecycle, and batch smokes. The latest
+exact-head hosted evidence before the version change is also green on
+`3b4996b`: GitHub CI `29418430808`, Dart Package Publish Dry Run
+`29418430823`, and WAMP Profile Benchmarks `29418431161` passed.
+
+Post-change full local `bin/verify` passed on 2026-07-17. It covered formatting,
+113 Rust core tests, 52 FFI tests, release-mode native builds, synchronized
+release-tool regressions, 351 core Dart tests, 84 MCP tests, all client,
+authentication, benchmark, and router suites, external consumer package and
+globally activated executable smokes, the complete 374-test router suite, and
+Chrome/Dart2Wasm WebSocket coverage. Every isolated consumer resolved the
+workspace packages at `3.0.0-beta`. The strict package archive check recognized
+the beta versions and stopped only on pub's expected dirty-tree warning; it
+must be rerun from the clean release commit before push.
 
 Pre-change `bin/test-fast` passed on 2026-07-15. The routed statistics Meta API
 slice is now implemented and verified: all fifteen standard Session,

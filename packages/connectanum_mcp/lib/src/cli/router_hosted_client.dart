@@ -4058,7 +4058,7 @@ Future<void> _runStreamableSessionExample(
     id: 'streamable-initialize',
     clientInfo: const <String, Object?>{
       'name': 'connectanum-mcp-router-hosted-client-example',
-      'version': '0.1.0',
+      'version': '3.0.0-beta',
     },
   );
   final streamableSessionId = client.sessionId;

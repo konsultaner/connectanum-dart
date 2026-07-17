@@ -23,8 +23,9 @@ Options:
                       package publishing. This does not change publishability.
   --strict-release-ready
                       Exit non-zero when a publishable package still depends on
-                      a private workspace package. The default reports those
-                      blockers without failing the archive dry-run.
+                      a private workspace package or publishable workspace
+                      package versions drift. The default reports those blockers
+                      without failing the archive dry-run.
   -h, --help          Show this help text.
 USAGE
 }
@@ -359,6 +360,13 @@ collect_release_plan_inventory() {
       append_unique_private_package "${package_name} ${package_version:-unknown-version} (${rel_root})"
     else
       append_unique_release_target "${package_name} ${package_version:-unknown-version} (${rel_root})"
+      if [[ -z "$release_plan_version" ]]; then
+        release_plan_version="$package_version"
+      elif [[ "$package_version" != "$release_plan_version" ]]; then
+        release_plan_version_mismatches+=(
+          "${package_name} ${package_version:-unknown-version} (${rel_root}); expected ${release_plan_version}."
+        )
+      fi
     fi
 
     while IFS= read -r dependency; do
@@ -515,6 +523,15 @@ print_release_plan() {
     printf '\nCurrently publishable package archives: none.\n'
   fi
 
+  if [[ "${#release_plan_version_mismatches[@]}" -eq 0 && -n "$release_plan_version" ]]; then
+    printf '\nSynchronized package version: %s.\n' "$release_plan_version"
+  else
+    printf '\nPublishable workspace package version mismatches:\n'
+    for mismatch in "${release_plan_version_mismatches[@]}"; do
+      printf -- '- %s\n' "$mismatch"
+    done
+  fi
+
   if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
     printf '\nPrivate workspace packages not currently publishable:\n'
     for package in "${release_plan_private_packages[@]}"; do
@@ -547,10 +564,12 @@ print_release_plan() {
   printf '\nApproved package release strategy:\n'
   printf -- '- Publish the modular package graph in dependency order.\n'
   printf -- '- Keep the legacy public connectanum package as the client-facing compatibility wrapper/facade.\n'
+  if [[ "${#release_plan_version_mismatches[@]}" -eq 0 && -n "$release_plan_version" ]]; then
+    printf -- '- Keep every versioned workspace package synchronized at %s.\n' "$release_plan_version"
+  fi
 
   printf '\nOperator decisions still required before a real publish:\n'
   printf -- '- Confirm package-name ownership and publisher configuration on pub.dev.\n'
-  printf -- '- Choose canonical public versions for every package that becomes publishable.\n'
   if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
     printf -- '- Remove publish_to: none only in an explicit release slice for packages that are approved public API.\n'
   else
@@ -577,6 +596,8 @@ release_plan_targets=()
 release_plan_private_packages=()
 release_plan_private_dependencies=()
 release_plan_dependency_edges=()
+release_plan_version=""
+release_plan_version_mismatches=()
 archive_shape_entries=()
 archive_shape_failures=()
 
@@ -679,6 +700,15 @@ else
   printf '\nNo private workspace dependency blockers found for publishable packages.\n'
 fi
 
+if [[ "${#release_plan_version_mismatches[@]}" -gt 0 ]]; then
+  printf '\nDart package synchronized-version gate failed:\n'
+  for mismatch in "${release_plan_version_mismatches[@]}"; do
+    printf -- '- %s\n' "$mismatch"
+  done
+else
+  printf '\nAll publishable workspace packages share version %s.\n' "$release_plan_version"
+fi
+
 if [[ "${#dry_run_warning_failures[@]}" -gt 0 ]]; then
   printf '\nDart package publish dry-run warning gate failed:\n'
   for warning_failure in "${dry_run_warning_failures[@]}"; do
@@ -729,6 +759,14 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     else
       printf '\nNo private workspace dependency blockers found for publishable packages.\n'
     fi
+    if [[ "${#release_plan_version_mismatches[@]}" -gt 0 ]]; then
+      printf '\nSynchronized-version gate failures:\n'
+      for mismatch in "${release_plan_version_mismatches[@]}"; do
+        printf -- '- %s\n' "$mismatch"
+      done
+    else
+      printf '\nAll publishable workspace packages share version %s.\n' "$release_plan_version"
+    fi
     if [[ "${#dry_run_warning_failures[@]}" -gt 0 ]]; then
       printf '\nWarning gate failures:\n'
       for warning_failure in "${dry_run_warning_failures[@]}"; do
@@ -777,7 +815,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
       fi
       print_recommended_publish_order
       printf '\nApproved package release strategy: publish the modular graph in dependency order while keeping the legacy connectanum package as the compatibility wrapper/facade.\n'
-      printf '\nOperator decisions still required: package-name ownership and canonical public versions'
+      printf '\nOperator decisions still required: package-name ownership and publisher configuration'
       if [[ "${#release_plan_private_packages[@]}" -gt 0 ]]; then
         printf ', plus explicit publishability approval for each remaining private package.\n'
       else
@@ -796,5 +834,9 @@ if [[ "${#archive_shape_failures[@]}" -gt 0 ]]; then
 fi
 
 if [[ "$strict_release_ready" -ne 0 && "${#release_blockers[@]}" -gt 0 ]]; then
+  exit 1
+fi
+
+if [[ "$strict_release_ready" -ne 0 && "${#release_plan_version_mismatches[@]}" -gt 0 ]]; then
   exit 1
 fi

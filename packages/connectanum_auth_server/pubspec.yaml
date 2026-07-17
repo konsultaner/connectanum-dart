@@ -1,6 +1,6 @@
 name: connectanum_auth_server
 description: Remote authentication server for Connectanum routers and clients.
-version: 0.1.0
+version: 3.0.0-beta
 homepage: https://github.com/konsultaner/connectanum-dart
 repository: https://github.com/konsultaner/connectanum-dart
 issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
@@ -10,8 +10,8 @@ environment:
 
 dependencies:
   args: ^2.5.0
-  connectanum_router: ^0.1.0
-  connectanum_core: ^0.1.0
+  connectanum_router: ^3.0.0-beta
+  connectanum_core: ^3.0.0-beta
 
 dev_dependencies:
   test: ^1.25.0

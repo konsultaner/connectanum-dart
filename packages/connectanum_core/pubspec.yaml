@@ -1,6 +1,6 @@
 name: connectanum_core
 description: Shared core models and primitives for Connectanum WAMP client and router.
-version: 0.1.0
+version: 3.0.0-beta
 homepage: https://github.com/konsultaner/connectanum-dart
 repository: https://github.com/konsultaner/connectanum-dart
 issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
