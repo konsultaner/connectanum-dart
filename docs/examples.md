@@ -5,6 +5,9 @@ current gaps with copyable snippets for the APIs that matter most in practice.
 
 ## Runnable entrypoints
 
+- [examples/quickstart](../examples/quickstart/README.md)
+  - smallest end-to-end router and Dart client example, covering Publisher,
+    Subscriber, Caller, and Callee
 - [packages/connectanum_client/example/main.dart](../packages/connectanum_client/example/main.dart)
   - basic client connect, register, call, subscribe, and publish flow
 - [packages/connectanum_router/example/main.dart](../packages/connectanum_router/example/main.dart)

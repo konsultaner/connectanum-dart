@@ -1,0 +1,28 @@
+router:
+  realms:
+    - name: realm1
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: anonymous
+          permissions:
+            - uri: com.example.
+              match: prefix
+              allow: [register, unregister, subscribe, unsubscribe, publish, call]
+
+  listeners:
+    - endpoint: 127.0.0.1:8080
+      authmethods: [anonymous]
+      protocols: [websocket]
+      tls:
+        mode: disabled
+      websocket:
+        path: /ws
+        subprotocols: [wamp.2.json, wamp.2.msgpack, wamp.2.cbor]
+
+  worker_pool:
+    min_workers: 1
+
+  authenticators:
+    anonymous:
+      type: anonymous

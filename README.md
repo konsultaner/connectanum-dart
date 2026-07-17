@@ -1,382 +1,171 @@
+<div align="center">
+
 # Connectanum
 
-Connectanum is a WAMP stack for Dart with a native transport runtime for the
-router and native client paths.
+**A high-performance WAMP v2 stack for Dart and Flutter.**
 
-This repository is the main source tree for:
+Build real-time applications with routed RPC and Pub/Sub, run an embeddable or
+standalone router, and expose WAMP services to AI agents through MCP.
 
-- `packages/connectanum_core` - shared protocol types, serializers, and
-  conformance coverage
-- `packages/connectanum` - compatibility facade for existing
-  `package:connectanum/...` client imports
-- `packages/connectanum_client` - Dart client package, including native client
-  transports
-- `packages/connectanum_router` - router implementation, examples, runner, and
-  integration tests
-- `packages/connectanum_auth_server` - config-driven remote authentication
-  helpers and server building blocks
-- `packages/connectanum_mcp` - Model Context Protocol server primitives,
-  stdio transport support, and WAMP-backed tool delegation
-- `packages/connectanum_bench` - benchmark harnesses and scenarios
-- `native/transport` - Rust workspace for the native transport runtime
+[![CI](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart.yml)
+[![WAMP Profile Benchmarks](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml)
+[![Package Dry Run](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml)
+[![Version](https://img.shields.io/badge/version-3.0.0--beta-f59e0b)](https://github.com/konsultaner/connectanum-dart)
+[![Dart](https://img.shields.io/badge/Dart-%5E3.9.2-0175c2?logo=dart&logoColor=white)](https://dart.dev/)
+[![WAMP](https://img.shields.io/badge/WAMP-v2-4b32c3)](https://wamp-proto.org/)
+[![License](https://img.shields.io/badge/license-MIT-0f766e)](LICENSE)
 
-Status: active development. The GitHub deployment chain can build and validate
-native runtime bundles; public Dart package publishing and router container
-image publishing are still being hardened before stable release use.
+[Quick start](#quick-start) · [Documentation](docs/README.md) ·
+[Examples](docs/examples.md) · [Feature matrix](docs/wamp_profile_support.md) ·
+[Benchmarks](docs/wamp_profile_benchmarks.md)
+
+</div>
+
+> **3.0 beta:** all Connectanum Dart packages and native Rust crates move
+> together at `3.0.0-beta`. The beta is intended for integration testing before
+> the final `3.0.0` release.
+
+## Why Connectanum?
+
+| | |
+| --- | --- |
+| **One protocol, every role** | Publisher, Subscriber, Caller, Callee, Broker, and Dealer with the WAMP Basic Profile across WebSocket and RawSocket. |
+| **Advanced RPC and Pub/Sub** | Progressive results and invocations, call timeouts and cancellation, pattern routing, shared registrations, publisher filtering, and authorization-aware Meta APIs. |
+| **Secure application messaging** | TLS/mTLS, Ticket, WAMP-CRA, SCRAM, Cryptosign, realm ACLs, and payload E2EE with XSalsa20-Poly1305 or AES-256-GCM. |
+| **Fast where it matters** | A Rust native transport runtime, JSON/MessagePack/CBOR serializers, lazy payload APIs, and opaque payload forwarding through the router. |
+| **A router you can own** | Embed the router in a Dart process or run the packaged CLI with worker isolation, graceful drain, OpenMetrics, HTTP bridges, and native release bundles. |
+| **WAMP for agents** | Router-hosted MCP over Streamable HTTP or direct JSON with tools, resources, prompts, Pub/Sub, WAMP Meta APIs, bearer auth, and session isolation. |
+
+Connectanum implements the full WAMP Basic Profile flow used by its six roles
+and a deliberately announced subset of the Advanced Profile. See the
+[audited support matrix](docs/wamp_profile_support.md) for exact coverage and
+known gaps.
 
 ## Quick Start
 
-Most users want one of these two paths:
-
-### Run The Router With Published Artifacts
-
-1. Tell the router build hook which published native bundle to use from the
-   application `pubspec.yaml`:
-
-   ```yaml
-   hooks:
-     user_defines:
-       connectanum_router:
-         CONNECTANUM_NATIVE_RELEASE_TAG: <release-tag>
-   ```
-
-2. Start the router:
-
-   ```bash
-   dart run connectanum_router --config path/to/router.yaml
-   ```
-
-3. Container image publishing is staged but not yet a verified public artifact.
-   Until the GHCR package is published, run the router directly as shown above
-   or build an image from `deploy/docker/Dockerfile` in your own registry.
-
-From a source checkout, `bin/connectanum-router --config path/to/router.yaml`
-or the executable-compatible alias
-`bin/connectanum_router --config path/to/router.yaml` resolves an existing
-release `ct_ffi` library or builds it with Cargo before delegating to
-`dart run connectanum_router`. Use either wrapper for consumer applications
-and smoke tests that need a real router without copying native-runtime
-bootstrap logic.
-
-For a fuller deployment walkthrough, see [docs/deployment.md](docs/deployment.md).
-
-### Work On The Codebase Locally
-
-1. Validate the toolchain and fetch dependencies:
-
-   ```bash
-   bin/bootstrap
-   ```
-
-2. Run a fast regression pass:
-
-   ```bash
-   bin/test-fast
-   ```
-
-3. Run the full verification flow before handoff:
-
-   ```bash
-   bin/verify
-   ```
-
-4. Build or test the native workspace directly when needed:
-
-   ```bash
-   cd native/transport
-   cargo test
-   cargo build -p ct_ffi --release
-   # coverage (requires cargo-llvm-cov)
-   cargo llvm-cov
-   ```
-
-   When working on the router or client packages, Dart 3.10+ build hooks will
-   compile `ct_ffi` automatically during `dart run`/`dart test` as long as a
-   Rust toolchain is available.
-
-## Examples
-
-Start with the shortest runnable entrypoint for the workflow you need:
-
-- [docs/examples.md](docs/examples.md) - curated examples for progressive
-  results, call cancellation, lazy payload APIs, and router startup
-- [packages/connectanum_client/example/main.dart](packages/connectanum_client/example/main.dart)
-  - basic client connection, registration, call, and publish flow
-- [packages/connectanum_router/example/main.dart](packages/connectanum_router/example/main.dart)
-  - local router with ticket, WAMP-CRA, SCRAM, and remote-auth demo providers
-- [packages/connectanum_router/example/remote_websocket.dart](packages/connectanum_router/example/remote_websocket.dart)
-  - router + WebSocket listener + in-process remote auth server
-- [packages/connectanum_mcp/example/stdio_echo_server.dart](packages/connectanum_mcp/example/stdio_echo_server.dart)
-  - local MCP stdio server example for agentic integrations
-- [docs/router_example.yaml](docs/router_example.yaml) - minimal config starter
-
-## Runtime Semantics
-
-### Call Cancellation
-
-Client `Session.call...` APIs accept an optional `cancelCompleter`. Completing
-that completer sends a WAMP `CANCEL` using one of the currently supported
-modes:
-
-- `skip` - stop waiting locally without interrupting the callee
-- `killnowait` - interrupt the callee and return cancellation to the caller
-  immediately
-- `kill` - interrupt the callee and wait for the callee-side cancellation/error
-  acknowledgement before completing the caller
-
-`killall` is not part of the current public contract.
-
-### Graceful Drain
-
-`RouterBinding.drain()` is the graceful shutdown entrypoint for the router. It:
-
-- closes native listener sockets first so no new accepts enter the pipeline
-- lets workers finish session shutdown and GOODBYE/close handling
-- flips `/healthz` to `503 draining` while shutdown is in progress when the
-  OpenMetrics server is enabled
-
-`RouterBinding.dispose()` already calls `drain()` before tearing down the boss,
-internal sessions, and metrics server, so CLI/process shutdown uses the same
-path.
-
-### Lazy Payload And Zero-Copy Boundaries
-
-Connectanum preserves encoded payload bytes when the transport, serializer, and
-API shape allow it. The relevant public entrypoints are:
-
-- `LazyMessagePayload`
-- `Session.callSingleLazyPayload(...)`
-- `Session.subscribeLazyPayloadHandler(...)`
-- `Session.registerLazyPayloadHandler(...)`
-- `Session.publishLazyPayload(...)`
-
-That is not a blanket promise that every path is zero-copy. Same-serializer and
-native fast paths can usually keep payload bytes lazy until first access; mixed
-serializers, unsupported metadata shapes, or materialized APIs may still decode
-and re-encode payloads.
-
-## Releases And Published Artifacts
-
-### Native Runtime Bundles
-
-The [Native Artifacts workflow](.github/workflows/native-artifacts.yml)
-publishes prebuilt `ct_ffi` bundles as:
-
-- `ct-ffi-<host-triple>.tar.gz`
-- `*.sha256`
-- `*.manifest.json`
-- `*.sigstore.json`
-
-Current GitHub-hosted release targets:
-
-- Linux x64 (`x86_64-unknown-linux-gnu`)
-- Linux arm64 (`aarch64-unknown-linux-gnu`)
-- macOS arm64 (`aarch64-apple-darwin`)
-- macOS Intel (`x86_64-apple-darwin`)
-- Windows x64 (`x86_64-pc-windows-msvc`)
-
-Maintainers can preview the exact GitHub Release title, asset list, and notes
-without publishing by manually dispatching the `Native Artifacts` workflow with
-`release_tag=<tag>` and `dry_run=true`. The run still builds and verifies the
-native matrix, then uploads a `native-release-preview` artifact containing
-`release-metadata.txt` and `release-notes.md`; no GitHub Release is created or
-updated.
-
-The main `CI` workflow intentionally does not publish raw per-test metrics
-snapshots. Release-facing native artifacts come from this workflow and GitHub
-Releases, while performance/transport evidence comes from the dedicated bench
-artifact and gate outputs.
-
-The root scripts auto-detect the standard release location for `ct_ffi` and set
-`CONNECTANUM_NATIVE_LIB` when possible. Dart SDK build hooks run in a
-semi-hermetic environment, so consumer applications should configure hook
-inputs under `hooks.user_defines` in their workspace `pubspec.yaml` instead of
-relying on exported shell variables:
-
-```yaml
-hooks:
-  user_defines:
-    connectanum_router:
-      CONNECTANUM_NATIVE_RELEASE_TAG: <tag>
-      # CONNECTANUM_NATIVE_RELEASE_REPOSITORY: <owner/repo>
-    connectanum_client:
-      CONNECTANUM_NATIVE_RELEASE_TAG: <tag>
-```
-
-The router and client hooks support `CONNECTANUM_NATIVE_LIB`,
-`CONNECTANUM_NATIVE_RELEASE_TAG`, `CONNECTANUM_NATIVE_RELEASE_REPOSITORY`, and
-`CONNECTANUM_SKIP_NATIVE_BUILD` as user defines. `CONNECTANUM_NATIVE_LIB` paths
-may be absolute or relative to the application pubspec. The runtime loaders and
-root scripts still honor the `CONNECTANUM_NATIVE_LIB` environment variable for
-explicit runtime library selection.
-
-If you want the hooks to acquire a hosted prebuilt bundle automatically, set
-`CONNECTANUM_NATIVE_RELEASE_TAG=<tag>` as a user define for the package hook.
-The hooks then download `ct-ffi-<host-triple>.tar.gz` plus its `.sha256` file
-from GitHub Releases, verify the checksum, extract the bundle, and stage the
-native library without requiring a local Rust toolchain. Use
-`CONNECTANUM_NATIVE_RELEASE_REPOSITORY=<owner/repo>` to override the default
-release source (`konsultaner/connectanum-dart`).
-
-If you prefer an explicit source-checkout prefetch step instead of
-hook-managed downloads, use:
+Run the router and the complete RPC + Pub/Sub demo from a source checkout:
 
 ```bash
-dart packages/connectanum_router/tool/install_native.dart --tag <release-tag>
-dart packages/connectanum_client/tool/install_native.dart --tag <release-tag>
+git clone https://github.com/konsultaner/connectanum-dart.git
+cd connectanum-dart
+bin/bootstrap
+bin/connectanum-router --config examples/quickstart/router.yaml
 ```
 
-Each command downloads the host-native bundle into
-`.dart_tool/connectanum/native/<host-triple>/` and prints the installed library
-path on stdout.
+In a second terminal:
 
-Verification options:
-
-- GitHub attestation:
-  `gh attestation verify path/to/ct-ffi-<host-triple>.tar.gz -R konsultaner/connectanum-dart`
-- Detached Sigstore bundle:
-
-  ```bash
-  cosign verify-blob path/to/ct-ffi-<host-triple>.tar.gz \
-    --bundle path/to/ct-ffi-<host-triple>.tar.gz.sigstore.json \
-    --certificate-identity "https://github.com/konsultaner/connectanum-dart/.github/workflows/native-artifacts.yml@refs/tags/<tag>" \
-    --certificate-oidc-issuer https://token.actions.githubusercontent.com
-  ```
-
-For manual workflow runs, use the actual workflow ref that emitted the bundle
-instead of the tag-based identity above.
-
-### Router Container Image
-
-The [Router Image workflow](.github/workflows/router-image.yml) is staged on
-the deployment branch to publish multi-arch router images to
-`ghcr.io/konsultaner/connectanum-router`.
-
-- `v*` tags publish `linux/amd64` and `linux/arm64`
-- stable SemVer tags also publish `:latest`
-- manual workflow dispatch can publish a one-off validation tag
-
-Current release status: the workflow is not visible on GitHub's default branch
-yet and the GHCR package is not published. Treat the image name as the intended
-release target, not as a production artifact, until the GitHub deployment-chain
-audit reports it as discoverable and the package exists.
-
-## Maintainer Workflow
-
-The repository also carries a small amount of checked-in project state so long
-running maintainer and automation sessions can resume cleanly:
-
-- `AGENTS.md` contains the durable operating rules for autonomous runs
-- `docs/project_state.md` is the current-state file to read first when resuming
-- `docs/exec-plans/` stores one plan per substantial task
-- `ROADMAP_NEXT.md` holds milestone candidates
-
-## Router Authentication Reference
-
-- [Router credential guidelines](docs/router_auth_credentials.md) – how to store CRA/SCRAM credentials without keeping plaintext secrets, plus helper snippets for generating derived keys.
-- [Remote authentication interoperability](docs/remote_auth_interop.md) – realm/procedure contract for integrating with the Java remote auth service.
-- Remote delegate failover – register multiple delegates via `RemoteAuthenticatorRegistry.register(delegate, id: ...)` and list them in authenticator options using `"delegates": ["primary", "secondary"]` to enable automatic failover.
-- Remote auth server building blocks – see [`packages/connectanum_auth_server`](packages/connectanum_auth_server) for a config-driven implementation of the remote authentication contract so you can run the same authenticators out of process.
-- Example walkthrough: [`packages/connectanum_router/example/main.dart`](packages/connectanum_router/example/main.dart) – demonstrates hashed credential providers, `CredentialRejection` error signalling, and a remote authenticator delegate.
-- WebSocket + remote auth demo: [`packages/connectanum_router/example/remote_websocket.dart`](packages/connectanum_router/example/remote_websocket.dart) – starts a router with WebSocket configuration and delegates authentication to the in-process auth server.
-
-## Router Data Flow
-
-The router uses a multi-layered architecture combining the native transport
-runtime, a boss/worker isolate model, and a central state store. The following
-Mermaid diagram illustrates the main components and message flow in detail:
-
-```mermaid
-flowchart TD
-    subgraph "Native Runtime (ct_ffi)"
-        A[Listener Accept Loop]
-        B[RawSocket Frame Parser]
-        C[ct_message_get / pointers]
-    end
-
-    subgraph "Dart Boss Isolate"
-        D[RouterBinding]
-        E[_RouterBoss]
-        F[RouterStateStore]
-        G[RouterSettings / Realm Config]
-        H[Authenticator Registry]
-    end
-
-    subgraph "Worker Isolates"
-        I[_routerWorkerEntryPoint]
-        J[RealmContext Cache]
-        K[Authenticators]
-        L[Message Handlers]
-    end
-
-    subgraph "Router Core"
-        M[Router Config Builder]
-        N[Router.start]
-    end
-
-    %% Native -> Boss
-    A -->|accepts| B
-    B -->|HELLO / CALL / SUBSCRIBE frames| C
-    C -->|ct_poll_connection_message| D
-
-    %% Boss flow
-    N -->|listener activation| D
-    N -->|pass settings| E
-    D -->|spawn boss| E
-    D -->|start workers| I
-    E -->|state cmds| F
-    E -->|realm configs| G
-    G -->|auth policies| H
-
-    %% Boss -> Workers
-    E -->|assign connection| I
-    E -->|send statePort| J
-
-    %% Workers handshake/auth
-    I -->|materialise message| L
-    L -->|HELLO| K
-    K -->|onHello| H
-    H -->|factory->authenticator| K
-    K -->|challenge/result| L
-    L -->|AUTHENTICATE| K
-    K -->|AuthResult.success| L
-    L -->|SessionOpenCommand| F
-    F -->|RealmSnapshot| J
-
-    %% Publish/Call flow
-    L -->|SUBSCRIBE/CALL| J
-    J -->|addSubscription / registerProcedure| F
-    F -->|StateChangedEvent| E
-    E -->|invalidate| J
-    F -->|InvocationDispatch| L
-    L -->|RESULT/EVENT| C
-
-    %% Shutdown
-    D -->|dispose| E
-    E -->|stop| F
-    F -->|close| E
+```bash
+dart run examples/quickstart/client.dart
 ```
 
-Key points:
+The client API keeps all four application roles close to the WAMP vocabulary:
 
-- The native runtime accepts TCP connections, parses WAMP RawSocket frames, and
-  exposes them via FFI callbacks.
-- `Router.start` builds a router binding, passes in `RouterSettings`, and spawns
-  `_RouterBoss` plus worker isolates.
-- `_RouterBoss` owns the central `RouterStateStore`, manages connection
-  assignment, and holds realm configuration plus the authenticator registry.
-- Worker isolates materialize native messages, drive authentication using
-  pluggable authenticators, and call into `RealmContext` to interact with the
-  store (subscriptions, registrations, snapshots, etc.).
-- All state mutations flow through `RouterStateStore`, which enforces realm
-  limits, tracks sessions, subscriptions, procedures, and dispatches events back
-  to the boss/metrics layer.
+```dart
+final client = Client(
+  realm: 'realm1',
+  transport: WebSocketTransport(
+    'ws://127.0.0.1:8080/ws',
+    Serializer(),
+    WebSocketSerialization.serializationJson,
+  ),
+);
+final session = await client.connect().first;
 
-## Design Notes
+final subscription = await session.subscribe('com.example.greeting');
+subscription.eventStream!.listen(
+  (event) => print(event.arguments!.first),
+);
 
-- The public lazy-payload APIs are intentional. If an integration needs to keep
-  encoded WAMP payload bytes intact across client, router, or internal-session
-  boundaries, use those APIs instead of the materialized convenience wrappers.
-- Advanced-profile cancellation currently supports `skip`, `kill`, and
-  `killnowait`. If `killall` is added later, it should be documented as a new
-  contract rather than assumed implicitly.
+final registration = await session.register('com.example.add');
+registration.onInvoke((invocation) {
+  final numbers = invocation.arguments!.cast<num>();
+  invocation.respondWith(arguments: [numbers[0] + numbers[1]]);
+});
+
+await session.publish(
+  'com.example.greeting',
+  arguments: ['Hello from Connectanum'],
+  options: PublishOptions(excludeMe: false),
+);
+final result = await session.callSingle(
+  'com.example.add',
+  arguments: [2, 3],
+);
+print('2 + 3 = ${result.arguments!.first}');
+```
+
+The maintained [quick-start example](examples/quickstart/README.md) includes
+shutdown handling and expected output. Continue with the
+[example catalog](docs/examples.md) for progressive calls, cancellation,
+payload E2EE, router hosting, authentication, and MCP.
+
+## Benchmarks
+
+Connectanum gates WAMP performance in CI instead of publishing an isolated
+headline number. The latest
+[hosted `master` run](https://github.com/konsultaner/connectanum-dart/actions/runs/29580331118)
+passed every transport-counter and performance policy.
+
+Representative response-throughput ranges from that run:
+
+| Workload family | Throughput | Observed p95 latency |
+| --- | ---: | ---: |
+| Cleartext RPC + Pub/Sub | **101.8-448.1 Mbps** | 33.1-137.7 ms |
+| TLS RPC + Pub/Sub | **60.2-257.2 Mbps** | 46.1-247.8 ms |
+| Pub/Sub fan-out to 8 subscribers | **106.7-138.4 Mbps** | 182.8-223.8 ms |
+| Native payload E2EE | **21.9-53.1 Mbps** | 65.8-90.2 ms |
+
+The same hosted gate verified progressive invocations at 16.1-19.6 ms p95,
+50 ms call timeouts at 56.8-60.5 ms p95, and the full 15-procedure statistics
+Meta API sweep at 29.2-51.0 ms p95.
+
+These are short regression-gate measurements on GitHub-hosted Linux x64 with
+one router worker, one native runtime thread, six-way concurrency, and 64 KiB
+payloads. They are evidence for this measured configuration, not a
+cross-project comparison or a substitute for workload-specific load testing.
+The [benchmark contract](docs/wamp_profile_benchmarks.md) documents scenarios,
+budgets, reproduction commands, and limitations.
+
+## Packages
+
+Every package in the 3.x line shares one version and is released as a
+coordinated stack.
+
+| Package | Use it for |
+| --- | --- |
+| [`connectanum_client`](packages/connectanum_client) | Dart and Flutter WAMP clients, including native transports and payload E2EE providers. |
+| [`connectanum_router`](packages/connectanum_router) | Embeddable router, standalone CLI, HTTP bridges, metrics, and router-hosted MCP. |
+| [`connectanum_mcp`](packages/connectanum_mcp) | MCP servers and clients, Streamable HTTP, direct JSON APIs, and WAMP delegation. |
+| [`connectanum_auth_server`](packages/connectanum_auth_server) | Config-driven remote authentication services and reusable auth building blocks. |
+| [`connectanum_core`](packages/connectanum_core) | Protocol messages, serializers, feature announcements, and shared E2EE contracts. |
+| [`connectanum`](packages/connectanum) | Compatibility facade for existing `package:connectanum/...` client imports. |
+| [`connectanum_bench`](packages/connectanum_bench) | Reproducible router, transport, profile, and release-feature benchmark scenarios. |
+
+The existing `connectanum` 2.x facade is available on
+[pub.dev](https://pub.dev/packages/connectanum). The modular `3.0.0-beta`
+packages are synchronized and publish-ready but are not yet public on pub.dev;
+beta testers can use the Git workspace paths until the coordinated publish.
+
+## Documentation
+
+Start at the [documentation index](docs/README.md), or jump directly to:
+
+- [Examples and runnable workflows](docs/examples.md)
+- [WAMP Basic and Advanced Profile support](docs/wamp_profile_support.md)
+- [Router deployment](docs/deployment.md)
+- [Router authentication](docs/router_auth_credentials.md)
+- [TLS and mTLS](docs/tls.md)
+- [Metrics and operations](docs/router_metrics.md)
+- [MCP package guide](packages/connectanum_mcp/README.md)
+- [Benchmark methodology](docs/wamp_profile_benchmarks.md)
+
+## Project Status
+
+`3.0.0-beta` is feature-complete for the announced release profile and is
+ready for controlled integration testing. The remaining path to final `3.0.0`
+is broader soak, multi-worker, multi-runtime-thread, and downstream workload
+evidence, followed by the coordinated public package release.
+
+Connectanum is open source under the [MIT License](LICENSE). Issues and
+interoperability reports are welcome in the
+[GitHub issue tracker](https://github.com/konsultaner/connectanum-dart/issues).

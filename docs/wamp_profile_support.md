@@ -1,6 +1,6 @@
 # WAMP Profile Support and Production Readiness
 
-Last audited: 2026-07-15
+Last audited: 2026-07-17
 
 This matrix uses the current
 [WAMP Basic Profile](https://wamp-proto.org/wamp_bp_latest_ietf.html) and
@@ -122,36 +122,36 @@ feature-announcement table:
 ## Benchmark Evidence
 
 The latest hosted
-[WAMP Profile Benchmarks run 29084302142](https://github.com/konsultaner/connectanum-dart/actions/runs/29084302142)
-passed on commit `5034dc7` with 70 workloads and no transport-counter or
-performance-policy findings. It covers cleartext and TLS, RawSocket and
-WebSocket, RPC and pub/sub, JSON/MessagePack/CBOR, control cycles, and
-eight-subscriber native fan-out.
+[WAMP Profile Benchmarks run 29580331118](https://github.com/konsultaner/connectanum-dart/actions/runs/29580331118)
+passed on the promoted `3.0.0-beta` commit `36ddfdc` with no transport-counter
+or performance-policy findings. It covers cleartext and TLS, RawSocket and
+WebSocket, RPC and pub/sub, JSON/MessagePack/CBOR, eight-subscriber fan-out,
+payload E2EE, progressive invocations, call timeouts, and all 15 statistics
+Meta API procedures.
 
-| Gate family | Throughput above policy floor | p95 below policy ceiling |
+| Gate family | Hosted throughput range | Hosted p95 range |
 | --- | ---: | ---: |
-| Cleartext transport throughput | 114% to 199% | 36% to 76% |
-| TLS transport throughput | 100% to 149% | 58% to 72% |
-| Eight-subscriber fan-out | 169% to 565% | 62% to 66% |
+| Cleartext transport throughput | 101.8-448.1 Mbps | 33.1-137.7 ms |
+| TLS transport throughput | 60.2-257.2 Mbps | 46.1-247.8 ms |
+| Eight-subscriber fan-out | 106.7-138.4 Mbps | 182.8-223.8 ms |
+| Native payload E2EE | 21.9-53.1 Mbps | 65.8-90.2 ms |
 
 These margins are comfortably production-grade for the measured baseline, but
 the hosted gate currently uses one Linux x86_64 runner, one router worker, one
 native runtime thread, and short samples. It does not yet gate soak duration,
 CPU, memory, file descriptors, or multi-worker scaling.
 
-The 2026-07-15 local release gates add the previously missing final-feature
-evidence:
+The hosted release gates also cover the final feature set:
 
-| Gate | Coverage | Local result |
+| Gate | Coverage | Hosted result |
 | --- | --- | --- |
-| `wamp_e2ee_throughput.json` | 16 encrypted RPC/pub-sub rows; RawSocket/WebSocket; Dart/native; XSalsa20-Poly1305/AES-256-GCM | Passed; 1.77-13.90 Mbps, 262.73-2824.47 ms p95 |
+| `wamp_e2ee_throughput.json` | 16 encrypted RPC/pub-sub rows; RawSocket/WebSocket; Dart/native; XSalsa20-Poly1305/AES-256-GCM | Passed; 1.31-53.09 Mbps, 65.85-3248.46 ms p95 across all Dart/native rows |
 | `wamp_final_release_features.json` | 12 progressive invocation, timeout, and full 15-procedure Meta statistics sweep rows; RawSocket/WebSocket; Dart/native | Passed |
 
-Across the final-feature matrix, progressive rows delivered 0.45-1.79 Mbps at
-8.12-25.41 ms p95, 50 ms timeout rows completed at 55.38-59.49 ms p95, and
-full Meta sweeps completed at 11.17-33.22 ms p95. Every transport,
-backpressure, protocol, and internal error counter remained zero. Hosted
-evidence for these new gates is still required after push.
+Across the final-feature matrix, progressive rows delivered 0.25-0.80 Mbps at
+16.06-19.59 ms p95, 50 ms timeout rows completed at 56.81-60.45 ms p95, and
+full Meta sweeps completed at 29.24-50.97 ms p95. Every transport,
+backpressure, protocol, and internal error counter remained zero.
 
 ## Readiness Verdict
 
