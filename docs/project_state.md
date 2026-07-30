@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-17
+Last updated: 2026-07-30
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -17,6 +17,15 @@ identified and fixed a pre-existing SCRAM channel-binding crash by preserving
 decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
+The beta release now has one installation and getting-started path covering
+source checkout use before publication, synchronized package/native release
+selection, all five supported native artifact targets, both package-scoped
+native hook configurations, and a maintained YAML router configuration. The
+router config test suite parses the public quick-start YAML so onboarding
+configuration cannot drift silently. Pre-change `bin/test-fast`, focused
+configuration parsing, public-artifact validation, and the complete local
+`bin/verify` passed on 2026-07-30.
+
 The public README coverage badge is now backed by a dedicated workspace-wide
 Dart VM coverage gate instead of the stale 2023 Codecov result. The reusable
 `bin/test-coverage` collector covers all seven packages, preserves the native
@@ -32,7 +41,11 @@ The first strict audit correctly rejected the new job as absent from its old
 two-job policy and reported third-party upload noise. The audit expectation,
 Codecov plugin selection, and Node 24 artifact uploader are now aligned;
 focused audit regressions, YAML and Codecov validation, and full local
-`bin/verify` passed before the hosted clean-log rerun.
+`bin/verify` passed. Exact-head GitHub CI `29589245137` then passed on
+`29252cd` with Fast Checks, Dart VM Coverage, and Full Verify green. Codecov
+indexed the exact head at 82.28%, the public badge renders 82%, and the strict
+deployment-chain audit passed with a clean hosted CI log scan and relevant
+package dry-run evidence.
 
 Pre-change `bin/test-fast` passed on 2026-07-17, including the full profile
 and benchmark regression set, isolated package consumers, router CLI runtime,

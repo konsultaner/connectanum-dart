@@ -9,6 +9,9 @@ client session as Publisher, Subscriber, Caller, and Callee.
 - Rust stable when a compatible `ct_ffi` native library is not already
   available
 
+For platform binaries, package installation, and the native hook configuration,
+start with the [installation guide](../../docs/getting_started.md).
+
 From the repository root, prepare the workspace and start the router:
 
 ```bash

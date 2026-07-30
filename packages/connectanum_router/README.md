@@ -14,11 +14,14 @@ it is not yet published as a stable public package.
 ## Run The Router
 
 Tell the build hook which published native bundle to use from the application
-`pubspec.yaml`:
+`pubspec.yaml`. The router depends on `connectanum_client`, so configure both
+native-asset hooks with the same release tag:
 
 ```yaml
 hooks:
   user_defines:
+    connectanum_client:
+      CONNECTANUM_NATIVE_RELEASE_TAG: <release-tag>
     connectanum_router:
       CONNECTANUM_NATIVE_RELEASE_TAG: <release-tag>
 ```
@@ -136,7 +139,10 @@ the `connectanum_router` package:
 - `CONNECTANUM_SKIP_NATIVE_BUILD`
 
 The full deployment path, container image, and release-artifact flow are
-documented in [../../docs/deployment.md](../../docs/deployment.md).
+documented in the
+[installation guide](https://github.com/konsultaner/connectanum-dart/blob/master/docs/getting_started.md)
+and
+[deployment guide](https://github.com/konsultaner/connectanum-dart/blob/master/docs/deployment.md).
 
 ## Related Packages
 

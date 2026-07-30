@@ -16,7 +16,8 @@ standalone router, and expose WAMP services to AI agents through MCP.
 [![WAMP](https://img.shields.io/badge/WAMP-v2-4b32c3)](https://wamp-proto.org/)
 [![License](https://img.shields.io/badge/license-MIT-0f766e)](LICENSE)
 
-[Quick start](#quick-start) · [Documentation](docs/README.md) ·
+[Getting started](docs/getting_started.md) · [Quick start](#quick-start) ·
+[Documentation](docs/README.md) ·
 [Examples](docs/examples.md) · [Feature matrix](docs/wamp_profile_support.md) ·
 [Benchmarks](docs/wamp_profile_benchmarks.md)
 
@@ -151,6 +152,7 @@ beta testers can use the Git workspace paths until the coordinated publish.
 
 Start at the [documentation index](docs/README.md), or jump directly to:
 
+- [Installation and getting started](docs/getting_started.md)
 - [Examples and runnable workflows](docs/examples.md)
 - [WAMP Basic and Advanced Profile support](docs/wamp_profile_support.md)
 - [Router deployment](docs/deployment.md)

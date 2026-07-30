@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:connectanum_router/src/router/config/router_config_loader.dart';
+import 'package:connectanum_router/src/router/config/router_config_loader_io.dart';
 import 'package:connectanum_router/src/router/config/router_settings.dart';
 import 'package:connectanum_router/src/router/config/router_settings_builder.dart';
 import 'package:connectanum_router/src/router/config/router_settings_codec.dart';
@@ -6,6 +9,20 @@ import 'package:test/test.dart';
 
 void main() {
   group('RouterConfigLoader', () {
+    test('loads the maintained getting-started YAML', () async {
+      final repositoryRoot = _findRepositoryRoot();
+      final settings = await RouterConfigLoaderIo.fromFile(
+        '${repositoryRoot.path}/examples/quickstart/router.yaml',
+      );
+
+      expect(settings.realms.single.name, 'realm1');
+      expect(settings.authenticators.keys, contains('anonymous'));
+      expect(settings.workerPool.minWorkers, 1);
+      expect(settings.listeners.single.endpoint, '127.0.0.1:8080');
+      expect(settings.listeners.single.protocols, [ListenerProtocol.websocket]);
+      expect(settings.listeners.single.websocket?.path, '/ws');
+    });
+
     test('parses shared session profiles and references', () {
       final settings = RouterConfigLoader.fromMap({
         'router': <String, Object?>{
@@ -787,4 +804,23 @@ void main() {
       );
     });
   });
+}
+
+Directory _findRepositoryRoot() {
+  var directory = Directory.current.absolute;
+  for (var depth = 0; depth < 12; depth++) {
+    final config = File('${directory.path}/examples/quickstart/router.yaml');
+    final package = File(
+      '${directory.path}/packages/connectanum_router/pubspec.yaml',
+    );
+    if (config.existsSync() && package.existsSync()) {
+      return directory;
+    }
+    final parent = directory.parent;
+    if (parent.path == directory.path) {
+      break;
+    }
+    directory = parent;
+  }
+  throw StateError('Could not locate the Connectanum repository root.');
 }

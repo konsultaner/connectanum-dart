@@ -79,10 +79,15 @@ configure hook inputs in the application `pubspec.yaml`:
 ```yaml
 hooks:
   user_defines:
+    connectanum_client:
+      CONNECTANUM_NATIVE_RELEASE_TAG: <tag>
     connectanum_router:
       CONNECTANUM_NATIVE_RELEASE_TAG: <tag>
       # CONNECTANUM_NATIVE_RELEASE_REPOSITORY: <owner/repo>
 ```
+
+Configure both package hooks because `connectanum_router` transitively depends
+on `connectanum_client` and both package archives ship native-asset hooks.
 
 Use `CONNECTANUM_NATIVE_LIB` as a hook user define when you already have a
 prebuilt library; paths may be absolute or relative to the pubspec. Use

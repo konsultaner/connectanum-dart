@@ -6,6 +6,9 @@ contracts, and examples live here or in the package `example/` directories.
 
 ## Start Here
 
+- [Installation and getting started](getting_started.md) - install the Dart
+  package, select the matching platform-native binary, configure both native
+  hooks, and start a YAML-backed router.
 - [Quick-start application](../examples/quickstart/README.md) - run a local
   router and exercise Publisher, Subscriber, Caller, and Callee from Dart.
 - [Example catalog](examples.md) - progressive results, cancellation, lazy
