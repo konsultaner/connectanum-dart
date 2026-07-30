@@ -139,6 +139,7 @@ expected_router_image_jobs=('Publish Router Image')
 wamp_profile_benchmarks_workflow='WAMP Profile Benchmarks'
 expected_wamp_profile_benchmarks_jobs=('Linux WAMP profile gates')
 ci_log_issue_pattern='warning:|::warning|DeprecationWarning|Connection reset by peer|connection ConnectionId|skipped'
+ci_log_ignored_pattern='Check for gpg only if validation is not being skipped|gpg: WARNING: This key is not certified with a trusted signature!|##\[end-action [^]]*;outcome=skipped;conclusion=skipped;duration_ms=[0-9]+\]'
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -1035,7 +1036,7 @@ print_latest_ci_log_scan() {
   fi
 
   if LC_ALL=C grep -Eavi \
-    'Check for gpg only if validation is not being skipped|gpg: WARNING: This key is not certified with a trusted signature!' \
+    "$ci_log_ignored_pattern" \
     "$log_file" | grep -Eai "$ci_log_issue_pattern" >"$matches_file"; then
     printf 'Potential hosted CI log issues matching: %s\n' "$ci_log_issue_pattern"
     awk '

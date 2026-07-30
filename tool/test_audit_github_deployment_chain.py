@@ -49,6 +49,22 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertIn("Latest CI logs cover checked-out head: yes.", matching_result.stdout)
         self.assertIn("Latest CI log scan is clean", matching_result.stdout)
 
+    def test_clean_latest_ci_logs_ignores_action_lifecycle_skip(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_audit(
+            current_head,
+            "--require-clean-latest-ci-logs",
+            ci_log_extra=(
+                "Fast Checks\tRun dtolnay/rust-toolchain@stable\t"
+                "##[end-action id=__dtolnay_rust-toolchain.__run_3;"
+                "outcome=skipped;conclusion=skipped;duration_ms=0]"
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Latest CI log scan is clean", result.stdout)
+
     def test_branch_protection_reports_pr_requirement_and_admin_bypass(
         self,
     ) -> None:
@@ -650,6 +666,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         gate: str = "--require-clean-latest-ci",
         branch: str = "add-router",
         github_actions_status: str = "operational",
+        ci_log_extra: str = "",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -766,6 +783,8 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             print("# Check for gpg only if validation is not being skipped")
                             print("gpg: WARNING: This key is not certified with a trusted signature!")
                             print("Full Verify completed")
+                            if extra := os.environ.get("FAKE_CI_LOG_EXTRA"):
+                                print(extra)
                             sys.exit(0)
                         json_fields = args[args.index("--json") + 1]
                         if json_fields == "status,conclusion,headSha,url":
@@ -826,6 +845,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             env["FAKE_BRANCH_HEAD"] = ci_head
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
             env["FAKE_GITHUB_ACTIONS_STATUS"] = github_actions_status
+            env["FAKE_CI_LOG_EXTRA"] = ci_log_extra
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
 
             return subprocess.run(
