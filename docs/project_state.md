@@ -17,6 +17,21 @@ identified and fixed a pre-existing SCRAM channel-binding crash by preserving
 decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
+The latest completed implementation checkpoint is protected router-hosted MCP
+authorization discovery. Route options can now publish validated OAuth
+Protected Resource Metadata, JSON `GET` requests can retrieve that metadata
+without a bearer token, and missing-token or invalid-token `401` challenges
+include the configured `resource_metadata` URL. Normal MCP POST, Streamable
+HTTP GET, and DELETE requests continue to require and revalidate bearer
+authorization, while metadata discovery still enforces configured TLS and
+mTLS transport requirements. This does not turn the Connectanum challenge-auth
+grant bridge into an OAuth authorization server; operators point the metadata
+at an external standards-compatible authorization server. The active plan is
+`docs/exec-plans/2026-07-30-mcp-oauth-protected-resource-metadata.md`.
+Pre-change `bin/test-fast`, focused route-option validation, the live native
+MCP route-security smoke, focused analysis, protected HTTP/3 auth and direct
+JSON regressions, and the complete local `bin/verify` passed on 2026-07-30.
+
 The beta release now has one installation and getting-started path covering
 source checkout use before publication, synchronized package/native release
 selection, all five supported native artifact targets, both package-scoped
@@ -23321,13 +23336,13 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active plan:
+- No active plan. Most recent completed MCP plan:
+  `docs/exec-plans/2026-07-30-mcp-oauth-protected-resource-metadata.md`.
+  Make protected router-hosted MCP endpoints discoverable by standards-aware
+  clients while preserving the existing Connectanum authentication bridge and
+  per-request bearer validation.
+- Most recent completed WAMP readiness plan:
   `docs/exec-plans/2026-07-13-wamp-profile-production-readiness-audit.md`.
-  Establish the Basic/Advanced Profile implementation matrix, make client and
-  router feature announcements honest, and assess whether conformance and
-  benchmark evidence support production use. Keep unsupported experimental
-  features disabled rather than treating the modular Advanced Profile as an
-  all-or-nothing target.
 - Most recent completed RC plan:
   `docs/exec-plans/2026-05-13-rc-readiness.md`.
 - Historical paused plan:

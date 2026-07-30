@@ -197,6 +197,27 @@ lifecycle:
 {"jsonrpc":"2.0","id":3,"method":"connectanum.tool.call","params":{"name":"app.echo","arguments":{"text":"hello"}}}
 ```
 
+For a protected endpoint used by standard MCP clients, configure OAuth
+Protected Resource Metadata in the route options:
+
+```yaml
+protected_resource_metadata:
+  metadata_url: https://mcp.example.com/mcp
+  resource: https://mcp.example.com/mcp
+  authorization_servers:
+    - https://auth.example.com
+  scopes_supported:
+    - mcp:read
+    - mcp:write
+  resource_name: Example MCP
+```
+
+The router serves that document from the MCP route for JSON `GET` requests and
+adds its URL to `WWW-Authenticate` on missing or invalid bearer credentials.
+The configured authorization server must provide the OAuth 2.1 discovery and
+token flows; Connectanum's ticket, WAMP-CRA, and SCRAM HTTP grant bridge remains
+available as a separate application-specific authentication path.
+
 Direct calls use the same route authentication, filtered catalog, and
 authorization path as MCP `tools/call`. Procedures or topics that the route
 principal may not use are not advertised as tools. Run the checked example with

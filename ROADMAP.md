@@ -378,6 +378,10 @@
   - [x] Add configured router-hosted MCP resources, resource templates, and
     prompts so a router route can advertise read-only context and prompt
     templates without starting a separate MCP server.
+  - [x] Add optional OAuth Protected Resource Metadata for protected
+    router-hosted endpoints, including public JSON discovery and
+    `resource_metadata` bearer challenges while preserving authorization on
+    MCP traffic.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

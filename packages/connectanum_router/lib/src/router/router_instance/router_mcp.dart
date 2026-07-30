@@ -38,6 +38,270 @@ const Set<String> _mcpPostResponseTransportModes = <String>{
   'auto',
 };
 final RegExp _mcpToolNamePattern = RegExp(r'^[A-Za-z0-9_.-]{1,128}$');
+const Object _mcpNoProtectedResourceMetadata = Object();
+final Expando<Object> _mcpProtectedResourceMetadataCache = Expando<Object>(
+  'MCP protected resource metadata',
+);
+
+class _McpProtectedResourceMetadata {
+  const _McpProtectedResourceMetadata({
+    required this.metadataUrl,
+    required this.body,
+    this.scopes,
+  });
+
+  final String metadataUrl;
+  final Map<String, Object?> body;
+  final List<String>? scopes;
+}
+
+_McpProtectedResourceMetadata? _mcpProtectedResourceMetadata(
+  HttpRouteSettings route,
+) {
+  final cached = _mcpProtectedResourceMetadataCache[route];
+  if (identical(cached, _mcpNoProtectedResourceMetadata)) {
+    return null;
+  }
+  if (cached is _McpProtectedResourceMetadata) {
+    return cached;
+  }
+  final metadata = _mcpProtectedResourceMetadataFromOptions(
+    route.action.options,
+  );
+  _mcpProtectedResourceMetadataCache[route] =
+      metadata ?? _mcpNoProtectedResourceMetadata;
+  return metadata;
+}
+
+_McpProtectedResourceMetadata? _mcpProtectedResourceMetadataFromOptions(
+  Map<String, Object?> options,
+) {
+  final snakeCase = options['protected_resource_metadata'];
+  final camelCase = options['protectedResourceMetadata'];
+  if (snakeCase != null && camelCase != null) {
+    throw const FormatException(
+      'Configure only one of MCP protected_resource_metadata or '
+      'protectedResourceMetadata',
+    );
+  }
+  final raw = snakeCase ?? camelCase;
+  if (raw == null) {
+    return null;
+  }
+  final optionName = snakeCase != null
+      ? 'protected_resource_metadata'
+      : 'protectedResourceMetadata';
+  if (raw is! Map) {
+    throw FormatException('MCP $optionName must be an object');
+  }
+  final config = <String, Object?>{
+    for (final entry in raw.entries)
+      if (entry.key is String) entry.key as String: entry.value,
+  };
+  if (config.length != raw.length) {
+    throw FormatException('MCP $optionName keys must be strings');
+  }
+
+  final metadataUrl = _mcpProtectedResourceUrl(
+    config,
+    optionName,
+    'metadata_url',
+  );
+  final resource = _mcpProtectedResourceUrl(config, optionName, 'resource');
+  final authorizationServers = _mcpProtectedResourceStringList(
+    config,
+    optionName,
+    'authorization_servers',
+    required: true,
+    validate: (value, index) {
+      final uri = _mcpAbsoluteHttpUri(value);
+      if (uri == null || uri.scheme != 'https') {
+        throw FormatException(
+          'MCP $optionName.authorization_servers[$index] must use HTTPS',
+        );
+      }
+    },
+  )!;
+  final scopes = _mcpProtectedResourceStringList(
+    config,
+    optionName,
+    'scopes_supported',
+    validate: (value, index) {
+      if (!_mcpOAuthScopeTokenValid(value)) {
+        throw FormatException(
+          'MCP $optionName.scopes_supported[$index] is not a valid OAuth '
+          'scope token',
+        );
+      }
+    },
+  );
+  final resourceName = _mcpProtectedResourceOptionalString(
+    config,
+    optionName,
+    'resource_name',
+  );
+
+  return _McpProtectedResourceMetadata(
+    metadataUrl: metadataUrl,
+    scopes: scopes,
+    body: <String, Object?>{
+      'resource': resource,
+      'authorization_servers': authorizationServers,
+      'scopes_supported': ?scopes,
+      'resource_name': ?resourceName,
+      'bearer_methods_supported': const <String>['header'],
+    },
+  );
+}
+
+String _mcpProtectedResourceUrl(
+  Map<String, Object?> config,
+  String optionName,
+  String key,
+) {
+  final value = config[key];
+  if (value == null) {
+    throw FormatException('MCP $optionName.$key is required');
+  }
+  if (value is! String || value.trim().isEmpty) {
+    throw FormatException('MCP $optionName.$key must be a non-empty string');
+  }
+  final normalized = value.trim();
+  final uri = _mcpAbsoluteHttpUri(normalized);
+  if (uri == null) {
+    throw FormatException(
+      'MCP $optionName.$key must be an absolute URL without user info or a '
+      'fragment',
+    );
+  }
+  return uri.toString();
+}
+
+Uri? _mcpAbsoluteHttpUri(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      (uri.scheme != 'http' && uri.scheme != 'https') ||
+      uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasFragment) {
+    return null;
+  }
+  return uri;
+}
+
+List<String>? _mcpProtectedResourceStringList(
+  Map<String, Object?> config,
+  String optionName,
+  String key, {
+  bool required = false,
+  void Function(String value, int index)? validate,
+}) {
+  final raw = config[key];
+  if (raw == null) {
+    if (required) {
+      throw FormatException('MCP $optionName.$key is required');
+    }
+    return null;
+  }
+  if (raw is! List) {
+    throw FormatException('MCP $optionName.$key must be a list of strings');
+  }
+  if (raw.isEmpty) {
+    throw FormatException('MCP $optionName.$key must not be empty');
+  }
+  final values = <String>[];
+  for (var index = 0; index < raw.length; index += 1) {
+    final value = raw[index];
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException(
+        'MCP $optionName.$key[$index] must be a non-empty string',
+      );
+    }
+    final normalized = value.trim();
+    validate?.call(normalized, index);
+    if (values.contains(normalized)) {
+      throw FormatException(
+        'MCP $optionName.$key contains duplicate value "$normalized"',
+      );
+    }
+    values.add(normalized);
+  }
+  return values;
+}
+
+String? _mcpProtectedResourceOptionalString(
+  Map<String, Object?> config,
+  String optionName,
+  String key,
+) {
+  final value = config[key];
+  if (value == null) {
+    return null;
+  }
+  if (value is! String || value.trim().isEmpty) {
+    throw FormatException('MCP $optionName.$key must be a non-empty string');
+  }
+  return value.trim();
+}
+
+bool _mcpOAuthScopeTokenValid(String value) {
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit == 0x21 ||
+        (codeUnit >= 0x23 && codeUnit <= 0x5b) ||
+        (codeUnit >= 0x5d && codeUnit <= 0x7e)) {
+      continue;
+    }
+    return false;
+  }
+  return value.isNotEmpty;
+}
+
+bool _mcpProtectedResourceMetadataRequest(
+  RouterBinding binding,
+  RouterHttpRequest request,
+  HttpRouteSettings route,
+) {
+  if (request.method.trim().toUpperCase() != 'GET' ||
+      _mcpProtectedResourceMetadata(route) == null) {
+    return false;
+  }
+  final accepted = _mcpAcceptTypes(binding, request);
+  final explicitlyRequestsSse = _mcpAcceptIncludesExactMediaType(
+    accepted,
+    _mcpSseContentType,
+  );
+  if (explicitlyRequestsSse) {
+    return false;
+  }
+  final sessionId = _mcpHeaderValue(binding, request, _mcpSessionIdHeader);
+  return sessionId == null &&
+      (accepted.isEmpty ||
+          _mcpAcceptAllowsMediaType(accepted, _mcpJsonContentType));
+}
+
+Map<String, String> _mcpUnauthorizedHeaders(
+  RouterBinding binding, {
+  required HttpRouteSettings route,
+  required String realm,
+  required String authPath,
+}) {
+  final headers = binding._httpUnauthorizedHeaders(
+    realm: realm,
+    authPath: authPath,
+  );
+  final metadata = _mcpProtectedResourceMetadata(route);
+  if (metadata == null) {
+    return headers;
+  }
+  final challenge = headers[HttpHeaders.wwwAuthenticateHeader] ?? 'Bearer';
+  final scopeParameter = metadata.scopes?.isNotEmpty ?? false
+      ? ', scope="${metadata.scopes!.join(' ')}"'
+      : '';
+  headers[HttpHeaders.wwwAuthenticateHeader] =
+      '$challenge$scopeParameter, '
+      'resource_metadata="${metadata.metadataUrl}"';
+  return headers;
+}
 
 Map<String, String> _mcpCorsResponseHeaders(
   RouterBinding binding,
@@ -1121,6 +1385,24 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
+  if (_mcpProtectedResourceMetadataRequest(binding, request, route)) {
+    final metadata = _mcpProtectedResourceMetadata(route)!;
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.ok,
+        headers: <String, String>{
+          HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+          HttpHeaders.cacheControlHeader: 'no-store',
+          ...corsHeaders,
+        },
+        body: NativeHttpResponseJson(metadata.body),
+      ),
+    );
+    return;
+  }
+
   if (mcpSessionId != null && !_mcpSessionIdHeaderValueValid(mcpSessionId)) {
     await binding._sendImmediateHttpResponse(
       request: request,
@@ -1268,7 +1550,9 @@ Future<void> _handleMcpHttpRequestForBinding(
               protocolVersion: responseMcpProtocolVersion,
               extra: <String, String>{
                 ...corsHeaders,
-                ...binding._httpUnauthorizedHeaders(
+                ..._mcpUnauthorizedHeaders(
+                  binding,
+                  route: route,
                   realm: resolvedRealmUri,
                   authPath: binding._httpAuthPathFor(listenerSettings?.http),
                 ),
@@ -1309,7 +1593,9 @@ Future<void> _handleMcpHttpRequestForBinding(
           protocolVersion: responseMcpProtocolVersion,
           extra: <String, String>{
             ...corsHeaders,
-            ...binding._httpUnauthorizedHeaders(
+            ..._mcpUnauthorizedHeaders(
+              binding,
+              route: route,
               realm: resolvedRealmUri,
               authPath: binding._httpAuthPathFor(listenerSettings?.http),
             ),
@@ -3050,6 +3336,7 @@ List<mcp.McpWampTopic> _configuredTopics(Map<String, Object?> options) {
 
 void _validateMcpRouteOptions(Map<String, Object?> options) {
   try {
+    _mcpProtectedResourceMetadataFromOptions(options);
     _validateMcpPostResponseOptions(options);
     _validateMcpRouteOptionShapes(options);
     _configuredProcedures(options);

@@ -1,6 +1,6 @@
 # MCP Integration Research
 
-Last checked: 2026-05-02
+Last checked: 2026-07-30
 Driving use case: downstream application integrations
 
 ## Sources
@@ -17,6 +17,8 @@ Driving use case: downstream application integrations
   https://modelcontextprotocol.io/specification/2025-11-25/server/resources
 - MCP prompts:
   https://modelcontextprotocol.io/specification/2025-11-25/server/prompts
+- MCP authorization:
+  https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization
 - MCP 2026 roadmap:
   https://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/
 
@@ -56,6 +58,11 @@ Driving use case: downstream application integrations
   source URI plus optional MIME type, size strings, and a light/dark theme hint.
   Connectanum should serialize icon metadata for clients but should not fetch
   or trust icon bytes inside the MCP package.
+- Authorization remains optional for MCP servers, but protected HTTP MCP
+  servers need OAuth 2.0 Protected Resource Metadata discovery. A `401`
+  challenge should identify the metadata URL through the
+  `resource_metadata` parameter, and bearer credentials remain required on
+  every protected MCP request.
 
 ## Connectanum Fit
 
@@ -91,6 +98,13 @@ Driving use case: downstream application integrations
   package-local tools/resources path is stable. Prompt templates are
   user-selected surface area, so automatic projection from WAMP APIs should
   remain a separate product decision.
+- Keep Connectanum's existing challenge-auth grant bridge as a supported
+  application integration path, but do not present it as an OAuth 2.1
+  authorization server. Protected router-hosted MCP routes can instead publish
+  validated Protected Resource Metadata that points standards-aware clients to
+  an operator-provided OAuth authorization server. Metadata retrieval is
+  public; normal MCP POST, SSE GET, and DELETE traffic still revalidates bearer
+  authorization.
 
 ## Recommended First Package Shape
 

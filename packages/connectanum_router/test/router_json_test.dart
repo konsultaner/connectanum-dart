@@ -717,6 +717,70 @@ void main() {
       }, 'MCP streamPostResponses must be a boolean');
     });
 
+    test('validates MCP protected resource metadata options while building '
+        'native config', () {
+      _expectInvalidMcpOptions({
+        'protected_resource_metadata': 'enabled',
+      }, 'MCP protected_resource_metadata must be an object');
+      _expectInvalidMcpOptions({
+        'protected_resource_metadata': {
+          'metadata_url': 'https://mcp.example.test/mcp',
+          'authorization_servers': ['https://auth.example.test'],
+        },
+      }, 'MCP protected_resource_metadata.resource is required');
+      _expectInvalidMcpOptions({
+        'protected_resource_metadata': {
+          'metadata_url': 'https://mcp.example.test/mcp',
+          'resource': '/mcp',
+          'authorization_servers': ['https://auth.example.test'],
+        },
+      }, 'MCP protected_resource_metadata.resource must be an absolute URL');
+      _expectInvalidMcpOptions(
+        {
+          'protected_resource_metadata': {
+            'metadata_url': 'https://mcp.example.test/mcp',
+            'resource': 'https://mcp.example.test/mcp',
+            'authorization_servers': [],
+          },
+        },
+        'MCP protected_resource_metadata.authorization_servers must not be empty',
+      );
+      _expectInvalidMcpOptions(
+        {
+          'protected_resource_metadata': {
+            'metadata_url': 'https://mcp.example.test/mcp',
+            'resource': 'https://mcp.example.test/mcp',
+            'authorization_servers': ['http://auth.example.test'],
+          },
+        },
+        'MCP protected_resource_metadata.authorization_servers[0] must use HTTPS',
+      );
+      _expectInvalidMcpOptions(
+        {
+          'protectedResourceMetadata': {
+            'metadata_url': 'https://mcp.example.test/mcp',
+            'resource': 'https://mcp.example.test/mcp',
+            'authorization_servers': ['https://auth.example.test'],
+            'scopes_supported': ['tasks read'],
+          },
+        },
+        'MCP protectedResourceMetadata.scopes_supported[0] is not a valid OAuth scope token',
+      );
+
+      expect(
+        _routerWithMcpOptions(const {
+          'protected_resource_metadata': {
+            'metadata_url': 'https://mcp.example.test/mcp',
+            'resource': 'https://mcp.example.test/mcp',
+            'authorization_servers': ['https://auth.example.test'],
+            'scopes_supported': ['tasks:read'],
+            'resource_name': 'Connectanum MCP',
+          },
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+    });
+
     test('validates MCP route option shapes while building native config', () {
       _expectInvalidMcpOptions({'name': 7}, 'MCP route.name must be a string');
       _expectInvalidMcpOptions({

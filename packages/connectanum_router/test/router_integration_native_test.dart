@@ -5820,6 +5820,61 @@ void main() {
         },
       );
       expect(unauthorized.statusCode, equals(HttpStatus.unauthorized));
+      expect(
+        unauthorized.headers['www-authenticate'],
+        allOf(
+          contains('scope="mcp:read mcp:write"'),
+          contains('resource_metadata="https://mcp.example.test/mcp/secure"'),
+        ),
+      );
+
+      final metadataRequest = await client.get(
+        '127.0.0.1',
+        listener.port,
+        '/mcp/secure',
+      );
+      metadataRequest.headers.set(
+        HttpHeaders.acceptHeader,
+        ContentType.json.mimeType,
+      );
+      final metadataOrigin = 'http://127.0.0.1:${listener.port}';
+      metadataRequest.headers.set('origin', metadataOrigin);
+      final metadataResponse = await _readJsonHttpResponse(
+        await metadataRequest.close(),
+      );
+      expect(metadataResponse.statusCode, equals(HttpStatus.ok));
+      expect(
+        metadataResponse.json,
+        equals(<String, Object?>{
+          'resource': 'https://mcp.example.test/mcp/secure',
+          'authorization_servers': <Object?>['https://auth.example.test'],
+          'scopes_supported': <Object?>['mcp:read', 'mcp:write'],
+          'resource_name': 'Connectanum MCP',
+          'bearer_methods_supported': <Object?>['header'],
+        }),
+      );
+      expect(metadataResponse.headers, isNot(contains('mcp-session-id')));
+      expect(
+        metadataResponse.headers['access-control-allow-origin'],
+        equals(metadataOrigin),
+      );
+
+      final unauthorizedSse = await client.get(
+        '127.0.0.1',
+        listener.port,
+        '/mcp/secure',
+      );
+      unauthorizedSse.headers.set(
+        HttpHeaders.acceptHeader,
+        'text/event-stream',
+      );
+      final unauthorizedSseResponse = await _readJsonHttpResponse(
+        await unauthorizedSse.close(),
+      );
+      expect(
+        unauthorizedSseResponse.statusCode,
+        equals(HttpStatus.unauthorized),
+      );
 
       final unauthorizedDirectResources =
           await _postJson(client, listener.port, '/mcp/secure', {
@@ -5850,10 +5905,10 @@ void main() {
       final unknownBearerJsonPost = await _postJson(
         client,
         listener.port,
-        '/mcp/secure-json-post',
+        '/mcp/secure',
         {
           'jsonrpc': '2.0',
-          'id': 'secure-json-post-unknown-bearer',
+          'id': 'secure-unknown-bearer',
           'method': 'tools/list',
           'params': {},
         },
@@ -5861,6 +5916,13 @@ void main() {
       );
       expect(unknownBearerJsonPost.statusCode, equals(HttpStatus.unauthorized));
       expect(unknownBearerJsonPost.headers, isNot(contains('mcp-session-id')));
+      expect(
+        unknownBearerJsonPost.headers['www-authenticate'],
+        allOf(
+          contains('scope="mcp:read mcp:write"'),
+          contains('resource_metadata="https://mcp.example.test/mcp/secure"'),
+        ),
+      );
 
       final grant = await _issueTicketHttpGrant(client, listener.port);
       final otherGrant = await _issueTicketHttpGrant(
@@ -8112,6 +8174,13 @@ RouterSettings _buildMcpAnonymousIsolationSettings() {
 }
 
 RouterSettings _buildMcpSmokeSettings({bool enableHttp3 = false}) {
+  const protectedResourceMetadata = <String, Object?>{
+    'metadata_url': 'https://mcp.example.test/mcp/secure',
+    'resource': 'https://mcp.example.test/mcp/secure',
+    'authorization_servers': ['https://auth.example.test'],
+    'scopes_supported': ['mcp:read', 'mcp:write'],
+    'resource_name': 'Connectanum MCP',
+  };
   const mcpOptions = <String, Object?>{
     'tool_list_page_size': 100,
     'procedures': [
@@ -8313,6 +8382,7 @@ RouterSettings _buildMcpSmokeSettings({bool enableHttp3 = false}) {
               options: <String, Object?>{
                 ...mcpOptions,
                 'allow_insecure_transport': true,
+                'protected_resource_metadata': protectedResourceMetadata,
               },
             ),
           ),

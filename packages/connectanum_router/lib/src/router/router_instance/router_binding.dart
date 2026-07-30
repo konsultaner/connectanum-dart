@@ -1983,11 +1983,15 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
+    final protectedResourceMetadataRequest =
+        mcpRoute != null &&
+        _mcpProtectedResourceMetadataRequest(this, request, mcpRoute);
     final transportAuthFailure = _evaluateHttpRouteTransportAuth(
       request: request,
       route: matchedRoute,
       sessionProfile: sessionProfile,
       listenerSettings: listenerSettings,
+      allowMissingBearer: protectedResourceMetadataRequest,
     );
     if (transportAuthFailure != null) {
       final resolvedRealm = sessionProfile?.realm?.trim();
@@ -1995,10 +1999,17 @@ class RouterBinding {
           ? resolvedRealm
           : (request.realm ?? 'router.http');
       final authHeaders = transportAuthFailure.bearerChallenge
-          ? _httpUnauthorizedHeaders(
-              realm: authRealm,
-              authPath: _httpAuthPathFor(listenerSettings?.http),
-            )
+          ? mcpRoute == null
+                ? _httpUnauthorizedHeaders(
+                    realm: authRealm,
+                    authPath: _httpAuthPathFor(listenerSettings?.http),
+                  )
+                : _mcpUnauthorizedHeaders(
+                    this,
+                    route: mcpRoute,
+                    realm: authRealm,
+                    authPath: _httpAuthPathFor(listenerSettings?.http),
+                  )
           : const <String, String>{};
       final responseHeaders = mcpRoute == null
           ? authHeaders
@@ -3361,6 +3372,7 @@ class RouterBinding {
     required HttpRouteSettings? route,
     required SessionProfileSettings? sessionProfile,
     required ListenerSettings? listenerSettings,
+    bool allowMissingBearer = false,
   }) {
     if (route == null) {
       return null;
@@ -3397,6 +3409,7 @@ class RouterBinding {
             )?.trim().isNotEmpty ??
             false);
     if (requirements.requireBearer &&
+        !allowMissingBearer &&
         !bearerlessCorsPreflight &&
         _extractBearerToken(request.headers) == null) {
       return _HttpRouteTransportAuthFailure.unauthorized(

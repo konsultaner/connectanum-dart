@@ -1492,6 +1492,23 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge() {
                     sessionProfile: 'http-ticket',
                   ),
                 ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp/secure'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'realm1',
+                    sessionProfile: 'http-ticket',
+                    options: <String, Object?>{
+                      'protected_resource_metadata': <String, Object?>{
+                        'metadata_url': 'https://mcp.example.test/mcp/secure',
+                        'resource': 'https://mcp.example.test/mcp/secure',
+                        'authorization_servers': <String>[
+                          'https://auth.example.test',
+                        ],
+                      },
+                    },
+                  ),
+                ),
               ],
             ),
           ))
@@ -5416,6 +5433,73 @@ void main() {
           body: Uint8List(0),
           realm: 'realm1',
           procedure: 'com.example.api.secure',
+        ),
+      );
+
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      );
+      final response = runtime.httpResponses[connectionId]!.single;
+      expect(response.status, HttpStatus.forbidden);
+      final jsonBody = _jsonResponseBody(response);
+      expect(jsonBody['reason'], 'tls_required');
+      expect(jsonBody['message'], contains('TLS is required'));
+      expect(
+        events.any((event) => event['type'] == 'http_request_dispatched'),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'rejects bearerless MCP metadata on insecure listeners before dispatch',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.disabled,
+              maxRawSocketSizeExponent: 16,
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      const connectionId = 155;
+
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: 113,
+          method: 'GET',
+          target: '/mcp/secure',
+          path: '/mcp/secure',
+          protocol: 'http/1.1',
+          headers: const {HttpHeaders.acceptHeader: 'application/json'},
+          body: Uint8List(0),
+          realm: 'realm1',
         ),
       );
 
