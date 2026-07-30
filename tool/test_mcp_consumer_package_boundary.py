@@ -124,6 +124,18 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("--pubsub-topic agent.events", body)
         self.assertIn('"subscriptionMetadata":true', body)
+        self.assertIn(
+            "await _smokeProtectedResourceDiscovery(client, endpoint);",
+            body,
+        )
+        self.assertIn(
+            "client.discoverProtectedResourceMetadata(",
+            body,
+        )
+        self.assertIn(
+            "authorizationDiscoverySawCredentials",
+            body,
+        )
 
     def test_generated_consumer_smokes_depend_on_public_mcp_entrypoint(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")

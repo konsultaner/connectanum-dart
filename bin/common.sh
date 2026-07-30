@@ -2047,6 +2047,7 @@ const _accessToken = 'agent-token';
 const _refreshToken = 'agent-refresh-token';
 const _refreshedAccessToken = 'agent-token-refreshed';
 const _refreshedRefreshToken = 'agent-refresh-token-refreshed';
+const _authorizationServerIssuer = 'https://auth.example.test';
 const _toolName = 'agent.echo';
 const _pagedToolName = 'agent.followup';
 const _toolCursor = 'agent-tools-page-2';
@@ -2153,6 +2154,7 @@ Future<void> main() async {
         'x-consumer-trace': 'streamable-initialized',
       },
     );
+    await _smokeProtectedResourceDiscovery(client, endpoint);
 
     final tools = await client.listTools(
       id: 'tools-json',
@@ -2261,6 +2263,56 @@ Future<void> main() async {
     authClient?.close(force: true);
     await endpoint.close();
   }
+}
+
+Future<void> _smokeProtectedResourceDiscovery(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final sessionId = client.sessionId;
+  final discovery = await client.discoverProtectedResourceMetadata(
+    headers: const <String, String>{
+      'x-consumer-trace': 'authorization-discovery',
+    },
+  );
+
+  _expect(
+    discovery.metadataUri == endpoint.protectedResourceMetadataUri,
+    'authorization discovery selected an unexpected metadata endpoint',
+  );
+  _expect(
+    discovery.metadata.resource == endpoint.uri,
+    'authorization discovery returned an unexpected protected resource',
+  );
+  _expect(
+    discovery.metadata.authorizationServers.single.toString() ==
+        _authorizationServerIssuer,
+    'authorization discovery returned an unexpected issuer',
+  );
+  _expect(
+    discovery.requiredScopes.join(' ') == 'mcp:tools mcp:meta',
+    'authorization discovery did not prefer challenged scopes',
+  );
+  _expect(
+    endpoint.authorizationDiscoveryProbeCount == 1 &&
+        endpoint.protectedResourceMetadataRequestCount == 1,
+    'authorization discovery did not complete the challenge-directed flow',
+  );
+  _expect(
+    !endpoint.authorizationDiscoverySawCredentials,
+    'authorization discovery forwarded bearer or MCP session credentials',
+  );
+  _expect(
+    endpoint.authorizationDiscoveryTraceHeaders.length == 2 &&
+        endpoint.authorizationDiscoveryTraceHeaders.every(
+          (trace) => trace == 'authorization-discovery',
+        ),
+    'authorization discovery did not forward explicit trace headers',
+  );
+  _expect(
+    client.sessionId == sessionId,
+    'authorization discovery mutated the active MCP session',
+  );
 }
 
 Future<void> _smokeNonJsonAuthError(_AgentMcpEndpoint endpoint) async {
@@ -5989,6 +6041,7 @@ final class _AgentMcpEndpoint {
   final authTraceHeaders = <String>[];
   final authDefaultHeaders = <String>[];
   final authTextErrorTraceHeaders = <String>[];
+  final authorizationDiscoveryTraceHeaders = <String>[];
   final _subscriptions = <String, String>{};
   final _eventsByHandle = <String, List<Map<String, Object?>>>{};
   final _revokedAccessTokens = <String>{};
@@ -5996,6 +6049,9 @@ final class _AgentMcpEndpoint {
   final _rotatedRefreshTokens = <String>{};
   var sawDirectRequestWithoutSession = false;
   var sessionDeleted = false;
+  var authorizationDiscoveryProbeCount = 0;
+  var protectedResourceMetadataRequestCount = 0;
+  var authorizationDiscoverySawCredentials = false;
   var _sessionActive = false;
 
   Uri get uri => Uri(
@@ -6019,6 +6075,13 @@ final class _AgentMcpEndpoint {
     path: '/auth-text-error',
   );
 
+  Uri get protectedResourceMetadataUri => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/oauth-protected-resource',
+  );
+
   static Future<_AgentMcpEndpoint> bind() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     return _AgentMcpEndpoint._(server);
@@ -6040,6 +6103,11 @@ final class _AgentMcpEndpoint {
       return;
     }
 
+    if (request.uri.path == '/oauth-protected-resource') {
+      await _handleProtectedResourceMetadata(request);
+      return;
+    }
+
     if (request.uri.path != '/mcp') {
       await _writeError(request, HttpStatus.notFound, 'unknown endpoint');
       return;
@@ -6049,6 +6117,16 @@ final class _AgentMcpEndpoint {
     if (bearerToken == null ||
         _revokedAccessTokens.contains(bearerToken) ||
         (bearerToken != _accessToken && bearerToken != _refreshedAccessToken)) {
+      if (request.headers.value('x-consumer-trace') ==
+          'authorization-discovery') {
+        authorizationDiscoveryProbeCount += 1;
+        _recordAuthorizationDiscoveryRequest(request);
+      }
+      request.response.headers.set(
+        HttpHeaders.wwwAuthenticateHeader,
+        'Bearer resource_metadata="$protectedResourceMetadataUri", '
+        'scope="mcp:tools mcp:meta"',
+      );
       await _writeError(request, HttpStatus.unauthorized, 'missing bearer');
       return;
     }
@@ -6313,6 +6391,39 @@ final class _AgentMcpEndpoint {
             'message': 'unsupported method',
           },
         });
+    }
+  }
+
+  Future<void> _handleProtectedResourceMetadata(HttpRequest request) async {
+    if (request.method != 'GET') {
+      await _writeError(
+        request,
+        HttpStatus.methodNotAllowed,
+        'metadata requires GET',
+      );
+      return;
+    }
+    protectedResourceMetadataRequestCount += 1;
+    _recordAuthorizationDiscoveryRequest(request);
+    await _writeJson(request, <String, Object?>{
+      'resource': uri.toString(),
+      'authorization_servers': <String>[_authorizationServerIssuer],
+      'scopes_supported': <String>[
+        'mcp:tools',
+        'mcp:meta',
+        'mcp:resources',
+      ],
+      'resource_name': 'Consumer MCP endpoint',
+    });
+  }
+
+  void _recordAuthorizationDiscoveryRequest(HttpRequest request) {
+    authorizationDiscoveryTraceHeaders.add(
+      request.headers.value('x-consumer-trace') ?? '',
+    );
+    if (request.headers.value(HttpHeaders.authorizationHeader) != null ||
+        request.headers.value('MCP-Session-Id') != null) {
+      authorizationDiscoverySawCredentials = true;
     }
   }
 

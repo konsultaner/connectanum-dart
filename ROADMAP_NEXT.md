@@ -30,7 +30,10 @@ Fresh state:
   over JSON-RPC `POST`. Dart IO consumers can also use
   `package:connectanum_mcp/connectanum_mcp_io.dart` to negotiate Streamable
   HTTP sessions, send authenticated JSON-RPC requests, consume POST/SSE
-  responses, poll GET/SSE events with resume cursors, and delete sessions.
+  responses, poll GET/SSE events with resume cursors, delete sessions, parse
+  Bearer scope challenges, and discover validated OAuth Protected Resource
+  Metadata without forwarding credentials. OAuth authorization-server metadata
+  discovery is the next bounded client-auth interoperability slice.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.

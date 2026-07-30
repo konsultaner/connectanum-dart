@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:connectanum_core/connectanum_core.dart'
     show containsMcpWhitespaceOrControl;
 
+import 'authorization_discovery.dart';
 import 'http_auth_client.dart';
 
 typedef McpJsonMap = Map<String, Object?>;
@@ -375,6 +376,19 @@ final class McpStreamableHttpClient {
       );
     }
     return _headersWithBearerToken(headers, grant.accessToken);
+  }
+
+  /// Discovers OAuth Protected Resource Metadata without using session state.
+  Future<McpProtectedResourceDiscovery> discoverProtectedResourceMetadata({
+    Map<String, String> headers = const <String, String>{},
+    int maxMetadataBytes = 1024 * 1024,
+  }) {
+    return discoverMcpProtectedResourceMetadata(
+      endpoint,
+      httpClient: _httpClient,
+      headers: headers,
+      maxMetadataBytes: maxMetadataBytes,
+    );
   }
 
   Future<McpJsonMap> initialize({
@@ -1989,12 +2003,16 @@ final class McpStreamableHttpException implements Exception {
     required this.reasonPhrase,
     required this.body,
     this.error,
+    this.responseHeaders = const <String, List<String>>{},
+    this.bearerChallenges = const <McpBearerChallenge>[],
   });
 
   final int statusCode;
   final String reasonPhrase;
   final String body;
   final McpJsonMap? error;
+  final Map<String, List<String>> responseHeaders;
+  final List<McpBearerChallenge> bearerChallenges;
 
   @override
   String toString() {
@@ -2107,11 +2125,22 @@ void _throwIfHttpError(HttpClientResponse response, String body) {
       error = null;
     }
   }
+  final responseHeaders = <String, List<String>>{};
+  response.headers.forEach((name, values) {
+    responseHeaders[name.toLowerCase()] = List<String>.unmodifiable(values);
+  });
+  final immutableHeaders = Map<String, List<String>>.unmodifiable(
+    responseHeaders,
+  );
   throw McpStreamableHttpException(
     statusCode: response.statusCode,
     reasonPhrase: response.reasonPhrase,
     body: body,
     error: error,
+    responseHeaders: immutableHeaders,
+    bearerChallenges: parseMcpBearerChallenges(
+      immutableHeaders[HttpHeaders.wwwAuthenticateHeader] ?? const <String>[],
+    ),
   );
 }
 

@@ -382,6 +382,12 @@
     router-hosted endpoints, including public JSON discovery and
     `resource_metadata` bearer challenges while preserving authorization on
     MCP traffic.
+  - [x] Add Dart IO client Protected Resource Metadata discovery with parsed
+    Bearer challenges, authoritative challenge scopes, ordered MCP well-known
+    fallback, exact RFC 9728 resource validation, and credential-free metadata
+    requests through the public package entrypoint.
+  - [ ] Add OAuth authorization-server metadata discovery with the MCP-required
+    RFC 8414 and OpenID Connect well-known fallback order.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

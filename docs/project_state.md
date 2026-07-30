@@ -17,20 +17,28 @@ identified and fixed a pre-existing SCRAM channel-binding crash by preserving
 decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
-The latest completed implementation checkpoint is protected router-hosted MCP
-authorization discovery. Route options can now publish validated OAuth
-Protected Resource Metadata, JSON `GET` requests can retrieve that metadata
-without a bearer token, and missing-token or invalid-token `401` challenges
-include the configured `resource_metadata` URL. Normal MCP POST, Streamable
-HTTP GET, and DELETE requests continue to require and revalidate bearer
-authorization, while metadata discovery still enforces configured TLS and
-mTLS transport requirements. This does not turn the Connectanum challenge-auth
-grant bridge into an OAuth authorization server; operators point the metadata
-at an external standards-compatible authorization server. The active plan is
-`docs/exec-plans/2026-07-30-mcp-oauth-protected-resource-metadata.md`.
-Pre-change `bin/test-fast`, focused route-option validation, the live native
-MCP route-security smoke, focused analysis, protected HTTP/3 auth and direct
-JSON regressions, and the complete local `bin/verify` passed on 2026-07-30.
+The current implementation checkpoint is standards-aware MCP client
+authorization discovery. The public Dart IO client now parses Bearer
+`WWW-Authenticate` challenges from `401` and `403` failures, exposes response
+headers and required scope details, and discovers RFC 9728 Protected Resource
+Metadata from a challenge URL, the router endpoint's JSON representation, or
+the required path-specific then root well-known fallbacks. Discovery validates
+the exact protected-resource identifier and HTTPS authorization-server
+issuers, never forwards bearer or MCP session headers, and leaves active
+Streamable HTTP session state untouched. The API is exported through
+`package:connectanum_mcp/connectanum_mcp_io.dart`. The isolated public-package
+consumer smoke now proves challenge-directed discovery with an active MCP
+session and rejects bearer or session credential leakage. Router route options
+already publish the corresponding metadata and challenges while retaining
+normal MCP, TLS, and mTLS authorization boundaries. Interactive OAuth and
+authorization server metadata discovery remain separate follow-ups. The plan is
+`docs/exec-plans/2026-07-30-mcp-client-authorization-discovery.md`.
+Pre-change and post-smoke `bin/test-fast`, focused authorization-discovery and
+public entrypoint regressions, the broader MCP suites, and focused package
+analysis passed on 2026-07-30. Complete local `bin/verify` also passed, covering
+formatting, 113 Rust core tests, 52 FFI tests, 360 core Dart tests, 85 MCP
+tests, all client/auth/benchmark suites and isolated package consumers, the
+377-test router suite, focused native forwarding, and Chrome/Dart2Wasm.
 
 The beta release now has one installation and getting-started path covering
 source checkout use before publication, synchronized package/native release
