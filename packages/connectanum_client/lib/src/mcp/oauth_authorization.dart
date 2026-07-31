@@ -8,7 +8,11 @@ import 'authorization_discovery.dart';
 
 const _pkceMethod = 'S256';
 const _secureRandomByteCount = 32;
+const _oauthTransactionType = 'mcp_oauth_authorization_transaction';
+const _oauthTransactionVersion = 1;
+const _defaultAuthorizationTransactionLifetime = Duration(minutes: 2);
 final _pkceVerifierPattern = RegExp(r'^[A-Za-z0-9._~-]{43,128}$');
+final _oauthStatePattern = RegExp(r'^[A-Za-z0-9_-]{43}$');
 const _authorizationRequestParameters = <String>{
   'response_type',
   'client_id',
@@ -78,6 +82,157 @@ final class McpAuthorizationRequest {
   final McpPkcePair pkce;
 }
 
+/// A versioned pending OAuth request document for caller-owned secure storage.
+///
+/// The JSON form contains the authorization state and PKCE verifier. Consumers
+/// must store it in encrypted credential storage, must not log it, and should
+/// remove it atomically when the authorization flow reaches a terminal state.
+final class McpOAuthAuthorizationTransaction {
+  McpOAuthAuthorizationTransaction._({
+    required McpAuthorizationRequest request,
+    required this.createdAt,
+    required this.expiresAt,
+  }) : _request = request;
+
+  /// Captures [request] with an explicit bounded lifetime.
+  factory McpOAuthAuthorizationTransaction.capture(
+    McpAuthorizationRequest request, {
+    Duration lifetime = _defaultAuthorizationTransactionLifetime,
+    DateTime? now,
+  }) {
+    if (lifetime <= Duration.zero) {
+      throw const McpOAuthStateException(
+        'OAuth authorization transaction lifetime must be positive.',
+      );
+    }
+    final createdAt = (now ?? DateTime.now()).toUtc();
+    late final DateTime expiresAt;
+    try {
+      expiresAt = createdAt.add(lifetime);
+    } on Object {
+      throw const McpOAuthStateException(
+        'OAuth authorization transaction lifetime is out of range.',
+      );
+    }
+    return McpOAuthAuthorizationTransaction._(
+      request: request,
+      createdAt: createdAt,
+      expiresAt: expiresAt,
+    );
+  }
+
+  /// Revalidates a versioned transaction document from secure storage.
+  ///
+  /// Parsing does not accept a stored authorization URI. The URI is rebuilt
+  /// from the validated metadata and request fields before [restore] exposes
+  /// the request.
+  factory McpOAuthAuthorizationTransaction.fromJson(Map<String, Object?> json) {
+    try {
+      if (json['type'] != _oauthTransactionType) {
+        throw const McpOAuthStateException(
+          'Persisted OAuth state has an unsupported document type.',
+        );
+      }
+      if (json['version'] != _oauthTransactionVersion) {
+        throw const McpOAuthStateException(
+          'Persisted OAuth state has an unsupported schema version.',
+        );
+      }
+
+      final createdAt = _persistedDateTime(json, 'created_at');
+      final expiresAt = _persistedDateTime(json, 'expires_at');
+      if (!expiresAt.isAfter(createdAt)) {
+        throw const McpOAuthStateException(
+          'Persisted OAuth authorization transaction expiry is invalid.',
+        );
+      }
+
+      final authorizationServer = McpAuthorizationServerMetadata.fromJson(
+        _persistedJsonObject(json, 'authorization_server'),
+      );
+      final request = _restoreMcpAuthorizationRequest(
+        authorizationServer: authorizationServer,
+        resource: _persistedUri(json, 'resource'),
+        clientId: _persistedString(json, 'client_id'),
+        redirectUri: _persistedUri(json, 'redirect_uri'),
+        scopes: _persistedStringList(json, 'scopes'),
+        state: _persistedString(json, 'state'),
+        pkce: McpPkcePair.fromVerifier(_persistedString(json, 'pkce_verifier')),
+      );
+      return McpOAuthAuthorizationTransaction._(
+        request: request,
+        createdAt: createdAt,
+        expiresAt: expiresAt,
+      );
+    } on McpOAuthStateException {
+      rethrow;
+    } on Object {
+      throw const McpOAuthStateException(
+        'Persisted OAuth authorization transaction is invalid.',
+      );
+    }
+  }
+
+  final McpAuthorizationRequest _request;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+
+  /// Whether this transaction can no longer be restored.
+  bool isExpired({DateTime? now}) {
+    final current = (now ?? DateTime.now()).toUtc();
+    return !current.isBefore(expiresAt);
+  }
+
+  /// Returns the validated pending request if the transaction is still live.
+  McpAuthorizationRequest restore({DateTime? now}) {
+    final current = (now ?? DateTime.now()).toUtc();
+    if (current.isBefore(createdAt)) {
+      throw const McpOAuthStateException(
+        'Persisted OAuth authorization transaction is not yet valid.',
+      );
+    }
+    if (isExpired(now: current)) {
+      throw const McpOAuthStateException(
+        'Persisted OAuth authorization transaction has expired.',
+      );
+    }
+    return _request;
+  }
+
+  /// Returns a JSON-compatible document containing sensitive OAuth state.
+  Map<String, Object?> toJson() {
+    return Map<String, Object?>.unmodifiable(<String, Object?>{
+      'type': _oauthTransactionType,
+      'version': _oauthTransactionVersion,
+      'created_at': createdAt.toUtc().toIso8601String(),
+      'expires_at': expiresAt.toUtc().toIso8601String(),
+      'authorization_server': _request.authorizationServer.toJson(),
+      'resource': _request.resource.toString(),
+      'client_id': _request.clientId,
+      'redirect_uri': _request.redirectUri.toString(),
+      'scopes': _request.scopes,
+      'state': _request.state,
+      'pkce_verifier': _request.pkce.verifier,
+    });
+  }
+
+  @override
+  String toString() {
+    return 'McpOAuthAuthorizationTransaction('
+        'createdAt: $createdAt, expiresAt: $expiresAt)';
+  }
+}
+
+/// A redacted persisted OAuth state validation or lifecycle failure.
+final class McpOAuthStateException implements Exception {
+  const McpOAuthStateException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'McpOAuthStateException: $message';
+}
+
 /// A validated authorization code tied to its original PKCE request.
 final class McpAuthorizationCode {
   const McpAuthorizationCode._({
@@ -129,6 +284,26 @@ McpAuthorizationRequest createMcpAuthorizationRequest({
   Iterable<String> scopes = const <String>[],
   McpPkcePair? pkce,
 }) {
+  return _restoreMcpAuthorizationRequest(
+    authorizationServer: authorizationServer,
+    resource: resource,
+    clientId: clientId,
+    redirectUri: redirectUri,
+    scopes: scopes,
+    state: _secureRandomBase64Url(_secureRandomByteCount),
+    pkce: pkce ?? McpPkcePair.generate(),
+  );
+}
+
+McpAuthorizationRequest _restoreMcpAuthorizationRequest({
+  required McpAuthorizationServerMetadata authorizationServer,
+  required Uri resource,
+  required String clientId,
+  required Uri redirectUri,
+  required Iterable<String> scopes,
+  required String state,
+  required McpPkcePair pkce,
+}) {
   if (!authorizationServer.codeChallengeMethodsSupported.contains(
     _pkceMethod,
   )) {
@@ -143,6 +318,11 @@ McpAuthorizationRequest createMcpAuthorizationRequest({
   _validateSecureEndpoint(resource, 'MCP resource');
   _validateRedirectUri(redirectUri);
   _validateClientId(clientId);
+  if (!_oauthStatePattern.hasMatch(state)) {
+    throw const McpAuthorizationFlowException(
+      'OAuth state must be a generated 43-character base64url value.',
+    );
+  }
   _rejectControlledQueryParameters(
     authorizationServer.authorizationEndpoint,
     _authorizationRequestParameters,
@@ -155,8 +335,6 @@ McpAuthorizationRequest createMcpAuthorizationRequest({
   );
 
   final selectedScopes = _validatedScopes(scopes);
-  final requestPkce = pkce ?? McpPkcePair.generate();
-  final state = _secureRandomBase64Url(_secureRandomByteCount);
   final query = <String, Object>{
     for (final entry
         in authorizationServer.authorizationEndpoint.queryParametersAll.entries)
@@ -167,8 +345,8 @@ McpAuthorizationRequest createMcpAuthorizationRequest({
     'resource': resource.toString(),
     if (selectedScopes.isNotEmpty) 'scope': selectedScopes.join(' '),
     'state': state,
-    'code_challenge': requestPkce.challenge,
-    'code_challenge_method': requestPkce.method,
+    'code_challenge': pkce.challenge,
+    'code_challenge_method': pkce.method,
   };
 
   return McpAuthorizationRequest._(
@@ -181,7 +359,7 @@ McpAuthorizationRequest createMcpAuthorizationRequest({
     redirectUri: redirectUri,
     scopes: selectedScopes,
     state: state,
-    pkce: requestPkce,
+    pkce: pkce,
   );
 }
 
@@ -269,6 +447,71 @@ String _secureRandomBase64Url(int byteCount) {
 
 String _base64UrlWithoutPadding(List<int> bytes) {
   return base64UrlEncode(bytes).replaceAll('=', '');
+}
+
+String _persistedString(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value is! String || value.isEmpty) {
+    throw McpOAuthStateException(
+      'Persisted OAuth state field "$key" must be a non-empty string.',
+    );
+  }
+  return value;
+}
+
+List<String> _persistedStringList(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value is! List ||
+      value.any((element) => element is! String || element.isEmpty)) {
+    throw McpOAuthStateException(
+      'Persisted OAuth state field "$key" must be a string list.',
+    );
+  }
+  return List<String>.unmodifiable(value.cast<String>());
+}
+
+Map<String, Object?> _persistedJsonObject(
+  Map<String, Object?> json,
+  String key,
+) {
+  final value = json[key];
+  if (value is! Map) {
+    throw McpOAuthStateException(
+      'Persisted OAuth state field "$key" must be a JSON object.',
+    );
+  }
+  final result = <String, Object?>{};
+  for (final entry in value.entries) {
+    if (entry.key is! String) {
+      throw McpOAuthStateException(
+        'Persisted OAuth state field "$key" has a non-string key.',
+      );
+    }
+    result[entry.key as String] = entry.value;
+  }
+  return Map<String, Object?>.unmodifiable(result);
+}
+
+Uri _persistedUri(Map<String, Object?> json, String key) {
+  final value = _persistedString(json, key);
+  final uri = Uri.tryParse(value);
+  if (uri == null) {
+    throw McpOAuthStateException(
+      'Persisted OAuth state field "$key" must be a URI.',
+    );
+  }
+  return uri;
+}
+
+DateTime _persistedDateTime(Map<String, Object?> json, String key) {
+  final value = _persistedString(json, key);
+  final timestamp = DateTime.tryParse(value);
+  if (timestamp == null || !timestamp.isUtc || !value.endsWith('Z')) {
+    throw McpOAuthStateException(
+      'Persisted OAuth state field "$key" must be a UTC timestamp.',
+    );
+  }
+  return timestamp;
 }
 
 void _validateClientId(String clientId) {

@@ -131,6 +131,144 @@ void main() {
       ]);
     });
 
+    test('persists and restores a bounded authorization transaction', () {
+      final now = DateTime.utc(2026, 7, 31, 12);
+      final request = createMcpAuthorizationRequest(
+        authorizationServer: authorizationServer,
+        resource: issuer.replace(path: '/mcp'),
+        clientId: 'consumer-client',
+        redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+        scopes: const <String>['tools:read', 'prompts:read'],
+        pkce: McpPkcePair.fromVerifier(_rfc7636Verifier),
+      );
+      final transaction = McpOAuthAuthorizationTransaction.capture(
+        request,
+        lifetime: const Duration(minutes: 5),
+        now: now,
+      );
+      final stored = (jsonDecode(jsonEncode(transaction.toJson())) as Map)
+          .cast<String, Object?>();
+
+      final restoredTransaction = McpOAuthAuthorizationTransaction.fromJson(
+        stored,
+      );
+      final restored = restoredTransaction.restore(
+        now: now.add(const Duration(minutes: 4)),
+      );
+
+      expect(restoredTransaction.createdAt, now);
+      expect(
+        restoredTransaction.expiresAt,
+        now.add(const Duration(minutes: 5)),
+      );
+      expect(restoredTransaction.isExpired(now: now), isFalse);
+      expect(restored.uri, request.uri);
+      expect(restored.authorizationServer.issuer, authorizationServer.issuer);
+      expect(
+        restored.authorizationServer.authorizationEndpoint,
+        authorizationServer.authorizationEndpoint,
+      );
+      expect(restored.resource, request.resource);
+      expect(restored.clientId, request.clientId);
+      expect(restored.redirectUri, request.redirectUri);
+      expect(restored.scopes, request.scopes);
+      expect(restored.state, request.state);
+      expect(restored.pkce.verifier, request.pkce.verifier);
+      expect(restored.pkce.challenge, request.pkce.challenge);
+      expect(restoredTransaction.toString(), isNot(contains(request.state)));
+      expect(
+        restoredTransaction.toString(),
+        isNot(contains(request.pkce.verifier)),
+      );
+    });
+
+    test('refuses expired authorization transaction restoration', () {
+      final now = DateTime.utc(2026, 7, 31, 12);
+      final request = createMcpAuthorizationRequest(
+        authorizationServer: authorizationServer,
+        resource: issuer.replace(path: '/mcp'),
+        clientId: 'consumer-client',
+        redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+      );
+      final transaction = McpOAuthAuthorizationTransaction.capture(
+        request,
+        lifetime: const Duration(minutes: 1),
+        now: now,
+      );
+
+      expect(
+        () => transaction.restore(now: now.add(const Duration(minutes: 1))),
+        throwsA(isA<McpOAuthStateException>()),
+      );
+      expect(
+        () =>
+            transaction.restore(now: now.subtract(const Duration(seconds: 1))),
+        throwsA(isA<McpOAuthStateException>()),
+      );
+      expect(
+        () => McpOAuthAuthorizationTransaction.capture(
+          request,
+          lifetime: Duration.zero,
+          now: now,
+        ),
+        throwsA(isA<McpOAuthStateException>()),
+      );
+    });
+
+    test('rejects tampered persisted transactions without exposing state', () {
+      final request = createMcpAuthorizationRequest(
+        authorizationServer: authorizationServer,
+        resource: issuer.replace(path: '/mcp'),
+        clientId: 'consumer-client',
+        redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+      );
+      final transaction = McpOAuthAuthorizationTransaction.capture(request);
+
+      Map<String, Object?> storedCopy() {
+        return (jsonDecode(jsonEncode(transaction.toJson())) as Map)
+            .cast<String, Object?>();
+      }
+
+      final unsupportedVersion = storedCopy()..['version'] = 2;
+      expect(
+        () => McpOAuthAuthorizationTransaction.fromJson(unsupportedVersion),
+        throwsA(isA<McpOAuthStateException>()),
+      );
+
+      const leakedState = 'persisted-state-secret';
+      final badState = storedCopy()..['state'] = leakedState;
+      expect(
+        () => McpOAuthAuthorizationTransaction.fromJson(badState),
+        throwsA(
+          isA<McpOAuthStateException>().having(
+            (error) => error.toString(),
+            'redacted state',
+            isNot(contains(leakedState)),
+          ),
+        ),
+      );
+
+      const leakedVerifier = 'persisted-verifier-secret';
+      final badVerifier = storedCopy()..['pkce_verifier'] = leakedVerifier;
+      expect(
+        () => McpOAuthAuthorizationTransaction.fromJson(badVerifier),
+        throwsA(
+          isA<McpOAuthStateException>().having(
+            (error) => error.toString(),
+            'redacted verifier',
+            isNot(contains(leakedVerifier)),
+          ),
+        ),
+      );
+
+      final invalidLifetime = storedCopy()
+        ..['expires_at'] = DateTime.utc(2020).toIso8601String();
+      expect(
+        () => McpOAuthAuthorizationTransaction.fromJson(invalidLifetime),
+        throwsA(isA<McpOAuthStateException>()),
+      );
+    });
+
     test('rejects insecure redirect and resource identifiers', () {
       expect(
         () => createMcpAuthorizationRequest(

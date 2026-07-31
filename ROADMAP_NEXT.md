@@ -49,8 +49,11 @@ Fresh state:
   user-agent launcher while the package owns ordering, one total deadline,
   cleanup, and redacted failures; callback success and OAuth errors do not wait
   for a launcher future that stays open. Platform-specific browser selection
-  remains consumer-owned by design. OAuth state persistence remains the next
-  bounded follow-up slice.
+  remains consumer-owned by design. Pending authorization transactions now
+  have a versioned, expiring, validated JSON representation for caller-owned
+  secure storage, so state and PKCE verifiers can cross application lifecycle
+  boundaries without trusting a stored authorization URI. Dynamic-registration
+  and bearer/refresh-grant persistence remain the next bounded follow-up.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.

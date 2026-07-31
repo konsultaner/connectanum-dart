@@ -2423,10 +2423,27 @@ Future<void> _smokeProtectedResourceDiscovery(
             'S256',
     'authorization request omitted required OAuth or MCP parameters',
   );
-  final callback = authorizationRequest.redirectUri.replace(
+  final persistedTransaction = jsonEncode(
+    McpOAuthAuthorizationTransaction.capture(
+      authorizationRequest,
+      lifetime: const Duration(minutes: 1),
+    ).toJson(),
+  );
+  final restoredTransaction = McpOAuthAuthorizationTransaction.fromJson(
+    (jsonDecode(persistedTransaction) as Map).cast<String, Object?>(),
+  );
+  final restoredAuthorizationRequest = restoredTransaction.restore();
+  _expect(
+    restoredAuthorizationRequest.uri == authorizationRequest.uri &&
+        restoredAuthorizationRequest.state == authorizationRequest.state &&
+        restoredAuthorizationRequest.pkce.verifier ==
+            authorizationRequest.pkce.verifier,
+    'persisted authorization transaction did not preserve request state',
+  );
+  final callback = restoredAuthorizationRequest.redirectUri.replace(
     queryParameters: <String, String>{
       'code': 'consumer-authorization-code',
-      'state': authorizationRequest.state,
+      'state': restoredAuthorizationRequest.state,
     },
   );
   final browserClient = HttpClient();
@@ -2434,7 +2451,7 @@ Future<void> _smokeProtectedResourceDiscovery(
   late final int callbackStatusCode;
   final authorizationCode = await callbackListener
       .authorizeWithExternalUserAgent(
-        request: authorizationRequest,
+        request: restoredAuthorizationRequest,
         launchExternalUserAgent: (authorizationUri) async {
           launchedAuthorizationUri = authorizationUri;
           try {
@@ -2448,7 +2465,7 @@ Future<void> _smokeProtectedResourceDiscovery(
         },
       );
   _expect(
-    launchedAuthorizationUri == authorizationRequest.uri &&
+    launchedAuthorizationUri == restoredAuthorizationRequest.uri &&
         callbackStatusCode == HttpStatus.ok &&
         authorizationCode.code == 'consumer-authorization-code' &&
         authorizationCode.request.pkce.verifier.length == 43,

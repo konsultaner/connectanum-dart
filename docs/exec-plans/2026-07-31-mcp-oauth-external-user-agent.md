@@ -95,3 +95,10 @@ Primary references:
   isolated and globally activated package consumers, router-hosted MCP and
   router CLI consumer smokes, 13 focused native-router tests, and the
   Chrome/Dart2Wasm WebSocket test.
+- 2026-07-31: Commit `bdac6fc` was pushed to both `master` remotes. Exact-head
+  GitHub CI `30640089084`, Dart Package Publish Dry Run `30640088462`, and WAMP
+  Profile Benchmarks `30640089157` passed on their first attempts. CI included
+  Fast Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+  artifact. The strict deployment-chain audit passed with clean CI logs and
+  all required branch, workflow, package, benchmark-artifact, and registry
+  gates clean.

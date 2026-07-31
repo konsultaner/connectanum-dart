@@ -414,6 +414,11 @@
     desktop or Flutter launcher, race launch and callback completion under one
     deadline, redact launcher failures, and prove the flow from a public
     consumer package without prescribing an embedded browser or OS command.
+  - [x] Add versioned pending authorization-transaction persistence with an
+    explicit lifetime, validated authorization-server metadata, state and PKCE
+    restoration, reconstructed authorization URIs, redacted failures, and
+    public consumer-package JSON round-trip coverage while leaving encrypted
+    storage selection to the consuming application.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

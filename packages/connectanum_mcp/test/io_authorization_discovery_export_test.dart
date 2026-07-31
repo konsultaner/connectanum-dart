@@ -170,10 +170,20 @@ void main() {
         'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
       ),
     );
-    final callback = authorizationRequest.redirectUri.replace(
+    final storedTransaction = jsonEncode(
+      McpOAuthAuthorizationTransaction.capture(
+        authorizationRequest,
+        lifetime: const Duration(minutes: 1),
+      ).toJson(),
+    );
+    final restoredTransaction = McpOAuthAuthorizationTransaction.fromJson(
+      (jsonDecode(storedTransaction) as Map).cast<String, Object?>(),
+    );
+    final restoredAuthorizationRequest = restoredTransaction.restore();
+    final callback = restoredAuthorizationRequest.redirectUri.replace(
       queryParameters: <String, String>{
         'code': 'authorization-code',
-        'state': authorizationRequest.state,
+        'state': restoredAuthorizationRequest.state,
       },
     );
     final browserClient = HttpClient();
@@ -182,7 +192,7 @@ void main() {
     late final int browserResponseStatusCode;
     final authorizationCode = await callbackListener
         .authorizeWithExternalUserAgent(
-          request: authorizationRequest,
+          request: restoredAuthorizationRequest,
           launchExternalUserAgent: (authorizationUri) async {
             launchedAuthorizationUri = authorizationUri;
             final browserResponse = await (await browserClient.getUrl(
@@ -201,7 +211,13 @@ void main() {
       endpoint.toString(),
     );
     expect(authorizationRequest.uri.queryParameters['scope'], 'tools:read');
-    expect(launchedAuthorizationUri, authorizationRequest.uri);
+    expect(restoredAuthorizationRequest.uri, authorizationRequest.uri);
+    expect(restoredAuthorizationRequest.state, authorizationRequest.state);
+    expect(
+      restoredAuthorizationRequest.pkce.verifier,
+      authorizationRequest.pkce.verifier,
+    );
+    expect(launchedAuthorizationUri, restoredAuthorizationRequest.uri);
     expect(browserResponseStatusCode, HttpStatus.ok);
     expect(authorizationCode.code, 'authorization-code');
     final grant = await client.exchangeAuthorizationCode(

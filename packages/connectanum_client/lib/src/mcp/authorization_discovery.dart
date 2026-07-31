@@ -143,6 +143,22 @@ final class McpAuthorizationServerMetadata {
            : List<String>.unmodifiable(revocationEndpointAuthMethodsSupported),
        raw = Map<String, Object?>.unmodifiable(raw);
 
+  /// Revalidates an already obtained authorization-server metadata document.
+  ///
+  /// This is useful when restoring metadata from caller-owned persistence. It
+  /// performs the same issuer, endpoint, response-type, grant, and PKCE checks
+  /// as network discovery without making an HTTP request.
+  factory McpAuthorizationServerMetadata.fromJson(Map<String, Object?> json) {
+    final issuerValue = json['issuer'];
+    final issuer = issuerValue is String ? Uri.tryParse(issuerValue) : null;
+    if (issuer == null) {
+      throw const McpAuthorizationDiscoveryException(
+        'Authorization Server Metadata issuer must be an absolute URI.',
+      );
+    }
+    return _authorizationServerMetadataFromJson(json, issuer);
+  }
+
   final Uri issuer;
   final Uri authorizationEndpoint;
   final Uri tokenEndpoint;
@@ -157,6 +173,9 @@ final class McpAuthorizationServerMetadata {
   final List<String>? revocationEndpointAuthMethodsSupported;
   final bool? clientIdMetadataDocumentSupported;
   final Map<String, Object?> raw;
+
+  /// Returns the validated JSON metadata document.
+  Map<String, Object?> toJson() => raw;
 }
 
 /// The successful result of authorization-server metadata discovery.
