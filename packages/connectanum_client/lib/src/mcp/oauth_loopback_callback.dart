@@ -27,6 +27,22 @@ final class McpOAuthLoopbackCallbackException implements Exception {
   String toString() => 'McpOAuthLoopbackCallbackException: $message';
 }
 
+/// Opens a prepared OAuth authorization URI in an external user-agent.
+///
+/// Implementations should return after the platform has accepted the launch
+/// request. They may complete later, because the loopback listener consumes the
+/// authorization response concurrently.
+typedef McpOAuthExternalUserAgentLauncher =
+    FutureOr<void> Function(Uri authorizationUri);
+
+typedef _McpOAuthExternalUserAgentOutcome = ({
+  McpAuthorizationCode? code,
+  Object? callbackError,
+  StackTrace? callbackStackTrace,
+  bool launcher,
+  bool launcherFailed,
+});
+
 /// Receives one native OAuth authorization response on a loopback IP literal.
 final class McpOAuthLoopbackCallbackListener {
   McpOAuthLoopbackCallbackListener._(this._server, this.redirectUri);
@@ -228,6 +244,104 @@ final class McpOAuthLoopbackCallbackListener {
         await close();
       }
     }
+  }
+
+  /// Opens [request] in an external user-agent and awaits its callback.
+  ///
+  /// The listener starts consuming before [launchExternalUserAgent] is called,
+  /// so immediate redirects and launchers that wait for the browser response
+  /// remain safe. The [timeout] bounds the complete launch-and-callback flow.
+  /// Launcher failures are redacted and close the listener.
+  Future<McpAuthorizationCode> authorizeWithExternalUserAgent({
+    required McpAuthorizationRequest request,
+    required McpOAuthExternalUserAgentLauncher launchExternalUserAgent,
+    Duration timeout = _defaultCallbackTimeout,
+    int maxRequests = _defaultMaxRequests,
+  }) async {
+    if (_started ||
+        _closed ||
+        timeout <= Duration.zero ||
+        maxRequests <= 0 ||
+        request.redirectUri != redirectUri) {
+      return waitForAuthorizationCode(
+        request: request,
+        timeout: timeout,
+        maxRequests: maxRequests,
+      );
+    }
+
+    final authorizationCode = waitForAuthorizationCode(
+      request: request,
+      timeout: timeout,
+      maxRequests: maxRequests,
+    );
+    final callbackOutcome = authorizationCode
+        .then<_McpOAuthExternalUserAgentOutcome>(
+          (code) => (
+            code: code,
+            callbackError: null,
+            callbackStackTrace: null,
+            launcher: false,
+            launcherFailed: false,
+          ),
+          onError: (Object error, StackTrace stackTrace) => (
+            code: null,
+            callbackError: error,
+            callbackStackTrace: stackTrace,
+            launcher: false,
+            launcherFailed: false,
+          ),
+        );
+    final launcherOutcome =
+        Future<void>.sync(
+          () => launchExternalUserAgent(request.uri),
+        ).then<_McpOAuthExternalUserAgentOutcome>(
+          (_) => (
+            code: null,
+            callbackError: null,
+            callbackStackTrace: null,
+            launcher: true,
+            launcherFailed: false,
+          ),
+          onError: (Object _, StackTrace _) => (
+            code: null,
+            callbackError: null,
+            callbackStackTrace: null,
+            launcher: true,
+            launcherFailed: true,
+          ),
+        );
+
+    final first = await Future.any<_McpOAuthExternalUserAgentOutcome>(
+      <Future<_McpOAuthExternalUserAgentOutcome>>[
+        callbackOutcome,
+        launcherOutcome,
+      ],
+    );
+    if (!first.launcher) {
+      final code = first.code;
+      if (code != null) {
+        return code;
+      }
+      Error.throwWithStackTrace(
+        first.callbackError!,
+        first.callbackStackTrace!,
+      );
+    }
+    if (!first.launcherFailed) {
+      return authorizationCode;
+    }
+
+    try {
+      await close();
+    } on Object {
+      // Preserve the redacted launcher failure even if cleanup also fails.
+    }
+    await callbackOutcome;
+    throw McpOAuthLoopbackCallbackException(
+      'The external user-agent could not be launched.',
+      redirectUri: redirectUri,
+    );
   }
 
   /// Releases the bound socket. Calling this more than once is safe.

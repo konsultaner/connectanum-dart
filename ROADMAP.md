@@ -409,6 +409,11 @@
     loopback IP literal, exact request/state/path validation, bounded unrelated
     local traffic, untrusted-Host isolation, static redacted browser responses,
     and public consumer lifecycle coverage.
+  - [x] Add platform-neutral external-user-agent orchestration around the
+    loopback callback: begin consuming before launch, accept a caller-supplied
+    desktop or Flutter launcher, race launch and callback completion under one
+    deadline, redact launcher failures, and prove the flow from a public
+    consumer package without prescribing an embedded browser or OS command.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

@@ -2429,26 +2429,30 @@ Future<void> _smokeProtectedResourceDiscovery(
       'state': authorizationRequest.state,
     },
   );
-  final authorizationCodeCompletion =
-      callbackListener.waitForAuthorizationCode(
-        request: authorizationRequest,
-      );
   final browserClient = HttpClient();
+  Uri? launchedAuthorizationUri;
   late final int callbackStatusCode;
-  try {
-    final browserRequest = await browserClient.getUrl(callback);
-    final browserResponse = await browserRequest.close();
-    callbackStatusCode = browserResponse.statusCode;
-    await browserResponse.drain<void>();
-  } finally {
-    browserClient.close(force: true);
-  }
-  final authorizationCode = await authorizationCodeCompletion;
+  final authorizationCode = await callbackListener
+      .authorizeWithExternalUserAgent(
+        request: authorizationRequest,
+        launchExternalUserAgent: (authorizationUri) async {
+          launchedAuthorizationUri = authorizationUri;
+          try {
+            final browserRequest = await browserClient.getUrl(callback);
+            final browserResponse = await browserRequest.close();
+            callbackStatusCode = browserResponse.statusCode;
+            await browserResponse.drain<void>();
+          } finally {
+            browserClient.close(force: true);
+          }
+        },
+      );
   _expect(
-    callbackStatusCode == HttpStatus.ok &&
+    launchedAuthorizationUri == authorizationRequest.uri &&
+        callbackStatusCode == HttpStatus.ok &&
         authorizationCode.code == 'consumer-authorization-code' &&
         authorizationCode.request.pkce.verifier.length == 43,
-    'loopback authorization callback did not preserve code and PKCE state',
+    'external user-agent callback did not preserve code and PKCE state',
   );
   final oauthGrant = await client.exchangeAuthorizationCode(
     authorizationCode,

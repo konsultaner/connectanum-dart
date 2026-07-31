@@ -176,15 +176,22 @@ void main() {
         'state': authorizationRequest.state,
       },
     );
-    final authorizationCodeCompletion = callbackListener
-        .waitForAuthorizationCode(request: authorizationRequest);
     final browserClient = HttpClient();
     addTearDown(() => browserClient.close(force: true));
-    final browserResponse = await (await browserClient.getUrl(
-      callback,
-    )).close();
-    await browserResponse.drain<void>();
-    final authorizationCode = await authorizationCodeCompletion;
+    Uri? launchedAuthorizationUri;
+    late final int browserResponseStatusCode;
+    final authorizationCode = await callbackListener
+        .authorizeWithExternalUserAgent(
+          request: authorizationRequest,
+          launchExternalUserAgent: (authorizationUri) async {
+            launchedAuthorizationUri = authorizationUri;
+            final browserResponse = await (await browserClient.getUrl(
+              callback,
+            )).close();
+            browserResponseStatusCode = browserResponse.statusCode;
+            await browserResponse.drain<void>();
+          },
+        );
 
     expect(registration.clientId, _clientId);
     expect(registration.clientIdIssuedAt, 1785436800);
@@ -194,7 +201,8 @@ void main() {
       endpoint.toString(),
     );
     expect(authorizationRequest.uri.queryParameters['scope'], 'tools:read');
-    expect(browserResponse.statusCode, HttpStatus.ok);
+    expect(launchedAuthorizationUri, authorizationRequest.uri);
+    expect(browserResponseStatusCode, HttpStatus.ok);
     expect(authorizationCode.code, 'authorization-code');
     final grant = await client.exchangeAuthorizationCode(
       authorizationCode,

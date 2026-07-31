@@ -45,8 +45,12 @@ Fresh state:
   session state. Native consumers can bind an RFC 8252 loopback IP-literal
   redirect on an ephemeral port, reject unrelated local traffic without
   trusting `Host`, and receive one state-validated authorization response.
-  External browser launch and OAuth state persistence remain bounded follow-up
-  slices.
+  They can now coordinate that callback with a caller-supplied external
+  user-agent launcher while the package owns ordering, one total deadline,
+  cleanup, and redacted failures; callback success and OAuth errors do not wait
+  for a launcher future that stays open. Platform-specific browser selection
+  remains consumer-owned by design. OAuth state persistence remains the next
+  bounded follow-up slice.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.

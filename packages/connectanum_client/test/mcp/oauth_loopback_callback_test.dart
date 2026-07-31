@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -78,6 +79,206 @@ void main() {
       expect(response.body, contains('Authorization complete'));
       expect(response.body, isNot(contains('authorization-code')));
       expect(response.body, isNot(contains(request.state)));
+      expect(listener.isClosed, isTrue);
+    });
+
+    test(
+      'coordinates external user-agent launch with callback receipt',
+      () async {
+        final listener = await McpOAuthLoopbackCallbackListener.bind();
+        addTearDown(listener.close);
+        final request = _authorizationRequest(
+          authorizationServer,
+          issuer,
+          listener.redirectUri,
+        );
+        final stalledLauncher = Completer<void>();
+        final callbackStatusCode = Completer<int>();
+        Uri? launchedAuthorizationUri;
+
+        final code = await listener.authorizeWithExternalUserAgent(
+          request: request,
+          launchExternalUserAgent: (authorizationUri) {
+            launchedAuthorizationUri = authorizationUri;
+            unawaited(
+              _sendCallback(
+                listener.redirectUri,
+                query: Uri(
+                  queryParameters: <String, String>{
+                    'code': 'external-user-agent-code',
+                    'state': request.state,
+                  },
+                ).query,
+              ).then<void>(
+                (response) => callbackStatusCode.complete(response.statusCode),
+                onError: (Object error, StackTrace stackTrace) =>
+                    callbackStatusCode.completeError(error, stackTrace),
+              ),
+            );
+            return stalledLauncher.future;
+          },
+          timeout: const Duration(seconds: 1),
+        );
+
+        expect(launchedAuthorizationUri, request.uri);
+        expect(await callbackStatusCode.future, HttpStatus.ok);
+        expect(code.code, 'external-user-agent-code');
+        expect(code.request, same(request));
+        expect(stalledLauncher.isCompleted, isFalse);
+        expect(listener.isClosed, isTrue);
+        stalledLauncher.complete();
+      },
+    );
+
+    test('redacts external user-agent launcher failures', () async {
+      final listener = await McpOAuthLoopbackCallbackListener.bind();
+      addTearDown(listener.close);
+      final request = _authorizationRequest(
+        authorizationServer,
+        issuer,
+        listener.redirectUri,
+      );
+      var launchCount = 0;
+
+      await expectLater(
+        listener.authorizeWithExternalUserAgent(
+          request: request,
+          launchExternalUserAgent: (authorizationUri) async {
+            launchCount += 1;
+            await Future<void>.delayed(Duration.zero);
+            throw StateError(
+              'launcher-secret ${authorizationUri.query} ${request.state}',
+            );
+          },
+        ),
+        throwsA(
+          isA<McpOAuthLoopbackCallbackException>()
+              .having(
+                (error) => error.redirectUri,
+                'redirectUri',
+                listener.redirectUri,
+              )
+              .having(
+                (error) => error.toString(),
+                'redacted launcher secret',
+                isNot(contains('launcher-secret')),
+              )
+              .having(
+                (error) => error.toString(),
+                'redacted state',
+                isNot(contains(request.state)),
+              ),
+        ),
+      );
+
+      expect(launchCount, 1);
+      expect(listener.isClosed, isTrue);
+    });
+
+    test(
+      'surfaces a callback error while the external user-agent stays open',
+      () async {
+        final listener = await McpOAuthLoopbackCallbackListener.bind();
+        addTearDown(listener.close);
+        final request = _authorizationRequest(
+          authorizationServer,
+          issuer,
+          listener.redirectUri,
+        );
+        final stalledLauncher = Completer<void>();
+        final callbackStatusCode = Completer<int>();
+
+        await expectLater(
+          listener.authorizeWithExternalUserAgent(
+            request: request,
+            launchExternalUserAgent: (_) {
+              unawaited(
+                _sendCallback(
+                  listener.redirectUri,
+                  query: Uri(
+                    queryParameters: <String, String>{
+                      'error': 'access_denied',
+                      'error_description': 'sensitive denial',
+                      'state': request.state,
+                    },
+                  ).query,
+                ).then<void>(
+                  (response) =>
+                      callbackStatusCode.complete(response.statusCode),
+                  onError: (Object error, StackTrace stackTrace) =>
+                      callbackStatusCode.completeError(error, stackTrace),
+                ),
+              );
+              return stalledLauncher.future;
+            },
+            timeout: const Duration(seconds: 1),
+          ),
+          throwsA(
+            isA<McpAuthorizationFlowException>()
+                .having(
+                  (error) => error.oauthError,
+                  'oauthError',
+                  'access_denied',
+                )
+                .having(
+                  (error) => error.toString(),
+                  'redacted description',
+                  isNot(contains('sensitive denial')),
+                ),
+          ),
+        );
+
+        expect(await callbackStatusCode.future, HttpStatus.badRequest);
+        expect(stalledLauncher.isCompleted, isFalse);
+        expect(listener.isClosed, isTrue);
+        stalledLauncher.complete();
+      },
+    );
+
+    test('does not launch an invalid callback wait', () async {
+      final listener = await McpOAuthLoopbackCallbackListener.bind();
+      addTearDown(listener.close);
+      final request = _authorizationRequest(
+        authorizationServer,
+        issuer,
+        listener.redirectUri,
+      );
+      var launched = false;
+
+      await expectLater(
+        listener.authorizeWithExternalUserAgent(
+          request: request,
+          launchExternalUserAgent: (_) {
+            launched = true;
+          },
+          timeout: Duration.zero,
+        ),
+        throwsArgumentError,
+      );
+
+      expect(launched, isFalse);
+      expect(listener.isClosed, isTrue);
+    });
+
+    test('bounds a stalled external user-agent launcher', () async {
+      final listener = await McpOAuthLoopbackCallbackListener.bind();
+      addTearDown(listener.close);
+      final request = _authorizationRequest(
+        authorizationServer,
+        issuer,
+        listener.redirectUri,
+      );
+      final stalledLauncher = Completer<void>();
+
+      await expectLater(
+        listener.authorizeWithExternalUserAgent(
+          request: request,
+          launchExternalUserAgent: (_) => stalledLauncher.future,
+          timeout: const Duration(milliseconds: 30),
+        ),
+        throwsA(isA<McpOAuthLoopbackCallbackException>()),
+      );
+
       expect(listener.isClosed, isTrue);
     });
 

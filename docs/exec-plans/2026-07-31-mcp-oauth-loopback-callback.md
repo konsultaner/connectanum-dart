@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Complete.
 
 ## Goal
 
@@ -103,3 +103,8 @@ Primary references:
   all 96 benchmark tests, the complete 377-test router suite, isolated and
   globally activated consumers, every router-hosted MCP variant, focused native
   forwarding checks, and Chrome/Dart2Wasm.
+- 2026-07-31: Commit `624d262` was pushed to GitLab and GitHub. Exact-head
+  GitHub CI `30633977048`, Dart Package Publish Dry Run `30633977054`, and WAMP
+  Profile Benchmarks `30633977046` passed on their first attempts; the strict
+  deployment-chain audit then passed with clean CI logs and all required
+  branch, workflow, package, benchmark-artifact, and registry gates clean.

@@ -43,7 +43,12 @@ wrong methods and paths, duplicate or incorrect state, unbounded stray local
 traffic, and spoofed `Host` values. Its total wait is bounded, every terminal
 path closes the socket, browser responses are static and hardened, and typed
 OAuth callback errors are sanitized before their exception strings can expose
-the callback query or authorization state.
+the callback query or authorization state. Consumers can now pass that
+listener a platform external-user-agent launcher instead of hand-ordering the
+concurrent launch and callback. The package starts callback consumption first,
+returns callback success or OAuth errors even when the launcher future remains
+open, uses the existing total callback deadline to bound a stalled launcher,
+and closes and drains the listener behind a redacted typed launcher failure.
 Consumers can refresh grants through the discovered token endpoint with equal
 or narrower scopes, retain or rotate refresh tokens from the response, and
 revoke either access or refresh tokens through the discovered RFC 7009
@@ -62,8 +67,8 @@ exchange, router-hosted direct JSON tool use, refresh, refreshed tool use,
 revocation, and rejection of the revoked access token while confirming the
 original authenticated session remains unchanged. Router route options publish
 protected-resource metadata and challenges while retaining normal MCP, TLS,
-and mTLS authorization boundaries. External browser launch and OAuth state
-persistence remain separate follow-ups.
+and mTLS authorization boundaries. Platform-specific browser selection remains
+consumer-owned by design; OAuth state persistence remains a separate follow-up.
 The completed plans are
 `docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md` and
 `docs/exec-plans/2026-07-31-mcp-oauth-authorization-request.md`; the completed
@@ -74,17 +79,26 @@ public client identity plan is
 `docs/exec-plans/2026-07-31-mcp-client-id-metadata-document.md`; the dynamic
 registration fallback plan is
 `docs/exec-plans/2026-07-31-mcp-oauth-dynamic-client-registration.md`; the
-active native callback plan is
+completed native callback plan is
 `docs/exec-plans/2026-07-31-mcp-oauth-loopback-callback.md`.
+The completed external-user-agent orchestration plan is
+`docs/exec-plans/2026-07-31-mcp-oauth-external-user-agent.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, focused package analysis, public package-boundary validation, and
 the isolated and globally activated consumer smokes passed on 2026-07-31.
 Complete local `bin/verify` then passed, including formatting, 113 Rust core
-tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 161 client MCP tests,
+tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 166 client MCP tests,
 all 96 benchmark tests, the complete 377-test router suite, isolated and
 globally activated package consumers, router-hosted MCP variants with
 Client ID metadata, dynamic registration, an ephemeral loopback callback, and
-refresh-and-revoke evidence, focused native forwarding, and Chrome/Dart2Wasm.
+external-user-agent orchestration plus refresh-and-revoke evidence, focused
+native forwarding, and Chrome/Dart2Wasm.
+Commit `624d262` passed exact-head GitHub CI `30633977048`, including Fast
+Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+artifact. Dart Package Publish Dry Run `30633977054` and WAMP Profile
+Benchmarks `30633977046` passed on their first attempts. The strict
+deployment-chain audit passed with clean exact-head CI logs and all required
+branch, workflow, package, benchmark-artifact, and registry gates clean.
 Commit `7982993` passed exact-head GitHub CI `30628158633`, including Fast
 Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
 artifact. Dart Package Publish Dry Run `30628158515` and WAMP Profile
