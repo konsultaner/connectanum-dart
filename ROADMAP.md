@@ -396,6 +396,10 @@
   - [x] Add bounded OAuth token refresh and RFC 7009 revocation through
     discovered endpoints, including resource retention, scope
     non-escalation, refresh-token rotation, and Streamable session isolation.
+  - [x] Add typed Client ID Metadata Documents for public clients when the
+    authorization server advertises support, including HTTPS client identity,
+    exact redirect registration, public token-endpoint authentication, and
+    package-boundary lifecycle coverage.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

@@ -2051,6 +2051,8 @@ const _oauthAccessToken = 'agent-oauth-token';
 const _oauthRefreshToken = 'agent-oauth-refresh-token';
 const _oauthRefreshedAccessToken = 'agent-oauth-token-refreshed';
 const _oauthRefreshedRefreshToken = 'agent-oauth-refresh-token-refreshed';
+const _oauthClientId =
+    'https://consumer.example/oauth/client-metadata.json';
 const _toolName = 'agent.echo';
 const _pagedToolName = 'agent.followup';
 const _toolCursor = 'agent-tools-page-2';
@@ -2331,7 +2333,8 @@ Future<void> _smokeProtectedResourceDiscovery(
             ) &&
         authorizationServer.metadata.codeChallengeMethodsSupported.contains(
           'S256',
-        ),
+        ) &&
+        authorizationServer.metadata.clientIdMetadataDocumentSupported == true,
     'authorization-server discovery returned incomplete OAuth endpoints',
   );
   _expect(
@@ -2339,11 +2342,29 @@ Future<void> _smokeProtectedResourceDiscovery(
     'authorization-server discovery did not use the RFC 8414 endpoint',
   );
 
-  final authorizationRequest = client.createAuthorizationRequest(
-    authorizationServer: authorizationServer.metadata,
-    clientId: 'consumer-client',
-    redirectUri: Uri.parse('http://127.0.0.1:34891/oauth/callback'),
+  final redirectUri = Uri.parse(
+    'http://127.0.0.1:34891/oauth/callback',
+  );
+  final clientMetadata = McpOAuthClientMetadataDocument.publicClient(
+    clientId: Uri.parse(_oauthClientId),
+    clientName: 'Consumer application',
+    redirectUris: <Uri>[redirectUri],
     scopes: discovery.requiredScopes,
+  );
+  final publishedClientMetadata = clientMetadata.toJson();
+  _expect(
+    publishedClientMetadata['client_id'] == _oauthClientId &&
+        publishedClientMetadata['client_name'] == 'Consumer application' &&
+        publishedClientMetadata['token_endpoint_auth_method'] == 'none' &&
+        publishedClientMetadata['scope'] == 'mcp:tools mcp:meta' &&
+        !publishedClientMetadata.containsKey('client_secret'),
+    'Client ID Metadata Document omitted public-client metadata',
+  );
+
+  final authorizationRequest = clientMetadata.createAuthorizationRequest(
+    authorizationServer: authorizationServer.metadata,
+    resource: endpoint.uri,
+    redirectUri: redirectUri,
     pkce: McpPkcePair.fromVerifier(
       'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
     ),
@@ -2351,7 +2372,7 @@ Future<void> _smokeProtectedResourceDiscovery(
   _expect(
     authorizationRequest.uri.queryParameters['response_type'] == 'code' &&
         authorizationRequest.uri.queryParameters['client_id'] ==
-            'consumer-client' &&
+            _oauthClientId &&
         authorizationRequest.uri.queryParameters['resource'] ==
             endpoint.uri.toString() &&
         authorizationRequest.uri.queryParameters['scope'] ==
@@ -2377,9 +2398,7 @@ Future<void> _smokeProtectedResourceDiscovery(
   );
   final oauthGrant = await client.exchangeAuthorizationCode(
     authorizationCode,
-    clientAuthentication: McpOAuthClientAuthentication.none(
-      'consumer-client',
-    ),
+    clientAuthentication: clientMetadata.clientAuthentication,
     headers: const <String, String>{
       'x-consumer-trace': 'authorization-token',
     },
@@ -2398,7 +2417,7 @@ Future<void> _smokeProtectedResourceDiscovery(
             'authorization_code' &&
         endpoint.authorizationTokenForm['code'] ==
             'consumer-authorization-code' &&
-        endpoint.authorizationTokenForm['client_id'] == 'consumer-client' &&
+        endpoint.authorizationTokenForm['client_id'] == _oauthClientId &&
         endpoint.authorizationTokenForm['resource'] ==
             endpoint.uri.toString() &&
         endpoint.authorizationTokenForm['code_verifier'] ==
@@ -2426,9 +2445,7 @@ Future<void> _smokeProtectedResourceDiscovery(
 
   final refreshedGrant = await client.refreshOAuthToken(
     oauthGrant,
-    clientAuthentication: McpOAuthClientAuthentication.none(
-      'consumer-client',
-    ),
+    clientAuthentication: clientMetadata.clientAuthentication,
     headers: const <String, String>{
       'x-consumer-trace': 'authorization-refresh',
     },
@@ -2450,7 +2467,7 @@ Future<void> _smokeProtectedResourceDiscovery(
         endpoint.authorizationRefreshForm['refresh_token'] ==
             _oauthRefreshToken &&
         endpoint.authorizationRefreshForm['client_id'] ==
-            'consumer-client' &&
+            _oauthClientId &&
         endpoint.authorizationRefreshForm['resource'] ==
             endpoint.uri.toString(),
     'OAuth refresh omitted required client or MCP resource parameters',
@@ -2468,9 +2485,7 @@ Future<void> _smokeProtectedResourceDiscovery(
     );
     await client.revokeOAuthToken(
       refreshedGrant,
-      clientAuthentication: McpOAuthClientAuthentication.none(
-        'consumer-client',
-      ),
+      clientAuthentication: clientMetadata.clientAuthentication,
       headers: const <String, String>{
         'x-consumer-trace': 'authorization-revoke',
       },
@@ -2484,7 +2499,7 @@ Future<void> _smokeProtectedResourceDiscovery(
           endpoint.authorizationRevocationForm['token_type_hint'] ==
               'refresh_token' &&
           endpoint.authorizationRevocationForm['client_id'] ==
-              'consumer-client',
+              _oauthClientId,
       'OAuth revocation omitted the rotated refresh credential',
     );
     try {
@@ -6740,7 +6755,7 @@ final class _AgentMcpEndpoint {
       authorizationRefreshForm = authorizationTokenForm;
     }
     final valid =
-        authorizationTokenForm['client_id'] == 'consumer-client' &&
+        authorizationTokenForm['client_id'] == _oauthClientId &&
         authorizationTokenForm['resource'] == uri.toString() &&
         ((authorizationCodeGrant &&
                 authorizationTokenForm['code'] ==
@@ -6808,7 +6823,7 @@ final class _AgentMcpEndpoint {
     authorizationRevocationForm = Uri.splitQueryString(
       await utf8.decoder.bind(request).join(),
     );
-    if (authorizationRevocationForm['client_id'] == 'consumer-client' &&
+    if (authorizationRevocationForm['client_id'] == _oauthClientId &&
         authorizationRevocationForm['token'] ==
             _oauthRefreshedRefreshToken &&
         authorizationRevocationForm['token_type_hint'] == 'refresh_token') {

@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:test/test.dart';
 
+const _clientId = 'https://consumer.example/oauth/client-metadata.json';
+
 void main() {
   test('IO entrypoint exposes the OAuth authorization-code flow', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -36,6 +38,7 @@ void main() {
             'code_challenge_methods_supported': <String>['S256'],
             'token_endpoint_auth_methods_supported': <String>['none'],
             'revocation_endpoint_auth_methods_supported': <String>['none'],
+            'client_id_metadata_document_supported': true,
           }),
         );
         await request.response.close();
@@ -47,6 +50,7 @@ void main() {
         final form = Uri.splitQueryString(
           await utf8.decoder.bind(request).join(),
         );
+        expect(form['client_id'], _clientId);
         expect(form['resource'], endpoint.toString());
         if (form['grant_type'] == 'authorization_code') {
           expect(form['code_verifier'], isNotEmpty);
@@ -110,11 +114,17 @@ void main() {
     );
     expect(authorizationServer.metadata.tokenEndpoint.path, '/token');
 
-    final authorizationRequest = client.createAuthorizationRequest(
-      authorizationServer: authorizationServer.metadata,
-      clientId: 'consumer-client',
-      redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+    final redirectUri = Uri.parse('http://127.0.0.1:34891/callback');
+    final clientMetadata = McpOAuthClientMetadataDocument.publicClient(
+      clientId: Uri.parse(_clientId),
+      clientName: 'Consumer application',
+      redirectUris: <Uri>[redirectUri],
       scopes: discovery.requiredScopes,
+    );
+    final authorizationRequest = clientMetadata.createAuthorizationRequest(
+      authorizationServer: authorizationServer.metadata,
+      resource: endpoint,
+      redirectUri: redirectUri,
       pkce: McpPkcePair.fromVerifier(
         'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
       ),
@@ -138,9 +148,7 @@ void main() {
     expect(authorizationCode.code, 'authorization-code');
     final grant = await client.exchangeAuthorizationCode(
       authorizationCode,
-      clientAuthentication: McpOAuthClientAuthentication.none(
-        'consumer-client',
-      ),
+      clientAuthentication: clientMetadata.clientAuthentication,
     );
     final authenticatedClient = McpStreamableHttpClient.withOAuthToken(
       endpoint,
@@ -153,17 +161,13 @@ void main() {
     expect(authenticatedClient.endpoint, endpoint);
     final refreshed = await client.refreshOAuthToken(
       grant,
-      clientAuthentication: McpOAuthClientAuthentication.none(
-        'consumer-client',
-      ),
+      clientAuthentication: clientMetadata.clientAuthentication,
     );
     expect(refreshed.accessToken, 'consumer-refreshed-access-token');
     expect(refreshed.refreshToken, grant.refreshToken);
     await client.revokeOAuthToken(
       refreshed,
-      clientAuthentication: McpOAuthClientAuthentication.none(
-        'consumer-client',
-      ),
+      clientAuthentication: clientMetadata.clientAuthentication,
     );
     expect(tokenRequestCount, 2);
     expect(revocationRequestCount, 1);

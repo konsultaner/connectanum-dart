@@ -81,3 +81,9 @@ credential transport or contaminating an active Streamable HTTP session.
   tests, tooling regressions, all Dart package suites, isolated and globally
   activated consumers, router-hosted MCP lifecycle smokes, the 377-test router
   suite, and Chrome/Dart2Wasm.
+- 2026-07-31: Commit `6f9ad48` passed exact-head GitHub CI `30613206786`,
+  including Fast Checks, Full Verify, Dart VM Coverage, and Codecov upload.
+  Dart Package Publish Dry Run `30613206990` and WAMP Profile Benchmarks
+  `30613206772` also passed. The strict deployment-chain audit passed with all
+  required exact-head, branch, workflow, package, benchmark, artifact, and
+  registry gates clean.

@@ -18,42 +18,57 @@ decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
 The current implementation checkpoint is a complete bounded MCP OAuth grant
-lifecycle. After end-to-end RFC 9728 protected-resource and RFC 8414 or OpenID
-Connect authorization-server discovery, public Dart IO consumers can generate
-RFC 7636 PKCE verifier/challenge pairs, create authorization URLs with the
-canonical MCP `resource`, validate redirect callbacks, and redeem accepted
-codes for immutable resource-bound bearer grants. Consumers can refresh those
-grants through the discovered token endpoint with equal or narrower scopes,
-retain or rotate refresh tokens from the response, and revoke either access or
-refresh tokens through the discovered RFC 7009 endpoint. Token and revocation
-requests support pre-registered public clients plus `client_secret_basic` and
-`client_secret_post`, enforce endpoint-specific discovered authentication
-methods, refuse redirects and unsafe credential headers, bound request time and
-response size, and expose typed OAuth failures without including codes,
-secrets, or tokens. `McpStreamableHttpClient` exposes lifecycle convenience
-methods that reuse only its HTTP connection resources: OAuth requests do not
-forward active MCP credentials or mutate Streamable HTTP session or resume
-state. The public-package consumer smoke now performs authorization-code
-exchange, router-hosted direct JSON tool use, refresh, refreshed tool use,
-revocation, and rejection of the revoked access token while confirming the
-original authenticated session remains unchanged. Router route options publish
-protected-resource metadata and challenges while retaining normal MCP, TLS,
-and mTLS authorization boundaries. Browser and redirect-listener interaction,
-client registration, and OAuth state persistence remain separate follow-ups.
+lifecycle plus the MCP-preferred public client identity mechanism. After
+end-to-end RFC 9728 protected-resource and RFC 8414 or OpenID Connect
+authorization-server discovery, public Dart IO consumers can generate RFC 7636
+PKCE verifier/challenge pairs, create authorization URLs with the canonical
+MCP `resource`, validate redirect callbacks, and redeem accepted codes for
+immutable resource-bound bearer grants. When the authorization server
+advertises support, consumers can publish an immutable Client ID Metadata
+Document with an HTTPS URL identity, exact HTTPS or loopback redirect
+registration, public `none` token-endpoint authentication, and credential-free
+JSON, then reuse that same identity across authorization, exchange, refresh,
+and revocation. Consumers can refresh grants through the discovered token
+endpoint with equal or narrower scopes, retain or rotate refresh tokens from
+the response, and revoke either access or refresh tokens through the discovered
+RFC 7009 endpoint. Token and revocation requests also support pre-registered
+public clients plus `client_secret_basic` and `client_secret_post`, enforce
+endpoint-specific discovered authentication methods, refuse redirects and
+unsafe credential headers, bound request time and response size, and expose
+typed OAuth failures without including codes, secrets, or tokens.
+`McpStreamableHttpClient` exposes lifecycle convenience methods that reuse only
+its HTTP connection resources: OAuth requests do not forward active MCP
+credentials or mutate Streamable HTTP session or resume state. The
+public-package consumer smoke now publishes Client ID metadata and performs
+authorization-code exchange, router-hosted direct JSON tool use, refresh,
+refreshed tool use, revocation, and rejection of the revoked access token while
+confirming the original authenticated session remains unchanged. Router route
+options publish protected-resource metadata and challenges while retaining
+normal MCP, TLS, and mTLS authorization boundaries. Dynamic client
+registration, browser and redirect-listener interaction, and OAuth state
+persistence remain separate follow-ups.
 The completed plans are
 `docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md` and
 `docs/exec-plans/2026-07-31-mcp-oauth-authorization-request.md`; the completed
 token-exchange and grant-lifecycle plans are
 `docs/exec-plans/2026-07-31-mcp-oauth-token-exchange.md` and
-`docs/exec-plans/2026-07-31-mcp-oauth-refresh-revocation.md`.
+`docs/exec-plans/2026-07-31-mcp-oauth-refresh-revocation.md`; the completed
+public client identity plan is
+`docs/exec-plans/2026-07-31-mcp-client-id-metadata-document.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, focused package analysis, public package-boundary validation, and
 the isolated and globally activated consumer smokes passed on 2026-07-31.
 Complete local `bin/verify` then passed, including formatting, 113 Rust core
-tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 140 client MCP tests,
+tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 144 client MCP tests,
 all 96 benchmark tests, the complete 377-test router suite, isolated and
 globally activated package consumers, router-hosted MCP variants with
-refresh-and-revoke evidence, focused native forwarding, and Chrome/Dart2Wasm.
+Client ID metadata plus refresh-and-revoke evidence, focused native forwarding,
+and Chrome/Dart2Wasm.
+Commit `6f9ad48` passed exact-head GitHub CI `30613206786`, including Fast
+Checks, Full Verify, Dart VM Coverage, and the Codecov upload. Dart Package
+Publish Dry Run `30613206990` and WAMP Profile Benchmarks `30613206772` also
+passed. The strict deployment-chain audit passed with clean exact-head CI,
+package, benchmark, branch-protection, workflow, artifact, and registry gates.
 Commit `d5193d3` passed exact-head GitHub CI `30607035330`, including Fast
 Checks, Full Verify, Dart VM Coverage, and the Codecov upload. Dart Package
 Publish Dry Run `30607035329` and WAMP Profile Benchmarks `30607035358` also
