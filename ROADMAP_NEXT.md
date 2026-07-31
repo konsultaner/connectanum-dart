@@ -42,8 +42,11 @@ Fresh state:
   registration mechanism, or use bounded RFC 7591 Dynamic Client Registration
   when a registration endpoint is advertised. Dynamic registrations enforce
   explicit native/web application types and remain isolated from active MCP
-  session state. Browser/redirect orchestration and persistence remain bounded
-  follow-up slices.
+  session state. Native consumers can bind an RFC 8252 loopback IP-literal
+  redirect on an ephemeral port, reject unrelated local traffic without
+  trusting `Host`, and receive one state-validated authorization response.
+  External browser launch and OAuth state persistence remain bounded follow-up
+  slices.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.

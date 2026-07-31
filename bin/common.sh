@@ -2346,9 +2346,8 @@ Future<void> _smokeProtectedResourceDiscovery(
     'authorization-server discovery did not use the RFC 8414 endpoint',
   );
 
-  final redirectUri = Uri.parse(
-    'http://127.0.0.1:34891/oauth/callback',
-  );
+  final callbackListener = await McpOAuthLoopbackCallbackListener.bind();
+  final redirectUri = callbackListener.redirectUri;
   final clientMetadata = McpOAuthClientMetadataDocument.publicClient(
     clientId: Uri.parse(_oauthClientId),
     clientName: 'Consumer application',
@@ -2398,6 +2397,9 @@ Future<void> _smokeProtectedResourceDiscovery(
             'mcp:tools mcp:meta' &&
         endpoint.authorizationRegistrationBody['token_endpoint_auth_method'] ==
             'none' &&
+        (endpoint.authorizationRegistrationBody['redirect_uris']
+                as List<Object?>)
+            .single == redirectUri.toString() &&
         !endpoint.authorizationRegistrationSawSessionCredentials,
     'dynamic client registration omitted metadata or leaked session state',
   );
@@ -2427,14 +2429,26 @@ Future<void> _smokeProtectedResourceDiscovery(
       'state': authorizationRequest.state,
     },
   );
-  final authorizationCode = parseMcpAuthorizationCallback(
-    callback,
-    request: authorizationRequest,
-  );
+  final authorizationCodeCompletion =
+      callbackListener.waitForAuthorizationCode(
+        request: authorizationRequest,
+      );
+  final browserClient = HttpClient();
+  late final int callbackStatusCode;
+  try {
+    final browserRequest = await browserClient.getUrl(callback);
+    final browserResponse = await browserRequest.close();
+    callbackStatusCode = browserResponse.statusCode;
+    await browserResponse.drain<void>();
+  } finally {
+    browserClient.close(force: true);
+  }
+  final authorizationCode = await authorizationCodeCompletion;
   _expect(
-    authorizationCode.code == 'consumer-authorization-code' &&
+    callbackStatusCode == HttpStatus.ok &&
+        authorizationCode.code == 'consumer-authorization-code' &&
         authorizationCode.request.pkce.verifier.length == 43,
-    'authorization callback did not preserve the code and PKCE request',
+    'loopback authorization callback did not preserve code and PKCE state',
   );
   final oauthGrant = await client.exchangeAuthorizationCode(
     authorizationCode,
@@ -6802,15 +6816,26 @@ final class _AgentMcpEndpoint {
       return;
     }
     authorizationRegistrationBody = decoded;
+    final registeredRedirects = decoded['redirect_uris'];
+    final registeredRedirect = registeredRedirects is List<Object?> &&
+            registeredRedirects.length == 1 &&
+            registeredRedirects.single is String
+        ? Uri.tryParse(registeredRedirects.single! as String)
+        : null;
     final valid =
         decoded['client_name'] == 'Consumer application' &&
         decoded['application_type'] == 'native' &&
         decoded['token_endpoint_auth_method'] == 'none' &&
         decoded['scope'] == 'mcp:tools mcp:meta' &&
-        decoded['redirect_uris'] is List<Object?> &&
-        (decoded['redirect_uris']! as List<Object?>).length == 1 &&
-        (decoded['redirect_uris']! as List<Object?>).single ==
-            'http://127.0.0.1:34891/oauth/callback' &&
+        registeredRedirect != null &&
+        registeredRedirect.scheme == 'http' &&
+        (registeredRedirect.host == InternetAddress.loopbackIPv4.address ||
+            registeredRedirect.host == InternetAddress.loopbackIPv6.address) &&
+        registeredRedirect.hasPort &&
+        registeredRedirect.port > 0 &&
+        registeredRedirect.path == '/oauth/callback' &&
+        !registeredRedirect.hasQuery &&
+        !registeredRedirect.hasFragment &&
         decoded['grant_types'] is List<Object?> &&
         (decoded['grant_types']! as List<Object?>).contains(
           'authorization_code',
@@ -6871,7 +6896,9 @@ final class _AgentMcpEndpoint {
                 authorizationTokenForm['code'] ==
                     'consumer-authorization-code' &&
                 authorizationTokenForm['redirect_uri'] ==
-                    'http://127.0.0.1:34891/oauth/callback' &&
+                    (authorizationRegistrationBody['redirect_uris']
+                            as List<Object?>)
+                        .single &&
                 authorizationTokenForm['code_verifier'] ==
                     'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk') ||
             (refreshTokenGrant &&

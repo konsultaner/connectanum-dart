@@ -98,3 +98,8 @@ Primary references:
   client MCP tests, all 96 benchmark tests, the complete 377-test router suite,
   isolated and globally activated consumer smokes, router-hosted MCP variants,
   native forwarding checks, and Chrome/Dart2Wasm.
+- 2026-07-31: Commit `7982993` was pushed to GitLab and GitHub. Exact-head
+  GitHub CI `30628158633`, Dart Package Publish Dry Run `30628158515`, and WAMP
+  Profile Benchmarks `30628158519` passed; the strict deployment-chain audit
+  then passed with clean CI logs and all required branch, workflow, package,
+  benchmark, artifact, and registry gates clean.

@@ -8,6 +8,9 @@
 - Add resource-bound MCP OAuth discovery, PKCE authorization-code exchange,
   refresh, revocation, validated Client ID Metadata Documents, and bounded
   RFC 7591 dynamic public-client registration for Dart IO consumers.
+- Add an RFC 8252 native loopback callback listener with ephemeral ports,
+  exact state and redirect validation, bounded stray-request handling, and
+  static redacted browser responses.
 - Use UTF-8 for CRA and SCRAM authentication strings by default while retaining
   an explicit UTF-16 compatibility mode for legacy peers.
 

@@ -35,6 +35,15 @@ JSON I/O and an optional initial access token. Registration rejects redirects,
 malformed or oversized responses, changed redirects or presentation metadata,
 confidential-client credentials, and non-`none` token authentication, and the
 issued identity is directly reusable for the same authorization lifecycle.
+Native consumers can now bind an RFC 8252 loopback IP-literal callback on an
+ephemeral port, register and authorize against that exact URI, and receive one
+state-validated response without writing a private HTTP listener. The public
+listener rejects non-loopback bindings, mismatched authorization requests,
+wrong methods and paths, duplicate or incorrect state, unbounded stray local
+traffic, and spoofed `Host` values. Its total wait is bounded, every terminal
+path closes the socket, browser responses are static and hardened, and typed
+OAuth callback errors are sanitized before their exception strings can expose
+the callback query or authorization state.
 Consumers can refresh grants through the discovered token endpoint with equal
 or narrower scopes, retain or rotate refresh tokens from the response, and
 revoke either access or refresh tokens through the discovered RFC 7009
@@ -47,14 +56,14 @@ typed OAuth failures without including codes, secrets, or tokens.
 its HTTP connection resources: OAuth requests do not forward active MCP
 credentials or mutate Streamable HTTP session or resume state. The
 public-package consumer smoke now publishes Client ID metadata, dynamically
-registers a native public client, and carries that issued identity through
-authorization-code exchange, router-hosted direct JSON tool use, refresh,
-refreshed tool use, revocation, and rejection of the revoked access token while
-confirming the original authenticated session remains unchanged. Router route
-options publish protected-resource metadata and challenges while retaining
-normal MCP, TLS, and mTLS authorization boundaries. Browser and
-redirect-listener interaction plus OAuth state persistence remain separate
-follow-ups.
+registers a native public client for a real ephemeral loopback listener, and
+carries that issued identity through callback receipt, authorization-code
+exchange, router-hosted direct JSON tool use, refresh, refreshed tool use,
+revocation, and rejection of the revoked access token while confirming the
+original authenticated session remains unchanged. Router route options publish
+protected-resource metadata and challenges while retaining normal MCP, TLS,
+and mTLS authorization boundaries. External browser launch and OAuth state
+persistence remain separate follow-ups.
 The completed plans are
 `docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md` and
 `docs/exec-plans/2026-07-31-mcp-oauth-authorization-request.md`; the completed
@@ -64,16 +73,24 @@ token-exchange and grant-lifecycle plans are
 public client identity plan is
 `docs/exec-plans/2026-07-31-mcp-client-id-metadata-document.md`; the dynamic
 registration fallback plan is
-`docs/exec-plans/2026-07-31-mcp-oauth-dynamic-client-registration.md`.
+`docs/exec-plans/2026-07-31-mcp-oauth-dynamic-client-registration.md`; the
+active native callback plan is
+`docs/exec-plans/2026-07-31-mcp-oauth-loopback-callback.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, focused package analysis, public package-boundary validation, and
 the isolated and globally activated consumer smokes passed on 2026-07-31.
 Complete local `bin/verify` then passed, including formatting, 113 Rust core
-tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 152 client MCP tests,
+tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 161 client MCP tests,
 all 96 benchmark tests, the complete 377-test router suite, isolated and
 globally activated package consumers, router-hosted MCP variants with
-Client ID metadata and dynamic registration plus refresh-and-revoke evidence,
-focused native forwarding, and Chrome/Dart2Wasm.
+Client ID metadata, dynamic registration, an ephemeral loopback callback, and
+refresh-and-revoke evidence, focused native forwarding, and Chrome/Dart2Wasm.
+Commit `7982993` passed exact-head GitHub CI `30628158633`, including Fast
+Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+artifact. Dart Package Publish Dry Run `30628158515` and WAMP Profile
+Benchmarks `30628158519` passed on their first attempts. The strict
+deployment-chain audit passed with clean exact-head CI logs and all required
+branch, workflow, package, benchmark, artifact, and registry gates clean.
 Commit `bb34df4` passed exact-head GitHub CI `30618867934`, including Fast
 Checks, Full Verify, Dart VM Coverage, and the Codecov upload. Dart Package
 Publish Dry Run `30618867921` passed. WAMP Profile Benchmarks

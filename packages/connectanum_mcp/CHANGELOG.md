@@ -8,6 +8,8 @@
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,
   dynamic client registration, token refresh, and revocation lifecycle through
   the IO entrypoint.
+- Re-export the native OAuth loopback callback listener through the IO
+  entrypoint and exercise it in the public authorization lifecycle.
 - Add isolated server, client, executable, and consumer application smokes.
 
 ## 0.1.0

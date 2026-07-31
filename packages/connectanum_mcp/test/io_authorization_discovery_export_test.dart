@@ -8,6 +8,9 @@ const _clientId = 'https://consumer.example/oauth/client-metadata.json';
 
 void main() {
   test('IO entrypoint exposes the OAuth dynamic-registration flow', () async {
+    final callbackListener = await McpOAuthLoopbackCallbackListener.bind();
+    addTearDown(callbackListener.close);
+    final redirectUri = callbackListener.redirectUri;
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
     final endpoint = Uri.parse(
@@ -59,9 +62,7 @@ void main() {
             jsonDecode(await utf8.decoder.bind(request).join())
                 as Map<String, Object?>;
         expect(body['client_name'], 'Consumer application');
-        expect(body['redirect_uris'], <String>[
-          'http://127.0.0.1:34891/callback',
-        ]);
+        expect(body['redirect_uris'], <String>[redirectUri.toString()]);
         expect(body['token_endpoint_auth_method'], 'none');
         expect(body['application_type'], 'native');
         expect(body['scope'], 'tools:read');
@@ -152,7 +153,6 @@ void main() {
       '/register',
     );
 
-    final redirectUri = Uri.parse('http://127.0.0.1:34891/callback');
     final registration = await client.registerOAuthClient(
       authorizationServer.metadata,
       registration: McpOAuthDynamicClientRegistrationRequest.publicClient(
@@ -176,10 +176,15 @@ void main() {
         'state': authorizationRequest.state,
       },
     );
-    final authorizationCode = parseMcpAuthorizationCallback(
+    final authorizationCodeCompletion = callbackListener
+        .waitForAuthorizationCode(request: authorizationRequest);
+    final browserClient = HttpClient();
+    addTearDown(() => browserClient.close(force: true));
+    final browserResponse = await (await browserClient.getUrl(
       callback,
-      request: authorizationRequest,
-    );
+    )).close();
+    await browserResponse.drain<void>();
+    final authorizationCode = await authorizationCodeCompletion;
 
     expect(registration.clientId, _clientId);
     expect(registration.clientIdIssuedAt, 1785436800);
@@ -189,6 +194,7 @@ void main() {
       endpoint.toString(),
     );
     expect(authorizationRequest.uri.queryParameters['scope'], 'tools:read');
+    expect(browserResponse.statusCode, HttpStatus.ok);
     expect(authorizationCode.code, 'authorization-code');
     final grant = await client.exchangeAuthorizationCode(
       authorizationCode,

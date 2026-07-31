@@ -405,6 +405,10 @@
     explicit native/web application types, public-client enforcement, optional
     initial access tokens, response/error validation, Streamable-session
     isolation, and public consumer lifecycle coverage.
+  - [x] Add an RFC 8252 native loopback callback listener with an ephemeral
+    loopback IP literal, exact request/state/path validation, bounded unrelated
+    local traffic, untrusted-Host isolation, static redacted browser responses,
+    and public consumer lifecycle coverage.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready
