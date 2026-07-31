@@ -393,6 +393,9 @@
   - [x] Add bounded authorization-code exchange for pre-registered public
     clients and the standard client-secret methods, returning a resource-bound
     bearer grant suitable for a fresh Streamable HTTP client.
+  - [x] Add bounded OAuth token refresh and RFC 7009 revocation through
+    discovered endpoints, including resource retention, scope
+    non-escalation, refresh-token rotation, and Streamable session isolation.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

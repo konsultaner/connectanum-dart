@@ -274,6 +274,9 @@ void main() {
                   .replace(path: '/oauth/authorize')
                   .toString(),
               'token_endpoint': issuer.replace(path: '/oauth/token').toString(),
+              'revocation_endpoint': issuer
+                  .replace(path: '/oauth/revoke')
+                  .toString(),
               'registration_endpoint': issuer
                   .replace(path: '/oauth/register')
                   .toString(),
@@ -286,6 +289,7 @@ void main() {
               ],
               'code_challenge_methods_supported': <String>['S256'],
               'token_endpoint_auth_methods_supported': <String>['none'],
+              'revocation_endpoint_auth_methods_supported': <String>['none'],
               'client_id_metadata_document_supported': true,
               'custom_capability': <String, Object?>{'enabled': true},
             });
@@ -326,6 +330,7 @@ void main() {
           '/oauth/authorize',
         );
         expect(discovery.metadata.tokenEndpoint.path, '/oauth/token');
+        expect(discovery.metadata.revocationEndpoint?.path, '/oauth/revoke');
         expect(
           discovery.metadata.registrationEndpoint?.path,
           '/oauth/register',
@@ -346,6 +351,10 @@ void main() {
         expect(discovery.metadata.tokenEndpointAuthMethodsSupported, <String>[
           'none',
         ]);
+        expect(
+          discovery.metadata.revocationEndpointAuthMethodsSupported,
+          <String>['none'],
+        );
         expect(discovery.metadata.clientIdMetadataDocumentSupported, isTrue);
         expect(discovery.metadata.raw['custom_capability'], <String, Object?>{
           'enabled': true,

@@ -482,6 +482,58 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Refreshes a resource-bound OAuth grant without changing MCP session state.
+  Future<McpOAuthTokenGrant> refreshOAuthToken(
+    McpOAuthTokenGrant grant, {
+    required McpOAuthClientAuthentication clientAuthentication,
+    Iterable<String>? scopes,
+    Map<String, String> headers = const <String, String>{},
+    Duration timeout = const Duration(seconds: 30),
+    int maxResponseBytes = 64 * 1024,
+  }) {
+    if (!grant.isForResource(endpoint)) {
+      throw McpOAuthTokenException(
+        'OAuth token grant is not valid for this MCP resource.',
+        endpoint: endpoint,
+      );
+    }
+    return refreshMcpOAuthToken(
+      grant,
+      clientAuthentication: clientAuthentication,
+      scopes: scopes,
+      httpClient: _httpClient,
+      headers: headers,
+      timeout: timeout,
+      maxResponseBytes: maxResponseBytes,
+    );
+  }
+
+  /// Revokes one OAuth grant credential without changing MCP session state.
+  Future<void> revokeOAuthToken(
+    McpOAuthTokenGrant grant, {
+    required McpOAuthClientAuthentication clientAuthentication,
+    McpOAuthTokenKind tokenKind = McpOAuthTokenKind.refreshToken,
+    Map<String, String> headers = const <String, String>{},
+    Duration timeout = const Duration(seconds: 30),
+    int maxResponseBytes = 64 * 1024,
+  }) {
+    if (!grant.isForResource(endpoint)) {
+      throw McpOAuthTokenException(
+        'OAuth token grant is not valid for this MCP resource.',
+        endpoint: endpoint,
+      );
+    }
+    return revokeMcpOAuthToken(
+      grant,
+      clientAuthentication: clientAuthentication,
+      tokenKind: tokenKind,
+      httpClient: _httpClient,
+      headers: headers,
+      timeout: timeout,
+      maxResponseBytes: maxResponseBytes,
+    );
+  }
+
   Future<McpJsonMap> initialize({
     Object? id = 'initialize',
     McpJsonMap capabilities = const <String, Object?>{},

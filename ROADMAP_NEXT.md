@@ -34,9 +34,11 @@ Fresh state:
   Bearer scope challenges, discover validated OAuth Protected Resource and
   authorization-server metadata without forwarding credentials, prepare and
   validate PKCE authorization requests, and redeem codes into resource-bound
-  bearer grants without mutating active MCP session state. Client registration,
-  browser/redirect orchestration, refresh, revocation, and persistence remain
-  bounded follow-up slices.
+  bearer grants without mutating active MCP session state. Public consumers
+  can also refresh and revoke those grants through discovered endpoints while
+  retaining the canonical MCP resource and isolating active Streamable HTTP
+  state. Client registration, browser/redirect orchestration, and persistence
+  remain bounded follow-up slices.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.

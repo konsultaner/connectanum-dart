@@ -10,6 +10,7 @@ import 'authorization_discovery.dart';
 import 'oauth_authorization.dart';
 
 const _authorizationCodeGrant = 'authorization_code';
+const _refreshTokenGrant = 'refresh_token';
 const _clientSecretBasic = 'client_secret_basic';
 const _clientSecretPost = 'client_secret_post';
 const _noClientAuthentication = 'none';
@@ -78,6 +79,16 @@ final class McpOAuthClientAuthentication {
 
   @override
   String toString() => 'McpOAuthClientAuthentication($method)';
+}
+
+/// Selects which credential from an OAuth grant to revoke.
+enum McpOAuthTokenKind {
+  accessToken('access_token'),
+  refreshToken('refresh_token');
+
+  const McpOAuthTokenKind(this.hint);
+
+  final String hint;
 }
 
 /// An OAuth bearer grant issued for one canonical MCP resource.
@@ -160,7 +171,7 @@ Future<McpOAuthTokenGrant> exchangeMcpAuthorizationCode(
 }) async {
   final requestState = authorizationCode.request;
   final authorizationServer = requestState.authorizationServer;
-  final tokenEndpoint = authorizationServer.tokenEndpoint;
+  final endpoint = authorizationServer.tokenEndpoint;
   _validateExchangeInputs(
     authorizationCode,
     clientAuthentication,
@@ -169,17 +180,341 @@ Future<McpOAuthTokenGrant> exchangeMcpAuthorizationCode(
     maxResponseBytes,
   );
 
-  final form = <String, String>{
-    'grant_type': _authorizationCodeGrant,
-    'code': authorizationCode.code,
-    'redirect_uri': requestState.redirectUri.toString(),
-    if (clientAuthentication.method != _clientSecretBasic)
-      'client_id': clientAuthentication.clientId,
-    'code_verifier': requestState.pkce.verifier,
-    'resource': requestState.resource.toString(),
-    if (clientAuthentication.method == _clientSecretPost)
-      'client_secret': clientAuthentication._clientSecret!,
+  final response = await _postOAuthForm(
+    endpoint: endpoint,
+    form: <String, String>{
+      'grant_type': _authorizationCodeGrant,
+      'code': authorizationCode.code,
+      'redirect_uri': requestState.redirectUri.toString(),
+      if (clientAuthentication.method != _clientSecretBasic)
+        'client_id': clientAuthentication.clientId,
+      'code_verifier': requestState.pkce.verifier,
+      'resource': requestState.resource.toString(),
+      if (clientAuthentication.method == _clientSecretPost)
+        'client_secret': clientAuthentication._clientSecret!,
+    },
+    clientAuthentication: clientAuthentication,
+    httpClient: httpClient,
+    headers: headers,
+    timeout: timeout,
+    maxResponseBytes: maxResponseBytes,
+    endpointLabel: 'OAuth token endpoint',
+  );
+  return _parseTokenGrantResponse(
+    statusCode: response.statusCode,
+    mimeType: response.mimeType,
+    body: _decodeOAuthResponse(response, endpoint, 'OAuth token endpoint'),
+    endpoint: endpoint,
+    resource: requestState.resource,
+    clientId: clientAuthentication.clientId,
+    authorizationServer: authorizationServer,
+    effectiveScopes: requestState.scopes,
+  );
+}
+
+/// Refreshes a resource-bound MCP OAuth grant without mutating [grant].
+Future<McpOAuthTokenGrant> refreshMcpOAuthToken(
+  McpOAuthTokenGrant grant, {
+  required McpOAuthClientAuthentication clientAuthentication,
+  Iterable<String>? scopes,
+  HttpClient? httpClient,
+  Map<String, String> headers = const <String, String>{},
+  Duration timeout = _defaultTokenTimeout,
+  int maxResponseBytes = _defaultTokenResponseBytes,
+}) async {
+  final authorizationServer = grant.authorizationServer;
+  final endpoint = authorizationServer.tokenEndpoint;
+  final refreshToken = grant.refreshToken;
+  if (!_credentialValid(refreshToken)) {
+    throw McpOAuthTokenException(
+      'OAuth grant does not contain a usable refresh token.',
+      endpoint: endpoint,
+    );
+  }
+  final supportedGrants = authorizationServer.grantTypesSupported;
+  if (supportedGrants != null &&
+      !supportedGrants.contains(_refreshTokenGrant)) {
+    throw McpOAuthTokenException(
+      'Authorization server does not advertise refresh_token grants.',
+      endpoint: endpoint,
+    );
+  }
+  final requestedScopes = _validatedRefreshScopes(
+    scopes,
+    grant: grant,
+    endpoint: endpoint,
+  );
+  _validateOAuthEndpointInputs(
+    expectedClientId: grant.clientId,
+    clientAuthentication: clientAuthentication,
+    supportedMethods:
+        authorizationServer.tokenEndpointAuthMethodsSupported ??
+        const <String>[_clientSecretBasic],
+    endpoint: endpoint,
+    endpointLabel: 'OAuth token endpoint',
+    headers: headers,
+    timeout: timeout,
+    maxResponseBytes: maxResponseBytes,
+  );
+
+  final response = await _postOAuthForm(
+    endpoint: endpoint,
+    form: <String, String>{
+      'grant_type': _refreshTokenGrant,
+      'refresh_token': refreshToken!,
+      if (clientAuthentication.method != _clientSecretBasic)
+        'client_id': clientAuthentication.clientId,
+      'resource': grant.resource.toString(),
+      if (scopes != null) 'scope': requestedScopes.join(' '),
+      if (clientAuthentication.method == _clientSecretPost)
+        'client_secret': clientAuthentication._clientSecret!,
+    },
+    clientAuthentication: clientAuthentication,
+    httpClient: httpClient,
+    headers: headers,
+    timeout: timeout,
+    maxResponseBytes: maxResponseBytes,
+    endpointLabel: 'OAuth token endpoint',
+  );
+  return _parseTokenGrantResponse(
+    statusCode: response.statusCode,
+    mimeType: response.mimeType,
+    body: _decodeOAuthResponse(response, endpoint, 'OAuth token endpoint'),
+    endpoint: endpoint,
+    resource: grant.resource,
+    clientId: grant.clientId,
+    authorizationServer: authorizationServer,
+    effectiveScopes: requestedScopes,
+    retainedRefreshToken: refreshToken,
+    allowedResponseScopes: requestedScopes.toSet(),
+  );
+}
+
+/// Revokes one credential from [grant] through its discovered RFC 7009 endpoint.
+Future<void> revokeMcpOAuthToken(
+  McpOAuthTokenGrant grant, {
+  required McpOAuthClientAuthentication clientAuthentication,
+  McpOAuthTokenKind tokenKind = McpOAuthTokenKind.refreshToken,
+  HttpClient? httpClient,
+  Map<String, String> headers = const <String, String>{},
+  Duration timeout = _defaultTokenTimeout,
+  int maxResponseBytes = _defaultTokenResponseBytes,
+}) async {
+  final authorizationServer = grant.authorizationServer;
+  final endpoint = authorizationServer.revocationEndpoint;
+  if (endpoint == null) {
+    throw McpOAuthTokenException(
+      'Authorization server does not advertise a revocation endpoint.',
+      endpoint: authorizationServer.issuer,
+    );
+  }
+  final token = switch (tokenKind) {
+    McpOAuthTokenKind.accessToken => grant.accessToken,
+    McpOAuthTokenKind.refreshToken => grant.refreshToken,
   };
+  if (!_credentialValid(token)) {
+    throw McpOAuthTokenException(
+      'OAuth grant does not contain the selected revocation credential.',
+      endpoint: endpoint,
+    );
+  }
+  _validateOAuthEndpointInputs(
+    expectedClientId: grant.clientId,
+    clientAuthentication: clientAuthentication,
+    supportedMethods:
+        authorizationServer.revocationEndpointAuthMethodsSupported ??
+        const <String>[_clientSecretBasic],
+    endpoint: endpoint,
+    endpointLabel: 'OAuth revocation endpoint',
+    headers: headers,
+    timeout: timeout,
+    maxResponseBytes: maxResponseBytes,
+  );
+
+  final response = await _postOAuthForm(
+    endpoint: endpoint,
+    form: <String, String>{
+      'token': token!,
+      'token_type_hint': tokenKind.hint,
+      if (clientAuthentication.method != _clientSecretBasic)
+        'client_id': clientAuthentication.clientId,
+      if (clientAuthentication.method == _clientSecretPost)
+        'client_secret': clientAuthentication._clientSecret!,
+    },
+    clientAuthentication: clientAuthentication,
+    httpClient: httpClient,
+    headers: headers,
+    timeout: timeout,
+    maxResponseBytes: maxResponseBytes,
+    endpointLabel: 'OAuth revocation endpoint',
+  );
+  if (response.statusCode == HttpStatus.ok) {
+    return;
+  }
+  if (response.mimeType != 'application/json') {
+    throw McpOAuthTokenException(
+      'OAuth revocation endpoint returned a non-JSON error response.',
+      endpoint: endpoint,
+      statusCode: response.statusCode,
+    );
+  }
+  final json = _jsonObject(
+    _decodeOAuthResponse(response, endpoint, 'OAuth revocation endpoint'),
+    response.statusCode,
+    endpoint,
+  );
+  _throwTokenError(
+    json,
+    response.statusCode,
+    endpoint,
+    rejectionMessage: 'OAuth revocation endpoint rejected the request.',
+  );
+}
+
+void _validateExchangeInputs(
+  McpAuthorizationCode authorizationCode,
+  McpOAuthClientAuthentication clientAuthentication,
+  Map<String, String> headers,
+  Duration timeout,
+  int maxResponseBytes,
+) {
+  final request = authorizationCode.request;
+  _validateOAuthEndpointInputs(
+    expectedClientId: request.clientId,
+    clientAuthentication: clientAuthentication,
+    supportedMethods:
+        request.authorizationServer.tokenEndpointAuthMethodsSupported ??
+        const <String>[_clientSecretBasic],
+    endpoint: request.authorizationServer.tokenEndpoint,
+    endpointLabel: 'OAuth token endpoint',
+    headers: headers,
+    timeout: timeout,
+    maxResponseBytes: maxResponseBytes,
+  );
+}
+
+void _validateOAuthEndpointInputs({
+  required String expectedClientId,
+  required McpOAuthClientAuthentication clientAuthentication,
+  required List<String> supportedMethods,
+  required Uri endpoint,
+  required String endpointLabel,
+  required Map<String, String> headers,
+  required Duration timeout,
+  required int maxResponseBytes,
+}) {
+  if (clientAuthentication.clientId != expectedClientId) {
+    throw McpOAuthTokenException(
+      'OAuth client ID must match the issued grant.',
+      endpoint: endpoint,
+    );
+  }
+  if (!_printableNonEmpty(clientAuthentication.clientId)) {
+    throw McpOAuthTokenException(
+      'OAuth client ID must be non-empty printable text.',
+      endpoint: endpoint,
+    );
+  }
+  if (!supportedMethods.contains(clientAuthentication.method)) {
+    throw McpOAuthTokenException(
+      'Authorization server does not support $endpointLabel client '
+      'authentication method "${clientAuthentication.method}".',
+      endpoint: endpoint,
+    );
+  }
+  if (clientAuthentication.method != _noClientAuthentication &&
+      !_credentialValid(clientAuthentication._clientSecret)) {
+    throw McpOAuthTokenException(
+      'OAuth client secret must be non-empty and contain no controls.',
+      endpoint: endpoint,
+    );
+  }
+  if (timeout <= Duration.zero) {
+    throw McpOAuthTokenException(
+      '$endpointLabel timeout must be positive.',
+      endpoint: endpoint,
+    );
+  }
+  if (maxResponseBytes <= 0) {
+    throw McpOAuthTokenException(
+      '$endpointLabel response byte limit must be positive.',
+      endpoint: endpoint,
+    );
+  }
+  for (final entry in headers.entries) {
+    final name = entry.key.trim().toLowerCase();
+    if (name.isEmpty ||
+        _controlledTokenRequestHeaders.contains(name) ||
+        name.startsWith('mcp-')) {
+      throw McpOAuthTokenException(
+        'Header "${entry.key}" is controlled by the $endpointLabel request.',
+        endpoint: endpoint,
+      );
+    }
+    if (entry.value.codeUnits.any((value) => value < 0x20 || value == 0x7f)) {
+      throw McpOAuthTokenException(
+        'Header "${entry.key}" contains control characters.',
+        endpoint: endpoint,
+      );
+    }
+  }
+}
+
+List<String> _validatedRefreshScopes(
+  Iterable<String>? scopes, {
+  required McpOAuthTokenGrant grant,
+  required Uri endpoint,
+}) {
+  if (scopes == null) {
+    return grant.scopes;
+  }
+  final requested = scopes.toList(growable: false);
+  if (requested.isEmpty) {
+    throw McpOAuthTokenException(
+      'OAuth refresh scopes must not be empty when provided.',
+      endpoint: endpoint,
+    );
+  }
+  final allowed = grant.scopes.toSet();
+  for (final scope in requested) {
+    if (!_oauthScopeTokenValid(scope)) {
+      throw McpOAuthTokenException(
+        'OAuth refresh scope contains an invalid token.',
+        endpoint: endpoint,
+      );
+    }
+    if (!allowed.contains(scope)) {
+      throw McpOAuthTokenException(
+        'OAuth refresh scopes must not exceed the original grant.',
+        endpoint: endpoint,
+      );
+    }
+  }
+  return List<String>.unmodifiable(requested.toSet());
+}
+
+final class _OAuthEndpointResponse {
+  const _OAuthEndpointResponse({
+    required this.statusCode,
+    required this.mimeType,
+    required this.body,
+  });
+
+  final int statusCode;
+  final String? mimeType;
+  final Uint8List body;
+}
+
+Future<_OAuthEndpointResponse> _postOAuthForm({
+  required Uri endpoint,
+  required Map<String, String> form,
+  required McpOAuthClientAuthentication clientAuthentication,
+  required HttpClient? httpClient,
+  required Map<String, String> headers,
+  required Duration timeout,
+  required int maxResponseBytes,
+  required String endpointLabel,
+}) async {
   final encodedForm = utf8.encode(Uri(queryParameters: form).query);
   final client = httpClient ?? HttpClient();
   final ownsClient = httpClient == null;
@@ -188,8 +523,8 @@ Future<McpOAuthTokenGrant> exchangeMcpAuthorizationCode(
 
   try {
     request = await client
-        .postUrl(tokenEndpoint)
-        .timeout(_remaining(deadline, tokenEndpoint));
+        .postUrl(endpoint)
+        .timeout(_remaining(deadline, endpoint, endpointLabel));
     request.followRedirects = false;
     request.headers.contentType = ContentType(
       'application',
@@ -214,32 +549,32 @@ Future<McpOAuthTokenGrant> exchangeMcpAuthorizationCode(
     request.add(encodedForm);
 
     final response = await request.close().timeout(
-      _remaining(deadline, tokenEndpoint),
+      _remaining(deadline, endpoint, endpointLabel),
     );
-    final body = await _readTokenResponse(
+    final body = await _readOAuthResponseBytes(
       response,
       maxResponseBytes: maxResponseBytes,
-      endpoint: tokenEndpoint,
-    ).timeout(_remaining(deadline, tokenEndpoint));
-    return _parseTokenResponse(
-      response,
-      body,
-      authorizationCode: authorizationCode,
-      clientAuthentication: clientAuthentication,
+      endpoint: endpoint,
+      endpointLabel: endpointLabel,
+    ).timeout(_remaining(deadline, endpoint, endpointLabel));
+    return _OAuthEndpointResponse(
+      statusCode: response.statusCode,
+      mimeType: response.headers.contentType?.mimeType,
+      body: body,
     );
   } on McpOAuthTokenException {
     rethrow;
   } on TimeoutException {
     request?.abort();
     throw McpOAuthTokenException(
-      'OAuth token endpoint request timed out.',
-      endpoint: tokenEndpoint,
+      '$endpointLabel request timed out.',
+      endpoint: endpoint,
     );
   } on Object {
     request?.abort();
     throw McpOAuthTokenException(
-      'OAuth token endpoint request failed.',
-      endpoint: tokenEndpoint,
+      '$endpointLabel request failed.',
+      endpoint: endpoint,
     );
   } finally {
     if (ownsClient) {
@@ -248,90 +583,11 @@ Future<McpOAuthTokenGrant> exchangeMcpAuthorizationCode(
   }
 }
 
-void _validateExchangeInputs(
-  McpAuthorizationCode authorizationCode,
-  McpOAuthClientAuthentication clientAuthentication,
-  Map<String, String> headers,
-  Duration timeout,
-  int maxResponseBytes,
-) {
-  final request = authorizationCode.request;
-  final tokenEndpoint = request.authorizationServer.tokenEndpoint;
-  if (clientAuthentication.clientId != request.clientId) {
-    throw McpOAuthTokenException(
-      'Token client ID must match the authorization request.',
-      endpoint: tokenEndpoint,
-    );
-  }
-  if (!_printableNonEmpty(clientAuthentication.clientId)) {
-    throw McpOAuthTokenException(
-      'OAuth client ID must be non-empty printable text.',
-      endpoint: tokenEndpoint,
-    );
-  }
-  final supportedMethods =
-      request.authorizationServer.tokenEndpointAuthMethodsSupported ??
-      const <String>[_clientSecretBasic];
-  if (!supportedMethods.contains(clientAuthentication.method)) {
-    throw McpOAuthTokenException(
-      'Authorization server does not support token endpoint client '
-      'authentication method "${clientAuthentication.method}".',
-      endpoint: tokenEndpoint,
-    );
-  }
-  if (clientAuthentication.method != _noClientAuthentication &&
-      !_credentialValid(clientAuthentication._clientSecret)) {
-    throw McpOAuthTokenException(
-      'OAuth client secret must be non-empty and contain no controls.',
-      endpoint: tokenEndpoint,
-    );
-  }
-  if (timeout <= Duration.zero) {
-    throw McpOAuthTokenException(
-      'Token endpoint timeout must be positive.',
-      endpoint: tokenEndpoint,
-    );
-  }
-  if (maxResponseBytes <= 0) {
-    throw McpOAuthTokenException(
-      'Token response byte limit must be positive.',
-      endpoint: tokenEndpoint,
-    );
-  }
-  for (final entry in headers.entries) {
-    final name = entry.key.trim().toLowerCase();
-    if (name.isEmpty ||
-        _controlledTokenRequestHeaders.contains(name) ||
-        name.startsWith('mcp-')) {
-      throw McpOAuthTokenException(
-        'Header "${entry.key}" is controlled by the OAuth token exchange.',
-        endpoint: tokenEndpoint,
-      );
-    }
-    if (entry.value.codeUnits.any((value) => value < 0x20 || value == 0x7f)) {
-      throw McpOAuthTokenException(
-        'Header "${entry.key}" contains control characters.',
-        endpoint: tokenEndpoint,
-      );
-    }
-  }
-}
-
-Duration _remaining(DateTime deadline, Uri endpoint) {
-  final remaining = deadline.difference(DateTime.now());
-  if (remaining <= Duration.zero) {
-    throw McpOAuthTokenException(
-      'OAuth token endpoint request timed out.',
-      endpoint: endpoint,
-    );
-  }
-  return remaining;
-}
-
-Future<String> _readTokenResponse(
+Future<Uint8List> _readOAuthResponseBytes(
   HttpClientResponse response, {
   required int maxResponseBytes,
   required Uri endpoint,
+  required String endpointLabel,
 }) async {
   final bytes = BytesBuilder(copy: false);
   var length = 0;
@@ -339,41 +595,69 @@ Future<String> _readTokenResponse(
     length += chunk.length;
     if (length > maxResponseBytes) {
       throw McpOAuthTokenException(
-        'OAuth token endpoint response exceeds $maxResponseBytes bytes.',
+        '$endpointLabel response exceeds $maxResponseBytes bytes.',
         endpoint: endpoint,
         statusCode: response.statusCode,
       );
     }
     bytes.add(chunk);
   }
+  return bytes.takeBytes();
+}
+
+String _decodeOAuthResponse(
+  _OAuthEndpointResponse response,
+  Uri endpoint,
+  String endpointLabel,
+) {
   try {
-    return utf8.decode(bytes.takeBytes());
+    return utf8.decode(response.body);
   } on FormatException {
     throw McpOAuthTokenException(
-      'OAuth token endpoint response is not valid UTF-8.',
+      '$endpointLabel response is not valid UTF-8.',
       endpoint: endpoint,
       statusCode: response.statusCode,
     );
   }
 }
 
-McpOAuthTokenGrant _parseTokenResponse(
-  HttpClientResponse response,
-  String body, {
-  required McpAuthorizationCode authorizationCode,
-  required McpOAuthClientAuthentication clientAuthentication,
+Duration _remaining(
+  DateTime deadline,
+  Uri endpoint, [
+  String endpointLabel = 'OAuth token endpoint',
+]) {
+  final remaining = deadline.difference(DateTime.now());
+  if (remaining <= Duration.zero) {
+    throw McpOAuthTokenException(
+      '$endpointLabel request timed out.',
+      endpoint: endpoint,
+    );
+  }
+  return remaining;
+}
+
+McpOAuthTokenGrant _parseTokenGrantResponse({
+  required int statusCode,
+  required String? mimeType,
+  required String body,
+  required Uri endpoint,
+  required Uri resource,
+  required String clientId,
+  required McpAuthorizationServerMetadata authorizationServer,
+  required List<String> effectiveScopes,
+  String? retainedRefreshToken,
+  Set<String>? allowedResponseScopes,
 }) {
-  final endpoint = authorizationCode.request.authorizationServer.tokenEndpoint;
-  if (response.headers.contentType?.mimeType != 'application/json') {
+  if (mimeType != 'application/json') {
     throw McpOAuthTokenException(
       'OAuth token endpoint must return application/json.',
       endpoint: endpoint,
-      statusCode: response.statusCode,
+      statusCode: statusCode,
     );
   }
-  final json = _jsonObject(body, response.statusCode, endpoint);
-  if (response.statusCode != HttpStatus.ok) {
-    _throwTokenError(json, response.statusCode, endpoint);
+  final json = _jsonObject(body, statusCode, endpoint);
+  if (statusCode != HttpStatus.ok) {
+    _throwTokenError(json, statusCode, endpoint);
   }
 
   final accessToken = json['access_token'];
@@ -383,7 +667,7 @@ McpOAuthTokenGrant _parseTokenResponse(
     throw McpOAuthTokenException(
       'OAuth token response access_token must be a non-empty bearer token.',
       endpoint: endpoint,
-      statusCode: response.statusCode,
+      statusCode: statusCode,
     );
   }
   final tokenType = json['token_type'];
@@ -391,39 +675,39 @@ McpOAuthTokenGrant _parseTokenResponse(
     throw McpOAuthTokenException(
       'OAuth token response token_type must be Bearer.',
       endpoint: endpoint,
-      statusCode: response.statusCode,
+      statusCode: statusCode,
     );
   }
   final refreshToken = _optionalCredential(
     json['refresh_token'],
     'refresh_token',
-    response.statusCode,
+    statusCode,
     endpoint,
   );
-  final expiresIn = _expiresIn(
-    json['expires_in'],
-    response.statusCode,
-    endpoint,
-  );
-  final responseScopes = _responseScopes(
-    json['scope'],
-    response.statusCode,
-    endpoint,
-  );
+  final expiresIn = _expiresIn(json['expires_in'], statusCode, endpoint);
+  final responseScopes = _responseScopes(json['scope'], statusCode, endpoint);
+  if (allowedResponseScopes != null &&
+      responseScopes != null &&
+      responseScopes.any((scope) => !allowedResponseScopes.contains(scope))) {
+    throw McpOAuthTokenException(
+      'OAuth refresh response scopes exceed the requested refresh scopes.',
+      endpoint: endpoint,
+      statusCode: statusCode,
+    );
+  }
   final additionalParameters = <String, Object?>{
     for (final entry in json.entries)
       if (!_standardTokenResponseParameters.contains(entry.key))
         entry.key: entry.value,
   };
-  final request = authorizationCode.request;
   return McpOAuthTokenGrant._(
     accessToken: accessToken,
-    refreshToken: refreshToken,
+    refreshToken: refreshToken ?? retainedRefreshToken,
     expiresIn: expiresIn,
-    scopes: responseScopes ?? request.scopes,
-    resource: request.resource,
-    clientId: clientAuthentication.clientId,
-    authorizationServer: request.authorizationServer,
+    scopes: responseScopes ?? effectiveScopes,
+    resource: resource,
+    clientId: clientId,
+    authorizationServer: authorizationServer,
     additionalParameters: additionalParameters,
   );
 }
@@ -463,14 +747,16 @@ Map<String, Object?> _jsonObject(String body, int statusCode, Uri endpoint) {
 Never _throwTokenError(
   Map<String, Object?> json,
   int statusCode,
-  Uri endpoint,
-) {
+  Uri endpoint, {
+  String rejectionMessage =
+      'OAuth token endpoint rejected the authorization grant.',
+}) {
   final error = json['error'];
   final description = json['error_description'];
   final errorUriValue = json['error_uri'];
   if (error is! String || !_oauthNqsCharValid(error)) {
     throw McpOAuthTokenException(
-      'OAuth token endpoint returned an invalid error response.',
+      'OAuth endpoint returned an invalid error response.',
       endpoint: endpoint,
       statusCode: statusCode,
     );
@@ -478,7 +764,7 @@ Never _throwTokenError(
   if (description != null &&
       (description is! String || !_oauthNqsCharValid(description))) {
     throw McpOAuthTokenException(
-      'OAuth token endpoint returned an invalid error_description.',
+      'OAuth endpoint returned an invalid error_description.',
       endpoint: endpoint,
       statusCode: statusCode,
       oauthError: error,
@@ -486,7 +772,7 @@ Never _throwTokenError(
   }
   final errorUri = _safeErrorUri(errorUriValue, statusCode, endpoint);
   throw McpOAuthTokenException(
-    'OAuth token endpoint rejected the authorization grant.',
+    rejectionMessage,
     endpoint: endpoint,
     statusCode: statusCode,
     oauthError: error,

@@ -2049,6 +2049,8 @@ const _refreshedAccessToken = 'agent-token-refreshed';
 const _refreshedRefreshToken = 'agent-refresh-token-refreshed';
 const _oauthAccessToken = 'agent-oauth-token';
 const _oauthRefreshToken = 'agent-oauth-refresh-token';
+const _oauthRefreshedAccessToken = 'agent-oauth-token-refreshed';
+const _oauthRefreshedRefreshToken = 'agent-oauth-refresh-token-refreshed';
 const _toolName = 'agent.echo';
 const _pagedToolName = 'agent.followup';
 const _toolCursor = 'agent-tools-page-2';
@@ -2323,6 +2325,10 @@ Future<void> _smokeProtectedResourceDiscovery(
             ) &&
         authorizationServer.metadata.tokenEndpoint ==
             endpoint.authorizationServerIssuer.replace(path: '/oauth/token') &&
+        authorizationServer.metadata.revocationEndpoint ==
+            endpoint.authorizationServerIssuer.replace(
+              path: '/oauth/revoke',
+            ) &&
         authorizationServer.metadata.codeChallengeMethodsSupported.contains(
           'S256',
         ),
@@ -2418,9 +2424,90 @@ Future<void> _smokeProtectedResourceDiscovery(
     oauthClient.close();
   }
 
+  final refreshedGrant = await client.refreshOAuthToken(
+    oauthGrant,
+    clientAuthentication: McpOAuthClientAuthentication.none(
+      'consumer-client',
+    ),
+    headers: const <String, String>{
+      'x-consumer-trace': 'authorization-refresh',
+    },
+  );
+  _expect(
+    refreshedGrant.accessToken == _oauthRefreshedAccessToken &&
+        refreshedGrant.refreshToken == _oauthRefreshedRefreshToken &&
+        refreshedGrant.resource == endpoint.uri &&
+        refreshedGrant.scopes.join(' ') == 'mcp:tools mcp:meta' &&
+        oauthGrant.accessToken == _oauthAccessToken &&
+        oauthGrant.refreshToken == _oauthRefreshToken,
+    'OAuth refresh did not rotate credentials immutably',
+  );
+  _expect(
+    endpoint.authorizationTokenRequestCount == 2 &&
+        endpoint.authorizationRefreshTraceHeader ==
+            'authorization-refresh' &&
+        endpoint.authorizationRefreshForm['grant_type'] == 'refresh_token' &&
+        endpoint.authorizationRefreshForm['refresh_token'] ==
+            _oauthRefreshToken &&
+        endpoint.authorizationRefreshForm['client_id'] ==
+            'consumer-client' &&
+        endpoint.authorizationRefreshForm['resource'] ==
+            endpoint.uri.toString(),
+    'OAuth refresh omitted required client or MCP resource parameters',
+  );
+
+  final refreshedClient = McpStreamableHttpClient.withOAuthToken(
+    endpoint.uri,
+    refreshedGrant,
+  );
+  try {
+    final tools = await refreshedClient.listToolsDirect();
+    _expect(
+      tools.tools.any((tool) => tool['name'] == _toolName),
+      'refreshed OAuth bearer could not use the router-hosted MCP endpoint',
+    );
+    await client.revokeOAuthToken(
+      refreshedGrant,
+      clientAuthentication: McpOAuthClientAuthentication.none(
+        'consumer-client',
+      ),
+      headers: const <String, String>{
+        'x-consumer-trace': 'authorization-revoke',
+      },
+    );
+    _expect(
+      endpoint.authorizationRevocationRequestCount == 1 &&
+          endpoint.authorizationRevocationTraceHeader ==
+              'authorization-revoke' &&
+          endpoint.authorizationRevocationForm['token'] ==
+              _oauthRefreshedRefreshToken &&
+          endpoint.authorizationRevocationForm['token_type_hint'] ==
+              'refresh_token' &&
+          endpoint.authorizationRevocationForm['client_id'] ==
+              'consumer-client',
+      'OAuth revocation omitted the rotated refresh credential',
+    );
+    try {
+      await refreshedClient.listToolsDirect();
+      throw StateError('revoked OAuth bearer remained usable');
+    } on McpStreamableHttpException catch (error) {
+      _expect(
+        error.statusCode == HttpStatus.unauthorized,
+        'revoked OAuth bearer returned an unexpected HTTP status',
+      );
+    }
+  } finally {
+    refreshedClient.close();
+  }
+
   _expect(
     !endpoint.authorizationDiscoverySawCredentials,
     'authorization discovery forwarded credentials or MCP session state',
+  );
+  _expect(
+    !endpoint.authorizationTokenSawSessionCredentials &&
+        !endpoint.authorizationRevocationSawSessionCredentials,
+    'OAuth lifecycle requests forwarded MCP session credentials',
   );
   _expect(
     endpoint.authorizationDiscoveryTraceHeaders.length == 3 &&
@@ -2431,7 +2518,7 @@ Future<void> _smokeProtectedResourceDiscovery(
   );
   _expect(
     client.sessionId == sessionId,
-    'authorization discovery mutated the active MCP session',
+    'OAuth authorization lifecycle mutated the active MCP session',
   );
 }
 
@@ -6173,10 +6260,16 @@ final class _AgentMcpEndpoint {
   var protectedResourceMetadataRequestCount = 0;
   var authorizationServerMetadataRequestCount = 0;
   var authorizationTokenRequestCount = 0;
+  var authorizationRevocationRequestCount = 0;
   var authorizationDiscoverySawCredentials = false;
   var authorizationTokenSawSessionCredentials = false;
+  var authorizationRevocationSawSessionCredentials = false;
   var authorizationTokenTraceHeader = '';
+  var authorizationRefreshTraceHeader = '';
+  var authorizationRevocationTraceHeader = '';
   Map<String, String> authorizationTokenForm = const <String, String>{};
+  Map<String, String> authorizationRefreshForm = const <String, String>{};
+  Map<String, String> authorizationRevocationForm = const <String, String>{};
   var _sessionActive = false;
 
   Uri get uri => Uri(
@@ -6254,6 +6347,11 @@ final class _AgentMcpEndpoint {
       return;
     }
 
+    if (request.uri.path == '/oauth/revoke') {
+      await _handleAuthorizationRevocation(request);
+      return;
+    }
+
     if (request.uri.path != '/mcp') {
       await _writeError(request, HttpStatus.notFound, 'unknown endpoint');
       return;
@@ -6264,7 +6362,8 @@ final class _AgentMcpEndpoint {
         _revokedAccessTokens.contains(bearerToken) ||
         (bearerToken != _accessToken &&
             bearerToken != _refreshedAccessToken &&
-            bearerToken != _oauthAccessToken)) {
+            bearerToken != _oauthAccessToken &&
+            bearerToken != _oauthRefreshedAccessToken)) {
       if (request.headers.value('x-consumer-trace') ==
           'authorization-discovery') {
         authorizationDiscoveryProbeCount += 1;
@@ -6586,6 +6685,9 @@ final class _AgentMcpEndpoint {
       'token_endpoint': authorizationServerIssuer
           .replace(path: '/oauth/token')
           .toString(),
+      'revocation_endpoint': authorizationServerIssuer
+          .replace(path: '/oauth/revoke')
+          .toString(),
       'registration_endpoint': authorizationServerIssuer
           .replace(path: '/oauth/register')
           .toString(),
@@ -6601,6 +6703,7 @@ final class _AgentMcpEndpoint {
       ],
       'code_challenge_methods_supported': <String>['S256'],
       'token_endpoint_auth_methods_supported': <String>['none'],
+      'revocation_endpoint_auth_methods_supported': <String>['none'],
       'client_id_metadata_document_supported': true,
     });
   }
@@ -6615,8 +6718,6 @@ final class _AgentMcpEndpoint {
       return;
     }
     authorizationTokenRequestCount += 1;
-    authorizationTokenTraceHeader =
-        request.headers.value('x-consumer-trace') ?? '';
     if (request.headers.value(HttpHeaders.authorizationHeader) != null ||
         request.headers.value(HttpHeaders.cookieHeader) != null ||
         request.headers.value('MCP-Session-Id') != null ||
@@ -6627,15 +6728,31 @@ final class _AgentMcpEndpoint {
     authorizationTokenForm = Uri.splitQueryString(
       await utf8.decoder.bind(request).join(),
     );
+    final grantType = authorizationTokenForm['grant_type'];
+    final trace = request.headers.value('x-consumer-trace') ?? '';
+    final authorizationCodeGrant = grantType == 'authorization_code';
+    final refreshTokenGrant = grantType == 'refresh_token';
+    if (authorizationCodeGrant) {
+      authorizationTokenTraceHeader = trace;
+    }
+    if (refreshTokenGrant) {
+      authorizationRefreshTraceHeader = trace;
+      authorizationRefreshForm = authorizationTokenForm;
+    }
     final valid =
-        authorizationTokenForm['grant_type'] == 'authorization_code' &&
-        authorizationTokenForm['code'] == 'consumer-authorization-code' &&
-        authorizationTokenForm['redirect_uri'] ==
-            'http://127.0.0.1:34891/oauth/callback' &&
         authorizationTokenForm['client_id'] == 'consumer-client' &&
         authorizationTokenForm['resource'] == uri.toString() &&
-        authorizationTokenForm['code_verifier'] ==
-            'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+        ((authorizationCodeGrant &&
+                authorizationTokenForm['code'] ==
+                    'consumer-authorization-code' &&
+                authorizationTokenForm['redirect_uri'] ==
+                    'http://127.0.0.1:34891/oauth/callback' &&
+                authorizationTokenForm['code_verifier'] ==
+                    'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk') ||
+            (refreshTokenGrant &&
+                authorizationTokenForm['refresh_token'] ==
+                    _oauthRefreshToken &&
+                !_revokedRefreshTokens.contains(_oauthRefreshToken)));
     if (!valid) {
       request.response.statusCode = HttpStatus.badRequest;
       await _writeJson(
@@ -6647,6 +6764,19 @@ final class _AgentMcpEndpoint {
       );
       return;
     }
+    if (refreshTokenGrant) {
+      _revokedAccessTokens.add(_oauthAccessToken);
+      _revokedRefreshTokens.add(_oauthRefreshToken);
+      _rotatedRefreshTokens.add(_oauthRefreshToken);
+      await _writeJson(request, <String, Object?>{
+        'access_token': _oauthRefreshedAccessToken,
+        'token_type': 'Bearer',
+        'expires_in': 900,
+        'refresh_token': _oauthRefreshedRefreshToken,
+        'scope': 'mcp:tools mcp:meta',
+      });
+      return;
+    }
     await _writeJson(request, <String, Object?>{
       'access_token': _oauthAccessToken,
       'token_type': 'Bearer',
@@ -6654,6 +6784,39 @@ final class _AgentMcpEndpoint {
       'refresh_token': _oauthRefreshToken,
       'scope': 'mcp:tools mcp:meta',
     });
+  }
+
+  Future<void> _handleAuthorizationRevocation(HttpRequest request) async {
+    if (request.method != 'POST') {
+      await _writeError(
+        request,
+        HttpStatus.methodNotAllowed,
+        'token revocation requires POST',
+      );
+      return;
+    }
+    authorizationRevocationRequestCount += 1;
+    authorizationRevocationTraceHeader =
+        request.headers.value('x-consumer-trace') ?? '';
+    if (request.headers.value(HttpHeaders.authorizationHeader) != null ||
+        request.headers.value(HttpHeaders.cookieHeader) != null ||
+        request.headers.value('MCP-Session-Id') != null ||
+        request.headers.value('MCP-Protocol-Version') != null ||
+        request.headers.value('Last-Event-ID') != null) {
+      authorizationRevocationSawSessionCredentials = true;
+    }
+    authorizationRevocationForm = Uri.splitQueryString(
+      await utf8.decoder.bind(request).join(),
+    );
+    if (authorizationRevocationForm['client_id'] == 'consumer-client' &&
+        authorizationRevocationForm['token'] ==
+            _oauthRefreshedRefreshToken &&
+        authorizationRevocationForm['token_type_hint'] == 'refresh_token') {
+      _revokedRefreshTokens.add(_oauthRefreshedRefreshToken);
+      _revokedAccessTokens.add(_oauthRefreshedAccessToken);
+    }
+    request.response.statusCode = HttpStatus.ok;
+    await request.response.close();
   }
 
   void _recordAuthorizationDiscoveryRequest(HttpRequest request) {

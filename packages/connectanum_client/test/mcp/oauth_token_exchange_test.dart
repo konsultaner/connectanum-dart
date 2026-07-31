@@ -13,13 +13,19 @@ void main() {
     late Uri issuer;
     late Uri resource;
     late List<String>? authMethods;
+    late List<String>? revocationAuthMethods;
     late FutureOr<void> Function(HttpRequest request, String body) tokenHandler;
+    late FutureOr<void> Function(HttpRequest request, String body)
+    revocationHandler;
     late McpAuthorizationServerMetadata authorizationServer;
     var tokenRequestCount = 0;
+    var revocationRequestCount = 0;
 
     setUp(() async {
       tokenRequestCount = 0;
+      revocationRequestCount = 0;
       authMethods = <String>['none'];
+      revocationAuthMethods = <String>['none'];
       tokenHandler = (request, body) async {
         request.response.headers.contentType = ContentType.json;
         request.response.write(
@@ -34,6 +40,11 @@ void main() {
         );
         await request.response.close();
       };
+      revocationHandler = (request, body) async {
+        request.response.statusCode = HttpStatus.ok;
+        request.response.write(<int>[0xff]);
+        await request.response.close();
+      };
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       issuer = Uri.parse(
         'http://${server.address.address}:${server.port}/issuer',
@@ -46,6 +57,12 @@ void main() {
           await tokenHandler(request, body);
           return;
         }
+        if (request.uri.path == '/revoke') {
+          revocationRequestCount += 1;
+          final body = await utf8.decoder.bind(request).join();
+          await revocationHandler(request, body);
+          return;
+        }
         await request.drain<void>();
         request.response.headers.contentType = ContentType.json;
         request.response.write(
@@ -55,10 +72,16 @@ void main() {
                 .replace(path: '/authorize')
                 .toString(),
             'token_endpoint': issuer.replace(path: '/token').toString(),
+            'revocation_endpoint': issuer.replace(path: '/revoke').toString(),
             'response_types_supported': <String>['code'],
-            'grant_types_supported': <String>['authorization_code'],
+            'grant_types_supported': <String>[
+              'authorization_code',
+              'refresh_token',
+            ],
             'code_challenge_methods_supported': <String>['S256'],
             'token_endpoint_auth_methods_supported': ?authMethods,
+            'revocation_endpoint_auth_methods_supported':
+                ?revocationAuthMethods,
           }),
         );
         await request.response.close();
@@ -469,6 +492,242 @@ void main() {
             grant,
           ),
           throwsA(isA<McpOAuthTokenException>()),
+        );
+      },
+    );
+
+    test(
+      'refreshes and revokes without mutating Streamable session state',
+      () async {
+        final grant = await exchangeMcpAuthorizationCode(
+          _authorizationCode(authorizationServer, resource),
+          clientAuthentication: McpOAuthClientAuthentication.none(
+            'consumer-client',
+          ),
+        );
+        late HttpRequest refreshRequest;
+        late Map<String, String> refreshForm;
+        tokenHandler = (request, body) async {
+          refreshRequest = request;
+          refreshForm = Uri.splitQueryString(body);
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode(<String, Object?>{
+              'access_token': 'refreshed-access-token',
+              'token_type': 'Bearer',
+              'expires_in': 300,
+              'scope': 'tools:read',
+            }),
+          );
+          await request.response.close();
+        };
+        late HttpRequest revocationRequest;
+        late Map<String, String> revocationForm;
+        revocationHandler = (request, body) async {
+          revocationRequest = request;
+          revocationForm = Uri.splitQueryString(body);
+          request.response.statusCode = HttpStatus.ok;
+          request.response.write(<int>[0xff]);
+          await request.response.close();
+        };
+        final client = McpStreamableHttpClient(resource)
+          ..sessionId = 'active-session'
+          ..lastEventId = 'active-cursor';
+        addTearDown(client.close);
+
+        final refreshed = await client.refreshOAuthToken(
+          grant,
+          clientAuthentication: McpOAuthClientAuthentication.none(
+            'consumer-client',
+          ),
+          scopes: const <String>['tools:read'],
+          headers: const <String, String>{'x-consumer-trace': 'refresh'},
+        );
+        await client.revokeOAuthToken(
+          refreshed,
+          clientAuthentication: McpOAuthClientAuthentication.none(
+            'consumer-client',
+          ),
+          headers: const <String, String>{'x-consumer-trace': 'revoke'},
+        );
+
+        expect(refreshRequest.method, 'POST');
+        expect(
+          refreshRequest.headers.contentType?.mimeType,
+          'application/x-www-form-urlencoded',
+        );
+        expect(
+          refreshRequest.headers.value(HttpHeaders.authorizationHeader),
+          isNull,
+        );
+        expect(refreshRequest.headers.value('MCP-Session-Id'), isNull);
+        expect(refreshRequest.headers.value('Last-Event-ID'), isNull);
+        expect(refreshRequest.headers.value('x-consumer-trace'), 'refresh');
+        expect(refreshForm, <String, String>{
+          'grant_type': 'refresh_token',
+          'refresh_token': 'mcp-refresh-token',
+          'client_id': 'consumer-client',
+          'resource': resource.toString(),
+          'scope': 'tools:read',
+        });
+        expect(refreshed.accessToken, 'refreshed-access-token');
+        expect(refreshed.refreshToken, grant.refreshToken);
+        expect(refreshed.expiresIn, const Duration(seconds: 300));
+        expect(refreshed.scopes, <String>['tools:read']);
+        expect(refreshed.resource, grant.resource);
+        expect(grant.accessToken, 'mcp-access-token');
+        expect(grant.scopes, <String>['tools:read', 'prompts:read']);
+
+        expect(revocationRequest.method, 'POST');
+        expect(
+          revocationRequest.headers.value(HttpHeaders.authorizationHeader),
+          isNull,
+        );
+        expect(revocationRequest.headers.value('MCP-Session-Id'), isNull);
+        expect(revocationRequest.headers.value('Last-Event-ID'), isNull);
+        expect(revocationRequest.headers.value('x-consumer-trace'), 'revoke');
+        expect(revocationForm, <String, String>{
+          'token': 'mcp-refresh-token',
+          'token_type_hint': 'refresh_token',
+          'client_id': 'consumer-client',
+        });
+        expect(tokenRequestCount, 2);
+        expect(revocationRequestCount, 1);
+        expect(client.sessionId, 'active-session');
+        expect(client.lastEventId, 'active-cursor');
+      },
+    );
+
+    test(
+      'revokes an access token with the RFC 8414 default client auth method',
+      () async {
+        revocationAuthMethods = null;
+        authorizationServer = (await discoverMcpAuthorizationServerMetadata(
+          issuer,
+        )).metadata;
+        final grant = await exchangeMcpAuthorizationCode(
+          _authorizationCode(authorizationServer, resource),
+          clientAuthentication: McpOAuthClientAuthentication.none(
+            'consumer-client',
+          ),
+        );
+        late HttpRequest revocationRequest;
+        late Map<String, String> revocationForm;
+        revocationHandler = (request, body) async {
+          revocationRequest = request;
+          revocationForm = Uri.splitQueryString(body);
+          request.response.statusCode = HttpStatus.ok;
+          await request.response.close();
+        };
+
+        await revokeMcpOAuthToken(
+          grant,
+          tokenKind: McpOAuthTokenKind.accessToken,
+          clientAuthentication: McpOAuthClientAuthentication.clientSecretBasic(
+            clientId: 'consumer-client',
+            clientSecret: 'consumer-secret',
+          ),
+        );
+
+        expect(
+          revocationRequest.headers.value(HttpHeaders.authorizationHeader),
+          'Basic ${base64.encode(utf8.encode('consumer-client:consumer-secret'))}',
+        );
+        expect(revocationForm, <String, String>{
+          'token': 'mcp-access-token',
+          'token_type_hint': 'access_token',
+        });
+        expect(revocationRequestCount, 1);
+      },
+    );
+
+    test(
+      'rejects refresh scope expansion and redacts lifecycle errors',
+      () async {
+        final grant = await exchangeMcpAuthorizationCode(
+          _authorizationCode(authorizationServer, resource),
+          clientAuthentication: McpOAuthClientAuthentication.none(
+            'consumer-client',
+          ),
+        );
+
+        await expectLater(
+          refreshMcpOAuthToken(
+            grant,
+            clientAuthentication: McpOAuthClientAuthentication.none(
+              'consumer-client',
+            ),
+            scopes: const <String>['admin'],
+          ),
+          throwsA(isA<McpOAuthTokenException>()),
+        );
+        expect(tokenRequestCount, 1);
+
+        tokenHandler = (request, body) async {
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode(<String, Object?>{
+              'access_token': 'expanded-scope-access-token',
+              'token_type': 'Bearer',
+              'scope': 'tools:read prompts:read',
+            }),
+          );
+          await request.response.close();
+        };
+        await expectLater(
+          refreshMcpOAuthToken(
+            grant,
+            clientAuthentication: McpOAuthClientAuthentication.none(
+              'consumer-client',
+            ),
+            scopes: const <String>['tools:read'],
+          ),
+          throwsA(
+            isA<McpOAuthTokenException>().having(
+              (error) => error.message,
+              'message',
+              contains('scopes exceed'),
+            ),
+          ),
+        );
+
+        tokenHandler = (request, body) async {
+          request.response
+            ..statusCode = HttpStatus.badRequest
+            ..headers.contentType = ContentType.json
+            ..write(
+              jsonEncode(<String, Object?>{
+                'error': 'invalid_grant',
+                'error_description': 'Refresh token is no longer valid.',
+              }),
+            );
+          await request.response.close();
+        };
+        final future = refreshMcpOAuthToken(
+          grant,
+          clientAuthentication: McpOAuthClientAuthentication.none(
+            'consumer-client',
+          ),
+        );
+
+        await expectLater(
+          future,
+          throwsA(
+            isA<McpOAuthTokenException>()
+                .having(
+                  (error) => error.oauthError,
+                  'oauthError',
+                  'invalid_grant',
+                )
+                .having(
+                  (error) => error.toString(),
+                  'toString',
+                  allOf(
+                    isNot(contains(grant.accessToken)),
+                    isNot(contains(grant.refreshToken!)),
+                  ),
+                ),
+          ),
         );
       },
     );

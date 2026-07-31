@@ -110,6 +110,7 @@ final class McpAuthorizationServerMetadata {
     required this.issuer,
     required this.authorizationEndpoint,
     required this.tokenEndpoint,
+    required this.revocationEndpoint,
     required this.registrationEndpoint,
     required this.jwksUri,
     required List<String>? scopesSupported,
@@ -117,6 +118,7 @@ final class McpAuthorizationServerMetadata {
     required List<String>? grantTypesSupported,
     required List<String> codeChallengeMethodsSupported,
     required List<String>? tokenEndpointAuthMethodsSupported,
+    required List<String>? revocationEndpointAuthMethodsSupported,
     required this.clientIdMetadataDocumentSupported,
     required Map<String, Object?> raw,
   }) : scopesSupported = scopesSupported == null
@@ -135,11 +137,16 @@ final class McpAuthorizationServerMetadata {
            tokenEndpointAuthMethodsSupported == null
            ? null
            : List<String>.unmodifiable(tokenEndpointAuthMethodsSupported),
+       revocationEndpointAuthMethodsSupported =
+           revocationEndpointAuthMethodsSupported == null
+           ? null
+           : List<String>.unmodifiable(revocationEndpointAuthMethodsSupported),
        raw = Map<String, Object?>.unmodifiable(raw);
 
   final Uri issuer;
   final Uri authorizationEndpoint;
   final Uri tokenEndpoint;
+  final Uri? revocationEndpoint;
   final Uri? registrationEndpoint;
   final Uri? jwksUri;
   final List<String>? scopesSupported;
@@ -147,6 +154,7 @@ final class McpAuthorizationServerMetadata {
   final List<String>? grantTypesSupported;
   final List<String> codeChallengeMethodsSupported;
   final List<String>? tokenEndpointAuthMethodsSupported;
+  final List<String>? revocationEndpointAuthMethodsSupported;
   final bool? clientIdMetadataDocumentSupported;
   final Map<String, Object?> raw;
 }
@@ -564,6 +572,12 @@ McpAuthorizationServerMetadata _authorizationServerMetadataFromJson(
     'token_endpoint',
     documentLabel: documentLabel,
   )!;
+  final revocationEndpoint = _authorizationServerEndpoint(
+    json,
+    'revocation_endpoint',
+    documentLabel: documentLabel,
+    optional: true,
+  );
   final registrationEndpoint = _authorizationServerEndpoint(
     json,
     'registration_endpoint',
@@ -633,6 +647,11 @@ McpAuthorizationServerMetadata _authorizationServerMetadataFromJson(
     'token_endpoint_auth_methods_supported',
     documentLabel: documentLabel,
   );
+  final revocationEndpointAuthMethodsSupported = _optionalStringList(
+    json,
+    'revocation_endpoint_auth_methods_supported',
+    documentLabel: documentLabel,
+  );
   final clientIdMetadataDocumentSupported = _optionalBool(
     json,
     'client_id_metadata_document_supported',
@@ -643,6 +662,7 @@ McpAuthorizationServerMetadata _authorizationServerMetadataFromJson(
     issuer: issuer,
     authorizationEndpoint: authorizationEndpoint,
     tokenEndpoint: tokenEndpoint,
+    revocationEndpoint: revocationEndpoint,
     registrationEndpoint: registrationEndpoint,
     jwksUri: jwksUri,
     scopesSupported: scopesSupported,
@@ -650,6 +670,8 @@ McpAuthorizationServerMetadata _authorizationServerMetadataFromJson(
     grantTypesSupported: grantTypesSupported,
     codeChallengeMethodsSupported: codeChallengeMethodsSupported,
     tokenEndpointAuthMethodsSupported: tokenEndpointAuthMethodsSupported,
+    revocationEndpointAuthMethodsSupported:
+        revocationEndpointAuthMethodsSupported,
     clientIdMetadataDocumentSupported: clientIdMetadataDocumentSupported,
     raw: json,
   );

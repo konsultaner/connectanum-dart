@@ -73,3 +73,9 @@ Streamable HTTP client without reimplementing token endpoint behavior.
   tests, all Dart package suites, isolated and globally activated consumer
   smokes, all 96 benchmark tests, the complete 377-test router suite, focused
   native forwarding, and Chrome/Dart2Wasm.
+- 2026-07-31: Commit `d5193d3` passed exact-head GitHub CI `30607035330`,
+  including Fast Checks, Full Verify, Dart VM Coverage, and the Codecov upload.
+  Dart Package Publish Dry Run `30607035329` and WAMP Profile Benchmarks
+  `30607035358` also passed. The strict deployment-chain audit passed with
+  clean CI logs and all required branch, workflow, package, benchmark,
+  artifact, and registry gates clean.

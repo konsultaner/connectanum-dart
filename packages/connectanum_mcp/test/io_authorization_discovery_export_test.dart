@@ -12,6 +12,8 @@ void main() {
       'http://${server.address.address}:${server.port}/mcp',
     );
     final issuer = endpoint.replace(path: '/tenant');
+    var tokenRequestCount = 0;
+    var revocationRequestCount = 0;
 
     server.listen((request) async {
       if (request.uri.path ==
@@ -25,29 +27,57 @@ void main() {
                 .replace(path: '/authorize')
                 .toString(),
             'token_endpoint': issuer.replace(path: '/token').toString(),
+            'revocation_endpoint': issuer.replace(path: '/revoke').toString(),
             'response_types_supported': <String>['code'],
+            'grant_types_supported': <String>[
+              'authorization_code',
+              'refresh_token',
+            ],
             'code_challenge_methods_supported': <String>['S256'],
             'token_endpoint_auth_methods_supported': <String>['none'],
+            'revocation_endpoint_auth_methods_supported': <String>['none'],
           }),
         );
         await request.response.close();
         return;
       }
       if (request.uri.path == '/token') {
+        tokenRequestCount += 1;
         expect(request.method, 'POST');
         final form = Uri.splitQueryString(
           await utf8.decoder.bind(request).join(),
         );
         expect(form['resource'], endpoint.toString());
-        expect(form['code_verifier'], isNotEmpty);
+        if (form['grant_type'] == 'authorization_code') {
+          expect(form['code_verifier'], isNotEmpty);
+        } else {
+          expect(form['grant_type'], 'refresh_token');
+          expect(form['refresh_token'], 'consumer-refresh-token');
+        }
         request.response.headers.contentType = ContentType.json;
         request.response.write(
           jsonEncode(<String, Object?>{
-            'access_token': 'consumer-access-token',
+            'access_token': tokenRequestCount == 1
+                ? 'consumer-access-token'
+                : 'consumer-refreshed-access-token',
             'token_type': 'Bearer',
             'scope': 'tools:read',
+            if (tokenRequestCount == 1)
+              'refresh_token': 'consumer-refresh-token',
           }),
         );
+        await request.response.close();
+        return;
+      }
+      if (request.uri.path == '/revoke') {
+        revocationRequestCount += 1;
+        expect(request.method, 'POST');
+        final form = Uri.splitQueryString(
+          await utf8.decoder.bind(request).join(),
+        );
+        expect(form['token'], 'consumer-refresh-token');
+        expect(form['token_type_hint'], 'refresh_token');
+        request.response.statusCode = HttpStatus.ok;
         await request.response.close();
         return;
       }
@@ -118,8 +148,25 @@ void main() {
     );
     addTearDown(authenticatedClient.close);
     expect(grant.accessToken, 'consumer-access-token');
+    expect(grant.refreshToken, 'consumer-refresh-token');
     expect(grant.scopes, <String>['tools:read']);
     expect(authenticatedClient.endpoint, endpoint);
+    final refreshed = await client.refreshOAuthToken(
+      grant,
+      clientAuthentication: McpOAuthClientAuthentication.none(
+        'consumer-client',
+      ),
+    );
+    expect(refreshed.accessToken, 'consumer-refreshed-access-token');
+    expect(refreshed.refreshToken, grant.refreshToken);
+    await client.revokeOAuthToken(
+      refreshed,
+      clientAuthentication: McpOAuthClientAuthentication.none(
+        'consumer-client',
+      ),
+    );
+    expect(tokenRequestCount, 2);
+    expect(revocationRequestCount, 1);
     expect(client.sessionId, isNull);
   });
 }
