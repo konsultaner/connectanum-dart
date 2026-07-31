@@ -96,3 +96,10 @@ Primary references:
   benchmark tests, the complete 377-test router suite, isolated and globally
   activated package consumers, all router-hosted MCP smoke variants, 13 focused
   native/router tests, and Chrome/Dart2Wasm.
+- 2026-07-31: Commit `6da5288` was pushed to both `master` remotes. Exact-head
+  GitHub CI `30652221043`, Dart Package Publish Dry Run `30652221118`, and WAMP
+  Profile Benchmarks `30652221036` passed on their first attempts. CI included
+  Fast Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+  artifact; the WAMP run uploaded its benchmark artifact. The strict
+  deployment-chain audit passed with clean exact-head CI logs and all required
+  branch, workflow, package, benchmark-artifact, and registry gates clean.

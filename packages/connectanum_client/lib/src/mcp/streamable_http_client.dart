@@ -322,6 +322,12 @@ final class McpStreamableHttpClient {
         endpoint: endpoint,
       );
     }
+    if (grant.isAccessTokenExpired()) {
+      throw McpOAuthTokenException(
+        'OAuth token grant access token has expired.',
+        endpoint: endpoint,
+      );
+    }
     return McpStreamableHttpClient.withBearerToken(
       endpoint,
       grant.accessToken,

@@ -2477,19 +2477,28 @@ Future<void> _smokeProtectedResourceDiscovery(
         authorizationCode.request.pkce.verifier.length == 43,
     'external user-agent callback did not preserve code and PKCE state',
   );
-  final oauthGrant = await client.exchangeAuthorizationCode(
+  final issuedOAuthGrant = await client.exchangeAuthorizationCode(
     authorizationCode,
     clientAuthentication: registration.clientAuthentication,
     headers: const <String, String>{
       'x-consumer-trace': 'authorization-token',
     },
   );
+  final persistedOAuthGrant = jsonEncode(issuedOAuthGrant.toJson());
+  final oauthGrant = McpOAuthTokenGrant.fromJson(
+    (jsonDecode(persistedOAuthGrant) as Map).cast<String, Object?>(),
+    expectedAuthorizationServerIssuer: authorizationServer.metadata.issuer,
+    expectedResource: endpoint.uri,
+    expectedClientId: registration.clientId,
+  );
   _expect(
     oauthGrant.accessToken == _oauthAccessToken &&
         oauthGrant.refreshToken == _oauthRefreshToken &&
+        oauthGrant.expiresIn == const Duration(minutes: 15) &&
+        !oauthGrant.isAccessTokenExpired() &&
         oauthGrant.resource == endpoint.uri &&
         oauthGrant.scopes.join(' ') == 'mcp:tools mcp:meta',
-    'authorization-code exchange returned an unexpected OAuth grant',
+    'persisted authorization-code grant did not preserve OAuth state',
   );
   _expect(
     endpoint.authorizationTokenRequestCount == 1 &&
@@ -2524,12 +2533,19 @@ Future<void> _smokeProtectedResourceDiscovery(
     oauthClient.close();
   }
 
-  final refreshedGrant = await client.refreshOAuthToken(
+  final issuedRefreshedGrant = await client.refreshOAuthToken(
     oauthGrant,
     clientAuthentication: registration.clientAuthentication,
     headers: const <String, String>{
       'x-consumer-trace': 'authorization-refresh',
     },
+  );
+  final persistedRefreshedGrant = jsonEncode(issuedRefreshedGrant.toJson());
+  final refreshedGrant = McpOAuthTokenGrant.fromJson(
+    (jsonDecode(persistedRefreshedGrant) as Map).cast<String, Object?>(),
+    expectedAuthorizationServerIssuer: authorizationServer.metadata.issuer,
+    expectedResource: endpoint.uri,
+    expectedClientId: registration.clientId,
   );
   _expect(
     refreshedGrant.accessToken == _oauthRefreshedAccessToken &&

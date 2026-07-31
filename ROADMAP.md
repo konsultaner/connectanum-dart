@@ -424,6 +424,11 @@
     preservation, redacted failures, and public consumer-package round-trip
     coverage while leaving durable storage selection to the consuming
     application.
+  - [x] Add issuer/resource/client-bound, versioned bearer and refresh-grant
+    persistence with absolute access-token expiry, refresh-token rotation,
+    client-credential exclusion, redacted failures, and public
+    consumer-package round-trip coverage while leaving secure storage and
+    refresh scheduling to the consuming application.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

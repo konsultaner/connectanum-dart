@@ -100,9 +100,12 @@ void main() {
                 ? 'consumer-access-token'
                 : 'consumer-refreshed-access-token',
             'token_type': 'Bearer',
+            'expires_in': 3600,
             'scope': 'tools:read',
-            if (tokenRequestCount == 1)
-              'refresh_token': 'consumer-refresh-token',
+            'refresh_token': tokenRequestCount == 1
+                ? 'consumer-refresh-token'
+                : 'consumer-rotated-refresh-token',
+            'consumer_extension': <String, Object?>{'persisted': true},
           }),
         );
         await request.response.close();
@@ -114,7 +117,7 @@ void main() {
         final form = Uri.splitQueryString(
           await utf8.decoder.bind(request).join(),
         );
-        expect(form['token'], 'consumer-refresh-token');
+        expect(form['token'], 'consumer-rotated-refresh-token');
         expect(form['token_type_hint'], 'refresh_token');
         request.response.statusCode = HttpStatus.ok;
         await request.response.close();
@@ -227,9 +230,16 @@ void main() {
     expect(launchedAuthorizationUri, restoredAuthorizationRequest.uri);
     expect(browserResponseStatusCode, HttpStatus.ok);
     expect(authorizationCode.code, 'authorization-code');
-    final grant = await client.exchangeAuthorizationCode(
+    final issuedGrant = await client.exchangeAuthorizationCode(
       authorizationCode,
       clientAuthentication: registration.clientAuthentication,
+    );
+    final grant = McpOAuthTokenGrant.fromJson(
+      (jsonDecode(jsonEncode(issuedGrant.toJson())) as Map)
+          .cast<String, Object?>(),
+      expectedAuthorizationServerIssuer: authorizationServer.metadata.issuer,
+      expectedResource: endpoint,
+      expectedClientId: registration.clientId,
     );
     final authenticatedClient = McpStreamableHttpClient.withOAuthToken(
       endpoint,
@@ -239,13 +249,24 @@ void main() {
     expect(grant.accessToken, 'consumer-access-token');
     expect(grant.refreshToken, 'consumer-refresh-token');
     expect(grant.scopes, <String>['tools:read']);
+    expect(grant.expiresIn, const Duration(hours: 1));
+    expect(grant.additionalParameters['consumer_extension'], <String, Object?>{
+      'persisted': true,
+    });
     expect(authenticatedClient.endpoint, endpoint);
-    final refreshed = await client.refreshOAuthToken(
+    final issuedRefreshed = await client.refreshOAuthToken(
       grant,
       clientAuthentication: registration.clientAuthentication,
     );
+    final refreshed = McpOAuthTokenGrant.fromJson(
+      (jsonDecode(jsonEncode(issuedRefreshed.toJson())) as Map)
+          .cast<String, Object?>(),
+      expectedAuthorizationServerIssuer: authorizationServer.metadata.issuer,
+      expectedResource: endpoint,
+      expectedClientId: registration.clientId,
+    );
     expect(refreshed.accessToken, 'consumer-refreshed-access-token');
-    expect(refreshed.refreshToken, grant.refreshToken);
+    expect(refreshed.refreshToken, 'consumer-rotated-refresh-token');
     await client.revokeOAuthToken(
       refreshed,
       clientAuthentication: registration.clientAuthentication,

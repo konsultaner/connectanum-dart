@@ -35,6 +35,14 @@ const _controlledTokenRequestHeaders = <String>{
   'proxy-authorization',
   'transfer-encoding',
 };
+const _oauthTokenGrantStateType = 'mcp_oauth_token_grant';
+const _oauthTokenGrantStateVersion = 1;
+const _forbiddenPersistedGrantParameters = <String>{
+  'client_assertion',
+  'client_assertion_type',
+  'client_secret',
+  'registration_access_token',
+};
 
 /// Client authentication used at an OAuth token endpoint.
 final class McpOAuthClientAuthentication {
@@ -97,23 +105,154 @@ final class McpOAuthTokenGrant {
     required this.accessToken,
     required this.refreshToken,
     required this.expiresIn,
+    required this.issuedAt,
+    required this.expiresAt,
     required List<String> scopes,
     required this.resource,
     required this.clientId,
     required this.authorizationServer,
     required Map<String, Object?> additionalParameters,
   }) : scopes = List<String>.unmodifiable(scopes),
-       additionalParameters = Map<String, Object?>.unmodifiable(
+       additionalParameters = _copyTokenGrantStateJsonObject(
          additionalParameters,
        );
+
+  /// Revalidates a versioned sensitive OAuth token-grant document.
+  ///
+  /// Callers should pin every expected trust-context value they already know.
+  /// The document contains bearer credentials and belongs only in
+  /// caller-selected secure storage.
+  factory McpOAuthTokenGrant.fromJson(
+    Map<String, Object?> json, {
+    Uri? expectedAuthorizationServerIssuer,
+    Uri? expectedResource,
+    String? expectedClientId,
+    DateTime? now,
+  }) {
+    try {
+      if (json['type'] != _oauthTokenGrantStateType) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant has an unsupported document type.',
+        );
+      }
+      if (json['version'] != _oauthTokenGrantStateVersion) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant has an unsupported schema version.',
+        );
+      }
+
+      final issuedAt = _tokenGrantStateDateTime(json, 'issued_at');
+      final current = (now ?? DateTime.now()).toUtc();
+      if (issuedAt.isAfter(current)) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant is not yet valid.',
+        );
+      }
+      final expiresIn = _tokenGrantStateExpiresIn(json);
+      final DateTime? expiresAt;
+      if (expiresIn == null) {
+        if (json.containsKey('expires_at')) {
+          throw const McpOAuthTokenGrantStateException(
+            'Persisted OAuth token grant expiry is inconsistent.',
+          );
+        }
+        expiresAt = null;
+      } else {
+        if (!json.containsKey('expires_at')) {
+          throw const McpOAuthTokenGrantStateException(
+            'Persisted OAuth token grant expiry is incomplete.',
+          );
+        }
+        expiresAt = _tokenGrantStateDateTime(json, 'expires_at');
+        if (expiresAt != _tokenGrantExpiresAt(issuedAt, expiresIn)) {
+          throw const McpOAuthTokenGrantStateException(
+            'Persisted OAuth token grant expiry is inconsistent.',
+          );
+        }
+      }
+
+      final authorizationServer = McpAuthorizationServerMetadata.fromJson(
+        _tokenGrantStateObject(json, 'authorization_server'),
+      );
+      if (expectedAuthorizationServerIssuer != null &&
+          authorizationServer.issuer.toString() !=
+              expectedAuthorizationServerIssuer.toString()) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant belongs to a different authorization '
+          'server.',
+        );
+      }
+      final resource = _tokenGrantStateUri(json, 'resource');
+      if (expectedResource != null &&
+          !_resourcesMatch(resource, expectedResource)) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant belongs to a different MCP resource.',
+        );
+      }
+      final clientId = _tokenGrantStateString(json, 'client_id');
+      if (expectedClientId != null && clientId != expectedClientId) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant belongs to a different OAuth client.',
+        );
+      }
+      final scopes = _tokenGrantStateStringList(json, 'scopes');
+      final tokens = _tokenGrantStateObject(json, 'tokens');
+      if (tokens.containsKey('expires_in') || tokens.containsKey('scope')) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant contains duplicated response fields.',
+        );
+      }
+      if (tokens.keys.any(_forbiddenPersistedGrantParameters.contains)) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant contains unsupported client '
+          'credentials.',
+        );
+      }
+
+      final restored = _parseTokenGrantResponse(
+        statusCode: HttpStatus.ok,
+        mimeType: 'application/json',
+        body: jsonEncode(<String, Object?>{
+          ...tokens,
+          if (expiresIn != null) 'expires_in': expiresIn.inSeconds,
+          if (scopes.isNotEmpty) 'scope': scopes.join(' '),
+        }),
+        endpoint: authorizationServer.tokenEndpoint,
+        resource: resource,
+        clientId: clientId,
+        authorizationServer: authorizationServer,
+        effectiveScopes: scopes,
+        issuedAt: issuedAt,
+      );
+      if (!_sameTokenGrantScopes(restored.scopes, scopes) ||
+          restored.expiresAt != expiresAt) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant fields are inconsistent.',
+        );
+      }
+      return restored;
+    } on McpOAuthTokenGrantStateException {
+      rethrow;
+    } on Object {
+      throw const McpOAuthTokenGrantStateException(
+        'Persisted OAuth token grant is invalid.',
+      );
+    }
+  }
 
   final String accessToken;
   final String tokenType = 'Bearer';
   final String? refreshToken;
   final Duration? expiresIn;
 
+  /// Local time at which the token response was validated.
+  final DateTime issuedAt;
+
+  /// Absolute local expiry derived from the token response lifetime.
+  final DateTime? expiresAt;
+
   /// Effective scopes returned by the server, or the requested scopes when
-  /// `scope` is omitted as defined by RFC 6749 section 5.1.
+  /// the response scope is omitted as defined by RFC 6749 section 5.1.
   final List<String> scopes;
   final Uri resource;
   final String clientId;
@@ -124,6 +263,63 @@ final class McpOAuthTokenGrant {
   bool isForResource(Uri candidate) {
     return _resourcesMatch(resource, candidate);
   }
+
+  /// Whether the access token has reached its advertised absolute expiry.
+  bool isAccessTokenExpired({DateTime? now}) {
+    final expiry = expiresAt;
+    if (expiry == null) {
+      return false;
+    }
+    final current = (now ?? DateTime.now()).toUtc();
+    return !current.isBefore(expiry);
+  }
+
+  /// Returns a versioned JSON-compatible document containing bearer secrets.
+  ///
+  /// Store the returned document only in caller-selected secure storage. Do
+  /// not log the document or its extension parameters.
+  Map<String, Object?> toJson() {
+    return Map<String, Object?>.unmodifiable(<String, Object?>{
+      'type': _oauthTokenGrantStateType,
+      'version': _oauthTokenGrantStateVersion,
+      'issued_at': issuedAt.toUtc().toIso8601String(),
+      if (expiresIn != null) 'expires_in': expiresIn!.inSeconds,
+      if (expiresAt != null) 'expires_at': expiresAt!.toUtc().toIso8601String(),
+      'authorization_server': _copyTokenGrantStateJsonObject(
+        authorizationServer.toJson(),
+      ),
+      'resource': resource.toString(),
+      'client_id': clientId,
+      'scopes': List<String>.unmodifiable(scopes),
+      'tokens': Map<String, Object?>.unmodifiable(<String, Object?>{
+        for (final entry in _copyTokenGrantStateJsonObject(
+          additionalParameters,
+        ).entries)
+          if (!_forbiddenPersistedGrantParameters.contains(entry.key))
+            entry.key: entry.value,
+        'access_token': accessToken,
+        'token_type': tokenType,
+        if (refreshToken != null) 'refresh_token': refreshToken,
+      }),
+    });
+  }
+
+  @override
+  String toString() {
+    return 'McpOAuthTokenGrant('
+        'Bearer, scopes: ${scopes.length}, '
+        'refreshable: ${refreshToken != null})';
+  }
+}
+
+/// A redacted persisted OAuth token-grant validation failure.
+final class McpOAuthTokenGrantStateException implements Exception {
+  const McpOAuthTokenGrantStateException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'McpOAuthTokenGrantStateException: $message';
 }
 
 /// A local token-flow failure or typed OAuth token endpoint error.
@@ -369,6 +565,149 @@ Future<void> revokeMcpOAuthToken(
     endpoint,
     rejectionMessage: 'OAuth revocation endpoint rejected the request.',
   );
+}
+
+Map<String, Object?> _copyTokenGrantStateJsonObject(
+  Map<String, Object?> source,
+) {
+  final result = <String, Object?>{};
+  for (final entry in source.entries) {
+    result[entry.key] = _copyTokenGrantStateJsonValue(entry.value);
+  }
+  return Map<String, Object?>.unmodifiable(result);
+}
+
+Object? _copyTokenGrantStateJsonValue(Object? value) {
+  if (value == null || value is String || value is num || value is bool) {
+    return value;
+  }
+  if (value is List) {
+    return List<Object?>.unmodifiable(
+      value.map<Object?>(_copyTokenGrantStateJsonValue),
+    );
+  }
+  if (value is Map) {
+    final result = <String, Object?>{};
+    for (final entry in value.entries) {
+      final key = entry.key;
+      if (key is! String) {
+        throw const McpOAuthTokenGrantStateException(
+          'Persisted OAuth token grant contains a non-string object key.',
+        );
+      }
+      result[key] = _copyTokenGrantStateJsonValue(entry.value);
+    }
+    return Map<String, Object?>.unmodifiable(result);
+  }
+  throw const McpOAuthTokenGrantStateException(
+    'Persisted OAuth token grant contains a non-JSON value.',
+  );
+}
+
+Map<String, Object?> _tokenGrantStateObject(
+  Map<String, Object?> json,
+  String key,
+) {
+  final value = json[key];
+  if (value is! Map) {
+    throw McpOAuthTokenGrantStateException(
+      'Persisted OAuth token grant field "$key" must be a JSON object.',
+    );
+  }
+  final result = <String, Object?>{};
+  for (final entry in value.entries) {
+    final entryKey = entry.key;
+    if (entryKey is! String) {
+      throw McpOAuthTokenGrantStateException(
+        'Persisted OAuth token grant field "$key" has a non-string key.',
+      );
+    }
+    result[entryKey] = _copyTokenGrantStateJsonValue(entry.value);
+  }
+  return Map<String, Object?>.unmodifiable(result);
+}
+
+String _tokenGrantStateString(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value is! String || value.isEmpty) {
+    throw McpOAuthTokenGrantStateException(
+      'Persisted OAuth token grant field "$key" must be a non-empty string.',
+    );
+  }
+  return value;
+}
+
+Uri _tokenGrantStateUri(Map<String, Object?> json, String key) {
+  final value = _tokenGrantStateString(json, key);
+  final uri = Uri.tryParse(value);
+  if (uri == null || !uri.hasScheme || uri.host.isEmpty || uri.hasFragment) {
+    throw McpOAuthTokenGrantStateException(
+      'Persisted OAuth token grant field "$key" must be an absolute URI '
+      'without a fragment.',
+    );
+  }
+  return uri;
+}
+
+DateTime _tokenGrantStateDateTime(Map<String, Object?> json, String key) {
+  final value = _tokenGrantStateString(json, key);
+  final timestamp = DateTime.tryParse(value);
+  if (timestamp == null || !timestamp.isUtc || !value.endsWith('Z')) {
+    throw McpOAuthTokenGrantStateException(
+      'Persisted OAuth token grant field "$key" must be a UTC timestamp.',
+    );
+  }
+  return timestamp;
+}
+
+Duration? _tokenGrantStateExpiresIn(Map<String, Object?> json) {
+  final value = json['expires_in'];
+  if (value == null) {
+    return null;
+  }
+  if (value is! int || value < 0) {
+    throw const McpOAuthTokenGrantStateException(
+      'Persisted OAuth token grant expires_in must be a non-negative integer.',
+    );
+  }
+  return Duration(seconds: value);
+}
+
+DateTime _tokenGrantExpiresAt(DateTime issuedAt, Duration expiresIn) {
+  try {
+    return issuedAt.add(expiresIn);
+  } on Object {
+    throw const McpOAuthTokenGrantStateException(
+      'Persisted OAuth token grant expiry is out of range.',
+    );
+  }
+}
+
+List<String> _tokenGrantStateStringList(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value is! List ||
+      value.any(
+        (entry) =>
+            entry is! String || entry.isEmpty || !_oauthScopeTokenValid(entry),
+      )) {
+    throw McpOAuthTokenGrantStateException(
+      'Persisted OAuth token grant field "$key" must contain OAuth scope '
+      'tokens.',
+    );
+  }
+  return List<String>.unmodifiable(value.cast<String>());
+}
+
+bool _sameTokenGrantScopes(List<String> left, List<String> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index += 1) {
+    if (left[index] != right[index]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void _validateExchangeInputs(
@@ -647,6 +986,7 @@ McpOAuthTokenGrant _parseTokenGrantResponse({
   required List<String> effectiveScopes,
   String? retainedRefreshToken,
   Set<String>? allowedResponseScopes,
+  DateTime? issuedAt,
 }) {
   if (mimeType != 'application/json') {
     throw McpOAuthTokenException(
@@ -685,6 +1025,19 @@ McpOAuthTokenGrant _parseTokenGrantResponse({
     endpoint,
   );
   final expiresIn = _expiresIn(json['expires_in'], statusCode, endpoint);
+  final tokenIssuedAt = (issuedAt ?? DateTime.now()).toUtc();
+  late final DateTime? tokenExpiresAt;
+  try {
+    tokenExpiresAt = expiresIn == null
+        ? null
+        : _tokenGrantExpiresAt(tokenIssuedAt, expiresIn);
+  } on McpOAuthTokenGrantStateException {
+    throw McpOAuthTokenException(
+      'OAuth token response expiry is out of range.',
+      endpoint: endpoint,
+      statusCode: statusCode,
+    );
+  }
   final responseScopes = _responseScopes(json['scope'], statusCode, endpoint);
   if (allowedResponseScopes != null &&
       responseScopes != null &&
@@ -697,13 +1050,16 @@ McpOAuthTokenGrant _parseTokenGrantResponse({
   }
   final additionalParameters = <String, Object?>{
     for (final entry in json.entries)
-      if (!_standardTokenResponseParameters.contains(entry.key))
+      if (!_standardTokenResponseParameters.contains(entry.key) &&
+          !_forbiddenPersistedGrantParameters.contains(entry.key))
         entry.key: entry.value,
   };
   return McpOAuthTokenGrant._(
     accessToken: accessToken,
     refreshToken: refreshToken ?? retainedRefreshToken,
     expiresIn: expiresIn,
+    issuedAt: tokenIssuedAt,
+    expiresAt: tokenExpiresAt,
     scopes: responseScopes ?? effectiveScopes,
     resource: resource,
     clientId: clientId,

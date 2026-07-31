@@ -161,6 +161,255 @@ void main() {
       });
     });
 
+    test('persists and restores a bound OAuth token grant', () async {
+      tokenHandler = (request, body) async {
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode(<String, Object?>{
+            'access_token': 'durable-access-token',
+            'token_type': 'Bearer',
+            'expires_in': 900,
+            'refresh_token': 'durable-refresh-token',
+            'scope': 'tools:read prompts:read',
+            'server_extension': <String, Object?>{
+              'mode': 'durable',
+              'features': <String>['refresh', 'revocation'],
+            },
+            'client_secret': 'must-not-persist',
+            'registration_access_token': 'must-not-persist-either',
+          }),
+        );
+        await request.response.close();
+      };
+      final beforeExchange = DateTime.now().toUtc();
+      final grant = await exchangeMcpAuthorizationCode(
+        _authorizationCode(authorizationServer, resource),
+        clientAuthentication: McpOAuthClientAuthentication.none(
+          'consumer-client',
+        ),
+      );
+      final afterExchange = DateTime.now().toUtc();
+      final stored = (jsonDecode(jsonEncode(grant.toJson())) as Map)
+          .cast<String, Object?>();
+
+      final restored = McpOAuthTokenGrant.fromJson(
+        stored,
+        expectedAuthorizationServerIssuer: authorizationServer.issuer,
+        expectedResource: resource,
+        expectedClientId: 'consumer-client',
+        now: afterExchange,
+      );
+
+      expect(grant.issuedAt.isBefore(beforeExchange), isFalse);
+      expect(grant.issuedAt.isAfter(afterExchange), isFalse);
+      expect(grant.expiresAt, grant.issuedAt.add(const Duration(seconds: 900)));
+      expect(restored.accessToken, grant.accessToken);
+      expect(restored.refreshToken, grant.refreshToken);
+      expect(restored.expiresIn, grant.expiresIn);
+      expect(restored.issuedAt, grant.issuedAt);
+      expect(restored.expiresAt, grant.expiresAt);
+      expect(restored.scopes, grant.scopes);
+      expect(restored.resource, grant.resource);
+      expect(restored.clientId, grant.clientId);
+      expect(restored.authorizationServer.issuer, authorizationServer.issuer);
+      expect(restored.additionalParameters, grant.additionalParameters);
+      expect(restored.additionalParameters, isNot(contains('client_secret')));
+      expect(
+        restored.additionalParameters,
+        isNot(contains('registration_access_token')),
+      );
+      expect(
+        restored.isAccessTokenExpired(
+          now: restored.expiresAt!.subtract(const Duration(microseconds: 1)),
+        ),
+        isFalse,
+      );
+      expect(restored.isAccessTokenExpired(now: restored.expiresAt), isTrue);
+      expect(restored.toString(), isNot(contains(grant.accessToken)));
+      expect(restored.toString(), isNot(contains(grant.refreshToken!)));
+      expect(restored.toString(), isNot(contains(grant.clientId)));
+      expect(restored.toString(), isNot(contains('durable')));
+      final extension =
+          restored.additionalParameters['server_extension']
+              as Map<String, Object?>;
+      expect(
+        () => (extension['features'] as List<Object?>).add('tampered'),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('persists a grant without advertised access-token expiry', () async {
+      tokenHandler = (request, body) async {
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode(<String, Object?>{
+            'access_token': 'unbounded-access-token',
+            'token_type': 'Bearer',
+            'refresh_token': 'unbounded-refresh-token',
+          }),
+        );
+        await request.response.close();
+      };
+      final grant = await exchangeMcpAuthorizationCode(
+        _authorizationCode(authorizationServer, resource),
+        clientAuthentication: McpOAuthClientAuthentication.none(
+          'consumer-client',
+        ),
+      );
+      final stored = grant.toJson();
+      final restored = McpOAuthTokenGrant.fromJson(
+        (jsonDecode(jsonEncode(stored)) as Map).cast<String, Object?>(),
+        expectedAuthorizationServerIssuer: authorizationServer.issuer,
+        expectedResource: resource,
+        expectedClientId: 'consumer-client',
+      );
+
+      expect(stored, isNot(contains('expires_in')));
+      expect(stored, isNot(contains('expires_at')));
+      expect(restored.expiresIn, isNull);
+      expect(restored.expiresAt, isNull);
+      expect(restored.isAccessTokenExpired(now: DateTime.utc(2100)), isFalse);
+    });
+
+    test(
+      'rejects invalid grant state and expired bearer use redacted',
+      () async {
+        final grant = await exchangeMcpAuthorizationCode(
+          _authorizationCode(authorizationServer, resource),
+          clientAuthentication: McpOAuthClientAuthentication.none(
+            'consumer-client',
+          ),
+        );
+
+        Map<String, Object?> storedCopy() {
+          return (jsonDecode(jsonEncode(grant.toJson())) as Map)
+              .cast<String, Object?>();
+        }
+
+        expect(
+          () => McpOAuthTokenGrant.fromJson(storedCopy()..['version'] = 2),
+          throwsA(isA<McpOAuthTokenGrantStateException>()),
+        );
+        expect(
+          () => McpOAuthTokenGrant.fromJson(
+            storedCopy(),
+            expectedAuthorizationServerIssuer: Uri.parse(
+              'https://other.example/oauth',
+            ),
+          ),
+          throwsA(isA<McpOAuthTokenGrantStateException>()),
+        );
+        expect(
+          () => McpOAuthTokenGrant.fromJson(
+            storedCopy(),
+            expectedResource: resource.replace(path: '/other-mcp'),
+          ),
+          throwsA(isA<McpOAuthTokenGrantStateException>()),
+        );
+        expect(
+          () => McpOAuthTokenGrant.fromJson(
+            storedCopy(),
+            expectedClientId: 'other-client',
+          ),
+          throwsA(isA<McpOAuthTokenGrantStateException>()),
+        );
+
+        final future = storedCopy();
+        final futureIssuedAt = grant.issuedAt.add(const Duration(days: 1));
+        future['issued_at'] = futureIssuedAt.toIso8601String();
+        future['expires_at'] = futureIssuedAt
+            .add(grant.expiresIn!)
+            .toIso8601String();
+        expect(
+          () => McpOAuthTokenGrant.fromJson(future, now: grant.issuedAt),
+          throwsA(isA<McpOAuthTokenGrantStateException>()),
+        );
+
+        final inconsistentExpiry = storedCopy()
+          ..['expires_at'] = grant.expiresAt!
+              .add(const Duration(seconds: 1))
+              .toIso8601String();
+        expect(
+          () => McpOAuthTokenGrant.fromJson(inconsistentExpiry),
+          throwsA(isA<McpOAuthTokenGrantStateException>()),
+        );
+
+        const leakedAccessToken = 'persisted-access-token-leak';
+        final invalidToken = storedCopy();
+        (invalidToken['tokens'] as Map)['access_token'] =
+            '$leakedAccessToken\n';
+        expect(
+          () => McpOAuthTokenGrant.fromJson(invalidToken),
+          throwsA(
+            isA<McpOAuthTokenGrantStateException>().having(
+              (error) => error.toString(),
+              'redacted grant state',
+              allOf(
+                isNot(contains(leakedAccessToken)),
+                isNot(contains(grant.refreshToken!)),
+              ),
+            ),
+          ),
+        );
+
+        final nonJsonExtension = storedCopy();
+        (nonJsonExtension['tokens'] as Map)['server_extension'] = DateTime.utc(
+          2026,
+          7,
+          31,
+        );
+        expect(
+          () => McpOAuthTokenGrant.fromJson(nonJsonExtension),
+          throwsA(isA<McpOAuthTokenGrantStateException>()),
+        );
+
+        final persistedCredential = storedCopy();
+        (persistedCredential['tokens'] as Map)['client_secret'] =
+            'persisted-client-secret';
+        expect(
+          () => McpOAuthTokenGrant.fromJson(persistedCredential),
+          throwsA(
+            isA<McpOAuthTokenGrantStateException>().having(
+              (error) => error.toString(),
+              'redacted client credential',
+              isNot(contains('persisted-client-secret')),
+            ),
+          ),
+        );
+
+        final expired = storedCopy();
+        final expiredIssuedAt = DateTime.utc(2026, 7, 31, 10);
+        expired['issued_at'] = expiredIssuedAt.toIso8601String();
+        expired['expires_at'] = expiredIssuedAt
+            .add(grant.expiresIn!)
+            .toIso8601String();
+        final restoredExpired = McpOAuthTokenGrant.fromJson(
+          expired,
+          now: expiredIssuedAt.add(const Duration(hours: 1)),
+        );
+        expect(
+          restoredExpired.isAccessTokenExpired(
+            now: expiredIssuedAt.add(const Duration(hours: 1)),
+          ),
+          isTrue,
+        );
+        expect(
+          () =>
+              McpStreamableHttpClient.withOAuthToken(resource, restoredExpired),
+          throwsA(
+            isA<McpOAuthTokenException>().having(
+              (error) => error.toString(),
+              'redacted expired grant',
+              allOf(
+                isNot(contains(restoredExpired.accessToken)),
+                isNot(contains(restoredExpired.refreshToken!)),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
     test(
       'supports client_secret_basic with RFC form credential encoding',
       () async {

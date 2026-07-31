@@ -55,7 +55,12 @@ Fresh state:
   boundaries without trusting a stored authorization URI. Issued dynamic
   registrations now also have a versioned, issuer-bound JSON representation
   that revalidates the complete public-client contract after restoration.
-  Bearer/refresh-grant persistence remains the next bounded follow-up.
+  Resource-bound bearer and refresh grants now have a versioned JSON
+  representation with issuer/resource/client pins, absolute access-token
+  expiry, rotated refresh-token preservation, and client-credential exclusion.
+  Restored expired access grants remain refreshable but cannot construct a new
+  bearer-backed MCP client. Storage backend and refresh scheduling remain
+  consumer-owned by design.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.
