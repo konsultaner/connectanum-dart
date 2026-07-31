@@ -3,6 +3,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 const _protectedResourceWellKnownPath = '/.well-known/oauth-protected-resource';
+const _oauthAuthorizationServerWellKnownPath =
+    '/.well-known/oauth-authorization-server';
+const _openIdConfigurationWellKnownPath = '/.well-known/openid-configuration';
 const _defaultMaxMetadataBytes = 1024 * 1024;
 final _scopeSeparator = RegExp(' +');
 
@@ -99,6 +102,64 @@ final class McpProtectedResourceDiscovery {
     }
     return metadata.scopesSupported ?? const <String>[];
   }
+}
+
+/// Validated OAuth authorization-server metadata for an MCP client.
+final class McpAuthorizationServerMetadata {
+  McpAuthorizationServerMetadata._({
+    required this.issuer,
+    required this.authorizationEndpoint,
+    required this.tokenEndpoint,
+    required this.registrationEndpoint,
+    required this.jwksUri,
+    required List<String>? scopesSupported,
+    required List<String> responseTypesSupported,
+    required List<String>? grantTypesSupported,
+    required List<String> codeChallengeMethodsSupported,
+    required List<String>? tokenEndpointAuthMethodsSupported,
+    required this.clientIdMetadataDocumentSupported,
+    required Map<String, Object?> raw,
+  }) : scopesSupported = scopesSupported == null
+           ? null
+           : List<String>.unmodifiable(scopesSupported),
+       responseTypesSupported = List<String>.unmodifiable(
+         responseTypesSupported,
+       ),
+       grantTypesSupported = grantTypesSupported == null
+           ? null
+           : List<String>.unmodifiable(grantTypesSupported),
+       codeChallengeMethodsSupported = List<String>.unmodifiable(
+         codeChallengeMethodsSupported,
+       ),
+       tokenEndpointAuthMethodsSupported =
+           tokenEndpointAuthMethodsSupported == null
+           ? null
+           : List<String>.unmodifiable(tokenEndpointAuthMethodsSupported),
+       raw = Map<String, Object?>.unmodifiable(raw);
+
+  final Uri issuer;
+  final Uri authorizationEndpoint;
+  final Uri tokenEndpoint;
+  final Uri? registrationEndpoint;
+  final Uri? jwksUri;
+  final List<String>? scopesSupported;
+  final List<String> responseTypesSupported;
+  final List<String>? grantTypesSupported;
+  final List<String> codeChallengeMethodsSupported;
+  final List<String>? tokenEndpointAuthMethodsSupported;
+  final bool? clientIdMetadataDocumentSupported;
+  final Map<String, Object?> raw;
+}
+
+/// The successful result of authorization-server metadata discovery.
+final class McpAuthorizationServerDiscovery {
+  const McpAuthorizationServerDiscovery({
+    required this.metadataUri,
+    required this.metadata,
+  });
+
+  final Uri metadataUri;
+  final McpAuthorizationServerMetadata metadata;
 }
 
 /// A standards or transport failure during MCP OAuth metadata discovery.
@@ -230,6 +291,77 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
   }
 }
 
+/// Discovers MCP-compatible OAuth authorization-server metadata for [issuer].
+///
+/// The RFC 8414 and OpenID Connect endpoints are attempted in MCP priority
+/// order. Requests intentionally omit authorization and MCP session state.
+Future<McpAuthorizationServerDiscovery> discoverMcpAuthorizationServerMetadata(
+  Uri issuer, {
+  HttpClient? httpClient,
+  Map<String, String> headers = const <String, String>{},
+  bool closeHttpClient = false,
+  int maxMetadataBytes = _defaultMaxMetadataBytes,
+}) async {
+  _validateAuthorizationServerIssuer(issuer, 'issuer');
+  if (maxMetadataBytes <= 0) {
+    throw ArgumentError.value(
+      maxMetadataBytes,
+      'maxMetadataBytes',
+      'must be greater than zero',
+    );
+  }
+  _validateDiscoveryHeaders(headers);
+
+  final client = httpClient ?? HttpClient();
+  final ownsClient = httpClient == null || closeHttpClient;
+  final attempted = <Uri>[];
+  McpAuthorizationDiscoveryException? lastFailure;
+  try {
+    for (final metadataUri in _authorizationServerMetadataUris(issuer)) {
+      attempted.add(metadataUri);
+      try {
+        final response = await _getDiscoveryDocument(
+          client,
+          metadataUri,
+          headers: headers,
+          maxMetadataBytes: maxMetadataBytes,
+          documentLabel: 'Authorization Server Metadata',
+        );
+        if (response.statusCode != HttpStatus.ok) {
+          throw McpAuthorizationDiscoveryException(
+            'Authorization Server Metadata request failed.',
+            uri: metadataUri,
+            statusCode: response.statusCode,
+          );
+        }
+        final metadata = _authorizationServerMetadataFromResponse(
+          response,
+          metadataUri,
+          issuer,
+        );
+        return McpAuthorizationServerDiscovery(
+          metadataUri: metadataUri,
+          metadata: metadata,
+        );
+      } on McpAuthorizationDiscoveryException catch (error) {
+        lastFailure = error;
+      }
+    }
+
+    final detail = lastFailure == null ? '' : ' ${lastFailure.message}';
+    throw McpAuthorizationDiscoveryException(
+      'Authorization Server Metadata discovery failed after attempting '
+      '${attempted.join(', ')}.$detail',
+      uri: lastFailure?.uri ?? issuer,
+      statusCode: lastFailure?.statusCode,
+    );
+  } finally {
+    if (ownsClient) {
+      client.close(force: true);
+    }
+  }
+}
+
 McpBearerChallenge? _preferredBearerChallenge(
   List<McpBearerChallenge> challenges,
 ) {
@@ -333,24 +465,21 @@ McpProtectedResourceMetadata _metadataFromJson(
     );
   }
 
-  final authorizationServers = _requiredStringList(json, 'authorization_servers')
-      .map((value) {
-        final uri = Uri.tryParse(value);
-        if (uri == null ||
-            uri.scheme != 'https' ||
-            uri.host.isEmpty ||
-            uri.userInfo.isNotEmpty ||
-            uri.hasQuery ||
-            uri.hasFragment) {
-          throw McpAuthorizationDiscoveryException(
-            'Protected Resource Metadata authorization server must be an HTTPS '
-            'issuer URL without user info, query, or fragment.',
-            uri: uri,
-          );
-        }
-        return uri;
-      })
-      .toList(growable: false);
+  final authorizationServers =
+      _requiredStringList(json, 'authorization_servers')
+          .map((value) {
+            final uri = Uri.tryParse(value);
+            if (uri == null) {
+              throw McpAuthorizationDiscoveryException(
+                'Protected Resource Metadata authorization server must be an '
+                'absolute issuer URL.',
+                uri: uri,
+              );
+            }
+            _validateAuthorizationServerIssuer(uri, 'authorization server');
+            return uri;
+          })
+          .toList(growable: false);
   if (authorizationServers.toSet().length != authorizationServers.length) {
     throw const McpAuthorizationDiscoveryException(
       'Protected Resource Metadata authorization servers must be unique.',
@@ -383,36 +512,227 @@ McpProtectedResourceMetadata _metadataFromJson(
   );
 }
 
-Map<String, Object?> _decodeJsonObject(String body, Uri uri) {
+McpAuthorizationServerMetadata _authorizationServerMetadataFromResponse(
+  _DiscoveryResponse response,
+  Uri metadataUri,
+  Uri expectedIssuer,
+) {
+  if (!_isJsonContentType(response.headers)) {
+    throw McpAuthorizationDiscoveryException(
+      'Authorization Server Metadata must use application/json.',
+      uri: metadataUri,
+      statusCode: response.statusCode,
+    );
+  }
+  return _authorizationServerMetadataFromJson(
+    _decodeJsonObject(
+      response.body,
+      metadataUri,
+      documentLabel: 'Authorization Server Metadata',
+    ),
+    expectedIssuer,
+  );
+}
+
+McpAuthorizationServerMetadata _authorizationServerMetadataFromJson(
+  Map<String, Object?> json,
+  Uri expectedIssuer,
+) {
+  const documentLabel = 'Authorization Server Metadata';
+  final issuerValue = _requiredString(
+    json,
+    'issuer',
+    documentLabel: documentLabel,
+  );
+  final issuer = Uri.tryParse(issuerValue);
+  if (issuer == null || issuerValue != expectedIssuer.toString()) {
+    throw McpAuthorizationDiscoveryException(
+      'Authorization Server Metadata issuer must exactly match '
+      '$expectedIssuer.',
+      uri: issuer,
+    );
+  }
+  _validateAuthorizationServerIssuer(issuer, 'issuer');
+
+  final authorizationEndpoint = _authorizationServerEndpoint(
+    json,
+    'authorization_endpoint',
+    documentLabel: documentLabel,
+  )!;
+  final tokenEndpoint = _authorizationServerEndpoint(
+    json,
+    'token_endpoint',
+    documentLabel: documentLabel,
+  )!;
+  final registrationEndpoint = _authorizationServerEndpoint(
+    json,
+    'registration_endpoint',
+    documentLabel: documentLabel,
+    optional: true,
+  );
+  final jwksUri = _authorizationServerEndpoint(
+    json,
+    'jwks_uri',
+    documentLabel: documentLabel,
+    optional: true,
+  );
+
+  final scopesSupported = _optionalStringList(
+    json,
+    'scopes_supported',
+    documentLabel: documentLabel,
+  );
+  if (scopesSupported != null &&
+      scopesSupported.any((scope) => !_oauthScopeTokenValid(scope))) {
+    throw const McpAuthorizationDiscoveryException(
+      'Authorization Server Metadata scopes_supported contains an invalid '
+      'OAuth scope token.',
+    );
+  }
+
+  final responseTypesSupported = _requiredStringList(
+    json,
+    'response_types_supported',
+    documentLabel: documentLabel,
+  );
+  if (!responseTypesSupported.contains('code')) {
+    throw const McpAuthorizationDiscoveryException(
+      'Authorization Server Metadata response_types_supported must include '
+      'code for MCP authorization.',
+    );
+  }
+
+  final grantTypesSupported = _optionalStringList(
+    json,
+    'grant_types_supported',
+    documentLabel: documentLabel,
+  );
+  if (grantTypesSupported != null &&
+      !grantTypesSupported.contains('authorization_code')) {
+    throw const McpAuthorizationDiscoveryException(
+      'Authorization Server Metadata grant_types_supported must include '
+      'authorization_code for MCP authorization.',
+    );
+  }
+
+  final codeChallengeMethodsSupported = _requiredStringList(
+    json,
+    'code_challenge_methods_supported',
+    documentLabel: documentLabel,
+  );
+  // MCP 2025-11-25 requires clients to refuse authorization without S256.
+  if (!codeChallengeMethodsSupported.contains('S256')) {
+    throw const McpAuthorizationDiscoveryException(
+      'Authorization Server Metadata code_challenge_methods_supported must '
+      'include S256 for MCP authorization.',
+    );
+  }
+
+  final tokenEndpointAuthMethodsSupported = _optionalStringList(
+    json,
+    'token_endpoint_auth_methods_supported',
+    documentLabel: documentLabel,
+  );
+  final clientIdMetadataDocumentSupported = _optionalBool(
+    json,
+    'client_id_metadata_document_supported',
+    documentLabel: documentLabel,
+  );
+
+  return McpAuthorizationServerMetadata._(
+    issuer: issuer,
+    authorizationEndpoint: authorizationEndpoint,
+    tokenEndpoint: tokenEndpoint,
+    registrationEndpoint: registrationEndpoint,
+    jwksUri: jwksUri,
+    scopesSupported: scopesSupported,
+    responseTypesSupported: responseTypesSupported,
+    grantTypesSupported: grantTypesSupported,
+    codeChallengeMethodsSupported: codeChallengeMethodsSupported,
+    tokenEndpointAuthMethodsSupported: tokenEndpointAuthMethodsSupported,
+    clientIdMetadataDocumentSupported: clientIdMetadataDocumentSupported,
+    raw: json,
+  );
+}
+
+Uri? _authorizationServerEndpoint(
+  Map<String, Object?> json,
+  String name, {
+  required String documentLabel,
+  bool optional = false,
+}) {
+  final value = optional
+      ? _optionalString(json, name, documentLabel: documentLabel)
+      : _requiredString(json, name, documentLabel: documentLabel);
+  if (value == null) {
+    return null;
+  }
+  final uri = Uri.tryParse(value);
+  if (uri == null) {
+    throw McpAuthorizationDiscoveryException(
+      '$documentLabel $name must be an absolute URL.',
+    );
+  }
+  _validateAuthorizationServerEndpoint(uri, name);
+  return uri;
+}
+
+bool? _optionalBool(
+  Map<String, Object?> json,
+  String name, {
+  required String documentLabel,
+}) {
+  final value = json[name];
+  if (value == null || value is bool) {
+    return value as bool?;
+  }
+  throw McpAuthorizationDiscoveryException(
+    '$documentLabel $name must be a boolean.',
+  );
+}
+
+Map<String, Object?> _decodeJsonObject(
+  String body,
+  Uri uri, {
+  String documentLabel = 'Protected Resource Metadata',
+}) {
   Object? value;
   try {
     value = jsonDecode(body);
   } on FormatException catch (error) {
     throw McpAuthorizationDiscoveryException(
-      'Protected Resource Metadata is not valid JSON: ${error.message}',
+      '$documentLabel is not valid JSON: ${error.message}',
       uri: uri,
     );
   }
   if (value is! Map<String, Object?>) {
     throw McpAuthorizationDiscoveryException(
-      'Protected Resource Metadata must be a JSON object.',
+      '$documentLabel must be a JSON object.',
       uri: uri,
     );
   }
   return value;
 }
 
-String _requiredString(Map<String, Object?> json, String name) {
+String _requiredString(
+  Map<String, Object?> json,
+  String name, {
+  String documentLabel = 'Protected Resource Metadata',
+}) {
   final value = json[name];
   if (value is String && value.isNotEmpty) {
     return value;
   }
   throw McpAuthorizationDiscoveryException(
-    'Protected Resource Metadata $name must be a non-empty string.',
+    '$documentLabel $name must be a non-empty string.',
   );
 }
 
-String? _optionalString(Map<String, Object?> json, String name) {
+String? _optionalString(
+  Map<String, Object?> json,
+  String name, {
+  String documentLabel = 'Protected Resource Metadata',
+}) {
   final value = json[name];
   if (value == null) {
     return null;
@@ -421,15 +741,19 @@ String? _optionalString(Map<String, Object?> json, String name) {
     return value;
   }
   throw McpAuthorizationDiscoveryException(
-    'Protected Resource Metadata $name must be a non-empty string.',
+    '$documentLabel $name must be a non-empty string.',
   );
 }
 
-List<String> _requiredStringList(Map<String, Object?> json, String name) {
-  final values = _optionalStringList(json, name);
+List<String> _requiredStringList(
+  Map<String, Object?> json,
+  String name, {
+  String documentLabel = 'Protected Resource Metadata',
+}) {
+  final values = _optionalStringList(json, name, documentLabel: documentLabel);
   if (values == null || values.isEmpty) {
     throw McpAuthorizationDiscoveryException(
-      'Protected Resource Metadata $name must be a non-empty string array.',
+      '$documentLabel $name must be a non-empty string array.',
     );
   }
   return values;
@@ -439,6 +763,7 @@ List<String>? _optionalStringList(
   Map<String, Object?> json,
   String name, {
   bool allowEmpty = false,
+  String documentLabel = 'Protected Resource Metadata',
 }) {
   final value = json[name];
   if (value == null) {
@@ -448,14 +773,14 @@ List<String>? _optionalStringList(
       (!allowEmpty && value.isEmpty) ||
       value.any((entry) => entry is! String || entry.isEmpty)) {
     throw McpAuthorizationDiscoveryException(
-      'Protected Resource Metadata $name must be a '
+      '$documentLabel $name must be a '
       '${allowEmpty ? '' : 'non-empty '}string array.',
     );
   }
   final values = value.cast<String>();
   if (values.toSet().length != values.length) {
     throw McpAuthorizationDiscoveryException(
-      'Protected Resource Metadata $name values must be unique.',
+      '$documentLabel $name values must be unique.',
     );
   }
   return List<String>.unmodifiable(values);
@@ -513,6 +838,59 @@ bool _sameResourceIdentifier(Uri actual, Uri expected) {
       actual.fragment == expected.fragment;
 }
 
+void _validateAuthorizationServerIssuer(Uri uri, String name) {
+  _validateAuthorizationServerEndpoint(uri, name);
+  if (uri.hasQuery) {
+    throw McpAuthorizationDiscoveryException(
+      '$name must not include a query.',
+      uri: uri,
+    );
+  }
+}
+
+void _validateAuthorizationServerEndpoint(Uri uri, String name) {
+  final secure = uri.scheme == 'https';
+  final localHttp = uri.scheme == 'http' && _isLoopbackHost(uri.host);
+  if ((!secure && !localHttp) ||
+      uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasFragment) {
+    throw McpAuthorizationDiscoveryException(
+      '$name must be an HTTPS URL without user info or fragment; loopback '
+      'HTTP is allowed for local development.',
+      uri: uri,
+    );
+  }
+}
+
+List<Uri> _authorizationServerMetadataUris(Uri issuer) {
+  final issuerPath = issuer.path.isEmpty || issuer.path == '/'
+      ? ''
+      : issuer.path;
+  final oauth = issuer.replace(
+    path: '$_oauthAuthorizationServerWellKnownPath$issuerPath',
+    query: null,
+    fragment: null,
+  );
+  final openIdInserted = issuer.replace(
+    path: '$_openIdConfigurationWellKnownPath$issuerPath',
+    query: null,
+    fragment: null,
+  );
+  if (issuerPath.isEmpty) {
+    return <Uri>[oauth, openIdInserted];
+  }
+  final appendBase = issuerPath.endsWith('/')
+      ? issuerPath.substring(0, issuerPath.length - 1)
+      : issuerPath;
+  final openIdAppended = issuer.replace(
+    path: '$appendBase$_openIdConfigurationWellKnownPath',
+    query: null,
+    fragment: null,
+  );
+  return <Uri>[oauth, openIdInserted, openIdAppended];
+}
+
 List<Uri> _wellKnownMetadataUris(Uri resource) {
   final pathSuffix = resource.path.isEmpty || resource.path == '/'
       ? ''
@@ -557,6 +935,7 @@ Future<_DiscoveryResponse> _getDiscoveryDocument(
   Uri uri, {
   required Map<String, String> headers,
   required int maxMetadataBytes,
+  String documentLabel = 'Protected Resource Metadata',
 }) async {
   final request = await client.getUrl(uri);
   for (final entry in headers.entries) {
@@ -568,7 +947,12 @@ Future<_DiscoveryResponse> _getDiscoveryDocument(
   response.headers.forEach((name, values) {
     responseHeaders[name.toLowerCase()] = List<String>.unmodifiable(values);
   });
-  final body = await _readBoundedBody(response, uri, maxMetadataBytes);
+  final body = await _readBoundedBody(
+    response,
+    uri,
+    maxMetadataBytes,
+    documentLabel: documentLabel,
+  );
   return _DiscoveryResponse(
     uri: uri,
     statusCode: response.statusCode,
@@ -580,15 +964,16 @@ Future<_DiscoveryResponse> _getDiscoveryDocument(
 Future<String> _readBoundedBody(
   HttpClientResponse response,
   Uri uri,
-  int maxMetadataBytes,
-) async {
+  int maxMetadataBytes, {
+  required String documentLabel,
+}) async {
   final bytes = BytesBuilder(copy: false);
   var length = 0;
   await for (final chunk in response) {
     length += chunk.length;
     if (length > maxMetadataBytes) {
       throw McpAuthorizationDiscoveryException(
-        'Protected Resource Metadata exceeds $maxMetadataBytes bytes.',
+        '$documentLabel exceeds $maxMetadataBytes bytes.',
         uri: uri,
         statusCode: response.statusCode,
       );
@@ -599,7 +984,7 @@ Future<String> _readBoundedBody(
     return utf8.decode(bytes.takeBytes());
   } on FormatException {
     throw McpAuthorizationDiscoveryException(
-      'Protected Resource Metadata is not valid UTF-8.',
+      '$documentLabel is not valid UTF-8.',
       uri: uri,
       statusCode: response.statusCode,
     );

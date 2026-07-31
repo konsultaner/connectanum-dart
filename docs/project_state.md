@@ -17,28 +17,34 @@ identified and fixed a pre-existing SCRAM channel-binding crash by preserving
 decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
-The current implementation checkpoint is standards-aware MCP client
-authorization discovery. The public Dart IO client now parses Bearer
-`WWW-Authenticate` challenges from `401` and `403` failures, exposes response
-headers and required scope details, and discovers RFC 9728 Protected Resource
-Metadata from a challenge URL, the router endpoint's JSON representation, or
-the required path-specific then root well-known fallbacks. Discovery validates
-the exact protected-resource identifier and HTTPS authorization-server
-issuers, never forwards bearer or MCP session headers, and leaves active
-Streamable HTTP session state untouched. The API is exported through
-`package:connectanum_mcp/connectanum_mcp_io.dart`. The isolated public-package
-consumer smoke now proves challenge-directed discovery with an active MCP
-session and rejects bearer or session credential leakage. Router route options
-already publish the corresponding metadata and challenges while retaining
-normal MCP, TLS, and mTLS authorization boundaries. Interactive OAuth and
-authorization server metadata discovery remain separate follow-ups. The plan is
-`docs/exec-plans/2026-07-30-mcp-client-authorization-discovery.md`.
-Pre-change and post-smoke `bin/test-fast`, focused authorization-discovery and
-public entrypoint regressions, the broader MCP suites, and focused package
-analysis passed on 2026-07-30. Complete local `bin/verify` also passed, covering
+The current implementation checkpoint is end-to-end MCP client authorization
+metadata discovery. The public Dart IO client parses Bearer
+`WWW-Authenticate` challenges from `401` and `403` failures, discovers and
+validates RFC 9728 Protected Resource Metadata, then discovers the selected
+authorization server through the MCP 2025-11-25 RFC 8414 and OpenID Connect
+well-known fallback order. Authorization-server results expose immutable typed
+issuer, authorization, token, registration, JWKS, scope, grant, response,
+token-auth, PKCE, and client-metadata-document capabilities while preserving
+unknown fields. Discovery requires exact issuer identity, MCP-compatible
+authorization-code and `S256` support, HTTPS production endpoints, and permits
+loopback HTTP only for local development. Neither stage forwards bearer,
+cookie, or MCP session headers or mutates active Streamable HTTP session state.
+The API is exported through
+`package:connectanum_mcp/connectanum_mcp_io.dart`, and the isolated
+public-package consumer smoke completes both stages from an active authenticated
+MCP session while rejecting credential leakage. Router route options already
+publish protected-resource metadata and challenges while retaining normal MCP,
+TLS, and mTLS authorization boundaries. Interactive OAuth, client registration,
+PKCE generation, and token exchange remain separate follow-ups. The active plan
+is
+`docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md`.
+Pre-change and post-change `bin/test-fast`, focused discovery and public
+entrypoint regressions, focused package analysis, all MCP and client suites,
+isolated package consumers, router-hosted MCP variants, and all 96 benchmark
+tests passed on 2026-07-31. Complete local `bin/verify` also passed, including
 formatting, 113 Rust core tests, 52 FFI tests, 360 core Dart tests, 85 MCP
-tests, all client/auth/benchmark suites and isolated package consumers, the
-377-test router suite, focused native forwarding, and Chrome/Dart2Wasm.
+tests, 117 client MCP tests, the complete 377-test router suite, focused native
+forwarding, and Chrome/Dart2Wasm.
 
 The exact MCP authorization-discovery head `6428961` passed GitHub CI
 `30590682010` and Dart Package Publish Dry Run `30590681999`. Its WAMP Profile
@@ -56,7 +62,14 @@ Two contended local runs improved the affected row from a 0.289 Mbps
 throughput floor; unrelated existing latency ceilings remained noisy while
 other scheduled repository jobs shared the host. The complete native benchmark
 suite, post-change `bin/test-fast`, and complete local `bin/verify` pass.
-Replacement hosted evidence remains pending under
+Replacement head `acc7724` passed GitHub CI `30594250222`, kTLS Validation
+`30594250179`, and WAMP Profile Benchmarks `30594250184`. Hosted artifact
+`8779614698` recorded 128 samples for all four progressive rows at
+1.055-1.928 Mbps and 10.354-18.250 ms p95 with zero transport, metric, or
+policy findings; the previously failing native RawSocket row measured
+1.928 Mbps and 15.960 ms p95. The strict deployment-chain audit passed and
+confirmed that package dry run `30590681999` remains relevant because no
+publish-sensitive inputs changed. The completed evidence is recorded in
 `docs/exec-plans/2026-07-31-progressive-benchmark-stability.md`.
 
 The beta release now has one installation and getting-started path covering

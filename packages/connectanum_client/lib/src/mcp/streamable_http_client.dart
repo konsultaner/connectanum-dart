@@ -391,6 +391,20 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Discovers validated OAuth metadata for an advertised authorization server.
+  Future<McpAuthorizationServerDiscovery> discoverAuthorizationServerMetadata(
+    Uri issuer, {
+    Map<String, String> headers = const <String, String>{},
+    int maxMetadataBytes = 1024 * 1024,
+  }) {
+    return discoverMcpAuthorizationServerMetadata(
+      issuer,
+      httpClient: _httpClient,
+      headers: headers,
+      maxMetadataBytes: maxMetadataBytes,
+    );
+  }
+
   Future<McpJsonMap> initialize({
     Object? id = 'initialize',
     McpJsonMap capabilities = const <String, Object?>{},

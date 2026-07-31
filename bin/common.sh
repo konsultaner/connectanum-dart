@@ -2047,7 +2047,6 @@ const _accessToken = 'agent-token';
 const _refreshToken = 'agent-refresh-token';
 const _refreshedAccessToken = 'agent-token-refreshed';
 const _refreshedRefreshToken = 'agent-refresh-token-refreshed';
-const _authorizationServerIssuer = 'https://auth.example.test';
 const _toolName = 'agent.echo';
 const _pagedToolName = 'agent.followup';
 const _toolCursor = 'agent-tools-page-2';
@@ -2286,7 +2285,7 @@ Future<void> _smokeProtectedResourceDiscovery(
   );
   _expect(
     discovery.metadata.authorizationServers.single.toString() ==
-        _authorizationServerIssuer,
+        endpoint.authorizationServerIssuer.toString(),
     'authorization discovery returned an unexpected issuer',
   );
   _expect(
@@ -2296,14 +2295,47 @@ Future<void> _smokeProtectedResourceDiscovery(
   _expect(
     endpoint.authorizationDiscoveryProbeCount == 1 &&
         endpoint.protectedResourceMetadataRequestCount == 1,
-    'authorization discovery did not complete the challenge-directed flow',
+    'protected-resource discovery did not complete the challenge-directed flow',
+  );
+
+  final authorizationServer = await client.discoverAuthorizationServerMetadata(
+    discovery.metadata.authorizationServers.single,
+    headers: const <String, String>{
+      'x-consumer-trace': 'authorization-discovery',
+    },
+  );
+  _expect(
+    authorizationServer.metadataUri ==
+        endpoint.authorizationServerMetadataUri,
+    'authorization-server discovery selected an unexpected metadata endpoint',
+  );
+  _expect(
+    authorizationServer.metadata.issuer ==
+        endpoint.authorizationServerIssuer,
+    'authorization-server discovery returned an unexpected issuer',
+  );
+  _expect(
+    authorizationServer.metadata.authorizationEndpoint ==
+            endpoint.authorizationServerIssuer.replace(
+              path: '/oauth/authorize',
+            ) &&
+        authorizationServer.metadata.tokenEndpoint ==
+            endpoint.authorizationServerIssuer.replace(path: '/oauth/token') &&
+        authorizationServer.metadata.codeChallengeMethodsSupported.contains(
+          'S256',
+        ),
+    'authorization-server discovery returned incomplete OAuth endpoints',
+  );
+  _expect(
+    endpoint.authorizationServerMetadataRequestCount == 1,
+    'authorization-server discovery did not use the RFC 8414 endpoint',
   );
   _expect(
     !endpoint.authorizationDiscoverySawCredentials,
-    'authorization discovery forwarded bearer or MCP session credentials',
+    'authorization discovery forwarded credentials or MCP session state',
   );
   _expect(
-    endpoint.authorizationDiscoveryTraceHeaders.length == 2 &&
+    endpoint.authorizationDiscoveryTraceHeaders.length == 3 &&
         endpoint.authorizationDiscoveryTraceHeaders.every(
           (trace) => trace == 'authorization-discovery',
         ),
@@ -6051,6 +6083,7 @@ final class _AgentMcpEndpoint {
   var sessionDeleted = false;
   var authorizationDiscoveryProbeCount = 0;
   var protectedResourceMetadataRequestCount = 0;
+  var authorizationServerMetadataRequestCount = 0;
   var authorizationDiscoverySawCredentials = false;
   var _sessionActive = false;
 
@@ -6082,6 +6115,17 @@ final class _AgentMcpEndpoint {
     path: '/oauth-protected-resource',
   );
 
+  Uri get authorizationServerIssuer => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/oauth/issuer',
+  );
+
+  Uri get authorizationServerMetadataUri => authorizationServerIssuer.replace(
+    path: '/.well-known/oauth-authorization-server/oauth/issuer',
+  );
+
   static Future<_AgentMcpEndpoint> bind() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     return _AgentMcpEndpoint._(server);
@@ -6105,6 +6149,11 @@ final class _AgentMcpEndpoint {
 
     if (request.uri.path == '/oauth-protected-resource') {
       await _handleProtectedResourceMetadata(request);
+      return;
+    }
+
+    if (request.uri.path == authorizationServerMetadataUri.path) {
+      await _handleAuthorizationServerMetadata(request);
       return;
     }
 
@@ -6407,7 +6456,9 @@ final class _AgentMcpEndpoint {
     _recordAuthorizationDiscoveryRequest(request);
     await _writeJson(request, <String, Object?>{
       'resource': uri.toString(),
-      'authorization_servers': <String>[_authorizationServerIssuer],
+      'authorization_servers': <String>[
+        authorizationServerIssuer.toString(),
+      ],
       'scopes_supported': <String>[
         'mcp:tools',
         'mcp:meta',
@@ -6417,12 +6468,53 @@ final class _AgentMcpEndpoint {
     });
   }
 
+  Future<void> _handleAuthorizationServerMetadata(HttpRequest request) async {
+    if (request.method != 'GET') {
+      await _writeError(
+        request,
+        HttpStatus.methodNotAllowed,
+        'metadata requires GET',
+      );
+      return;
+    }
+    authorizationServerMetadataRequestCount += 1;
+    _recordAuthorizationDiscoveryRequest(request);
+    await _writeJson(request, <String, Object?>{
+      'issuer': authorizationServerIssuer.toString(),
+      'authorization_endpoint': authorizationServerIssuer
+          .replace(path: '/oauth/authorize')
+          .toString(),
+      'token_endpoint': authorizationServerIssuer
+          .replace(path: '/oauth/token')
+          .toString(),
+      'registration_endpoint': authorizationServerIssuer
+          .replace(path: '/oauth/register')
+          .toString(),
+      'scopes_supported': <String>[
+        'mcp:tools',
+        'mcp:meta',
+        'mcp:resources',
+      ],
+      'response_types_supported': <String>['code'],
+      'grant_types_supported': <String>[
+        'authorization_code',
+        'refresh_token',
+      ],
+      'code_challenge_methods_supported': <String>['S256'],
+      'token_endpoint_auth_methods_supported': <String>['none'],
+      'client_id_metadata_document_supported': true,
+    });
+  }
+
   void _recordAuthorizationDiscoveryRequest(HttpRequest request) {
     authorizationDiscoveryTraceHeaders.add(
       request.headers.value('x-consumer-trace') ?? '',
     );
     if (request.headers.value(HttpHeaders.authorizationHeader) != null ||
-        request.headers.value('MCP-Session-Id') != null) {
+        request.headers.value(HttpHeaders.cookieHeader) != null ||
+        request.headers.value('MCP-Session-Id') != null ||
+        request.headers.value('MCP-Protocol-Version') != null ||
+        request.headers.value('Last-Event-ID') != null) {
       authorizationDiscoverySawCredentials = true;
     }
   }

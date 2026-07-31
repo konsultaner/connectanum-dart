@@ -225,6 +225,252 @@ void main() {
       );
     });
 
+    test(
+      'discovers path issuer metadata in MCP priority order without credentials',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => server.close(force: true));
+        final issuer = Uri.parse(
+          'http://${server.address.address}:${server.port}/tenant1',
+        );
+        const oauthPath = '/.well-known/oauth-authorization-server/tenant1';
+        const openIdInsertedPath = '/.well-known/openid-configuration/tenant1';
+        const openIdAppendedPath = '/tenant1/.well-known/openid-configuration';
+        final seenPaths = <String>[];
+        final seenTraceHeaders = <String?>[];
+        final sawCredentials = <bool>[];
+
+        server.listen((request) async {
+          seenPaths.add(request.uri.path);
+          seenTraceHeaders.add(request.headers.value('x-consumer-trace'));
+          sawCredentials.add(
+            request.headers.value(HttpHeaders.authorizationHeader) != null ||
+                request.headers.value(HttpHeaders.cookieHeader) != null ||
+                request.headers.value('MCP-Session-Id') != null ||
+                request.headers.value('MCP-Protocol-Version') != null ||
+                request.headers.value('Last-Event-ID') != null,
+          );
+          await request.drain<void>();
+          if (request.uri.path == oauthPath) {
+            request.response.statusCode = HttpStatus.notFound;
+            await request.response.close();
+            return;
+          }
+          if (request.uri.path == openIdInsertedPath) {
+            await _writeJson(request.response, <String, Object?>{
+              'issuer': issuer.replace(path: '/other').toString(),
+              'authorization_endpoint': issuer
+                  .replace(path: '/oauth/authorize')
+                  .toString(),
+              'token_endpoint': issuer.replace(path: '/oauth/token').toString(),
+              'response_types_supported': <String>['code'],
+            });
+            return;
+          }
+          if (request.uri.path == openIdAppendedPath) {
+            await _writeJson(request.response, <String, Object?>{
+              'issuer': issuer.toString(),
+              'authorization_endpoint': issuer
+                  .replace(path: '/oauth/authorize')
+                  .toString(),
+              'token_endpoint': issuer.replace(path: '/oauth/token').toString(),
+              'registration_endpoint': issuer
+                  .replace(path: '/oauth/register')
+                  .toString(),
+              'jwks_uri': issuer.replace(path: '/oauth/jwks').toString(),
+              'scopes_supported': <String>['mcp:tools', 'mcp:meta'],
+              'response_types_supported': <String>['code'],
+              'grant_types_supported': <String>[
+                'authorization_code',
+                'refresh_token',
+              ],
+              'code_challenge_methods_supported': <String>['S256'],
+              'token_endpoint_auth_methods_supported': <String>['none'],
+              'client_id_metadata_document_supported': true,
+              'custom_capability': <String, Object?>{'enabled': true},
+            });
+            return;
+          }
+          request.response.statusCode = HttpStatus.notFound;
+          await request.response.close();
+        });
+
+        final client = McpStreamableHttpClient.withBearerToken(
+          issuer,
+          'secret-token',
+        )..sessionId = 'active-session';
+        addTearDown(client.close);
+
+        final discovery = await client.discoverAuthorizationServerMetadata(
+          issuer,
+          headers: const <String, String>{
+            'x-consumer-trace': 'authorization-server-discovery',
+          },
+        );
+
+        expect(seenPaths, <String>[
+          oauthPath,
+          openIdInsertedPath,
+          openIdAppendedPath,
+        ]);
+        expect(
+          seenTraceHeaders,
+          everyElement('authorization-server-discovery'),
+        );
+        expect(sawCredentials, everyElement(isFalse));
+        expect(client.sessionId, 'active-session');
+        expect(discovery.metadataUri.path, openIdAppendedPath);
+        expect(discovery.metadata.issuer, issuer);
+        expect(
+          discovery.metadata.authorizationEndpoint.path,
+          '/oauth/authorize',
+        );
+        expect(discovery.metadata.tokenEndpoint.path, '/oauth/token');
+        expect(
+          discovery.metadata.registrationEndpoint?.path,
+          '/oauth/register',
+        );
+        expect(discovery.metadata.jwksUri?.path, '/oauth/jwks');
+        expect(discovery.metadata.scopesSupported, <String>[
+          'mcp:tools',
+          'mcp:meta',
+        ]);
+        expect(discovery.metadata.responseTypesSupported, <String>['code']);
+        expect(discovery.metadata.grantTypesSupported, <String>[
+          'authorization_code',
+          'refresh_token',
+        ]);
+        expect(discovery.metadata.codeChallengeMethodsSupported, <String>[
+          'S256',
+        ]);
+        expect(discovery.metadata.tokenEndpointAuthMethodsSupported, <String>[
+          'none',
+        ]);
+        expect(discovery.metadata.clientIdMetadataDocumentSupported, isTrue);
+        expect(discovery.metadata.raw['custom_capability'], <String, Object?>{
+          'enabled': true,
+        });
+      },
+    );
+
+    test('discovers a root issuer through the OpenID fallback', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      final issuer = Uri.parse(
+        'http://${server.address.address}:${server.port}',
+      );
+      final seenPaths = <String>[];
+
+      server.listen((request) async {
+        seenPaths.add(request.uri.path);
+        await request.drain<void>();
+        if (request.uri.path == '/.well-known/oauth-authorization-server') {
+          request.response.statusCode = HttpStatus.serviceUnavailable;
+          await request.response.close();
+          return;
+        }
+        if (request.uri.path == '/.well-known/openid-configuration') {
+          await _writeJson(request.response, <String, Object?>{
+            'issuer': issuer.toString(),
+            'authorization_endpoint': issuer
+                .replace(path: '/authorize')
+                .toString(),
+            'token_endpoint': issuer.replace(path: '/token').toString(),
+            'response_types_supported': <String>['code'],
+            'code_challenge_methods_supported': <String>['S256'],
+          });
+          return;
+        }
+        request.response.statusCode = HttpStatus.notFound;
+        await request.response.close();
+      });
+
+      final discovery = await discoverMcpAuthorizationServerMetadata(issuer);
+
+      expect(seenPaths, <String>[
+        '/.well-known/oauth-authorization-server',
+        '/.well-known/openid-configuration',
+      ]);
+      expect(discovery.metadataUri.path, '/.well-known/openid-configuration');
+      expect(discovery.metadata.issuer, issuer);
+    });
+
+    test('rejects insecure authorization-server endpoints', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      final issuer = Uri.parse(
+        'http://${server.address.address}:${server.port}',
+      );
+
+      server.listen((request) async {
+        await request.drain<void>();
+        await _writeJson(request.response, <String, Object?>{
+          'issuer': issuer.toString(),
+          'authorization_endpoint': 'http://auth.example/authorize',
+          'token_endpoint': issuer.replace(path: '/token').toString(),
+          'response_types_supported': <String>['code'],
+        });
+      });
+
+      await expectLater(
+        discoverMcpAuthorizationServerMetadata(issuer),
+        throwsA(
+          isA<McpAuthorizationDiscoveryException>().having(
+            (error) => error.message,
+            'message',
+            contains('authorization_endpoint'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects authorization-server metadata without S256 PKCE', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      final issuer = Uri.parse(
+        'http://${server.address.address}:${server.port}',
+      );
+
+      server.listen((request) async {
+        await request.drain<void>();
+        await _writeJson(request.response, <String, Object?>{
+          'issuer': issuer.toString(),
+          'authorization_endpoint': issuer
+              .replace(path: '/authorize')
+              .toString(),
+          'token_endpoint': issuer.replace(path: '/token').toString(),
+          'response_types_supported': <String>['code'],
+          'code_challenge_methods_supported': <String>['plain'],
+        });
+      });
+
+      await expectLater(
+        discoverMcpAuthorizationServerMetadata(issuer),
+        throwsA(
+          isA<McpAuthorizationDiscoveryException>().having(
+            (error) => error.message,
+            'message',
+            allOf(
+              contains('code_challenge_methods_supported'),
+              contains('S256'),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('rejects credentials supplied as discovery headers', () async {
+      await expectLater(
+        discoverMcpAuthorizationServerMetadata(
+          Uri.parse('https://auth.example'),
+          headers: const <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer secret',
+          },
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('exposes parsed Bearer challenges on HTTP failures', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close(force: true));
