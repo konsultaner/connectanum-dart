@@ -7,6 +7,7 @@ import 'package:connectanum_core/connectanum_core.dart'
 import 'authorization_discovery.dart';
 import 'http_auth_client.dart';
 import 'oauth_authorization.dart';
+import 'oauth_token_exchange.dart';
 
 typedef McpJsonMap = Map<String, Object?>;
 
@@ -28,6 +29,16 @@ const _mcpSupportedProtocolVersions = <String>{
   '2025-06-18',
   _mcpLatestProtocolVersion,
 };
+
+bool _sameMcpOAuthResource(Uri expected, Uri candidate) {
+  return expected.scheme.toLowerCase() == candidate.scheme.toLowerCase() &&
+      expected.host.toLowerCase() == candidate.host.toLowerCase() &&
+      expected.port == candidate.port &&
+      expected.path == candidate.path &&
+      expected.query == candidate.query &&
+      candidate.userInfo.isEmpty &&
+      !candidate.hasFragment;
+}
 
 String _validatedMcpToolName(String value, String name) {
   if (_mcpToolNamePattern.hasMatch(value)) {
@@ -296,6 +307,30 @@ final class McpStreamableHttpClient {
          closeHttpClient: closeHttpClient,
        );
 
+  factory McpStreamableHttpClient.withOAuthToken(
+    Uri endpoint,
+    McpOAuthTokenGrant grant, {
+    HttpClient? httpClient,
+    Map<String, String> headers = const <String, String>{},
+    String defaultProtocolVersion = latestProtocolVersion,
+    bool closeHttpClient = false,
+  }) {
+    if (!grant.isForResource(endpoint)) {
+      throw McpOAuthTokenException(
+        'OAuth token grant is not valid for this MCP resource.',
+        endpoint: endpoint,
+      );
+    }
+    return McpStreamableHttpClient.withBearerToken(
+      endpoint,
+      grant.accessToken,
+      httpClient: httpClient,
+      headers: headers,
+      defaultProtocolVersion: defaultProtocolVersion,
+      closeHttpClient: closeHttpClient,
+    );
+  }
+
   /// Creates a client for MCP HTTP endpoints using an HTTP auth bridge grant.
   McpStreamableHttpClient.withAuthGrant(
     Uri endpoint,
@@ -421,6 +456,29 @@ final class McpStreamableHttpClient {
       redirectUri: redirectUri,
       scopes: scopes,
       pkce: pkce,
+    );
+  }
+
+  Future<McpOAuthTokenGrant> exchangeAuthorizationCode(
+    McpAuthorizationCode authorizationCode, {
+    required McpOAuthClientAuthentication clientAuthentication,
+    Map<String, String> headers = const <String, String>{},
+    Duration timeout = const Duration(seconds: 30),
+    int maxResponseBytes = 64 * 1024,
+  }) {
+    if (!_sameMcpOAuthResource(authorizationCode.request.resource, endpoint)) {
+      throw McpOAuthTokenException(
+        'Authorization code is not valid for this MCP resource.',
+        endpoint: endpoint,
+      );
+    }
+    return exchangeMcpAuthorizationCode(
+      authorizationCode,
+      clientAuthentication: clientAuthentication,
+      httpClient: _httpClient,
+      headers: headers,
+      timeout: timeout,
+      maxResponseBytes: maxResponseBytes,
     );
   }
 

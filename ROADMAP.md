@@ -386,8 +386,13 @@
     Bearer challenges, authoritative challenge scopes, ordered MCP well-known
     fallback, exact RFC 9728 resource validation, and credential-free metadata
     requests through the public package entrypoint.
-  - [ ] Add OAuth authorization-server metadata discovery with the MCP-required
+  - [x] Add OAuth authorization-server metadata discovery with the MCP-required
     RFC 8414 and OpenID Connect well-known fallback order.
+  - [x] Add public Dart PKCE authorization-request preparation and redirect
+    validation with canonical MCP resource binding.
+  - [x] Add bounded authorization-code exchange for pre-registered public
+    clients and the standard client-secret methods, returning a resource-bound
+    bearer grant suitable for a fresh Streamable HTTP client.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

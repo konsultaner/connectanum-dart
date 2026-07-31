@@ -2047,6 +2047,8 @@ const _accessToken = 'agent-token';
 const _refreshToken = 'agent-refresh-token';
 const _refreshedAccessToken = 'agent-token-refreshed';
 const _refreshedRefreshToken = 'agent-refresh-token-refreshed';
+const _oauthAccessToken = 'agent-oauth-token';
+const _oauthRefreshToken = 'agent-oauth-refresh-token';
 const _toolName = 'agent.echo';
 const _pagedToolName = 'agent.followup';
 const _toolCursor = 'agent-tools-page-2';
@@ -2367,6 +2369,54 @@ Future<void> _smokeProtectedResourceDiscovery(
         authorizationCode.request.pkce.verifier.length == 43,
     'authorization callback did not preserve the code and PKCE request',
   );
+  final oauthGrant = await client.exchangeAuthorizationCode(
+    authorizationCode,
+    clientAuthentication: McpOAuthClientAuthentication.none(
+      'consumer-client',
+    ),
+    headers: const <String, String>{
+      'x-consumer-trace': 'authorization-token',
+    },
+  );
+  _expect(
+    oauthGrant.accessToken == _oauthAccessToken &&
+        oauthGrant.refreshToken == _oauthRefreshToken &&
+        oauthGrant.resource == endpoint.uri &&
+        oauthGrant.scopes.join(' ') == 'mcp:tools mcp:meta',
+    'authorization-code exchange returned an unexpected OAuth grant',
+  );
+  _expect(
+    endpoint.authorizationTokenRequestCount == 1 &&
+        endpoint.authorizationTokenTraceHeader == 'authorization-token' &&
+        endpoint.authorizationTokenForm['grant_type'] ==
+            'authorization_code' &&
+        endpoint.authorizationTokenForm['code'] ==
+            'consumer-authorization-code' &&
+        endpoint.authorizationTokenForm['client_id'] == 'consumer-client' &&
+        endpoint.authorizationTokenForm['resource'] ==
+            endpoint.uri.toString() &&
+        endpoint.authorizationTokenForm['code_verifier'] ==
+            authorizationRequest.pkce.verifier,
+    'authorization-code exchange omitted required OAuth or MCP parameters',
+  );
+  _expect(
+    !endpoint.authorizationTokenSawSessionCredentials,
+    'authorization-code exchange forwarded MCP session credentials',
+  );
+
+  final oauthClient = McpStreamableHttpClient.withOAuthToken(
+    endpoint.uri,
+    oauthGrant,
+  );
+  try {
+    final tools = await oauthClient.listToolsDirect();
+    _expect(
+      tools.tools.any((tool) => tool['name'] == _toolName),
+      'OAuth bearer client could not use the router-hosted MCP endpoint',
+    );
+  } finally {
+    oauthClient.close();
+  }
 
   _expect(
     !endpoint.authorizationDiscoverySawCredentials,
@@ -6122,7 +6172,11 @@ final class _AgentMcpEndpoint {
   var authorizationDiscoveryProbeCount = 0;
   var protectedResourceMetadataRequestCount = 0;
   var authorizationServerMetadataRequestCount = 0;
+  var authorizationTokenRequestCount = 0;
   var authorizationDiscoverySawCredentials = false;
+  var authorizationTokenSawSessionCredentials = false;
+  var authorizationTokenTraceHeader = '';
+  Map<String, String> authorizationTokenForm = const <String, String>{};
   var _sessionActive = false;
 
   Uri get uri => Uri(
@@ -6195,6 +6249,11 @@ final class _AgentMcpEndpoint {
       return;
     }
 
+    if (request.uri.path == '/oauth/token') {
+      await _handleAuthorizationToken(request);
+      return;
+    }
+
     if (request.uri.path != '/mcp') {
       await _writeError(request, HttpStatus.notFound, 'unknown endpoint');
       return;
@@ -6203,7 +6262,9 @@ final class _AgentMcpEndpoint {
     final bearerToken = _bearerTokenFrom(request);
     if (bearerToken == null ||
         _revokedAccessTokens.contains(bearerToken) ||
-        (bearerToken != _accessToken && bearerToken != _refreshedAccessToken)) {
+        (bearerToken != _accessToken &&
+            bearerToken != _refreshedAccessToken &&
+            bearerToken != _oauthAccessToken)) {
       if (request.headers.value('x-consumer-trace') ==
           'authorization-discovery') {
         authorizationDiscoveryProbeCount += 1;
@@ -6541,6 +6602,57 @@ final class _AgentMcpEndpoint {
       'code_challenge_methods_supported': <String>['S256'],
       'token_endpoint_auth_methods_supported': <String>['none'],
       'client_id_metadata_document_supported': true,
+    });
+  }
+
+  Future<void> _handleAuthorizationToken(HttpRequest request) async {
+    if (request.method != 'POST') {
+      await _writeError(
+        request,
+        HttpStatus.methodNotAllowed,
+        'token exchange requires POST',
+      );
+      return;
+    }
+    authorizationTokenRequestCount += 1;
+    authorizationTokenTraceHeader =
+        request.headers.value('x-consumer-trace') ?? '';
+    if (request.headers.value(HttpHeaders.authorizationHeader) != null ||
+        request.headers.value(HttpHeaders.cookieHeader) != null ||
+        request.headers.value('MCP-Session-Id') != null ||
+        request.headers.value('MCP-Protocol-Version') != null ||
+        request.headers.value('Last-Event-ID') != null) {
+      authorizationTokenSawSessionCredentials = true;
+    }
+    authorizationTokenForm = Uri.splitQueryString(
+      await utf8.decoder.bind(request).join(),
+    );
+    final valid =
+        authorizationTokenForm['grant_type'] == 'authorization_code' &&
+        authorizationTokenForm['code'] == 'consumer-authorization-code' &&
+        authorizationTokenForm['redirect_uri'] ==
+            'http://127.0.0.1:34891/oauth/callback' &&
+        authorizationTokenForm['client_id'] == 'consumer-client' &&
+        authorizationTokenForm['resource'] == uri.toString() &&
+        authorizationTokenForm['code_verifier'] ==
+            'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+    if (!valid) {
+      request.response.statusCode = HttpStatus.badRequest;
+      await _writeJson(
+        request,
+        <String, Object?>{
+          'error': 'invalid_grant',
+          'error_description': 'Authorization grant parameters are invalid.',
+        },
+      );
+      return;
+    }
+    await _writeJson(request, <String, Object?>{
+      'access_token': _oauthAccessToken,
+      'token_type': 'Bearer',
+      'expires_in': 900,
+      'refresh_token': _oauthRefreshToken,
+      'scope': 'mcp:tools mcp:meta',
     });
   }
 

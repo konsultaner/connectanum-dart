@@ -68,3 +68,8 @@ discovery stages.
 - 2026-07-31: Post-change `bin/test-fast` and complete local `bin/verify`
   passed, including package consumers, all router-hosted MCP modes, 96
   benchmark tests, the complete router suite, and Chrome/Dart2Wasm.
+- 2026-07-31: Commit `ba0692d` passed exact-head GitHub CI `30602816830`,
+  including Fast Checks, Full Verify, Dart VM Coverage, and the Codecov upload.
+  Dart Package Publish Dry Run `30602816778` and WAMP Profile Benchmarks
+  `30602816804` also passed. The strict deployment-chain audit passed with all
+  required branch, workflow, CI, package, benchmark, and registry gates clean.

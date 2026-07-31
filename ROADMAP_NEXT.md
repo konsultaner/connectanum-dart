@@ -31,9 +31,12 @@ Fresh state:
   `package:connectanum_mcp/connectanum_mcp_io.dart` to negotiate Streamable
   HTTP sessions, send authenticated JSON-RPC requests, consume POST/SSE
   responses, poll GET/SSE events with resume cursors, delete sessions, parse
-  Bearer scope challenges, and discover validated OAuth Protected Resource
-  Metadata without forwarding credentials. OAuth authorization-server metadata
-  discovery is the next bounded client-auth interoperability slice.
+  Bearer scope challenges, discover validated OAuth Protected Resource and
+  authorization-server metadata without forwarding credentials, prepare and
+  validate PKCE authorization requests, and redeem codes into resource-bound
+  bearer grants without mutating active MCP session state. Client registration,
+  browser/redirect orchestration, refresh, revocation, and persistence remain
+  bounded follow-up slices.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.
