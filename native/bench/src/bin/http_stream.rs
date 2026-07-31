@@ -6216,6 +6216,36 @@ mod tests {
     }
 
     #[test]
+    fn final_release_progressive_workloads_have_stable_sample_counts() {
+        let scenario_path = format!(
+            "{}/scenarios/wamp_final_release_features.toml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let scenario = load_scenario(&scenario_path).unwrap();
+        let progressive = scenario
+            .workloads
+            .iter()
+            .filter(|workload| workload.protocol.contains("progressive"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(progressive.len(), 4);
+        for workload in progressive {
+            assert!(
+                workload.iterations >= 64,
+                "{} has only {} measured iterations",
+                workload.name,
+                workload.iterations
+            );
+            assert!(
+                workload.iterations * workload.concurrency >= 128,
+                "{} has only {} measured samples",
+                workload.name,
+                workload.iterations * workload.concurrency
+            );
+        }
+    }
+
+    #[test]
     fn parse_wamp_protocol_supports_transport_specific_labels() {
         assert_eq!(
             parse_wamp_protocol("wamp_rawsocket_auth"),

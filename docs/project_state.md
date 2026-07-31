@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-30
+Last updated: 2026-07-31
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -39,6 +39,25 @@ analysis passed on 2026-07-30. Complete local `bin/verify` also passed, covering
 formatting, 113 Rust core tests, 52 FFI tests, 360 core Dart tests, 85 MCP
 tests, all client/auth/benchmark suites and isolated package consumers, the
 377-test router suite, focused native forwarding, and Chrome/Dart2Wasm.
+
+The exact MCP authorization-discovery head `6428961` passed GitHub CI
+`30590682010` and Dart Package Publish Dry Run `30590681999`. Its WAMP Profile
+Benchmarks run `30590682015` failed twice on the pre-existing
+`rawsocket_progressive_native_cbor_to_json_1k` throughput floor, at 0.734 and
+0.720 Mbps against 0.750 Mbps. The immediately preceding head had also failed
+that row at 0.707 Mbps before a successful rerun. Eight hosted artifacts showed
+that the 24-sample progressive row completed in only 185-273 ms and varied from
+0.720 to 1.063 Mbps while preserving correct call/router accounting and zero
+transport or protocol findings. The release matrix now measures 64 iterations
+per worker, or 128 samples per progressive row, without changing any throughput
+or latency threshold. A regression test protects that minimum sample count.
+Two contended local runs improved the affected row from a 0.289 Mbps
+24-sample baseline to 0.844 and 0.799 Mbps and passed every unchanged
+throughput floor; unrelated existing latency ceilings remained noisy while
+other scheduled repository jobs shared the host. The complete native benchmark
+suite, post-change `bin/test-fast`, and complete local `bin/verify` pass.
+Replacement hosted evidence remains pending under
+`docs/exec-plans/2026-07-31-progressive-benchmark-stability.md`.
 
 The beta release now has one installation and getting-started path covering
 source checkout use before publication, synchronized package/native release
