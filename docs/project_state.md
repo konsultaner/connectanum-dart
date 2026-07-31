@@ -55,9 +55,17 @@ creation time and expiry plus the validated authorization-server metadata,
 resource, client, redirect, scopes, state, and PKCE verifier. Restoration
 revalidates every field and reconstructs the authorization URI instead of
 trusting a stored URI; malformed, not-yet-valid, and expired documents surface
-only redacted typed failures. The package does not select a filesystem,
-keychain, database, or Flutter storage plugin, and dynamic-registration plus
-bearer/refresh-grant persistence remain separate follow-ups.
+only redacted typed failures. Issued dynamic registrations can now also be
+captured as a versioned document for caller-owned durable storage. The
+document carries the validated authorization-server metadata alongside the
+complete public registration, and restoration can pin the expected issuer
+before revalidating every client field, the exact `none` authentication
+contract, and JSON-compatible extension parameters. Registration access
+tokens and confidential-client secrets are not persisted, malformed documents
+fail through a redacted typed exception, and nested restored values are
+immutable. The package does not select a filesystem, keychain, database, or
+Flutter storage plugin, and bearer/refresh-grant persistence remains the next
+auth persistence follow-up.
 Consumers can refresh grants through the discovered token endpoint with equal
 or narrower scopes, retain or rotate refresh tokens from the response, and
 revoke either access or refresh tokens through the discovered RFC 7009
@@ -70,16 +78,16 @@ typed OAuth failures without including codes, secrets, or tokens.
 its HTTP connection resources: OAuth requests do not forward active MCP
 credentials or mutate Streamable HTTP session or resume state. The
 public-package consumer smoke now publishes Client ID metadata, dynamically
-registers a native public client for a real ephemeral loopback listener, and
-carries that issued identity through callback receipt, authorization-code
-exchange, router-hosted direct JSON tool use, refresh, refreshed tool use,
-revocation, and rejection of the revoked access token while confirming the
-original authenticated session remains unchanged. Router route options publish
+registers a native public client for a real ephemeral loopback listener,
+JSON-encodes and issuer-pins the restored registration, and carries that
+restored identity through callback receipt, authorization-code exchange,
+router-hosted direct JSON tool use, refresh, refreshed tool use, revocation,
+and rejection of the revoked access token while confirming the original
+authenticated session remains unchanged. Router route options publish
 protected-resource metadata and challenges while retaining normal MCP, TLS,
 and mTLS authorization boundaries. Platform-specific browser selection and
 secure-storage selection remain consumer-owned by design;
-dynamic-registration and bearer/refresh-grant persistence remain separate
-follow-ups.
+bearer/refresh-grant persistence remains a separate follow-up.
 The completed plans are
 `docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md` and
 `docs/exec-plans/2026-07-31-mcp-oauth-authorization-request.md`; the completed
@@ -96,17 +104,29 @@ The completed external-user-agent orchestration plan is
 `docs/exec-plans/2026-07-31-mcp-oauth-external-user-agent.md`.
 The completed pending-authorization persistence plan is
 `docs/exec-plans/2026-07-31-mcp-oauth-authorization-transaction-persistence.md`.
+The completed dynamic-registration persistence plan is
+`docs/exec-plans/2026-07-31-mcp-oauth-dynamic-registration-persistence.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, focused package analysis, public package-boundary validation, and
-the isolated and globally activated consumer smokes passed on 2026-07-31.
+the isolated and globally activated consumer smokes passed on 2026-07-31 for
+the dynamic-registration persistence slice. The focused package counts are
+171 client MCP tests and 85 MCP package tests; all 18 package-boundary tests
+also pass.
 Complete local `bin/verify` then passed, including formatting, 113 Rust core
-tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 169 client MCP tests,
+tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 171 client MCP tests,
 all 96 benchmark tests, the complete 377-test router suite, isolated and
 globally activated package consumers, router-hosted MCP variants with
 Client ID metadata, dynamic registration, an ephemeral loopback callback, and
-external-user-agent orchestration, pending-authorization JSON persistence,
-and refresh-and-revoke evidence, 13 focused native-router tests, and
-Chrome/Dart2Wasm.
+external-user-agent orchestration, pending-authorization and issued-registration
+JSON persistence, and refresh-and-revoke evidence, 13 focused native-router
+tests, and Chrome/Dart2Wasm.
+Commit `bb4ac84` passed exact-head GitHub CI `30646387600`, including Fast
+Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+artifact. Dart Package Publish Dry Run `30646387630` and WAMP Profile
+Benchmarks `30646387579` passed on their first attempts, including the WAMP
+benchmark artifact upload. The strict deployment-chain audit passed with clean
+exact-head CI logs and all required branch, workflow, package,
+benchmark-artifact, and registry gates clean.
 Commit `bdac6fc` passed exact-head GitHub CI `30640089084`, including Fast
 Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
 artifact. Dart Package Publish Dry Run `30640088462` and WAMP Profile

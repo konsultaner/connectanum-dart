@@ -2364,7 +2364,7 @@ Future<void> _smokeProtectedResourceDiscovery(
     'Client ID Metadata Document omitted public-client metadata',
   );
 
-  final registration = await client.registerOAuthClient(
+  final issuedRegistration = await client.registerOAuthClient(
     authorizationServer.metadata,
     registration: McpOAuthDynamicClientRegistrationRequest.publicClient(
       clientName: 'Consumer application',
@@ -2376,8 +2376,14 @@ Future<void> _smokeProtectedResourceDiscovery(
       'x-consumer-trace': 'authorization-registration',
     },
   );
+  final persistedRegistration = jsonEncode(issuedRegistration.toJson());
+  final registration = McpOAuthDynamicClientRegistration.fromJson(
+    (jsonDecode(persistedRegistration) as Map).cast<String, Object?>(),
+    expectedAuthorizationServerIssuer: authorizationServer.metadata.issuer,
+  );
   _expect(
-    registration.clientId == _oauthClientId &&
+    registration.clientId == issuedRegistration.clientId &&
+        registration.clientId == _oauthClientId &&
         registration.clientIdIssuedAt == 1785436800 &&
         registration.applicationType ==
             McpOAuthClientApplicationType.native &&

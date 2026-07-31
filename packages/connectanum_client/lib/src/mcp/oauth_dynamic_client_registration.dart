@@ -40,6 +40,9 @@ const _standardRegistrationResponseParameters = <String>{
   'token_endpoint_auth_method',
 };
 
+const _dynamicRegistrationStateType = 'mcp_oauth_dynamic_client_registration';
+const _dynamicRegistrationStateVersion = 1;
+
 enum McpOAuthClientApplicationType {
   native('native'),
   web('web');
@@ -140,6 +143,96 @@ final class McpOAuthDynamicClientRegistration {
          additionalParameters,
        );
 
+  /// Revalidates a versioned public-client registration document.
+  ///
+  /// When [expectedAuthorizationServerIssuer] is provided, restoration fails
+  /// unless it exactly matches the issuer stored with the client identity.
+  factory McpOAuthDynamicClientRegistration.fromJson(
+    Map<String, Object?> json, {
+    Uri? expectedAuthorizationServerIssuer,
+  }) {
+    try {
+      if (json['type'] != _dynamicRegistrationStateType) {
+        throw const McpOAuthClientRegistrationStateException(
+          'Persisted OAuth client registration has an unsupported document '
+          'type.',
+        );
+      }
+      if (json['version'] != _dynamicRegistrationStateVersion) {
+        throw const McpOAuthClientRegistrationStateException(
+          'Persisted OAuth client registration has an unsupported schema '
+          'version.',
+        );
+      }
+
+      final authorizationServer = McpAuthorizationServerMetadata.fromJson(
+        _registrationStateObject(json, 'authorization_server'),
+      );
+      if (expectedAuthorizationServerIssuer != null &&
+          authorizationServer.issuer.toString() !=
+              expectedAuthorizationServerIssuer.toString()) {
+        throw const McpOAuthClientRegistrationStateException(
+          'Persisted OAuth client registration belongs to a different '
+          'authorization server.',
+        );
+      }
+      final endpoint = authorizationServer.registrationEndpoint;
+      if (endpoint == null) {
+        throw const McpOAuthClientRegistrationStateException(
+          'Persisted OAuth client registration has no registration endpoint.',
+        );
+      }
+
+      final registrationJson = _registrationStateObject(json, 'registration');
+      if (registrationJson['registration_access_token'] != null) {
+        throw const McpOAuthClientRegistrationStateException(
+          'Persisted OAuth client registration contains unsupported '
+          'management credentials.',
+        );
+      }
+      final applicationType = _registrationStateApplicationType(
+        registrationJson,
+      );
+      final request = McpOAuthDynamicClientRegistrationRequest.publicClient(
+        clientName: _requiredPrintableString(
+          registrationJson,
+          'client_name',
+          endpoint: endpoint,
+        ),
+        redirectUris: _requiredUriList(
+          registrationJson,
+          'redirect_uris',
+          endpoint: endpoint,
+          applicationType: applicationType,
+        ),
+        applicationType: applicationType,
+        clientUri: _optionalPresentationUri(
+          registrationJson,
+          'client_uri',
+          endpoint: endpoint,
+        ),
+        logoUri: _optionalPresentationUri(
+          registrationJson,
+          'logo_uri',
+          endpoint: endpoint,
+        ),
+        scopes: _responseScopes(registrationJson, endpoint),
+      );
+      return _registrationFromJson(
+        registrationJson,
+        endpoint: endpoint,
+        authorizationServer: authorizationServer,
+        request: request,
+      );
+    } on McpOAuthClientRegistrationStateException {
+      rethrow;
+    } on Object {
+      throw const McpOAuthClientRegistrationStateException(
+        'Persisted OAuth client registration is invalid.',
+      );
+    }
+  }
+
   final String clientId;
   final int? clientIdIssuedAt;
   final String clientName;
@@ -185,6 +278,54 @@ final class McpOAuthDynamicClientRegistration {
       pkce: pkce,
     );
   }
+
+  /// Returns a versioned JSON-compatible registration document.
+  ///
+  /// The document keeps the issued identity associated with its validated
+  /// authorization-server metadata. Store it only in caller-selected durable
+  /// storage and do not log extension parameters.
+  Map<String, Object?> toJson() {
+    final registrationJson = <String, Object?>{
+      ..._copyRegistrationStateJsonObject(additionalParameters),
+      'client_id': clientId,
+      if (clientIdIssuedAt != null) 'client_id_issued_at': clientIdIssuedAt,
+      'client_name': clientName,
+      'redirect_uris': List<String>.unmodifiable(
+        redirectUris.map((uri) => uri.toString()),
+      ),
+      'token_endpoint_auth_method': _noClientAuthentication,
+      'grant_types': grantTypes,
+      'response_types': responseTypes,
+      'application_type': applicationType.value,
+      if (clientUri != null) 'client_uri': clientUri.toString(),
+      if (logoUri != null) 'logo_uri': logoUri.toString(),
+      if (scopes.isNotEmpty) 'scope': scopes.join(' '),
+    };
+    return Map<String, Object?>.unmodifiable(<String, Object?>{
+      'type': _dynamicRegistrationStateType,
+      'version': _dynamicRegistrationStateVersion,
+      'authorization_server': _copyRegistrationStateJsonObject(
+        authorizationServer.toJson(),
+      ),
+      'registration': Map<String, Object?>.unmodifiable(registrationJson),
+    });
+  }
+
+  @override
+  String toString() {
+    return 'McpOAuthDynamicClientRegistration('
+        'public client, redirects: ${redirectUris.length})';
+  }
+}
+
+/// A redacted persisted dynamic-registration validation failure.
+final class McpOAuthClientRegistrationStateException implements Exception {
+  const McpOAuthClientRegistrationStateException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'McpOAuthClientRegistrationStateException: $message';
 }
 
 final class McpOAuthClientRegistrationException implements Exception {
@@ -536,6 +677,73 @@ McpOAuthDynamicClientRegistration _registrationFromJson(
         if (!_standardRegistrationResponseParameters.contains(entry.key))
           entry.key: entry.value,
     },
+  );
+}
+
+McpOAuthClientApplicationType _registrationStateApplicationType(
+  Map<String, Object?> json,
+) {
+  final value = json['application_type'];
+  for (final candidate in McpOAuthClientApplicationType.values) {
+    if (candidate.value == value) {
+      return candidate;
+    }
+  }
+  throw const McpOAuthClientRegistrationStateException(
+    'Persisted OAuth client registration application type is invalid.',
+  );
+}
+
+Map<String, Object?> _registrationStateObject(
+  Map<String, Object?> json,
+  String key,
+) {
+  final value = json[key];
+  if (value is! Map) {
+    throw McpOAuthClientRegistrationStateException(
+      'Persisted OAuth client registration field "$key" must be a JSON '
+      'object.',
+    );
+  }
+  return _copyRegistrationStateJsonObject(value);
+}
+
+Map<String, Object?> _copyRegistrationStateJsonObject(Map source) {
+  final result = <String, Object?>{};
+  for (final entry in source.entries) {
+    final key = entry.key;
+    if (key is! String) {
+      throw const McpOAuthClientRegistrationStateException(
+        'Persisted OAuth client registration contains a non-string JSON key.',
+      );
+    }
+    result[key] = _copyRegistrationStateJsonValue(entry.value);
+  }
+  return Map<String, Object?>.unmodifiable(result);
+}
+
+Object? _copyRegistrationStateJsonValue(Object? value) {
+  if (value == null || value is String || value is bool) {
+    return value;
+  }
+  if (value is num) {
+    if (!value.isFinite) {
+      throw const McpOAuthClientRegistrationStateException(
+        'Persisted OAuth client registration contains a non-finite number.',
+      );
+    }
+    return value;
+  }
+  if (value is List) {
+    return List<Object?>.unmodifiable(
+      value.map<Object?>(_copyRegistrationStateJsonValue),
+    );
+  }
+  if (value is Map) {
+    return _copyRegistrationStateJsonObject(value);
+  }
+  throw const McpOAuthClientRegistrationStateException(
+    'Persisted OAuth client registration contains a non-JSON value.',
   );
 }
 

@@ -181,6 +181,150 @@ void main() {
       );
     });
 
+    test('persists and restores an issuer-bound public registration', () async {
+      registrationHandler = (request, body) async {
+        await _writeJson(request, <String, Object?>{
+          'client_id': 'durable-consumer-client',
+          'client_id_issued_at': 1774922400,
+          ...body,
+          'server_extension': <String, Object?>{
+            'mode': 'durable',
+            'features': <String>['authorization', 'refresh'],
+          },
+        }, statusCode: HttpStatus.created);
+      };
+      final authorizationServer = await _discover(issuer);
+      final redirectUri = Uri.parse('http://127.0.0.1:34891/callback');
+      final registration = await registerMcpOAuthClient(
+        authorizationServer: authorizationServer,
+        registration: McpOAuthDynamicClientRegistrationRequest.publicClient(
+          clientName: 'Consumer application',
+          redirectUris: <Uri>[redirectUri],
+          applicationType: McpOAuthClientApplicationType.native,
+          clientUri: Uri.parse('https://consumer.example/app'),
+          logoUri: Uri.parse('https://consumer.example/logo.png'),
+          scopes: const <String>['mcp:tools', 'mcp:meta'],
+        ),
+      );
+      final stored = (jsonDecode(jsonEncode(registration.toJson())) as Map)
+          .cast<String, Object?>();
+
+      final restored = McpOAuthDynamicClientRegistration.fromJson(
+        stored,
+        expectedAuthorizationServerIssuer: issuer,
+      );
+
+      expect(restored.clientId, registration.clientId);
+      expect(restored.clientIdIssuedAt, registration.clientIdIssuedAt);
+      expect(restored.clientName, registration.clientName);
+      expect(restored.redirectUris, registration.redirectUris);
+      expect(restored.applicationType, registration.applicationType);
+      expect(restored.clientUri, registration.clientUri);
+      expect(restored.logoUri, registration.logoUri);
+      expect(restored.scopes, registration.scopes);
+      expect(restored.grantTypes, registration.grantTypes);
+      expect(restored.responseTypes, registration.responseTypes);
+      expect(
+        restored.authorizationServer.issuer,
+        registration.authorizationServer.issuer,
+      );
+      expect(restored.additionalParameters, registration.additionalParameters);
+      expect(restored.clientAuthentication.clientId, registration.clientId);
+      expect(restored.clientAuthentication.method, 'none');
+      expect(restored.toString(), isNot(contains(registration.clientId)));
+
+      final authorizationRequest = restored.createAuthorizationRequest(
+        resource: endpoint,
+        redirectUri: redirectUri,
+        pkce: McpPkcePair.fromVerifier(
+          'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
+        ),
+      );
+      expect(
+        authorizationRequest.uri.queryParameters['client_id'],
+        registration.clientId,
+      );
+      expect(
+        authorizationRequest.uri.queryParameters['resource'],
+        endpoint.toString(),
+      );
+    });
+
+    test(
+      'rejects tampered registration state without exposing values',
+      () async {
+        final authorizationServer = await _discover(issuer);
+        final redirectUri = Uri.parse('http://127.0.0.1:34891/callback');
+        final registration = await registerMcpOAuthClient(
+          authorizationServer: authorizationServer,
+          registration: McpOAuthDynamicClientRegistrationRequest.publicClient(
+            clientName: 'Consumer application',
+            redirectUris: <Uri>[redirectUri],
+            applicationType: McpOAuthClientApplicationType.native,
+          ),
+        );
+
+        Map<String, Object?> storedCopy() {
+          return (jsonDecode(jsonEncode(registration.toJson())) as Map)
+              .cast<String, Object?>();
+        }
+
+        expect(
+          () => McpOAuthDynamicClientRegistration.fromJson(
+            storedCopy()..['version'] = 2,
+          ),
+          throwsA(isA<McpOAuthClientRegistrationStateException>()),
+        );
+        expect(
+          () => McpOAuthDynamicClientRegistration.fromJson(
+            storedCopy(),
+            expectedAuthorizationServerIssuer: Uri.parse(
+              'https://other.example/oauth',
+            ),
+          ),
+          throwsA(isA<McpOAuthClientRegistrationStateException>()),
+        );
+
+        const leakedSecret = 'persisted-registration-secret';
+        final confidential = storedCopy();
+        (confidential['registration'] as Map)['client_secret'] = leakedSecret;
+        expect(
+          () => McpOAuthDynamicClientRegistration.fromJson(confidential),
+          throwsA(
+            isA<McpOAuthClientRegistrationStateException>().having(
+              (error) => error.toString(),
+              'redacted persisted registration',
+              isNot(contains(leakedSecret)),
+            ),
+          ),
+        );
+
+        const leakedManagementToken = 'persisted-registration-access-token';
+        final managedRegistration = storedCopy();
+        (managedRegistration['registration']
+                as Map)['registration_access_token'] =
+            leakedManagementToken;
+        expect(
+          () => McpOAuthDynamicClientRegistration.fromJson(managedRegistration),
+          throwsA(
+            isA<McpOAuthClientRegistrationStateException>().having(
+              (error) => error.toString(),
+              'redacted registration access token',
+              isNot(contains(leakedManagementToken)),
+            ),
+          ),
+        );
+
+        final nonJsonExtension = storedCopy();
+        (nonJsonExtension['registration'] as Map)['server_extension'] =
+            DateTime.utc(2026, 7, 31);
+        expect(
+          () => McpOAuthDynamicClientRegistration.fromJson(nonJsonExtension),
+          throwsA(isA<McpOAuthClientRegistrationStateException>()),
+        );
+      },
+    );
+
     test('allows a non-OIDC server to ignore application_type', () async {
       registrationHandler = (request, body) async {
         final registered = Map<String, Object?>.of(body)

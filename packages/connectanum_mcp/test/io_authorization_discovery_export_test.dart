@@ -153,7 +153,7 @@ void main() {
       '/register',
     );
 
-    final registration = await client.registerOAuthClient(
+    final issuedRegistration = await client.registerOAuthClient(
       authorizationServer.metadata,
       registration: McpOAuthDynamicClientRegistrationRequest.publicClient(
         clientName: 'Consumer application',
@@ -163,6 +163,13 @@ void main() {
       ),
       headers: const <String, String>{'x-consumer-trace': 'registration'},
     );
+    final registration = McpOAuthDynamicClientRegistration.fromJson(
+      (jsonDecode(jsonEncode(issuedRegistration.toJson())) as Map)
+          .cast<String, Object?>(),
+      expectedAuthorizationServerIssuer: authorizationServer.metadata.issuer,
+    );
+    expect(registration.clientId, issuedRegistration.clientId);
+    expect(registration.redirectUris, issuedRegistration.redirectUris);
     final authorizationRequest = registration.createAuthorizationRequest(
       resource: endpoint,
       redirectUri: redirectUri,

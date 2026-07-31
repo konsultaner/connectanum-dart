@@ -52,8 +52,10 @@ Fresh state:
   remains consumer-owned by design. Pending authorization transactions now
   have a versioned, expiring, validated JSON representation for caller-owned
   secure storage, so state and PKCE verifiers can cross application lifecycle
-  boundaries without trusting a stored authorization URI. Dynamic-registration
-  and bearer/refresh-grant persistence remain the next bounded follow-up.
+  boundaries without trusting a stored authorization URI. Issued dynamic
+  registrations now also have a versioned, issuer-bound JSON representation
+  that revalidates the complete public-client contract after restoration.
+  Bearer/refresh-grant persistence remains the next bounded follow-up.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.

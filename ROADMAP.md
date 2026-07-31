@@ -419,6 +419,11 @@
     restoration, reconstructed authorization URIs, redacted failures, and
     public consumer-package JSON round-trip coverage while leaving encrypted
     storage selection to the consuming application.
+  - [x] Add issuer-bound, versioned dynamic-registration persistence with
+    complete public-client metadata revalidation, JSON-compatible extension
+    preservation, redacted failures, and public consumer-package round-trip
+    coverage while leaving durable storage selection to the consuming
+    application.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready
