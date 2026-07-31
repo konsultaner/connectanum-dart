@@ -17,34 +17,38 @@ identified and fixed a pre-existing SCRAM channel-binding crash by preserving
 decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
-The current implementation checkpoint is end-to-end MCP client authorization
-metadata discovery. The public Dart IO client parses Bearer
-`WWW-Authenticate` challenges from `401` and `403` failures, discovers and
-validates RFC 9728 Protected Resource Metadata, then discovers the selected
-authorization server through the MCP 2025-11-25 RFC 8414 and OpenID Connect
-well-known fallback order. Authorization-server results expose immutable typed
-issuer, authorization, token, registration, JWKS, scope, grant, response,
-token-auth, PKCE, and client-metadata-document capabilities while preserving
-unknown fields. Discovery requires exact issuer identity, MCP-compatible
-authorization-code and `S256` support, HTTPS production endpoints, and permits
-loopback HTTP only for local development. Neither stage forwards bearer,
-cookie, or MCP session headers or mutates active Streamable HTTP session state.
-The API is exported through
-`package:connectanum_mcp/connectanum_mcp_io.dart`, and the isolated
-public-package consumer smoke completes both stages from an active authenticated
-MCP session while rejecting credential leakage. Router route options already
-publish protected-resource metadata and challenges while retaining normal MCP,
-TLS, and mTLS authorization boundaries. Interactive OAuth, client registration,
-PKCE generation, and token exchange remain separate follow-ups. The active plan
-is
-`docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md`.
-Pre-change and post-change `bin/test-fast`, focused discovery and public
-entrypoint regressions, focused package analysis, all MCP and client suites,
-isolated package consumers, router-hosted MCP variants, and all 96 benchmark
-tests passed on 2026-07-31. Complete local `bin/verify` also passed, including
-formatting, 113 Rust core tests, 52 FFI tests, 360 core Dart tests, 85 MCP
-tests, 117 client MCP tests, the complete 377-test router suite, focused native
-forwarding, and Chrome/Dart2Wasm.
+The current implementation checkpoint is secure MCP OAuth authorization-code
+request preparation. After end-to-end RFC 9728 protected-resource and RFC 8414
+or OpenID Connect authorization-server discovery, public Dart IO consumers can
+generate RFC 7636 PKCE verifier/challenge pairs, create authorization URLs with
+the canonical MCP `resource`, selected scopes, generated state, and mandatory
+`S256`, then validate redirect callbacks before accepting a code or typed OAuth
+failure. The API preserves repeated non-conflicting authorization-endpoint
+query values, rejects controlled query collisions, requires HTTPS production
+endpoints while permitting loopback HTTP callbacks, and ties validated codes to
+the retained request and verifier. Discovery and request preparation do not
+forward credentials or mutate active Streamable HTTP session state. The API is
+exported through `package:connectanum_mcp/connectanum_mcp_io.dart`, and the
+isolated public-package consumer smoke completes discovery, request creation,
+and callback validation from an active authenticated MCP session. Router route
+options already publish protected-resource metadata and challenges while
+retaining normal MCP, TLS, and mTLS authorization boundaries. Browser
+interaction, client registration, authorization-code exchange, and OAuth state
+persistence remain separate follow-ups. The completed plans are
+`docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md` and
+`docs/exec-plans/2026-07-31-mcp-oauth-authorization-request.md`.
+Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
+regressions, focused package analysis, isolated package consumers,
+router-hosted MCP variants, and all 96 benchmark tests passed on 2026-07-31.
+Complete local `bin/verify` also passed, including formatting, 113 Rust core
+tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 128 client MCP tests,
+the complete 377-test router suite, focused native forwarding, and
+Chrome/Dart2Wasm.
+Commit `63437fa` passed exact-head GitHub CI `30598570133`, including Fast
+Checks, Full Verify, Dart VM Coverage, and the Codecov upload. Dart Package
+Publish Dry Run `30598570104` and WAMP Profile Benchmarks `30598570147` also
+passed. The strict deployment-chain audit passed with all required branch,
+workflow, CI, package, benchmark, and registry gates clean.
 
 The exact MCP authorization-discovery head `6428961` passed GitHub CI
 `30590682010` and Dart Package Publish Dry Run `30590681999`. Its WAMP Profile

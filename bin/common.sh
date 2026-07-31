@@ -2330,6 +2330,44 @@ Future<void> _smokeProtectedResourceDiscovery(
     endpoint.authorizationServerMetadataRequestCount == 1,
     'authorization-server discovery did not use the RFC 8414 endpoint',
   );
+
+  final authorizationRequest = client.createAuthorizationRequest(
+    authorizationServer: authorizationServer.metadata,
+    clientId: 'consumer-client',
+    redirectUri: Uri.parse('http://127.0.0.1:34891/oauth/callback'),
+    scopes: discovery.requiredScopes,
+    pkce: McpPkcePair.fromVerifier(
+      'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
+    ),
+  );
+  _expect(
+    authorizationRequest.uri.queryParameters['response_type'] == 'code' &&
+        authorizationRequest.uri.queryParameters['client_id'] ==
+            'consumer-client' &&
+        authorizationRequest.uri.queryParameters['resource'] ==
+            endpoint.uri.toString() &&
+        authorizationRequest.uri.queryParameters['scope'] ==
+            'mcp:tools mcp:meta' &&
+        authorizationRequest.uri.queryParameters['code_challenge_method'] ==
+            'S256',
+    'authorization request omitted required OAuth or MCP parameters',
+  );
+  final callback = authorizationRequest.redirectUri.replace(
+    queryParameters: <String, String>{
+      'code': 'consumer-authorization-code',
+      'state': authorizationRequest.state,
+    },
+  );
+  final authorizationCode = parseMcpAuthorizationCallback(
+    callback,
+    request: authorizationRequest,
+  );
+  _expect(
+    authorizationCode.code == 'consumer-authorization-code' &&
+        authorizationCode.request.pkce.verifier.length == 43,
+    'authorization callback did not preserve the code and PKCE request',
+  );
+
   _expect(
     !endpoint.authorizationDiscoverySawCredentials,
     'authorization discovery forwarded credentials or MCP session state',

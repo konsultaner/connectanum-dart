@@ -59,5 +59,33 @@ void main() {
       '/authorize',
     );
     expect(authorizationServer.metadata.tokenEndpoint.path, '/token');
+
+    final authorizationRequest = client.createAuthorizationRequest(
+      authorizationServer: authorizationServer.metadata,
+      clientId: 'consumer-client',
+      redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+      scopes: discovery.requiredScopes,
+      pkce: McpPkcePair.fromVerifier(
+        'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
+      ),
+    );
+    final callback = authorizationRequest.redirectUri.replace(
+      queryParameters: <String, String>{
+        'code': 'authorization-code',
+        'state': authorizationRequest.state,
+      },
+    );
+    final authorizationCode = parseMcpAuthorizationCallback(
+      callback,
+      request: authorizationRequest,
+    );
+
+    expect(
+      authorizationRequest.uri.queryParameters['resource'],
+      endpoint.toString(),
+    );
+    expect(authorizationRequest.uri.queryParameters['scope'], 'tools:read');
+    expect(authorizationCode.code, 'authorization-code');
+    expect(client.sessionId, isNull);
   });
 }

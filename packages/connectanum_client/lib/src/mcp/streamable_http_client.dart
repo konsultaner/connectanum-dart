@@ -6,6 +6,7 @@ import 'package:connectanum_core/connectanum_core.dart'
 
 import 'authorization_discovery.dart';
 import 'http_auth_client.dart';
+import 'oauth_authorization.dart';
 
 typedef McpJsonMap = Map<String, Object?>;
 
@@ -402,6 +403,24 @@ final class McpStreamableHttpClient {
       httpClient: _httpClient,
       headers: headers,
       maxMetadataBytes: maxMetadataBytes,
+    );
+  }
+
+  /// Creates an OAuth authorization-code request for this MCP endpoint.
+  McpAuthorizationRequest createAuthorizationRequest({
+    required McpAuthorizationServerMetadata authorizationServer,
+    required String clientId,
+    required Uri redirectUri,
+    Iterable<String> scopes = const <String>[],
+    McpPkcePair? pkce,
+  }) {
+    return createMcpAuthorizationRequest(
+      authorizationServer: authorizationServer,
+      resource: endpoint,
+      clientId: clientId,
+      redirectUri: redirectUri,
+      scopes: scopes,
+      pkce: pkce,
     );
   }
 

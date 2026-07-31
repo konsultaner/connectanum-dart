@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Complete.
 
 ## Goal
 
@@ -75,3 +75,8 @@ credential leakage, or MCP session mutation.
 - 2026-07-31: Complete local `bin/verify` passed, including Rust and Dart
   suites, isolated and globally activated package consumers, all router-hosted
   MCP modes, the complete router suite, and Chrome/Dart2Wasm.
+- 2026-07-31: Commit `63437fa` passed exact-head GitHub CI `30598570133`,
+  including Fast Checks, Full Verify, Dart VM Coverage, and the Codecov upload.
+  Dart Package Publish Dry Run `30598570104` and WAMP Profile Benchmarks
+  `30598570147` also passed. The strict deployment-chain audit passed with all
+  required branch, workflow, CI, package, benchmark, and registry gates clean.
