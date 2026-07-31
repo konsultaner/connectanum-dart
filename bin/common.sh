@@ -2327,6 +2327,10 @@ Future<void> _smokeProtectedResourceDiscovery(
             ) &&
         authorizationServer.metadata.tokenEndpoint ==
             endpoint.authorizationServerIssuer.replace(path: '/oauth/token') &&
+        authorizationServer.metadata.registrationEndpoint ==
+            endpoint.authorizationServerIssuer.replace(
+              path: '/oauth/register',
+            ) &&
         authorizationServer.metadata.revocationEndpoint ==
             endpoint.authorizationServerIssuer.replace(
               path: '/oauth/revoke',
@@ -2361,8 +2365,44 @@ Future<void> _smokeProtectedResourceDiscovery(
     'Client ID Metadata Document omitted public-client metadata',
   );
 
-  final authorizationRequest = clientMetadata.createAuthorizationRequest(
-    authorizationServer: authorizationServer.metadata,
+  final registration = await client.registerOAuthClient(
+    authorizationServer.metadata,
+    registration: McpOAuthDynamicClientRegistrationRequest.publicClient(
+      clientName: 'Consumer application',
+      redirectUris: <Uri>[redirectUri],
+      applicationType: McpOAuthClientApplicationType.native,
+      scopes: discovery.requiredScopes,
+    ),
+    headers: const <String, String>{
+      'x-consumer-trace': 'authorization-registration',
+    },
+  );
+  _expect(
+    registration.clientId == _oauthClientId &&
+        registration.clientIdIssuedAt == 1785436800 &&
+        registration.applicationType ==
+            McpOAuthClientApplicationType.native &&
+        registration.scopes.join(' ') == 'mcp:tools mcp:meta' &&
+        registration.additionalParameters['server_extension'] == 'preserved',
+    'dynamic client registration returned unexpected public-client metadata',
+  );
+  _expect(
+    endpoint.authorizationRegistrationRequestCount == 1 &&
+        endpoint.authorizationRegistrationTraceHeader ==
+            'authorization-registration' &&
+        endpoint.authorizationRegistrationBody['client_name'] ==
+            'Consumer application' &&
+        endpoint.authorizationRegistrationBody['application_type'] ==
+            'native' &&
+        endpoint.authorizationRegistrationBody['scope'] ==
+            'mcp:tools mcp:meta' &&
+        endpoint.authorizationRegistrationBody['token_endpoint_auth_method'] ==
+            'none' &&
+        !endpoint.authorizationRegistrationSawSessionCredentials,
+    'dynamic client registration omitted metadata or leaked session state',
+  );
+
+  final authorizationRequest = registration.createAuthorizationRequest(
     resource: endpoint.uri,
     redirectUri: redirectUri,
     pkce: McpPkcePair.fromVerifier(
@@ -2398,7 +2438,7 @@ Future<void> _smokeProtectedResourceDiscovery(
   );
   final oauthGrant = await client.exchangeAuthorizationCode(
     authorizationCode,
-    clientAuthentication: clientMetadata.clientAuthentication,
+    clientAuthentication: registration.clientAuthentication,
     headers: const <String, String>{
       'x-consumer-trace': 'authorization-token',
     },
@@ -2445,7 +2485,7 @@ Future<void> _smokeProtectedResourceDiscovery(
 
   final refreshedGrant = await client.refreshOAuthToken(
     oauthGrant,
-    clientAuthentication: clientMetadata.clientAuthentication,
+    clientAuthentication: registration.clientAuthentication,
     headers: const <String, String>{
       'x-consumer-trace': 'authorization-refresh',
     },
@@ -2485,7 +2525,7 @@ Future<void> _smokeProtectedResourceDiscovery(
     );
     await client.revokeOAuthToken(
       refreshedGrant,
-      clientAuthentication: clientMetadata.clientAuthentication,
+      clientAuthentication: registration.clientAuthentication,
       headers: const <String, String>{
         'x-consumer-trace': 'authorization-revoke',
       },
@@ -2520,7 +2560,8 @@ Future<void> _smokeProtectedResourceDiscovery(
     'authorization discovery forwarded credentials or MCP session state',
   );
   _expect(
-    !endpoint.authorizationTokenSawSessionCredentials &&
+    !endpoint.authorizationRegistrationSawSessionCredentials &&
+        !endpoint.authorizationTokenSawSessionCredentials &&
         !endpoint.authorizationRevocationSawSessionCredentials,
     'OAuth lifecycle requests forwarded MCP session credentials',
   );
@@ -6274,14 +6315,19 @@ final class _AgentMcpEndpoint {
   var authorizationDiscoveryProbeCount = 0;
   var protectedResourceMetadataRequestCount = 0;
   var authorizationServerMetadataRequestCount = 0;
+  var authorizationRegistrationRequestCount = 0;
   var authorizationTokenRequestCount = 0;
   var authorizationRevocationRequestCount = 0;
   var authorizationDiscoverySawCredentials = false;
+  var authorizationRegistrationSawSessionCredentials = false;
   var authorizationTokenSawSessionCredentials = false;
   var authorizationRevocationSawSessionCredentials = false;
+  var authorizationRegistrationTraceHeader = '';
   var authorizationTokenTraceHeader = '';
   var authorizationRefreshTraceHeader = '';
   var authorizationRevocationTraceHeader = '';
+  Map<String, Object?> authorizationRegistrationBody =
+      const <String, Object?>{};
   Map<String, String> authorizationTokenForm = const <String, String>{};
   Map<String, String> authorizationRefreshForm = const <String, String>{};
   Map<String, String> authorizationRevocationForm = const <String, String>{};
@@ -6354,6 +6400,11 @@ final class _AgentMcpEndpoint {
 
     if (request.uri.path == authorizationServerMetadataUri.path) {
       await _handleAuthorizationServerMetadata(request);
+      return;
+    }
+
+    if (request.uri.path == '/oauth/register') {
+      await _handleAuthorizationRegistration(request);
       return;
     }
 
@@ -6720,6 +6771,65 @@ final class _AgentMcpEndpoint {
       'token_endpoint_auth_methods_supported': <String>['none'],
       'revocation_endpoint_auth_methods_supported': <String>['none'],
       'client_id_metadata_document_supported': true,
+    });
+  }
+
+  Future<void> _handleAuthorizationRegistration(HttpRequest request) async {
+    if (request.method != 'POST') {
+      await _writeError(
+        request,
+        HttpStatus.methodNotAllowed,
+        'client registration requires POST',
+      );
+      return;
+    }
+    authorizationRegistrationRequestCount += 1;
+    authorizationRegistrationTraceHeader =
+        request.headers.value('x-consumer-trace') ?? '';
+    if (request.headers.value(HttpHeaders.authorizationHeader) != null ||
+        request.headers.value(HttpHeaders.cookieHeader) != null ||
+        request.headers.value('MCP-Session-Id') != null ||
+        request.headers.value('MCP-Protocol-Version') != null ||
+        request.headers.value('Last-Event-ID') != null) {
+      authorizationRegistrationSawSessionCredentials = true;
+    }
+    final decoded = jsonDecode(await utf8.decoder.bind(request).join());
+    if (decoded is! Map<String, Object?>) {
+      request.response.statusCode = HttpStatus.badRequest;
+      await _writeJson(request, <String, Object?>{
+        'error': 'invalid_client_metadata',
+      });
+      return;
+    }
+    authorizationRegistrationBody = decoded;
+    final valid =
+        decoded['client_name'] == 'Consumer application' &&
+        decoded['application_type'] == 'native' &&
+        decoded['token_endpoint_auth_method'] == 'none' &&
+        decoded['scope'] == 'mcp:tools mcp:meta' &&
+        decoded['redirect_uris'] is List<Object?> &&
+        (decoded['redirect_uris']! as List<Object?>).length == 1 &&
+        (decoded['redirect_uris']! as List<Object?>).single ==
+            'http://127.0.0.1:34891/oauth/callback' &&
+        decoded['grant_types'] is List<Object?> &&
+        (decoded['grant_types']! as List<Object?>).contains(
+          'authorization_code',
+        ) &&
+        decoded['response_types'] is List<Object?> &&
+        (decoded['response_types']! as List<Object?>).contains('code');
+    if (!valid) {
+      request.response.statusCode = HttpStatus.badRequest;
+      await _writeJson(request, <String, Object?>{
+        'error': 'invalid_client_metadata',
+      });
+      return;
+    }
+    request.response.statusCode = HttpStatus.created;
+    await _writeJson(request, <String, Object?>{
+      ...authorizationRegistrationBody,
+      'client_id': _oauthClientId,
+      'client_id_issued_at': 1785436800,
+      'server_extension': 'preserved',
     });
   }
 

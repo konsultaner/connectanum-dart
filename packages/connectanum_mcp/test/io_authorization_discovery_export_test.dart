@@ -7,13 +7,14 @@ import 'package:test/test.dart';
 const _clientId = 'https://consumer.example/oauth/client-metadata.json';
 
 void main() {
-  test('IO entrypoint exposes the OAuth authorization-code flow', () async {
+  test('IO entrypoint exposes the OAuth dynamic-registration flow', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
     final endpoint = Uri.parse(
       'http://${server.address.address}:${server.port}/mcp',
     );
     final issuer = endpoint.replace(path: '/tenant');
+    var registrationRequestCount = 0;
     var tokenRequestCount = 0;
     var revocationRequestCount = 0;
 
@@ -29,6 +30,9 @@ void main() {
                 .replace(path: '/authorize')
                 .toString(),
             'token_endpoint': issuer.replace(path: '/token').toString(),
+            'registration_endpoint': issuer
+                .replace(path: '/register')
+                .toString(),
             'revocation_endpoint': issuer.replace(path: '/revoke').toString(),
             'response_types_supported': <String>['code'],
             'grant_types_supported': <String>[
@@ -39,6 +43,36 @@ void main() {
             'token_endpoint_auth_methods_supported': <String>['none'],
             'revocation_endpoint_auth_methods_supported': <String>['none'],
             'client_id_metadata_document_supported': true,
+          }),
+        );
+        await request.response.close();
+        return;
+      }
+      if (request.uri.path == '/register') {
+        registrationRequestCount += 1;
+        expect(request.method, 'POST');
+        expect(request.headers.value(HttpHeaders.authorizationHeader), isNull);
+        expect(request.headers.value('mcp-session-id'), isNull);
+        expect(request.headers.value('mcp-protocol-version'), isNull);
+        expect(request.headers.value('x-consumer-trace'), 'registration');
+        final body =
+            jsonDecode(await utf8.decoder.bind(request).join())
+                as Map<String, Object?>;
+        expect(body['client_name'], 'Consumer application');
+        expect(body['redirect_uris'], <String>[
+          'http://127.0.0.1:34891/callback',
+        ]);
+        expect(body['token_endpoint_auth_method'], 'none');
+        expect(body['application_type'], 'native');
+        expect(body['scope'], 'tools:read');
+        request.response.statusCode = HttpStatus.created;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode(<String, Object?>{
+            ...body,
+            'client_id': _clientId,
+            'client_id_issued_at': 1785436800,
+            'server_extension': 'preserved',
           }),
         );
         await request.response.close();
@@ -113,16 +147,23 @@ void main() {
       '/authorize',
     );
     expect(authorizationServer.metadata.tokenEndpoint.path, '/token');
+    expect(
+      authorizationServer.metadata.registrationEndpoint?.path,
+      '/register',
+    );
 
     final redirectUri = Uri.parse('http://127.0.0.1:34891/callback');
-    final clientMetadata = McpOAuthClientMetadataDocument.publicClient(
-      clientId: Uri.parse(_clientId),
-      clientName: 'Consumer application',
-      redirectUris: <Uri>[redirectUri],
-      scopes: discovery.requiredScopes,
+    final registration = await client.registerOAuthClient(
+      authorizationServer.metadata,
+      registration: McpOAuthDynamicClientRegistrationRequest.publicClient(
+        clientName: 'Consumer application',
+        redirectUris: <Uri>[redirectUri],
+        applicationType: McpOAuthClientApplicationType.native,
+        scopes: discovery.requiredScopes,
+      ),
+      headers: const <String, String>{'x-consumer-trace': 'registration'},
     );
-    final authorizationRequest = clientMetadata.createAuthorizationRequest(
-      authorizationServer: authorizationServer.metadata,
+    final authorizationRequest = registration.createAuthorizationRequest(
       resource: endpoint,
       redirectUri: redirectUri,
       pkce: McpPkcePair.fromVerifier(
@@ -140,6 +181,9 @@ void main() {
       request: authorizationRequest,
     );
 
+    expect(registration.clientId, _clientId);
+    expect(registration.clientIdIssuedAt, 1785436800);
+    expect(registration.additionalParameters['server_extension'], 'preserved');
     expect(
       authorizationRequest.uri.queryParameters['resource'],
       endpoint.toString(),
@@ -148,7 +192,7 @@ void main() {
     expect(authorizationCode.code, 'authorization-code');
     final grant = await client.exchangeAuthorizationCode(
       authorizationCode,
-      clientAuthentication: clientMetadata.clientAuthentication,
+      clientAuthentication: registration.clientAuthentication,
     );
     final authenticatedClient = McpStreamableHttpClient.withOAuthToken(
       endpoint,
@@ -161,14 +205,15 @@ void main() {
     expect(authenticatedClient.endpoint, endpoint);
     final refreshed = await client.refreshOAuthToken(
       grant,
-      clientAuthentication: clientMetadata.clientAuthentication,
+      clientAuthentication: registration.clientAuthentication,
     );
     expect(refreshed.accessToken, 'consumer-refreshed-access-token');
     expect(refreshed.refreshToken, grant.refreshToken);
     await client.revokeOAuthToken(
       refreshed,
-      clientAuthentication: clientMetadata.clientAuthentication,
+      clientAuthentication: registration.clientAuthentication,
     );
+    expect(registrationRequestCount, 1);
     expect(tokenRequestCount, 2);
     expect(revocationRequestCount, 1);
     expect(client.sessionId, isNull);

@@ -400,6 +400,11 @@
     authorization server advertises support, including HTTPS client identity,
     exact redirect registration, public token-endpoint authentication, and
     package-boundary lifecycle coverage.
+  - [x] Add RFC 7591 Dynamic Client Registration as the bounded fallback when
+    the authorization server advertises a registration endpoint, including
+    explicit native/web application types, public-client enforcement, optional
+    initial access tokens, response/error validation, Streamable-session
+    isolation, and public consumer lifecycle coverage.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

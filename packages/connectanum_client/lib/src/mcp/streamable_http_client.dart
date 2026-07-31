@@ -7,6 +7,7 @@ import 'package:connectanum_core/connectanum_core.dart'
 import 'authorization_discovery.dart';
 import 'http_auth_client.dart';
 import 'oauth_authorization.dart';
+import 'oauth_dynamic_client_registration.dart';
 import 'oauth_token_exchange.dart';
 
 typedef McpJsonMap = Map<String, Object?>;
@@ -456,6 +457,25 @@ final class McpStreamableHttpClient {
       redirectUri: redirectUri,
       scopes: scopes,
       pkce: pkce,
+    );
+  }
+
+  Future<McpOAuthDynamicClientRegistration> registerOAuthClient(
+    McpAuthorizationServerMetadata authorizationServer, {
+    required McpOAuthDynamicClientRegistrationRequest registration,
+    String? initialAccessToken,
+    Map<String, String> headers = const <String, String>{},
+    Duration timeout = const Duration(seconds: 30),
+    int maxResponseBytes = 64 * 1024,
+  }) {
+    return registerMcpOAuthClient(
+      authorizationServer: authorizationServer,
+      registration: registration,
+      initialAccessToken: initialAccessToken,
+      httpClient: _httpClient,
+      headers: headers,
+      timeout: timeout,
+      maxResponseBytes: maxResponseBytes,
     );
   }
 

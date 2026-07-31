@@ -39,8 +39,11 @@ Fresh state:
   retaining the canonical MCP resource and isolating active Streamable HTTP
   state. They can publish and reuse validated public Client ID Metadata
   Documents when the authorization server advertises that MCP-preferred
-  registration mechanism. Dynamic client registration, browser/redirect
-  orchestration, and persistence remain bounded follow-up slices.
+  registration mechanism, or use bounded RFC 7591 Dynamic Client Registration
+  when a registration endpoint is advertised. Dynamic registrations enforce
+  explicit native/web application types and remain isolated from active MCP
+  session state. Browser/redirect orchestration and persistence remain bounded
+  follow-up slices.
 - WAMP-profile transport performance readiness is also complete: the canonical
   RawSocket/WebSocket release-gate scenarios, budgets, and hosted baselines are
   now checked in for release decisions.

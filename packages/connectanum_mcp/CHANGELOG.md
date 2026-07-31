@@ -6,7 +6,8 @@
 - Complete router-hosted MCP support for authenticated Streamable HTTP,
   direct JSON tools and Meta APIs, resources, prompts, and WAMP pub/sub.
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,
-  token refresh, and revocation lifecycle through the IO entrypoint.
+  dynamic client registration, token refresh, and revocation lifecycle through
+  the IO entrypoint.
 - Add isolated server, client, executable, and consumer application smokes.
 
 ## 0.1.0

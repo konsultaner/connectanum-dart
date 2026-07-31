@@ -6,8 +6,8 @@
 - Add typed Streamable HTTP and direct JSON helpers for router-hosted MCP,
   authentication, tool/meta APIs, resources, prompts, and pub/sub.
 - Add resource-bound MCP OAuth discovery, PKCE authorization-code exchange,
-  refresh, revocation, and validated Client ID Metadata Documents for public
-  Dart IO consumers.
+  refresh, revocation, validated Client ID Metadata Documents, and bounded
+  RFC 7591 dynamic public-client registration for Dart IO consumers.
 - Use UTF-8 for CRA and SCRAM authentication strings by default while retaining
   an explicit UTF-16 compatibility mode for legacy peers.
 

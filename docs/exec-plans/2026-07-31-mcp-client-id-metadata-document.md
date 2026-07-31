@@ -92,3 +92,14 @@ Primary references:
   tests, 144 client MCP tests, all 96 benchmark tests, the 377-test router
   suite, isolated and globally activated package consumers, and
   Chrome/Dart2Wasm.
+- 2026-07-31: Commit `bb34df4` passed exact-head GitHub CI `30618867934`,
+  including Fast Checks, Full Verify, Dart VM Coverage, and Codecov upload.
+  Dart Package Publish Dry Run `30618867921` passed. WAMP Profile Benchmarks
+  `30618867915` passed on attempt 2 after a transient 0.8% miss on one existing
+  throughput floor in attempt 1; the immediately preceding exact run was
+  comfortably above that same floor. Exact-head Router Image dry run
+  `30620231719` passed with its preview artifact uploaded, GHCR login skipped,
+  and no annotations. The strict deployment-chain audit passed with clean CI
+  logs and all required branch, workflow, package, native, router-image,
+  benchmark, artifact, and registry gates clean. Release-candidate tagging
+  remains an approval-dependent follow-up.

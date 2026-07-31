@@ -28,25 +28,33 @@ advertises support, consumers can publish an immutable Client ID Metadata
 Document with an HTTPS URL identity, exact HTTPS or loopback redirect
 registration, public `none` token-endpoint authentication, and credential-free
 JSON, then reuse that same identity across authorization, exchange, refresh,
-and revocation. Consumers can refresh grants through the discovered token
-endpoint with equal or narrower scopes, retain or rotate refresh tokens from
-the response, and revoke either access or refresh tokens through the discovered
-RFC 7009 endpoint. Token and revocation requests also support pre-registered
-public clients plus `client_secret_basic` and `client_secret_post`, enforce
+and revocation. When that preferred mechanism is unavailable and the
+authorization server advertises an RFC 7591 `registration_endpoint`, consumers
+can instead register an explicitly native or web public client with bounded
+JSON I/O and an optional initial access token. Registration rejects redirects,
+malformed or oversized responses, changed redirects or presentation metadata,
+confidential-client credentials, and non-`none` token authentication, and the
+issued identity is directly reusable for the same authorization lifecycle.
+Consumers can refresh grants through the discovered token endpoint with equal
+or narrower scopes, retain or rotate refresh tokens from the response, and
+revoke either access or refresh tokens through the discovered RFC 7009
+endpoint. Token and revocation requests also support pre-registered public
+clients plus `client_secret_basic` and `client_secret_post`, enforce
 endpoint-specific discovered authentication methods, refuse redirects and
 unsafe credential headers, bound request time and response size, and expose
 typed OAuth failures without including codes, secrets, or tokens.
 `McpStreamableHttpClient` exposes lifecycle convenience methods that reuse only
 its HTTP connection resources: OAuth requests do not forward active MCP
 credentials or mutate Streamable HTTP session or resume state. The
-public-package consumer smoke now publishes Client ID metadata and performs
+public-package consumer smoke now publishes Client ID metadata, dynamically
+registers a native public client, and carries that issued identity through
 authorization-code exchange, router-hosted direct JSON tool use, refresh,
 refreshed tool use, revocation, and rejection of the revoked access token while
 confirming the original authenticated session remains unchanged. Router route
 options publish protected-resource metadata and challenges while retaining
-normal MCP, TLS, and mTLS authorization boundaries. Dynamic client
-registration, browser and redirect-listener interaction, and OAuth state
-persistence remain separate follow-ups.
+normal MCP, TLS, and mTLS authorization boundaries. Browser and
+redirect-listener interaction plus OAuth state persistence remain separate
+follow-ups.
 The completed plans are
 `docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md` and
 `docs/exec-plans/2026-07-31-mcp-oauth-authorization-request.md`; the completed
@@ -54,16 +62,30 @@ token-exchange and grant-lifecycle plans are
 `docs/exec-plans/2026-07-31-mcp-oauth-token-exchange.md` and
 `docs/exec-plans/2026-07-31-mcp-oauth-refresh-revocation.md`; the completed
 public client identity plan is
-`docs/exec-plans/2026-07-31-mcp-client-id-metadata-document.md`.
+`docs/exec-plans/2026-07-31-mcp-client-id-metadata-document.md`; the dynamic
+registration fallback plan is
+`docs/exec-plans/2026-07-31-mcp-oauth-dynamic-client-registration.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, focused package analysis, public package-boundary validation, and
 the isolated and globally activated consumer smokes passed on 2026-07-31.
 Complete local `bin/verify` then passed, including formatting, 113 Rust core
-tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 144 client MCP tests,
+tests, 52 FFI tests, 360 core Dart tests, 85 MCP tests, 152 client MCP tests,
 all 96 benchmark tests, the complete 377-test router suite, isolated and
 globally activated package consumers, router-hosted MCP variants with
-Client ID metadata plus refresh-and-revoke evidence, focused native forwarding,
-and Chrome/Dart2Wasm.
+Client ID metadata and dynamic registration plus refresh-and-revoke evidence,
+focused native forwarding, and Chrome/Dart2Wasm.
+Commit `bb34df4` passed exact-head GitHub CI `30618867934`, including Fast
+Checks, Full Verify, Dart VM Coverage, and the Codecov upload. Dart Package
+Publish Dry Run `30618867921` passed. WAMP Profile Benchmarks
+`30618867915` passed on attempt 2 after the first attempt transiently measured
+the existing 64 KiB RawSocket AES Dart pub/sub row at 1.190 Mbps against its
+1.200 Mbps floor; the immediately preceding exact run measured the same row at
+1.445 Mbps, and the unchanged rerun passed. Exact-head Router Image dry run
+`30620231719` also passed, uploaded its preview artifact, skipped GHCR login,
+and produced no annotations. The strict deployment-chain audit passed with
+clean exact-head CI logs and all required branch, workflow, package, native,
+router-image, benchmark, artifact, and registry gates clean. Release-candidate
+tagging remains a separate approval-dependent decision.
 Commit `6f9ad48` passed exact-head GitHub CI `30613206786`, including Fast
 Checks, Full Verify, Dart VM Coverage, and the Codecov upload. Dart Package
 Publish Dry Run `30613206990` and WAMP Profile Benchmarks `30613206772` also
@@ -23417,10 +23439,10 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - No active plan. Most recent completed MCP plan:
-  `docs/exec-plans/2026-07-30-mcp-oauth-protected-resource-metadata.md`.
-  Make protected router-hosted MCP endpoints discoverable by standards-aware
-  clients while preserving the existing Connectanum authentication bridge and
-  per-request bearer validation.
+  `docs/exec-plans/2026-07-31-mcp-oauth-dynamic-client-registration.md`.
+  It adds the RFC 7591 fallback for public consumers when preregistration and
+  Client ID Metadata Documents are unavailable while isolating registration
+  credentials from active router-hosted MCP sessions.
 - Most recent completed WAMP readiness plan:
   `docs/exec-plans/2026-07-13-wamp-profile-production-readiness-audit.md`.
 - Most recent completed RC plan:
