@@ -71,7 +71,8 @@ void main() {
             'jsonrpc': '2.0',
             'id': 'initialize',
             'result': <String, Object?>{
-              'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+              'protocolVersion':
+                  McpStreamableHttpClient.latestSessionProtocolVersion,
               'capabilities': const <String, Object?>{},
               'serverInfo': const <String, Object?>{
                 'name': 'registration-test',

@@ -5,9 +5,17 @@ Driving use case: downstream application integrations
 
 ## Sources
 
-- MCP lifecycle, protocol version, and capability negotiation:
+- MCP 2026 base protocol and per-request metadata:
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/index
+- MCP 2026 Streamable HTTP transport:
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http
+- MCP 2026 server discovery:
+  https://modelcontextprotocol.io/specification/2026-07-28/server/discover
+- MCP 2026 versioning and compatibility:
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning
+- Legacy MCP lifecycle retained for compatibility:
   https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle
-- MCP transports:
+- Legacy Streamable HTTP transport retained for compatibility:
   https://modelcontextprotocol.io/specification/2025-11-25/basic/transports
 - MCP tools:
   https://modelcontextprotocol.io/specification/2025-11-25/server/tools
@@ -19,26 +27,40 @@ Driving use case: downstream application integrations
   https://modelcontextprotocol.io/specification/2025-11-25/server/prompts
 - MCP authorization:
   https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization
-- MCP 2026 roadmap:
-  https://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/
 
 ## Current External Shape
 
-- MCP is a JSON-RPC protocol with a session lifecycle: `initialize`,
-  normal operation after `notifications/initialized`, and transport-level
-  shutdown.
-- The current stable protocol revision is `2025-11-25`. Recheck the `latest`
-  spec before implementation slices because MCP is still evolving.
-- Servers advertise capabilities during initialization. The relevant server
-  surfaces for Connectanum are `tools`, `resources`, `prompts`, `logging`, and
-  eventually `tasks` or `completions`.
-- The current standard transports are `stdio` and Streamable HTTP. The older
+- The current stable protocol revision is `2026-07-28`. It is a stateless
+  JSON-RPC protocol: each request carries the protocol version and required
+  client capabilities in `params._meta`, with optional client identity. A
+  server must not infer those values from a prior request or connection.
+- `server/discover` replaces initialization as the modern capability/version
+  probe. Servers must implement it; clients may instead try an ordinary modern
+  request and handle an `UnsupportedProtocolVersion` error.
+- Modern Streamable HTTP uses one POST per JSON-RPC message. Clients advertise
+  both JSON and SSE response support, mirror protocol/method/name metadata into
+  HTTP headers, and require header/body agreement. Successful results carry a
+  recognized `resultType`, normally `complete`, and should carry server
+  identity in result `_meta`.
+- The modern HTTP protocol has no protocol-level session, standalone GET
+  stream, DELETE termination, or `Last-Event-ID` replay. Servers ignore legacy
+  session/resume headers on modern requests and never mint or echo a session
+  ID. Request-scoped SSE remains available for responses; long-lived change
+  delivery uses `subscriptions/listen`.
+- The specification reserves `-32020` for header mismatch, `-32021` for a
+  missing required client capability, and `-32022` for an unsupported protocol
+  version. Unknown modern RPC methods use HTTP 404 plus JSON-RPC `-32601`.
+- Protocol revisions from `2025-03-26` through `2025-11-25` remain a separate
+  compatibility era with `initialize`, optional `MCP-Session-Id`, GET/SSE,
+  DELETE, and resume cursors. Connectanum retains that lifecycle explicitly;
+  it does not reinterpret a 2025 session as a 2026 request.
+- Servers advertise capabilities through `server/discover` in the modern era
+  and during `initialize` in the legacy era. The relevant server surfaces for
+  Connectanum are `tools`, `resources`, `prompts`, `logging`, and eventually
+  tasks or completions.
+- The standard transports remain `stdio` and Streamable HTTP. The older
   HTTP+SSE transport remains a compatibility concern for older clients, but it
-  should not be the primary new design target.
-- HTTP clients send the negotiated protocol version in the
-  `MCP-Protocol-Version` header on subsequent requests. Stateful Streamable
-  HTTP servers may issue an `MCP-Session-Id` during initialization and require
-  that header for later requests.
+  is not a primary new design target.
 - `tools/list` discovers tools and `tools/call` invokes them. Tool definitions
   carry JSON Schema input metadata, and tool results can include text, media,
   resource links, embedded resources, and structured JSON content.
@@ -46,12 +68,14 @@ Driving use case: downstream application integrations
   clients treat returned cursors as opaque tokens, and invalid cursors should
   fail with `invalidParams`.
 - `resources/list`, `resources/read`, and `resources/templates/list` expose
-  context objects by URI. Resource subscriptions and list-change notifications
-  are optional. A server that advertises `resources.subscribe` accepts
+  context objects by URI. In the legacy era, resource subscriptions and
+  list-change notifications are optional. A server that advertises
+  `resources.subscribe` accepts
   `resources/subscribe` and `resources/unsubscribe`; after subscription it may
   send `notifications/resources/updated` with the resource URI, and the client
-  reads that resource again. Subscription lifecycle and server push therefore
-  require a stateful transport owner.
+  reads that resource again. In the modern era, follow-up work must map change
+  delivery to request-scoped `subscriptions/listen` rather than reusing legacy
+  protocol sessions.
 - `prompts/list` and `prompts/get` expose user-selectable prompt templates.
   `prompts/list` supports cursor pagination, `prompts/get` accepts
   string-valued arguments, and prompt messages use `user` or `assistant` roles
@@ -111,6 +135,29 @@ Driving use case: downstream application integrations
   an operator-provided OAuth authorization server. Metadata retrieval is
   public; normal MCP POST, SSE GET, and DELETE traffic still revalidates bearer
   authorization.
+
+## MCP 2026 Implementation Direction
+
+- Keep `McpServer` initialization and stdio behavior on the latest supported
+  session-era revision until the transport-neutral core gains a deliberate
+  multi-era dispatcher. Do not let a new HTTP constant silently change stdio
+  or legacy Streamable HTTP behavior.
+- Expose `2026-07-28` through explicit stateless HTTP client constructors.
+  Those clients own request `_meta` and mirrored headers, never capture session
+  or resume state, reject batches and legacy GET/DELETE helpers locally, and
+  validate modern response `resultType` values.
+- Let router-hosted MCP select the era per request. Modern POST requests use
+  the same route principal and route-filtered tools/resources/prompts/WAMP
+  helpers as legacy traffic, but validate modern metadata, return protocol-
+  reserved errors, stamp successful results, and never create protocol session
+  state.
+- Advertise only capabilities implemented for the modern era. In particular,
+  do not carry legacy list-change/resource-subscribe flags into discovery until
+  `subscriptions/listen` exists.
+- Treat `subscriptions/listen`, request-scoped SSE cancellation, MRTR input
+  requests, and cache metadata as the next compatibility layer. Until then,
+  describe the router path as modern stateless core compatibility rather than
+  complete `2026-07-28` conformance.
 
 ## Recommended First Package Shape
 

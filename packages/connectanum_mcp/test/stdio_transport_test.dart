@@ -15,7 +15,7 @@ void main() {
             'id': 1,
             'method': 'initialize',
             'params': {
-              'protocolVersion': mcpLatestProtocolVersion,
+              'protocolVersion': mcpLatestSessionProtocolVersion,
               'capabilities': {},
               'clientInfo': {'name': 'stdio-test', 'version': '1.0.0'},
             },
@@ -123,7 +123,7 @@ void main() {
         input: Stream.value(
           utf8.encode(
             '{"jsonrpc": "2.0", "id": 1, "method": "initialize", '
-            '"params": {"protocolVersion": "$mcpLatestProtocolVersion"}}\n'
+            '"params": {"protocolVersion": "$mcpLatestSessionProtocolVersion"}}\n'
             'not-json\n'
             '{"jsonrpc": "2.0", "id": 2, "method": "tools/list"}\n',
           ),
@@ -158,7 +158,7 @@ void main() {
           'jsonrpc': '2.0',
           'id': 'init',
           'method': 'initialize',
-          'params': {'protocolVersion': mcpLatestProtocolVersion},
+          'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
         }),
       );
 
@@ -177,7 +177,7 @@ void main() {
               'jsonrpc': '2.0',
               'id': 'init',
               'method': 'initialize',
-              'params': {'protocolVersion': mcpLatestProtocolVersion},
+              'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
             })}\n'
             '${jsonEncode({'jsonrpc': '2.0', 'method': 'notifications/initialized'})}\n'
             '${jsonEncode([

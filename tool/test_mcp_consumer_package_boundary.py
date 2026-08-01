@@ -1358,8 +1358,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("assert_router_cli_consumer_package_summary", script)
         self.assertIn('dart_consumer_summary="$(', body)
         self.assertIn("routerCliConsumerSummary", body)
+        self.assertIn("McpStreamableHttpClient.stateless", body)
+        self.assertIn("McpStreamableHttpClient.statelessWithAuthGrant", body)
+        self.assertIn("dart-consumer-public-stateless-discover", body)
+        self.assertIn("dart-consumer-secure-stateless-discover", body)
+        self.assertIn("dart-consumer-public-stateless-publish", body)
         self.assertIn(
-            '"public":{"directJson":true,"streamable":true,'
+            '"public":{"stateless2026":true,"directJson":true,'
+            '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
             '"streamableEmptyLastEventId":true,'
             '"directJsonStaleSessionId":true,'
@@ -1370,7 +1376,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            '"secure":{"ticketGrant":true,"directJson":true,'
+            '"secure":{"ticketGrant":true,"stateless2026":true,'
+            '"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
             '"streamableEmptyLastEventId":true,'
@@ -1717,7 +1724,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "revokedRefreshRejected",
             "Use --auth-lifecycle-smoke together with --auth-url.",
             "--auth-lifecycle-smoke",
-            "McpStreamableHttpClient.latestProtocolVersion",
+            "McpStreamableHttpClient.latestSessionProtocolVersion",
             "_supportedMcpProtocolVersions",
             "_protocolVersionOption",
             "Unsupported MCP protocol version",

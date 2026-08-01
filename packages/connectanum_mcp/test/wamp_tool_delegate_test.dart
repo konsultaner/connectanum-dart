@@ -149,7 +149,7 @@ Future<void> _initializeAndStart(McpServer server) async {
     'jsonrpc': '2.0',
     'id': 1,
     'method': 'initialize',
-    'params': {'protocolVersion': mcpLatestProtocolVersion},
+    'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
   });
   await server.handleMessage({
     'jsonrpc': '2.0',

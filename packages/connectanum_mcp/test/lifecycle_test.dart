@@ -3,6 +3,16 @@ import 'package:test/test.dart';
 
 void main() {
   group('McpServer lifecycle', () {
+    test('keeps latest and initialize-era protocol constants distinct', () {
+      expect(mcpLatestProtocolVersion, '2026-07-28');
+      expect(mcpLatestStatelessProtocolVersion, mcpLatestProtocolVersion);
+      expect(mcpLatestSessionProtocolVersion, '2025-11-25');
+      expect(
+        mcpNegotiateProtocolVersion(mcpLatestProtocolVersion),
+        mcpLatestSessionProtocolVersion,
+      );
+    });
+
     test(
       'initialize negotiates the current protocol and advertises tools',
       () async {
@@ -13,7 +23,7 @@ void main() {
           'id': 1,
           'method': 'initialize',
           'params': {
-            'protocolVersion': mcpLatestProtocolVersion,
+            'protocolVersion': mcpLatestSessionProtocolVersion,
             'capabilities': {},
             'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
           },
@@ -21,7 +31,7 @@ void main() {
 
         expect(response?['id'], 1);
         final result = response?['result'] as Map<String, Object?>;
-        expect(result['protocolVersion'], mcpLatestProtocolVersion);
+        expect(result['protocolVersion'], mcpLatestSessionProtocolVersion);
         expect(result['capabilities'], {'tools': <String, Object?>{}});
         expect(result['serverInfo'], {
           'name': 'connectanum-test',
@@ -44,7 +54,7 @@ void main() {
 
       final result = await _initializeResult(server, '2099-01-01');
 
-      expect(result['protocolVersion'], mcpLatestProtocolVersion);
+      expect(result['protocolVersion'], mcpLatestSessionProtocolVersion);
     });
 
     test(
@@ -149,7 +159,7 @@ void main() {
         'id': null,
         'method': 'initialize',
         'params': {
-          'protocolVersion': mcpLatestProtocolVersion,
+          'protocolVersion': mcpLatestSessionProtocolVersion,
           'capabilities': {},
           'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
         },
@@ -169,7 +179,7 @@ void main() {
         'id': 1.5,
         'method': 'initialize',
         'params': {
-          'protocolVersion': mcpLatestProtocolVersion,
+          'protocolVersion': mcpLatestSessionProtocolVersion,
           'capabilities': {},
           'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
         },
@@ -190,7 +200,7 @@ void main() {
         'method': 'initialize',
         'result': <String, Object?>{},
         'params': {
-          'protocolVersion': mcpLatestProtocolVersion,
+          'protocolVersion': mcpLatestSessionProtocolVersion,
           'capabilities': {},
           'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
         },
@@ -354,7 +364,7 @@ Future<void> _initialize(McpServer server) async {
     'id': 1,
     'method': 'initialize',
     'params': {
-      'protocolVersion': mcpLatestProtocolVersion,
+      'protocolVersion': mcpLatestSessionProtocolVersion,
       'capabilities': {},
       'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
     },

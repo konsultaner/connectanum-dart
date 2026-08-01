@@ -33,7 +33,7 @@ void main() {
         expect(client.sessionId, 'session-1');
         expect(
           client.protocolVersion,
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
         );
         expect(initialize['id'], 'initialize');
 
@@ -178,6 +178,142 @@ void main() {
       expect(endpoint.requests.last.protocolVersion, '2025-06-18');
     });
 
+    test(
+      'uses MCP 2026 stateless metadata for discovery and ordinary requests',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.statelessWithBearerToken(
+          endpoint.uri,
+          'modern-token',
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+          clientCapabilities: const <String, Object?>{
+            'elicitation': <String, Object?>{},
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final discovery = await client.discover(id: 'discover-modern');
+        final tools = await client.listTools(id: 'tools-modern');
+
+        expect(McpStreamableHttpClient.latestProtocolVersion, '2026-07-28');
+        expect(client.protocolVersion, '2026-07-28');
+        expect(discovery.supportedVersions, ['2026-07-28']);
+        expect(discovery.capabilities, contains('tools'));
+        expect(discovery.serverInfo, {
+          'name': 'fake-router',
+          'version': '2.0.0',
+        });
+        expect(discovery.instructions, 'Use the advertised tools.');
+        expect(discovery.ttlMs, 60000);
+        expect(discovery.cacheScope, 'private');
+        expect(tools.tools, isEmpty);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+
+        expect(endpoint.requests, hasLength(2));
+        for (final request in endpoint.requests) {
+          expect(request.protocolVersion, '2026-07-28');
+          expect(request.authorization, 'Bearer modern-token');
+          expect(request.sessionId, isNull);
+          expect(request.lastEventId, isNull);
+          final body = _jsonMapFrom(request.body, label: 'modern request');
+          final params = _jsonMapFrom(
+            body['params'],
+            label: 'modern request params',
+          );
+          final metadata = _jsonMapFrom(
+            params['_meta'],
+            label: 'modern request metadata',
+          );
+          expect(
+            metadata['io.modelcontextprotocol/protocolVersion'],
+            '2026-07-28',
+          );
+          expect(metadata['io.modelcontextprotocol/clientInfo'], {
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          });
+          expect(metadata['io.modelcontextprotocol/clientCapabilities'], {
+            'elicitation': <String, Object?>{},
+          });
+        }
+        expect(endpoint.requests.first.mcpMethod, 'server/discover');
+        expect(endpoint.requests.last.mcpMethod, 'tools/list');
+      },
+    );
+
+    test(
+      'rejects removed MCP 2026 session and batch operations locally',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final removedOperation = isA<McpStreamableProtocolException>().having(
+          (error) => error.message,
+          'message',
+          contains('MCP 2026'),
+        );
+        await expectLater(
+          client.postBatch(<McpJsonMap>[
+            <String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 'batch-modern',
+              'method': 'tools/list',
+              'params': <String, Object?>{},
+            },
+          ]),
+          throwsA(removedOperation),
+        );
+        await expectLater(client.poll(), throwsA(removedOperation));
+        await expectLater(client.deleteSession(), throwsA(removedOperation));
+        expect(endpoint.requests, isEmpty);
+      },
+    );
+
+    test('rejects unrecognized MCP 2026 result types', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient.stateless(
+        endpoint.uri,
+        clientInfo: const <String, Object?>{
+          'name': 'consumer-test',
+          'version': '2.0.0',
+        },
+      );
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.listTools(
+          id: 'invalid-modern-result-type',
+          headers: const <String, String>{
+            'x-test-result-type': 'consumer/unknown',
+          },
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('resultType'),
+          ),
+        ),
+      );
+    });
+
     test('rejects unsupported default protocol versions locally', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -192,6 +328,26 @@ void main() {
             (error) => error.name,
             'name',
             'defaultProtocolVersion',
+          ),
+        ),
+      );
+      expect(endpoint.requests, isEmpty);
+    });
+
+    test('rejects malformed MCP 2026 client identity locally', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      expect(
+        () => McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: const <String, Object?>{'name': 'consumer-test'},
+        ),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.name,
+            'name',
+            'clientInfo',
           ),
         ),
       );
@@ -223,7 +379,7 @@ void main() {
         expect(endpoint.requests, isEmpty);
         expect(
           client.protocolVersion,
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
         );
       },
     );
@@ -248,7 +404,7 @@ void main() {
       expect(endpoint.requests, isEmpty);
       expect(
         client.protocolVersion,
-        McpStreamableHttpClient.latestProtocolVersion,
+        McpStreamableHttpClient.latestSessionProtocolVersion,
       );
     });
 
@@ -280,7 +436,7 @@ void main() {
         expect(client.lastEventId, isNull);
         expect(
           client.protocolVersion,
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
         );
       },
     );
@@ -311,7 +467,7 @@ void main() {
       expect(client.lastEventId, isNull);
       expect(
         client.protocolVersion,
-        McpStreamableHttpClient.latestProtocolVersion,
+        McpStreamableHttpClient.latestSessionProtocolVersion,
       );
     });
 
@@ -353,7 +509,7 @@ void main() {
         await client.initialize(id: 'streamable-protocol-override-init');
         expect(
           client.protocolVersion,
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
         );
         final sessionId = client.sessionId;
         expect(sessionId, isNotNull);
@@ -368,7 +524,7 @@ void main() {
         expect(endpoint.requests.last.sessionId, sessionId);
         expect(
           client.protocolVersion,
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
         );
         expect(client.sessionId, sessionId);
       },
@@ -457,7 +613,7 @@ void main() {
       ]);
       expect(
         client.protocolVersion,
-        McpStreamableHttpClient.latestProtocolVersion,
+        McpStreamableHttpClient.latestSessionProtocolVersion,
       );
     });
 
@@ -1689,7 +1845,7 @@ void main() {
         expect(endpoint.requests.last.accept, contains('text/event-stream'));
         expect(
           endpoint.requests.last.protocolVersion,
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
         );
         expect(endpoint.requests.last.sessionId, isNull);
         expect(endpoint.requests.last.lastEventId, isNull);
@@ -1719,7 +1875,7 @@ void main() {
         expect(endpoint.requests.last.accept, 'application/json');
         expect(
           endpoint.requests.last.protocolVersion,
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
         );
         expect(endpoint.requests.last.sessionId, isNull);
         expect(endpoint.requests.last.lastEventId, isNull);
@@ -1746,7 +1902,7 @@ void main() {
         expect(endpoint.requests.last.accept, contains('text/event-stream'));
         expect(
           endpoint.requests.last.protocolVersion,
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
         );
         expect(endpoint.requests.last.sessionId, sessionId);
         expect(endpoint.requests.last.lastEventId, isNull);
@@ -6582,7 +6738,7 @@ final class _FakeMcpEndpoint {
               request.headers.value('x-test-result-protocol-version') ??
               (requestedProtocolVersion is String
                   ? requestedProtocolVersion
-                  : McpStreamableHttpClient.latestProtocolVersion),
+                  : McpStreamableHttpClient.latestSessionProtocolVersion),
           'capabilities': <String, Object?>{},
           'serverInfo': <String, Object?>{
             'name': 'fake-router',
@@ -6590,6 +6746,28 @@ final class _FakeMcpEndpoint {
           },
         },
       }, sessionId: responseSessionId);
+      return;
+    }
+
+    if (method == 'server/discover') {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{
+          'resultType': 'complete',
+          'supportedVersions': <String>['2026-07-28'],
+          'capabilities': <String, Object?>{'tools': <String, Object?>{}},
+          '_meta': <String, Object?>{
+            'io.modelcontextprotocol/serverInfo': <String, Object?>{
+              'name': 'fake-router',
+              'version': '2.0.0',
+            },
+          },
+          'instructions': 'Use the advertised tools.',
+          'ttlMs': 60000,
+          'cacheScope': 'private',
+        },
+      });
       return;
     }
 
@@ -7427,7 +7605,11 @@ final class _FakeMcpEndpoint {
         'retry: 1000\n'
         'data:\n\n'
         'id: session-1:post:2\n'
-        'data: {"jsonrpc":"2.0","id":"${requestBody['id']}","result":{"tools":[]}}\n\n',
+        'data: ${jsonEncode(<String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{if (request.headers.value(_headerProtocolVersion) == McpStreamableHttpClient.latestProtocolVersion) 'resultType': request.headers.value('x-test-result-type') ?? 'complete', 'tools': <Object?>[]},
+        })}\n\n',
       );
       return;
     }
@@ -7466,6 +7648,10 @@ final class _FakeMcpEndpoint {
       'jsonrpc': '2.0',
       'id': requestBody['id'],
       'result': <String, Object?>{
+        if (request.headers.value(_headerProtocolVersion) ==
+            McpStreamableHttpClient.latestProtocolVersion)
+          'resultType':
+              request.headers.value('x-test-result-type') ?? 'complete',
         'tools': <Object?>[
           <String, Object?>{
             'name': 'app.echo',
@@ -7634,7 +7820,7 @@ final class _FakeMcpEndpoint {
       _headerProtocolVersion,
       request.headers.value('x-test-response-protocol-version') ??
           request.headers.value(_headerProtocolVersion) ??
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
     );
     final responseSessionId =
         request.headers.value('x-test-empty-response-session-id') != null
@@ -7646,7 +7832,22 @@ final class _FakeMcpEndpoint {
   }
 
   void _writeJson(HttpRequest request, McpJsonMap body, {String? sessionId}) {
-    _writeJsonValue(request, body, sessionId: sessionId);
+    final result = body['result'];
+    final responseBody =
+        request.headers.value(_headerProtocolVersion) ==
+                McpStreamableHttpClient.latestProtocolVersion &&
+            result is Map &&
+            !result.containsKey('resultType')
+        ? <String, Object?>{
+            ...body,
+            'result': <String, Object?>{
+              for (final entry in result.entries)
+                if (entry.key is String) entry.key as String: entry.value,
+              'resultType': 'complete',
+            },
+          }
+        : body;
+    _writeJsonValue(request, responseBody, sessionId: sessionId);
   }
 
   void _writeJsonValue(HttpRequest request, Object? body, {String? sessionId}) {
@@ -7666,7 +7867,7 @@ final class _FakeMcpEndpoint {
     request.response.headers.set(
       _headerProtocolVersion,
       request.headers.value(_headerProtocolVersion) ??
-          McpStreamableHttpClient.latestProtocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
     );
     request.response.headers.set(
       _headerSessionId,

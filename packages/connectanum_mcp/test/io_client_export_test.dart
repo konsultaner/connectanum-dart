@@ -732,7 +732,7 @@ void main() {
         initialize['result'],
         label: 'authenticated initialize result',
       )['protocolVersion'],
-      mcpLatestProtocolVersion,
+      mcpLatestSessionProtocolVersion,
     );
     expect(mcpClient.sessionId, _ioAuthSessionId);
 
@@ -1080,7 +1080,7 @@ void main() {
           initialize['result'],
           label: 'bearer initialize result',
         )['protocolVersion'],
-        mcpLatestProtocolVersion,
+        mcpLatestSessionProtocolVersion,
       );
       expect(client.sessionId, _ioAuthSessionId);
 
@@ -1234,7 +1234,7 @@ void main() {
           initialize['result'],
           label: 'initialize result',
         )['protocolVersion'],
-        mcpLatestProtocolVersion,
+        mcpLatestSessionProtocolVersion,
       );
       expect(client.sessionId, 'io-session-1');
 
@@ -2790,7 +2790,7 @@ final class _AuthBackedMcpEndpoint {
           'jsonrpc': '2.0',
           'id': jsonBody['id'],
           'result': <String, Object?>{
-            'protocolVersion': mcpLatestProtocolVersion,
+            'protocolVersion': mcpLatestSessionProtocolVersion,
             'capabilities': <String, Object?>{'tools': <String, Object?>{}},
             'serverInfo': <String, Object?>{
               'name': 'io-auth-fake',
@@ -3195,10 +3195,10 @@ final class _StreamableMcpEndpoint {
         request.response.headers.set('MCP-Session-Id', 'io-session-1');
         request.response.headers.set(
           'MCP-Protocol-Version',
-          mcpLatestProtocolVersion,
+          mcpLatestSessionProtocolVersion,
         );
         return _result(id, <String, Object?>{
-          'protocolVersion': mcpLatestProtocolVersion,
+          'protocolVersion': mcpLatestSessionProtocolVersion,
           'capabilities': <String, Object?>{},
           'serverInfo': <String, Object?>{
             'name': 'io-entrypoint-test',

@@ -1806,7 +1806,7 @@ Future<void> _smokeServerHandleMessage() async {
       'id': 'init',
       'method': 'initialize',
       'params': {
-        'protocolVersion': mcpLatestProtocolVersion,
+        'protocolVersion': mcpLatestSessionProtocolVersion,
         'capabilities': {},
         'clientInfo': {'name': 'consumer-server-smoke', 'version': '0.1.0'},
       },
@@ -1819,7 +1819,7 @@ Future<void> _smokeServerHandleMessage() async {
   );
   _expect(initialize['id'] == 'init', 'initialize id mismatch');
   _expect(
-    initializeResult['protocolVersion'] == mcpLatestProtocolVersion,
+    initializeResult['protocolVersion'] == mcpLatestSessionProtocolVersion,
     'initialize protocol mismatch',
   );
   _expect(
@@ -1929,7 +1929,7 @@ Future<void> _smokeStdioTransport() async {
           'jsonrpc': '2.0',
           'id': 'stdio-init',
           'method': 'initialize',
-          'params': {'protocolVersion': mcpLatestProtocolVersion},
+          'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
         })}\n'
         '${jsonEncode({'jsonrpc': '2.0', 'method': 'notifications/initialized'})}\n'
         '${jsonEncode([
@@ -2118,7 +2118,7 @@ import 'dart:io';
 import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 
 const _sessionId = 'agent-session';
-const _protocolVersion = McpStreamableHttpClient.latestProtocolVersion;
+const _protocolVersion = McpStreamableHttpClient.latestSessionProtocolVersion;
 const _authState = 'agent-auth-state';
 const _authRealm = 'agent.realm';
 const _authId = 'consumer-agent';
@@ -10177,7 +10177,7 @@ Future<void> _smokeSupportedMcpProtocolVersion(
 }) async {
   final client = _protocolVersionClient(
     endpoint,
-    defaultProtocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+    defaultProtocolVersion: McpStreamableHttpClient.latestSessionProtocolVersion,
     authGrant: authGrant,
   );
   try {
@@ -11206,7 +11206,7 @@ Future<void> _smokeRateLimitedMcpRoute(RouterBinding binding) async {
         'id': 'rate-limited-streamable-initialize',
         'method': 'initialize',
         'params': <String, Object?>{
-          'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+          'protocolVersion': McpStreamableHttpClient.latestSessionProtocolVersion,
           'capabilities': <String, Object?>{},
           'clientInfo': <String, Object?>{
             'name': 'connectanum_consumer_rate_limit_smoke',
@@ -11614,7 +11614,7 @@ Future<void> _assertSecureMcpCorsUnauthorized(
       'id': 'secure-cors-missing-bearer-initialize',
       'method': 'initialize',
       'params': <String, Object?>{
-        'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+        'protocolVersion': McpStreamableHttpClient.latestSessionProtocolVersion,
         'capabilities': <String, Object?>{},
         'clientInfo': <String, Object?>{
           'name': 'connectanum_consumer_cors_smoke',
@@ -13220,7 +13220,7 @@ Future<void> _assertMcpStreamableCorsLifecycle(
       'id': initializeId,
       'method': 'initialize',
       'params': <String, Object?>{
-        'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+        'protocolVersion': McpStreamableHttpClient.latestSessionProtocolVersion,
         'capabilities': <String, Object?>{},
         'clientInfo': <String, Object?>{
           'name': 'connectanum_consumer_cors_smoke',
@@ -14899,7 +14899,7 @@ Future<_McpRawHttpResponse> _mcpRawJsonPost(
   );
   request.headers.set(
     'MCP-Protocol-Version',
-    McpStreamableHttpClient.latestProtocolVersion,
+    McpStreamableHttpClient.latestSessionProtocolVersion,
   );
   final method = message['method'];
   if (method is String) {
@@ -14948,7 +14948,7 @@ Future<_McpRawHttpResponse> _mcpRawPostBody(
   request.headers.set(HttpHeaders.acceptHeader, accept);
   request.headers.set(
     'MCP-Protocol-Version',
-    McpStreamableHttpClient.latestProtocolVersion,
+    McpStreamableHttpClient.latestSessionProtocolVersion,
   );
   request.headers.set(HttpHeaders.contentTypeHeader, contentType);
   if (sessionId != null) {
@@ -14976,7 +14976,7 @@ Future<_McpRawHttpResponse> _mcpRawMcpRequest(
   request.headers.set(HttpHeaders.acceptHeader, accept);
   request.headers.set(
     'MCP-Protocol-Version',
-    McpStreamableHttpClient.latestProtocolVersion,
+    McpStreamableHttpClient.latestSessionProtocolVersion,
   );
   if (bearerToken != null) {
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
@@ -15006,7 +15006,7 @@ Future<_McpRawHttpResponse> _mcpRawSessionRequest(
   );
   request.headers.set(
     'MCP-Protocol-Version',
-    McpStreamableHttpClient.latestProtocolVersion,
+    McpStreamableHttpClient.latestSessionProtocolVersion,
   );
   request.headers.set('MCP-Session-Id', sessionId);
   if (lastEventId != null) {
@@ -20926,7 +20926,7 @@ Future<void> _assertClientSuppliedStreamableInitializeSessionRejected(
     );
     request.headers.set(
       'MCP-Protocol-Version',
-      McpStreamableHttpClient.latestProtocolVersion,
+      McpStreamableHttpClient.latestSessionProtocolVersion,
     );
     request.headers.set('Mcp-Method', 'initialize');
     request.headers.set('MCP-Session-Id', 'consumer-chosen-session');
@@ -20944,7 +20944,7 @@ Future<void> _assertClientSuppliedStreamableInitializeSessionRejected(
         'id': 'client-session-initialize',
         'method': 'initialize',
         'params': <String, Object?>{
-          'protocolVersion': McpStreamableHttpClient.latestProtocolVersion,
+          'protocolVersion': McpStreamableHttpClient.latestSessionProtocolVersion,
           'capabilities': <String, Object?>{},
           'clientInfo': <String, Object?>{
             'name': 'connectanum_consumer_package_smoke',
@@ -21000,7 +21000,7 @@ Future<void> _assertMalformedStreamableSessionRejected(
       request.headers.set(HttpHeaders.acceptHeader, accept);
       request.headers.set(
         'MCP-Protocol-Version',
-        McpStreamableHttpClient.latestProtocolVersion,
+        McpStreamableHttpClient.latestSessionProtocolVersion,
       );
       request.headers.set('MCP-Session-Id', malformedSessionId);
       request.headers.set(
@@ -27068,7 +27068,7 @@ import 'dart:io';
 
 import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 
-const _protocolVersion = McpStreamableHttpClient.latestProtocolVersion;
+const _protocolVersion = McpStreamableHttpClient.latestSessionProtocolVersion;
 const _publicTopic = 'cli.smoke.events';
 const _secureTopic = 'cli.smoke.secure.events';
 const _configuredOnlySecureTopic = 'cli.smoke.secure.metadata';
@@ -27085,12 +27085,91 @@ Future<void> main() async {
   final authEndpoint = baseUri.resolve('/auth');
   final proxyEndpoint = baseUri.resolve('/proxy/healthz');
   final publicClient = McpStreamableHttpClient(publicEndpoint);
+  final publicStatelessClient = McpStreamableHttpClient.stateless(
+    publicEndpoint,
+    clientInfo: const <String, Object?>{
+      'name': 'router-cli-dart-consumer-smoke-stateless',
+      'version': '0.0.0',
+    },
+  );
   final authClient = ConnectanumHttpAuthClient(authEndpoint);
   McpStreamableHttpClient? secureClient;
   McpStreamableHttpClient? secureJsonClient;
 
   try {
     await _expectSessionProxyRoute(endpoint: proxyEndpoint);
+
+    final publicDiscovery = await publicStatelessClient.discover(
+      id: 'dart-consumer-public-stateless-discover',
+    );
+    _expect(
+      publicDiscovery.supportedVersions.contains(
+        McpStreamableHttpClient.latestProtocolVersion,
+      ) &&
+          publicDiscovery.capabilities.containsKey('tools') &&
+          publicDiscovery.serverInfo != null,
+      'Dart consumer MCP 2026 discovery was incomplete.',
+    );
+    final publicStatelessTools = await publicStatelessClient.listTools(
+      id: 'dart-consumer-public-stateless-tools',
+    );
+    _expect(
+      _stringFields(
+        publicStatelessTools.tools,
+        'name',
+      ).contains('connectanum.pubsub.publish'),
+      'Dart consumer MCP 2026 tools/list missed pubsub tools.',
+    );
+    final publicStatelessResource = await publicStatelessClient.readResource(
+      'cli://mcp/context',
+      id: 'dart-consumer-public-stateless-resource-read',
+    );
+    _expect(
+      jsonEncode(publicStatelessResource).contains('Router CLI MCP context.'),
+      'Dart consumer MCP 2026 resources/read missed public content.',
+    );
+    final publicStatelessSubscription =
+        await publicStatelessClient.subscribeWampTopic(
+      _publicTopic,
+      id: 'dart-consumer-public-stateless-subscribe',
+      queueLimit: 5,
+    );
+    await publicStatelessClient.publishWampEvent(
+      _publicTopic,
+      id: 'dart-consumer-public-stateless-publish',
+      argumentsKeywords: const <String, Object?>{
+        'via': 'dart-consumer-public-stateless',
+      },
+      acknowledge: true,
+    );
+    var publicStatelessEventObserved = false;
+    for (var attempt = 0; attempt < 30; attempt += 1) {
+      final events = await publicStatelessClient.pollWampEvents(
+        publicStatelessSubscription.handle,
+        id: 'dart-consumer-public-stateless-poll-$attempt',
+        limit: 5,
+      );
+      if (jsonEncode(events.events).contains('dart-consumer-public-stateless')) {
+        publicStatelessEventObserved = true;
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    _expect(
+      publicStatelessEventObserved,
+      'Dart consumer MCP 2026 pub/sub poll missed the published event.',
+    );
+    final publicStatelessUnsubscribe =
+        await publicStatelessClient.unsubscribeWampTopic(
+      publicStatelessSubscription.handle,
+      id: 'dart-consumer-public-stateless-unsubscribe',
+    );
+    _expect(
+      publicStatelessUnsubscribe.unsubscribed &&
+          publicStatelessClient.sessionId == null &&
+          publicStatelessClient.lastEventId == null,
+      'Dart consumer MCP 2026 pub/sub leaked protocol session state.',
+    );
 
     final publicTools = await publicClient.listToolsDirect(
       id: 'dart-consumer-public-tools',
@@ -27453,6 +27532,56 @@ Future<void> main() async {
     final originalRefreshToken = grant.refreshToken;
     if (originalRefreshToken == null || originalRefreshToken.isEmpty) {
       throw StateError('Dart consumer auth grant missed a refresh token.');
+    }
+
+    final secureStatelessClient =
+        McpStreamableHttpClient.statelessWithAuthGrant(
+      secureEndpoint,
+      grant,
+      clientInfo: const <String, Object?>{
+        'name': 'router-cli-dart-consumer-smoke-secure-stateless',
+        'version': '0.0.0',
+      },
+    );
+    try {
+      final secureDiscovery = await secureStatelessClient.discover(
+        id: 'dart-consumer-secure-stateless-discover',
+      );
+      _expect(
+        secureDiscovery.supportedVersions.contains(
+              McpStreamableHttpClient.latestProtocolVersion,
+            ) &&
+            secureDiscovery.capabilities.containsKey('resources'),
+        'Dart consumer protected MCP 2026 discovery was incomplete.',
+      );
+      final secureStatelessTools = await secureStatelessClient.listTools(
+        id: 'dart-consumer-secure-stateless-tools',
+      );
+      _expect(
+        _stringFields(
+          secureStatelessTools.tools,
+          'name',
+        ).contains('connectanum.pubsub.publish'),
+        'Dart consumer protected MCP 2026 tools/list missed pubsub tools.',
+      );
+      final secureStatelessResource =
+          await secureStatelessClient.readResource(
+        'cli://mcp/secure/context',
+        id: 'dart-consumer-secure-stateless-resource-read',
+      );
+      _expect(
+        jsonEncode(
+          secureStatelessResource,
+        ).contains('Router CLI secure MCP context.'),
+        'Dart consumer protected MCP 2026 resources/read missed content.',
+      );
+      _expect(
+        secureStatelessClient.sessionId == null &&
+            secureStatelessClient.lastEventId == null,
+        'Dart consumer protected MCP 2026 request leaked session state.',
+      );
+    } finally {
+      secureStatelessClient.close(force: true);
     }
 
     final unauthenticatedSecureJsonClient =
@@ -30235,6 +30364,7 @@ Future<void> main() async {
     print(jsonEncode(<String, Object?>{
       'routerCliConsumerSummary': <String, Object?>{
         'public': <String, Object?>{
+          'stateless2026': true,
           'directJson': true,
           'streamable': true,
           'streamableInvalidLastEventId': true,
@@ -30250,6 +30380,7 @@ Future<void> main() async {
         },
         'secure': <String, Object?>{
           'ticketGrant': true,
+          'stateless2026': true,
           'directJson': true,
           'streamable': true,
           'streamableInvalidLastEventId': true,
@@ -30329,6 +30460,7 @@ Future<void> main() async {
     secureJsonClient?.close(force: true);
     secureClient?.close(force: true);
     authClient.close(force: true);
+    publicStatelessClient.close(force: true);
     publicClient.close(force: true);
   }
 }
@@ -31392,8 +31524,8 @@ DART
   printf '%s\n' "$dart_consumer_summary"
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
-    '"public":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"public":{"stateless2026":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
+    '"secure":{"ticketGrant":true,"stateless2026":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 

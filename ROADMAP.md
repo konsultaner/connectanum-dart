@@ -375,6 +375,19 @@
     router-hosted MCP sessions, send authenticated JSON-RPC requests, consume
     POST/SSE responses, poll GET/SSE events with resume cursors, and delete
     sessions without reimplementing the transport.
+  - [x] Add the first `2026-07-28` stateless HTTP compatibility slice without
+    weakening the session-era client: typed `server/discover`, per-request
+    client metadata, mirrored request headers, modern error/result envelopes,
+    router-hosted tool/resource/prompt/WAMP operations, bearer-protected
+    requests, and isolated public consumer smoke evidence with no protocol
+    session or resume state.
+  - [ ] Add modern `subscriptions/listen` request-scoped SSE delivery and
+    cancellation, then expose list/resource change capabilities through
+    `server/discover`; do not advertise legacy subscription flags as modern
+    capabilities before this path exists.
+  - [ ] Add MCP 2026 MRTR input requests and responses for the client features
+    Connectanum elects to support, with explicit capability enforcement and
+    the reserved missing-capability error.
   - [x] Add configured router-hosted MCP resources, resource templates, and
     prompts so a router route can advertise read-only context and prompt
     templates without starting a separate MCP server.

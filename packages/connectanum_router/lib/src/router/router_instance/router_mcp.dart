@@ -345,7 +345,7 @@ Map<String, String> _mcpCorsResponseHeaders(
 Map<String, String> _mcpHttpResponseHeaders({
   bool json = true,
   String? sessionId,
-  String protocolVersion = mcp.mcpLatestProtocolVersion,
+  String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
   Map<String, String> extra = const <String, String>{},
 }) {
   return <String, String>{
@@ -361,11 +361,12 @@ Map<String, Object?> _mcpJsonRpcErrorPayload({
   required int code,
   required String message,
   Object? id,
+  Object? data,
 }) {
   return <String, Object?>{
     'jsonrpc': '2.0',
     'id': id,
-    'error': <String, Object?>{'code': code, 'message': message},
+    'error': <String, Object?>{'code': code, 'message': message, 'data': ?data},
   };
 }
 
@@ -374,8 +375,9 @@ NativeHttpResponse _mcpJsonRpcHttpError({
   required int code,
   required String message,
   Object? id,
+  Object? data,
   String? sessionId,
-  String protocolVersion = mcp.mcpLatestProtocolVersion,
+  String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) {
   return NativeHttpResponse(
@@ -386,7 +388,7 @@ NativeHttpResponse _mcpJsonRpcHttpError({
       extra: extraHeaders,
     ),
     body: NativeHttpResponseJson(
-      _mcpJsonRpcErrorPayload(code: code, message: message, id: id),
+      _mcpJsonRpcErrorPayload(code: code, message: message, id: id, data: data),
     ),
   );
 }
@@ -840,12 +842,115 @@ String? _mcpRequestName(Object? rawMessage, String method) {
   return value is String && value.isNotEmpty ? value : null;
 }
 
+NativeHttpResponse? _mcpStatelessMetadataValidationError(
+  RouterBinding binding, {
+  required RouterHttpRequest request,
+  required Object? rawMessage,
+  required Map<String, String> extraHeaders,
+}) {
+  final headerProtocolVersion = _mcpHeaderValue(
+    binding,
+    request,
+    _mcpProtocolVersionHeader,
+  );
+  final id = _recoverDirectJsonRequestId(rawMessage);
+  if (rawMessage is! Map) {
+    if (headerProtocolVersion != mcp.mcpLatestStatelessProtocolVersion) {
+      return null;
+    }
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.invalidRequest,
+      message: 'MCP 2026 HTTP POST requires one JSON-RPC message object',
+      id: id,
+      protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
+      extraHeaders: extraHeaders,
+    );
+  }
+
+  final params = rawMessage['params'];
+  final metadata = params is Map ? params['_meta'] : null;
+  final bodyProtocolVersion = metadata is Map
+      ? metadata['io.modelcontextprotocol/protocolVersion']
+      : null;
+  final isStatelessRequest =
+      headerProtocolVersion == mcp.mcpLatestStatelessProtocolVersion ||
+      bodyProtocolVersion == mcp.mcpLatestStatelessProtocolVersion;
+  if (!isStatelessRequest) {
+    return null;
+  }
+  if (headerProtocolVersion != mcp.mcpLatestStatelessProtocolVersion) {
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.headerMismatch,
+      message:
+          'Header mismatch: missing or mismatched MCP-Protocol-Version header',
+      id: id,
+      protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
+      extraHeaders: extraHeaders,
+    );
+  }
+  if (metadata is! Map || bodyProtocolVersion == null) {
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.invalidParams,
+      message:
+          'MCP 2026 params._meta protocolVersion and clientCapabilities are required',
+      id: id,
+      protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
+      extraHeaders: extraHeaders,
+    );
+  }
+  if (bodyProtocolVersion != headerProtocolVersion) {
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.headerMismatch,
+      message:
+          'Header mismatch: MCP-Protocol-Version header does not match '
+          'params._meta protocolVersion',
+      id: id,
+      protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
+      extraHeaders: extraHeaders,
+    );
+  }
+  final clientCapabilities =
+      metadata['io.modelcontextprotocol/clientCapabilities'];
+  if (clientCapabilities is! Map) {
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.invalidParams,
+      message: 'MCP 2026 params._meta clientCapabilities must be an object',
+      id: id,
+      protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
+      extraHeaders: extraHeaders,
+    );
+  }
+  final clientInfo = metadata['io.modelcontextprotocol/clientInfo'];
+  if (clientInfo != null &&
+      (clientInfo is! Map ||
+          clientInfo['name'] is! String ||
+          (clientInfo['name'] as String).isEmpty ||
+          clientInfo['version'] is! String ||
+          (clientInfo['version'] as String).isEmpty)) {
+    return _mcpJsonRpcHttpError(
+      status: HttpStatus.badRequest,
+      code: mcp.McpErrorCodes.invalidParams,
+      message: 'MCP 2026 params._meta clientInfo must name a versioned client',
+      id: id,
+      protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
+      extraHeaders: extraHeaders,
+    );
+  }
+  return null;
+}
+
 NativeHttpResponse? _mcpStandardHeaderValidationError(
   RouterBinding binding, {
   required RouterHttpRequest request,
   required Object? rawMessage,
+  bool requireHeaders = false,
   String? sessionId,
-  String protocolVersion = mcp.mcpLatestProtocolVersion,
+  String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) {
   final bodyMethod = _mcpRequestMethod(rawMessage);
@@ -856,13 +961,13 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
   final headerMethod = _mcpHeaderValueRaw(binding, request, _mcpMethodHeader);
   final headerName = _mcpHeaderValueRaw(binding, request, _mcpNameHeader);
   final metadataHeadersPresent = headerMethod != null || headerName != null;
-  if (!metadataHeadersPresent) {
+  if (!metadataHeadersPresent && !requireHeaders) {
     return null;
   }
   if (headerMethod == null) {
     return _mcpJsonRpcHttpError(
       status: HttpStatus.badRequest,
-      code: mcp.McpErrorCodes.headerMismatch,
+      code: _mcpHeaderMismatchErrorCode(protocolVersion),
       message: 'Header mismatch: missing Mcp-Method header',
       id: id,
       sessionId: sessionId,
@@ -873,7 +978,7 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
   if (headerMethod != bodyMethod) {
     return _mcpJsonRpcHttpError(
       status: HttpStatus.badRequest,
-      code: mcp.McpErrorCodes.headerMismatch,
+      code: _mcpHeaderMismatchErrorCode(protocolVersion),
       message:
           "Header mismatch: Mcp-Method header value '$headerMethod' does not "
           "match body method '$bodyMethod'",
@@ -891,7 +996,7 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
     }
     return _mcpJsonRpcHttpError(
       status: HttpStatus.badRequest,
-      code: mcp.McpErrorCodes.headerMismatch,
+      code: _mcpHeaderMismatchErrorCode(protocolVersion),
       message:
           'Header mismatch: Mcp-Name header is present but body value is missing',
       id: id,
@@ -903,7 +1008,7 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
   if (headerName == null) {
     return _mcpJsonRpcHttpError(
       status: HttpStatus.badRequest,
-      code: mcp.McpErrorCodes.headerMismatch,
+      code: _mcpHeaderMismatchErrorCode(protocolVersion),
       message: 'Header mismatch: missing Mcp-Name header',
       id: id,
       sessionId: sessionId,
@@ -914,7 +1019,7 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
   if (headerName != bodyName) {
     return _mcpJsonRpcHttpError(
       status: HttpStatus.badRequest,
-      code: mcp.McpErrorCodes.headerMismatch,
+      code: _mcpHeaderMismatchErrorCode(protocolVersion),
       message:
           "Header mismatch: Mcp-Name header value '$headerName' does not "
           "match body value '$bodyName'",
@@ -927,6 +1032,12 @@ NativeHttpResponse? _mcpStandardHeaderValidationError(
   return null;
 }
 
+int _mcpHeaderMismatchErrorCode(String protocolVersion) {
+  return protocolVersion == mcp.mcpLatestStatelessProtocolVersion
+      ? mcp.McpErrorCodes.headerMismatch
+      : mcp.McpErrorCodes.legacyHeaderMismatch;
+}
+
 NativeHttpResponse? _mcpToolParameterHeaderValidationError(
   RouterBinding binding, {
   required RouterHttpRequest request,
@@ -934,7 +1045,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
   required _RouterMcpEndpoint endpoint,
   required bool requireHeaders,
   String? sessionId,
-  String protocolVersion = mcp.mcpLatestProtocolVersion,
+  String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) {
   var parameterHeadersPresent = false;
@@ -946,7 +1057,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
     if (!_mcpParameterHeaderValueCharactersValid(header.value)) {
       return _mcpJsonRpcHttpError(
         status: HttpStatus.badRequest,
-        code: mcp.McpErrorCodes.headerMismatch,
+        code: _mcpHeaderMismatchErrorCode(protocolVersion),
         message:
             'Header mismatch: ${header.key} header contains invalid characters',
         id: _recoverDirectJsonRequestId(rawMessage),
@@ -1009,7 +1120,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
       if (headerValue != null) {
         return _mcpJsonRpcHttpError(
           status: HttpStatus.badRequest,
-          code: mcp.McpErrorCodes.headerMismatch,
+          code: _mcpHeaderMismatchErrorCode(protocolVersion),
           message:
               'Header mismatch: $headerName header is present but body value '
               "for '${parameter.argumentName}' is missing",
@@ -1025,7 +1136,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
     if (expectedValue == null) {
       return _mcpJsonRpcHttpError(
         status: HttpStatus.badRequest,
-        code: mcp.McpErrorCodes.headerMismatch,
+        code: _mcpHeaderMismatchErrorCode(protocolVersion),
         message:
             "Header mismatch: body value for '${parameter.argumentName}' must "
             'be a string, number, or boolean',
@@ -1041,7 +1152,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
       }
       return _mcpJsonRpcHttpError(
         status: HttpStatus.badRequest,
-        code: mcp.McpErrorCodes.headerMismatch,
+        code: _mcpHeaderMismatchErrorCode(protocolVersion),
         message: 'Header mismatch: missing $headerName header',
         id: id,
         sessionId: sessionId,
@@ -1053,7 +1164,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
     if (decodedValue == null) {
       return _mcpJsonRpcHttpError(
         status: HttpStatus.badRequest,
-        code: mcp.McpErrorCodes.headerMismatch,
+        code: _mcpHeaderMismatchErrorCode(protocolVersion),
         message: 'Header mismatch: malformed $headerName header',
         id: id,
         sessionId: sessionId,
@@ -1064,7 +1175,7 @@ NativeHttpResponse? _mcpToolParameterHeaderValidationError(
     if (decodedValue != expectedValue) {
       return _mcpJsonRpcHttpError(
         status: HttpStatus.badRequest,
-        code: mcp.McpErrorCodes.headerMismatch,
+        code: _mcpHeaderMismatchErrorCode(protocolVersion),
         message:
             "Header mismatch: $headerName header value '$decodedValue' does "
             "not match body value '$expectedValue'",
@@ -1249,7 +1360,7 @@ Future<bool> _mcpSendSseResponse(
   required NativeHttpHandshake? handshake,
   required String sessionId,
   required List<_RouterMcpSseEvent> events,
-  String protocolVersion = mcp.mcpLatestProtocolVersion,
+  String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) async {
   final handle = handshake?.handle ?? request.handshakeHandle;
@@ -1335,15 +1446,20 @@ Future<void> _handleMcpHttpRequestForBinding(
       requestMcpProtocolVersion != null &&
           _mcpSupportedHttpProtocolVersions.contains(requestMcpProtocolVersion)
       ? requestMcpProtocolVersion
-      : mcp.mcpLatestProtocolVersion;
+      : mcp.mcpLatestSessionProtocolVersion;
+  final statelessHttpRequest =
+      requestMcpProtocolVersion == mcp.mcpLatestStatelessProtocolVersion;
   final streamableHttpRequest =
       httpMethod == 'POST' &&
+      !statelessHttpRequest &&
       _mcpAcceptRequestsStreamableHttpSession(binding, request);
-  final responseMcpSessionId = _mcpResponseSessionIdForRequest(
-    httpMethod: httpMethod,
-    streamableHttpRequest: streamableHttpRequest,
-    sessionId: mcpSessionId,
-  );
+  final responseMcpSessionId = statelessHttpRequest
+      ? null
+      : _mcpResponseSessionIdForRequest(
+          httpMethod: httpMethod,
+          streamableHttpRequest: streamableHttpRequest,
+          sessionId: mcpSessionId,
+        );
 
   if (!_mcpOriginAllowed(binding, request, route)) {
     await binding._sendImmediateHttpResponse(
@@ -1405,7 +1521,9 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  if (mcpSessionId != null && !_mcpSessionIdHeaderValueValid(mcpSessionId)) {
+  if (!statelessHttpRequest &&
+      mcpSessionId != null &&
+      !_mcpSessionIdHeaderValueValid(mcpSessionId)) {
     await binding._sendImmediateHttpResponse(
       request: request,
       handshake: handshake,
@@ -1426,10 +1544,32 @@ Future<void> _handleMcpHttpRequestForBinding(
       handshake: handshake,
       response: _mcpJsonRpcHttpError(
         status: HttpStatus.badRequest,
-        code: mcp.McpErrorCodes.invalidRequest,
-        message: 'Unsupported MCP protocol version header',
-        sessionId: responseMcpSessionId,
+        code: mcp.McpErrorCodes.unsupportedProtocolVersion,
+        message: 'Unsupported MCP protocol version',
+        data: <String, Object?>{
+          'supportedVersions': _mcpSupportedHttpProtocolVersions.toList()
+            ..sort(),
+        },
+        protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
         extraHeaders: corsHeaders,
+      ),
+    );
+    return;
+  }
+
+  if (statelessHttpRequest && httpMethod != 'POST') {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.methodNotAllowed,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP 2026 HTTP endpoints support POST and OPTIONS',
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: <String, String>{
+          ...corsHeaders,
+          HttpHeaders.allowHeader: 'POST, OPTIONS',
+        },
       ),
     );
     return;
@@ -1481,6 +1621,23 @@ Future<void> _handleMcpHttpRequestForBinding(
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'MCP POST responses require an Accept header allowing JSON',
         sessionId: responseMcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      ),
+    );
+    return;
+  }
+
+  if (statelessHttpRequest &&
+      !_mcpAcceptRequestsStreamableHttpSession(binding, request)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.notAcceptable,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message:
+            'MCP 2026 POST requests require an Accept header allowing JSON and SSE',
         protocolVersion: responseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
@@ -1803,6 +1960,35 @@ Future<void> _handleMcpHttpRequestForBinding(
             responseMcpProtocolVersion
       : _mcpNegotiatedInitializeProtocolVersion(rawMessage) ??
             responseMcpProtocolVersion;
+  final statelessMetadataError = _mcpStatelessMetadataValidationError(
+    binding,
+    request: request,
+    rawMessage: rawMessage,
+    extraHeaders: corsHeaders,
+  );
+  if (statelessMetadataError != null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: statelessMetadataError,
+    );
+    return;
+  }
+  if (statelessHttpRequest && isInitialize) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.notFound,
+        code: mcp.McpErrorCodes.methodNotFound,
+        message: 'MCP 2026 HTTP does not use initialize',
+        id: _recoverDirectJsonRequestId(rawMessage),
+        protocolVersion: effectiveResponseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      ),
+    );
+    return;
+  }
   if (isInitialize && streamableHttpRequest && mcpSessionId != null) {
     await binding._sendImmediateHttpResponse(
       request: request,
@@ -1822,6 +2008,7 @@ Future<void> _handleMcpHttpRequestForBinding(
     binding,
     request: request,
     rawMessage: rawMessage,
+    requireHeaders: statelessHttpRequest,
     sessionId: responseMcpSessionId,
     protocolVersion: effectiveResponseMcpProtocolVersion,
     extraHeaders: corsHeaders,
@@ -1894,7 +2081,7 @@ Future<void> _handleMcpHttpRequestForBinding(
     request: request,
     rawMessage: rawMessage,
     endpoint: endpoint,
-    requireHeaders: streamableHttpRequest,
+    requireHeaders: statelessHttpRequest || streamableHttpRequest,
     sessionId: effectiveMcpSessionId,
     protocolVersion: effectiveResponseMcpProtocolVersion,
     extraHeaders: corsHeaders,
@@ -1908,11 +2095,14 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  final response = await endpoint.handleMessage(
+  final rawResponse = await endpoint.handleMessage(
     rawMessage,
     resourceSubscriptionsAllowed:
         streamableHttpRequest && effectiveMcpSessionId != null,
   );
+  final response = statelessHttpRequest
+      ? endpoint.modernizeResponse(rawResponse)
+      : rawResponse;
   final rejectedNewInitialize =
       isInitialize &&
       streamableHttpRequest &&
@@ -1957,6 +2147,13 @@ Future<void> _handleMcpHttpRequestForBinding(
       return;
     }
   }
+  final responseStatus =
+      statelessHttpRequest &&
+          response is Map &&
+          response['error'] is Map &&
+          (response['error'] as Map)['code'] == mcp.McpErrorCodes.methodNotFound
+      ? HttpStatus.notFound
+      : HttpStatus.ok;
   await binding._sendImmediateHttpResponse(
     request: request,
     handshake: handshake,
@@ -1972,7 +2169,7 @@ Future<void> _handleMcpHttpRequestForBinding(
             body: NativeHttpResponseText(''),
           )
         : NativeHttpResponse(
-            status: HttpStatus.ok,
+            status: responseStatus,
             headers: _mcpHttpResponseHeaders(
               sessionId: responseSessionId,
               protocolVersion: effectiveResponseMcpProtocolVersion,
@@ -2178,6 +2375,32 @@ class _RouterMcpEndpoint {
       rawMessage,
       resourceSubscriptionsAllowed: resourceSubscriptionsAllowed,
     );
+  }
+
+  Object? modernizeResponse(Object? response) {
+    if (response is! Map || response['result'] is! Map) {
+      return response;
+    }
+    final result = <String, Object?>{
+      for (final entry in (response['result'] as Map).entries)
+        if (entry.key is String) entry.key as String: entry.value,
+    };
+    final rawMetadata = result['_meta'];
+    final metadata = <String, Object?>{
+      if (rawMetadata is Map)
+        for (final entry in rawMetadata.entries)
+          if (entry.key is String) entry.key as String: entry.value,
+      'io.modelcontextprotocol/serverInfo': server.serverInfo.toJson(),
+    };
+    return <String, Object?>{
+      for (final entry in response.entries)
+        if (entry.key is String) entry.key as String: entry.value,
+      'result': <String, Object?>{
+        ...result,
+        'resultType': result['resultType'] ?? 'complete',
+        '_meta': metadata,
+      },
+    };
   }
 
   Future<Object?> _handleBatchMessage(
@@ -2578,7 +2801,8 @@ class _RouterMcpEndpoint {
   }
 
   bool _isDirectJsonMethod(String method) {
-    return method == 'ping' ||
+    return method == 'server/discover' ||
+        method == 'ping' ||
         method == 'tools/list' ||
         method == 'tools/call' ||
         method == 'connectanum.tools.list' ||
@@ -2597,6 +2821,15 @@ class _RouterMcpEndpoint {
     mcp.JsonMap params,
   ) async {
     switch (method) {
+      case 'server/discover':
+        final capabilities = server.capabilities.toJson();
+        return <String, Object?>{
+          'supportedVersions': <String>[mcp.mcpLatestStatelessProtocolVersion],
+          'capabilities': <String, Object?>{
+            for (final capability in capabilities.keys) capability: const {},
+          },
+          if (server.instructions != null) 'instructions': server.instructions,
+        };
       case 'ping':
         return <String, Object?>{};
       case 'tools/list':

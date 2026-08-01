@@ -17,7 +17,29 @@ identified and fixed a pre-existing SCRAM channel-binding crash by preserving
 decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
-The current implementation checkpoint is a complete bounded MCP OAuth grant
+The completed product-readiness checkpoint is the first MCP `2026-07-28`
+stateless core compatibility slice. The public IO client now has explicit
+stateless and authenticated-stateless constructors, per-request client
+identity/capability metadata, typed `server/discover`, modern response-type
+validation, and local rejection of removed batch/GET/DELETE session behavior.
+Router-hosted MCP selects the modern era per request, validates body/header
+metadata with the 2026 reserved errors, returns HTTP 404 for unknown modern
+methods, stamps successful results with `resultType` and server identity, and
+never mints or echoes protocol session/resume state. Existing tool, resource,
+prompt, direct JSON/meta, and WAMP pub/sub paths remain available through the
+route principal. An isolated public consumer smoke proves public and bearer-
+protected discovery plus ordinary resources/tools/pub-sub while the complete
+`2025-*` initialize/session/GET/SSE/DELETE compatibility matrix remains green.
+Post-change `bin/test-fast` and complete local `bin/verify` passed on
+2026-08-01, including formatting, Rust core and FFI tests, 360 core Dart tests,
+182 client tests, 92 MCP tests, 96 benchmark tests, 380 router tests, the
+Chrome/Dart2Wasm websocket test, and all isolated consumer and live
+router-hosted MCP smokes. The completed plan is
+`docs/exec-plans/2026-08-01-mcp-2026-stateless-core.md`; modern
+`subscriptions/listen` request-scoped SSE and cancellation is the next MCP
+compatibility layer, followed by MRTR only for selected client capabilities.
+
+The OAuth foundation supporting this checkpoint is a complete bounded grant
 lifecycle plus the MCP-preferred public client identity mechanism. After
 end-to-end RFC 9728 protected-resource and RFC 8414 or OpenID Connect
 authorization-server discovery, public Dart IO consumers can generate RFC 7636
@@ -184,6 +206,13 @@ suite, isolated and globally activated package consumers, every maintained
 router-hosted MCP live variant, 13 focused native-router checks, and
 Chrome/Dart2Wasm. The completed plan is
 `docs/exec-plans/2026-08-01-mcp-router-resource-subscription-consumer-smoke.md`.
+Commit `89ed64c` passed exact-head GitHub CI `30698517025`, including Fast
+Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+artifact. Dart Package Publish Dry Run `30698517022` and WAMP Profile
+Benchmarks `30698517021` passed on their first attempts; WAMP artifact
+`8818115551` was uploaded. The strict deployment-chain audit passed with a
+clean exact-head CI log scan and all required branch, workflow, package,
+benchmark-artifact, and registry gates clean.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, workspace analysis, public package-boundary validation, and the
 isolated and globally activated consumer smokes passed on 2026-07-31 for the

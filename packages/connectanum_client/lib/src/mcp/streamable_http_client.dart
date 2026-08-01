@@ -24,10 +24,12 @@ const _headerParameterPrefix = 'Mcp-Param-';
 const _base64HeaderPrefix = '=?base64?';
 const _base64HeaderSuffix = '?=';
 final _mcpToolNamePattern = RegExp(r'^[A-Za-z0-9_.-]{1,128}$');
-const _mcpLatestProtocolVersion = '2025-11-25';
+const _mcpLatestSessionProtocolVersion = '2025-11-25';
+const _mcpLatestProtocolVersion = '2026-07-28';
 const _mcpSupportedProtocolVersions = <String>{
   '2025-03-26',
   '2025-06-18',
+  _mcpLatestSessionProtocolVersion,
   _mcpLatestProtocolVersion,
 };
 
@@ -115,6 +117,25 @@ String _validatedMcpProtocolVersion(String value, String name) {
     return value;
   }
   throw ArgumentError.value(value, name, 'Unsupported MCP protocol version.');
+}
+
+McpJsonMap? _validatedMcpClientInfo(McpJsonMap? value) {
+  if (value == null) {
+    return null;
+  }
+  final name = value['name'];
+  final version = value['version'];
+  if (name is! String ||
+      name.isEmpty ||
+      version is! String ||
+      version.isEmpty) {
+    throw ArgumentError.value(
+      value,
+      'clientInfo',
+      'MCP client info must contain non-empty name and version strings.',
+    );
+  }
+  return Map<String, Object?>.unmodifiable(value);
 }
 
 bool _mcpSessionIdHeaderValueValid(String value) {
@@ -266,21 +287,44 @@ void _validateJsonRpcResponseObject(
   }
 }
 
-/// Minimal Dart IO client for MCP Streamable HTTP endpoints.
+/// Route-filtered server information returned by MCP `server/discover`.
+final class McpStatelessDiscoveryResult {
+  const McpStatelessDiscoveryResult({
+    required this.supportedVersions,
+    required this.capabilities,
+    required this.serverInfo,
+    this.instructions,
+    this.ttlMs,
+    this.cacheScope,
+  });
+
+  final List<String> supportedVersions;
+  final McpJsonMap capabilities;
+  final McpJsonMap? serverInfo;
+  final String? instructions;
+  final int? ttlMs;
+  final String? cacheScope;
+}
+
+/// HTTP client for session-based MCP revisions and stateless MCP 2026.
 ///
-/// The client keeps the negotiated MCP session headers and SSE cursor so
-/// consumer applications can use router-hosted MCP endpoints without
-/// reimplementing the transport/session details.
+/// For session-based revisions, the client keeps the negotiated MCP session
+/// headers and SSE cursor so consumer applications do not need to reimplement
+/// the transport details.
 final class McpStreamableHttpClient {
   static const latestProtocolVersion = _mcpLatestProtocolVersion;
+  static const latestSessionProtocolVersion = _mcpLatestSessionProtocolVersion;
 
   McpStreamableHttpClient(
     this.endpoint, {
     HttpClient? httpClient,
     this.headers = const <String, String>{},
-    String defaultProtocolVersion = latestProtocolVersion,
+    McpJsonMap? clientInfo,
+    this.clientCapabilities = const <String, Object?>{},
+    String defaultProtocolVersion = latestSessionProtocolVersion,
     bool closeHttpClient = false,
-  }) : defaultProtocolVersion = _validatedMcpProtocolVersion(
+  }) : clientInfo = _validatedMcpClientInfo(clientInfo),
+       defaultProtocolVersion = _validatedMcpProtocolVersion(
          defaultProtocolVersion,
          'defaultProtocolVersion',
        ),
@@ -298,13 +342,75 @@ final class McpStreamableHttpClient {
     String bearerToken, {
     HttpClient? httpClient,
     Map<String, String> headers = const <String, String>{},
-    String defaultProtocolVersion = latestProtocolVersion,
+    McpJsonMap? clientInfo,
+    McpJsonMap clientCapabilities = const <String, Object?>{},
+    String defaultProtocolVersion = latestSessionProtocolVersion,
     bool closeHttpClient = false,
   }) : this(
          endpoint,
          httpClient: httpClient,
          headers: _headersWithBearerToken(headers, bearerToken),
+         clientInfo: clientInfo,
+         clientCapabilities: clientCapabilities,
          defaultProtocolVersion: defaultProtocolVersion,
+         closeHttpClient: closeHttpClient,
+       );
+
+  /// Creates a sessionless client for MCP protocol revision `2026-07-28`.
+  McpStreamableHttpClient.stateless(
+    Uri endpoint, {
+    required McpJsonMap clientInfo,
+    McpJsonMap clientCapabilities = const <String, Object?>{},
+    HttpClient? httpClient,
+    Map<String, String> headers = const <String, String>{},
+    bool closeHttpClient = false,
+  }) : this(
+         endpoint,
+         httpClient: httpClient,
+         headers: headers,
+         clientInfo: clientInfo,
+         clientCapabilities: clientCapabilities,
+         defaultProtocolVersion: latestProtocolVersion,
+         closeHttpClient: closeHttpClient,
+       );
+
+  /// Creates a bearer-authenticated sessionless MCP 2026 client.
+  McpStreamableHttpClient.statelessWithBearerToken(
+    Uri endpoint,
+    String bearerToken, {
+    required McpJsonMap clientInfo,
+    McpJsonMap clientCapabilities = const <String, Object?>{},
+    HttpClient? httpClient,
+    Map<String, String> headers = const <String, String>{},
+    bool closeHttpClient = false,
+  }) : this.withBearerToken(
+         endpoint,
+         bearerToken,
+         httpClient: httpClient,
+         headers: headers,
+         clientInfo: clientInfo,
+         clientCapabilities: clientCapabilities,
+         defaultProtocolVersion: latestProtocolVersion,
+         closeHttpClient: closeHttpClient,
+       );
+
+  /// Creates a sessionless MCP 2026 client using an HTTP auth bridge grant.
+  McpStreamableHttpClient.statelessWithAuthGrant(
+    Uri endpoint,
+    ConnectanumHttpAuthGrant grant, {
+    required McpJsonMap clientInfo,
+    McpJsonMap clientCapabilities = const <String, Object?>{},
+    HttpClient? httpClient,
+    Map<String, String> headers = const <String, String>{},
+    bool closeHttpClient = false,
+  }) : this.withAuthGrant(
+         endpoint,
+         grant,
+         httpClient: httpClient,
+         headers: headers,
+         clientInfo: clientInfo,
+         clientCapabilities: clientCapabilities,
+         defaultProtocolVersion: latestProtocolVersion,
          closeHttpClient: closeHttpClient,
        );
 
@@ -313,7 +419,9 @@ final class McpStreamableHttpClient {
     McpOAuthTokenGrant grant, {
     HttpClient? httpClient,
     Map<String, String> headers = const <String, String>{},
-    String defaultProtocolVersion = latestProtocolVersion,
+    McpJsonMap? clientInfo,
+    McpJsonMap clientCapabilities = const <String, Object?>{},
+    String defaultProtocolVersion = latestSessionProtocolVersion,
     bool closeHttpClient = false,
   }) {
     _validateOAuthTokenGrant(endpoint, grant);
@@ -322,6 +430,8 @@ final class McpStreamableHttpClient {
       grant.accessToken,
       httpClient: httpClient,
       headers: headers,
+      clientInfo: clientInfo,
+      clientCapabilities: clientCapabilities,
       defaultProtocolVersion: defaultProtocolVersion,
       closeHttpClient: closeHttpClient,
     );
@@ -333,18 +443,24 @@ final class McpStreamableHttpClient {
     ConnectanumHttpAuthGrant grant, {
     HttpClient? httpClient,
     Map<String, String> headers = const <String, String>{},
-    String defaultProtocolVersion = latestProtocolVersion,
+    McpJsonMap? clientInfo,
+    McpJsonMap clientCapabilities = const <String, Object?>{},
+    String defaultProtocolVersion = latestSessionProtocolVersion,
     bool closeHttpClient = false,
   }) : this(
          endpoint,
          httpClient: httpClient,
          headers: _headersWithAuthGrant(headers, grant),
+         clientInfo: clientInfo,
+         clientCapabilities: clientCapabilities,
          defaultProtocolVersion: defaultProtocolVersion,
          closeHttpClient: closeHttpClient,
        );
 
   final Uri endpoint;
   final Map<String, String> headers;
+  final McpJsonMap? clientInfo;
+  final McpJsonMap clientCapabilities;
   final String defaultProtocolVersion;
   final HttpClient _httpClient;
   final bool _ownsHttpClient;
@@ -360,7 +476,11 @@ final class McpStreamableHttpClient {
   String get protocolVersion => _protocolVersion;
 
   set protocolVersion(String value) {
-    _protocolVersion = _validatedMcpProtocolVersion(value, 'protocolVersion');
+    final validated = _validatedMcpProtocolVersion(value, 'protocolVersion');
+    if (validated == latestProtocolVersion) {
+      _clearSessionState();
+    }
+    _protocolVersion = validated;
   }
 
   static Map<String, String> _headersWithBearerToken(
@@ -635,6 +755,68 @@ final class McpStreamableHttpClient {
       }
     }
     return response;
+  }
+
+  /// Discovers an MCP 2026 server without creating a protocol session.
+  Future<McpStatelessDiscoveryResult> discover({
+    Object? id,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    final response = await request(
+      'server/discover',
+      id: id,
+      protocolVersion: latestProtocolVersion,
+      headers: headers,
+    );
+    final result = _jsonRpcResultFrom(response, method: 'server/discover');
+    final rawVersions = result['supportedVersions'];
+    if (rawVersions is! List ||
+        rawVersions.isEmpty ||
+        rawVersions.any((version) => version is! String || version.isEmpty)) {
+      throw const FormatException(
+        'server/discover supportedVersions must be a non-empty string array',
+      );
+    }
+    final capabilities = _jsonMapFrom(
+      result['capabilities'],
+      label: 'server/discover capabilities',
+    );
+    final metadata = result['_meta'];
+    final serverInfoValue = metadata is Map
+        ? _jsonMapFrom(
+            metadata,
+            label: 'server/discover result metadata',
+          )['io.modelcontextprotocol/serverInfo']
+        : null;
+    final serverInfo = serverInfoValue == null
+        ? null
+        : _jsonMapFrom(serverInfoValue, label: 'server/discover server info');
+    final instructions = result['instructions'];
+    if (instructions != null && instructions is! String) {
+      throw const FormatException(
+        'server/discover instructions must be a string',
+      );
+    }
+    final ttlMs = result['ttlMs'];
+    if (ttlMs != null && (ttlMs is! int || ttlMs < 0)) {
+      throw const FormatException(
+        'server/discover ttlMs must be a non-negative integer',
+      );
+    }
+    final cacheScope = result['cacheScope'];
+    if (cacheScope != null && cacheScope is! String) {
+      throw const FormatException(
+        'server/discover cacheScope must be a string',
+      );
+    }
+    return McpStatelessDiscoveryResult(
+      supportedVersions: List<String>.unmodifiable(rawVersions.cast<String>()),
+      capabilities: capabilities,
+      serverInfo: serverInfo,
+      instructions: instructions as String?,
+      ttlMs: ttlMs as int?,
+      cacheScope: cacheScope as String?,
+    );
   }
 
   Future<void> notifyInitialized({
@@ -1328,10 +1510,15 @@ final class McpStreamableHttpClient {
       protocolVersion ?? this.protocolVersion,
       'protocolVersion',
     );
-    final response = await _postPayload(
+    final preparedMessage = _prepareMessageForProtocol(
       message,
+      effectiveProtocolVersion,
+    );
+    final response = await _postPayload(
+      preparedMessage,
       streamable: streamable,
-      includeSession: includeSession,
+      includeSession:
+          includeSession && effectiveProtocolVersion != latestProtocolVersion,
       protocolVersion: effectiveProtocolVersion,
       extraHeaders: headers,
     );
@@ -1367,6 +1554,11 @@ final class McpStreamableHttpClient {
       protocolVersion ?? this.protocolVersion,
       'protocolVersion',
     );
+    if (effectiveProtocolVersion == latestProtocolVersion) {
+      throw const McpStreamableProtocolException(
+        'MCP 2026 HTTP does not support JSON-RPC batches',
+      );
+    }
     final response = await _postPayload(
       messages,
       streamable: streamable,
@@ -1398,6 +1590,44 @@ final class McpStreamableHttpClient {
       protocolVersion: protocolVersion,
       headers: headers,
     );
+  }
+
+  McpJsonMap _prepareMessageForProtocol(
+    McpJsonMap message,
+    String protocolVersion,
+  ) {
+    if (protocolVersion != latestProtocolVersion) {
+      return message;
+    }
+    if (message['method'] == 'initialize') {
+      throw const McpStreamableProtocolException(
+        'MCP 2026 uses server/discover instead of initialize',
+      );
+    }
+    final rawParams = message['params'];
+    final params = rawParams == null
+        ? <String, Object?>{}
+        : _jsonMapFrom(rawParams, label: 'MCP 2026 request params');
+    final rawMetadata = params['_meta'];
+    final metadata = rawMetadata == null
+        ? <String, Object?>{}
+        : _jsonMapFrom(rawMetadata, label: 'MCP 2026 request metadata');
+    final info = clientInfo;
+    return <String, Object?>{
+      ...message,
+      'params': <String, Object?>{
+        ...params,
+        '_meta': <String, Object?>{
+          ...metadata,
+          'io.modelcontextprotocol/protocolVersion': protocolVersion,
+          if (info != null)
+            'io.modelcontextprotocol/clientInfo': <String, Object?>{...info},
+          'io.modelcontextprotocol/clientCapabilities': <String, Object?>{
+            ...clientCapabilities,
+          },
+        },
+      },
+    };
   }
 
   Future<Object?> _postPayload(
@@ -1439,7 +1669,11 @@ final class McpStreamableHttpClient {
     if (response.statusCode == HttpStatus.accepted ||
         response.statusCode == HttpStatus.noContent ||
         body.isEmpty) {
-      _validatePostResponseShape(message, null);
+      _validatePostResponseShape(
+        message,
+        null,
+        protocolVersion: protocolVersion,
+      );
       if (capturesSessionHeaders) {
         _captureSessionHeaders(
           response,
@@ -1458,6 +1692,7 @@ final class McpStreamableHttpClient {
         message,
         value,
         responseBodyReturned: body.isNotEmpty,
+        protocolVersion: protocolVersion,
       );
       _validateMcpSseEventIds(events);
       if (capturesSessionHeaders) {
@@ -1479,7 +1714,12 @@ final class McpStreamableHttpClient {
     }
 
     final value = _jsonValueFromBody(body);
-    _validatePostResponseShape(message, value, responseBodyReturned: true);
+    _validatePostResponseShape(
+      message,
+      value,
+      responseBodyReturned: true,
+      protocolVersion: protocolVersion,
+    );
     if (capturesSessionHeaders) {
       _captureSessionHeaders(
         response,
@@ -1491,10 +1731,30 @@ final class McpStreamableHttpClient {
     return value;
   }
 
+  void _validateResultTypeForProtocol(
+    McpJsonMap response,
+    String? protocolVersion,
+  ) {
+    if (protocolVersion != latestProtocolVersion || response['error'] != null) {
+      return;
+    }
+    final result = response['result'];
+    final resultType = result is Map ? result['resultType'] : null;
+    if (resultType != null &&
+        resultType != 'complete' &&
+        resultType != 'input_required') {
+      throw FormatException(
+        'MCP 2026 resultType must be complete or input_required, got '
+        '$resultType',
+      );
+    }
+  }
+
   void _validatePostResponseShape(
     Object? requestPayload,
     Object? responseValue, {
     bool responseBodyReturned = false,
+    String? protocolVersion,
   }) {
     if (requestPayload is Map && requestPayload.containsKey('id')) {
       if (responseValue == null) {
@@ -1512,6 +1772,7 @@ final class McpStreamableHttpClient {
         );
       }
       _validateJsonRpcResponseObject(response, label: 'JSON-RPC response');
+      _validateResultTypeForProtocol(response, protocolVersion);
       return;
     }
 
@@ -1571,6 +1832,7 @@ final class McpStreamableHttpClient {
           response,
           label: 'JSON-RPC batch response item',
         );
+        _validateResultTypeForProtocol(response, protocolVersion);
         responseIds.add(responseId);
       }
       for (final id in expectedResponseIds) {
@@ -1587,6 +1849,11 @@ final class McpStreamableHttpClient {
     String? lastEventId,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    if (protocolVersion == latestProtocolVersion) {
+      throw const McpStreamableProtocolException(
+        'MCP 2026 HTTP does not support GET polling',
+      );
+    }
     final request = await _httpClient.getUrl(endpoint);
     _applyHeaders(
       request,
@@ -1621,6 +1888,11 @@ final class McpStreamableHttpClient {
   Future<void> deleteSession({
     Map<String, String> headers = const <String, String>{},
   }) async {
+    if (protocolVersion == latestProtocolVersion) {
+      throw const McpStreamableProtocolException(
+        'MCP 2026 HTTP does not support DELETE session requests',
+      );
+    }
     final activeSessionId = sessionId;
     if (activeSessionId == null) {
       _clearSessionState();

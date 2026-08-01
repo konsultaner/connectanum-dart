@@ -71,3 +71,10 @@ and unsubscribe without consumer-project assumptions.
   isolated and globally activated package consumers, every maintained
   router-hosted MCP live variant, 13 focused native-router checks, and
   Chrome/Dart2Wasm.
+- 2026-08-01: Commit `89ed64c` was pushed to GitLab `origin/master` and GitHub
+  `master`. Exact-head GitHub CI `30698517025`, Dart Package Publish Dry Run
+  `30698517022`, and WAMP Profile Benchmarks `30698517021` passed on their
+  first attempts; WAMP artifact `8818115551` was uploaded. The strict
+  deployment-chain audit passed with a clean exact-head CI log scan and all
+  required branch, workflow, package, benchmark-artifact, and registry gates
+  clean.

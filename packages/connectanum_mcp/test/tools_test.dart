@@ -429,7 +429,7 @@ Future<void> _initializeAndStart(McpServer server) async {
     'id': 1,
     'method': 'initialize',
     'params': {
-      'protocolVersion': mcpLatestProtocolVersion,
+      'protocolVersion': mcpLatestSessionProtocolVersion,
       'capabilities': {},
       'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
     },

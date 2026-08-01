@@ -6,7 +6,7 @@ import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 const _supportedMcpProtocolVersions = <String>[
   '2025-03-26',
   '2025-06-18',
-  McpStreamableHttpClient.latestProtocolVersion,
+  McpStreamableHttpClient.latestSessionProtocolVersion,
 ];
 final _mcpToolNamePattern = RegExp(r'^[A-Za-z0-9_.-]{1,128}$');
 
@@ -5055,7 +5055,7 @@ final class _Options {
 String _protocolVersionOption(Map<String, String> values) {
   final value =
       values['--protocol-version'] ??
-      McpStreamableHttpClient.latestProtocolVersion;
+      McpStreamableHttpClient.latestSessionProtocolVersion;
   if (_supportedMcpProtocolVersions.contains(value)) {
     return value;
   }

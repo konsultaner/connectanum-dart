@@ -2607,6 +2607,227 @@ void main() {
     );
 
     test(
+      'serves MCP 2026 discovery and ordinary requests without sessions',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9128,
+          nativeLib: nativeLib,
+          settings: _buildRouterSettings(enableHttp3: false, enableMcp: true),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri.parse('http://127.0.0.1:${listener.port}/mcp');
+        final client = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-native-test',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final discovery = await client.discover(id: 'discover-modern');
+        final tools = await client.listTools(id: 'tools-modern');
+
+        expect(discovery.supportedVersions, contains('2026-07-28'));
+        expect(discovery.capabilities, contains('tools'));
+        expect(discovery.serverInfo?['name'], equals('connectanum-router'));
+        expect(tools.tools, isNotEmpty);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+
+        final rawClient = HttpClient();
+        addTearDown(() => rawClient.close(force: true));
+        final mismatched = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'mismatched-modern-version',
+            'method': 'tools/list',
+            'params': {
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2025-11-25',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+            },
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2026-07-28',
+            'Mcp-Method': 'tools/list',
+          },
+        );
+        expect(mismatched.statusCode, equals(HttpStatus.badRequest));
+        final mismatchError = (mismatched.json?['error'] as Map)
+            .cast<String, Object?>();
+        expect(mismatchError['code'], equals(McpErrorCodes.headerMismatch));
+        expect(mismatched.headers, isNot(contains('mcp-session-id')));
+
+        final unsupported = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'unsupported-modern-version',
+            'method': 'tools/list',
+            'params': {
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2099-01-01',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+            },
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2099-01-01',
+            'Mcp-Method': 'tools/list',
+          },
+        );
+        expect(unsupported.statusCode, equals(HttpStatus.badRequest));
+        final unsupportedError = (unsupported.json?['error'] as Map)
+            .cast<String, Object?>();
+        expect(
+          unsupportedError['code'],
+          equals(McpErrorCodes.unsupportedProtocolVersion),
+        );
+        expect(
+          (unsupportedError['data'] as Map)['supportedVersions'],
+          contains('2026-07-28'),
+        );
+        expect(unsupported.headers, isNot(contains('mcp-session-id')));
+
+        final rawModern = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'raw-modern-tools',
+            'method': 'tools/list',
+            'params': {
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+            },
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2026-07-28',
+            'Mcp-Method': 'tools/list',
+          },
+        );
+        expect(rawModern.statusCode, equals(HttpStatus.ok));
+        final rawModernResult = (rawModern.json?['result'] as Map)
+            .cast<String, Object?>();
+        expect(rawModernResult['resultType'], equals('complete'));
+        expect(
+          (rawModernResult['_meta'] as Map),
+          contains('io.modelcontextprotocol/serverInfo'),
+        );
+        expect(rawModern.headers, isNot(contains('mcp-session-id')));
+
+        final missingMetadata = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'missing-modern-metadata',
+            'method': 'tools/list',
+            'params': <String, Object?>{},
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2026-07-28',
+            'Mcp-Method': 'tools/list',
+          },
+        );
+        expect(missingMetadata.statusCode, equals(HttpStatus.badRequest));
+        expect(
+          (missingMetadata.json?['error'] as Map)['code'],
+          equals(McpErrorCodes.invalidParams),
+        );
+
+        final missingProtocolHeader = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'missing-modern-protocol-header',
+            'method': 'tools/list',
+            'params': {
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+            },
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'Mcp-Method': 'tools/list',
+          },
+        );
+        expect(missingProtocolHeader.statusCode, equals(HttpStatus.badRequest));
+        expect(
+          (missingProtocolHeader.json?['error'] as Map)['code'],
+          equals(McpErrorCodes.headerMismatch),
+        );
+
+        final unknownMethod = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'unknown-modern-method',
+            'method': 'consumer/unknown',
+            'params': {
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+            },
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2026-07-28',
+            'Mcp-Method': 'consumer/unknown',
+          },
+        );
+        expect(unknownMethod.statusCode, equals(HttpStatus.notFound));
+        expect(
+          (unknownMethod.json?['error'] as Map)['code'],
+          equals(McpErrorCodes.methodNotFound),
+        );
+        expect(unknownMethod.headers, isNot(contains('mcp-session-id')));
+
+        final modernGet = await _getHttp(
+          rawClient,
+          listener.port,
+          '/mcp',
+          headers: {
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            'MCP-Protocol-Version': '2026-07-28',
+          },
+        );
+        expect(modernGet.statusCode, equals(HttpStatus.methodNotAllowed));
+        expect(modernGet.headers, isNot(contains('mcp-session-id')));
+      },
+      skip: skipReason,
+    );
+
+    test(
       'keeps MCP response envelope on route-level method rejection',
       () async {
         final harness = await _RouterHarness.start(

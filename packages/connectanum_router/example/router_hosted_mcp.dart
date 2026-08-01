@@ -1958,7 +1958,8 @@ Future<void> _smokeSupportedMcpProtocolVersion(
 }) async {
   final client = _protocolVersionClient(
     endpoint,
-    defaultProtocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+    defaultProtocolVersion:
+        McpStreamableHttpClient.latestSessionProtocolVersion,
     authGrant: authGrant,
   );
   try {
@@ -2342,7 +2343,8 @@ Future<void> _smokeMcpEndpoint(
   if (streamableProtocolOverridePing.isNotEmpty) {
     throw StateError('Streamable protocol override ping returned data.');
   }
-  if (client.protocolVersion != McpStreamableHttpClient.latestProtocolVersion) {
+  if (client.protocolVersion !=
+      McpStreamableHttpClient.latestSessionProtocolVersion) {
     throw StateError(
       'Streamable protocol override ping changed negotiated protocol version.',
     );

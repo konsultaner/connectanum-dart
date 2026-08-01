@@ -1836,7 +1836,7 @@ class RouterBinding {
               requestMcpProtocolVersion,
             )
         ? requestMcpProtocolVersion
-        : mcp.mcpLatestProtocolVersion;
+        : mcp.mcpLatestSessionProtocolVersion;
     final mcpResponseSessionId = mcpRoute == null
         ? null
         : _mcpResponseSessionIdForRequest(
