@@ -432,6 +432,100 @@ void main() {
     );
 
     test(
+      'keeps protected MCP 2026 listeners isolated from direct pubsub',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.statelessWithAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'initial-listener-token',
+            tokenType: 'Bearer',
+          ),
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final listener = await client.listen(
+          id: 'protected-pubsub-listen',
+          toolsListChanged: true,
+        );
+        client.replaceAuthGrant(
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'replacement-pubsub-token',
+            tokenType: 'Bearer',
+          ),
+        );
+
+        final subscription = await client.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'protected-pubsub-subscribe',
+          queueLimit: 3,
+        );
+        final publication = await client.publishWampEventDirect(
+          'app.events.audit',
+          id: 'protected-pubsub-publish',
+          argumentsKeywords: const <String, Object?>{'message': 'hello'},
+          acknowledge: true,
+        );
+        final events = await client.pollWampEventsDirect(
+          subscription.handle,
+          id: 'protected-pubsub-poll',
+        );
+        final unsubscribe = await client.unsubscribeWampTopicDirect(
+          subscription.handle,
+          id: 'protected-pubsub-unsubscribe',
+        );
+
+        expect(subscription.topic, 'app.events.audit');
+        expect(subscription.queueLimit, 3);
+        expect(publication.acknowledged, isTrue);
+        expect(events.events.single['argumentsKeywords'], {'message': 'hello'});
+        expect(unsubscribe.unsubscribed, isTrue);
+
+        final notificationFuture = listener.notifications.first;
+        await endpoint.sendListenNotification(
+          'notifications/tools/list_changed',
+        );
+        expect(
+          (await notificationFuture)['method'],
+          'notifications/tools/list_changed',
+        );
+
+        await listener.close();
+        expect(await listener.closed, McpSubscriptionCloseReason.local);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(endpoint.requests, hasLength(5));
+        expect(endpoint.requests.map((request) => request.mcpMethod), <String?>[
+          'subscriptions/listen',
+          'connectanum.tool.call',
+          'connectanum.tool.call',
+          'connectanum.tool.call',
+          'connectanum.tool.call',
+        ]);
+        expect(
+          endpoint.requests.map((request) => request.authorization),
+          <String?>[
+            'Bearer initial-listener-token',
+            'Bearer replacement-pubsub-token',
+            'Bearer replacement-pubsub-token',
+            'Bearer replacement-pubsub-token',
+            'Bearer replacement-pubsub-token',
+          ],
+        );
+        expect(
+          endpoint.requests.map((request) => request.sessionId),
+          everyElement(isNull),
+        );
+      },
+    );
+
+    test(
       'distinguishes graceful and remote MCP 2026 listener closes',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();

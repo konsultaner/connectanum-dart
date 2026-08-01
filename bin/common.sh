@@ -9861,9 +9861,56 @@ Future<void> _smokeMrtrFormElicitation(
           );
         }
       }
+
+      final pubSubSubscription = await client.subscribeWampTopicDirect(
+        _topic,
+        id: 'consumer-$label-listener-pubsub-subscribe',
+        queueLimit: 4,
+      );
+      try {
+        final publication = await client.publishWampEventDirect(
+          _topic,
+          id: 'consumer-$label-listener-pubsub-publish',
+          argumentsKeywords: <String, Object?>{
+            'taskId': 'T-consumer-$label-listener-pubsub',
+          },
+          options: mcpWampPublishOptions(
+            acknowledge: true,
+            excludeMe: false,
+          ),
+        );
+        if (!publication.acknowledged) {
+          throw StateError(
+            'MRTR $label listener pub/sub publish was not acknowledged.',
+          );
+        }
+        final events = await _pollMcpEventsUntil(
+          client,
+          pubSubSubscription.handle,
+          directJson: true,
+        );
+        if (!jsonEncode(events.events).contains(
+          'T-consumer-$label-listener-pubsub',
+        )) {
+          throw StateError(
+            'MRTR $label listener pub/sub poll missed its direct event.',
+          );
+        }
+      } finally {
+        final unsubscribe = await client.unsubscribeWampTopicDirect(
+          pubSubSubscription.handle,
+          id: 'consumer-$label-listener-pubsub-unsubscribe',
+        );
+        if (!unsubscribe.unsubscribed) {
+          throw StateError(
+            'MRTR $label listener pub/sub unsubscribe was not acknowledged.',
+          );
+        }
+      }
       if (client.sessionId != null || client.lastEventId != null) {
         throw StateError(
-          'MRTR $label calls leaked session state while the listener was active.',
+          'MRTR $label calls or pub/sub leaked session state while the '
+          'listener was active.',
         );
       }
     } finally {

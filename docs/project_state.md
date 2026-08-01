@@ -59,9 +59,20 @@ listeners open across missing-capability handling plus successful standard and
 direct JSON form-MRTR rounds against the native router. The completed plan is
 `docs/exec-plans/2026-08-01-mcp-protected-listener-tool-coexistence.md`.
 
+The completed protected-listener pub/sub coexistence checkpoint extends that
+shipped path through a complete direct JSON WAMP lifecycle. A focused
+authenticated-client regression keeps the request-scoped listener open while
+the same stateless client subscribes, publishes with self-delivery, polls the
+event, and unsubscribes. Subsequent requests use a caller-replaced grant while
+the established listener retains its original credential, stays usable, and
+never creates MCP session or resume state. The isolated generated consumer
+package proves the same public and protected lifecycle against the native
+router without private project assumptions. The completed plan is
+`docs/exec-plans/2026-08-01-mcp-protected-listener-pubsub-coexistence.md`.
+
 Focused client and boundary regressions passed, and the isolated generated
 consumer completed against the native router. Pre-change and post-change
-`bin/test-fast` passed on 2026-08-01, including 360 core tests, 191 combined
+`bin/test-fast` passed on 2026-08-01, including 360 core tests, 192 combined
 client/MCP authorization tests, 94 MCP tests, 96 benchmark tests, the complete
 router fast suite, and consumer-package smokes. Full `bin/verify` passed,
 including Rust core and FFI suites, workspace formatting and analysis, 380
@@ -73,6 +84,14 @@ remains documented in
 `docs/exec-plans/2026-08-01-mcp-2026-subscriptions-listen.md`, and the complete
 `2025-*` initialize/session/GET/SSE/DELETE and resource-subscription
 compatibility matrix remains unchanged.
+
+Commit `2bc1b5f` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30718261986` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
+and coverage artifact `8824215379`. Dart Package Publish Dry Run `30718261989`
+and WAMP Profile Benchmarks `30718261973` passed on their first attempts; WAMP
+artifact `8824097335` was uploaded. The strict deployment-chain audit passed
+with a clean exact-head CI log scan and all required branch, workflow, package,
+publish-dry-run, and benchmark-artifact gates clean.
 
 Commit `76dae03` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30714923011` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,

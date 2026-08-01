@@ -234,10 +234,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("missingRequiredClientCapability", body)
         self.assertIn("McpStreamableHttpClient.statelessWithAuthGrant", body)
         self.assertIn("final listener = await client.listen(", body)
+        self.assertIn("subscribeWampTopicDirect", body)
+        self.assertIn("publishWampEventDirect", body)
+        self.assertIn("pollMcpEventsUntil", body)
+        self.assertIn("unsubscribeWampTopicDirect", body)
+        self.assertIn("T-consumer-$label-listener-pubsub", body)
         self.assertIn(
-            "MRTR $label calls leaked session state while the listener was active.",
+            "MRTR $label calls or pub/sub leaked session state while the",
             body,
         )
+        self.assertIn("listener was active.", body)
         self.assertIn(
             "MRTR $label listener did not close locally without session state.",
             body,
