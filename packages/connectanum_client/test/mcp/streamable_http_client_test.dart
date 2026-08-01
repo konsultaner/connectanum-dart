@@ -2859,6 +2859,70 @@ void main() {
     });
 
     test(
+      'replaces refreshed HTTP auth grants on the same session atomically',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'initial-grant-token',
+            tokenType: 'Bearer',
+          ),
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'grant-replacement-initialize');
+        expect(client.sessionId, 'session-1');
+        client.lastEventId = 'session-1:grant-replacement:kept';
+
+        client.replaceAuthGrant(
+          const ConnectanumHttpAuthGrant(
+            accessToken: ' refreshed-grant-token ',
+            tokenType: 'bearer',
+          ),
+        );
+
+        await client.ping(id: 'grant-replacement-ping');
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:grant-replacement:kept');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+        expect(
+          endpoint.requests.last.authorization,
+          'Bearer refreshed-grant-token',
+        );
+
+        expect(
+          () => client.replaceAuthGrant(
+            const ConnectanumHttpAuthGrant(
+              accessToken: 'wrong-type-token',
+              tokenType: 'Basic',
+            ),
+          ),
+          throwsArgumentError,
+        );
+        expect(
+          () => client.replaceAuthGrant(
+            const ConnectanumHttpAuthGrant(
+              accessToken: 'malformed grant token',
+              tokenType: 'Bearer',
+            ),
+          ),
+          throwsArgumentError,
+        );
+
+        await client.ping(id: 'grant-replacement-after-invalid');
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:grant-replacement:kept');
+        expect(
+          endpoint.requests.last.authorization,
+          'Bearer refreshed-grant-token',
+        );
+      },
+    );
+
+    test(
       'uses HTTP auth grants for direct JSON helpers without lifecycle',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();

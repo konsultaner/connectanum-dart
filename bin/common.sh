@@ -3385,46 +3385,75 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
     'auth grant refresh lifecycle started with an unexpected refresh token',
   );
 
-  final refreshed = await authClient.refreshToken(
-    grant.refreshToken!,
-    headers: const <String, String>{'x-consumer-trace': 'auth-refresh'},
-  );
-  _expect(
-    refreshed.accessToken == _refreshedAccessToken,
-    'auth refresh returned an unexpected access token',
-  );
-  _expect(
-    refreshed.refreshToken == _refreshedRefreshToken,
-    'auth refresh returned an unexpected refresh token',
-  );
-  _expect(refreshed.realm == _authRealm, 'auth refresh realm mismatch');
-  _expect(refreshed.authId == _authId, 'auth refresh authid mismatch');
-  _expect(refreshed.authRole == _authRole, 'auth refresh authrole mismatch');
-  _expect(
-    refreshed.authProvider == _authProvider,
-    'auth refresh provider mismatch',
-  );
-
-  try {
-    await authClient.refreshToken(
-      grant.refreshToken!,
-      headers: const <String, String>{
-        'x-consumer-trace': 'auth-refresh-rotated',
-      },
-    );
-    throw StateError('auth refresh accepted a rotated refresh token');
-  } on ConnectanumHttpAuthException catch (error) {
-    _expect(
-      error.statusCode == HttpStatus.unauthorized,
-      'rotated refresh token returned ${error.statusCode}, expected 401',
-    );
-  }
-
   final refreshedClient = McpStreamableHttpClient.withAuthGrant(
     endpoint.uri,
-    refreshed,
+    grant,
   );
   try {
+    await refreshedClient.initialize(id: 'auth-refresh-initialize');
+    _expect(
+      refreshedClient.sessionId == _sessionId,
+      'auth refresh lifecycle did not establish a Streamable session',
+    );
+    const resumeCursor = 'agent-session:auth-refresh:kept';
+    refreshedClient.lastEventId = resumeCursor;
+
+    final refreshed = await authClient.refreshToken(
+      grant.refreshToken!,
+      headers: const <String, String>{'x-consumer-trace': 'auth-refresh'},
+    );
+    _expect(
+      refreshed.accessToken == _refreshedAccessToken,
+      'auth refresh returned an unexpected access token',
+    );
+    _expect(
+      refreshed.refreshToken == _refreshedRefreshToken,
+      'auth refresh returned an unexpected refresh token',
+    );
+    _expect(refreshed.realm == _authRealm, 'auth refresh realm mismatch');
+    _expect(refreshed.authId == _authId, 'auth refresh authid mismatch');
+    _expect(refreshed.authRole == _authRole, 'auth refresh authrole mismatch');
+    _expect(
+      refreshed.authProvider == _authProvider,
+      'auth refresh provider mismatch',
+    );
+
+    try {
+      await authClient.refreshToken(
+        grant.refreshToken!,
+        headers: const <String, String>{
+          'x-consumer-trace': 'auth-refresh-rotated',
+        },
+      );
+      throw StateError('auth refresh accepted a rotated refresh token');
+    } on ConnectanumHttpAuthException catch (error) {
+      _expect(
+        error.statusCode == HttpStatus.unauthorized,
+        'rotated refresh token returned ${error.statusCode}, expected 401',
+      );
+    }
+
+    refreshedClient.replaceAuthGrant(refreshed);
+    final streamablePing = await refreshedClient.ping(
+      id: 'auth-refresh-streamable-ping',
+      headers: const <String, String>{
+        'Authorization': 'Bearer stale-refreshed-agent-token',
+        'x-consumer-trace': 'auth-refresh-streamable-ping',
+      },
+    );
+    _expect(streamablePing.isEmpty, 'auth refresh Streamable ping failed');
+    _expect(
+      refreshedClient.sessionId == _sessionId &&
+          refreshedClient.lastEventId == resumeCursor,
+      'auth refresh changed Streamable session or resume state',
+    );
+    _expect(
+      endpoint.streamableTraceHeadersWithSession.contains(
+        'POST:auth-refresh-streamable-ping',
+      ),
+      'auth refresh Streamable ping did not reuse the active session',
+    );
+
     final ping = await refreshedClient.pingDirect(
       id: 'auth-refresh-direct-ping',
       headers: const <String, String>{
@@ -3434,8 +3463,9 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
     );
     _expect(ping.isEmpty, 'auth refresh direct JSON ping failed');
     _expect(
-      refreshedClient.sessionId == null && refreshedClient.lastEventId == null,
-      'auth refresh direct JSON ping created Streamable session state',
+      refreshedClient.sessionId == _sessionId &&
+          refreshedClient.lastEventId == resumeCursor,
+      'auth refresh direct JSON ping changed Streamable session state',
     );
     _expect(
       endpoint.directTraceHeadersWithoutSession.contains(
@@ -3456,10 +3486,10 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
     );
 
     try {
-      await refreshedClient.pingDirect(
-        id: 'auth-revoked-direct-ping',
+      await refreshedClient.ping(
+        id: 'auth-revoked-streamable-ping',
         headers: const <String, String>{
-          'x-consumer-trace': 'auth-revoked-direct-ping',
+          'x-consumer-trace': 'auth-revoked-streamable-ping',
         },
       );
       throw StateError('auth revoke left a refreshed access token usable');
@@ -3471,7 +3501,7 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
     }
     _expect(
       refreshedClient.sessionId == null && refreshedClient.lastEventId == null,
-      'revoked auth direct JSON ping created Streamable session state',
+      'revoked auth Streamable ping did not clear session state',
     );
 
     await authClient.revokeToken(
@@ -16086,13 +16116,18 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
   final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   McpStreamableHttpClient? rotatedSessionClient;
   McpStreamableHttpClient? refreshedClient;
-  McpStreamableHttpClient? revokedSessionClient;
   try {
     rotatedSessionClient = await _openSecureStreamableSession(
       binding,
       grant,
       label: '$label-rotated',
     );
+    final activeSessionId = rotatedSessionClient.sessionId;
+    if (activeSessionId == null || activeSessionId.isEmpty) {
+      throw StateError('$label refresh session was not active.');
+    }
+    final resumeCursor = '$label:refresh:kept';
+    rotatedSessionClient.lastEventId = resumeCursor;
 
     final refreshed = await authClient.refreshToken(
       refreshToken,
@@ -16118,14 +16153,20 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       );
     }
 
-    await _assertActiveStreamableSessionRejectsBearer(
-      rotatedSessionClient,
-      label: '$label-rotated',
-      acceptedMessage:
-          'Streamable MCP session accepted a rotated $label access token.',
-    );
-    rotatedSessionClient.close();
-    rotatedSessionClient = null;
+    rotatedSessionClient.replaceAuthGrant(refreshed);
+    if (rotatedSessionClient.sessionId != activeSessionId ||
+        rotatedSessionClient.lastEventId != resumeCursor) {
+      throw StateError(
+        'Replacing the refreshed grant for $label changed MCP session state.',
+      );
+    }
+    await rotatedSessionClient.ping(id: '$label-refreshed-same-session-ping');
+    if (rotatedSessionClient.sessionId != activeSessionId ||
+        rotatedSessionClient.lastEventId == null) {
+      throw StateError(
+        'The refreshed MCP request for $label discarded session state.',
+      );
+    }
     await _assertSecureMcpRejectsBearer(
       binding,
       grant.accessToken,
@@ -16154,11 +16195,6 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       label: '$label-refreshed',
     );
 
-    revokedSessionClient = await _openSecureStreamableSession(
-      binding,
-      refreshed,
-      label: '$label-revoked',
-    );
     await authClient.revokeToken(
       rotatedRefreshToken,
       tokenTypeHint: 'refresh_token',
@@ -16167,13 +16203,13 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       },
     );
     await _assertActiveStreamableSessionRejectsBearer(
-      revokedSessionClient,
+      rotatedSessionClient,
       label: '$label-revoked',
       acceptedMessage:
           'Streamable MCP session accepted a revoked $label access token.',
     );
-    revokedSessionClient.close();
-    revokedSessionClient = null;
+    rotatedSessionClient.close();
+    rotatedSessionClient = null;
     await _assertSecureMcpRejectsBearer(
       binding,
       refreshed.accessToken,
@@ -16189,7 +16225,6 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
   } finally {
     rotatedSessionClient?.close();
     refreshedClient?.close();
-    revokedSessionClient?.close();
     authClient.close(force: true);
   }
 }

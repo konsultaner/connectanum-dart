@@ -114,6 +114,20 @@ resume cursor, negotiated protocol, request sequence, HTTP connection, and
 connection ownership. Focused client and public IO-entrypoint regressions plus
 the isolated client-only consumer smoke prove narrow-grant rejection, broader-
 grant replacement, and successful same-session retry.
+Router HTTP-auth bridge grants now support the same proactive rotation model
+through `replaceAuthGrant`. Replacement validates the Bearer type and token
+before changing the Authorization header and preserves the active Streamable
+HTTP session, resume cursor, protocol, request sequence, HTTP connection, and
+connection ownership. The router carries a grant-specific internal session
+lineage across access and refresh-token rotation, so the refreshed credential
+can continue the existing session while rotated credentials are rejected.
+Independently issued grants remain isolated even for the same principal, and
+final revocation closes the inherited router session so the client's next 401
+clears local state. Focused client and router regressions, the public MCP IO
+entrypoint, isolated client and full consumer smokes, and every maintained live
+router-hosted MCP variant prove refresh, direct JSON access, same-session
+Streamable access, rotated-token rejection, and final revocation without
+consumer-project assumptions.
 The completed plans are
 `docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md` and
 `docs/exec-plans/2026-07-31-mcp-oauth-authorization-request.md`; the completed
@@ -138,6 +152,8 @@ The completed insufficient-scope session-preservation plan is
 `docs/exec-plans/2026-08-01-mcp-insufficient-scope-session-preservation.md`.
 The completed same-session OAuth step-up retry plan is
 `docs/exec-plans/2026-08-01-mcp-oauth-step-up-retry.md`.
+The completed same-session router HTTP-auth refresh plan is
+`docs/exec-plans/2026-08-01-mcp-http-auth-refresh-same-session.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, workspace analysis, public package-boundary validation, and the
 isolated and globally activated consumer smokes passed on 2026-07-31 for the
@@ -169,6 +185,22 @@ on 2026-08-01 for in-place OAuth grant replacement. Complete local
 tests, 360 core Dart tests, all 96 benchmark tests, the complete 377-test router
 suite, isolated and globally activated package consumers, router-hosted MCP
 variants, 13 focused native-router tests, and Chrome/Dart2Wasm.
+Pre-change and post-change `bin/test-fast`, focused bridge-grant replacement
+and router ownership regressions, workspace analysis, the 177-test client MCP
+suite, the 86-test MCP package suite, public package-boundary checks, isolated
+client and full consumer smokes, and every maintained router-hosted MCP live
+variant passed on 2026-08-01 for same-session router HTTP-auth refresh.
+Complete local `bin/verify` then passed, including formatting, 113 Rust core
+tests, 52 FFI tests, 360 core Dart tests, all 96 benchmark tests, the complete
+377-test router suite, isolated and globally activated package consumers, 13
+focused native-router tests, and Chrome/Dart2Wasm.
+Commit `58ae229` passed exact-head GitHub CI `30687559833`, including Fast
+Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+artifact. Dart Package Publish Dry Run `30687559834` and WAMP Profile
+Benchmarks `30687559837` passed on their first attempts, including the WAMP
+benchmark artifact upload. The strict deployment-chain audit passed with clean
+exact-head CI logs and all required branch, workflow, package,
+benchmark-artifact, and registry gates clean.
 Commit `575da14` passed exact-head GitHub CI `30684451450`, including Fast
 Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
 artifact. Dart Package Publish Dry Run `30684451475` and WAMP Profile
@@ -23579,10 +23611,14 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- No execution plan is active after completing the bounded OAuth step-up retry
-  slice. Select the next router-hosted MCP readiness slice from the remaining
-  roadmap work.
+- No active execution plan. The next MCP downstream-application readiness
+  slice should be selected from `ROADMAP_NEXT.md` and `ROADMAP.md` together.
 - Most recent completed MCP downstream-application readiness plan:
+  `docs/exec-plans/2026-08-01-mcp-http-auth-refresh-same-session.md`. It adds
+  validated in-place router HTTP-auth grant replacement and stable
+  grant-specific router session lineage so proactive access-token rotation can
+  keep an active Streamable HTTP session through final revocation.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-01-mcp-oauth-step-up-retry.md`. It adds validated
   in-place OAuth grant replacement so a consumer can retry an
   insufficient-scope operation with broader authorization on the same active

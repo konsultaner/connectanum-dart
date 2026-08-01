@@ -12,6 +12,8 @@
   entrypoint and exercise it in the public authorization lifecycle.
 - Re-export validated in-place OAuth grant replacement so consumers can retry
   insufficient-scope operations on the same Streamable HTTP session.
+- Re-export in-place router HTTP-auth grant replacement for refreshes that
+  continue on an established Streamable HTTP session.
 - Add isolated server, client, executable, and consumer application smokes.
 
 ## 0.1.0

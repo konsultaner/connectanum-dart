@@ -1775,13 +1775,18 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
 
   final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   McpStreamableHttpClient? rotatedSessionClient;
-  McpStreamableHttpClient? revokedSessionClient;
   try {
     rotatedSessionClient = await _openSecureMcpSession(
       binding,
       grant,
       label: 'secure-rotated',
     );
+    final activeSessionId = rotatedSessionClient.sessionId;
+    if (activeSessionId == null || activeSessionId.isEmpty) {
+      throw StateError('Secure Streamable MCP refresh session was not active.');
+    }
+    const resumeCursor = 'secure-rotated:refresh:kept';
+    rotatedSessionClient.lastEventId = resumeCursor;
 
     final refreshed = await authClient.refreshToken(refreshToken);
     if (refreshed.accessToken == grant.accessToken) {
@@ -1797,14 +1802,21 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       throw StateError('HTTP auth bridge refresh reused the refresh token.');
     }
 
-    await _assertActiveStreamableSessionRejectsBearer(
-      rotatedSessionClient,
-      label: 'secure-rotated',
-      acceptedMessage:
-          'Streamable MCP session accepted a rotated access token.',
-    );
-    rotatedSessionClient.close(force: true);
-    rotatedSessionClient = null;
+    rotatedSessionClient.replaceAuthGrant(refreshed);
+    if (rotatedSessionClient.sessionId != activeSessionId ||
+        rotatedSessionClient.lastEventId != resumeCursor) {
+      throw StateError(
+        'Replacing the refreshed grant changed the active MCP session state.',
+      );
+    }
+    await rotatedSessionClient.ping(id: 'secure-refreshed-same-session-ping');
+    if (rotatedSessionClient.sessionId != activeSessionId ||
+        rotatedSessionClient.lastEventId == null) {
+      throw StateError(
+        'The refreshed MCP request discarded active session state.',
+      );
+    }
+
     await _assertSecureMcpRejectsBearer(
       binding,
       grant.accessToken,
@@ -1819,23 +1831,18 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
 
     await _smokeSecureMcpRefreshedGrant(binding, refreshed);
 
-    revokedSessionClient = await _openSecureMcpSession(
-      binding,
-      refreshed,
-      label: 'secure-revoked',
-    );
     await authClient.revokeToken(
       rotatedRefreshToken,
       tokenTypeHint: 'refresh_token',
     );
     await _assertActiveStreamableSessionRejectsBearer(
-      revokedSessionClient,
+      rotatedSessionClient,
       label: 'secure-revoked',
       acceptedMessage:
           'Streamable MCP session accepted a revoked access token.',
     );
-    revokedSessionClient.close(force: true);
-    revokedSessionClient = null;
+    rotatedSessionClient.close(force: true);
+    rotatedSessionClient = null;
     await _assertSecureMcpRejectsBearer(
       binding,
       refreshed.accessToken,
@@ -1849,7 +1856,6 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     );
   } finally {
     rotatedSessionClient?.close(force: true);
-    revokedSessionClient?.close(force: true);
     authClient.close(force: true);
   }
 }

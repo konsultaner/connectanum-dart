@@ -17,6 +17,8 @@
 - Allow consumers to replace an active MCP client's OAuth grant after a scope
   challenge, validating resource binding and expiry before retrying on the
   same Streamable HTTP session.
+- Allow consumers to replace a refreshed router HTTP-auth grant in place while
+  preserving active Streamable HTTP session and resume state.
 - Use UTF-8 for CRA and SCRAM authentication strings by default while retaining
   an explicit UTF-16 compatibility mode for legacy peers.
 

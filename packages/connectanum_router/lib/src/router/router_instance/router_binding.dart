@@ -4103,8 +4103,14 @@ class RouterBinding {
       listenerSettings: listenerSettings,
     );
     final linkedAccessTokens = record.accessTokens.toList(growable: false);
+    String? cacheKeyPrefix;
     for (final accessToken in linkedAccessTokens) {
-      await _revokeHttpAccessToken(accessToken, removeFromRefreshToken: false);
+      cacheKeyPrefix ??= _httpAuthTokens[accessToken]?.cacheKeyPrefix;
+      await _revokeHttpAccessToken(
+        accessToken,
+        removeFromRefreshToken: false,
+        closeSessions: false,
+      );
     }
 
     late final _HttpAuthIssueResult issued;
@@ -4121,6 +4127,7 @@ class RouterBinding {
         route: route,
         listenerSettings: listenerSettings,
         realmSettings: realmSettings,
+        cacheKeyPrefix: cacheKeyPrefix,
       );
     } else {
       final accessRecord = _issueHttpAccessTokenRecord(
@@ -4139,6 +4146,7 @@ class RouterBinding {
           ),
         ),
         refreshToken: refreshToken,
+        cacheKeyPrefix: cacheKeyPrefix,
       );
       _httpAuthTokens[accessRecord.token] = accessRecord;
       record
@@ -4509,6 +4517,7 @@ class RouterBinding {
     required HttpRouteSettings? route,
     required ListenerSettings? listenerSettings,
     required RealmSettings realmSettings,
+    String? cacheKeyPrefix,
   }) {
     final ttl = _resolveHttpAuthTokenTtl(
       route: route,
@@ -4546,6 +4555,7 @@ class RouterBinding {
       sessionProfileName: sessionProfileName,
       expiresAt: DateTime.now().toUtc().add(ttl),
       refreshToken: refreshRecord?.token,
+      cacheKeyPrefix: cacheKeyPrefix,
     );
     _httpAuthTokens[accessRecord.token] = accessRecord;
     refreshRecord?.accessTokens.add(accessRecord.token);
@@ -4565,6 +4575,7 @@ class RouterBinding {
     required String? sessionProfileName,
     required DateTime expiresAt,
     required String? refreshToken,
+    String? cacheKeyPrefix,
   }) {
     final token = _randomHttpAuthToken();
     return _HttpAuthTokenRecord(
@@ -4578,6 +4589,7 @@ class RouterBinding {
       sessionProfileName: sessionProfileName,
       expiresAt: expiresAt,
       refreshToken: refreshToken,
+      cacheKeyPrefix: cacheKeyPrefix ?? 'http-auth-token:$token',
     );
   }
 
@@ -4713,6 +4725,7 @@ class RouterBinding {
   Future<void> _revokeHttpAccessToken(
     String token, {
     bool removeFromRefreshToken = true,
+    bool closeSessions = true,
   }) async {
     final record = _httpAuthTokens.remove(token);
     if (record == null) {
@@ -4723,6 +4736,9 @@ class RouterBinding {
       if (refreshToken != null) {
         _httpRefreshTokens[refreshToken]?.accessTokens.remove(token);
       }
+    }
+    if (!closeSessions) {
+      return;
     }
     final cacheKeys = _internalSessionsByCacheKey.keys
         .where(
@@ -6786,6 +6802,7 @@ class _HttpAuthTokenRecord {
     required this.sessionProfileName,
     required this.expiresAt,
     required this.refreshToken,
+    required this.cacheKeyPrefix,
   });
 
   final String token;
@@ -6798,8 +6815,7 @@ class _HttpAuthTokenRecord {
   final String? sessionProfileName;
   final DateTime expiresAt;
   final String? refreshToken;
-
-  String get cacheKeyPrefix => 'http-auth-token:$token';
+  final String cacheKeyPrefix;
 
   Duration get expiresIn {
     final remaining = expiresAt.difference(DateTime.now().toUtc());

@@ -823,33 +823,30 @@ void main() {
     expect(refreshed.accessToken, _ioRefreshedAccessToken);
     expect(refreshed.refreshToken, _ioRefreshedRefreshToken);
 
-    final refreshedMcpClient = McpStreamableHttpClient.withAuthGrant(
-      endpoint.mcpUri,
-      refreshed,
-    );
-    addTearDown(() => refreshedMcpClient.close(force: true));
-    final refreshedDirectPing = await refreshedMcpClient.pingDirect(
-      id: 'io-auth-refreshed-direct-ping',
+    mcpClient.lastEventId = '$_ioAuthSessionId:refresh:kept';
+    mcpClient.replaceAuthGrant(refreshed);
+    final refreshedPing = await mcpClient.ping(
+      id: 'io-auth-refreshed-ping',
       headers: const <String, String>{
-        'x-consumer-trace': 'io-auth-refreshed-direct-ping',
+        'x-consumer-trace': 'io-auth-refreshed-ping',
       },
     );
-    expect(refreshedDirectPing, isEmpty);
-    expect(refreshedMcpClient.sessionId, isNull);
+    expect(refreshedPing, isEmpty);
+    expect(mcpClient.sessionId, _ioAuthSessionId);
+    expect(mcpClient.lastEventId, '$_ioAuthSessionId:refresh:kept');
 
-    final refreshedApiDescription = await refreshedMcpClient
-        .describeWampApiDirect(
-          'app.echo',
-          id: 'io-auth-refreshed-direct-api-describe',
-          kind: 'procedure',
-          headers: const <String, String>{
-            'x-consumer-trace': 'io-auth-refreshed-direct-api-describe',
-          },
-        );
+    final refreshedApiDescription = await mcpClient.describeWampApiDirect(
+      'app.echo',
+      id: 'io-auth-refreshed-direct-api-describe',
+      kind: 'procedure',
+      headers: const <String, String>{
+        'x-consumer-trace': 'io-auth-refreshed-direct-api-describe',
+      },
+    );
     expect(refreshedApiDescription['procedure'], 'app.echo');
     expect(refreshedApiDescription['title'], 'Echo');
     expect(refreshedApiDescription['kind'], 'procedure');
-    expect(refreshedMcpClient.sessionId, isNull);
+    expect(mcpClient.sessionId, _ioAuthSessionId);
 
     await authClient.revokeToken(
       refreshed.accessToken,
@@ -858,18 +855,19 @@ void main() {
       },
     );
     try {
-      await refreshedMcpClient.pingDirect(
-        id: 'io-auth-revoked-direct-ping',
+      await mcpClient.ping(
+        id: 'io-auth-revoked-ping',
         headers: const <String, String>{
-          'x-consumer-trace': 'io-auth-revoked-direct-ping',
+          'x-consumer-trace': 'io-auth-revoked-ping',
         },
       );
-      fail('revoked IO auth direct JSON access token was accepted');
+      fail('revoked IO auth Streamable access token was accepted');
     } on McpStreamableHttpException catch (error) {
       expect(error.statusCode, HttpStatus.unauthorized);
       expect(error.body, contains('unauthorized'));
     }
-    expect(refreshedMcpClient.sessionId, isNull);
+    expect(mcpClient.sessionId, isNull);
+    expect(mcpClient.lastEventId, isNull);
 
     await authClient.revokeToken(
       refreshed.refreshToken!,
@@ -975,12 +973,9 @@ void main() {
       endpoint.mcpRequests[8].authorization,
       'Bearer $_ioRefreshedAccessToken',
     );
-    expect(endpoint.mcpRequests[8].sessionId, isNull);
+    expect(endpoint.mcpRequests[8].sessionId, _ioAuthSessionId);
     expect(endpoint.mcpRequests[8].body['method'], 'ping');
-    expect(
-      endpoint.mcpRequests[8].consumerTrace,
-      'io-auth-refreshed-direct-ping',
-    );
+    expect(endpoint.mcpRequests[8].consumerTrace, 'io-auth-refreshed-ping');
     expect(
       endpoint.mcpRequests[9].authorization,
       'Bearer $_ioRefreshedAccessToken',
@@ -995,12 +990,9 @@ void main() {
       endpoint.mcpRequests[10].authorization,
       'Bearer $_ioRefreshedAccessToken',
     );
-    expect(endpoint.mcpRequests[10].sessionId, isNull);
+    expect(endpoint.mcpRequests[10].sessionId, _ioAuthSessionId);
     expect(endpoint.mcpRequests[10].body['method'], 'ping');
-    expect(
-      endpoint.mcpRequests[10].consumerTrace,
-      'io-auth-revoked-direct-ping',
-    );
+    expect(endpoint.mcpRequests[10].consumerTrace, 'io-auth-revoked-ping');
 
     final directSubscribeParams = _jsonMapFrom(
       endpoint.mcpRequests[4].body['params'],

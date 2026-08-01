@@ -564,6 +564,18 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Replaces the router HTTP-auth grant used for subsequent MCP requests.
+  ///
+  /// The [grant] must contain a valid Bearer access token. Streamable HTTP
+  /// session, resume, protocol, request, and connection state remain unchanged.
+  /// Refresh timing and request retries stay caller-controlled.
+  void replaceAuthGrant(ConnectanumHttpAuthGrant grant) {
+    final authorizationHeader = _authorizationHeaderFrom(
+      _headersWithAuthGrant(const <String, String>{}, grant),
+    );
+    _authorizationHeader = authorizationHeader;
+  }
+
   /// Replaces the OAuth access token used for subsequent MCP HTTP requests.
   ///
   /// The [grant] must be unexpired and bound to this client's MCP endpoint.

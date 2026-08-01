@@ -6032,6 +6032,43 @@ void main() {
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
+        connectionId: 76,
+        handle: 36,
+        method: 'POST',
+        target: '/mcp/secure',
+        headers: {
+          'authorization': 'Bearer ${firstGrant.accessToken}',
+          'accept': 'application/json, text/event-stream',
+          'content-type': 'application/json',
+          'mcp-protocol-version': '2025-11-25',
+          'mcp-method': 'initialize',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'refresh-session-initialize',
+          'method': 'initialize',
+          'params': <String, Object?>{
+            'protocolVersion': '2025-11-25',
+            'capabilities': <String, Object?>{},
+            'clientInfo': <String, Object?>{
+              'name': 'router-runtime-auth-refresh-test',
+              'version': '0.1.0',
+            },
+          },
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[76]?.isNotEmpty ?? false);
+      final initializeResponse = runtime.httpResponses[76]!.single;
+      expect(initializeResponse.status, HttpStatus.ok);
+      final mcpSessionId = initializeResponse.headers['MCP-Session-Id'];
+      expect(mcpSessionId, isNotNull);
+      expect(mcpSessionId, isNotEmpty);
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
         connectionId: 72,
         handle: 32,
         method: 'POST',
@@ -6054,6 +6091,27 @@ void main() {
       final refreshedRefreshToken = refreshedBody['refresh_token'] as String;
       expect(refreshedAccessToken, isNot(firstGrant.accessToken));
       expect(refreshedRefreshToken, isNot(firstGrant.refreshToken));
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 77,
+        handle: 37,
+        method: 'DELETE',
+        target: '/mcp/secure',
+        headers: {
+          'authorization': 'Bearer $refreshedAccessToken',
+          'mcp-session-id': mcpSessionId!,
+          'mcp-protocol-version': '2025-11-25',
+        },
+        body: null,
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[77]?.isNotEmpty ?? false);
+      final refreshedSessionDelete = runtime.httpResponses[77]!.single;
+      expect(refreshedSessionDelete.status, HttpStatus.accepted);
+      expect(refreshedSessionDelete.headers['MCP-Session-Id'], mcpSessionId);
 
       runtime.setConnectionProtocol(73, NativeConnectionProtocol.http);
       runtime.enqueueHttpHandshake(

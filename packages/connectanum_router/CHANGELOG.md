@@ -7,6 +7,8 @@
   statistics Meta APIs, lifecycle events, and router-opaque payload E2EE.
 - Add production router-hosted MCP endpoints, direct JSON access, auth/session
   isolation, pub/sub, Streamable HTTP compatibility, and operational metrics.
+- Preserve router-hosted MCP sessions across HTTP-auth access and refresh-token
+  rotation while continuing to reject the rotated credentials.
 
 ## 0.1.0
 
