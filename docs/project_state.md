@@ -17,27 +17,47 @@ identified and fixed a pre-existing SCRAM channel-binding crash by preserving
 decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
-The completed product-readiness checkpoint is the first MCP `2026-07-28`
-stateless core compatibility slice. The public IO client now has explicit
-stateless and authenticated-stateless constructors, per-request client
-identity/capability metadata, typed `server/discover`, modern response-type
-validation, and local rejection of removed batch/GET/DELETE session behavior.
-Router-hosted MCP selects the modern era per request, validates body/header
-metadata with the 2026 reserved errors, returns HTTP 404 for unknown modern
-methods, stamps successful results with `resultType` and server identity, and
-never mints or echoes protocol session/resume state. Existing tool, resource,
-prompt, direct JSON/meta, and WAMP pub/sub paths remain available through the
-route principal. An isolated public consumer smoke proves public and bearer-
-protected discovery plus ordinary resources/tools/pub-sub while the complete
-`2025-*` initialize/session/GET/SSE/DELETE compatibility matrix remains green.
-Post-change `bin/test-fast` and complete local `bin/verify` passed on
-2026-08-01, including formatting, Rust core and FFI tests, 360 core Dart tests,
-182 client tests, 92 MCP tests, 96 benchmark tests, 380 router tests, the
-Chrome/Dart2Wasm websocket test, and all isolated consumer and live
-router-hosted MCP smokes. The completed plan is
-`docs/exec-plans/2026-08-01-mcp-2026-stateless-core.md`; modern
-`subscriptions/listen` request-scoped SSE and cancellation is the next MCP
-compatibility layer, followed by MRTR only for selected client capabilities.
+The completed product-readiness checkpoint is MCP `2026-07-28`
+request-scoped notification delivery. The public IO client now exposes typed
+`subscriptions/listen` filters, acknowledgment state, notification streams,
+and local/graceful/remote close outcomes while keeping every listener on an
+independently cancellable HTTP client connection. Modern direct JSON calls
+advertise the required JSON-plus-SSE `Accept` surface even when the expected
+ordinary response is JSON. Router-hosted MCP opens sessionless SSE listeners,
+acknowledges only the authorized supported filter subset, correlates every
+message with the original request ID, delivers dynamic tool-list and configured
+resource-update notifications, shares WAMP subscriptions across concurrent
+listeners, and releases them after transport-close detection. Discovery now
+returns the real typed capability values rather than flattening every
+capability to an empty object.
+
+Focused native coverage proves malformed-filter rejection, public discovery,
+two concurrent listeners, tool and WAMP-backed resource notifications,
+subscription correlation metadata, same-client ordinary calls, sessionless
+state, and subscriber cleanup after explicit close. The isolated router CLI
+consumer package now proves anonymous and bearer-authenticated listener
+acknowledgment using only the public `connectanum_mcp_io.dart` entrypoint, with
+`subscriptionsListen` in its machine-readable summary. Post-change
+`bin/test-fast` passed on 2026-08-01, including workspace analysis, package
+tests, isolated consumers, live WAMP benchmark integration, and every
+maintained router-hosted MCP smoke. Full `bin/verify` also passed, including
+Rust core and FFI suites, workspace formatting and analysis, 360 core tests,
+185 client tests, 92 MCP tests, 96 benchmark tests, 380 router tests, isolated
+and globally activated consumer smokes, native zero-copy checks, and
+Chrome/Dart2Wasm coverage. The completed plan is
+`docs/exec-plans/2026-08-01-mcp-2026-subscriptions-listen.md`; MRTR remains the
+next modern compatibility layer only for selected concrete client
+capabilities. The complete `2025-*` initialize/session/GET/SSE/DELETE and
+resource-subscription compatibility matrix remains unchanged.
+
+The preceding stateless-core checkpoint is commit `c400a13`. It passed
+exact-head GitHub CI `30702946751`, including Fast Checks, Full Verify, Dart VM
+Coverage, Codecov upload, and coverage artifact `8819576035`. Dart Package
+Publish Dry Run `30702946756` and WAMP Profile Benchmarks `30702946766` passed
+on their first attempts; WAMP artifact `8819481725` was uploaded. The strict
+deployment-chain audit passed with a clean exact-head CI log scan and all
+required branch, workflow, package, publish-dry-run, and benchmark-artifact
+gates clean.
 
 The OAuth foundation supporting this checkpoint is a complete bounded grant
 lifecycle plus the MCP-preferred public client identity mechanism. After

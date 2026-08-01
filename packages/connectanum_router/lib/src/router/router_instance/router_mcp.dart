@@ -1354,15 +1354,27 @@ Uint8List _mcpSseEventsBytes(Iterable<_RouterMcpSseEvent> events) {
   return buffer.takeBytes();
 }
 
-Future<bool> _mcpSendSseResponse(
+Uint8List _mcpRequestScopedSseMessageBytes(Object? message) {
+  final encoded = jsonEncode(message);
+  final buffer = StringBuffer();
+  for (final line in const LineSplitter().convert(encoded)) {
+    buffer.writeln('data: $line');
+  }
+  buffer.writeln();
+  return Uint8List.fromList(utf8.encode(buffer.toString()));
+}
+
+Uint8List _mcpRequestScopedSseHeartbeatBytes() =>
+    Uint8List.fromList(utf8.encode(': keep-alive\n\n'));
+
+NativeHttpResponseStream? _mcpOpenSseResponse(
   RouterBinding binding, {
   required RouterHttpRequest request,
   required NativeHttpHandshake? handshake,
-  required String sessionId,
-  required List<_RouterMcpSseEvent> events,
+  String? sessionId,
   String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
-}) async {
+}) {
   final handle = handshake?.handle ?? request.handshakeHandle;
   if (handle <= 0) {
     binding.onEvent?.call({
@@ -1371,11 +1383,10 @@ Future<bool> _mcpSendSseResponse(
       'connectionId': request.connectionId,
       'listenerId': request.listenerId,
     });
-    return false;
+    return null;
   }
-  final NativeHttpResponseStream stream;
   try {
-    stream = binding.runtime.openHttpResponseStream(
+    return binding.runtime.openHttpResponseStream(
       handshakeHandle: handle,
       status: HttpStatus.ok,
       headers: _mcpHttpResponseHeaders(
@@ -1399,7 +1410,6 @@ Future<bool> _mcpSendSseResponse(
       'error': error.toString(),
       'stackTrace': stackTrace.toString(),
     });
-    return false;
   } on NativeTransportException catch (error, stackTrace) {
     binding.onEvent?.call({
       'source': 'binding',
@@ -1409,6 +1419,28 @@ Future<bool> _mcpSendSseResponse(
       'error': error.toString(),
       'stackTrace': stackTrace.toString(),
     });
+  }
+  return null;
+}
+
+Future<bool> _mcpSendSseResponse(
+  RouterBinding binding, {
+  required RouterHttpRequest request,
+  required NativeHttpHandshake? handshake,
+  required String sessionId,
+  required List<_RouterMcpSseEvent> events,
+  String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
+  Map<String, String> extraHeaders = const <String, String>{},
+}) async {
+  final stream = _mcpOpenSseResponse(
+    binding,
+    request: request,
+    handshake: handshake,
+    sessionId: sessionId,
+    protocolVersion: protocolVersion,
+    extraHeaders: extraHeaders,
+  );
+  if (stream == null) {
     return false;
   }
   try {
@@ -2095,6 +2127,58 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
+  if (statelessHttpRequest && requestMethod == 'subscriptions/listen') {
+    final _RouterMcpModernSubscriptionPreparation preparation;
+    try {
+      preparation = await endpoint.prepareModernSubscription(rawMessage);
+    } on mcp.McpException catch (error) {
+      final response = endpoint.modernizeResponse(
+        mcp.JsonRpcResponse.error(
+          _recoverDirectJsonRequestId(rawMessage),
+          error,
+        ).toJson(),
+      );
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          headers: _mcpHttpResponseHeaders(
+            protocolVersion: effectiveResponseMcpProtocolVersion,
+            extra: corsHeaders,
+          ),
+          body: NativeHttpResponseJson(response),
+        ),
+      );
+      return;
+    }
+    final stream = _mcpOpenSseResponse(
+      binding,
+      request: request,
+      handshake: handshake,
+      protocolVersion: effectiveResponseMcpProtocolVersion,
+      extraHeaders: corsHeaders,
+    );
+    if (stream == null) {
+      await endpoint.releaseModernSubscriptionPreparation(preparation);
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.internalServerError,
+          code: mcp.McpErrorCodes.internalError,
+          message: 'MCP subscription stream could not be opened',
+          id: _recoverDirectJsonRequestId(rawMessage),
+          protocolVersion: effectiveResponseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        ),
+      );
+      return;
+    }
+    await endpoint.activateModernSubscription(preparation, stream);
+    return;
+  }
+
   final rawResponse = await endpoint.handleMessage(
     rawMessage,
     resourceSubscriptionsAllowed:
@@ -2272,6 +2356,70 @@ final class _UnknownMcpSseEventId implements Exception {
   final String eventId;
 }
 
+class _RouterMcpSubscriptionFilter {
+  _RouterMcpSubscriptionFilter({
+    this.toolsListChanged = false,
+    this.promptsListChanged = false,
+    this.resourcesListChanged = false,
+    Iterable<String> resourceSubscriptions = const <String>[],
+  }) : resourceSubscriptions = List<String>.unmodifiable(resourceSubscriptions);
+
+  final bool toolsListChanged;
+  final bool promptsListChanged;
+  final bool resourcesListChanged;
+  final List<String> resourceSubscriptions;
+
+  mcp.JsonMap toJson() => <String, Object?>{
+    if (toolsListChanged) 'toolsListChanged': true,
+    if (promptsListChanged) 'promptsListChanged': true,
+    if (resourcesListChanged) 'resourcesListChanged': true,
+    if (resourceSubscriptions.isNotEmpty)
+      'resourceSubscriptions': <String>[...resourceSubscriptions],
+  };
+
+  bool allows(String method, mcp.JsonMap params) {
+    switch (method) {
+      case 'notifications/tools/list_changed':
+        return toolsListChanged;
+      case 'notifications/prompts/list_changed':
+        return promptsListChanged;
+      case 'notifications/resources/list_changed':
+        return resourcesListChanged;
+      case 'notifications/resources/updated':
+        final uri = params['uri'];
+        return uri is String && resourceSubscriptions.contains(uri);
+      default:
+        return false;
+    }
+  }
+}
+
+class _RouterMcpModernSubscriptionPreparation {
+  _RouterMcpModernSubscriptionPreparation({
+    required this.requestId,
+    required this.notifications,
+  });
+
+  final Object requestId;
+  final _RouterMcpSubscriptionFilter notifications;
+  bool resourceReservationsReleased = false;
+}
+
+class _RouterMcpModernSubscription {
+  _RouterMcpModernSubscription({
+    required this.token,
+    required this.requestId,
+    required this.notifications,
+    required this.stream,
+  });
+
+  final int token;
+  final Object requestId;
+  final _RouterMcpSubscriptionFilter notifications;
+  final NativeHttpResponseStream stream;
+  Timer? heartbeat;
+}
+
 class _RouterMcpEndpoint {
   _RouterMcpEndpoint({
     required this.binding,
@@ -2329,6 +2477,14 @@ class _RouterMcpEndpoint {
   final Map<String, int> _sseStreamSequences = <String, int>{};
   final Set<int> _wampSubscriptionIds = <int>{};
   int _nextSseStream = 0;
+  int _nextModernSubscription = 0;
+
+  final Map<int, _RouterMcpModernSubscription> _modernSubscriptions =
+      <int, _RouterMcpModernSubscription>{};
+  final Map<String, Future<mcp.McpWampSubscription>>
+  _modernResourceUpdateSubscriptions =
+      <String, Future<mcp.McpWampSubscription>>{};
+  final Map<String, int> _modernResourcePreparationCounts = <String, int>{};
 
   final Map<String, Future<mcp.McpWampSubscription>>
   _resourceUpdateSubscriptions = <String, Future<mcp.McpWampSubscription>>{};
@@ -2337,6 +2493,26 @@ class _RouterMcpEndpoint {
 
   Future<void> dispose() async {
     server.shutdown();
+
+    final modernSubscriptionTokens = _modernSubscriptions.keys.toList(
+      growable: false,
+    );
+    for (final token in modernSubscriptionTokens) {
+      await _closeModernSubscription(token, graceful: true);
+    }
+    final modernResourceSubscriptions = _modernResourceUpdateSubscriptions
+        .values
+        .toList(growable: false);
+    _modernResourceUpdateSubscriptions.clear();
+    _modernResourcePreparationCounts.clear();
+    for (final subscriptionFuture in modernResourceSubscriptions) {
+      try {
+        await _unsubscribe(await subscriptionFuture);
+      } catch (_) {
+        // Best-effort cleanup during endpoint disposal.
+      }
+    }
+
     final resourceSubscriptions = _resourceUpdateSubscriptions.values.toList(
       growable: false,
     );
@@ -2632,6 +2808,339 @@ class _RouterMcpEndpoint {
     );
   }
 
+  Future<_RouterMcpModernSubscriptionPreparation> prepareModernSubscription(
+    Object? rawMessage,
+  ) async {
+    final request = _directJsonRequestFrom(rawMessage);
+    if (request.method != 'subscriptions/listen' || request.isNotification) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidRequest,
+        'subscriptions/listen must be a JSON-RPC request with an id',
+      );
+    }
+    final requestId = request.id!;
+    final requested = _modernSubscriptionFilterFrom(
+      request.params['notifications'],
+    );
+    final grantedResources = <String>[];
+    try {
+      for (final uri in requested.resourceSubscriptions) {
+        final config = _configuredResourceForUri(route.action.options, uri);
+        if (config == null) {
+          continue;
+        }
+        final updateTopic = _configuredResourceUpdateTopic(config);
+        if (updateTopic == null ||
+            !await _isAuthorized(AuthorizationAction.subscribe, updateTopic)) {
+          continue;
+        }
+        await _ensureModernResourceSubscription(uri, updateTopic);
+        _modernResourcePreparationCounts.update(
+          uri,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
+        grantedResources.add(uri);
+      }
+    } catch (_) {
+      for (final uri in grantedResources) {
+        final count = _modernResourcePreparationCounts[uri];
+        if (count == null || count <= 1) {
+          _modernResourcePreparationCounts.remove(uri);
+        } else {
+          _modernResourcePreparationCounts[uri] = count - 1;
+        }
+      }
+      await _cleanupUnusedModernResourceSubscriptions();
+      rethrow;
+    }
+    return _RouterMcpModernSubscriptionPreparation(
+      requestId: requestId,
+      notifications: _RouterMcpSubscriptionFilter(
+        toolsListChanged: requested.toolsListChanged,
+        resourceSubscriptions: grantedResources,
+      ),
+    );
+  }
+
+  _RouterMcpSubscriptionFilter _modernSubscriptionFilterFrom(Object? value) {
+    if (value is! Map) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'subscriptions/listen.params.notifications must be an object',
+      );
+    }
+    final notifications = mcp.jsonMapFrom(
+      value,
+      label: 'subscriptions/listen.params.notifications',
+    );
+
+    bool requested(String field) {
+      final value = notifications[field];
+      if (value == null) {
+        return false;
+      }
+      if (value is! bool) {
+        throw mcp.McpException(
+          mcp.McpErrorCodes.invalidParams,
+          'subscriptions/listen notification filter $field must be a boolean',
+        );
+      }
+      return value;
+    }
+
+    final rawResources = notifications['resourceSubscriptions'];
+    final resources = <String>[];
+    if (rawResources != null) {
+      if (rawResources is! List) {
+        throw mcp.McpException(
+          mcp.McpErrorCodes.invalidParams,
+          'subscriptions/listen resourceSubscriptions must be a list',
+        );
+      }
+      final seen = <String>{};
+      for (final value in rawResources) {
+        if (value is! String) {
+          throw mcp.McpException(
+            mcp.McpErrorCodes.invalidParams,
+            'subscriptions/listen resourceSubscriptions must contain strings',
+          );
+        }
+        final uri = _mcpValidatedResourceUri(
+          value,
+          'subscriptions/listen resourceSubscriptions entries',
+        );
+        if (!seen.add(uri)) {
+          throw mcp.McpException(
+            mcp.McpErrorCodes.invalidParams,
+            'subscriptions/listen resourceSubscriptions must not contain '
+            'duplicates',
+          );
+        }
+        resources.add(uri);
+      }
+    }
+
+    return _RouterMcpSubscriptionFilter(
+      toolsListChanged: requested('toolsListChanged'),
+      promptsListChanged: requested('promptsListChanged'),
+      resourcesListChanged: requested('resourcesListChanged'),
+      resourceSubscriptions: resources,
+    );
+  }
+
+  Future<void> _ensureModernResourceSubscription(
+    String uri,
+    String topic,
+  ) async {
+    final existing = _modernResourceUpdateSubscriptions[uri];
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    final subscriptionFuture = _subscribe(
+      mcp.McpWampSubscribeRequest(topic: topic, queueLimit: 1),
+      (_) => _sendModernNotification(
+        'notifications/resources/updated',
+        params: <String, Object?>{'uri': uri},
+      ),
+    );
+    _modernResourceUpdateSubscriptions[uri] = subscriptionFuture;
+    try {
+      await subscriptionFuture;
+    } catch (_) {
+      if (identical(
+        _modernResourceUpdateSubscriptions[uri],
+        subscriptionFuture,
+      )) {
+        _modernResourceUpdateSubscriptions.remove(uri);
+      }
+      rethrow;
+    }
+  }
+
+  Future<bool> activateModernSubscription(
+    _RouterMcpModernSubscriptionPreparation preparation,
+    NativeHttpResponseStream stream,
+  ) async {
+    final token = ++_nextModernSubscription;
+    final subscription = _RouterMcpModernSubscription(
+      token: token,
+      requestId: preparation.requestId,
+      notifications: preparation.notifications,
+      stream: stream,
+    );
+    _modernSubscriptions[token] = subscription;
+    await _releaseModernSubscriptionPreparation(preparation);
+    final acknowledged = <String, Object?>{
+      'jsonrpc': '2.0',
+      'method': 'notifications/subscriptions/acknowledged',
+      'params': <String, Object?>{
+        '_meta': <String, Object?>{
+          'io.modelcontextprotocol/subscriptionId': preparation.requestId,
+        },
+        'notifications': preparation.notifications.toJson(),
+      },
+    };
+    if (!_writeModernSubscriptionMessage(subscription, acknowledged)) {
+      await _closeModernSubscription(token);
+      return false;
+    }
+    subscription.heartbeat = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _sendModernHeartbeat(token),
+    );
+    return true;
+  }
+
+  Future<void> releaseModernSubscriptionPreparation(
+    _RouterMcpModernSubscriptionPreparation preparation,
+  ) async {
+    await _releaseModernSubscriptionPreparation(preparation);
+  }
+
+  Future<void> _releaseModernSubscriptionPreparation(
+    _RouterMcpModernSubscriptionPreparation preparation,
+  ) async {
+    if (preparation.resourceReservationsReleased) {
+      return;
+    }
+    preparation.resourceReservationsReleased = true;
+    for (final uri in preparation.notifications.resourceSubscriptions) {
+      final count = _modernResourcePreparationCounts[uri];
+      if (count == null || count <= 1) {
+        _modernResourcePreparationCounts.remove(uri);
+      } else {
+        _modernResourcePreparationCounts[uri] = count - 1;
+      }
+    }
+    await _cleanupUnusedModernResourceSubscriptions();
+  }
+
+  void _sendModernHeartbeat(int token) {
+    final subscription = _modernSubscriptions[token];
+    if (subscription == null) {
+      return;
+    }
+    try {
+      subscription.stream.add(_mcpRequestScopedSseHeartbeatBytes());
+    } catch (error, stackTrace) {
+      _reportModernSubscriptionWriteError(error, stackTrace);
+      unawaited(_closeModernSubscription(token));
+    }
+  }
+
+  void _sendModernNotification(
+    String method, {
+    mcp.JsonMap params = const <String, Object?>{},
+  }) {
+    for (final subscription in _modernSubscriptions.values.toList(
+      growable: false,
+    )) {
+      if (!subscription.notifications.allows(method, params)) {
+        continue;
+      }
+      final rawMetadata = params['_meta'];
+      final metadata = <String, Object?>{
+        if (rawMetadata is Map)
+          for (final entry in rawMetadata.entries)
+            if (entry.key is String) entry.key as String: entry.value,
+        'io.modelcontextprotocol/subscriptionId': subscription.requestId,
+      };
+      final message = <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': method,
+        'params': <String, Object?>{...params, '_meta': metadata},
+      };
+      if (!_writeModernSubscriptionMessage(subscription, message)) {
+        unawaited(_closeModernSubscription(subscription.token));
+      }
+    }
+  }
+
+  bool _writeModernSubscriptionMessage(
+    _RouterMcpModernSubscription subscription,
+    Object? message,
+  ) {
+    try {
+      subscription.stream.add(_mcpRequestScopedSseMessageBytes(message));
+      return true;
+    } catch (error, stackTrace) {
+      _reportModernSubscriptionWriteError(error, stackTrace);
+      return false;
+    }
+  }
+
+  void _reportModernSubscriptionWriteError(
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    binding.onEvent?.call({
+      'source': 'binding',
+      'type': 'mcp_request_scoped_sse_write_error',
+      'error': error.toString(),
+      'stackTrace': stackTrace.toString(),
+    });
+  }
+
+  Future<void> _closeModernSubscription(
+    int token, {
+    bool graceful = false,
+  }) async {
+    final subscription = _modernSubscriptions.remove(token);
+    if (subscription == null) {
+      return;
+    }
+    subscription.heartbeat?.cancel();
+    try {
+      if (graceful && !subscription.stream.isClosed) {
+        subscription.stream.close(
+          _mcpRequestScopedSseMessageBytes(<String, Object?>{
+            'jsonrpc': '2.0',
+            'id': subscription.requestId,
+            'result': <String, Object?>{
+              'resultType': 'complete',
+              '_meta': <String, Object?>{
+                'io.modelcontextprotocol/serverInfo': server.serverInfo
+                    .toJson(),
+                'io.modelcontextprotocol/subscriptionId':
+                    subscription.requestId,
+              },
+            },
+          }),
+        );
+      } else {
+        subscription.stream.close();
+      }
+    } catch (error, stackTrace) {
+      _reportModernSubscriptionWriteError(error, stackTrace);
+    }
+    await _cleanupUnusedModernResourceSubscriptions();
+  }
+
+  Future<void> _cleanupUnusedModernResourceSubscriptions() async {
+    final usedResources = <String>{
+      for (final subscription in _modernSubscriptions.values)
+        ...subscription.notifications.resourceSubscriptions,
+      for (final entry in _modernResourcePreparationCounts.entries)
+        if (entry.value > 0) entry.key,
+    };
+    final unusedResources = _modernResourceUpdateSubscriptions.keys
+        .where((uri) => !usedResources.contains(uri))
+        .toList(growable: false);
+    for (final uri in unusedResources) {
+      final subscriptionFuture = _modernResourceUpdateSubscriptions.remove(uri);
+      if (subscriptionFuture == null) {
+        continue;
+      }
+      try {
+        await _unsubscribe(await subscriptionFuture);
+      } catch (_) {
+        // Best-effort cleanup after a request-scoped listener closes.
+      }
+    }
+  }
+
   Future<List<mcp.McpResourceContent>> _readConfiguredResource(
     Map<String, Object?> config,
     mcp.McpResourceRequest request,
@@ -2822,12 +3331,9 @@ class _RouterMcpEndpoint {
   ) async {
     switch (method) {
       case 'server/discover':
-        final capabilities = server.capabilities.toJson();
         return <String, Object?>{
           'supportedVersions': <String>[mcp.mcpLatestStatelessProtocolVersion],
-          'capabilities': <String, Object?>{
-            for (final capability in capabilities.keys) capability: const {},
-          },
+          'capabilities': server.capabilities.toJson(),
           if (server.instructions != null) 'instructions': server.instructions,
         };
       case 'ping':
@@ -3041,9 +3547,11 @@ class _RouterMcpEndpoint {
       return;
     }
     server.tools.replaceAll(tools);
-    if (_toolSignature != null &&
-        server.state == mcp.McpServerState.initialized) {
-      _enqueueServerNotification('notifications/tools/list_changed');
+    if (_toolSignature != null) {
+      if (server.state == mcp.McpServerState.initialized) {
+        _enqueueServerNotification('notifications/tools/list_changed');
+      }
+      _sendModernNotification('notifications/tools/list_changed');
     }
     _toolSignature = signature;
   }

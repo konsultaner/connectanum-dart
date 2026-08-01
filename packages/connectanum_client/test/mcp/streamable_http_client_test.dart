@@ -199,6 +199,9 @@ void main() {
 
         final discovery = await client.discover(id: 'discover-modern');
         final tools = await client.listTools(id: 'tools-modern');
+        final directTools = await client.listToolsDirect(
+          id: 'tools-modern-direct',
+        );
 
         expect(McpStreamableHttpClient.latestProtocolVersion, '2026-07-28');
         expect(client.protocolVersion, '2026-07-28');
@@ -212,11 +215,13 @@ void main() {
         expect(discovery.ttlMs, 60000);
         expect(discovery.cacheScope, 'private');
         expect(tools.tools, isEmpty);
+        expect(directTools.tools, isEmpty);
         expect(client.sessionId, isNull);
         expect(client.lastEventId, isNull);
 
-        expect(endpoint.requests, hasLength(2));
+        expect(endpoint.requests, hasLength(3));
         for (final request in endpoint.requests) {
+          expect(request.accept, contains('text/event-stream'));
           expect(request.protocolVersion, '2026-07-28');
           expect(request.authorization, 'Bearer modern-token');
           expect(request.sessionId, isNull);
@@ -281,6 +286,148 @@ void main() {
         await expectLater(client.poll(), throwsA(removedOperation));
         await expectLater(client.deleteSession(), throwsA(removedOperation));
         expect(endpoint.requests, isEmpty);
+      },
+    );
+
+    test(
+      'listens for MCP 2026 notifications and cancels by closing the stream',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final subscription = await client.listen(
+          id: 'listen-modern',
+          toolsListChanged: true,
+          promptsListChanged: true,
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+
+        expect(subscription.id, 'listen-modern');
+        expect(subscription.acknowledgedNotifications.toolsListChanged, isTrue);
+        expect(
+          subscription.acknowledgedNotifications.promptsListChanged,
+          isFalse,
+        );
+        expect(subscription.acknowledgedNotifications.resourceSubscriptions, [
+          'app://mcp/live-context',
+        ]);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        final seenRequest = endpoint.requests.single;
+        expect(seenRequest.protocolVersion, '2026-07-28');
+        expect(seenRequest.mcpMethod, 'subscriptions/listen');
+        expect(seenRequest.sessionId, isNull);
+        final body = _jsonMapFrom(seenRequest.body, label: 'listen request');
+        final params = _jsonMapFrom(
+          body['params'],
+          label: 'listen request params',
+        );
+        expect(params['notifications'], {
+          'toolsListChanged': true,
+          'promptsListChanged': true,
+          'resourceSubscriptions': ['app://mcp/live-context'],
+        });
+        expect(
+          (_jsonMapFrom(
+            params['_meta'],
+            label: 'listen metadata',
+          ))['io.modelcontextprotocol/protocolVersion'],
+          '2026-07-28',
+        );
+
+        final notificationFuture = subscription.notifications.first;
+        await endpoint.sendListenNotification(
+          'notifications/resources/updated',
+          params: const <String, Object?>{'uri': 'app://mcp/live-context'},
+        );
+        final notification = await notificationFuture;
+        expect(notification['method'], 'notifications/resources/updated');
+        expect(
+          (_jsonMapFrom(
+            notification['params'],
+            label: 'resource update params',
+          ))['uri'],
+          'app://mcp/live-context',
+        );
+
+        final closed = subscription.closed;
+        await subscription.close();
+        expect(await closed, McpSubscriptionCloseReason.local);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'distinguishes graceful and remote MCP 2026 listener closes',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final client = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final graceful = await client.listen(id: 'listen-graceful');
+        await endpoint.closeListenGracefully();
+        expect(await graceful.closed, McpSubscriptionCloseReason.graceful);
+
+        final remote = await client.listen(id: 'listen-remote');
+        await endpoint.closeListenRemotely();
+        expect(await remote.closed, McpSubscriptionCloseReason.remote);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'rejects MCP 2026 resource updates outside the acknowledged filter',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final client = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final subscription = await client.listen(
+          id: 'listen-filter-validation',
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+        final notificationError = expectLater(
+          subscription.notifications,
+          emitsError(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('outside the acknowledged filter'),
+            ),
+          ),
+        );
+        await endpoint.sendListenNotification(
+          'notifications/resources/updated',
+          params: const <String, Object?>{'uri': 'app://mcp/other-context'},
+        );
+
+        await notificationError;
+        expect(await subscription.closed, McpSubscriptionCloseReason.remote);
       },
     );
 
@@ -6383,6 +6530,8 @@ final class _FakeMcpEndpoint {
   final bool _failInitialize;
   final requests = <_SeenRequest>[];
   late final StreamSubscription<HttpRequest> _subscription;
+  HttpResponse? _listenResponse;
+  Object? _listenRequestId;
 
   Uri get uri => Uri(
     scheme: 'http',
@@ -6397,8 +6546,58 @@ final class _FakeMcpEndpoint {
   }
 
   Future<void> close() async {
+    await _listenResponse?.close();
     await _subscription.cancel();
     await _server.close(force: true);
+  }
+
+  Future<void> sendListenNotification(
+    String method, {
+    McpJsonMap params = const <String, Object?>{},
+  }) async {
+    final response = _listenResponse;
+    final requestId = _listenRequestId;
+    if (response == null || requestId == null) {
+      throw StateError('No subscriptions/listen response is open');
+    }
+    response.write(
+      'data: ${jsonEncode(<String, Object?>{
+        'jsonrpc': '2.0',
+        'method': method,
+        'params': <String, Object?>{
+          ...params,
+          '_meta': <String, Object?>{'io.modelcontextprotocol/subscriptionId': requestId},
+        },
+      })}\n\n',
+    );
+    await response.flush();
+  }
+
+  Future<void> closeListenGracefully() async {
+    final response = _listenResponse;
+    final requestId = _listenRequestId;
+    if (response == null || requestId == null) {
+      throw StateError('No subscriptions/listen response is open');
+    }
+    response.write(
+      'data: ${jsonEncode(<String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestId,
+        'result': <String, Object?>{
+          'resultType': 'complete',
+          '_meta': <String, Object?>{'io.modelcontextprotocol/subscriptionId': requestId},
+        },
+      })}\n\n',
+    );
+    await response.close();
+  }
+
+  Future<void> closeListenRemotely() async {
+    final response = _listenResponse;
+    if (response == null) {
+      throw StateError('No subscriptions/listen response is open');
+    }
+    await response.close();
   }
 
   Future<void> _handle(HttpRequest request) async {
@@ -6768,6 +6967,49 @@ final class _FakeMcpEndpoint {
           'cacheScope': 'private',
         },
       });
+      return;
+    }
+
+    if (method == 'subscriptions/listen') {
+      final params = _jsonMapFrom(
+        requestBody['params'],
+        label: 'subscriptions/listen params',
+      );
+      final notifications = _jsonMapFrom(
+        params['notifications'],
+        label: 'subscriptions/listen notifications',
+      );
+      final response = request.response;
+      response.statusCode = HttpStatus.ok;
+      response.bufferOutput = false;
+      response.headers.set(
+        HttpHeaders.contentTypeHeader,
+        'text/event-stream; charset=utf-8',
+      );
+      response.headers.set(
+        _headerProtocolVersion,
+        McpStreamableHttpClient.latestProtocolVersion,
+      );
+      _listenResponse = response;
+      _listenRequestId = requestBody['id'];
+      final acknowledged = <String, Object?>{
+        if (notifications['toolsListChanged'] == true) 'toolsListChanged': true,
+        if (notifications['resourceSubscriptions'] is List)
+          'resourceSubscriptions': <Object?>[
+            ...(notifications['resourceSubscriptions'] as List),
+          ],
+      };
+      response.write(
+        'data: ${jsonEncode(<String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/subscriptions/acknowledged',
+          'params': <String, Object?>{
+            '_meta': <String, Object?>{'io.modelcontextprotocol/subscriptionId': requestBody['id']},
+            'notifications': acknowledged,
+          },
+        })}\n\n',
+      );
+      await response.flush();
       return;
     }
 

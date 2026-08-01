@@ -28,12 +28,14 @@ Fresh state:
   `HttpRouteActionType.mcp` reuses the router internal WAMP session, exposes
   exact registrations and WAMP meta API tools, and provides pub/sub helpers
   over JSON-RPC `POST`. The router and public Dart client now also implement
-  the `2026-07-28` stateless core: `server/discover`, per-request client
-  metadata and mirrored headers, modern result/error envelopes, public and
-  bearer-protected tool/resource/WAMP operations, and explicit absence of
-  protocol session/resume state. The `2025-*` initialize/GET/SSE/DELETE path
-  remains an explicit compatibility era. Modern `subscriptions/listen` and
-  MRTR remain the next MCP compatibility layers. Dart IO consumers can use
+  the `2026-07-28` stateless core and request-scoped notification layer:
+  `server/discover`, per-request client metadata and mirrored headers, modern
+  result/error envelopes, filtered `subscriptions/listen` SSE with explicit
+  close cancellation, public and bearer-protected tool/resource/WAMP
+  operations, and explicit absence of protocol session/resume state. The
+  `2025-*` initialize/GET/SSE/DELETE path remains an explicit compatibility
+  era. MRTR remains the next MCP compatibility layer only where a concrete
+  consumer capability requires it. Dart IO consumers can use
   `package:connectanum_mcp/connectanum_mcp_io.dart` to negotiate Streamable
   HTTP sessions, send authenticated JSON-RPC requests, consume POST/SSE
   responses, poll GET/SSE events with resume cursors, delete sessions, parse
@@ -95,9 +97,9 @@ Priority override:
   realm-authorization slice are all complete on the current local branch
   checkpoint.
 - **For MCP feature work, finish the 2026 protocol layers before extending the
-  legacy session model.** The stateless discovery and ordinary-request core is
-  complete; `subscriptions/listen` request-scoped SSE/cancellation is next,
-  followed by MRTR only where a concrete downstream capability requires it.
+  legacy session model.** Stateless discovery, ordinary requests, and
+  `subscriptions/listen` request-scoped SSE/cancellation are complete; MRTR is
+  next only where a concrete downstream capability requires it.
 - **The broader WAMP conformance expansion remains blocked on upstream**
   vector/runner stabilization. Do not reopen it unless the vendored upstream
   snapshot changes.

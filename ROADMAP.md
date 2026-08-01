@@ -381,10 +381,11 @@
     router-hosted tool/resource/prompt/WAMP operations, bearer-protected
     requests, and isolated public consumer smoke evidence with no protocol
     session or resume state.
-  - [ ] Add modern `subscriptions/listen` request-scoped SSE delivery and
-    cancellation, then expose list/resource change capabilities through
-    `server/discover`; do not advertise legacy subscription flags as modern
-    capabilities before this path exists.
+  - [x] Add modern `subscriptions/listen` request-scoped SSE delivery and
+    cancellation with filtered acknowledgment, correlated notifications,
+    multiple concurrent listeners, shared authorized resource-update
+    subscriptions, truthful `server/discover` capabilities, and isolated
+    public/protected consumer smoke evidence.
   - [ ] Add MCP 2026 MRTR input requests and responses for the client features
     Connectanum elects to support, with explicit capability enforcement and
     the reserved missing-capability error.

@@ -105,3 +105,10 @@ Primary MCP references:
   tests, 380 router tests, the Chrome/Dart2Wasm websocket test, and every
   isolated consumer and live router-hosted MCP smoke. The milestone is
   complete; `subscriptions/listen` is the next modern compatibility layer.
+- 2026-08-01: Commit `c400a13` was pushed to GitLab and GitHub. Exact-head
+  GitHub CI `30702946751`, Dart Package Publish Dry Run `30702946756`, and
+  WAMP Profile Benchmarks `30702946766` all passed. Coverage artifact
+  `8819576035` and WAMP artifact `8819481725` were uploaded. The strict
+  deployment-chain audit passed with a clean exact-head CI log scan and all
+  required branch, workflow, package, publish-dry-run, and benchmark-artifact
+  gates clean.

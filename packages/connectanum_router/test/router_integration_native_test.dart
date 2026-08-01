@@ -2783,6 +2783,36 @@ void main() {
           equals(McpErrorCodes.headerMismatch),
         );
 
+        final malformedListener = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'malformed-modern-listener',
+            'method': 'subscriptions/listen',
+            'params': {
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+              'notifications': <String, Object?>{'toolsListChanged': 'yes'},
+            },
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2026-07-28',
+            'Mcp-Method': 'subscriptions/listen',
+          },
+        );
+        expect(malformedListener.statusCode, equals(HttpStatus.badRequest));
+        expect(
+          (malformedListener.json?['error'] as Map)['code'],
+          equals(McpErrorCodes.invalidParams),
+        );
+        expect(malformedListener.headers, isNot(contains('mcp-session-id')));
+
         final unknownMethod = await _postJson(
           rawClient,
           listener.port,
@@ -4892,6 +4922,203 @@ void main() {
         contains('requires a Streamable HTTP session'),
       );
       expect(directPublicMcpClient.sessionId, isNull);
+
+      final statelessPublicMcpClient = McpStreamableHttpClient.stateless(
+        Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        ),
+        clientInfo: const <String, Object?>{
+          'name': 'router-native-test',
+          'version': '1.0.0',
+        },
+      );
+      addTearDown(() => statelessPublicMcpClient.close(force: true));
+      final statelessDiscovery = await statelessPublicMcpClient.discover(
+        id: 'stateless-public-discover',
+      );
+      expect(
+        statelessDiscovery.capabilities['tools'],
+        containsPair('listChanged', true),
+      );
+      expect(
+        statelessDiscovery.capabilities['resources'],
+        containsPair('subscribe', true),
+      );
+      final statelessSubscription = await statelessPublicMcpClient.listen(
+        id: 'stateless-public-listen',
+        toolsListChanged: true,
+        promptsListChanged: true,
+        resourcesListChanged: true,
+        resourceSubscriptions: const <String>[
+          'app://mcp/live-context',
+          'app://mcp/member-context',
+        ],
+      );
+      expect(
+        statelessSubscription.acknowledgedNotifications.toolsListChanged,
+        isTrue,
+      );
+      expect(
+        statelessSubscription.acknowledgedNotifications.promptsListChanged,
+        isFalse,
+      );
+      expect(
+        statelessSubscription.acknowledgedNotifications.resourcesListChanged,
+        isFalse,
+      );
+      expect(
+        statelessSubscription.acknowledgedNotifications.resourceSubscriptions,
+        equals(const <String>['app://mcp/live-context']),
+      );
+      final secondaryStatelessSubscription = await statelessPublicMcpClient
+          .listen(
+            id: 'stateless-public-listen-secondary',
+            resourceSubscriptions: const <String>['app://mcp/live-context'],
+          );
+      expect(
+        secondaryStatelessSubscription
+            .acknowledgedNotifications
+            .resourceSubscriptions,
+        equals(const <String>['app://mcp/live-context']),
+      );
+      expect(statelessPublicMcpClient.sessionId, isNull);
+      expect(statelessPublicMcpClient.lastEventId, isNull);
+
+      final statelessNotifications = StreamIterator<Map<String, Object?>>(
+        statelessSubscription.notifications,
+      );
+      final secondaryStatelessNotifications =
+          StreamIterator<Map<String, Object?>>(
+            secondaryStatelessSubscription.notifications,
+          );
+      final toolListChangedFuture = statelessNotifications.moveNext().timeout(
+        const Duration(seconds: 5),
+      );
+      final lateSafeRegistration = await serviceSession.register(
+        'app.safe.late_lookup',
+      );
+      lateSafeRegistration.onInvoke((invocation) {
+        invocation.respondWith(argumentsKeywords: const {'status': 'ready'});
+      });
+      final refreshedStatelessTools = await statelessPublicMcpClient.listTools(
+        id: 'stateless-public-tools-after-registration',
+      );
+      expect(
+        refreshedStatelessTools.tools.map((tool) => tool['name']),
+        contains('app.safe.late_lookup'),
+      );
+      expect(await toolListChangedFuture, isTrue);
+      final toolListChanged = statelessNotifications.current;
+      expect(
+        toolListChanged['method'],
+        equals('notifications/tools/list_changed'),
+      );
+      expect(
+        ((toolListChanged['params'] as Map)['_meta']
+            as Map)['io.modelcontextprotocol/subscriptionId'],
+        equals('stateless-public-listen'),
+      );
+
+      final statelessResourceUpdateFuture = statelessNotifications
+          .moveNext()
+          .timeout(const Duration(seconds: 5));
+      final secondaryResourceUpdateFuture = secondaryStatelessNotifications
+          .moveNext()
+          .timeout(const Duration(seconds: 5));
+      await serviceSession.publish(
+        'app.events.resource.context',
+        argumentsKeywords: {'version': liveResourceVersion},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      expect(await statelessResourceUpdateFuture, isTrue);
+      final statelessResourceUpdate = statelessNotifications.current;
+      expect(
+        statelessResourceUpdate['method'],
+        equals('notifications/resources/updated'),
+      );
+      final statelessResourceUpdateParams =
+          statelessResourceUpdate['params'] as Map<String, Object?>;
+      expect(
+        statelessResourceUpdateParams['uri'],
+        equals('app://mcp/live-context'),
+      );
+      expect(
+        (statelessResourceUpdateParams['_meta']
+            as Map)['io.modelcontextprotocol/subscriptionId'],
+        equals('stateless-public-listen'),
+      );
+      expect(await secondaryResourceUpdateFuture, isTrue);
+      expect(
+        ((secondaryStatelessNotifications.current['params'] as Map)['_meta']
+            as Map)['io.modelcontextprotocol/subscriptionId'],
+        equals('stateless-public-listen-secondary'),
+      );
+      final statelessResourceSubscriptionLookup = await statelessPublicMcpClient
+          .lookupWampSubscriptionDirect(
+            'app.events.resource.context',
+            id: 'stateless-public-resource-subscription-lookup',
+          );
+      final statelessResourceSubscriptionId =
+          (statelessResourceSubscriptionLookup.arguments.single as num).toInt();
+      Future<int> statelessResourceSubscriberCount() async {
+        final result = await statelessPublicMcpClient
+            .countWampSubscriptionSubscribersDirect(
+              statelessResourceSubscriptionId,
+              id: 'stateless-public-resource-subscriber-count',
+            );
+        return (result.arguments.single as num).toInt();
+      }
+
+      expect(await statelessResourceSubscriberCount(), equals(1));
+      await statelessNotifications.cancel();
+      await statelessSubscription.close();
+      expect(
+        await statelessSubscription.closed,
+        equals(McpSubscriptionCloseReason.local),
+      );
+      expect(statelessPublicMcpClient.sessionId, isNull);
+      final secondaryUpdateAfterPrimaryClose = secondaryStatelessNotifications
+          .moveNext()
+          .timeout(const Duration(seconds: 5));
+      await serviceSession.publish(
+        'app.events.resource.context',
+        argumentsKeywords: {'version': liveResourceVersion},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      expect(await secondaryUpdateAfterPrimaryClose, isTrue);
+      var subscriberCountWithSecondaryListener = 0;
+      for (var attempt = 0; attempt < 50; attempt++) {
+        subscriberCountWithSecondaryListener =
+            await statelessResourceSubscriberCount();
+        if (subscriberCountWithSecondaryListener == 1) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(subscriberCountWithSecondaryListener, equals(1));
+      await secondaryStatelessNotifications.cancel();
+      await secondaryStatelessSubscription.close();
+      expect(
+        await secondaryStatelessSubscription.closed,
+        equals(McpSubscriptionCloseReason.local),
+      );
+      var subscriberCountAfterClose = 1;
+      for (var attempt = 0; attempt < 50; attempt++) {
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: {'version': liveResourceVersion},
+          options: core.PublishOptions(acknowledge: true),
+        );
+        subscriberCountAfterClose = await statelessResourceSubscriberCount();
+        if (subscriberCountAfterClose == 0) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(subscriberCountAfterClose, equals(0));
 
       final directPublicResourceTemplates = await directPublicMcpClient
           .listResourceTemplates(

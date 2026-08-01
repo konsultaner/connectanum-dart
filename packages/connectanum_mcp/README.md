@@ -6,8 +6,15 @@ bridge protocol. It covers local stdio MCP servers, router-hosted HTTP
 JSON-RPC and Streamable HTTP endpoints, and MCP tools backed by normal
 Connectanum WAMP procedures.
 
-The supported MCP protocol revision is `2025-11-25`. The package intentionally
-implements a narrow, stable subset first:
+The package supports two MCP HTTP protocol eras:
+
+- `2025-11-25` session-oriented Streamable HTTP with initialize, GET/SSE
+  polling, resume cursors, and DELETE teardown
+- the `2026-07-28` stateless core with `server/discover`, per-request client
+  metadata, ordinary tool/resource/prompt and direct JSON calls, plus
+  request-scoped `subscriptions/listen` SSE delivery
+
+The implementation intentionally keeps a narrow, stable subset:
 
 - lifecycle negotiation with `initialize` and `notifications/initialized`
 - `tools/list`, including optional cursor pagination for large tool catalogs
@@ -22,6 +29,8 @@ implements a narrow, stable subset first:
 - declared WAMP API helpers for procedures, metadata, and pub/sub topics
 - router-hosted MCP endpoints through `connectanum_router` `mcp` HTTP routes
 - direct router-hosted JSON-RPC calls for the same tool/meta API catalog
+- modern filtered notifications for tool-list changes and configured dynamic
+  resource updates
 
 The package itself does not ship prompt argument completions, sampling, or
 tasks yet. Network MCP endpoints are hosted by `connectanum_router` routes with
@@ -31,7 +40,9 @@ calls for frontend clients that do not need the MCP `initialize` lifecycle.
 Consumer clients can use `McpStreamableHttpClient` from
 `package:connectanum_mcp/connectanum_mcp_io.dart`, including
 `ConnectanumHttpAuthClient` plus `McpStreamableHttpClient.withAuthGrant(...)`
-for bearer-protected routes that issue HTTP auth bridge grants.
+for bearer-protected routes that issue HTTP auth bridge grants. Use the
+explicit `stateless` constructors for `2026-07-28`; this keeps the modern
+request-scoped lifecycle separate from session-era initialize/poll/delete.
 Tool execution failures are returned as MCP tool results with `isError: true`;
 malformed JSON-RPC messages, unknown methods, and invalid parameters remain
 protocol errors.
@@ -68,6 +79,34 @@ final server = McpServer(
 Transport adapters call `server.handleMessage(...)` with decoded JSON-RPC
 objects and serialize the returned map when a response is produced. MCP
 notifications return `null`.
+
+For a modern router-hosted endpoint, discover capabilities and open a filtered
+request-scoped listener without creating an MCP session:
+
+```dart
+import 'package:connectanum_mcp/connectanum_mcp_io.dart';
+
+final client = McpStreamableHttpClient.stateless(
+  Uri.parse('http://127.0.0.1:8080/mcp'),
+  clientInfo: const {'name': 'consumer-application', 'version': '1.0.0'},
+);
+final discovery = await client.discover();
+final listener = await client.listen(
+  toolsListChanged: true,
+  resourceSubscriptions: const ['app://example/context/live'],
+);
+
+await for (final notification in listener.notifications) {
+  // Refresh the advertised tool catalog or reread the updated resource.
+  print(notification['method']);
+}
+```
+
+Call `listener.close()` to cancel by closing its HTTP response stream. Multiple
+listeners can be active concurrently. If an application needs custom proxy or
+TLS settings, pass a `subscriptionHttpClientFactory` that returns a fresh
+configured `HttpClient` for each listener so each stream remains independently
+cancellable.
 
 Large tool catalogs can be paged by setting `toolListPageSize`:
 
@@ -490,11 +529,12 @@ placeholders with string arguments supplied by the MCP client. A
 `read_procedure` receives the configured resource URI as its first positional
 WAMP argument. Its final result is returned as `application/json` text with
 lossless `arguments`, `argumentsKeywords`, and `details` fields. An optional
-`update_topic` enables Streamable HTTP resource subscriptions; each authorized
-WAMP event queues `notifications/resources/updated` with the resource URI, and
-the consumer reads the procedure-backed resource again. Update event payloads
-are not treated as resource contents. Direct JSON remains lifecycle-free and
-rejects resource subscription methods.
+`update_topic` enables both session-era Streamable HTTP resource subscriptions
+and modern `subscriptions/listen` resource filters. Each authorized WAMP event
+delivers `notifications/resources/updated` with the resource URI, and the
+consumer reads the procedure-backed resource again. Update event payloads are
+not treated as resource contents. Ordinary direct JSON remains lifecycle-free;
+the modern listener is the dedicated long-lived request.
 
 Both the dynamic read procedure and update-topic subscription are checked
 against the route-authenticated principal's WAMP permissions. Static resources
@@ -551,4 +591,5 @@ with `type: mcp` when an application needs a router-hosted network MCP endpoint.
 The router-hosted route supports MCP JSON-RPC `POST`, Streamable HTTP session
 IDs, POST responses that may arrive as JSON or SSE, GET/SSE polling with resume
 cursors, DELETE-based session teardown, direct JSON-RPC frontend clients,
-configured resources, configured resource templates, and configured prompts.
+`2026-07-28` stateless discovery and request-scoped listeners, configured
+resources, configured resource templates, and configured prompts.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -11,6 +12,7 @@ import 'oauth_dynamic_client_registration.dart';
 import 'oauth_token_exchange.dart';
 
 typedef McpJsonMap = Map<String, Object?>;
+typedef McpHttpClientFactory = HttpClient Function();
 
 const _acceptJson = 'application/json';
 const _acceptSse = 'text/event-stream';
@@ -306,6 +308,462 @@ final class McpStatelessDiscoveryResult {
   final String? cacheScope;
 }
 
+/// How an MCP 2026 request-scoped subscription stream ended.
+enum McpSubscriptionCloseReason { local, graceful, remote }
+
+/// Notification filter requested or acknowledged by `subscriptions/listen`.
+class McpSubscriptionFilter {
+  McpSubscriptionFilter({
+    this.toolsListChanged = false,
+    this.promptsListChanged = false,
+    this.resourcesListChanged = false,
+    Iterable<String> resourceSubscriptions = const <String>[],
+  }) : resourceSubscriptions = List<String>.unmodifiable(resourceSubscriptions);
+
+  final bool toolsListChanged;
+  final bool promptsListChanged;
+  final bool resourcesListChanged;
+  final List<String> resourceSubscriptions;
+
+  McpJsonMap toJson() => <String, Object?>{
+    if (toolsListChanged) 'toolsListChanged': true,
+    if (promptsListChanged) 'promptsListChanged': true,
+    if (resourcesListChanged) 'resourcesListChanged': true,
+    if (resourceSubscriptions.isNotEmpty)
+      'resourceSubscriptions': <String>[...resourceSubscriptions],
+  };
+}
+
+McpSubscriptionFilter _mcpSubscriptionFilterFromJson(
+  Object? value, {
+  required String label,
+}) {
+  final map = _jsonMapFrom(value, label: label);
+
+  bool field(String name) {
+    final value = map[name];
+    if (value == null) {
+      return false;
+    }
+    if (value is! bool) {
+      throw FormatException('$label.$name must be a boolean');
+    }
+    return value;
+  }
+
+  final rawResourceSubscriptions = map['resourceSubscriptions'];
+  final resourceSubscriptions = <String>[];
+  if (rawResourceSubscriptions != null) {
+    if (rawResourceSubscriptions is! List) {
+      throw FormatException('$label.resourceSubscriptions must be a list');
+    }
+    final seen = <String>{};
+    for (var index = 0; index < rawResourceSubscriptions.length; index++) {
+      final value = rawResourceSubscriptions[index];
+      if (value is! String) {
+        throw FormatException(
+          '$label.resourceSubscriptions[$index] must be a string',
+        );
+      }
+      final String uri;
+      try {
+        uri = _validatedMcpResourceUri(
+          value,
+          '$label.resourceSubscriptions[$index]',
+        );
+      } on ArgumentError {
+        throw FormatException(
+          '$label.resourceSubscriptions[$index] must be an absolute MCP '
+          'resource URI',
+        );
+      }
+      if (!seen.add(uri)) {
+        throw FormatException(
+          '$label.resourceSubscriptions must not contain duplicates',
+        );
+      }
+      resourceSubscriptions.add(uri);
+    }
+  }
+
+  return McpSubscriptionFilter(
+    toolsListChanged: field('toolsListChanged'),
+    promptsListChanged: field('promptsListChanged'),
+    resourcesListChanged: field('resourcesListChanged'),
+    resourceSubscriptions: resourceSubscriptions,
+  );
+}
+
+/// Active MCP 2026 request-scoped SSE subscription.
+class McpStreamableSubscription {
+  McpStreamableSubscription._({
+    required this.id,
+    required this.requestedNotifications,
+    required HttpClient httpClient,
+    required HttpClientRequest request,
+    required HttpClientResponse response,
+    required void Function() onClosed,
+  }) : _httpClient = httpClient,
+       _request = request,
+       _response = response,
+       _onClosed = onClosed;
+
+  final Object id;
+  final McpSubscriptionFilter requestedNotifications;
+  final HttpClient _httpClient;
+  final HttpClientRequest _request;
+  final HttpClientResponse _response;
+  final void Function() _onClosed;
+  final StreamController<McpJsonMap> _notifications =
+      StreamController<McpJsonMap>();
+  final Completer<McpSubscriptionFilter> _acknowledged =
+      Completer<McpSubscriptionFilter>();
+  final Completer<McpSubscriptionCloseReason> _closed =
+      Completer<McpSubscriptionCloseReason>();
+  final List<String> _dataLines = <String>[];
+
+  StreamSubscription<String>? _lineSubscription;
+  McpSubscriptionFilter? _acknowledgedNotifications;
+  bool _gracefulResultSeen = false;
+  bool _finished = false;
+
+  McpSubscriptionFilter get acknowledgedNotifications {
+    final value = _acknowledgedNotifications;
+    if (value == null) {
+      throw StateError('MCP subscription has not been acknowledged');
+    }
+    return value;
+  }
+
+  Stream<McpJsonMap> get notifications => _notifications.stream;
+
+  Future<McpSubscriptionCloseReason> get closed => _closed.future;
+
+  Future<McpSubscriptionFilter> get _acknowledgment => _acknowledged.future;
+
+  void _start() {
+    _lineSubscription = _response
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(
+          _handleLine,
+          onError: _handleStreamError,
+          onDone: _handleStreamDone,
+          cancelOnError: false,
+        );
+  }
+
+  Future<void> close() async {
+    if (_finished) {
+      return;
+    }
+    _finish(McpSubscriptionCloseReason.local);
+    _request.abort();
+    await _lineSubscription?.cancel();
+  }
+
+  void _handleLine(String line) {
+    if (_finished) {
+      return;
+    }
+    if (line.isEmpty) {
+      _commitEvent();
+      return;
+    }
+    if (line.startsWith(':')) {
+      return;
+    }
+    final colon = line.indexOf(':');
+    final field = colon == -1 ? line : line.substring(0, colon);
+    var value = colon == -1 ? '' : line.substring(colon + 1);
+    if (value.startsWith(' ')) {
+      value = value.substring(1);
+    }
+    if (field == 'data') {
+      _dataLines.add(value);
+    }
+  }
+
+  void _commitEvent() {
+    if (_dataLines.isEmpty || _finished) {
+      _dataLines.clear();
+      return;
+    }
+    final data = _dataLines.join('\n');
+    _dataLines.clear();
+    try {
+      final decoded = jsonDecode(data);
+      final message = _jsonMapFrom(
+        decoded,
+        label: 'subscriptions/listen SSE message',
+      );
+      _handleMessage(message);
+    } catch (error, stackTrace) {
+      _fail(error, stackTrace);
+    }
+  }
+
+  void _handleMessage(McpJsonMap message) {
+    _validateJsonRpcVersion(message, label: 'subscription message');
+
+    if (!_acknowledged.isCompleted) {
+      if (message['error'] is Map) {
+        final responseId = _validateJsonRpcResponseId(
+          message,
+          label: 'subscriptions/listen error response',
+        );
+        if (responseId != id) {
+          throw const FormatException(
+            'subscriptions/listen error response id does not match request',
+          );
+        }
+        throw McpJsonRpcException(
+          id: responseId,
+          method: 'subscriptions/listen',
+          error: _jsonMapFrom(
+            message['error'],
+            label: 'subscriptions/listen error',
+          ),
+        );
+      }
+      if (message.containsKey('id') ||
+          message['method'] != 'notifications/subscriptions/acknowledged') {
+        throw const FormatException(
+          'The first subscriptions/listen SSE message must be the '
+          'acknowledgment notification',
+        );
+      }
+      final params = _subscriptionParams(
+        message,
+        label: 'subscriptions/listen acknowledgment',
+      );
+      final acknowledged = _mcpSubscriptionFilterFromJson(
+        params['notifications'],
+        label: 'subscriptions/listen acknowledgment notifications',
+      );
+      _validateAcknowledgedSubset(acknowledged);
+      _acknowledgedNotifications = acknowledged;
+      _acknowledged.complete(acknowledged);
+      return;
+    }
+
+    if (message.containsKey('result') || message.containsKey('error')) {
+      final responseId = _validateJsonRpcResponseId(
+        message,
+        label: 'subscriptions/listen completion response',
+      );
+      if (responseId != id) {
+        throw const FormatException(
+          'subscriptions/listen completion response id does not match request',
+        );
+      }
+      if (message['error'] is Map) {
+        throw McpJsonRpcException(
+          id: responseId,
+          method: 'subscriptions/listen',
+          error: _jsonMapFrom(
+            message['error'],
+            label: 'subscriptions/listen completion error',
+          ),
+        );
+      }
+      final result = _jsonMapFrom(
+        message['result'],
+        label: 'subscriptions/listen completion result',
+      );
+      if (result['resultType'] != 'complete') {
+        throw const FormatException(
+          'subscriptions/listen completion resultType must be complete',
+        );
+      }
+      _validateSubscriptionMetadata(
+        result,
+        label: 'subscriptions/listen completion result',
+      );
+      _gracefulResultSeen = true;
+      return;
+    }
+
+    final method = message['method'];
+    if (message.containsKey('id') || method is! String) {
+      throw const FormatException(
+        'subscriptions/listen streams may deliver only notifications',
+      );
+    }
+    final params = _subscriptionParams(
+      message,
+      label: 'subscriptions/listen notification',
+    );
+    final acknowledged = acknowledgedNotifications;
+    switch (method) {
+      case 'notifications/tools/list_changed':
+        if (!acknowledged.toolsListChanged) {
+          throw const FormatException(
+            'Received an unacknowledged tools list-change notification',
+          );
+        }
+        break;
+      case 'notifications/prompts/list_changed':
+        if (!acknowledged.promptsListChanged) {
+          throw const FormatException(
+            'Received an unacknowledged prompts list-change notification',
+          );
+        }
+        break;
+      case 'notifications/resources/list_changed':
+        if (!acknowledged.resourcesListChanged) {
+          throw const FormatException(
+            'Received an unacknowledged resources list-change notification',
+          );
+        }
+        break;
+      case 'notifications/resources/updated':
+        if (acknowledged.resourceSubscriptions.isEmpty) {
+          throw const FormatException(
+            'Received an unacknowledged resource-update notification',
+          );
+        }
+        final uri = params['uri'];
+        if (uri is! String) {
+          throw const FormatException(
+            'Resource-update notifications must include a URI',
+          );
+        }
+        try {
+          _validatedMcpResourceUri(
+            uri,
+            'subscriptions/listen resource update URI',
+          );
+        } on ArgumentError {
+          throw const FormatException(
+            'Resource-update notification URI must be absolute',
+          );
+        }
+        if (!acknowledged.resourceSubscriptions.contains(uri)) {
+          throw const FormatException(
+            'Received a resource update outside the acknowledged filter',
+          );
+        }
+        break;
+      default:
+        throw FormatException(
+          'Unsupported subscriptions/listen notification: $method',
+        );
+    }
+    _notifications.add(Map<String, Object?>.unmodifiable(message));
+  }
+
+  McpJsonMap _subscriptionParams(McpJsonMap message, {required String label}) {
+    final params = _jsonMapFrom(message['params'], label: '$label params');
+    _validateSubscriptionMetadata(params, label: '$label params');
+    return params;
+  }
+
+  void _validateSubscriptionMetadata(
+    McpJsonMap container, {
+    required String label,
+  }) {
+    final metadata = _jsonMapFrom(container['_meta'], label: '$label metadata');
+    if (metadata['io.modelcontextprotocol/subscriptionId'] != id) {
+      throw FormatException('$label has the wrong subscription ID');
+    }
+  }
+
+  void _validateAcknowledgedSubset(McpSubscriptionFilter acknowledged) {
+    if (acknowledged.toolsListChanged &&
+        !requestedNotifications.toolsListChanged) {
+      throw const FormatException(
+        'Server acknowledged an unrequested tools list subscription',
+      );
+    }
+    if (acknowledged.promptsListChanged &&
+        !requestedNotifications.promptsListChanged) {
+      throw const FormatException(
+        'Server acknowledged an unrequested prompts list subscription',
+      );
+    }
+    if (acknowledged.resourcesListChanged &&
+        !requestedNotifications.resourcesListChanged) {
+      throw const FormatException(
+        'Server acknowledged an unrequested resources list subscription',
+      );
+    }
+    final requestedResources = requestedNotifications.resourceSubscriptions
+        .toSet();
+    if (acknowledged.resourceSubscriptions.any(
+      (uri) => !requestedResources.contains(uri),
+    )) {
+      throw const FormatException(
+        'Server acknowledged an unrequested resource subscription',
+      );
+    }
+  }
+
+  void _handleStreamError(Object error, StackTrace stackTrace) {
+    _fail(error, stackTrace);
+  }
+
+  void _handleStreamDone() {
+    if (_finished) {
+      return;
+    }
+    _commitEvent();
+    if (_finished) {
+      return;
+    }
+    if (!_acknowledged.isCompleted) {
+      _fail(
+        const McpStreamableProtocolException(
+          'subscriptions/listen closed before acknowledgment',
+        ),
+        StackTrace.current,
+      );
+      return;
+    }
+    _finish(
+      _gracefulResultSeen
+          ? McpSubscriptionCloseReason.graceful
+          : McpSubscriptionCloseReason.remote,
+    );
+  }
+
+  void _fail(Object error, StackTrace stackTrace) {
+    if (_finished) {
+      return;
+    }
+    if (!_acknowledged.isCompleted) {
+      _acknowledged.completeError(error, stackTrace);
+    } else {
+      _notifications.addError(error, stackTrace);
+    }
+    _request.abort(error, stackTrace);
+    final lineSubscription = _lineSubscription;
+    if (lineSubscription != null) {
+      unawaited(lineSubscription.cancel());
+    }
+    _finish(McpSubscriptionCloseReason.remote);
+  }
+
+  void _finish(McpSubscriptionCloseReason reason) {
+    if (_finished) {
+      return;
+    }
+    _finished = true;
+    _dataLines.clear();
+    _httpClient.close(force: true);
+    if (!_acknowledged.isCompleted) {
+      _acknowledged.completeError(
+        const McpStreamableProtocolException(
+          'subscriptions/listen ended before acknowledgment',
+        ),
+      );
+    }
+    unawaited(_notifications.close());
+    _closed.complete(reason);
+    _onClosed();
+  }
+}
+
 /// HTTP client for session-based MCP revisions and stateless MCP 2026.
 ///
 /// For session-based revisions, the client keeps the negotiated MCP session
@@ -318,6 +776,7 @@ final class McpStreamableHttpClient {
   McpStreamableHttpClient(
     this.endpoint, {
     HttpClient? httpClient,
+    McpHttpClientFactory? subscriptionHttpClientFactory,
     this.headers = const <String, String>{},
     McpJsonMap? clientInfo,
     this.clientCapabilities = const <String, Object?>{},
@@ -329,6 +788,8 @@ final class McpStreamableHttpClient {
          'defaultProtocolVersion',
        ),
        _httpClient = httpClient ?? HttpClient(),
+       _subscriptionHttpClientFactory =
+           subscriptionHttpClientFactory ?? HttpClient.new,
        _ownsHttpClient = httpClient == null || closeHttpClient,
        _authorizationHeader = _authorizationHeaderFrom(headers),
        _protocolVersion = _validatedMcpProtocolVersion(
@@ -341,6 +802,7 @@ final class McpStreamableHttpClient {
     Uri endpoint,
     String bearerToken, {
     HttpClient? httpClient,
+    McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
     McpJsonMap? clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
@@ -349,6 +811,7 @@ final class McpStreamableHttpClient {
   }) : this(
          endpoint,
          httpClient: httpClient,
+         subscriptionHttpClientFactory: subscriptionHttpClientFactory,
          headers: _headersWithBearerToken(headers, bearerToken),
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
@@ -362,11 +825,13 @@ final class McpStreamableHttpClient {
     required McpJsonMap clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
     HttpClient? httpClient,
+    McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
     bool closeHttpClient = false,
   }) : this(
          endpoint,
          httpClient: httpClient,
+         subscriptionHttpClientFactory: subscriptionHttpClientFactory,
          headers: headers,
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
@@ -381,12 +846,14 @@ final class McpStreamableHttpClient {
     required McpJsonMap clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
     HttpClient? httpClient,
+    McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
     bool closeHttpClient = false,
   }) : this.withBearerToken(
          endpoint,
          bearerToken,
          httpClient: httpClient,
+         subscriptionHttpClientFactory: subscriptionHttpClientFactory,
          headers: headers,
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
@@ -401,12 +868,14 @@ final class McpStreamableHttpClient {
     required McpJsonMap clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
     HttpClient? httpClient,
+    McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
     bool closeHttpClient = false,
   }) : this.withAuthGrant(
          endpoint,
          grant,
          httpClient: httpClient,
+         subscriptionHttpClientFactory: subscriptionHttpClientFactory,
          headers: headers,
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
@@ -418,6 +887,7 @@ final class McpStreamableHttpClient {
     Uri endpoint,
     McpOAuthTokenGrant grant, {
     HttpClient? httpClient,
+    McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
     McpJsonMap? clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
@@ -429,6 +899,7 @@ final class McpStreamableHttpClient {
       endpoint,
       grant.accessToken,
       httpClient: httpClient,
+      subscriptionHttpClientFactory: subscriptionHttpClientFactory,
       headers: headers,
       clientInfo: clientInfo,
       clientCapabilities: clientCapabilities,
@@ -442,6 +913,7 @@ final class McpStreamableHttpClient {
     Uri endpoint,
     ConnectanumHttpAuthGrant grant, {
     HttpClient? httpClient,
+    McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
     McpJsonMap? clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
@@ -450,6 +922,7 @@ final class McpStreamableHttpClient {
   }) : this(
          endpoint,
          httpClient: httpClient,
+         subscriptionHttpClientFactory: subscriptionHttpClientFactory,
          headers: _headersWithAuthGrant(headers, grant),
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
@@ -463,8 +936,11 @@ final class McpStreamableHttpClient {
   final McpJsonMap clientCapabilities;
   final String defaultProtocolVersion;
   final HttpClient _httpClient;
+  final McpHttpClientFactory _subscriptionHttpClientFactory;
   final bool _ownsHttpClient;
   String? _authorizationHeader;
+  final Set<McpStreamableSubscription> _subscriptions =
+      <McpStreamableSubscription>{};
   final _toolHeaderParametersByName = <String, List<_McpToolHeaderParameter>>{};
 
   int _nextRequestId = 1;
@@ -817,6 +1293,134 @@ final class McpStreamableHttpClient {
       ttlMs: ttlMs as int?,
       cacheScope: cacheScope as String?,
     );
+  }
+
+  Future<McpStreamableSubscription> listen({
+    Object? id,
+    bool toolsListChanged = false,
+    bool promptsListChanged = false,
+    bool resourcesListChanged = false,
+    Iterable<String> resourceSubscriptions = const <String>[],
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    if (protocolVersion != latestProtocolVersion) {
+      throw const McpStreamableProtocolException(
+        'subscriptions/listen requires the MCP 2026 stateless protocol',
+      );
+    }
+
+    final validatedResources = <String>[];
+    final seenResources = <String>{};
+    for (final resourceUri in resourceSubscriptions) {
+      final uri = _validatedMcpResourceUri(
+        resourceUri,
+        'resourceSubscriptions',
+      );
+      if (!seenResources.add(uri)) {
+        throw ArgumentError.value(
+          resourceSubscriptions,
+          'resourceSubscriptions',
+          'MCP resource subscriptions must not contain duplicates.',
+        );
+      }
+      validatedResources.add(uri);
+    }
+    final requestedNotifications = McpSubscriptionFilter(
+      toolsListChanged: toolsListChanged,
+      promptsListChanged: promptsListChanged,
+      resourcesListChanged: resourcesListChanged,
+      resourceSubscriptions: validatedResources,
+    );
+    final requestId = id ?? _nextRequestId++;
+    final message = <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': requestId,
+      'method': 'subscriptions/listen',
+      'params': <String, Object?>{
+        'notifications': requestedNotifications.toJson(),
+      },
+    };
+    _validateJsonRpcRequestId(message, label: 'subscriptions/listen request');
+    final preparedMessage = _prepareMessageForProtocol(
+      message,
+      latestProtocolVersion,
+    );
+
+    final subscriptionHttpClient = _subscriptionHttpClientFactory();
+    final HttpClientRequest request;
+    try {
+      request = await subscriptionHttpClient.postUrl(endpoint);
+    } catch (_) {
+      subscriptionHttpClient.close(force: true);
+      rethrow;
+    }
+    final HttpClientResponse response;
+    try {
+      _applyHeaders(
+        request,
+        accept: _acceptStreamableHttp,
+        includeSession: false,
+        protocolVersion: latestProtocolVersion,
+        extraHeaders: headers,
+      );
+      _applyStandardRequestHeaders(request, preparedMessage);
+      request.headers.contentType = ContentType.json;
+      request.persistentConnection = false;
+      final requestBody = utf8.encode(jsonEncode(preparedMessage));
+      request.contentLength = requestBody.length;
+      request.add(requestBody);
+      response = await request.close();
+    } catch (_) {
+      subscriptionHttpClient.close(force: true);
+      rethrow;
+    }
+    if (response.statusCode < HttpStatus.ok ||
+        response.statusCode >= HttpStatus.multipleChoices) {
+      final body = await _readBody(response);
+      subscriptionHttpClient.close(force: true);
+      _throwIfHttpError(response, body);
+    }
+    if (!_isSse(response)) {
+      final body = await _readBody(response);
+      if (_isJson(response) && body.isNotEmpty) {
+        final jsonResponse = _jsonMapFromBody(
+          body,
+          'subscriptions/listen JSON response',
+        );
+        subscriptionHttpClient.close(force: true);
+        _jsonRpcResultFrom(jsonResponse, method: 'subscriptions/listen');
+      }
+      subscriptionHttpClient.close(force: true);
+      throw FormatException(
+        'Expected $_acceptSse response, got '
+        '${response.headers.contentType?.mimeType ?? 'unknown'}',
+      );
+    }
+    if (response.headers.value(_headerSessionId) != null) {
+      subscriptionHttpClient.close(force: true);
+      throw const McpStreamableProtocolException(
+        'MCP 2026 subscriptions/listen responses must not create a session',
+      );
+    }
+
+    late final McpStreamableSubscription subscription;
+    subscription = McpStreamableSubscription._(
+      id: requestId,
+      requestedNotifications: requestedNotifications,
+      httpClient: subscriptionHttpClient,
+      request: request,
+      response: response,
+      onClosed: () => _subscriptions.remove(subscription),
+    );
+    _subscriptions.add(subscription);
+    subscription._start();
+    try {
+      await subscription._acknowledgment;
+      return subscription;
+    } catch (_) {
+      await subscription.close();
+      rethrow;
+    }
   }
 
   Future<void> notifyInitialized({
@@ -1638,9 +2242,10 @@ final class McpStreamableHttpClient {
     Map<String, String> extraHeaders = const <String, String>{},
   }) async {
     final request = await _httpClient.postUrl(endpoint);
+    final acceptsSse = streamable || protocolVersion == latestProtocolVersion;
     _applyHeaders(
       request,
-      accept: streamable ? _acceptStreamableHttp : _acceptJson,
+      accept: acceptsSse ? _acceptStreamableHttp : _acceptJson,
       includeSession: includeSession,
       protocolVersion: protocolVersion,
       extraHeaders: extraHeaders,
@@ -1921,6 +2526,9 @@ final class McpStreamableHttpClient {
   }
 
   void close({bool force = false}) {
+    for (final subscription in _subscriptions.toList(growable: false)) {
+      unawaited(subscription.close());
+    }
     if (_ownsHttpClient) {
       _httpClient.close(force: force);
     }

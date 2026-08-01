@@ -47,6 +47,13 @@ Driving use case: downstream application integrations
   session/resume headers on modern requests and never mint or echo a session
   ID. Request-scoped SSE remains available for responses; long-lived change
   delivery uses `subscriptions/listen`.
+- A `subscriptions/listen` request carries an explicit notification filter.
+  The first SSE JSON-RPC message is
+  `notifications/subscriptions/acknowledged` with the supported subset, and
+  every acknowledgment, delivered notification, and graceful completion uses
+  the request ID as `io.modelcontextprotocol/subscriptionId`. Closing the HTTP
+  response stream cancels the listener; there is no cancellation POST or
+  replay cursor.
 - The specification reserves `-32020` for header mismatch, `-32021` for a
   missing required client capability, and `-32022` for an unsupported protocol
   version. Unknown modern RPC methods use HTTP 404 plus JSON-RPC `-32601`.
@@ -73,9 +80,9 @@ Driving use case: downstream application integrations
   `resources.subscribe` accepts
   `resources/subscribe` and `resources/unsubscribe`; after subscription it may
   send `notifications/resources/updated` with the resource URI, and the client
-  reads that resource again. In the modern era, follow-up work must map change
-  delivery to request-scoped `subscriptions/listen` rather than reusing legacy
-  protocol sessions.
+  reads that resource again. In the modern era, change delivery maps to the
+  request-scoped `subscriptions/listen` resource filter rather than reusing
+  legacy protocol sessions.
 - `prompts/list` and `prompts/get` expose user-selectable prompt templates.
   `prompts/list` supports cursor pagination, `prompts/get` accepts
   string-valued arguments, and prompt messages use `user` or `assistant` roles
@@ -151,12 +158,17 @@ Driving use case: downstream application integrations
   helpers as legacy traffic, but validate modern metadata, return protocol-
   reserved errors, stamp successful results, and never create protocol session
   state.
-- Advertise only capabilities implemented for the modern era. In particular,
-  do not carry legacy list-change/resource-subscribe flags into discovery until
-  `subscriptions/listen` exists.
-- Treat `subscriptions/listen`, request-scoped SSE cancellation, MRTR input
-  requests, and cache metadata as the next compatibility layer. Until then,
-  describe the router path as modern stateless core compatibility rather than
+- Advertise only capabilities implemented for the modern era. With
+  `subscriptions/listen` available, router discovery may truthfully expose
+  tool list-change and configured resource-subscription flags while leaving
+  unsupported prompt/resource list-change flags absent.
+- Keep each modern listener on its own HTTP client connection so consumer-side
+  cancellation does not close ordinary request traffic or another listener.
+  Router resource-update WAMP subscriptions can be shared, but preparation and
+  active-listener references must prevent one concurrent listener from
+  unsubscribing another.
+- Treat MRTR input requests and cache metadata as the next compatibility layer.
+  The router path remains a modern compatibility subset rather than a claim of
   complete `2026-07-28` conformance.
 
 ## Recommended First Package Shape

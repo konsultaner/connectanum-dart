@@ -1363,8 +1363,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dart-consumer-public-stateless-discover", body)
         self.assertIn("dart-consumer-secure-stateless-discover", body)
         self.assertIn("dart-consumer-public-stateless-publish", body)
+        self.assertIn("dart-consumer-public-stateless-listen", body)
+        self.assertIn("dart-consumer-secure-stateless-listen", body)
         self.assertIn(
-            '"public":{"stateless2026":true,"directJson":true,'
+            '"public":{"stateless2026":true,"subscriptionsListen":true,'
+            '"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
             '"streamableEmptyLastEventId":true,'
@@ -1377,6 +1380,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"secure":{"ticketGrant":true,"stateless2026":true,'
+            '"subscriptionsListen":true,'
             '"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'

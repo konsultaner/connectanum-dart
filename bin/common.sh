@@ -27107,10 +27107,12 @@ Future<void> main() async {
         McpStreamableHttpClient.latestProtocolVersion,
       ) &&
           publicDiscovery.capabilities.containsKey('tools') &&
+          (publicDiscovery.capabilities['tools'] as Map)['listChanged'] ==
+              true &&
           publicDiscovery.serverInfo != null,
       'Dart consumer MCP 2026 discovery was incomplete.',
     );
-    final publicStatelessTools = await publicStatelessClient.listTools(
+    final publicStatelessTools = await publicStatelessClient.listToolsDirect(
       id: 'dart-consumer-public-stateless-tools',
     );
     _expect(
@@ -27127,6 +27129,32 @@ Future<void> main() async {
     _expect(
       jsonEncode(publicStatelessResource).contains('Router CLI MCP context.'),
       'Dart consumer MCP 2026 resources/read missed public content.',
+    );
+    final publicStatelessListener = await publicStatelessClient.listen(
+      id: 'dart-consumer-public-stateless-listen',
+      toolsListChanged: true,
+      resourceSubscriptions: const <String>['cli://mcp/context'],
+    );
+    try {
+      _expect(
+        publicStatelessListener
+                .acknowledgedNotifications
+                .toolsListChanged &&
+            publicStatelessListener
+                .acknowledgedNotifications
+                .resourceSubscriptions
+                .isEmpty,
+        'Dart consumer MCP 2026 subscriptions/listen acknowledgment was incomplete.',
+      );
+    } finally {
+      await publicStatelessListener.close();
+    }
+    _expect(
+      (await publicStatelessListener.closed) ==
+              McpSubscriptionCloseReason.local &&
+          publicStatelessClient.sessionId == null &&
+          publicStatelessClient.lastEventId == null,
+      'Dart consumer MCP 2026 subscriptions/listen leaked session state.',
     );
     final publicStatelessSubscription =
         await publicStatelessClient.subscribeWampTopic(
@@ -27551,10 +27579,11 @@ Future<void> main() async {
         secureDiscovery.supportedVersions.contains(
               McpStreamableHttpClient.latestProtocolVersion,
             ) &&
-            secureDiscovery.capabilities.containsKey('resources'),
+            (secureDiscovery.capabilities['tools'] as Map)['listChanged'] ==
+                true,
         'Dart consumer protected MCP 2026 discovery was incomplete.',
       );
-      final secureStatelessTools = await secureStatelessClient.listTools(
+      final secureStatelessTools = await secureStatelessClient.listToolsDirect(
         id: 'dart-consumer-secure-stateless-tools',
       );
       _expect(
@@ -27575,10 +27604,31 @@ Future<void> main() async {
         ).contains('Router CLI secure MCP context.'),
         'Dart consumer protected MCP 2026 resources/read missed content.',
       );
+      final secureStatelessListener = await secureStatelessClient.listen(
+        id: 'dart-consumer-secure-stateless-listen',
+        toolsListChanged: true,
+        resourceSubscriptions: const <String>['cli://mcp/secure/context'],
+      );
+      try {
+        _expect(
+          secureStatelessListener
+                  .acknowledgedNotifications
+                  .toolsListChanged &&
+              secureStatelessListener
+                  .acknowledgedNotifications
+                  .resourceSubscriptions
+                  .isEmpty,
+          'Dart consumer protected MCP 2026 subscriptions/listen acknowledgment was incomplete.',
+        );
+      } finally {
+        await secureStatelessListener.close();
+      }
       _expect(
-        secureStatelessClient.sessionId == null &&
+        (await secureStatelessListener.closed) ==
+                McpSubscriptionCloseReason.local &&
+            secureStatelessClient.sessionId == null &&
             secureStatelessClient.lastEventId == null,
-        'Dart consumer protected MCP 2026 request leaked session state.',
+        'Dart consumer protected MCP 2026 listener leaked session state.',
       );
     } finally {
       secureStatelessClient.close(force: true);
@@ -30365,6 +30415,7 @@ Future<void> main() async {
       'routerCliConsumerSummary': <String, Object?>{
         'public': <String, Object?>{
           'stateless2026': true,
+          'subscriptionsListen': true,
           'directJson': true,
           'streamable': true,
           'streamableInvalidLastEventId': true,
@@ -30381,6 +30432,7 @@ Future<void> main() async {
         'secure': <String, Object?>{
           'ticketGrant': true,
           'stateless2026': true,
+          'subscriptionsListen': true,
           'directJson': true,
           'streamable': true,
           'streamableInvalidLastEventId': true,
@@ -31524,8 +31576,8 @@ DART
   printf '%s\n' "$dart_consumer_summary"
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
-    '"public":{"stateless2026":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"stateless2026":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"public":{"stateless2026":true,"subscriptionsListen":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
+    '"secure":{"ticketGrant":true,"stateless2026":true,"subscriptionsListen":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
