@@ -12,7 +12,8 @@ The package supports two MCP HTTP protocol eras:
   polling, resume cursors, and DELETE teardown
 - the `2026-07-28` stateless core with `server/discover`, per-request client
   metadata, ordinary tool/resource/prompt and direct JSON calls, plus
-  request-scoped `subscriptions/listen` SSE delivery
+  request-scoped `subscriptions/listen` SSE delivery and form-elicitation
+  multi round-trip tool calls
 
 The implementation intentionally keeps a narrow, stable subset:
 
@@ -31,6 +32,8 @@ The implementation intentionally keeps a narrow, stable subset:
 - direct router-hosted JSON-RPC calls for the same tool/meta API catalog
 - modern filtered notifications for tool-list changes and configured dynamic
   resource updates
+- bounded form-mode `elicitation/create` retries for tools that need
+  non-sensitive consumer input
 
 The package itself does not ship prompt argument completions, sampling, or
 tasks yet. Network MCP endpoints are hosted by `connectanum_router` routes with
@@ -357,6 +360,44 @@ results are returned as a lossless JSON-shaped MCP tool result containing
 builders and result mappers can override that mapping for application-specific
 tool contracts.
 
+For MCP `2026-07-28` multi round-trip tool calls, the default mapping also
+forwards request-scoped capabilities, input responses, and opaque request state
+through WAMP call details. A WAMP callee can request form input by returning
+`x_mcp_result_type: input_required`, `x_mcp_input_requests`, and an optional
+`x_mcp_request_state` in its `YIELD` details. The retry arrives with
+`x_mcp_input_responses` and the exact state value. The public constants live in
+`McpWampMrtrFields`.
+
+Consumers can complete that exchange without handling raw JSON-RPC:
+
+```dart
+final client = McpStreamableHttpClient.stateless(
+  Uri.parse('https://router.example/mcp'),
+  clientInfo: const {'name': 'consumer-app', 'version': '1.0.0'},
+);
+
+final result = await client.callToolDirectWithFormElicitation(
+  'app.deploy',
+  arguments: const {'release': '1.2.3'},
+  onElicitation: (request) async {
+    // Render request.message and request.requestedSchema in application UI.
+    return McpFormElicitationResponse.accept(
+      const {'region': 'eu', 'replicas': 3},
+    );
+  },
+);
+```
+
+Use `callToolWithFormElicitation(...)` for the normal Streamable HTTP request
+shape. Both helpers advertise form support only on that call, keep the original
+tool arguments, use a fresh JSON-RPC ID for every retry, echo opaque state
+unchanged, validate accepted values against the restricted flat schema, and
+enforce a bounded round count. Form elicitation is for non-secret values; use a
+separate authorization or URL-mode flow for credentials, payment data, or
+other sensitive input. A server that requires form input from a caller that did
+not advertise it returns MCP error `-32021` and HTTP 400 on a modern stateless
+route.
+
 That default mapping is useful for application integrations because the MCP
 surface can stay stable while the application keeps its existing WAMP procedure
 names and authorization model. An application can expose a curated set of tools
@@ -592,4 +633,5 @@ The router-hosted route supports MCP JSON-RPC `POST`, Streamable HTTP session
 IDs, POST responses that may arrive as JSON or SSE, GET/SSE polling with resume
 cursors, DELETE-based session teardown, direct JSON-RPC frontend clients,
 `2026-07-28` stateless discovery and request-scoped listeners, configured
-resources, configured resource templates, and configured prompts.
+resources, configured resource templates, configured prompts, and bounded
+form-elicitation tool retries.

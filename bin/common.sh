@@ -8593,6 +8593,7 @@ const _scramSecret = 'consumer-scram-secret';
 const _topic = 'consumer.events.task';
 const _batchTopic = 'consumer.events.batch';
 const _procedure = 'consumer.task.lookup';
+const _mrtrProcedure = 'consumer.task.prepare';
 const _resourceUri = 'consumer://mcp/context';
 const _pagedResourceUri = 'consumer://mcp/context/followup';
 const _resourceTemplateUri = 'consumer://mcp/task/{taskId}';
@@ -8690,6 +8691,15 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
 
   try {
     await _registerConsumerApi(serviceSession);
+    await _smokeMrtrFormElicitation(
+      McpStreamableHttpClient.stateless(
+        _mcpEndpoint(binding),
+        clientInfo: const {
+          'name': 'connectanum_mcp_consumer_smoke',
+          'version': '0.1.0',
+        },
+      ),
+    );
     await _smokeMcpProtocolVersionCompatibility(binding, label: 'public');
     await _smokeDirectJson(publicClient, serviceSession, label: 'public');
     await _smokeStreamableMcp(
@@ -9694,6 +9704,138 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
       },
     );
   });
+
+  final mrtrRegistration = await serviceSession.register(
+    _mrtrProcedure,
+    options: RegisterOptions(
+      custom: const {
+        '_ai_meta_data': {
+          'short_description': 'Prepare a consumer task',
+          'description': 'Collects required form input before preparing.',
+          'input_json_schema': {
+            'type': 'object',
+            'properties': {
+              'release': {'type': 'string'},
+            },
+            'required': ['release'],
+          },
+          'read_only_hint': true,
+          'destructive_hint': false,
+          'idempotent_hint': true,
+          'open_world_hint': false,
+        },
+      },
+    ),
+  );
+  mrtrRegistration.onInvoke((invocation) {
+    final details = invocation.details.custom;
+    if (!details.containsKey(McpWampMrtrFields.inputResponses)) {
+      invocation.respondWith(
+        options: YieldOptions(
+          custom: <String, dynamic>{
+            McpWampMrtrFields.resultType: 'input_required',
+            McpWampMrtrFields.inputRequests: <String, dynamic>{
+              'deployment': <String, dynamic>{
+                'method': 'elicitation/create',
+                'params': <String, dynamic>{
+                  'mode': 'form',
+                  'message': 'Confirm the deployment settings.',
+                  'requestedSchema': <String, dynamic>{
+                    'type': 'object',
+                    'properties': <String, dynamic>{
+                      'email': <String, dynamic>{
+                        'type': 'string',
+                        'format': 'email',
+                      },
+                      'replicas': <String, dynamic>{
+                        'type': 'integer',
+                        'minimum': 1,
+                        'maximum': 8,
+                      },
+                    },
+                    'required': <String>['email', 'replicas'],
+                  },
+                },
+              },
+            },
+            McpWampMrtrFields.requestState: 'consumer-opaque-round-1',
+          },
+        ),
+      );
+      return;
+    }
+    invocation.respondWith(
+      argumentsKeywords: <String, dynamic>{
+        'status': 'ready',
+        'release': invocation.argumentsKeywords?['release'],
+        'inputResponses': details[McpWampMrtrFields.inputResponses],
+        'requestState': details[McpWampMrtrFields.requestState],
+      },
+    );
+  });
+}
+
+Future<void> _smokeMrtrFormElicitation(
+  McpStreamableHttpClient client,
+) async {
+  try {
+    try {
+      await client.callTool(
+        _mrtrProcedure,
+        id: 'consumer-mrtr-missing-capability',
+        arguments: const <String, Object?>{'release': '1.2.3'},
+      );
+      throw StateError('MRTR tool accepted a missing form capability.');
+    } on McpStreamableHttpException catch (error) {
+      if (error.statusCode != HttpStatus.badRequest ||
+          !error.body.contains('${McpErrorCodes.missingRequiredClientCapability}')) {
+        throw StateError(
+          'MRTR missing-capability response was not HTTP 400/-32021.',
+        );
+      }
+    }
+
+    Future<McpFormElicitationResponse> answer(
+      McpFormElicitationRequest request,
+    ) async {
+      if (request.inputRequestId != 'deployment' ||
+          request.message != 'Confirm the deployment settings.') {
+        throw StateError('MRTR form elicitation request was malformed.');
+      }
+      return McpFormElicitationResponse.accept(
+        const <String, Object?>{
+          'email': 'operator@example.com',
+          'replicas': 3,
+        },
+      );
+    }
+
+    final streamable = await client.callToolWithFormElicitation(
+      _mrtrProcedure,
+      id: 'consumer-mrtr-streamable',
+      arguments: const <String, Object?>{'release': '1.2.3'},
+      onElicitation: answer,
+    );
+    final direct = await client.callToolDirectWithFormElicitation(
+      _mrtrProcedure,
+      id: 'consumer-mrtr-direct',
+      arguments: const <String, Object?>{'release': '1.2.3'},
+      onElicitation: answer,
+    );
+    for (final result in <Map<String, Object?>>[streamable, direct]) {
+      final encoded = jsonEncode(result);
+      if (result['isError'] != false ||
+          !encoded.contains('consumer-opaque-round-1') ||
+          !encoded.contains('operator@example.com')) {
+        throw StateError('MRTR form elicitation retry was incomplete.');
+      }
+    }
+    if (client.sessionId != null || client.lastEventId != null) {
+      throw StateError('MRTR stateless calls leaked Streamable session state.');
+    }
+  } finally {
+    client.close(force: true);
+  }
 }
 
 Future<void> _expectConsumerProcedureInvocation(

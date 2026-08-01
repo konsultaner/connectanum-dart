@@ -220,6 +220,20 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             consumer_body,
         )
 
+    def test_mcp_consumer_smoke_exercises_mrtr_form_elicitation(self) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_mcp_consumer_package_smoke")
+
+        self.assertIn("const _mrtrProcedure = 'consumer.task.prepare';", body)
+        self.assertIn("McpWampMrtrFields.inputRequests", body)
+        self.assertIn("McpWampMrtrFields.inputResponses", body)
+        self.assertIn("McpWampMrtrFields.requestState", body)
+        self.assertIn("callToolWithFormElicitation", body)
+        self.assertIn("callToolDirectWithFormElicitation", body)
+        self.assertIn("McpFormElicitationResponse.accept", body)
+        self.assertIn("missingRequiredClientCapability", body)
+        self.assertIn("MRTR stateless calls leaked Streamable session state.", body)
+
     def test_router_cli_consumer_smoke_uses_checkout_command_alias(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
         body = _function_body(script, "run_router_cli_consumer_package_smoke")

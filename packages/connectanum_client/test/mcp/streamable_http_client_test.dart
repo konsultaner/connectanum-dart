@@ -4087,6 +4087,259 @@ void main() {
     });
 
     test(
+      'completes scoped form elicitation through standard and direct calls',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+        final seenInputRequests = <McpFormElicitationRequest>[];
+
+        Future<McpFormElicitationResponse> answer(
+          McpFormElicitationRequest request,
+        ) async {
+          seenInputRequests.add(request);
+          expect(request.inputRequestId, 'deployment');
+          expect(request.message, 'Confirm the deployment settings.');
+          expect(request.requestedSchema['required'], ['email', 'replicas']);
+          return McpFormElicitationResponse.accept(const <String, Object?>{
+            'email': 'operator@example.com',
+            'replicas': 3,
+          });
+        }
+
+        final standardResult = await client.callToolWithFormElicitation(
+          'app.deploy',
+          id: 1,
+          arguments: const <String, Object?>{'release': '1.2.3'},
+          streamable: false,
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          headers: const <String, String>{'x-test-mrtr-form': '1'},
+          onElicitation: answer,
+        );
+        final directResult = await client.callToolDirectWithFormElicitation(
+          'app.deploy',
+          id: 1,
+          arguments: const <String, Object?>{'release': '1.2.3'},
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          headers: const <String, String>{'x-test-mrtr-form': '1'},
+          onElicitation: answer,
+        );
+
+        expect(seenInputRequests, hasLength(2));
+        for (final result in [standardResult, directResult]) {
+          expect(result['isError'], isFalse);
+          expect(result['structuredContent'], {
+            'arguments': {'release': '1.2.3'},
+            'inputResponses': {
+              'deployment': {
+                'action': 'accept',
+                'content': {'email': 'operator@example.com', 'replicas': 3},
+              },
+            },
+            'requestState': 'opaque-round-1',
+          });
+        }
+
+        expect(endpoint.requests, hasLength(4));
+        for (var offset = 0; offset < endpoint.requests.length; offset += 2) {
+          final first = _jsonMapFrom(
+            endpoint.requests[offset].body,
+            label: 'first MRTR request',
+          );
+          final retry = _jsonMapFrom(
+            endpoint.requests[offset + 1].body,
+            label: 'MRTR retry',
+          );
+          expect(first['id'], 1);
+          expect(retry['id'], isNot(first['id']));
+          expect(first['method'], 'tools/call');
+          expect(retry['method'], 'tools/call');
+          final firstParams = _jsonMapFrom(
+            first['params'],
+            label: 'first MRTR params',
+          );
+          final retryParams = _jsonMapFrom(
+            retry['params'],
+            label: 'MRTR retry params',
+          );
+          expect(firstParams['arguments'], {'release': '1.2.3'});
+          expect(retryParams['arguments'], {'release': '1.2.3'});
+          expect(retryParams['requestState'], 'opaque-round-1');
+          expect(retryParams['inputResponses'], {
+            'deployment': {
+              'action': 'accept',
+              'content': {'email': 'operator@example.com', 'replicas': 3},
+            },
+          });
+          for (final params in [firstParams, retryParams]) {
+            final metadata = _jsonMapFrom(
+              params['_meta'],
+              label: 'MRTR request metadata',
+            );
+            expect(metadata['io.modelcontextprotocol/clientCapabilities'], {
+              'elicitation': {'form': <String, Object?>{}},
+            });
+          }
+          expect(endpoint.requests[offset].sessionId, isNull);
+          expect(endpoint.requests[offset + 1].sessionId, isNull);
+        }
+        expect(endpoint.requests[0].accept, contains('text/event-stream'));
+        expect(endpoint.requests[2].accept, contains('application/json'));
+      },
+    );
+
+    test('validates supported form schemas and response actions', () {
+      final request = McpFormElicitationRequest(
+        inputRequestId: 'preferences',
+        message: 'Choose deployment preferences.',
+        requestedSchema: const <String, Object?>{
+          'type': 'object',
+          'properties': <String, Object?>{
+            'region': <String, Object?>{
+              'type': 'string',
+              'oneOf': <Object?>[
+                <String, Object?>{'const': 'eu', 'title': 'Europe'},
+                <String, Object?>{'const': 'us', 'title': 'United States'},
+              ],
+            },
+            'ratio': <String, Object?>{
+              'type': 'number',
+              'minimum': 0,
+              'maximum': 1,
+            },
+            'replicas': <String, Object?>{'type': 'integer', 'minimum': 1},
+            'approved': <String, Object?>{'type': 'boolean'},
+            'labels': <String, Object?>{
+              'type': 'array',
+              'items': <String, Object?>{
+                'type': 'string',
+                'enum': <String>['stable', 'canary'],
+              },
+              'minItems': 1,
+              'maxItems': 2,
+            },
+            'callback': <String, Object?>{'type': 'string', 'format': 'uri'},
+            'date': <String, Object?>{'type': 'string', 'format': 'date'},
+          },
+          'required': <String>[
+            'region',
+            'ratio',
+            'replicas',
+            'approved',
+            'labels',
+            'callback',
+            'date',
+          ],
+        },
+      );
+
+      expect(
+        McpFormElicitationResponse.accept(const <String, Object?>{
+          'region': 'eu',
+          'ratio': 0.5,
+          'replicas': 3.0,
+          'approved': true,
+          'labels': <String>['stable', 'canary'],
+          'callback': 'https://consumer.example/callback',
+          'date': '2026-08-01',
+        }).toJsonFor(request),
+        {
+          'action': 'accept',
+          'content': {
+            'region': 'eu',
+            'ratio': 0.5,
+            'replicas': 3.0,
+            'approved': true,
+            'labels': ['stable', 'canary'],
+            'callback': 'https://consumer.example/callback',
+            'date': '2026-08-01',
+          },
+        },
+      );
+      expect(const McpFormElicitationResponse.decline().toJsonFor(request), {
+        'action': 'decline',
+      });
+      expect(const McpFormElicitationResponse.cancel().toJsonFor(request), {
+        'action': 'cancel',
+      });
+      expect(
+        () => McpFormElicitationResponse.accept(const <String, Object?>{
+          'region': 'unsupported',
+        }).toJsonFor(request),
+        throwsFormatException,
+      );
+      expect(
+        () => McpFormElicitationRequest.fromJson(
+          'sensitive',
+          const <String, Object?>{
+            'method': 'elicitation/create',
+            'params': <String, Object?>{
+              'mode': 'url',
+              'message': 'Open an external flow.',
+              'url': 'https://consumer.example/authorize',
+            },
+          },
+        ),
+        throwsA(isA<McpStreamableProtocolException>()),
+      );
+    });
+
+    test('requires MCP 2026 before form elicitation sends a request', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.callToolWithFormElicitation(
+          'app.deploy',
+          onElicitation: (_) => const McpFormElicitationResponse.decline(),
+        ),
+        throwsA(isA<McpStreamableProtocolException>()),
+      );
+      await expectLater(
+        client.callToolDirectWithFormElicitation(
+          'app.deploy',
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          maxInputRequiredRounds: 0,
+          onElicitation: (_) => const McpFormElicitationResponse.decline(),
+        ),
+        throwsArgumentError,
+      );
+      expect(endpoint.requests, isEmpty);
+    });
+
+    test('rejects invalid accepted form values before retrying', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.callToolDirectWithFormElicitation(
+          'app.deploy',
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          headers: const <String, String>{'x-test-mrtr-form': '1'},
+          onElicitation: (_) => McpFormElicitationResponse.accept(
+            const <String, Object?>{'email': 'not-an-email', 'replicas': 0},
+          ),
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('must be an email address'),
+          ),
+        ),
+      );
+      expect(endpoint.requests, hasLength(1));
+    });
+
+    test(
       'uses Connectanum direct JSON helpers without MCP lifecycle',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -7290,6 +7543,59 @@ final class _FakeMcpEndpoint {
 
     if (method == 'tools/call') {
       final params = _jsonMapFrom(requestBody['params'], label: 'tools/call');
+      if (request.headers.value('x-test-mrtr-form') == '1') {
+        final inputResponses = params['inputResponses'];
+        if (inputResponses == null) {
+          _writeJson(request, <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': requestBody['id'],
+            'result': <String, Object?>{
+              'resultType': 'input_required',
+              'inputRequests': <String, Object?>{
+                'deployment': <String, Object?>{
+                  'method': 'elicitation/create',
+                  'params': <String, Object?>{
+                    'mode': 'form',
+                    'message': 'Confirm the deployment settings.',
+                    'requestedSchema': <String, Object?>{
+                      'type': 'object',
+                      'properties': <String, Object?>{
+                        'email': <String, Object?>{
+                          'type': 'string',
+                          'format': 'email',
+                        },
+                        'replicas': <String, Object?>{
+                          'type': 'integer',
+                          'minimum': 1,
+                          'maximum': 8,
+                        },
+                      },
+                      'required': <String>['email', 'replicas'],
+                    },
+                  },
+                },
+              },
+              'requestState': 'opaque-round-1',
+            },
+          });
+          return;
+        }
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'resultType': 'complete',
+            'content': <Object?>[],
+            'structuredContent': <String, Object?>{
+              'arguments': params['arguments'],
+              'inputResponses': inputResponses,
+              'requestState': params['requestState'],
+            },
+            'isError': false,
+          },
+        });
+        return;
+      }
       if (request.headers.value('x-test-invalid-tool-result-content') == '1') {
         _writeJson(request, <String, Object?>{
           'jsonrpc': '2.0',

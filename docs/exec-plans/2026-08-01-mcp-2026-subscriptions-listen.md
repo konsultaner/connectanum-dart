@@ -109,3 +109,9 @@ Primary MCP references:
   workspace formatting and analysis, 360 core tests, 185 client tests, 92 MCP
   tests, 96 benchmark tests, 380 router tests, isolated and globally activated
   consumer smokes, native zero-copy checks, and Chrome/Dart2Wasm coverage.
+- 2026-08-01: Commit `49dd853` was pushed to GitLab and GitHub. Exact-head
+  GitHub CI `30707422747`, Dart Package Publish Dry Run `30707422768`, and
+  WAMP Profile Benchmarks `30707422759` passed on their first attempts.
+  Coverage artifact `8820943599` and WAMP artifact `8820836170` were uploaded.
+  The strict deployment-chain audit passed with clean exact-head CI logs and
+  all required branch, workflow, package, publish-dry-run, and benchmark gates.

@@ -17,38 +17,48 @@ identified and fixed a pre-existing SCRAM channel-binding crash by preserving
 decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
 
-The completed product-readiness checkpoint is MCP `2026-07-28`
-request-scoped notification delivery. The public IO client now exposes typed
-`subscriptions/listen` filters, acknowledgment state, notification streams,
-and local/graceful/remote close outcomes while keeping every listener on an
-independently cancellable HTTP client connection. Modern direct JSON calls
-advertise the required JSON-plus-SSE `Accept` surface even when the expected
-ordinary response is JSON. Router-hosted MCP opens sessionless SSE listeners,
-acknowledges only the authorized supported filter subset, correlates every
-message with the original request ID, delivers dynamic tool-list and configured
-resource-update notifications, shares WAMP subscriptions across concurrent
-listeners, and releases them after transport-close detection. Discovery now
-returns the real typed capability values rather than flattening every
-capability to an empty object.
+The completed product-readiness checkpoint is MCP `2026-07-28` multi
+round-trip request (MRTR) support for non-sensitive form elicitation. Public
+tool requests and results now carry typed request-scoped client capabilities,
+named input requests and responses, and opaque request state. The public IO
+client exposes bounded ordinary and direct JSON tool-call helpers that validate
+the restricted flat form schema, invoke an application callback for every
+named request, preserve the original arguments, echo the exact opaque state,
+and retry with a fresh JSON-RPC ID. The helpers advertise only form elicitation
+for the individual call; URL-mode elicitation and deprecated Roots and Sampling
+remain out of scope.
 
-Focused native coverage proves malformed-filter rejection, public discovery,
-two concurrent listeners, tool and WAMP-backed resource notifications,
-subscription correlation metadata, same-client ordinary calls, sessionless
-state, and subscriber cleanup after explicit close. The isolated router CLI
-consumer package now proves anonymous and bearer-authenticated listener
-acknowledgment using only the public `connectanum_mcp_io.dart` entrypoint, with
-`subscriptionsListen` in its machine-readable summary. Post-change
-`bin/test-fast` passed on 2026-08-01, including workspace analysis, package
-tests, isolated consumers, live WAMP benchmark integration, and every
-maintained router-hosted MCP smoke. Full `bin/verify` also passed, including
-Rust core and FFI suites, workspace formatting and analysis, 360 core tests,
-185 client tests, 92 MCP tests, 96 benchmark tests, 380 router tests, isolated
-and globally activated consumer smokes, native zero-copy checks, and
-Chrome/Dart2Wasm coverage. The completed plan is
-`docs/exec-plans/2026-08-01-mcp-2026-subscriptions-listen.md`; MRTR remains the
-next modern compatibility layer only for selected concrete client
-capabilities. The complete `2025-*` initialize/session/GET/SSE/DELETE and
-resource-subscription compatibility matrix remains unchanged.
+Router-hosted MCP carries the MRTR contract across WAMP through public
+`x_mcp_*` call and result detail fields. Both standard `tools/call` and the
+direct JSON endpoint enforce request-scoped form capability support before
+returning input requests. Missing support uses reserved error `-32021` with
+the required capability data and HTTP 400 for modern stateless requests. The
+native-router smoke and an isolated generated consumer package prove successful
+two-round form elicitation through both endpoints, missing-capability behavior,
+fresh IDs, exact state echoing, WAMP delivery, and sessionless completion
+without private project assumptions.
+
+Focused MCP, client, WAMP-delegate, router, boundary, and generated-package
+regressions passed. Post-change `bin/test-fast` and full `bin/verify` passed on
+2026-08-01, including Rust core and FFI suites, workspace formatting and
+analysis, 360 core tests, 189 combined client/MCP authorization tests, 94 MCP
+tests, 96 benchmark tests, the complete router suite, isolated and globally
+activated consumer smokes, native zero-copy checks, and Chrome/Dart2Wasm
+coverage. The completed plan is
+`docs/exec-plans/2026-08-01-mcp-2026-mrtr-form-elicitation.md`; exact-head
+hosted evidence is pending the implementation push. The preceding request-
+scoped notification milestone remains documented in
+`docs/exec-plans/2026-08-01-mcp-2026-subscriptions-listen.md`, and the complete
+`2025-*` initialize/session/GET/SSE/DELETE and resource-subscription
+compatibility matrix remains unchanged.
+
+Commit `49dd853` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30707422747` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
+and coverage artifact `8820943599`. Dart Package Publish Dry Run `30707422768`
+and WAMP Profile Benchmarks `30707422759` passed on their first attempts; WAMP
+artifact `8820836170` was uploaded. The strict deployment-chain audit passed
+with a clean exact-head CI log scan and all required branch, workflow, package,
+publish-dry-run, and benchmark-artifact gates clean.
 
 The preceding stateless-core checkpoint is commit `c400a13`. It passed
 exact-head GitHub CI `30702946751`, including Fast Checks, Full Verify, Dart VM

@@ -2231,13 +2231,17 @@ Future<void> _handleMcpHttpRequestForBinding(
       return;
     }
   }
-  final responseStatus =
-      statelessHttpRequest &&
-          response is Map &&
-          response['error'] is Map &&
-          (response['error'] as Map)['code'] == mcp.McpErrorCodes.methodNotFound
-      ? HttpStatus.notFound
-      : HttpStatus.ok;
+  final responseErrorCode = response is Map && response['error'] is Map
+      ? (response['error'] as Map)['code']
+      : null;
+  final responseStatus = !statelessHttpRequest
+      ? HttpStatus.ok
+      : switch (responseErrorCode) {
+          mcp.McpErrorCodes.methodNotFound => HttpStatus.notFound,
+          mcp.McpErrorCodes.missingRequiredClientCapability =>
+            HttpStatus.badRequest,
+          _ => HttpStatus.ok,
+        };
   await binding._sendImmediateHttpResponse(
     request: request,
     handshake: handshake,
@@ -3388,11 +3392,17 @@ class _RouterMcpEndpoint {
     mcp.JsonMap params,
   ) async {
     final name = _mcpValidatedToolName(params['name'], '$method.params.name');
-    final arguments = mcp.jsonMapFrom(
-      params['arguments'],
-      label: '$method.params.arguments',
+    final request = mcp.McpToolRequest.fromCallParams(
+      name: name,
+      params: params,
     );
-    return _callDirectJsonToolByName(name, arguments);
+    return _callDirectJsonToolByName(
+      name,
+      request.arguments,
+      inputResponses: request.inputResponses,
+      requestState: request.requestState,
+      clientCapabilities: request.clientCapabilities,
+    );
   }
 
   mcp.JsonMap _listDirectJsonResources(mcp.JsonMap params) {
@@ -3511,8 +3521,11 @@ class _RouterMcpEndpoint {
 
   Future<mcp.JsonMap> _callDirectJsonToolByName(
     String name,
-    mcp.JsonMap arguments,
-  ) async {
+    mcp.JsonMap arguments, {
+    Map<String, mcp.JsonMap> inputResponses = const <String, mcp.JsonMap>{},
+    String? requestState,
+    mcp.JsonMap clientCapabilities = const <String, Object?>{},
+  }) async {
     final tool = server.tools[name];
     if (tool == null) {
       throw mcp.McpException(
@@ -3520,11 +3533,18 @@ class _RouterMcpEndpoint {
         'Unknown MCP tool: $name',
       );
     }
+    final request = mcp.McpToolRequest(
+      name: name,
+      arguments: arguments,
+      inputResponses: inputResponses,
+      requestState: requestState,
+      clientCapabilities: clientCapabilities,
+    );
     try {
-      final result = await tool.handler(
-        mcp.McpToolRequest(name: name, arguments: arguments),
-      );
-      return result.toJson();
+      final result = await tool.handler(request);
+      return result.toJson(clientCapabilities: request.clientCapabilities);
+    } on mcp.McpException {
+      rethrow;
     } catch (error) {
       return mcp.McpToolResult.error(error.toString()).toJson();
     }

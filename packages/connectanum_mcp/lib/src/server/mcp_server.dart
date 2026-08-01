@@ -318,7 +318,7 @@ class McpServer {
 
   Future<JsonMap> _callTool(JsonMap params) async {
     final name = _validatedToolName(params['name'], 'tools/call.params.name');
-    final arguments = jsonMapFrom(params['arguments'], label: 'arguments');
+    final request = McpToolRequest.fromCallParams(name: name, params: params);
     final tool = tools[name];
     if (tool == null) {
       throw McpException(
@@ -327,10 +327,10 @@ class McpServer {
       );
     }
     try {
-      final result = await tool.handler(
-        McpToolRequest(name: name, arguments: arguments),
-      );
-      return result.toJson();
+      final result = await tool.handler(request);
+      return result.toJson(clientCapabilities: request.clientCapabilities);
+    } on McpException {
+      rethrow;
     } catch (error) {
       return McpToolResult.error(error.toString()).toJson();
     }

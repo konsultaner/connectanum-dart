@@ -289,6 +289,516 @@ void _validateJsonRpcResponseObject(
   }
 }
 
+/// Handles one MCP form-elicitation input request.
+typedef McpFormElicitationHandler =
+    FutureOr<McpFormElicitationResponse> Function(
+      McpFormElicitationRequest request,
+    );
+
+/// The outcome selected by a consumer for an MCP form elicitation.
+enum McpElicitationAction { accept, decline, cancel }
+
+/// One validated form-mode `elicitation/create` input request.
+final class McpFormElicitationRequest {
+  factory McpFormElicitationRequest({
+    required String inputRequestId,
+    required String message,
+    required McpJsonMap requestedSchema,
+  }) {
+    if (inputRequestId.isEmpty) {
+      throw ArgumentError.value(
+        inputRequestId,
+        'inputRequestId',
+        'MCP input request identifiers must not be empty.',
+      );
+    }
+    if (message.isEmpty) {
+      throw ArgumentError.value(
+        message,
+        'message',
+        'MCP form elicitation messages must not be empty.',
+      );
+    }
+    return McpFormElicitationRequest._(
+      inputRequestId: inputRequestId,
+      message: message,
+      requestedSchema: _validatedMcpFormSchema(
+        requestedSchema,
+        label: 'requestedSchema',
+      ),
+    );
+  }
+
+  factory McpFormElicitationRequest.fromJson(
+    String inputRequestId,
+    Object? value,
+  ) {
+    final request = _jsonMapFrom(value, label: 'inputRequests.$inputRequestId');
+    if (request['method'] != 'elicitation/create') {
+      throw McpStreamableProtocolException(
+        'Unsupported MCP input request method: ${request['method']}',
+      );
+    }
+    final params = _jsonMapFrom(
+      request['params'],
+      label: 'inputRequests.$inputRequestId.params',
+    );
+    final mode = params['mode'];
+    if (mode != null && mode != 'form') {
+      throw McpStreamableProtocolException(
+        'Unsupported MCP elicitation mode: $mode',
+      );
+    }
+    final message = params['message'];
+    if (message is! String || message.isEmpty) {
+      throw FormatException(
+        'inputRequests.$inputRequestId.params.message must be a non-empty '
+        'string',
+      );
+    }
+    return McpFormElicitationRequest(
+      inputRequestId: inputRequestId,
+      message: message,
+      requestedSchema: _jsonMapFrom(
+        params['requestedSchema'],
+        label: 'inputRequests.$inputRequestId.params.requestedSchema',
+      ),
+    );
+  }
+
+  const McpFormElicitationRequest._({
+    required this.inputRequestId,
+    required this.message,
+    required this.requestedSchema,
+  });
+
+  final String inputRequestId;
+  final String message;
+  final McpJsonMap requestedSchema;
+}
+
+/// A consumer's response to one MCP form elicitation request.
+final class McpFormElicitationResponse {
+  factory McpFormElicitationResponse.accept(McpJsonMap content) {
+    return McpFormElicitationResponse._(
+      McpElicitationAction.accept,
+      Map<String, Object?>.unmodifiable(content),
+    );
+  }
+
+  const McpFormElicitationResponse.decline()
+    : this._(McpElicitationAction.decline, null);
+
+  const McpFormElicitationResponse.cancel()
+    : this._(McpElicitationAction.cancel, null);
+
+  const McpFormElicitationResponse._(this.action, this.content);
+
+  final McpElicitationAction action;
+  final McpJsonMap? content;
+
+  McpJsonMap toJsonFor(McpFormElicitationRequest request) {
+    final content = this.content;
+    if (action == McpElicitationAction.accept) {
+      if (content == null) {
+        throw const FormatException(
+          'Accepted MCP form elicitation needs response content',
+        );
+      }
+      _validateMcpFormContent(request.requestedSchema, content);
+    } else if (content != null) {
+      throw const FormatException(
+        'Declined or cancelled MCP elicitation must not contain content',
+      );
+    }
+    return <String, Object?>{'action': action.name, 'content': ?content};
+  }
+}
+
+final class _McpInputRequiredRound {
+  const _McpInputRequiredRound({
+    required this.requests,
+    required this.requestState,
+  });
+
+  final List<McpFormElicitationRequest> requests;
+  final String? requestState;
+}
+
+_McpInputRequiredRound? _mcpInputRequiredRoundFrom(
+  McpJsonMap result, {
+  required String label,
+}) {
+  final resultType = result['resultType'];
+  if (resultType == null || resultType == 'complete') {
+    return null;
+  }
+  if (resultType != 'input_required') {
+    throw FormatException(
+      '$label.resultType must be complete or input_required',
+    );
+  }
+  final rawInputRequests = result['inputRequests'];
+  final inputRequests = rawInputRequests == null
+      ? const <String, Object?>{}
+      : _jsonMapFrom(rawInputRequests, label: '$label.inputRequests');
+  final requestState = result['requestState'];
+  if (requestState != null && requestState is! String) {
+    throw FormatException('$label.requestState must be a string');
+  }
+  if (inputRequests.isEmpty && requestState == null) {
+    throw FormatException(
+      '$label input_required needs inputRequests or requestState',
+    );
+  }
+  return _McpInputRequiredRound(
+    requests: List<McpFormElicitationRequest>.unmodifiable([
+      for (final entry in inputRequests.entries)
+        McpFormElicitationRequest.fromJson(entry.key, entry.value),
+    ]),
+    requestState: requestState as String?,
+  );
+}
+
+McpJsonMap _validatedMcpFormSchema(Object? value, {required String label}) {
+  final schema = _jsonMapFrom(value, label: label);
+  if (schema['type'] != 'object') {
+    throw FormatException('$label.type must be object');
+  }
+  final rawProperties = schema['properties'];
+  if (rawProperties is! Map) {
+    throw FormatException('$label.properties must be an object');
+  }
+  final properties = <String, Object?>{};
+  for (final entry in rawProperties.entries) {
+    if (entry.key is! String || (entry.key as String).isEmpty) {
+      throw FormatException(
+        '$label.properties must contain non-empty string keys',
+      );
+    }
+    final propertyName = entry.key as String;
+    properties[propertyName] = Map<String, Object?>.unmodifiable(
+      _validatedMcpFormPropertySchema(
+        entry.value,
+        label: '$label.properties.$propertyName',
+      ),
+    );
+  }
+  final rawRequired = schema['required'];
+  final required = <String>[];
+  if (rawRequired != null) {
+    if (rawRequired is! List ||
+        rawRequired.any(
+          (item) =>
+              item is! String || item.isEmpty || !properties.containsKey(item),
+        )) {
+      throw FormatException(
+        '$label.required must name declared string properties',
+      );
+    }
+    required.addAll(rawRequired.cast<String>());
+  }
+  return Map<String, Object?>.unmodifiable(<String, Object?>{
+    ...schema,
+    'properties': Map<String, Object?>.unmodifiable(properties),
+    if (rawRequired != null) 'required': List<String>.unmodifiable(required),
+  });
+}
+
+McpJsonMap _validatedMcpFormPropertySchema(
+  Object? value, {
+  required String label,
+}) {
+  final schema = _jsonMapFrom(value, label: label);
+  for (final textField in const ['title', 'description']) {
+    final fieldValue = schema[textField];
+    if (fieldValue != null && fieldValue is! String) {
+      throw FormatException('$label.$textField must be a string');
+    }
+  }
+  final type = schema['type'];
+  switch (type) {
+    case 'string':
+      _validateOptionalNonNegativeInt(schema, 'minLength', label);
+      _validateOptionalNonNegativeInt(schema, 'maxLength', label);
+      final minLength = schema['minLength'];
+      final maxLength = schema['maxLength'];
+      if (minLength is int && maxLength is int && minLength > maxLength) {
+        throw FormatException('$label.minLength must not exceed maxLength');
+      }
+      final format = schema['format'];
+      if (format != null &&
+          !const {'email', 'uri', 'date', 'date-time'}.contains(format)) {
+        throw FormatException('$label.format is unsupported');
+      }
+      final defaultValue = schema['default'];
+      if (defaultValue != null && defaultValue is! String) {
+        throw FormatException('$label.default must be a string');
+      }
+      _validateMcpStringEnumSchema(schema, label);
+    case 'number':
+    case 'integer':
+      _validateOptionalNumber(schema, 'minimum', label);
+      _validateOptionalNumber(schema, 'maximum', label);
+      _validateOptionalNumber(schema, 'default', label);
+      final minimum = schema['minimum'];
+      final maximum = schema['maximum'];
+      if (minimum is num && maximum is num && minimum > maximum) {
+        throw FormatException('$label.minimum must not exceed maximum');
+      }
+    case 'boolean':
+      final defaultValue = schema['default'];
+      if (defaultValue != null && defaultValue is! bool) {
+        throw FormatException('$label.default must be a boolean');
+      }
+    case 'array':
+      _validateOptionalNonNegativeInt(schema, 'minItems', label);
+      _validateOptionalNonNegativeInt(schema, 'maxItems', label);
+      final minItems = schema['minItems'];
+      final maxItems = schema['maxItems'];
+      if (minItems is int && maxItems is int && minItems > maxItems) {
+        throw FormatException('$label.minItems must not exceed maxItems');
+      }
+      final items = _jsonMapFrom(schema['items'], label: '$label.items');
+      final enumValues = items['enum'];
+      final titledValues = items['anyOf'];
+      if (items['type'] == 'string' && enumValues is List) {
+        _validatedNonEmptyStringList(enumValues, '$label.items.enum');
+      } else if (titledValues is List) {
+        _validateMcpTitledChoices(titledValues, '$label.items.anyOf');
+      } else {
+        throw FormatException(
+          '$label.items must define a string enum or titled choices',
+        );
+      }
+      final defaultValue = schema['default'];
+      if (defaultValue != null) {
+        if (defaultValue is! List) {
+          throw FormatException('$label.default must be a string array');
+        }
+        _validatedNonEmptyStringList(
+          defaultValue,
+          '$label.default',
+          allowEmpty: true,
+        );
+      }
+    default:
+      throw FormatException(
+        '$label.type must be string, number, integer, boolean, or array',
+      );
+  }
+  return schema;
+}
+
+void _validateMcpStringEnumSchema(McpJsonMap schema, String label) {
+  final enumValues = schema['enum'];
+  final oneOf = schema['oneOf'];
+  if (enumValues != null && oneOf != null) {
+    throw FormatException('$label must not define both enum and oneOf');
+  }
+  if (enumValues != null) {
+    if (enumValues is! List) {
+      throw FormatException('$label.enum must be a string array');
+    }
+    final values = _validatedNonEmptyStringList(enumValues, '$label.enum');
+    final enumNames = schema['enumNames'];
+    if (enumNames != null) {
+      if (enumNames is! List) {
+        throw FormatException('$label.enumNames must be a string array');
+      }
+      final names = _validatedNonEmptyStringList(enumNames, '$label.enumNames');
+      if (names.length != values.length) {
+        throw FormatException('$label.enumNames must match enum length');
+      }
+    }
+  }
+  if (oneOf != null) {
+    if (oneOf is! List) {
+      throw FormatException('$label.oneOf must be an array');
+    }
+    _validateMcpTitledChoices(oneOf, '$label.oneOf');
+  }
+}
+
+List<String> _validatedNonEmptyStringList(
+  List<Object?> values,
+  String label, {
+  bool allowEmpty = false,
+}) {
+  if ((!allowEmpty && values.isEmpty) ||
+      values.any((value) => value is! String)) {
+    throw FormatException('$label must be a string array');
+  }
+  return values.cast<String>();
+}
+
+void _validateMcpTitledChoices(List<Object?> values, String label) {
+  if (values.isEmpty) {
+    throw FormatException('$label must not be empty');
+  }
+  for (var index = 0; index < values.length; index++) {
+    final choice = _jsonMapFrom(values[index], label: '$label[$index]');
+    if (choice['const'] is! String || choice['title'] is! String) {
+      throw FormatException(
+        '$label[$index] must contain string const and title fields',
+      );
+    }
+  }
+}
+
+void _validateOptionalNonNegativeInt(
+  McpJsonMap schema,
+  String field,
+  String label,
+) {
+  final value = schema[field];
+  if (value != null && (value is! int || value < 0)) {
+    throw FormatException('$label.$field must be a non-negative integer');
+  }
+}
+
+void _validateOptionalNumber(McpJsonMap schema, String field, String label) {
+  final value = schema[field];
+  if (value != null && (value is! num || !value.isFinite)) {
+    throw FormatException('$label.$field must be a finite number');
+  }
+}
+
+void _validateMcpFormContent(McpJsonMap schema, McpJsonMap content) {
+  final properties = _jsonMapFrom(
+    schema['properties'],
+    label: 'requestedSchema.properties',
+  );
+  final required = schema['required'];
+  if (required is List) {
+    for (final property in required.cast<String>()) {
+      if (!content.containsKey(property)) {
+        throw FormatException(
+          'Accepted MCP form response is missing required field $property',
+        );
+      }
+    }
+  }
+  for (final entry in content.entries) {
+    final rawPropertySchema = properties[entry.key];
+    if (rawPropertySchema == null) {
+      throw FormatException(
+        'Accepted MCP form response contains unknown field ${entry.key}',
+      );
+    }
+    final propertySchema = _jsonMapFrom(
+      rawPropertySchema,
+      label: 'requestedSchema.properties.${entry.key}',
+    );
+    _validateMcpFormValue(
+      entry.value,
+      propertySchema,
+      label: 'elicitation content.${entry.key}',
+    );
+  }
+}
+
+void _validateMcpFormValue(
+  Object? value,
+  McpJsonMap schema, {
+  required String label,
+}) {
+  switch (schema['type']) {
+    case 'string':
+      if (value is! String) {
+        throw FormatException('$label must be a string');
+      }
+      final minLength = schema['minLength'];
+      final maxLength = schema['maxLength'];
+      if (minLength is int && value.runes.length < minLength) {
+        throw FormatException('$label is shorter than minLength');
+      }
+      if (maxLength is int && value.runes.length > maxLength) {
+        throw FormatException('$label is longer than maxLength');
+      }
+      final format = schema['format'];
+      if (format == 'email' &&
+          !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
+        throw FormatException('$label must be an email address');
+      }
+      if (format == 'uri') {
+        final uri = Uri.tryParse(value);
+        if (uri == null || !uri.hasScheme) {
+          throw FormatException('$label must be an absolute URI');
+        }
+      }
+      if (format == 'date' &&
+          (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(value) ||
+              DateTime.tryParse(value) == null)) {
+        throw FormatException('$label must be an ISO date');
+      }
+      if (format == 'date-time' && DateTime.tryParse(value) == null) {
+        throw FormatException('$label must be an ISO date-time');
+      }
+      final allowed = _mcpStringChoices(schema);
+      if (allowed != null && !allowed.contains(value)) {
+        throw FormatException('$label is not an allowed enum value');
+      }
+    case 'number':
+      if (value is! num || !value.isFinite) {
+        throw FormatException('$label must be a finite number');
+      }
+      _validateMcpNumberRange(value, schema, label);
+    case 'integer':
+      if (value is! num || !value.isFinite || value % 1 != 0) {
+        throw FormatException('$label must be an integer');
+      }
+      _validateMcpNumberRange(value, schema, label);
+    case 'boolean':
+      if (value is! bool) {
+        throw FormatException('$label must be a boolean');
+      }
+    case 'array':
+      if (value is! List || value.any((item) => item is! String)) {
+        throw FormatException('$label must be a string array');
+      }
+      final minItems = schema['minItems'];
+      final maxItems = schema['maxItems'];
+      if (minItems is int && value.length < minItems) {
+        throw FormatException('$label has fewer than minItems values');
+      }
+      if (maxItems is int && value.length > maxItems) {
+        throw FormatException('$label has more than maxItems values');
+      }
+      final items = _jsonMapFrom(schema['items'], label: '$label.items');
+      final allowed = _mcpStringChoices(items)!;
+      if (value.any((item) => !allowed.contains(item))) {
+        throw FormatException('$label contains an unsupported enum value');
+      }
+  }
+}
+
+Set<String>? _mcpStringChoices(McpJsonMap schema) {
+  final enumValues = schema['enum'];
+  if (enumValues is List) {
+    return enumValues.cast<String>().toSet();
+  }
+  final choices = schema['oneOf'] ?? schema['anyOf'];
+  if (choices is List) {
+    return {
+      for (final choice in choices)
+        (_jsonMapFrom(choice, label: 'enum choice')['const'] as String),
+    };
+  }
+  return null;
+}
+
+void _validateMcpNumberRange(num value, McpJsonMap schema, String label) {
+  final minimum = schema['minimum'];
+  final maximum = schema['maximum'];
+  if (minimum is num && value < minimum) {
+    throw FormatException('$label is less than minimum');
+  }
+  if (maximum is num && value > maximum) {
+    throw FormatException('$label is greater than maximum');
+  }
+}
+
 /// Route-filtered server information returned by MCP `server/discover`.
 final class McpStatelessDiscoveryResult {
   const McpStatelessDiscoveryResult({
@@ -1594,6 +2104,167 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Calls a modern stateless tool and completes bounded form input rounds
+  /// through [onElicitation].
+  Future<McpJsonMap> callToolWithFormElicitation(
+    String name, {
+    required McpFormElicitationHandler onElicitation,
+    Object? id,
+    McpJsonMap arguments = const <String, Object?>{},
+    bool streamable = true,
+    String? protocolVersion,
+    Map<String, String> headers = const <String, String>{},
+    int maxInputRequiredRounds = 8,
+  }) {
+    return _callToolWithFormElicitation(
+      name,
+      onElicitation: onElicitation,
+      id: id,
+      arguments: arguments,
+      streamable: streamable,
+      direct: false,
+      protocolVersion: protocolVersion,
+      headers: headers,
+      maxInputRequiredRounds: maxInputRequiredRounds,
+    );
+  }
+
+  /// Calls a modern stateless tool directly and completes bounded form input
+  /// rounds through [onElicitation].
+  Future<McpJsonMap> callToolDirectWithFormElicitation(
+    String name, {
+    required McpFormElicitationHandler onElicitation,
+    Object? id,
+    McpJsonMap arguments = const <String, Object?>{},
+    String? protocolVersion,
+    Map<String, String> headers = const <String, String>{},
+    int maxInputRequiredRounds = 8,
+  }) {
+    return _callToolWithFormElicitation(
+      name,
+      onElicitation: onElicitation,
+      id: id,
+      arguments: arguments,
+      streamable: false,
+      direct: true,
+      protocolVersion: protocolVersion,
+      headers: headers,
+      maxInputRequiredRounds: maxInputRequiredRounds,
+    );
+  }
+
+  Future<McpJsonMap> _callToolWithFormElicitation(
+    String name, {
+    required McpFormElicitationHandler onElicitation,
+    required Object? id,
+    required McpJsonMap arguments,
+    required bool streamable,
+    required bool direct,
+    required String? protocolVersion,
+    required Map<String, String> headers,
+    required int maxInputRequiredRounds,
+  }) async {
+    final effectiveProtocolVersion = _validatedMcpProtocolVersion(
+      protocolVersion ?? this.protocolVersion,
+      'protocolVersion',
+    );
+    if (effectiveProtocolVersion != latestProtocolVersion) {
+      throw McpStreamableProtocolException(
+        'MCP form elicitation requires protocol $latestProtocolVersion',
+      );
+    }
+    if (maxInputRequiredRounds < 1) {
+      throw ArgumentError.value(
+        maxInputRequiredRounds,
+        'maxInputRequiredRounds',
+        'MCP form elicitation needs at least one permitted input round.',
+      );
+    }
+
+    final toolName = _validatedMcpToolName(name, 'name');
+    final requestHeaders = _headersWithToolParameterHeaders(
+      toolName,
+      arguments,
+      headers,
+    );
+    final usedRequestIds = <Object>{};
+    Object nextGeneratedRequestId() {
+      Object candidate;
+      do {
+        candidate = _nextRequestId++;
+      } while (usedRequestIds.contains(candidate));
+      usedRequestIds.add(candidate);
+      return candidate;
+    }
+
+    var requestId = id ?? nextGeneratedRequestId();
+    usedRequestIds.add(requestId);
+    var inputRequiredRounds = 0;
+    var params = <String, Object?>{
+      'name': toolName,
+      'arguments': arguments,
+      '_meta': const <String, Object?>{
+        'io.modelcontextprotocol/clientCapabilities': <String, Object?>{
+          'elicitation': <String, Object?>{'form': <String, Object?>{}},
+        },
+      },
+    };
+
+    while (true) {
+      final response = direct
+          ? await requestDirect(
+              'tools/call',
+              id: requestId,
+              params: params,
+              protocolVersion: effectiveProtocolVersion,
+              headers: requestHeaders,
+            )
+          : await request(
+              'tools/call',
+              id: requestId,
+              params: params,
+              streamable: streamable,
+              protocolVersion: effectiveProtocolVersion,
+              headers: requestHeaders,
+            );
+      final result = _jsonRpcResultFrom(response, method: 'tools/call');
+      final inputRound = _mcpInputRequiredRoundFrom(
+        result,
+        label: 'tools/call result',
+      );
+      if (inputRound == null) {
+        return _validatedToolCallResult(result, label: 'tools/call result');
+      }
+      inputRequiredRounds += 1;
+      if (inputRequiredRounds > maxInputRequiredRounds) {
+        throw McpStreamableProtocolException(
+          'MCP tools/call exceeded $maxInputRequiredRounds '
+          'input-required rounds',
+        );
+      }
+
+      final inputResponses = <String, Object?>{};
+      for (final inputRequest in inputRound.requests) {
+        final response = await onElicitation(inputRequest);
+        inputResponses[inputRequest.inputRequestId] = response.toJsonFor(
+          inputRequest,
+        );
+      }
+      params = <String, Object?>{
+        'name': toolName,
+        'arguments': arguments,
+        if (inputResponses.isNotEmpty) 'inputResponses': inputResponses,
+        'requestState': ?inputRound.requestState,
+        '_meta': const <String, Object?>{
+          'io.modelcontextprotocol/clientCapabilities': <String, Object?>{
+            'elicitation': <String, Object?>{'form': <String, Object?>{}},
+          },
+        },
+      };
+      requestId = nextGeneratedRequestId();
+    }
+  }
+
   Future<void> notifyTool(
     String name, {
     McpJsonMap arguments = const <String, Object?>{},
@@ -2216,6 +2887,14 @@ final class McpStreamableHttpClient {
     final metadata = rawMetadata == null
         ? <String, Object?>{}
         : _jsonMapFrom(rawMetadata, label: 'MCP 2026 request metadata');
+    final rawRequestCapabilities =
+        metadata['io.modelcontextprotocol/clientCapabilities'];
+    final requestCapabilities = rawRequestCapabilities == null
+        ? null
+        : _jsonMapFrom(
+            rawRequestCapabilities,
+            label: 'MCP 2026 request client capabilities',
+          );
     final info = clientInfo;
     return <String, Object?>{
       ...message,
@@ -2228,6 +2907,7 @@ final class McpStreamableHttpClient {
             'io.modelcontextprotocol/clientInfo': <String, Object?>{...info},
           'io.modelcontextprotocol/clientCapabilities': <String, Object?>{
             ...clientCapabilities,
+            ...?requestCapabilities,
           },
         },
       },

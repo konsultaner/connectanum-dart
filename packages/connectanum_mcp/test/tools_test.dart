@@ -210,6 +210,145 @@ void main() {
       ]);
     });
 
+    test(
+      'tools/call enforces scoped form capability and preserves MRTR state',
+      () async {
+        final requests = <McpToolRequest>[];
+        final inputRequest = <String, Object?>{
+          'method': 'elicitation/create',
+          'params': <String, Object?>{
+            'mode': 'form',
+            'message': 'Choose a deployment region.',
+            'requestedSchema': <String, Object?>{
+              'type': 'object',
+              'properties': <String, Object?>{
+                'region': <String, Object?>{
+                  'type': 'string',
+                  'enum': <String>['eu', 'us'],
+                },
+              },
+              'required': <String>['region'],
+            },
+          },
+        };
+        final server = McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          tools: [
+            McpTool(
+              name: 'deploy',
+              handler: (request) {
+                requests.add(request);
+                if (request.inputResponses.isEmpty) {
+                  return McpToolResult.inputRequired(
+                    inputRequests: <String, Object?>{
+                      'deployment-region': inputRequest,
+                    },
+                    requestState: 'opaque-round-1',
+                  );
+                }
+                return McpToolResult.text(
+                  'ready',
+                  structuredContent: <String, Object?>{
+                    'inputResponses': request.inputResponses,
+                    'requestState': request.requestState,
+                  },
+                );
+              },
+            ),
+          ],
+        );
+        await _initializeAndStart(server);
+
+        final unsupported = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'without-capability',
+          'method': 'tools/call',
+          'params': {
+            'name': 'deploy',
+            'arguments': {'release': '1.2.3'},
+          },
+        });
+        expect(unsupported?['error'], <String, Object?>{
+          'code': McpErrorCodes.missingRequiredClientCapability,
+          'message': 'Client does not support required MCP form elicitation',
+          'data': <String, Object?>{
+            'requiredCapabilities': <String, Object?>{
+              'elicitation': <String, Object?>{'form': <String, Object?>{}},
+            },
+          },
+        });
+
+        final inputRequired = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'with-capability',
+          'method': 'tools/call',
+          'params': {
+            'name': 'deploy',
+            'arguments': {'release': '1.2.3'},
+            '_meta': {
+              'io.modelcontextprotocol/clientCapabilities': {
+                'elicitation': <String, Object?>{},
+              },
+            },
+          },
+        });
+        expect(inputRequired?['result'], <String, Object?>{
+          'resultType': 'input_required',
+          'inputRequests': <String, Object?>{'deployment-region': inputRequest},
+          'requestState': 'opaque-round-1',
+        });
+
+        final completed = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'with-response',
+          'method': 'tools/call',
+          'params': {
+            'name': 'deploy',
+            'arguments': {'release': '1.2.3'},
+            'inputResponses': {
+              'deployment-region': {
+                'action': 'accept',
+                'content': {'region': 'eu'},
+              },
+            },
+            'requestState': 'opaque-round-1',
+            '_meta': {
+              'io.modelcontextprotocol/clientCapabilities': {
+                'elicitation': {'form': <String, Object?>{}},
+              },
+            },
+          },
+        });
+
+        expect(requests, hasLength(3));
+        expect(requests.last.arguments, {'release': '1.2.3'});
+        expect(requests.last.inputResponses, {
+          'deployment-region': {
+            'action': 'accept',
+            'content': {'region': 'eu'},
+          },
+        });
+        expect(requests.last.requestState, 'opaque-round-1');
+        expect(requests.last.clientCapabilities, {
+          'elicitation': {'form': <String, Object?>{}},
+        });
+        final completedResult = completed?['result'] as Map<String, Object?>;
+        expect(completedResult['isError'], isFalse);
+        expect(completedResult['structuredContent'], {
+          'inputResponses': {
+            'deployment-region': {
+              'action': 'accept',
+              'content': {'region': 'eu'},
+            },
+          },
+          'requestState': 'opaque-round-1',
+        });
+      },
+    );
+
     test('tools/call serializes mixed content blocks', () async {
       final server = McpServer(
         serverInfo: const McpServerInfo(

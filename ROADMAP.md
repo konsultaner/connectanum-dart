@@ -386,7 +386,7 @@
     multiple concurrent listeners, shared authorized resource-update
     subscriptions, truthful `server/discover` capabilities, and isolated
     public/protected consumer smoke evidence.
-  - [ ] Add MCP 2026 MRTR input requests and responses for the client features
+  - [x] Add MCP 2026 MRTR input requests and responses for the client features
     Connectanum elects to support, with explicit capability enforcement and
     the reserved missing-capability error.
   - [x] Add configured router-hosted MCP resources, resource templates, and

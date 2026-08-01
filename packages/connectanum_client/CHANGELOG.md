@@ -5,6 +5,8 @@
   payload E2EE profile, and native/Dart transport parity.
 - Add typed Streamable HTTP and direct JSON helpers for router-hosted MCP,
   authentication, tool/meta APIs, resources, prompts, and pub/sub.
+- Add bounded MCP 2026 form-elicitation helpers for Streamable HTTP and direct
+  JSON calls with typed request/response validation and opaque-state replay.
 - Add resource-bound MCP OAuth discovery, PKCE authorization-code exchange,
   refresh, revocation, validated Client ID Metadata Documents, and bounded
   RFC 7591 dynamic public-client registration for Dart IO consumers.

@@ -4760,6 +4760,81 @@ void main() {
         );
       });
 
+      final mrtrCallDetails = <Map<String, dynamic>>[];
+      final mrtrRegistration = await serviceSession.register(
+        'app.safe.deploy',
+        options: core.RegisterOptions(
+          custom: const {
+            '_ai_meta_data': {
+              'short_description': 'Prepare a deployment',
+              'description': 'Collects required form input before preparing.',
+              'domain': 'app',
+              'entity': 'deployment',
+              'verbs': ['prepare'],
+              'tags': ['safe'],
+              'input_json_schema': {
+                'type': 'object',
+                'properties': {
+                  'release': {'type': 'string'},
+                },
+                'required': ['release'],
+              },
+              'read_only_hint': true,
+              'destructive_hint': false,
+              'idempotent_hint': true,
+              'open_world_hint': false,
+            },
+          },
+        ),
+      );
+      mrtrRegistration.onInvoke((invocation) {
+        final details = Map<String, dynamic>.from(invocation.details.custom);
+        mrtrCallDetails.add(details);
+        if (!details.containsKey(McpWampMrtrFields.inputResponses)) {
+          invocation.respondWith(
+            options: core.YieldOptions(
+              custom: <String, dynamic>{
+                McpWampMrtrFields.resultType: 'input_required',
+                McpWampMrtrFields.inputRequests: <String, dynamic>{
+                  'deployment': <String, dynamic>{
+                    'method': 'elicitation/create',
+                    'params': <String, dynamic>{
+                      'mode': 'form',
+                      'message': 'Confirm the deployment settings.',
+                      'requestedSchema': <String, dynamic>{
+                        'type': 'object',
+                        'properties': <String, dynamic>{
+                          'email': <String, dynamic>{
+                            'type': 'string',
+                            'format': 'email',
+                          },
+                          'replicas': <String, dynamic>{
+                            'type': 'integer',
+                            'minimum': 1,
+                            'maximum': 8,
+                          },
+                        },
+                        'required': <String>['email', 'replicas'],
+                      },
+                    },
+                  },
+                },
+                McpWampMrtrFields.requestState: 'router-opaque-round-1',
+              },
+            ),
+          );
+          return;
+        }
+        invocation.respondWith(
+          argumentsKeywords: <String, dynamic>{
+            'status': 'ready',
+            'release': invocation.argumentsKeywords?['release'],
+            'inputResponses': details[McpWampMrtrFields.inputResponses],
+            'requestState': details[McpWampMrtrFields.requestState],
+          },
+        );
+      });
+
       var liveResourceVersion = 1;
       final observedLiveResourceUris = <String>[];
       final liveResourceRegistration = await serviceSession.register(
@@ -4947,6 +5022,104 @@ void main() {
         statelessDiscovery.capabilities['resources'],
         containsPair('subscribe', true),
       );
+
+      await expectLater(
+        statelessPublicMcpClient.callTool(
+          'app.safe.deploy',
+          id: 'stateless-mrtr-missing-capability',
+          arguments: const <String, Object?>{'release': '1.2.3'},
+        ),
+        throwsA(
+          isA<McpStreamableHttpException>()
+              .having(
+                (error) => error.statusCode,
+                'statusCode',
+                HttpStatus.badRequest,
+              )
+              .having(
+                (error) => (error.error?['error'] as Map?)?['code'],
+                'error code',
+                McpErrorCodes.missingRequiredClientCapability,
+              ),
+        ),
+      );
+
+      Future<McpFormElicitationResponse> answerDeploymentForm(
+        McpFormElicitationRequest request,
+      ) async {
+        expect(request.inputRequestId, equals('deployment'));
+        expect(request.message, equals('Confirm the deployment settings.'));
+        return McpFormElicitationResponse.accept(const <String, Object?>{
+          'email': 'operator@example.com',
+          'replicas': 3,
+        });
+      }
+
+      final statelessMrtrResult = await statelessPublicMcpClient
+          .callToolWithFormElicitation(
+            'app.safe.deploy',
+            id: 'stateless-mrtr-streamable',
+            arguments: const <String, Object?>{'release': '1.2.3'},
+            onElicitation: answerDeploymentForm,
+          );
+      final directMrtrResult = await statelessPublicMcpClient
+          .callToolDirectWithFormElicitation(
+            'app.safe.deploy',
+            id: 'stateless-mrtr-direct',
+            arguments: const <String, Object?>{'release': '1.2.3'},
+            onElicitation: answerDeploymentForm,
+          );
+      for (final result in [statelessMrtrResult, directMrtrResult]) {
+        expect(result['isError'], isFalse);
+        expect(
+          (result['structuredContent'] as Map)['argumentsKeywords'],
+          <String, Object?>{
+            'status': 'ready',
+            'release': '1.2.3',
+            'inputResponses': <String, Object?>{
+              'deployment': <String, Object?>{
+                'action': 'accept',
+                'content': <String, Object?>{
+                  'email': 'operator@example.com',
+                  'replicas': 3,
+                },
+              },
+            },
+            'requestState': 'router-opaque-round-1',
+          },
+        );
+      }
+      expect(mrtrCallDetails, hasLength(5));
+      expect(
+        mrtrCallDetails.first,
+        isNot(contains(McpWampMrtrFields.clientCapabilities)),
+      );
+      for (final firstCallIndex in const <int>[1, 3]) {
+        expect(
+          mrtrCallDetails[firstCallIndex][McpWampMrtrFields.clientCapabilities],
+          <String, Object?>{
+            'elicitation': <String, Object?>{'form': <String, Object?>{}},
+          },
+        );
+        expect(
+          mrtrCallDetails[firstCallIndex + 1][McpWampMrtrFields.inputResponses],
+          <String, Object?>{
+            'deployment': <String, Object?>{
+              'action': 'accept',
+              'content': <String, Object?>{
+                'email': 'operator@example.com',
+                'replicas': 3,
+              },
+            },
+          },
+        );
+        expect(
+          mrtrCallDetails[firstCallIndex + 1][McpWampMrtrFields.requestState],
+          equals('router-opaque-round-1'),
+        );
+      }
+      expect(statelessPublicMcpClient.sessionId, isNull);
+
       final statelessSubscription = await statelessPublicMcpClient.listen(
         id: 'stateless-public-listen',
         toolsListChanged: true,

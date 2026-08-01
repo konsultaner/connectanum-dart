@@ -103,6 +103,142 @@ void main() {
       expect(result['structuredContent'], {'value': 5});
     });
 
+    test('round-trips MCP input-required state through WAMP details', () async {
+      final calls = <McpWampToolCall>[];
+      final delegate = McpWampToolDelegate(
+        procedure: 'app.deploy',
+        call: (call) {
+          calls.add(call);
+          if (calls.length == 1) {
+            return (
+              callRequestId: 21,
+              progress: false,
+              pptScheme: null,
+              pptSerializer: null,
+              pptCipher: null,
+              pptKeyId: null,
+              customDetails: <String, dynamic>{
+                McpWampMrtrFields.resultType: 'input_required',
+                McpWampMrtrFields.inputRequests: <String, dynamic>{
+                  'deployment-region': <String, dynamic>{
+                    'method': 'elicitation/create',
+                    'params': <String, dynamic>{
+                      'mode': 'form',
+                      'message': 'Choose a deployment region.',
+                      'requestedSchema': <String, dynamic>{
+                        'type': 'object',
+                        'properties': <String, dynamic>{
+                          'region': <String, dynamic>{
+                            'type': 'string',
+                            'enum': <String>['eu', 'us'],
+                          },
+                        },
+                        'required': <String>['region'],
+                      },
+                    },
+                  },
+                },
+                McpWampMrtrFields.requestState: 'opaque-round-1',
+              },
+              arguments: null,
+              argumentsKeywords: null,
+            );
+          }
+          return (
+            callRequestId: 22,
+            progress: false,
+            pptScheme: null,
+            pptSerializer: null,
+            pptCipher: null,
+            pptKeyId: null,
+            customDetails: null,
+            arguments: const ['ready'],
+            argumentsKeywords: const <String, dynamic>{'region': 'eu'},
+          );
+        },
+      );
+      final server = _server(delegate.toTool(name: 'deploy'));
+      await _initializeAndStart(server);
+      const capabilities = <String, Object?>{
+        'elicitation': <String, Object?>{'form': <String, Object?>{}},
+      };
+
+      final inputRequired = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'mrtr-first',
+        'method': 'tools/call',
+        'params': {
+          'name': 'deploy',
+          'arguments': {'release': '1.2.3'},
+          '_meta': {'io.modelcontextprotocol/clientCapabilities': capabilities},
+        },
+      });
+
+      expect(calls.single.payload.argumentsKeywords, {'release': '1.2.3'});
+      expect(calls.single.payload.options?.custom, {
+        McpWampMrtrFields.clientCapabilities: capabilities,
+      });
+      expect(inputRequired?['result'], {
+        'resultType': 'input_required',
+        'inputRequests': {
+          'deployment-region': {
+            'method': 'elicitation/create',
+            'params': {
+              'mode': 'form',
+              'message': 'Choose a deployment region.',
+              'requestedSchema': {
+                'type': 'object',
+                'properties': {
+                  'region': {
+                    'type': 'string',
+                    'enum': ['eu', 'us'],
+                  },
+                },
+                'required': ['region'],
+              },
+            },
+          },
+        },
+        'requestState': 'opaque-round-1',
+      });
+
+      final completed = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'mrtr-second',
+        'method': 'tools/call',
+        'params': {
+          'name': 'deploy',
+          'arguments': {'release': '1.2.3'},
+          'inputResponses': {
+            'deployment-region': {
+              'action': 'accept',
+              'content': {'region': 'eu'},
+            },
+          },
+          'requestState': 'opaque-round-1',
+          '_meta': {'io.modelcontextprotocol/clientCapabilities': capabilities},
+        },
+      });
+
+      expect(calls, hasLength(2));
+      expect(calls.last.payload.options?.custom, {
+        McpWampMrtrFields.clientCapabilities: capabilities,
+        McpWampMrtrFields.inputResponses: {
+          'deployment-region': {
+            'action': 'accept',
+            'content': {'region': 'eu'},
+          },
+        },
+        McpWampMrtrFields.requestState: 'opaque-round-1',
+      });
+      final result = completed?['result'] as Map<String, Object?>;
+      expect(result['isError'], isFalse);
+      expect(result['structuredContent'], {
+        'arguments': ['ready'],
+        'argumentsKeywords': {'region': 'eu'},
+      });
+    });
+
     test('session adapter calls through connectanum_client Session', () async {
       final transport = _ImmediateCallTransport();
       final session = await Client(

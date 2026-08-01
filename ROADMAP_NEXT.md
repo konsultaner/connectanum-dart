@@ -32,10 +32,11 @@ Fresh state:
   `server/discover`, per-request client metadata and mirrored headers, modern
   result/error envelopes, filtered `subscriptions/listen` SSE with explicit
   close cancellation, public and bearer-protected tool/resource/WAMP
-  operations, and explicit absence of protocol session/resume state. The
-  `2025-*` initialize/GET/SSE/DELETE path remains an explicit compatibility
-  era. MRTR remains the next MCP compatibility layer only where a concrete
-  consumer capability requires it. Dart IO consumers can use
+  operations, form-mode MRTR with scoped capability enforcement and bounded
+  direct/Streamable retries, and explicit absence of protocol session/resume
+  state. The `2025-*` initialize/GET/SSE/DELETE path remains an explicit
+  compatibility era. Additional MCP 2026 extensions remain demand-driven.
+  Dart IO consumers can use
   `package:connectanum_mcp/connectanum_mcp_io.dart` to negotiate Streamable
   HTTP sessions, send authenticated JSON-RPC requests, consume POST/SSE
   responses, poll GET/SSE events with resume cursors, delete sessions, parse
@@ -96,10 +97,10 @@ Priority override:
   transport/backpressure plan, WAMP transport-interop slice, and worker-safe
   realm-authorization slice are all complete on the current local branch
   checkpoint.
-- **For MCP feature work, finish the 2026 protocol layers before extending the
-  legacy session model.** Stateless discovery, ordinary requests, and
-  `subscriptions/listen` request-scoped SSE/cancellation are complete; MRTR is
-  next only where a concrete downstream capability requires it.
+- **For MCP feature work, finish concrete 2026 protocol layers before extending
+  the legacy session model.** Stateless discovery, ordinary requests,
+  `subscriptions/listen` request-scoped SSE/cancellation, and form-mode MRTR
+  are complete. Add further extensions only for a concrete downstream need.
 - **The broader WAMP conformance expansion remains blocked on upstream**
   vector/runner stabilization. Do not reopen it unless the vendored upstream
   snapshot changes.

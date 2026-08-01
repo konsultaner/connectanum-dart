@@ -36,7 +36,7 @@ standalone router, and expose WAMP services to AI agents through MCP.
 | **Secure application messaging** | TLS/mTLS, Ticket, WAMP-CRA, SCRAM, Cryptosign, realm ACLs, and payload E2EE with XSalsa20-Poly1305 or AES-256-GCM. |
 | **Fast where it matters** | A Rust native transport runtime, JSON/MessagePack/CBOR serializers, lazy payload APIs, and opaque payload forwarding through the router. |
 | **A router you can own** | Embed the router in a Dart process or run the packaged CLI with worker isolation, graceful drain, OpenMetrics, HTTP bridges, and native release bundles. |
-| **WAMP for agents** | Router-hosted MCP over Streamable HTTP or direct JSON with tools, resources, prompts, Pub/Sub, WAMP Meta APIs, bearer auth, and session isolation. |
+| **WAMP for agents** | Router-hosted MCP over Streamable HTTP or direct JSON with tools, form elicitation, resources, prompts, Pub/Sub, WAMP Meta APIs, bearer auth, and session isolation. |
 
 Connectanum implements the full WAMP Basic Profile flow used by its six roles
 and a deliberately announced subset of the Advanced Profile. See the

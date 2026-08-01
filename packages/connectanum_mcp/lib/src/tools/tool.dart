@@ -106,10 +106,60 @@ class McpToolAnnotations {
 }
 
 class McpToolRequest {
-  const McpToolRequest({required this.name, required this.arguments});
+  const McpToolRequest({
+    required this.name,
+    required this.arguments,
+    this.inputResponses = const <String, JsonMap>{},
+    this.requestState,
+    this.clientCapabilities = const <String, Object?>{},
+  });
+
+  factory McpToolRequest.fromCallParams({
+    required String name,
+    required JsonMap params,
+  }) {
+    final rawInputResponses = jsonMapFrom(
+      params['inputResponses'],
+      label: 'tools/call.params.inputResponses',
+    );
+    final inputResponses = <String, JsonMap>{
+      for (final entry in rawInputResponses.entries)
+        entry.key: jsonMapFrom(
+          entry.value,
+          label: 'tools/call.params.inputResponses.${entry.key}',
+        ),
+    };
+    final requestState = params['requestState'];
+    if (requestState != null && requestState is! String) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        'tools/call.params.requestState must be a string',
+      );
+    }
+    final metadata = jsonMapFrom(
+      params['_meta'],
+      label: 'tools/call.params._meta',
+    );
+    final clientCapabilities = jsonMapFrom(
+      metadata['io.modelcontextprotocol/clientCapabilities'],
+      label:
+          'tools/call.params._meta.'
+          'io.modelcontextprotocol/clientCapabilities',
+    );
+    return McpToolRequest(
+      name: name,
+      arguments: jsonMapFrom(params['arguments'], label: 'arguments'),
+      inputResponses: Map<String, JsonMap>.unmodifiable(inputResponses),
+      requestState: requestState as String?,
+      clientCapabilities: Map<String, Object?>.unmodifiable(clientCapabilities),
+    );
+  }
 
   final String name;
   final JsonMap arguments;
+  final Map<String, JsonMap> inputResponses;
+  final String? requestState;
+  final JsonMap clientCapabilities;
 }
 
 typedef McpContentAnnotations = McpResourceAnnotations;
@@ -269,7 +319,8 @@ class McpToolResult {
     required this.content,
     this.structuredContent,
     this.isError = false,
-  });
+  }) : inputRequests = null,
+       requestState = null;
 
   McpToolResult.text(
     String text, {
@@ -285,11 +336,71 @@ class McpToolResult {
   McpToolResult.error(String message)
     : this(content: [McpTextContent(message)], isError: true);
 
+  factory McpToolResult.inputRequired({
+    Map<String, Object?> inputRequests = const <String, Object?>{},
+    String? requestState,
+  }) {
+    if (inputRequests.isEmpty && requestState == null) {
+      throw ArgumentError(
+        'An MCP input-required result needs inputRequests or requestState.',
+      );
+    }
+    for (final entry in inputRequests.entries) {
+      if (entry.key.isEmpty) {
+        throw ArgumentError.value(
+          entry.key,
+          'inputRequests',
+          'MCP input request identifiers must not be empty.',
+        );
+      }
+      _validateMcpFormInputRequest(
+        entry.value,
+        label: 'inputRequests.${entry.key}',
+      );
+    }
+    return McpToolResult._inputRequired(
+      inputRequests: Map<String, Object?>.unmodifiable(inputRequests),
+      requestState: requestState,
+    );
+  }
+
+  const McpToolResult._inputRequired({
+    required this.inputRequests,
+    required this.requestState,
+  }) : content = const <McpContent>[],
+       structuredContent = null,
+       isError = false;
+
   final List<McpContent> content;
   final Map<String, Object?>? structuredContent;
   final bool isError;
+  final Map<String, Object?>? inputRequests;
+  final String? requestState;
 
-  Map<String, Object?> toJson() {
+  bool get isInputRequired => inputRequests != null || requestState != null;
+
+  Map<String, Object?> toJson({
+    JsonMap clientCapabilities = const <String, Object?>{},
+  }) {
+    if (isInputRequired) {
+      if (!_mcpClientSupportsFormElicitation(clientCapabilities)) {
+        throw McpException(
+          McpErrorCodes.missingRequiredClientCapability,
+          'Client does not support required MCP form elicitation',
+          data: const <String, Object?>{
+            'requiredCapabilities': <String, Object?>{
+              'elicitation': <String, Object?>{'form': <String, Object?>{}},
+            },
+          },
+        );
+      }
+      return <String, Object?>{
+        'resultType': 'input_required',
+        'inputRequests': ?inputRequests,
+        'requestState': ?requestState,
+      };
+    }
+
     final json = <String, Object?>{
       'content': [for (final item in content) item.toJson()],
       'isError': isError,
@@ -299,6 +410,56 @@ class McpToolResult {
       json['structuredContent'] = structuredContent;
     }
     return json;
+  }
+}
+
+bool _mcpClientSupportsFormElicitation(JsonMap capabilities) {
+  final elicitation = capabilities['elicitation'];
+  if (elicitation is! Map) {
+    return false;
+  }
+  if (elicitation.isEmpty) {
+    return true;
+  }
+  return elicitation['form'] is Map;
+}
+
+void _validateMcpFormInputRequest(Object? value, {required String label}) {
+  final request = jsonMapFrom(value, label: label);
+  if (request['method'] != 'elicitation/create') {
+    throw ArgumentError.value(
+      request['method'],
+      label,
+      'This MCP input-required result supports only elicitation/create.',
+    );
+  }
+  final params = jsonMapFrom(request['params'], label: '$label.params');
+  final mode = params['mode'];
+  if (mode != null && mode != 'form') {
+    throw ArgumentError.value(
+      mode,
+      '$label.params.mode',
+      'This MCP input-required result supports only form elicitation.',
+    );
+  }
+  final message = params['message'];
+  if (message is! String || message.isEmpty) {
+    throw ArgumentError.value(
+      message,
+      '$label.params.message',
+      'MCP form elicitation requires a non-empty message.',
+    );
+  }
+  final schema = jsonMapFrom(
+    params['requestedSchema'],
+    label: '$label.params.requestedSchema',
+  );
+  if (schema['type'] != 'object' || schema['properties'] is! Map) {
+    throw ArgumentError.value(
+      params['requestedSchema'],
+      '$label.params.requestedSchema',
+      'MCP form elicitation requires a flat object schema.',
+    );
   }
 }
 

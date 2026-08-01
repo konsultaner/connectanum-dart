@@ -15,6 +15,15 @@ typedef McpWampArgumentsBuilder =
 typedef McpWampResultMapper =
     McpToolResult Function(McpWampToolCall call, ResultPayload result);
 
+/// WAMP call and result detail fields used by the MCP 2026 MRTR bridge.
+abstract final class McpWampMrtrFields {
+  static const String clientCapabilities = 'x_mcp_client_capabilities';
+  static const String inputResponses = 'x_mcp_input_responses';
+  static const String inputRequests = 'x_mcp_input_requests';
+  static const String requestState = 'x_mcp_request_state';
+  static const String resultType = 'x_mcp_result_type';
+}
+
 class McpWampToolDelegate {
   McpWampToolDelegate({
     required this.procedure,
@@ -107,10 +116,23 @@ class McpWampCallPayload {
   });
 
   factory McpWampCallPayload.fromToolArguments(McpToolRequest request) {
+    final custom = <String, dynamic>{
+      if (request.clientCapabilities.isNotEmpty)
+        McpWampMrtrFields.clientCapabilities: _copyStringDynamicMap(
+          request.clientCapabilities,
+        ),
+      if (request.inputResponses.isNotEmpty)
+        McpWampMrtrFields.inputResponses: <String, dynamic>{
+          for (final entry in request.inputResponses.entries)
+            entry.key: _copyStringDynamicMap(entry.value),
+        },
+      McpWampMrtrFields.requestState: ?request.requestState,
+    };
     return McpWampCallPayload(
       argumentsKeywords: request.arguments.isEmpty
           ? null
           : _copyStringDynamicMap(request.arguments),
+      options: custom.isEmpty ? null : CallOptions(custom: custom),
     );
   }
 
@@ -123,6 +145,26 @@ McpToolResult mcpWampLosslessJsonResultMapper(
   McpWampToolCall call,
   ResultPayload result,
 ) {
+  final customDetails = result.customDetails;
+  final resultType = customDetails?[McpWampMrtrFields.resultType];
+  if (resultType != null) {
+    if (resultType != 'input_required') {
+      throw FormatException('Unsupported WAMP MCP result type: $resultType');
+    }
+    final rawInputRequests = customDetails?[McpWampMrtrFields.inputRequests];
+    final inputRequests = rawInputRequests == null
+        ? const <String, Object?>{}
+        : jsonMapFrom(rawInputRequests, label: McpWampMrtrFields.inputRequests);
+    final requestState = customDetails?[McpWampMrtrFields.requestState];
+    if (requestState != null && requestState is! String) {
+      throw const FormatException('WAMP MCP request state must be a string');
+    }
+    return McpToolResult.inputRequired(
+      inputRequests: inputRequests,
+      requestState: requestState as String?,
+    );
+  }
+
   final structuredContent = <String, Object?>{};
   final arguments = result.arguments;
   if (arguments != null) {
@@ -134,7 +176,6 @@ McpToolResult mcpWampLosslessJsonResultMapper(
       argumentsKeywords,
     );
   }
-  final customDetails = result.customDetails;
   if (customDetails != null) {
     structuredContent['details'] = mcpWampJsonCompatible(customDetails);
   }
