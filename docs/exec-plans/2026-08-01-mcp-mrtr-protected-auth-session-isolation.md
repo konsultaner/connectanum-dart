@@ -68,5 +68,10 @@ session.
   `bin/test-fast` passed.
 - 2026-08-01: Complete `bin/verify` passed, including formatting, Rust core and
   FFI, Dart VM, live WAMP, generated package, native router, Chrome, and
-  Dart2Wasm coverage. Exact-head hosted evidence is pending the implementation
-  push.
+  Dart2Wasm coverage.
+- 2026-08-01: Commit `76dae03` was pushed to GitLab and GitHub. Exact-head
+  GitHub CI `30714923011`, Dart Package Publish Dry Run `30714923069`, and
+  WAMP Profile Benchmarks `30714922995` passed on their first attempts.
+  Coverage artifact `8823219004` and WAMP artifact `8823111335` were uploaded,
+  and the strict deployment-chain audit passed with a clean exact-head CI log
+  scan and every required branch, package, and benchmark gate clean.

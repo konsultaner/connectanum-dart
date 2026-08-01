@@ -233,7 +233,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("McpFormElicitationResponse.accept", body)
         self.assertIn("missingRequiredClientCapability", body)
         self.assertIn("McpStreamableHttpClient.statelessWithAuthGrant", body)
-        self.assertIn("MRTR $label stateless calls leaked Streamable session state.", body)
+        self.assertIn("final listener = await client.listen(", body)
+        self.assertIn(
+            "MRTR $label calls leaked session state while the listener was active.",
+            body,
+        )
+        self.assertIn(
+            "MRTR $label listener did not close locally without session state.",
+            body,
+        )
         self.assertIn(
             "MRTR protected endpoint reached elicitation callback before",
             body,

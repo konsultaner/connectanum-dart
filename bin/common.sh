@@ -9794,66 +9794,86 @@ Future<void> _smokeMrtrFormElicitation(
   required String label,
 }) async {
   try {
+    final listener = await client.listen(
+      id: 'consumer-$label-mrtr-listen',
+      toolsListChanged: true,
+    );
     try {
-      await client.callTool(
+      if (!listener.acknowledgedNotifications.toolsListChanged) {
+        throw StateError(
+          'MRTR $label listener did not acknowledge tool-list changes.',
+        );
+      }
+      try {
+        await client.callTool(
+          _mrtrProcedure,
+          id: 'consumer-$label-mrtr-missing-capability',
+          arguments: const <String, Object?>{'release': '1.2.3'},
+        );
+        throw StateError(
+          'MRTR $label tool accepted a missing form capability.',
+        );
+      } on McpStreamableHttpException catch (error) {
+        if (error.statusCode != HttpStatus.badRequest ||
+            !error.body.contains('${McpErrorCodes.missingRequiredClientCapability}')) {
+          throw StateError(
+            'MRTR $label missing-capability response was not HTTP 400/-32021.',
+          );
+        }
+      }
+
+      Future<McpFormElicitationResponse> answer(
+        McpFormElicitationRequest request,
+      ) async {
+        if (request.inputRequestId != 'deployment' ||
+            request.message != 'Confirm the deployment settings.') {
+          throw StateError(
+            'MRTR $label form elicitation request was malformed.',
+          );
+        }
+        return McpFormElicitationResponse.accept(
+          const <String, Object?>{
+            'email': 'operator@example.com',
+            'replicas': 3,
+          },
+        );
+      }
+
+      final streamable = await client.callToolWithFormElicitation(
         _mrtrProcedure,
-        id: 'consumer-$label-mrtr-missing-capability',
+        id: 'consumer-$label-mrtr-streamable',
         arguments: const <String, Object?>{'release': '1.2.3'},
+        onElicitation: answer,
       );
+      final direct = await client.callToolDirectWithFormElicitation(
+        _mrtrProcedure,
+        id: 'consumer-$label-mrtr-direct',
+        arguments: const <String, Object?>{'release': '1.2.3'},
+        onElicitation: answer,
+      );
+      for (final result in <Map<String, Object?>>[streamable, direct]) {
+        final encoded = jsonEncode(result);
+        if (result['isError'] != false ||
+            !encoded.contains('consumer-opaque-round-1') ||
+            !encoded.contains('operator@example.com')) {
+          throw StateError(
+            'MRTR $label form elicitation retry was incomplete.',
+          );
+        }
+      }
+      if (client.sessionId != null || client.lastEventId != null) {
+        throw StateError(
+          'MRTR $label calls leaked session state while the listener was active.',
+        );
+      }
+    } finally {
+      await listener.close();
+    }
+    if ((await listener.closed) != McpSubscriptionCloseReason.local ||
+        client.sessionId != null ||
+        client.lastEventId != null) {
       throw StateError(
-        'MRTR $label tool accepted a missing form capability.',
-      );
-    } on McpStreamableHttpException catch (error) {
-      if (error.statusCode != HttpStatus.badRequest ||
-          !error.body.contains('${McpErrorCodes.missingRequiredClientCapability}')) {
-        throw StateError(
-          'MRTR $label missing-capability response was not HTTP 400/-32021.',
-        );
-      }
-    }
-
-    Future<McpFormElicitationResponse> answer(
-      McpFormElicitationRequest request,
-    ) async {
-      if (request.inputRequestId != 'deployment' ||
-          request.message != 'Confirm the deployment settings.') {
-        throw StateError(
-          'MRTR $label form elicitation request was malformed.',
-        );
-      }
-      return McpFormElicitationResponse.accept(
-        const <String, Object?>{
-          'email': 'operator@example.com',
-          'replicas': 3,
-        },
-      );
-    }
-
-    final streamable = await client.callToolWithFormElicitation(
-      _mrtrProcedure,
-      id: 'consumer-$label-mrtr-streamable',
-      arguments: const <String, Object?>{'release': '1.2.3'},
-      onElicitation: answer,
-    );
-    final direct = await client.callToolDirectWithFormElicitation(
-      _mrtrProcedure,
-      id: 'consumer-$label-mrtr-direct',
-      arguments: const <String, Object?>{'release': '1.2.3'},
-      onElicitation: answer,
-    );
-    for (final result in <Map<String, Object?>>[streamable, direct]) {
-      final encoded = jsonEncode(result);
-      if (result['isError'] != false ||
-          !encoded.contains('consumer-opaque-round-1') ||
-          !encoded.contains('operator@example.com')) {
-        throw StateError(
-          'MRTR $label form elicitation retry was incomplete.',
-        );
-      }
-    }
-    if (client.sessionId != null || client.lastEventId != null) {
-      throw StateError(
-        'MRTR $label stateless calls leaked Streamable session state.',
+        'MRTR $label listener did not close locally without session state.',
       );
     }
   } finally {

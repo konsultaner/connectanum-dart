@@ -368,6 +368,70 @@ void main() {
     );
 
     test(
+      'keeps protected MCP 2026 listeners isolated from direct JSON calls',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.statelessWithAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'initial-listener-token',
+            tokenType: 'Bearer',
+          ),
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final subscription = await client.listen(
+          id: 'protected-listen',
+          toolsListChanged: true,
+        );
+        client.replaceAuthGrant(
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'replacement-tool-token',
+            tokenType: 'Bearer',
+          ),
+        );
+
+        await client.listToolsDirect(id: 'protected-direct-tools');
+
+        final notificationFuture = subscription.notifications.first;
+        await endpoint.sendListenNotification(
+          'notifications/tools/list_changed',
+        );
+        expect(
+          (await notificationFuture)['method'],
+          'notifications/tools/list_changed',
+        );
+
+        await subscription.close();
+        expect(await subscription.closed, McpSubscriptionCloseReason.local);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(endpoint.requests, hasLength(2));
+        expect(endpoint.requests.map((request) => request.mcpMethod), <String?>[
+          'subscriptions/listen',
+          'tools/list',
+        ]);
+        expect(
+          endpoint.requests.map((request) => request.authorization),
+          <String?>[
+            'Bearer initial-listener-token',
+            'Bearer replacement-tool-token',
+          ],
+        );
+        expect(
+          endpoint.requests.map((request) => request.sessionId),
+          everyElement(isNull),
+        );
+      },
+    );
+
+    test(
       'distinguishes graceful and remote MCP 2026 listener closes',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();

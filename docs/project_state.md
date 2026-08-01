@@ -49,19 +49,38 @@ generated consumer package exercises the same protected path against the native
 router without private project assumptions. The completed plan is
 `docs/exec-plans/2026-08-01-mcp-mrtr-protected-auth-session-isolation.md`.
 
-Focused MCP, client, WAMP-delegate, router, boundary, and generated-package
-regressions passed. Post-change `bin/test-fast` and full `bin/verify` passed on
-2026-08-01, including Rust core and FFI suites, workspace formatting and
-analysis, 360 core tests, 190 combined client/MCP authorization tests, 94 MCP
-tests, 96 benchmark tests, the complete router suite, isolated and globally
-activated consumer smokes, native zero-copy checks, and Chrome/Dart2Wasm
-coverage. The completed plan is
+The completed protected-listener coexistence checkpoint now covers the next
+shipped-path interaction. A focused bearer-client regression keeps an MCP
+`2026-07-28` request-scoped listener open while the same stateless client
+replaces its grant and completes a direct JSON tools request, then proves the
+listener still receives a notification and closes locally without session
+state. The isolated generated consumer package now keeps public and protected
+listeners open across missing-capability handling plus successful standard and
+direct JSON form-MRTR rounds against the native router. The completed plan is
+`docs/exec-plans/2026-08-01-mcp-protected-listener-tool-coexistence.md`.
+
+Focused client and boundary regressions passed, and the isolated generated
+consumer completed against the native router. Pre-change and post-change
+`bin/test-fast` passed on 2026-08-01, including 360 core tests, 191 combined
+client/MCP authorization tests, 94 MCP tests, 96 benchmark tests, the complete
+router fast suite, and consumer-package smokes. Full `bin/verify` passed,
+including Rust core and FFI suites, workspace formatting and analysis, 380
+router tests, native zero-copy checks, and Chrome/Dart2Wasm coverage. The
+completed MRTR plan is
 `docs/exec-plans/2026-08-01-mcp-2026-mrtr-form-elicitation.md`; exact-head
 hosted evidence is green. The preceding request-scoped notification milestone
 remains documented in
 `docs/exec-plans/2026-08-01-mcp-2026-subscriptions-listen.md`, and the complete
 `2025-*` initialize/session/GET/SSE/DELETE and resource-subscription
 compatibility matrix remains unchanged.
+
+Commit `76dae03` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30714923011` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
+and coverage artifact `8823219004`. Dart Package Publish Dry Run `30714923069`
+and WAMP Profile Benchmarks `30714922995` passed on their first attempts; WAMP
+artifact `8823111335` was uploaded. The strict deployment-chain audit passed
+with a clean exact-head CI log scan and all required branch, workflow, package,
+publish-dry-run, and benchmark-artifact gates clean.
 
 Commit `dc89c4d` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30711625725` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
