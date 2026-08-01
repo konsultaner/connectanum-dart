@@ -14,6 +14,9 @@
 - Preserve active Streamable HTTP session and resume-cursor state when a
   router returns an OAuth `insufficient_scope` HTTP 403 challenge, while still
   clearing stale state for HTTP 401 and terminated-session HTTP 404 responses.
+- Allow consumers to replace an active MCP client's OAuth grant after a scope
+  challenge, validating resource binding and expiry before retrying on the
+  same Streamable HTTP session.
 - Use UTF-8 for CRA and SCRAM authentication strings by default while retaining
   an explicit UTF-16 compatibility mode for legacy peers.
 

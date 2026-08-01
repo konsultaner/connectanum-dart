@@ -316,18 +316,7 @@ final class McpStreamableHttpClient {
     String defaultProtocolVersion = latestProtocolVersion,
     bool closeHttpClient = false,
   }) {
-    if (!grant.isForResource(endpoint)) {
-      throw McpOAuthTokenException(
-        'OAuth token grant is not valid for this MCP resource.',
-        endpoint: endpoint,
-      );
-    }
-    if (grant.isAccessTokenExpired()) {
-      throw McpOAuthTokenException(
-        'OAuth token grant access token has expired.',
-        endpoint: endpoint,
-      );
-    }
+    _validateOAuthTokenGrant(endpoint, grant);
     return McpStreamableHttpClient.withBearerToken(
       endpoint,
       grant.accessToken,
@@ -359,7 +348,7 @@ final class McpStreamableHttpClient {
   final String defaultProtocolVersion;
   final HttpClient _httpClient;
   final bool _ownsHttpClient;
-  final String? _authorizationHeader;
+  String? _authorizationHeader;
   final _toolHeaderParametersByName = <String, List<_McpToolHeaderParameter>>{};
 
   int _nextRequestId = 1;
@@ -419,6 +408,21 @@ final class McpStreamableHttpClient {
       );
     }
     return _headersWithBearerToken(headers, grant.accessToken);
+  }
+
+  static void _validateOAuthTokenGrant(Uri endpoint, McpOAuthTokenGrant grant) {
+    if (!grant.isForResource(endpoint)) {
+      throw McpOAuthTokenException(
+        'OAuth token grant is not valid for this MCP resource.',
+        endpoint: endpoint,
+      );
+    }
+    if (grant.isAccessTokenExpired()) {
+      throw McpOAuthTokenException(
+        'OAuth token grant access token has expired.',
+        endpoint: endpoint,
+      );
+    }
   }
 
   /// Discovers OAuth Protected Resource Metadata without using session state.
@@ -558,6 +562,20 @@ final class McpStreamableHttpClient {
       timeout: timeout,
       maxResponseBytes: maxResponseBytes,
     );
+  }
+
+  /// Replaces the OAuth access token used for subsequent MCP HTTP requests.
+  ///
+  /// The [grant] must be unexpired and bound to this client's MCP endpoint.
+  /// Streamable HTTP session, resume, protocol, request, and connection state
+  /// remain unchanged. Authorization flows and request retries stay
+  /// caller-controlled.
+  void replaceOAuthToken(McpOAuthTokenGrant grant) {
+    _validateOAuthTokenGrant(endpoint, grant);
+    final authorizationHeader = _authorizationHeaderFrom(
+      _headersWithBearerToken(const <String, String>{}, grant.accessToken),
+    );
+    _authorizationHeader = authorizationHeader;
   }
 
   Future<McpJsonMap> initialize({

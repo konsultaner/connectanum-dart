@@ -105,6 +105,15 @@ and perform caller-managed step-up without discarding resumable session state.
 HTTP 401 and terminated-session HTTP 404 responses continue to clear local
 session state. Focused POST, GET/SSE, and DELETE regressions, the public MCP IO
 entrypoint, and the isolated client-only consumer smoke cover this contract.
+The same client can now apply a newly issued OAuth grant after that challenge
+through `replaceOAuthToken`. Replacement accepts only an unexpired grant bound
+to the client's canonical MCP resource and validates it before changing the
+Authorization header, so rejected grants leave the prior credential intact.
+The caller can then retry explicitly while preserving the active session,
+resume cursor, negotiated protocol, request sequence, HTTP connection, and
+connection ownership. Focused client and public IO-entrypoint regressions plus
+the isolated client-only consumer smoke prove narrow-grant rejection, broader-
+grant replacement, and successful same-session retry.
 The completed plans are
 `docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md` and
 `docs/exec-plans/2026-07-31-mcp-oauth-authorization-request.md`; the completed
@@ -127,6 +136,8 @@ The completed token-grant persistence plan is
 `docs/exec-plans/2026-07-31-mcp-oauth-token-grant-persistence.md`.
 The completed insufficient-scope session-preservation plan is
 `docs/exec-plans/2026-08-01-mcp-insufficient-scope-session-preservation.md`.
+The completed same-session OAuth step-up retry plan is
+`docs/exec-plans/2026-08-01-mcp-oauth-step-up-retry.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, workspace analysis, public package-boundary validation, and the
 isolated and globally activated consumer smokes passed on 2026-07-31 for the
@@ -150,6 +161,21 @@ tests, 52 FFI tests, 360 core Dart tests, all 96 benchmark tests, the complete
 377-test router suite, isolated and globally activated package consumers,
 router-hosted MCP variants, 13 focused native-router tests, and
 Chrome/Dart2Wasm.
+Pre-change and post-change `bin/test-fast`, focused OAuth step-up regressions,
+package analysis, the 176-test client MCP suite, the 86-test MCP package suite,
+the compatibility facade, and the isolated client-only consumer smoke passed
+on 2026-08-01 for in-place OAuth grant replacement. Complete local
+`bin/verify` then passed, including formatting, 113 Rust core tests, 52 FFI
+tests, 360 core Dart tests, all 96 benchmark tests, the complete 377-test router
+suite, isolated and globally activated package consumers, router-hosted MCP
+variants, 13 focused native-router tests, and Chrome/Dart2Wasm.
+Commit `575da14` passed exact-head GitHub CI `30684451450`, including Fast
+Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+artifact. Dart Package Publish Dry Run `30684451475` and WAMP Profile
+Benchmarks `30684451451` passed on their first attempts, including the WAMP
+benchmark artifact upload. The strict deployment-chain audit passed with clean
+exact-head CI logs and all required branch, workflow, package,
+benchmark-artifact, and registry gates clean.
 Commit `679279e` passed exact-head GitHub CI `30659107594`, including Fast
 Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
 artifact. Dart Package Publish Dry Run `30659107694` and WAMP Profile
@@ -23553,7 +23579,15 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- No active plan. Most recent completed MCP plan:
+- No execution plan is active after completing the bounded OAuth step-up retry
+  slice. Select the next router-hosted MCP readiness slice from the remaining
+  roadmap work.
+- Most recent completed MCP downstream-application readiness plan:
+  `docs/exec-plans/2026-08-01-mcp-oauth-step-up-retry.md`. It adds validated
+  in-place OAuth grant replacement so a consumer can retry an
+  insufficient-scope operation with broader authorization on the same active
+  Streamable HTTP session.
+- Previously completed MCP plan:
   `docs/exec-plans/2026-08-01-mcp-insufficient-scope-session-preservation.md`.
   It preserves active Streamable HTTP session and resume-cursor state across
   OAuth insufficient-scope 403 challenges while retaining cleanup for 401 and

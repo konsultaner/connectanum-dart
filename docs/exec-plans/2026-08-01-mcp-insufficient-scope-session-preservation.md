@@ -78,3 +78,9 @@ Primary references:
   `bin/verify` passed with formatting clean, 113 Rust core tests, 52 FFI tests,
   360 core Dart tests, all 96 benchmark tests, all 377 router tests, the
   package/live MCP smokes, 13 focused native-router tests, and Chrome/Dart2Wasm.
+- 2026-08-01: Commit `575da14` was pushed to GitLab `origin/master` and GitHub
+  `master`. Exact-head GitHub CI `30684451450`, Dart Package Publish Dry Run
+  `30684451475`, and WAMP Profile Benchmarks `30684451451` passed on their
+  first attempts, including coverage and benchmark artifact uploads. The
+  strict deployment-chain audit passed with clean CI logs and all required
+  branch, workflow, package, benchmark-artifact, and registry gates clean.

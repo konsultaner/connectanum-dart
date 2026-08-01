@@ -1940,6 +1940,108 @@ void main() {
     );
 
     test(
+      'retries insufficient scope with a broader OAuth grant on the same session',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final narrowGrant = _testOAuthGrant(
+          endpoint.uri,
+          accessToken: 'narrow-step-up-token',
+          scopes: const <String>['tools:read'],
+        );
+        final client = McpStreamableHttpClient.withOAuthToken(
+          endpoint.uri,
+          narrowGrant,
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'step-up-initialize');
+        expect(client.sessionId, 'session-1');
+        client.lastEventId = 'session-1:step-up:kept';
+
+        Future<void> ping() => client.ping(
+          id: 'step-up-ping',
+          headers: const <String, String>{'x-test-oauth-step-up': '1'},
+        );
+
+        await expectLater(
+          ping(),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.forbidden,
+                )
+                .having(
+                  (error) => error.bearerChallenges.single.error,
+                  'Bearer error',
+                  'insufficient_scope',
+                )
+                .having(
+                  (error) => error.bearerChallenges.single.scopes,
+                  'authoritative scopes',
+                  ['tools:call'],
+                ),
+          ),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:step-up:kept');
+        expect(
+          endpoint.requests.last.authorization,
+          'Bearer narrow-step-up-token',
+        );
+
+        final broaderGrant = _testOAuthGrant(
+          endpoint.uri,
+          accessToken: 'broad-step-up-token',
+          scopes: const <String>['tools:read', 'tools:call'],
+        );
+        client.replaceOAuthToken(broaderGrant);
+
+        await ping();
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:step-up:kept');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+        expect(
+          endpoint.requests.last.authorization,
+          'Bearer broad-step-up-token',
+        );
+
+        final wrongResourceGrant = _testOAuthGrant(
+          endpoint.uri.replace(path: '/other-mcp'),
+          accessToken: 'wrong-resource-step-up-token',
+          scopes: const <String>['tools:call'],
+        );
+        expect(
+          () => client.replaceOAuthToken(wrongResourceGrant),
+          throwsA(isA<McpOAuthTokenException>()),
+        );
+
+        final expiredGrant = _testOAuthGrant(
+          endpoint.uri,
+          accessToken: 'expired-step-up-token',
+          scopes: const <String>['tools:call'],
+          issuedAt: DateTime.now().toUtc().subtract(const Duration(hours: 2)),
+          expiresIn: const Duration(hours: 1),
+        );
+        expect(
+          () => client.replaceOAuthToken(expiredGrant),
+          throwsA(isA<McpOAuthTokenException>()),
+        );
+
+        await ping();
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:step-up:kept');
+        expect(
+          endpoint.requests.last.authorization,
+          'Bearer broad-step-up-token',
+        );
+      },
+    );
+
+    test(
       'keeps Streamable HTTP session state after rate-limit failures',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -5973,6 +6075,39 @@ void main() {
   });
 }
 
+McpOAuthTokenGrant _testOAuthGrant(
+  Uri resource, {
+  required String accessToken,
+  required List<String> scopes,
+  DateTime? issuedAt,
+  Duration expiresIn = const Duration(hours: 1),
+}) {
+  final issued =
+      (issuedAt ?? DateTime.now().toUtc().subtract(const Duration(minutes: 1)))
+          .toUtc();
+  return McpOAuthTokenGrant.fromJson(<String, Object?>{
+    'type': 'mcp_oauth_token_grant',
+    'version': 1,
+    'issued_at': issued.toIso8601String(),
+    'expires_in': expiresIn.inSeconds,
+    'expires_at': issued.add(expiresIn).toIso8601String(),
+    'authorization_server': <String, Object?>{
+      'issuer': 'https://auth.example',
+      'authorization_endpoint': 'https://auth.example/authorize',
+      'token_endpoint': 'https://auth.example/token',
+      'response_types_supported': <String>['code'],
+      'code_challenge_methods_supported': <String>['S256'],
+    },
+    'resource': resource.toString(),
+    'client_id': 'step-up-client',
+    'scopes': scopes,
+    'tokens': <String, Object?>{
+      'access_token': accessToken,
+      'token_type': 'Bearer',
+    },
+  });
+}
+
 final class _FakeMcpEndpoint {
   _FakeMcpEndpoint._(this._server, this._failInitialize) {
     _subscription = _server.listen(_handle);
@@ -6006,6 +6141,29 @@ final class _FakeMcpEndpoint {
     requests.add(_SeenRequest.from(request, jsonBody));
 
     final requestSessionId = request.headers.value(_headerSessionId);
+    if (request.headers.value('x-test-oauth-step-up') == '1' &&
+        request.headers.value(HttpHeaders.authorizationHeader) ==
+            'Bearer narrow-step-up-token') {
+      request.response.statusCode = HttpStatus.forbidden;
+      request.response.headers.contentType = ContentType.json;
+      request.response.headers.set(
+        HttpHeaders.wwwAuthenticateHeader,
+        'Bearer error="insufficient_scope", scope="tools:call", '
+        'resource_metadata="https://router.example/.well-known/'
+        'oauth-protected-resource/mcp"',
+      );
+      _applyTestResponseHeaders(request, sessionId: requestSessionId);
+      request.response.write(
+        jsonEncode(const <String, Object?>{
+          'error': <String, Object?>{
+            'code': 403,
+            'message': 'Additional scope is required',
+          },
+        }),
+      );
+      await request.response.close();
+      return;
+    }
     if (requestSessionId == 'expired-session' ||
         requestSessionId == 'unauthorized-session' ||
         requestSessionId == 'forbidden-session') {

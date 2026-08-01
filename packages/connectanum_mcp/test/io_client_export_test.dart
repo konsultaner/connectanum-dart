@@ -1156,7 +1156,7 @@ void main() {
   );
 
   test(
-    'IO entrypoint preserves Streamable state for insufficient scope',
+    'IO entrypoint retries insufficient scope on the same Streamable session',
     () async {
       final endpoint = await _AuthBackedMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -1171,13 +1171,15 @@ void main() {
       expect(client.sessionId, _ioAuthSessionId);
       client.lastEventId = '$_ioAuthSessionId:get:kept';
 
+      Future<void> ping() => client.ping(
+        id: 'io-insufficient-scope-ping',
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-auth-insufficient-scope',
+        },
+      );
+
       await expectLater(
-        client.ping(
-          id: 'io-insufficient-scope-ping',
-          headers: const <String, String>{
-            'x-consumer-trace': 'io-auth-insufficient-scope',
-          },
-        ),
+        ping(),
         throwsA(
           isA<McpStreamableHttpException>()
               .having(
@@ -1202,6 +1204,25 @@ void main() {
       expect(client.lastEventId, '$_ioAuthSessionId:get:kept');
       expect(endpoint.mcpRequests, hasLength(2));
       expect(endpoint.mcpRequests.last.sessionId, _ioAuthSessionId);
+      expect(endpoint.mcpRequests.last.body['method'], 'ping');
+      expect(endpoint.mcpRequests.last.authorization, 'Bearer $_ioAccessToken');
+
+      final broaderGrant = _testOAuthGrant(
+        endpoint.mcpUri,
+        accessToken: _ioRefreshedAccessToken,
+        scopes: const <String>['tools:read', 'tools:call'],
+      );
+      client.replaceOAuthToken(broaderGrant);
+      await ping();
+
+      expect(client.sessionId, _ioAuthSessionId);
+      expect(client.lastEventId, '$_ioAuthSessionId:get:kept');
+      expect(endpoint.mcpRequests, hasLength(3));
+      expect(endpoint.mcpRequests.last.sessionId, _ioAuthSessionId);
+      expect(
+        endpoint.mcpRequests.last.authorization,
+        'Bearer $_ioRefreshedAccessToken',
+      );
       expect(endpoint.mcpRequests.last.body['method'], 'ping');
     },
   );
@@ -2192,6 +2213,36 @@ const String _ioRefreshedRefreshToken = 'io-refresh-token-2';
 const String _ioAuthState = 'io-state-1';
 const String _ioAuthSessionId = 'io-auth-session-1';
 
+McpOAuthTokenGrant _testOAuthGrant(
+  Uri resource, {
+  required String accessToken,
+  required List<String> scopes,
+}) {
+  final issued = DateTime.now().toUtc().subtract(const Duration(minutes: 1));
+  const expiresIn = Duration(hours: 1);
+  return McpOAuthTokenGrant.fromJson(<String, Object?>{
+    'type': 'mcp_oauth_token_grant',
+    'version': 1,
+    'issued_at': issued.toIso8601String(),
+    'expires_in': expiresIn.inSeconds,
+    'expires_at': issued.add(expiresIn).toIso8601String(),
+    'authorization_server': <String, Object?>{
+      'issuer': 'https://auth.example',
+      'authorization_endpoint': 'https://auth.example/authorize',
+      'token_endpoint': 'https://auth.example/token',
+      'response_types_supported': <String>['code'],
+      'code_challenge_methods_supported': <String>['S256'],
+    },
+    'resource': resource.toString(),
+    'client_id': 'io-step-up-client',
+    'scopes': scopes,
+    'tokens': <String, Object?>{
+      'access_token': accessToken,
+      'token_type': 'Bearer',
+    },
+  });
+}
+
 final class _DirectWampEndpoint {
   _DirectWampEndpoint._(this._server) {
     _subscription = _server.listen(_handle);
@@ -2678,7 +2729,8 @@ final class _AuthBackedMcpEndpoint {
       return;
     }
     if (request.headers.value('x-consumer-trace') ==
-        'io-auth-insufficient-scope') {
+            'io-auth-insufficient-scope' &&
+        authorization == 'Bearer $_ioAccessToken') {
       request.response.headers.set(
         HttpHeaders.wwwAuthenticateHeader,
         'Bearer error="insufficient_scope", scope="tools:call", '

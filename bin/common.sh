@@ -2159,7 +2159,7 @@ Future<void> main() async {
         'x-consumer-trace': 'streamable-initialized',
       },
     );
-    await _smokeInsufficientScopePreservesSession(client, endpoint);
+    await _smokeInsufficientScopeStepUp(endpoint);
     await _smokeProtectedResourceDiscovery(client, endpoint);
 
     final tools = await client.listTools(
@@ -2271,49 +2271,117 @@ Future<void> main() async {
   }
 }
 
-Future<void> _smokeInsufficientScopePreservesSession(
-  McpStreamableHttpClient client,
+Future<void> _smokeInsufficientScopeStepUp(
   _AgentMcpEndpoint endpoint,
 ) async {
-  final sessionId = client.sessionId;
-  _expect(sessionId == _sessionId, 'insufficient-scope smoke missed session');
-  const resumeCursor = 'agent-session:get:step-up-kept';
-  client.lastEventId = resumeCursor;
-
+  final narrowGrant = _smokeOAuthGrant(
+    endpoint,
+    accessToken: _oauthAccessToken,
+    scopes: const <String>['mcp:meta'],
+  );
+  final stepUpClient = McpStreamableHttpClient.withOAuthToken(
+    endpoint.uri,
+    narrowGrant,
+  );
   try {
-    await client.ping(
+    await stepUpClient.initialize(id: 'step-up-initialize');
+    final sessionId = stepUpClient.sessionId;
+    _expect(
+      sessionId == _sessionId,
+      'insufficient-scope smoke missed session',
+    );
+    const resumeCursor = 'agent-session:get:step-up-kept';
+    stepUpClient.lastEventId = resumeCursor;
+
+    Future<void> ping() => stepUpClient.ping(
       id: 'insufficient-scope-ping',
       headers: const <String, String>{
         'x-consumer-trace': 'insufficient-scope-ping',
         'x-test-insufficient-scope': '1',
       },
     );
-    throw StateError('insufficient-scope MCP request unexpectedly succeeded');
-  } on McpStreamableHttpException catch (error) {
-    _expect(
-      error.statusCode == HttpStatus.forbidden,
-      'insufficient-scope request returned ${error.statusCode}, expected 403',
-    );
-    final challenge = error.bearerChallenges.single;
-    _expect(
-      challenge.error == 'insufficient_scope',
-      'insufficient-scope response missed the Bearer error',
-    );
-    _expect(
-      challenge.scopes.length == 1 && challenge.scopes.single == 'mcp:tools',
-      'insufficient-scope response missed authoritative scopes',
-    );
-    _expect(
-      challenge.resourceMetadata == endpoint.protectedResourceMetadataUri,
-      'insufficient-scope response missed protected-resource metadata',
-    );
-  }
 
-  _expect(
-    client.sessionId == sessionId && client.lastEventId == resumeCursor,
-    'insufficient-scope response discarded Streamable session state',
-  );
-  client.lastEventId = null;
+    try {
+      await ping();
+      throw StateError(
+        'insufficient-scope MCP request unexpectedly succeeded',
+      );
+    } on McpStreamableHttpException catch (error) {
+      _expect(
+        error.statusCode == HttpStatus.forbidden,
+        'insufficient-scope request returned ${error.statusCode}, expected 403',
+      );
+      final challenge = error.bearerChallenges.single;
+      _expect(
+        challenge.error == 'insufficient_scope',
+        'insufficient-scope response missed the Bearer error',
+      );
+      _expect(
+        challenge.scopes.length == 1 && challenge.scopes.single == 'mcp:tools',
+        'insufficient-scope response missed authoritative scopes',
+      );
+      _expect(
+        challenge.resourceMetadata == endpoint.protectedResourceMetadataUri,
+        'insufficient-scope response missed protected-resource metadata',
+      );
+    }
+
+    _expect(
+      stepUpClient.sessionId == sessionId &&
+          stepUpClient.lastEventId == resumeCursor,
+      'insufficient-scope response discarded Streamable session state',
+    );
+
+    final broaderGrant = _smokeOAuthGrant(
+      endpoint,
+      accessToken: _oauthRefreshedAccessToken,
+      scopes: const <String>['mcp:meta', 'mcp:tools'],
+    );
+    stepUpClient.replaceOAuthToken(broaderGrant);
+    await ping();
+
+    _expect(
+      stepUpClient.sessionId == sessionId &&
+          stepUpClient.lastEventId == resumeCursor,
+      'step-up retry changed Streamable session state',
+    );
+  } finally {
+    stepUpClient.close(force: true);
+  }
+}
+
+McpOAuthTokenGrant _smokeOAuthGrant(
+  _AgentMcpEndpoint endpoint, {
+  required String accessToken,
+  required List<String> scopes,
+}) {
+  final issued = DateTime.now().toUtc().subtract(const Duration(minutes: 1));
+  const expiresIn = Duration(hours: 1);
+  return McpOAuthTokenGrant.fromJson(<String, Object?>{
+    'type': 'mcp_oauth_token_grant',
+    'version': 1,
+    'issued_at': issued.toIso8601String(),
+    'expires_in': expiresIn.inSeconds,
+    'expires_at': issued.add(expiresIn).toIso8601String(),
+    'authorization_server': <String, Object?>{
+      'issuer': endpoint.authorizationServerIssuer.toString(),
+      'authorization_endpoint': endpoint.authorizationServerIssuer
+          .replace(path: '/oauth/authorize')
+          .toString(),
+      'token_endpoint': endpoint.authorizationServerIssuer
+          .replace(path: '/oauth/token')
+          .toString(),
+      'response_types_supported': <String>['code'],
+      'code_challenge_methods_supported': <String>['S256'],
+    },
+    'resource': endpoint.uri.toString(),
+    'client_id': _oauthClientId,
+    'scopes': scopes,
+    'tokens': <String, Object?>{
+      'access_token': accessToken,
+      'token_type': 'Bearer',
+    },
+  });
 }
 
 Future<void> _smokeProtectedResourceDiscovery(
@@ -6547,7 +6615,8 @@ final class _AgentMcpEndpoint {
       return;
     }
 
-    if (request.headers.value('x-test-insufficient-scope') == '1') {
+    if (request.headers.value('x-test-insufficient-scope') == '1' &&
+        bearerToken != _oauthRefreshedAccessToken) {
       request.response.headers.set(
         HttpHeaders.wwwAuthenticateHeader,
         'Bearer error="insufficient_scope", scope="mcp:tools", '
