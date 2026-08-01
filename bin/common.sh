@@ -8615,6 +8615,7 @@ const _publicMcpInstructions =
     'Use this endpoint with consumer route-scoped credentials.';
 
 final _consumerProcedureTaskIds = <String>[];
+var _consumerMrtrInvocationCount = 0;
 
 Future<void> main() async {
   final nativeLibraryPath = Platform.environment['CONNECTANUM_NATIVE_LIB'];
@@ -8699,6 +8700,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
           'version': '0.1.0',
         },
       ),
+      label: 'public',
     );
     await _smokeMcpProtocolVersionCompatibility(binding, label: 'public');
     await _smokeDirectJson(publicClient, serviceSession, label: 'public');
@@ -8736,6 +8738,17 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       authId: _ticketAuthId,
       authMethod: 'ticket',
       authProvider: 'consumer-local',
+    );
+    await _smokeMrtrFormElicitation(
+      McpStreamableHttpClient.statelessWithAuthGrant(
+        _mcpEndpoint(binding, secure: true),
+        grant,
+        clientInfo: const {
+          'name': 'connectanum_mcp_consumer_smoke',
+          'version': '0.1.0',
+        },
+      ),
+      label: 'secure',
     );
     await _smokeMcpProtocolVersionCompatibility(
       binding,
@@ -9728,6 +9741,7 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
     ),
   );
   mrtrRegistration.onInvoke((invocation) {
+    _consumerMrtrInvocationCount += 1;
     final details = invocation.details.custom;
     if (!details.containsKey(McpWampMrtrFields.inputResponses)) {
       invocation.respondWith(
@@ -9776,21 +9790,24 @@ Future<void> _registerConsumerApi(RouterSession serviceSession) async {
 }
 
 Future<void> _smokeMrtrFormElicitation(
-  McpStreamableHttpClient client,
-) async {
+  McpStreamableHttpClient client, {
+  required String label,
+}) async {
   try {
     try {
       await client.callTool(
         _mrtrProcedure,
-        id: 'consumer-mrtr-missing-capability',
+        id: 'consumer-$label-mrtr-missing-capability',
         arguments: const <String, Object?>{'release': '1.2.3'},
       );
-      throw StateError('MRTR tool accepted a missing form capability.');
+      throw StateError(
+        'MRTR $label tool accepted a missing form capability.',
+      );
     } on McpStreamableHttpException catch (error) {
       if (error.statusCode != HttpStatus.badRequest ||
           !error.body.contains('${McpErrorCodes.missingRequiredClientCapability}')) {
         throw StateError(
-          'MRTR missing-capability response was not HTTP 400/-32021.',
+          'MRTR $label missing-capability response was not HTTP 400/-32021.',
         );
       }
     }
@@ -9800,7 +9817,9 @@ Future<void> _smokeMrtrFormElicitation(
     ) async {
       if (request.inputRequestId != 'deployment' ||
           request.message != 'Confirm the deployment settings.') {
-        throw StateError('MRTR form elicitation request was malformed.');
+        throw StateError(
+          'MRTR $label form elicitation request was malformed.',
+        );
       }
       return McpFormElicitationResponse.accept(
         const <String, Object?>{
@@ -9812,13 +9831,13 @@ Future<void> _smokeMrtrFormElicitation(
 
     final streamable = await client.callToolWithFormElicitation(
       _mrtrProcedure,
-      id: 'consumer-mrtr-streamable',
+      id: 'consumer-$label-mrtr-streamable',
       arguments: const <String, Object?>{'release': '1.2.3'},
       onElicitation: answer,
     );
     final direct = await client.callToolDirectWithFormElicitation(
       _mrtrProcedure,
-      id: 'consumer-mrtr-direct',
+      id: 'consumer-$label-mrtr-direct',
       arguments: const <String, Object?>{'release': '1.2.3'},
       onElicitation: answer,
     );
@@ -9827,11 +9846,15 @@ Future<void> _smokeMrtrFormElicitation(
       if (result['isError'] != false ||
           !encoded.contains('consumer-opaque-round-1') ||
           !encoded.contains('operator@example.com')) {
-        throw StateError('MRTR form elicitation retry was incomplete.');
+        throw StateError(
+          'MRTR $label form elicitation retry was incomplete.',
+        );
       }
     }
     if (client.sessionId != null || client.lastEventId != null) {
-      throw StateError('MRTR stateless calls leaked Streamable session state.');
+      throw StateError(
+        'MRTR $label stateless calls leaked Streamable session state.',
+      );
     }
   } finally {
     client.close(force: true);
@@ -9879,6 +9902,56 @@ Future<void> _assertSecureMcpUnauthorizedCoverage(
   McpStreamableHttpClient client, {
   String? acceptedMessage,
 }) async {
+    final mrtrInvocationsBefore = _consumerMrtrInvocationCount;
+    var mrtrCallbackInvoked = false;
+    Future<McpFormElicitationResponse> rejectUnexpectedInput(
+      McpFormElicitationRequest request,
+    ) async {
+      mrtrCallbackInvoked = true;
+      throw StateError(
+        'MRTR protected endpoint reached elicitation callback before '
+        'authentication.',
+      );
+    }
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'standard form MRTR tools/call',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.callToolWithFormElicitation(
+          _mrtrProcedure,
+          id: 'secure-unauthenticated-standard-mrtr',
+          streamable: false,
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          onElicitation: rejectUnexpectedInput,
+        );
+      },
+    );
+    await _expectSecureMcpUnauthorized(
+      client,
+      label: 'direct JSON form MRTR tools/call',
+      acceptedMessage: acceptedMessage,
+      operation: () async {
+        await client.callToolDirectWithFormElicitation(
+          _mrtrProcedure,
+          id: 'secure-unauthenticated-direct-mrtr',
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          onElicitation: rejectUnexpectedInput,
+        );
+      },
+    );
+    if (mrtrCallbackInvoked) {
+      throw StateError(
+        'MRTR protected endpoint exposed an input request before '
+        'authentication.',
+      );
+    }
+    if (_consumerMrtrInvocationCount != mrtrInvocationsBefore) {
+      throw StateError(
+        'MRTR protected endpoint invoked the WAMP procedure before '
+        'authentication.',
+      );
+    }
     await _expectSecureMcpUnauthorized(
       client,
       label: 'direct JSON tools/list',

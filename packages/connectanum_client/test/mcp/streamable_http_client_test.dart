@@ -4190,6 +4190,85 @@ void main() {
       },
     );
 
+    test(
+      'refreshes MRTR auth without touching an active Streamable session',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        const initialGrant = ConnectanumHttpAuthGrant(
+          accessToken: 'initial-mrtr-token',
+          tokenType: 'Bearer',
+        );
+        const refreshedGrant = ConnectanumHttpAuthGrant(
+          accessToken: 'refreshed-mrtr-token',
+          tokenType: 'Bearer',
+        );
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          initialGrant,
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'mrtr-auth-initialize');
+        expect(client.sessionId, 'session-1');
+        client.lastEventId = 'session-1:mrtr:kept';
+
+        Future<McpFormElicitationResponse> answer(
+          McpFormElicitationRequest request,
+        ) async {
+          expect(request.inputRequestId, 'deployment');
+          client.replaceAuthGrant(refreshedGrant);
+          return McpFormElicitationResponse.accept(const <String, Object?>{
+            'email': 'operator@example.com',
+            'replicas': 3,
+          });
+        }
+
+        final standardResult = await client.callToolWithFormElicitation(
+          'app.deploy',
+          id: 'mrtr-auth-standard',
+          arguments: const <String, Object?>{'release': '1.2.3'},
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          headers: const <String, String>{'x-test-mrtr-form': '1'},
+          onElicitation: answer,
+        );
+        client.replaceAuthGrant(initialGrant);
+        final directResult = await client.callToolDirectWithFormElicitation(
+          'app.deploy',
+          id: 'mrtr-auth-direct',
+          arguments: const <String, Object?>{'release': '1.2.3'},
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          headers: const <String, String>{'x-test-mrtr-form': '1'},
+          onElicitation: answer,
+        );
+
+        for (final result in [standardResult, directResult]) {
+          expect(result['isError'], isFalse);
+        }
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:mrtr:kept');
+        expect(endpoint.requests, hasLength(5));
+        expect(
+          endpoint.requests.map((request) => request.authorization),
+          <String?>[
+            'Bearer initial-mrtr-token',
+            'Bearer initial-mrtr-token',
+            'Bearer refreshed-mrtr-token',
+            'Bearer initial-mrtr-token',
+            'Bearer refreshed-mrtr-token',
+          ],
+        );
+        for (final request in endpoint.requests.skip(1)) {
+          expect(
+            request.protocolVersion,
+            McpStreamableHttpClient.latestProtocolVersion,
+          );
+          expect(request.sessionId, isNull);
+        }
+      },
+    );
+
     test('validates supported form schemas and response actions', () {
       final request = McpFormElicitationRequest(
         inputRequestId: 'preferences',

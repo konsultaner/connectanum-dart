@@ -38,19 +38,38 @@ two-round form elicitation through both endpoints, missing-capability behavior,
 fresh IDs, exact state echoing, WAMP delivery, and sessionless completion
 without private project assumptions.
 
+The completed protected-MRTR hardening checkpoint now proves authorization and
+session isolation around that feature. Missing or unknown bearer credentials
+are rejected before an elicitation callback or WAMP procedure invocation. A
+real router-issued grant completes standard and direct JSON form rounds, and a
+caller-managed grant replacement made inside the callback is used on the retry.
+Modern MRTR requests omit an active compatibility-era session header while
+preserving that client's existing session ID and resume cursor. The isolated
+generated consumer package exercises the same protected path against the native
+router without private project assumptions. The completed plan is
+`docs/exec-plans/2026-08-01-mcp-mrtr-protected-auth-session-isolation.md`.
+
 Focused MCP, client, WAMP-delegate, router, boundary, and generated-package
 regressions passed. Post-change `bin/test-fast` and full `bin/verify` passed on
 2026-08-01, including Rust core and FFI suites, workspace formatting and
-analysis, 360 core tests, 189 combined client/MCP authorization tests, 94 MCP
+analysis, 360 core tests, 190 combined client/MCP authorization tests, 94 MCP
 tests, 96 benchmark tests, the complete router suite, isolated and globally
 activated consumer smokes, native zero-copy checks, and Chrome/Dart2Wasm
 coverage. The completed plan is
 `docs/exec-plans/2026-08-01-mcp-2026-mrtr-form-elicitation.md`; exact-head
-hosted evidence is pending the implementation push. The preceding request-
-scoped notification milestone remains documented in
+hosted evidence is green. The preceding request-scoped notification milestone
+remains documented in
 `docs/exec-plans/2026-08-01-mcp-2026-subscriptions-listen.md`, and the complete
 `2025-*` initialize/session/GET/SSE/DELETE and resource-subscription
 compatibility matrix remains unchanged.
+
+Commit `dc89c4d` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30711625725` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
+and coverage artifact `8822252505`. Dart Package Publish Dry Run `30711625706`
+and WAMP Profile Benchmarks `30711625694` passed on their first attempts; WAMP
+artifact `8822121595` was uploaded. The strict deployment-chain audit passed
+with a clean exact-head CI log scan and all required branch, workflow, package,
+publish-dry-run, and benchmark-artifact gates clean.
 
 Commit `49dd853` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30707422747` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,

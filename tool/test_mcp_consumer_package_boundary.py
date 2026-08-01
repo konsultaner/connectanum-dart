@@ -232,7 +232,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("callToolDirectWithFormElicitation", body)
         self.assertIn("McpFormElicitationResponse.accept", body)
         self.assertIn("missingRequiredClientCapability", body)
-        self.assertIn("MRTR stateless calls leaked Streamable session state.", body)
+        self.assertIn("McpStreamableHttpClient.statelessWithAuthGrant", body)
+        self.assertIn("MRTR $label stateless calls leaked Streamable session state.", body)
+        self.assertIn(
+            "MRTR protected endpoint reached elicitation callback before",
+            body,
+        )
+        self.assertIn(
+            "MRTR protected endpoint invoked the WAMP procedure before",
+            body,
+        )
 
     def test_router_cli_consumer_smoke_uses_checkout_command_alias(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")

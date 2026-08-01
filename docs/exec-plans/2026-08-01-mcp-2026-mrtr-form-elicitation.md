@@ -102,5 +102,10 @@ Primary MCP references:
   router endpoints without retaining an MCP session.
 - 2026-08-01: Post-change `bin/test-fast` and complete `bin/verify` passed,
   including Rust, Dart VM, live WAMP, generated package, native router,
-  Chrome, and Dart2Wasm coverage. Exact-head hosted evidence is pending the
-  implementation push.
+  Chrome, and Dart2Wasm coverage.
+- 2026-08-01: Commit `dc89c4d` was pushed to GitLab and GitHub. Exact-head
+  GitHub CI `30711625725`, Dart Package Publish Dry Run `30711625706`, and
+  WAMP Profile Benchmarks `30711625694` passed on their first attempts.
+  Coverage artifact `8822252505` and WAMP artifact `8822121595` were uploaded,
+  and the strict deployment-chain audit passed with a clean exact-head CI log
+  scan and every required branch, package, and benchmark gate clean.
