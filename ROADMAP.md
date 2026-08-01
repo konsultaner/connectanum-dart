@@ -378,6 +378,10 @@
   - [x] Add configured router-hosted MCP resources, resource templates, and
     prompts so a router route can advertise read-only context and prompt
     templates without starting a separate MCP server.
+  - [x] Add explicit WAMP-procedure-backed dynamic resources and
+    Streamable-session-scoped resource update subscriptions, including route
+    principal authorization, resumable SSE notifications, typed client
+    helpers, idempotent lifecycle handling, and cleanup evidence.
   - [x] Add optional OAuth Protected Resource Metadata for protected
     router-hosted endpoints, including public JSON discovery and
     `resource_metadata` bearer challenges while preserving authorization on

@@ -1454,6 +1454,51 @@ void main() {
     },
   );
 
+  test(
+    'IO entrypoint re-exports Streamable resource subscription helpers',
+    () async {
+      final endpoint = await _StreamableMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize(id: 'io-resource-subscription-init');
+      await client.notifyInitialized();
+      endpoint.requests.clear();
+
+      await client.subscribeResource(
+        _ioResourceUri,
+        id: 'io-resource-subscribe',
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-resource-subscribe',
+        },
+      );
+      await client.unsubscribeResource(
+        _ioResourceUri,
+        id: 'io-resource-unsubscribe',
+        headers: const <String, String>{
+          'x-consumer-trace': 'io-resource-unsubscribe',
+        },
+      );
+
+      expect(client.sessionId, 'io-session-1');
+      expect(endpoint.requests, hasLength(2));
+      expect(endpoint.requests[0].sessionId, 'io-session-1');
+      expect(endpoint.requests[0].consumerTrace, 'io-resource-subscribe');
+      expect(
+        (endpoint.requests[0].body as Map)['method'],
+        'resources/subscribe',
+      );
+      expect(endpoint.requests[1].sessionId, 'io-session-1');
+      expect(endpoint.requests[1].consumerTrace, 'io-resource-unsubscribe');
+      expect(
+        (endpoint.requests[1].body as Map)['method'],
+        'resources/unsubscribe',
+      );
+    },
+  );
+
   test('IO entrypoint re-exports Streamable WAMP meta helpers', () async {
     final endpoint = await _StreamableMcpEndpoint.bind();
     addTearDown(endpoint.close);
@@ -3188,6 +3233,9 @@ final class _StreamableMcpEndpoint {
             },
           ],
         });
+      case 'resources/subscribe':
+      case 'resources/unsubscribe':
+        return _result(id, const <String, Object?>{});
       case 'prompts/get':
         final params = _jsonMapFrom(message['params'], label: 'prompt params');
         if (params['name'] != _ioPromptName) {

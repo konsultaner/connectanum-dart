@@ -1080,6 +1080,40 @@ final class McpStreamableHttpClient {
     );
   }
 
+  Future<void> subscribeResource(
+    String uri, {
+    Object? id,
+    String? protocolVersion,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    final resourceUri = _validatedMcpResourceUri(uri, 'uri');
+    final response = await request(
+      'resources/subscribe',
+      id: id,
+      params: <String, Object?>{'uri': resourceUri},
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
+    _jsonRpcResultFrom(response, method: 'resources/subscribe');
+  }
+
+  Future<void> unsubscribeResource(
+    String uri, {
+    Object? id,
+    String? protocolVersion,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    final resourceUri = _validatedMcpResourceUri(uri, 'uri');
+    final response = await request(
+      'resources/unsubscribe',
+      id: id,
+      params: <String, Object?>{'uri': resourceUri},
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
+    _jsonRpcResultFrom(response, method: 'resources/unsubscribe');
+  }
+
   Future<McpStreamableResourceTemplateListPage> listResourceTemplates({
     Object? id,
     String? cursor,
@@ -2110,7 +2144,9 @@ String? _requestNameForStandardHeaders(Object? message, String method) {
     'connectanum.tool.call' ||
     'connectanum.tools.call' ||
     'prompts/get' => 'name',
-    'resources/read' => 'uri',
+    'resources/read' ||
+    'resources/subscribe' ||
+    'resources/unsubscribe' => 'uri',
     _ => null,
   };
   if (field == null) {

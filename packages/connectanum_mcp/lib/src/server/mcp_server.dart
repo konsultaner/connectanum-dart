@@ -80,6 +80,9 @@ String _validatedResourceUri(Object? value, String label) {
   );
 }
 
+typedef McpResourceSubscriptionHandler =
+    FutureOr<void> Function(McpResourceRequest request);
+
 class McpServer {
   McpServer({
     required this.serverInfo,
@@ -88,6 +91,8 @@ class McpServer {
     Iterable<McpResource> resources = const [],
     Iterable<McpResourceTemplate> resourceTemplates = const [],
     this.instructions,
+    this.onSubscribeResource,
+    this.onUnsubscribeResource,
     McpServerCapabilities? capabilities,
     int? toolListPageSize,
     int? promptListPageSize,
@@ -106,9 +111,26 @@ class McpServer {
            McpServerCapabilities(
              prompts: prompts.isNotEmpty ? const McpPromptCapabilities() : null,
              resources: resources.isNotEmpty || resourceTemplates.isNotEmpty
-                 ? const McpResourceCapabilities()
+                 ? McpResourceCapabilities(
+                     subscribe:
+                         onSubscribeResource != null &&
+                         onUnsubscribeResource != null,
+                   )
                  : null,
-           );
+           ) {
+    final hasSubscribeHandler = onSubscribeResource != null;
+    final hasUnsubscribeHandler = onUnsubscribeResource != null;
+    if (hasSubscribeHandler != hasUnsubscribeHandler) {
+      throw ArgumentError(
+        'MCP resource subscribe and unsubscribe handlers must be configured together',
+      );
+    }
+    if (capabilities?.resources?.subscribe == true && !hasSubscribeHandler) {
+      throw ArgumentError(
+        'MCP resource subscribe capability requires subscribe and unsubscribe handlers',
+      );
+    }
+  }
 
   final McpServerInfo serverInfo;
   final String? instructions;
@@ -118,6 +140,9 @@ class McpServer {
   final McpServerCapabilities capabilities;
 
   McpServerState _state = McpServerState.created;
+
+  final McpResourceSubscriptionHandler? onSubscribeResource;
+  final McpResourceSubscriptionHandler? onUnsubscribeResource;
 
   McpServerState get state => _state;
 
@@ -234,6 +259,12 @@ class McpServer {
       case 'resources/templates/list':
         _requireInitialized(method);
         return _listResourceTemplates(params);
+      case 'resources/subscribe':
+        _requireInitialized(method);
+        return _subscribeResource(params);
+      case 'resources/unsubscribe':
+        _requireInitialized(method);
+        return _unsubscribeResource(params);
       default:
         throw McpException(
           McpErrorCodes.methodNotFound,
@@ -392,6 +423,38 @@ class McpServer {
       result['nextCursor'] = nextCursor;
     }
     return result;
+  }
+
+  Future<JsonMap> _subscribeResource(JsonMap params) async {
+    final handler = onSubscribeResource;
+    if (handler == null) {
+      throw McpException(
+        McpErrorCodes.methodNotFound,
+        'Unknown MCP method: resources/subscribe',
+      );
+    }
+    final uri = _validatedResourceUri(
+      params['uri'],
+      'resources/subscribe.params.uri',
+    );
+    await handler(McpResourceRequest(uri: uri));
+    return <String, Object?>{};
+  }
+
+  Future<JsonMap> _unsubscribeResource(JsonMap params) async {
+    final handler = onUnsubscribeResource;
+    if (handler == null) {
+      throw McpException(
+        McpErrorCodes.methodNotFound,
+        'Unknown MCP method: resources/unsubscribe',
+      );
+    }
+    final uri = _validatedResourceUri(
+      params['uri'],
+      'resources/unsubscribe.params.uri',
+    );
+    await handler(McpResourceRequest(uri: uri));
+    return <String, Object?>{};
   }
 
   void _requireInitialized(String method) {

@@ -163,6 +163,13 @@ const HttpRouteSettings(
           'mime_type': 'text/plain',
           'text': 'Read-only context for the agent.',
         },
+        {
+          'uri': 'app://example/live-context',
+          'name': 'example-live-context',
+          'mime_type': 'application/json',
+          'read_procedure': 'app.context.read',
+          'update_topic': 'app.events.context.updated',
+        },
       ],
       'resource_templates': [
         {'uri_template': 'app://example/task/{taskId}', 'name': 'task'},
@@ -187,9 +194,18 @@ Exact WAMP registrations become MCP tools automatically. WAMP meta API tools
 and `connectanum.pubsub.*` helpers are enabled by default, then filtered by the
 route-authenticated principal's realm permissions before they are advertised.
 Configured resources, resource templates, and prompts are served by the
-standard MCP `resources/*` and `prompts/*` methods. The same endpoint also
-accepts direct JSON-RPC calls for frontend clients without the MCP `initialize`
-lifecycle:
+standard MCP `resources/*` and `prompts/*` methods.
+
+Procedure-backed resources call the configured WAMP procedure with the
+resource URI as the first positional argument and return its final result as
+lossless JSON text. When `update_topic` is present, Streamable HTTP clients can
+use `subscribeResource(...)`, receive `notifications/resources/updated` over
+GET/SSE, re-read the resource, and later call `unsubscribeResource(...)`.
+Authorization uses the route principal for both the procedure call and topic
+subscription. Direct JSON supports resource list/read but not subscriptions.
+
+The same endpoint also accepts direct JSON-RPC calls for frontend clients
+without the MCP `initialize` lifecycle:
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"connectanum.api.list","params":{"kind":"procedure"}}

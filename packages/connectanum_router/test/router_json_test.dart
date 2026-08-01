@@ -652,6 +652,45 @@ void main() {
       );
     });
 
+    test('accepts explicit MCP dynamic resource mappings', () {
+      final router = _routerWithMcpOptions({
+        'resources': [
+          {
+            'uri': 'app://context/live',
+            'name': 'live-context',
+            'read_procedure': 'app.safe.context.read',
+            'update_topic': 'app.events.context.updated',
+          },
+        ],
+      });
+
+      expect(router.buildNativeConfigJson, returnsNormally);
+    });
+
+    test('requires dynamic reads for MCP resource update topics', () {
+      final router = _routerWithMcpOptions({
+        'resources': [
+          {
+            'uri': 'app://context/static',
+            'name': 'static-context',
+            'text': 'context',
+            'update_topic': 'app.events.context.updated',
+          },
+        ],
+      });
+
+      expect(
+        router.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('update_topic requires read_procedure'),
+          ),
+        ),
+      );
+    });
+
     test('validates MCP WAMP API options while building native config', () {
       final router = _routerWithMcpOptions({
         'procedures': [
@@ -945,6 +984,20 @@ void main() {
           {'uri': 'file:///context', 'text': 'context', 'mimeType': 7},
         ],
       }, 'MCP resources[0].mimeType must be a string');
+      _expectInvalidMcpOptions({
+        'resources': [
+          {'uri': 'app://context/live', 'readProcedure': 7},
+        ],
+      }, 'MCP resources[0].readProcedure must be a string');
+      _expectInvalidMcpOptions({
+        'resources': [
+          {
+            'uri': 'app://context/live',
+            'readProcedure': 'app.safe.context.read',
+            'updateTopic': 7,
+          },
+        ],
+      }, 'MCP resources[0].updateTopic must be a string');
       _expectInvalidMcpOptions({
         'resourceTemplates': [
           {'uriTemplate': 7, 'name': 'task-template'},

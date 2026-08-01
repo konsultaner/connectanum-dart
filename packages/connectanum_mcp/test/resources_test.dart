@@ -29,6 +29,138 @@ void main() {
       },
     );
 
+    test(
+      'resource subscription handlers advertise and dispatch lifecycle methods',
+      () async {
+        final subscribed = <String>[];
+        final unsubscribed = <String>[];
+        final server = McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          resources: [_resource('app://resource/live', 'live')],
+          onSubscribeResource: (request) => subscribed.add(request.uri),
+          onUnsubscribeResource: (request) => unsubscribed.add(request.uri),
+        );
+
+        final initialize = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 1,
+          'method': 'initialize',
+          'params': {
+            'protocolVersion': mcpLatestProtocolVersion,
+            'capabilities': {},
+            'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
+          },
+        });
+        expect(
+          initialize?['result'],
+          containsPair('capabilities', {
+            'tools': <String, Object?>{},
+            'resources': <String, Object?>{'subscribe': true},
+          }),
+        );
+        await server.handleMessage({
+          'jsonrpc': '2.0',
+          'method': 'notifications/initialized',
+        });
+
+        final subscribe = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 2,
+          'method': 'resources/subscribe',
+          'params': {'uri': 'app://resource/live'},
+        });
+        final unsubscribe = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 3,
+          'method': 'resources/unsubscribe',
+          'params': {'uri': 'app://resource/live'},
+        });
+
+        expect(subscribe?['result'], <String, Object?>{});
+        expect(unsubscribe?['result'], <String, Object?>{});
+        expect(subscribed, ['app://resource/live']);
+        expect(unsubscribed, ['app://resource/live']);
+      },
+    );
+
+    test(
+      'resource subscription methods validate URIs before dispatch',
+      () async {
+        var dispatches = 0;
+        final server = McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          resources: [_resource('app://resource/live', 'live')],
+          onSubscribeResource: (_) => dispatches += 1,
+          onUnsubscribeResource: (_) => dispatches += 1,
+        );
+        await _initializeAndStart(server);
+
+        for (final method in const [
+          'resources/subscribe',
+          'resources/unsubscribe',
+        ]) {
+          final response = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': method,
+            'method': method,
+            'params': {'uri': 'relative resource'},
+          });
+          final error = response?['error'] as Map<String, Object?>;
+          expect(error['code'], McpErrorCodes.invalidParams);
+        }
+
+        expect(dispatches, 0);
+      },
+    );
+
+    test('resource subscription methods require configured handlers', () async {
+      final server = _server();
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 4,
+        'method': 'resources/subscribe',
+        'params': {'uri': 'app://tasks/open'},
+      });
+
+      final error = response?['error'] as Map<String, Object?>;
+      expect(error['code'], McpErrorCodes.methodNotFound);
+    });
+
+    test('resource subscription capability requires paired handlers', () {
+      expect(
+        () => McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          resources: [_resource('app://resource/live', 'live')],
+          onSubscribeResource: (_) {},
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          resources: [_resource('app://resource/live', 'live')],
+          capabilities: const McpServerCapabilities(
+            resources: McpResourceCapabilities(subscribe: true),
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('resources/list returns typed resource definitions', () async {
       final server = _server();
       await _initializeAndStart(server);

@@ -1736,6 +1736,8 @@ const _toolName = 'consumer.echo';
 const _resourceUri = 'consumer://mcp/context';
 const _resourceTemplateUri = 'consumer://mcp/task/{taskId}';
 const _promptName = 'consumer.summary';
+final _subscribedResourceUris = <String>[];
+final _unsubscribedResourceUris = <String>[];
 
 Future<void> main() async {
   await _smokeServerHandleMessage();
@@ -1744,6 +1746,8 @@ Future<void> main() async {
 }
 
 Future<void> _smokeServerHandleMessage() async {
+  _subscribedResourceUris.clear();
+  _unsubscribedResourceUris.clear();
   final server = _server();
   final initialize = _jsonObjectFrom(
     await server.handleMessage({
@@ -1770,6 +1774,10 @@ Future<void> _smokeServerHandleMessage() async {
   _expect(
     jsonEncode(initializeResult['capabilities']).contains('tools'),
     'initialize did not advertise tools',
+  );
+  _expect(
+    jsonEncode(initializeResult['capabilities']).contains('subscribe'),
+    'initialize did not advertise resource subscriptions',
   );
 
   final initialized = await server.handleMessage({
@@ -1808,6 +1816,18 @@ Future<void> _smokeServerHandleMessage() async {
       },
       {
         'jsonrpc': '2.0',
+        'id': 'subscribe-resource',
+        'method': 'resources/subscribe',
+        'params': {'uri': _resourceUri},
+      },
+      {
+        'jsonrpc': '2.0',
+        'id': 'unsubscribe-resource',
+        'method': 'resources/unsubscribe',
+        'params': {'uri': _resourceUri},
+      },
+      {
+        'jsonrpc': '2.0',
         'id': 'prompt',
         'method': 'prompts/get',
         'params': {
@@ -1819,7 +1839,7 @@ Future<void> _smokeServerHandleMessage() async {
     ]),
     label: 'server batch response',
   );
-  _expect(batch.length == 6, 'batch returned unexpected response count');
+  _expect(batch.length == 8, 'batch returned unexpected response count');
   _expect(jsonEncode(batch[0]).contains(_toolName), 'tools/list missed tool');
   _expect(jsonEncode(batch[1]).contains('ready'), 'tools/call missed echo');
   _expect(
@@ -1835,8 +1855,13 @@ Future<void> _smokeServerHandleMessage() async {
     'resources/read missed content',
   );
   _expect(
-    jsonEncode(batch[5]).contains('Summarize consumer text: ready'),
+    jsonEncode(batch[7]).contains('Summarize consumer text: ready'),
     'prompts/get missed prompt content',
+  );
+  _expect(
+    _subscribedResourceUris.single == _resourceUri &&
+        _unsubscribedResourceUris.single == _resourceUri,
+    'resource subscription handlers missed the configured URI',
   );
 
   server.shutdown();
@@ -1921,6 +1946,12 @@ McpServer _server() => McpServer(
       ],
     ),
   ],
+  onSubscribeResource: (request) {
+    _subscribedResourceUris.add(request.uri);
+  },
+  onUnsubscribeResource: (request) {
+    _unsubscribedResourceUris.add(request.uri);
+  },
   resourceTemplates: [
     McpResourceTemplate(
       uriTemplate: _resourceTemplateUri,
@@ -5617,6 +5648,21 @@ Future<void> _smokeResourcesAndPrompts(
     'streamable resources/read failed',
   );
 
+  await client.subscribeResource(
+    _resourceUri,
+    id: 'streamable-resource-subscribe',
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-resource-subscribe',
+    },
+  );
+  await client.unsubscribeResource(
+    _resourceUri,
+    id: 'streamable-resource-unsubscribe',
+    headers: const <String, String>{
+      'x-consumer-trace': 'resource-prompts-streamable-resource-unsubscribe',
+    },
+  );
+
   final templates = await client.listResourceTemplates(
     id: 'streamable-resource-templates',
     headers: const <String, String>{
@@ -6901,6 +6947,13 @@ final class _AgentMcpEndpoint {
         await _writeJson(request, _resourceListResponse(id, message));
       case 'resources/read':
         await _writeJson(request, _resourceReadResponse(id, message));
+      case 'resources/subscribe':
+      case 'resources/unsubscribe':
+        if (!_hasSession(request)) {
+          await _writeSessionError(request);
+          return;
+        }
+        await _writeJson(request, _jsonRpcResultResponse(id));
       case 'resources/templates/list':
         await _writeJson(request, _resourceTemplateListResponse(id, message));
       case 'prompts/list':
@@ -7444,6 +7497,9 @@ final class _AgentMcpEndpoint {
         return _resourceListResponse(id, message);
       case 'resources/read':
         return _resourceReadResponse(id, message);
+      case 'resources/subscribe':
+      case 'resources/unsubscribe':
+        return _jsonRpcResultResponse(id);
       case 'resources/templates/list':
         return _resourceTemplateListResponse(id, message);
       case 'prompts/list':
@@ -7463,7 +7519,9 @@ final class _AgentMcpEndpoint {
         (method == 'notifications/initialized' ||
             method == 'ping' ||
             method == 'tools/list' ||
-            method == 'tools/call');
+            method == 'tools/call' ||
+            method == 'resources/subscribe' ||
+            method == 'resources/unsubscribe');
   }
 
   void _recordDirectRequest(

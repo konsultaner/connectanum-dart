@@ -174,6 +174,12 @@ final server = McpServer(
       mimeType: 'application/json',
     ),
   ],
+  onSubscribeResource: (request) async {
+    await subscribeApplicationUpdates(request.uri);
+  },
+  onUnsubscribeResource: (request) async {
+    await unsubscribeApplicationUpdates(request.uri);
+  },
 );
 ```
 
@@ -183,6 +189,27 @@ When resources or templates are configured, the server advertises the MCP
 `resourceListPageSize` and `resourceTemplateListPageSize`. `resources/read`
 returns text or base64-encoded binary content and reports unknown URIs with the
 MCP resource-not-found error code.
+
+Providing both resource subscription handlers advertises
+`resources.subscribe: true` and enables `resources/subscribe` plus
+`resources/unsubscribe`. The handlers own the application subscription
+lifecycle; the transport or host remains responsible for sending
+`notifications/resources/updated`. Configure both handlers together. An IO
+client can own the corresponding Streamable HTTP lifecycle without hand-built
+JSON-RPC:
+
+```dart
+await client.subscribeResource('app://tasks/open');
+for (final event in await client.poll()) {
+  final message = event.jsonData;
+  if (message?['method'] == 'notifications/resources/updated') {
+    final uri = (message!['params'] as Map)['uri'] as String;
+    final contents = await client.readResource(uri);
+    // Consume the refreshed contents.
+  }
+}
+await client.unsubscribeResource('app://tasks/open');
+```
 
 ## Prompts
 
@@ -407,8 +434,9 @@ configuration: bind local-only endpoints to localhost, require bearer or
 stronger auth for network-visible routes, and expose only procedures/topics
 whose realm permissions are intended for agents.
 
-The same route `options` map can expose static MCP resources, resource
-templates, and prompts without creating a separate `McpServer`:
+The same route `options` map can expose static or explicitly procedure-backed
+MCP resources, resource templates, and prompts without creating a separate
+`McpServer`:
 
 ```dart
 options: {
@@ -421,6 +449,13 @@ options: {
       'name': 'example-context',
       'mime_type': 'text/plain',
       'text': 'Read-only context for the agent.',
+    },
+    {
+      'uri': 'app://example/live-context',
+      'name': 'example-live-context',
+      'mime_type': 'application/json',
+      'read_procedure': 'app.context.read',
+      'update_topic': 'app.events.context.updated',
     },
   ],
   'resource_templates': [
@@ -443,10 +478,22 @@ options: {
 Configured resources are served by `resources/list` and `resources/read`;
 templates are served by `resources/templates/list`; prompts are served by
 `prompts/list` and `prompts/get`. Prompt text replaces `{{argumentName}}`
-placeholders with string arguments supplied by the MCP client. Dynamic
-application-specific resource and prompt projection is intentionally separate
-from WAMP procedure/topic auto-discovery so applications keep explicit control
-over context and prompt surface area.
+placeholders with string arguments supplied by the MCP client. A
+`read_procedure` receives the configured resource URI as its first positional
+WAMP argument. Its final result is returned as `application/json` text with
+lossless `arguments`, `argumentsKeywords`, and `details` fields. An optional
+`update_topic` enables Streamable HTTP resource subscriptions; each authorized
+WAMP event queues `notifications/resources/updated` with the resource URI, and
+the consumer reads the procedure-backed resource again. Update event payloads
+are not treated as resource contents. Direct JSON remains lifecycle-free and
+rejects resource subscription methods.
+
+Both the dynamic read procedure and update-topic subscription are checked
+against the route-authenticated principal's WAMP permissions. Static resources
+cannot declare `update_topic`, and dynamic resources cannot combine
+`read_procedure` with static `text`, `content`, or `blob`. Resource and prompt
+auto-discovery remains intentionally separate so applications keep explicit
+control over context and prompt surface area.
 
 Malformed MCP route options are rejected while the router native config is
 built or the router starts. That includes invalid configured procedures,

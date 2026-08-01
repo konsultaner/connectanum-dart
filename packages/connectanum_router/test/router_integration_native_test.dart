@@ -4242,6 +4242,10 @@ void main() {
         );
         final subscriptionId = subscription.subscriptionId;
         expect(subscriptionId, isNotNull);
+        await mcpClient.subscribeResource(
+          'app://mcp/live-context',
+          id: 'cleanup-resource-subscribe',
+        );
 
         Future<int> subscriberCount() async {
           final result = await _callRouterJsonMethod(
@@ -4259,10 +4263,35 @@ void main() {
 
         expect(await subscriberCount(), equals(1));
 
+        final resourceSubscriptionLookup = await mcpClient
+            .lookupWampSubscription(
+              'app.events.resource.context',
+              id: 'cleanup-resource-subscription-lookup',
+            );
+        final resourceSubscriptionId =
+            (resourceSubscriptionLookup.arguments.single as num).toInt();
+
+        Future<int> resourceSubscriberCount() async {
+          final result = await _callRouterJsonMethod(
+            httpClient,
+            listener.port,
+            '/mcp/public',
+            'wamp.subscription.count_subscribers',
+            {'id': resourceSubscriptionId},
+          );
+          final arguments =
+              (result['structuredContent'] as Map<String, Object?>)['arguments']
+                  as List;
+          return arguments.single as int;
+        }
+
+        expect(await resourceSubscriberCount(), equals(1));
+
         await mcpClient.deleteSession();
         expect(mcpClient.sessionId, isNull);
 
         expect(await subscriberCount(), equals(0));
+        expect(await resourceSubscriberCount(), equals(0));
       },
       skip: skipReason,
     );
@@ -4480,6 +4509,24 @@ void main() {
         );
       });
 
+      var liveResourceVersion = 1;
+      final observedLiveResourceUris = <String>[];
+      final liveResourceRegistration = await serviceSession.register(
+        'app.safe.resource.read',
+      );
+      liveResourceRegistration.onInvoke((invocation) {
+        final resourceUri = invocation.arguments?.single;
+        if (resourceUri != null) {
+          observedLiveResourceUris.add(resourceUri.toString());
+        }
+        invocation.respondWith(
+          argumentsKeywords: {
+            'uri': resourceUri,
+            'version': liveResourceVersion,
+          },
+        );
+      });
+
       final unsafeRegistration = await serviceSession.register(
         'app.unsafe.delete',
         options: core.RegisterOptions(
@@ -4532,6 +4579,21 @@ void main() {
       expect(directPublicToolNames, isNot(contains('app.unsafe.delete')));
       expect(directPublicMcpClient.sessionId, isNull);
 
+      final deniedDirectResourceRead = await directPublicMcpClient
+          .requestDirect(
+            'resources/read',
+            id: 'direct-public-member-resource-read',
+            params: {'uri': 'app://mcp/member-context'},
+          );
+      expect(
+        (deniedDirectResourceRead['error'] as Map)['code'],
+        equals(McpErrorCodes.invalidRequest),
+      );
+      expect(
+        jsonEncode(deniedDirectResourceRead['error']),
+        contains('Not authorized to read'),
+      );
+
       final directCatalogContent = await directPublicMcpClient.listWampApi(
         id: 'direct-public-catalog',
         kind: 'procedure',
@@ -4566,7 +4628,7 @@ void main() {
       );
       expect(
         directPublicResources.resources.map((resource) => resource['uri']),
-        contains('app://mcp/context'),
+        containsAll(['app://mcp/context', 'app://mcp/live-context']),
       );
 
       final directPublicResourceContents = await directPublicMcpClient
@@ -4579,6 +4641,36 @@ void main() {
         directPublicResourceContents.single['text'],
         contains('router-hosted MCP route'),
       );
+
+      final directLiveResourceContents = await directPublicMcpClient
+          .readResource(
+            'app://mcp/live-context',
+            id: 'direct-public-live-resource-read',
+            directJson: true,
+          );
+      final directLiveResource =
+          jsonDecode(directLiveResourceContents.single['text'] as String)
+              as Map<String, Object?>;
+      expect(
+        (directLiveResource['argumentsKeywords'] as Map)['version'],
+        equals(1),
+      );
+      expect(observedLiveResourceUris, contains('app://mcp/live-context'));
+
+      final directResourceSubscribe = await directPublicMcpClient.requestDirect(
+        'resources/subscribe',
+        id: 'direct-public-resource-subscribe',
+        params: {'uri': 'app://mcp/live-context'},
+      );
+      expect(
+        (directResourceSubscribe['error'] as Map)['code'],
+        equals(McpErrorCodes.invalidRequest),
+      );
+      expect(
+        jsonEncode(directResourceSubscribe['error']),
+        contains('requires a Streamable HTTP session'),
+      );
+      expect(directPublicMcpClient.sessionId, isNull);
 
       final directPublicResourceTemplates = await directPublicMcpClient
           .listResourceTemplates(
@@ -4771,6 +4863,13 @@ void main() {
       final streamableInitialize = await streamableClient.initialize();
       expect(streamableInitialize['id'], equals('initialize'));
       expect(streamableClient.sessionId, isNotNull);
+      final streamableCapabilities =
+          ((streamableInitialize['result'] as Map)['capabilities'] as Map)
+              .cast<String, Object?>();
+      expect(
+        streamableCapabilities['resources'],
+        containsPair('subscribe', true),
+      );
       await streamableClient.notifyInitialized();
 
       final streamablePing = await streamableClient.ping(id: 'streamable-ping');
@@ -4791,7 +4890,73 @@ void main() {
       );
       expect(
         streamableResources.resources.map((resource) => resource['uri']),
-        contains('app://mcp/context'),
+        containsAll(['app://mcp/context', 'app://mcp/live-context']),
+      );
+
+      final streamableLiveResource = await streamableClient.readResource(
+        'app://mcp/live-context',
+        id: 'streamable-live-resource-read',
+      );
+      expect(
+        ((jsonDecode(streamableLiveResource.single['text'] as String)
+                as Map)['argumentsKeywords']
+            as Map)['version'],
+        equals(1),
+      );
+
+      await streamableClient.subscribeResource(
+        'app://mcp/live-context',
+        id: 'streamable-live-resource-subscribe',
+      );
+      final publicStreamableSessionId = streamableClient.sessionId;
+      await expectLater(
+        streamableClient.subscribeResource(
+          'app://mcp/member-context',
+          id: 'streamable-member-resource-subscribe',
+        ),
+        throwsA(
+          isA<McpJsonRpcException>()
+              .having((error) => error.method, 'method', 'resources/subscribe')
+              .having(
+                (error) => error.error['code'],
+                'code',
+                McpErrorCodes.invalidRequest,
+              )
+              .having(
+                (error) => error.error['message'],
+                'message',
+                contains('Not authorized to subscribe'),
+              ),
+        ),
+      );
+      expect(streamableClient.sessionId, publicStreamableSessionId);
+      liveResourceVersion = 2;
+      await serviceSession.publish(
+        'app.events.resource.context',
+        argumentsKeywords: {'version': liveResourceVersion},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final liveResourceUpdate = await _pollStreamableMcpUntilResourceUpdate(
+        streamableClient,
+        'app://mcp/live-context',
+      );
+      expect(
+        liveResourceUpdate['method'],
+        equals('notifications/resources/updated'),
+      );
+      final updatedLiveResource = await streamableClient.readResource(
+        'app://mcp/live-context',
+        id: 'streamable-live-resource-reread',
+      );
+      expect(
+        ((jsonDecode(updatedLiveResource.single['text'] as String)
+                as Map)['argumentsKeywords']
+            as Map)['version'],
+        equals(2),
+      );
+      await streamableClient.unsubscribeResource(
+        'app://mcp/live-context',
+        id: 'streamable-live-resource-unsubscribe',
       );
 
       final streamableTemplates = await streamableClient.listResourceTemplates(
@@ -8260,6 +8425,25 @@ RouterSettings _buildMcpSmokeSettings({bool enableHttp3 = false}) {
         'mime_type': 'text/plain',
         'text': 'This context is served by the router-hosted MCP route.',
       },
+      {
+        'uri': 'app://mcp/live-context',
+        'name': 'mcp-live-context',
+        'title': 'MCP live route context',
+        'description':
+            'Dynamic context read through an explicitly configured procedure.',
+        'mime_type': 'application/json',
+        'read_procedure': 'app.safe.resource.read',
+        'update_topic': 'app.events.resource.context',
+      },
+      {
+        'uri': 'app://mcp/member-context',
+        'name': 'mcp-member-context',
+        'title': 'MCP member route context',
+        'description': 'Context protected by WAMP call and subscribe grants.',
+        'mime_type': 'application/json',
+        'read_procedure': 'app.unsafe.delete',
+        'update_topic': 'app.secure.audit',
+      },
     ],
     'resource_templates': [
       {
@@ -9546,6 +9730,27 @@ Future<Map<String, Object?>> _pollStreamableMcpUntilEvents(
     await Future<void>.delayed(const Duration(milliseconds: 50));
   }
   fail('Timed out waiting for Streamable MCP subscription events for $handle');
+}
+
+Future<Map<String, Object?>> _pollStreamableMcpUntilResourceUpdate(
+  McpStreamableHttpClient client,
+  String resourceUri,
+) async {
+  for (var attempt = 0; attempt < 30; attempt += 1) {
+    final events = await client.poll();
+    for (final event in events) {
+      final message = event.jsonData;
+      if (message?['method'] != 'notifications/resources/updated') {
+        continue;
+      }
+      final params = message?['params'];
+      if (params is Map && params['uri'] == resourceUri) {
+        return message!;
+      }
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  fail('Timed out waiting for MCP resource update for $resourceUri');
 }
 
 Future<ConnectanumHttpAuthGrant> _issueTicketHttp3Grant(

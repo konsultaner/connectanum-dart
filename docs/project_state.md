@@ -154,6 +154,20 @@ The completed same-session OAuth step-up retry plan is
 `docs/exec-plans/2026-08-01-mcp-oauth-step-up-retry.md`.
 The completed same-session router HTTP-auth refresh plan is
 `docs/exec-plans/2026-08-01-mcp-http-auth-refresh-same-session.md`.
+Router-hosted resources can now be backed by explicitly configured WAMP read
+procedures and update topics. Dynamic reads pass the MCP URI to the procedure,
+preserve the final WAMP result as JSON resource text, and enforce the route
+principal's call permission. Streamable HTTP sessions can subscribe and
+unsubscribe through typed public client helpers; authorized WAMP update events
+queue coalesced `notifications/resources/updated` messages over the resumable
+SSE path, while duplicate lifecycle requests are safe and DELETE/disposal
+releases WAMP subscriptions. The capability is advertised only when a resource
+has an update mapping. Direct JSON retains lifecycle-free catalog/read access
+and rejects resource subscriptions because it has no session to own push
+delivery. Focused authorization, dynamic-read, delivery, unsubscribe, cleanup,
+public-entrypoint, and isolated consumer regressions passed, as did post-change
+`bin/test-fast` and complete local `bin/verify`. The completed plan is
+`docs/exec-plans/2026-08-01-mcp-router-resource-subscriptions.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, workspace analysis, public package-boundary validation, and the
 isolated and globally activated consumer smokes passed on 2026-07-31 for the
@@ -194,6 +208,14 @@ Complete local `bin/verify` then passed, including formatting, 113 Rust core
 tests, 52 FFI tests, 360 core Dart tests, all 96 benchmark tests, the complete
 377-test router suite, isolated and globally activated package consumers, 13
 focused native-router tests, and Chrome/Dart2Wasm.
+Commit `7465b48` passed exact-head GitHub CI `30691195808`, including Fast
+Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+artifact. Dart Package Publish Dry Run `30691195791` passed on its first
+attempt. WAMP Profile Benchmarks `30691195797` passed on attempt 2 with its
+artifact upload after attempt 1 narrowly missed two unchanged Dart AES pub/sub
+throughput floors without transport findings. The strict deployment-chain
+audit passed with clean exact-head CI logs and all required branch, workflow,
+package, benchmark-artifact, and registry gates clean.
 Commit `58ae229` passed exact-head GitHub CI `30687559833`, including Fast
 Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
 artifact. Dart Package Publish Dry Run `30687559834` and WAMP Profile
@@ -23614,6 +23636,11 @@ at the older `47bbf9c` commit.
 - No active execution plan. The next MCP downstream-application readiness
   slice should be selected from `ROADMAP_NEXT.md` and `ROADMAP.md` together.
 - Most recent completed MCP downstream-application readiness plan:
+  `docs/exec-plans/2026-08-01-mcp-router-resource-subscriptions.md`. It adds
+  explicitly configured WAMP-procedure-backed resources, session-scoped
+  update-topic subscriptions, Streamable HTTP resource-update notifications,
+  typed client helpers, and public/native consumer evidence.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-01-mcp-http-auth-refresh-same-session.md`. It adds
   validated in-place router HTTP-auth grant replacement and stable
   grant-specific router session lineage so proactive access-token rotation can

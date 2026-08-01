@@ -828,7 +828,9 @@ String? _mcpRequestName(Object? rawMessage, String method) {
     'connectanum.tool.call' ||
     'connectanum.tools.call' ||
     'prompts/get' => 'name',
-    'resources/read' => 'uri',
+    'resources/read' ||
+    'resources/subscribe' ||
+    'resources/unsubscribe' => 'uri',
     _ => null,
   };
   if (field == null) {
@@ -1906,7 +1908,11 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  final response = await endpoint.handleMessage(rawMessage);
+  final response = await endpoint.handleMessage(
+    rawMessage,
+    resourceSubscriptionsAllowed:
+        streamableHttpRequest && effectiveMcpSessionId != null,
+  );
   final rejectedNewInitialize =
       isInitialize &&
       streamableHttpRequest &&
@@ -2074,38 +2080,50 @@ class _RouterMcpEndpoint {
     required this.binding,
     required this.route,
     required this.session,
-  }) : server = mcp.McpServer(
-         serverInfo: _mcpServerInfoForOptions(route.action.options),
-         resources: _configuredResources(route.action.options),
-         resourceTemplates: _configuredResourceTemplates(route.action.options),
-         prompts: _configuredPrompts(route.action.options),
-         instructions: _mcpInstructionsForOptions(route.action.options),
-         toolListPageSize: _intOptionAny(route.action.options, const [
-           'tool_list_page_size',
-           'toolListPageSize',
-         ]),
-         promptListPageSize: _intOptionAny(route.action.options, const [
-           'prompt_list_page_size',
-           'promptListPageSize',
-         ]),
-         resourceListPageSize: _intOptionAny(route.action.options, const [
-           'resource_list_page_size',
-           'resourceListPageSize',
-         ]),
-         resourceTemplateListPageSize: _intOptionAny(
-           route.action.options,
-           const [
-             'resource_template_list_page_size',
-             'resourceTemplateListPageSize',
-           ],
-         ),
-         capabilities: _mcpServerCapabilitiesForOptions(route.action.options),
-       );
+  }) {
+    final options = route.action.options;
+    final resourceSubscriptionsEnabled = _hasConfiguredResourceSubscriptions(
+      options,
+    );
+    server = mcp.McpServer(
+      serverInfo: _mcpServerInfoForOptions(options),
+      resources: _configuredResources(
+        options,
+        procedureReader: _readConfiguredResource,
+      ),
+      resourceTemplates: _configuredResourceTemplates(options),
+      prompts: _configuredPrompts(options),
+      instructions: _mcpInstructionsForOptions(options),
+      onSubscribeResource: resourceSubscriptionsEnabled
+          ? _subscribeResource
+          : null,
+      onUnsubscribeResource: resourceSubscriptionsEnabled
+          ? _unsubscribeResource
+          : null,
+      toolListPageSize: _intOptionAny(options, const [
+        'tool_list_page_size',
+        'toolListPageSize',
+      ]),
+      promptListPageSize: _intOptionAny(options, const [
+        'prompt_list_page_size',
+        'promptListPageSize',
+      ]),
+      resourceListPageSize: _intOptionAny(options, const [
+        'resource_list_page_size',
+        'resourceListPageSize',
+      ]),
+      resourceTemplateListPageSize: _intOptionAny(options, const [
+        'resource_template_list_page_size',
+        'resourceTemplateListPageSize',
+      ]),
+      capabilities: _mcpServerCapabilitiesForOptions(options),
+    );
+  }
 
   final RouterBinding binding;
   final HttpRouteSettings route;
   final RouterSession session;
-  final mcp.McpServer server;
+  late final mcp.McpServer server;
   late final RealmAuthorizationProviderCache _authorizationProviderCache =
       RealmAuthorizationProviderCache(binding.settings);
   String? _toolSignature;
@@ -2115,10 +2133,25 @@ class _RouterMcpEndpoint {
   final Set<int> _wampSubscriptionIds = <int>{};
   int _nextSseStream = 0;
 
+  final Map<String, Future<mcp.McpWampSubscription>>
+  _resourceUpdateSubscriptions = <String, Future<mcp.McpWampSubscription>>{};
+
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
 
   Future<void> dispose() async {
     server.shutdown();
+    final resourceSubscriptions = _resourceUpdateSubscriptions.values.toList(
+      growable: false,
+    );
+    _resourceUpdateSubscriptions.clear();
+    for (final subscriptionFuture in resourceSubscriptions) {
+      try {
+        await _unsubscribe(await subscriptionFuture);
+      } catch (_) {
+        // Best-effort cleanup during endpoint disposal.
+      }
+    }
+
     final subscriptionIds = _wampSubscriptionIds.toList(growable: false);
     _wampSubscriptionIds.clear();
     for (final subscriptionId in subscriptionIds) {
@@ -2130,15 +2163,27 @@ class _RouterMcpEndpoint {
     }
   }
 
-  Future<Object?> handleMessage(Object? rawMessage) async {
+  Future<Object?> handleMessage(
+    Object? rawMessage, {
+    required bool resourceSubscriptionsAllowed,
+  }) async {
     await _refreshTools();
     if (rawMessage is List) {
-      return _handleBatchMessage(rawMessage);
+      return _handleBatchMessage(
+        rawMessage,
+        resourceSubscriptionsAllowed: resourceSubscriptionsAllowed,
+      );
     }
-    return _handleSingleMessage(rawMessage);
+    return _handleSingleMessage(
+      rawMessage,
+      resourceSubscriptionsAllowed: resourceSubscriptionsAllowed,
+    );
   }
 
-  Future<Object?> _handleBatchMessage(List<Object?> rawMessages) async {
+  Future<Object?> _handleBatchMessage(
+    List<Object?> rawMessages, {
+    required bool resourceSubscriptionsAllowed,
+  }) async {
     if (rawMessages.isEmpty) {
       return mcp.JsonRpcResponse.error(
         null,
@@ -2160,7 +2205,10 @@ class _RouterMcpEndpoint {
     }
     final responses = <Object?>[];
     for (final rawMessage in rawMessages) {
-      final response = await _handleSingleMessage(rawMessage);
+      final response = await _handleSingleMessage(
+        rawMessage,
+        resourceSubscriptionsAllowed: resourceSubscriptionsAllowed,
+      );
       if (response != null) {
         if (response is List) {
           responses.addAll(response);
@@ -2172,7 +2220,10 @@ class _RouterMcpEndpoint {
     return responses.isEmpty ? null : responses;
   }
 
-  Future<Object?> _handleSingleMessage(Object? rawMessage) async {
+  Future<Object?> _handleSingleMessage(
+    Object? rawMessage, {
+    required bool resourceSubscriptionsAllowed,
+  }) async {
     if (rawMessage is List) {
       return mcp.JsonRpcResponse.error(
         null,
@@ -2181,6 +2232,22 @@ class _RouterMcpEndpoint {
           'JSON-RPC batch entries must be request objects',
         ),
       ).toJson();
+    }
+    final method = _mcpRequestMethod(rawMessage);
+    if (method == 'resources/subscribe' || method == 'resources/unsubscribe') {
+      if (!resourceSubscriptionsAllowed) {
+        if (rawMessage is Map && !rawMessage.containsKey('id')) {
+          return null;
+        }
+        return mcp.JsonRpcResponse.error(
+          _recoverDirectJsonRequestId(rawMessage),
+          mcp.McpException(
+            mcp.McpErrorCodes.invalidRequest,
+            '$method requires a Streamable HTTP session',
+          ),
+        ).toJson();
+      }
+      return server.handleMessage(rawMessage);
     }
     final directResponse = await _handleDirectJsonMessage(rawMessage);
     if (directResponse != null) {
@@ -2324,6 +2391,129 @@ class _RouterMcpEndpoint {
       'method': method,
       if (params != null && params.isNotEmpty) 'params': params,
     });
+  }
+
+  void _enqueueResourceUpdatedNotification(String uri) {
+    for (final message in _pendingSseMessages) {
+      if (message['method'] != 'notifications/resources/updated') {
+        continue;
+      }
+      final params = message['params'];
+      if (params is Map && params['uri'] == uri) {
+        return;
+      }
+    }
+    _enqueueServerNotification(
+      'notifications/resources/updated',
+      params: <String, Object?>{'uri': uri},
+    );
+  }
+
+  Future<List<mcp.McpResourceContent>> _readConfiguredResource(
+    Map<String, Object?> config,
+    mcp.McpResourceRequest request,
+  ) async {
+    final procedure =
+        _stringFrom(config['read_procedure']) ??
+        _stringFrom(config['readProcedure']);
+    if (procedure == null) {
+      throw StateError(
+        'MCP dynamic resource ${request.uri} has no read procedure',
+      );
+    }
+    if (!await _isAuthorized(AuthorizationAction.call, procedure)) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidRequest,
+        'Not authorized to read MCP resource ${request.uri}',
+      );
+    }
+    final result = await session
+        .call(procedure, arguments: <Object?>[request.uri])
+        .firstWhere((result) => !result.isProgressive());
+    final payload = result.toPayload();
+    final body = <String, Object?>{};
+    final arguments = payload.arguments;
+    if (arguments != null) {
+      body['arguments'] = mcp.mcpWampJsonCompatible(arguments);
+    }
+    final argumentsKeywords = payload.argumentsKeywords;
+    if (argumentsKeywords != null) {
+      body['argumentsKeywords'] = mcp.mcpWampJsonCompatible(argumentsKeywords);
+    }
+    final customDetails = payload.customDetails;
+    if (customDetails != null) {
+      body['details'] = mcp.mcpWampJsonCompatible(customDetails);
+    }
+    final mimeType =
+        _stringFrom(config['mime_type']) ??
+        _stringFrom(config['mimeType']) ??
+        'application/json';
+    return <mcp.McpResourceContent>[
+      mcp.McpTextResourceContent(
+        uri: request.uri,
+        mimeType: mimeType,
+        text: jsonEncode(body),
+      ),
+    ];
+  }
+
+  Future<void> _subscribeResource(mcp.McpResourceRequest request) async {
+    final config = _configuredResourceForUri(route.action.options, request.uri);
+    if (config == null) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.resourceNotFound,
+        'Resource not found',
+        data: <String, Object?>{'uri': request.uri},
+      );
+    }
+    final updateTopic = _configuredResourceUpdateTopic(config);
+    if (updateTopic == null) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'MCP resource ${request.uri} does not support subscriptions',
+      );
+    }
+    if (!await _isAuthorized(AuthorizationAction.subscribe, updateTopic)) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidRequest,
+        'Not authorized to subscribe to MCP resource ${request.uri}',
+      );
+    }
+    final existing = _resourceUpdateSubscriptions[request.uri];
+    if (existing != null) {
+      await existing;
+      return;
+    }
+
+    final subscriptionFuture = _subscribe(
+      mcp.McpWampSubscribeRequest(topic: updateTopic, queueLimit: 1),
+      (_) {
+        if (!_resourceUpdateSubscriptions.containsKey(request.uri)) {
+          return;
+        }
+        _enqueueResourceUpdatedNotification(request.uri);
+      },
+    );
+    _resourceUpdateSubscriptions[request.uri] = subscriptionFuture;
+    try {
+      await subscriptionFuture;
+    } catch (_) {
+      if (identical(
+        _resourceUpdateSubscriptions[request.uri],
+        subscriptionFuture,
+      )) {
+        _resourceUpdateSubscriptions.remove(request.uri);
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _unsubscribeResource(mcp.McpResourceRequest request) async {
+    final subscriptionFuture = _resourceUpdateSubscriptions.remove(request.uri);
+    if (subscriptionFuture == null) {
+      return;
+    }
+    await _unsubscribe(await subscriptionFuture);
   }
 
   Future<_DirectJsonMessageResponse?> _handleDirectJsonMessage(
@@ -3555,6 +3745,10 @@ void _validateMcpResourceRouteOptionShapes(Map<String, Object?> options) {
         'text',
         'content',
         'blob',
+        'read_procedure',
+        'readProcedure',
+        'update_topic',
+        'updateTopic',
       ]) {
         _validateMcpStringConfigOption(config, label, key);
       }
@@ -3906,14 +4100,27 @@ void _validateMcpPostResponseOptions(Map<String, Object?> options) {
   }
 }
 
-List<mcp.McpResource> _configuredResources(Map<String, Object?> options) {
+typedef _ConfiguredResourceProcedureReader =
+    Future<List<mcp.McpResourceContent>> Function(
+      Map<String, Object?> config,
+      mcp.McpResourceRequest request,
+    );
+
+List<mcp.McpResource> _configuredResources(
+  Map<String, Object?> options, {
+  _ConfiguredResourceProcedureReader? procedureReader,
+}) {
   final entries = options['resources'];
   if (entries is! List) {
     return const [];
   }
   return [
     for (final entry in entries)
-      if (entry is Map) _resourceFromConfig(entry.cast<String, Object?>()),
+      if (entry is Map)
+        _resourceFromConfig(
+          entry.cast<String, Object?>(),
+          procedureReader: procedureReader,
+        ),
   ];
 }
 
@@ -3942,6 +4149,40 @@ List<mcp.McpPrompt> _configuredPrompts(Map<String, Object?> options) {
   ];
 }
 
+Map<String, Object?>? _configuredResourceForUri(
+  Map<String, Object?> options,
+  String uri,
+) {
+  final entries = options['resources'];
+  if (entries is! List) {
+    return null;
+  }
+  for (final entry in entries) {
+    if (entry is! Map) {
+      continue;
+    }
+    final config = entry.cast<String, Object?>();
+    if (_stringFrom(config['uri']) == uri) {
+      return config;
+    }
+  }
+  return null;
+}
+
+String? _configuredResourceUpdateTopic(Map<String, Object?> config) =>
+    _stringFrom(config['update_topic']) ?? _stringFrom(config['updateTopic']);
+
+bool _hasConfiguredResourceSubscriptions(Map<String, Object?> options) {
+  final entries = options['resources'];
+  if (entries is! List) {
+    return false;
+  }
+  return entries.whereType<Map>().any(
+    (entry) =>
+        _configuredResourceUpdateTopic(entry.cast<String, Object?>()) != null,
+  );
+}
+
 mcp.McpServerCapabilities _mcpServerCapabilitiesForOptions(
   Map<String, Object?> options,
 ) {
@@ -3953,7 +4194,11 @@ mcp.McpServerCapabilities _mcpServerCapabilitiesForOptions(
     prompts: _configuredPrompts(options).isNotEmpty
         ? const mcp.McpPromptCapabilities()
         : null,
-    resources: hasResources ? const mcp.McpResourceCapabilities() : null,
+    resources: hasResources
+        ? mcp.McpResourceCapabilities(
+            subscribe: _hasConfiguredResourceSubscriptions(options),
+          )
+        : null,
   );
 }
 
@@ -4021,21 +4266,44 @@ mcp.McpWampTopic _topicFromConfig(Map<String, Object?> config) {
   );
 }
 
-mcp.McpResource _resourceFromConfig(Map<String, Object?> config) {
+mcp.McpResource _resourceFromConfig(
+  Map<String, Object?> config, {
+  _ConfiguredResourceProcedureReader? procedureReader,
+}) {
   final uri =
       _stringFrom(config['uri']) ??
       (throw FormatException('MCP resource config requires uri'));
   final name =
       _stringFrom(config['name']) ?? _stringFrom(config['title']) ?? uri;
-  final mimeType =
+  final configuredMimeType =
       _stringFrom(config['mime_type']) ?? _stringFrom(config['mimeType']);
   final text = _stringFrom(config['text']) ?? _stringFrom(config['content']);
   final blob = _stringFrom(config['blob']);
-  if (text == null && blob == null) {
+  final readProcedure =
+      _stringFrom(config['read_procedure']) ??
+      _stringFrom(config['readProcedure']);
+  final updateTopic =
+      _stringFrom(config['update_topic']) ?? _stringFrom(config['updateTopic']);
+  final hasStaticContent = text != null || blob != null;
+  if (readProcedure != null && hasStaticContent) {
     throw FormatException(
-      'MCP resource config for $uri requires text, content, or blob',
+      'MCP resource config for $uri cannot combine read_procedure with '
+      'text, content, or blob',
     );
   }
+  if (readProcedure == null && !hasStaticContent) {
+    throw FormatException(
+      'MCP resource config for $uri requires text, content, blob, or '
+      'read_procedure',
+    );
+  }
+  if (updateTopic != null && readProcedure == null) {
+    throw FormatException(
+      'MCP resource config for $uri update_topic requires read_procedure',
+    );
+  }
+  final mimeType =
+      configuredMimeType ?? (readProcedure == null ? null : 'application/json');
   return mcp.McpResource(
     uri: uri,
     name: name,
@@ -4043,12 +4311,30 @@ mcp.McpResource _resourceFromConfig(Map<String, Object?> config) {
     description: _stringFrom(config['description']),
     mimeType: mimeType,
     size: _intOption(config, 'size'),
-    read: (_) async => <mcp.McpResourceContent>[
-      if (text != null)
-        mcp.McpTextResourceContent(uri: uri, text: text, mimeType: mimeType)
-      else
-        mcp.McpBlobResourceContent(uri: uri, blob: blob!, mimeType: mimeType),
-    ],
+    read: readProcedure == null
+        ? (_) async => <mcp.McpResourceContent>[
+            if (text != null)
+              mcp.McpTextResourceContent(
+                uri: uri,
+                text: text,
+                mimeType: mimeType,
+              )
+            else
+              mcp.McpBlobResourceContent(
+                uri: uri,
+                blob: blob!,
+                mimeType: mimeType,
+              ),
+          ]
+        : (request) {
+            final reader = procedureReader;
+            if (reader == null) {
+              throw StateError(
+                'MCP dynamic resource $uri has no procedure reader',
+              );
+            }
+            return reader(config, request);
+          },
   );
 }
 

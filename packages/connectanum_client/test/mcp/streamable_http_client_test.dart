@@ -3504,6 +3504,14 @@ void main() {
             client.readResourceDirect(uri, id: 'invalid-resource-uri-direct'),
             throwsArgumentError,
           );
+          await expectLater(
+            client.subscribeResource(uri, id: 'invalid-resource-subscribe'),
+            throwsArgumentError,
+          );
+          await expectLater(
+            client.unsubscribeResource(uri, id: 'invalid-resource-unsubscribe'),
+            throwsArgumentError,
+          );
         }
 
         for (final promptName in const ['', 'bad prompt', 'bad\nprompt']) {
@@ -4173,6 +4181,44 @@ void main() {
       expect(endpoint.requests[6].consumerTrace, 'prompt-get-helper');
       expect(endpoint.requests[7].mcpMethod, 'prompts/get');
       expect(endpoint.requests[7].mcpName, 'missing');
+    });
+
+    test('uses typed Streamable resource subscription helpers', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+      endpoint.requests.clear();
+
+      await client.subscribeResource(
+        'wamp://app/readme',
+        id: 'resource-subscribe',
+        headers: const <String, String>{
+          'x-consumer-trace': 'resource-subscribe-helper',
+        },
+      );
+      await client.unsubscribeResource(
+        'wamp://app/readme',
+        id: 'resource-unsubscribe',
+        headers: const <String, String>{
+          'x-consumer-trace': 'resource-unsubscribe-helper',
+        },
+      );
+
+      expect(client.sessionId, 'session-1');
+      expect(endpoint.requests, hasLength(2));
+      expect(endpoint.requests[0].mcpMethod, 'resources/subscribe');
+      expect(endpoint.requests[0].mcpName, 'wamp://app/readme');
+      expect(endpoint.requests[0].consumerTrace, 'resource-subscribe-helper');
+      expect(endpoint.requests[0].sessionId, 'session-1');
+      expect(endpoint.requests[1].mcpMethod, 'resources/unsubscribe');
+      expect(endpoint.requests[1].mcpName, 'wamp://app/readme');
+      expect(endpoint.requests[1].consumerTrace, 'resource-unsubscribe-helper');
+      expect(endpoint.requests[1].sessionId, 'session-1');
     });
 
     test(
@@ -7074,6 +7120,15 @@ final class _FakeMcpEndpoint {
             },
           ],
         },
+      });
+      return;
+    }
+
+    if (method == 'resources/subscribe' || method == 'resources/unsubscribe') {
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestBody['id'],
+        'result': <String, Object?>{},
       });
       return;
     }

@@ -84,3 +84,11 @@ Primary MCP reference:
   core tests, 52 FFI tests, 177 client MCP tests, 86 MCP package tests, all 96
   benchmark tests, the 377-test router suite, 13 focused native-router tests,
   package activation checks, and Chrome/Dart2Wasm.
+- 2026-08-01: Commit `7465b48` was pushed to GitLab `origin/master` and GitHub
+  `master`. Exact-head GitHub CI `30691195808` and Dart Package Publish Dry Run
+  `30691195791` passed on their first attempts. WAMP Profile Benchmarks
+  `30691195797` passed on attempt 2 with its artifact upload after attempt 1
+  narrowly missed two unchanged Dart AES pub/sub throughput floors without
+  transport findings. The strict deployment-chain audit passed with clean CI
+  logs and all required branch, workflow, package, benchmark-artifact, and
+  registry gates clean.
