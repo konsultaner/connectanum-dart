@@ -281,13 +281,21 @@ Run the router-hosted client example against a `connectanum_router` MCP route:
 
 ```bash
 dart run packages/connectanum_mcp/example/router_hosted_client.dart \
-  --endpoint http://127.0.0.1:8080/mcp
+  --endpoint http://127.0.0.1:8080/mcp \
+  --resource-uri app://example/context/live \
+  --resource-update-topic example.events.context.updated
 ```
 
 The example imports only `package:connectanum_mcp/connectanum_mcp_io.dart` and
 shows direct JSON tool/catalog calls, optional bearer or ticket auth-grant
 client construction, direct JSON pub/sub helpers, Streamable HTTP
-`initialize`, and session deletion.
+`initialize`, and session deletion. The optional resource-update arguments run
+the complete typed lifecycle against an explicitly mapped dynamic resource:
+subscribe, publish an acknowledged WAMP update, poll the resumable GET/SSE
+channel for `notifications/resources/updated`, read changed resource content,
+and unsubscribe. Use `--resource-update-event` to replace the default JSON
+event kwargs. The update topic must be declared by the route and authorized for
+the route principal.
 
 ## WAMP Tool Delegation
 

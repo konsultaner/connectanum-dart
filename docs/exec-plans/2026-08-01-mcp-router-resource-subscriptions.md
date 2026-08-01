@@ -101,3 +101,9 @@ Primary MCP references:
   96 benchmark tests, the complete 379-test router suite, isolated and globally
   activated package consumers, 13 focused native-router tests, and
   Chrome/Dart2Wasm.
+- 2026-08-01: Commit `3ddcae2` was pushed to GitLab `origin/master` and
+  GitHub `master`. Exact-head GitHub CI `30695170585`, Dart Package Publish Dry
+  Run `30695170614`, and WAMP Profile Benchmarks `30695170611` passed on their
+  first attempts; WAMP artifact `8817071260` was uploaded. The strict
+  deployment-chain audit passed with a clean CI log scan and all required
+  branch, workflow, package, benchmark-artifact, and registry gates clean.

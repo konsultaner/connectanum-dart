@@ -15,6 +15,9 @@ const String _secureJsonPostMcpPath = '/mcp/secure-json-post';
 const String _ticketAuthId = 'mcp-user';
 const String _otherTicketAuthId = 'mcp-other-user';
 const String _ticketSecret = 'mcp-demo-ticket';
+const String _dynamicResourceUri = 'app://example/context/live';
+const String _dynamicResourceReadProcedure = 'example.task.context.read';
+const String _dynamicResourceUpdateTopic = 'example.events.context.updated';
 const List<String> _supportedOlderProtocolVersions = [
   '2025-03-26',
   '2025-06-18',
@@ -235,6 +238,24 @@ RouterSettings _buildSettings() {
           'tags': ['safe', 'demo', 'event'],
         },
       },
+      {
+        'topic': _dynamicResourceUpdateTopic,
+        'title': 'Live context updates',
+        'description': 'Signals that the live example context should be read.',
+        'event_json_schema': {
+          'type': 'object',
+          'properties': {
+            'source': {'type': 'string'},
+          },
+        },
+        'metadata': {
+          'short_description': 'Live context update stream',
+          'domain': 'example',
+          'entity': 'context',
+          'verbs': ['publish', 'subscribe'],
+          'tags': ['safe', 'demo', 'resource'],
+        },
+      },
     ],
     'resources': [
       {
@@ -247,6 +268,15 @@ RouterSettings _buildSettings() {
             '# Router-hosted MCP example\n'
             'This endpoint exposes WAMP tools, pub/sub helpers, '
             'resources, and prompts from one router route.',
+      },
+      {
+        'uri': _dynamicResourceUri,
+        'name': 'Live example context',
+        'title': 'Router-hosted MCP live example context',
+        'description': 'Procedure-backed context with WAMP update notices.',
+        'mime_type': 'application/json',
+        'read_procedure': _dynamicResourceReadProcedure,
+        'update_topic': _dynamicResourceUpdateTopic,
       },
     ],
     'resource_templates': [
@@ -484,6 +514,25 @@ Future<void> _registerExampleApi(RouterSession serviceSession) async {
       argumentsKeywords: {
         'taskId': taskId,
         'status': 'open',
+        'source': 'router-hosted-mcp-example',
+      },
+    );
+  });
+
+  var liveContextReadCount = 0;
+  final contextRegistration = await serviceSession.register(
+    _dynamicResourceReadProcedure,
+  );
+  contextRegistration.onInvoke((invocation) {
+    liveContextReadCount += 1;
+    final arguments = invocation.arguments;
+    invocation.respondWith(
+      argumentsKeywords: <String, Object?>{
+        'uri': arguments != null && arguments.length == 1
+            ? arguments.first.toString()
+            : null,
+        'title': 'Router-hosted MCP example live context',
+        'readCount': liveContextReadCount,
         'source': 'router-hosted-mcp-example',
       },
     );

@@ -140,6 +140,11 @@ void _printDryRunSummary(IOSink sink, _Options options) {
       if (options.resourceUri != null) ...{
         'resourceUri': options.resourceUri,
         'resourceTemplates': true,
+        if (options.resourceUpdateTopic != null)
+          'resourceSubscription': <String, Object?>{
+            'updateTopic': options.resourceUpdateTopic,
+            'updateEvent': options.resourceUpdateEvent,
+          },
       },
       if (options.promptName != null)
         'prompt': {
@@ -4049,6 +4054,122 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
   }
 }
 
+Future<Map<String, Object?>> _runResourceSubscriptionExample(
+  McpStreamableHttpClient client, {
+  required String resourceUri,
+  required String updateTopic,
+  required McpJsonMap updateEvent,
+  required List<McpJsonMap> previousContent,
+  required String sessionId,
+}) async {
+  await client.subscribeResource(
+    resourceUri,
+    id: 'streamable-resource-subscribe',
+    headers: const <String, String>{
+      'x-consumer-trace': 'router-hosted-client-resource-subscribe',
+    },
+  );
+
+  late final McpStreamableWampPublicationResult publication;
+  late final McpSseEvent notification;
+  late final List<McpJsonMap> refreshedContent;
+  try {
+    publication = await client.publishWampEvent(
+      updateTopic,
+      id: 'streamable-resource-update-publish',
+      argumentsKeywords: updateEvent,
+      acknowledge: true,
+      headers: const <String, String>{
+        'x-consumer-trace': 'router-hosted-client-resource-update-publish',
+      },
+    );
+    if (publication.topic != updateTopic ||
+        !publication.acknowledged ||
+        publication.publicationId == null) {
+      throw StateError(
+        'Resource update publication was not acknowledged for $updateTopic.',
+      );
+    }
+
+    notification = await _pollResourceUpdateNotification(
+      client,
+      resourceUri: resourceUri,
+    );
+    refreshedContent = await client.readResource(
+      resourceUri,
+      id: 'streamable-resource-reread',
+      headers: const <String, String>{
+        'x-consumer-trace': 'router-hosted-client-resource-reread',
+      },
+    );
+    if (_jsonValueEquals(previousContent, refreshedContent)) {
+      throw StateError('Resource reread did not return updated content.');
+    }
+    if (client.sessionId != sessionId) {
+      throw StateError('Resource update lifecycle changed Streamable session.');
+    }
+  } finally {
+    await client.unsubscribeResource(
+      resourceUri,
+      id: 'streamable-resource-unsubscribe',
+      headers: const <String, String>{
+        'x-consumer-trace': 'router-hosted-client-resource-unsubscribe',
+      },
+    );
+  }
+
+  final notificationData = notification.jsonData!;
+  return <String, Object?>{
+    'uri': resourceUri,
+    'updateTopic': updateTopic,
+    'updateEvent': updateEvent,
+    'publication': <String, Object?>{
+      'acknowledged': publication.acknowledged,
+      if (publication.publicationId != null)
+        'publicationId': publication.publicationId,
+    },
+    'notification': <String, Object?>{
+      'eventId': notification.id,
+      'method': notificationData['method'],
+      'params': notificationData['params'],
+    },
+    'refreshedContent': refreshedContent,
+    'contentChanged': true,
+    'unsubscribed': true,
+    'sessionUnchanged': true,
+  };
+}
+
+Future<McpSseEvent> _pollResourceUpdateNotification(
+  McpStreamableHttpClient client, {
+  required String resourceUri,
+}) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 5));
+  while (DateTime.now().isBefore(deadline)) {
+    final events = await client.poll(
+      headers: const <String, String>{
+        'x-consumer-trace': 'router-hosted-client-resource-update-poll',
+      },
+    );
+    for (final event in events) {
+      final data = event.jsonData;
+      final params = data?['params'];
+      if (data?['method'] == 'notifications/resources/updated' &&
+          params is Map &&
+          params['uri'] == resourceUri) {
+        if (event.id == null || event.id!.isEmpty) {
+          throw StateError('Resource update notification missed an SSE id.');
+        }
+        return event;
+      }
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError(
+    'Timed out waiting for a resource update notification for $resourceUri.',
+  );
+}
+
 Future<void> _runStreamableSessionExample(
   McpStreamableHttpClient client,
   _Options options, {
@@ -4218,10 +4339,23 @@ Future<void> _runStreamableSessionExample(
       if (resourceTemplates.nextCursor != null)
         'nextCursor': resourceTemplates.nextCursor,
     };
-    streamable['resourceContent'] = await client.readResource(
+    final resourceContent = await client.readResource(
       resourceUri,
       id: 'streamable-resource-read',
     );
+    streamable['resourceContent'] = resourceContent;
+    final resourceUpdateTopic = options.resourceUpdateTopic;
+    if (resourceUpdateTopic != null) {
+      streamable['resourceSubscription'] =
+          await _runResourceSubscriptionExample(
+            client,
+            resourceUri: resourceUri,
+            updateTopic: resourceUpdateTopic,
+            updateEvent: options.resourceUpdateEvent,
+            previousContent: resourceContent,
+            sessionId: streamableSessionId,
+          );
+    }
     final methodResources = _responseResult(
       await client.post({
         'jsonrpc': '2.0',
@@ -4773,6 +4907,7 @@ final class _Options {
     required this.endpoint,
     required this.protocolVersion,
     required this.toolArguments,
+    required this.resourceUpdateEvent,
     required this.promptArguments,
     required this.pubsubEvent,
     required this.authLifecycleSmoke,
@@ -4784,6 +4919,7 @@ final class _Options {
     this.ticket,
     this.toolName,
     this.resourceUri,
+    this.resourceUpdateTopic,
     this.promptName,
     this.wampProcedure,
     this.wampTopic,
@@ -4800,6 +4936,8 @@ final class _Options {
   final String? toolName;
   final McpJsonMap toolArguments;
   final String? resourceUri;
+  final String? resourceUpdateTopic;
+  final McpJsonMap resourceUpdateEvent;
   final String? promptName;
   final Map<String, String> promptArguments;
   final String? wampProcedure;
@@ -4843,6 +4981,18 @@ final class _Options {
         !values.containsKey('--tool')) {
       throw const FormatException('Use --tool-arguments together with --tool.');
     }
+    if (values.containsKey('--resource-update-topic') &&
+        !values.containsKey('--resource-uri')) {
+      throw const FormatException(
+        'Use --resource-update-topic together with --resource-uri.',
+      );
+    }
+    if (values.containsKey('--resource-update-event') &&
+        !values.containsKey('--resource-update-topic')) {
+      throw const FormatException(
+        'Use --resource-update-event together with --resource-update-topic.',
+      );
+    }
     if (values.containsKey('--prompt-arguments') &&
         !values.containsKey('--prompt')) {
       throw const FormatException(
@@ -4871,6 +5021,17 @@ final class _Options {
         const <String, Object?>{},
       ),
       resourceUri: _mcpResourceUriOption(values, '--resource-uri'),
+      resourceUpdateTopic: _mcpSelectorOption(
+        values,
+        '--resource-update-topic',
+      ),
+      resourceUpdateEvent: _jsonObjectOption(
+        values,
+        '--resource-update-event',
+        const <String, Object?>{
+          'source': 'router-hosted-client-resource-update',
+        },
+      ),
       promptName: _mcpSelectorOption(values, '--prompt'),
       promptArguments: _jsonStringMapOption(
         values,
@@ -5011,6 +5172,8 @@ Map<String, String> _parseOptions(List<String> args) {
     '--tool',
     '--tool-arguments',
     '--resource-uri',
+    '--resource-update-topic',
+    '--resource-update-event',
     '--prompt',
     '--prompt-arguments',
     '--wamp-procedure',
@@ -5150,6 +5313,8 @@ Options:
   --tool NAME                       Call this direct JSON tool.
   --tool-arguments JSON_OBJECT      Arguments for --tool.
   --resource-uri URI                Read this resource and list templates through direct JSON and Streamable HTTP.
+  --resource-update-topic TOPIC     Subscribe to --resource-uri, publish this WAMP update, poll SSE, and reread.
+  --resource-update-event JSON      Event kwargs for --resource-update-topic.
   --prompt NAME                     Get this prompt through direct JSON and Streamable HTTP.
   --prompt-arguments JSON_OBJECT    String arguments for --prompt.
   --wamp-procedure URI              Describe and match this WAMP procedure through direct JSON and Streamable HTTP.

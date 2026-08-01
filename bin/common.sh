@@ -524,7 +524,9 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     --protocol-version 2025-06-18 \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-public-example-dry-run"}' \
-    --resource-uri app://example/context \
+    --resource-uri app://example/context/live \
+    --resource-update-topic example.events.context.updated \
+    --resource-update-event '{"source":"public-example-dry-run"}' \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-public-example-dry-run"}' \
     --wamp-procedure example.task.configured.lookup \
@@ -542,6 +544,10 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
   if [[ "$dry_run_summary" != *'"resourceTemplates":true'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report resource-template discovery.\n'
+    return 1
+  fi
+  if [[ "$dry_run_summary" != *'"resourceSubscription":{"updateTopic":"example.events.context.updated"'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report resource-subscription mode.\n'
     return 1
   fi
   if [[ "$dry_run_summary" != *'"configuredSubscriptionMetadata":true'* ]]; then
@@ -818,6 +824,33 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
   if [[ "$dangling_prompt_arguments_output" != *'Use --prompt-arguments together with --prompt.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the dangling prompt arguments error.\n'
+    return 1
+  fi
+
+  local dangling_resource_update_topic_output
+  if dangling_resource_update_topic_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --resource-update-topic example.events.context.updated \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a resource update topic without a resource.\n'
+    return 1
+  fi
+  if [[ "$dangling_resource_update_topic_output" != *'Use --resource-update-topic together with --resource-uri.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the dangling resource update topic error.\n'
+    return 1
+  fi
+
+  local dangling_resource_update_event_output
+  if dangling_resource_update_event_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --resource-uri app://example/context/live \
+    --resource-update-event '{"source":"dangling"}' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a resource update event without a topic.\n'
+    return 1
+  fi
+  if [[ "$dangling_resource_update_event_output" != *'Use --resource-update-event together with --resource-update-topic.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the dangling resource update event error.\n'
     return 1
   fi
 
@@ -1321,7 +1354,8 @@ run_public_router_hosted_mcp_client_live_smoke() (
     --protocol-version 2025-06-18 \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-public-example-live"}' \
-    --resource-uri app://example/context \
+    --resource-uri app://example/context/live \
+    --resource-update-topic example.events.context.updated \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-public-example-live"}' \
     --wamp-procedure example.task.configured.lookup \
@@ -1334,6 +1368,8 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
+    '"resourceSubscription":{"uri":"app://example/context/live","updateTopic":"example.events.context.updated"' \
+    '"contentChanged":true,"unsubscribed":true,"sessionUnchanged":true' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
@@ -1413,7 +1449,8 @@ EOF
     --protocol-version 2025-06-18 \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-global-example-live"}' \
-    --resource-uri app://example/context \
+    --resource-uri app://example/context/live \
+    --resource-update-topic example.events.context.updated \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-global-example-live"}' \
     --wamp-procedure example.task.configured.lookup \
@@ -1426,6 +1463,8 @@ EOF
     '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
+    '"resourceSubscription":{"uri":"app://example/context/live","updateTopic":"example.events.context.updated"' \
+    '"contentChanged":true,"unsubscribed":true,"sessionUnchanged":true' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
@@ -1546,7 +1585,8 @@ PY
     --auth-lifecycle-smoke \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-authenticated-example-live"}' \
-    --resource-uri app://example/context \
+    --resource-uri app://example/context/live \
+    --resource-update-topic example.events.context.updated \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-authenticated-example-live"}' \
     --wamp-procedure example.task.configured.lookup \
@@ -1559,6 +1599,8 @@ PY
     '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
+    '"resourceSubscription":{"uri":"app://example/context/live","updateTopic":"example.events.context.updated"' \
+    '"contentChanged":true,"unsubscribed":true,"sessionUnchanged":true' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
@@ -1583,7 +1625,8 @@ PY
     --bearer-token "$bearer_token" \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-bearer-example-live"}' \
-    --resource-uri app://example/context \
+    --resource-uri app://example/context/live \
+    --resource-update-topic example.events.context.updated \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-bearer-example-live"}' \
     --wamp-procedure example.task.configured.lookup \
@@ -1596,6 +1639,8 @@ PY
     '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
+    '"resourceSubscription":{"uri":"app://example/context/live","updateTopic":"example.events.context.updated"' \
+    '"contentChanged":true,"unsubscribed":true,"sessionUnchanged":true' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
@@ -1624,7 +1669,8 @@ PY
     --auth-lifecycle-smoke \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-authenticated-json-response-example-live"}' \
-    --resource-uri app://example/context \
+    --resource-uri app://example/context/live \
+    --resource-update-topic example.events.context.updated \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-authenticated-json-response-example-live"}' \
     --wamp-procedure example.task.configured.lookup \
@@ -1638,6 +1684,8 @@ PY
     '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
+    '"resourceSubscription":{"uri":"app://example/context/live","updateTopic":"example.events.context.updated"' \
+    '"contentChanged":true,"unsubscribed":true,"sessionUnchanged":true' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
@@ -1662,7 +1710,8 @@ PY
     --bearer-token "$bearer_token" \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-bearer-json-response-example-live"}' \
-    --resource-uri app://example/context \
+    --resource-uri app://example/context/live \
+    --resource-update-topic example.events.context.updated \
     --prompt summarize-task \
     --prompt-arguments '{"taskId":"T-bearer-json-response-example-live"}' \
     --wamp-procedure example.task.configured.lookup \
@@ -1676,6 +1725,8 @@ PY
     '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"streamable"' \
+    '"resourceSubscription":{"uri":"app://example/context/live","updateTopic":"example.events.context.updated"' \
+    '"contentChanged":true,"unsubscribed":true,"sessionUnchanged":true' \
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \

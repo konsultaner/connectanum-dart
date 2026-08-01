@@ -382,6 +382,10 @@
     Streamable-session-scoped resource update subscriptions, including route
     principal authorization, resumable SSE notifications, typed client
     helpers, idempotent lifecycle handling, and cleanup evidence.
+  - [x] Extend the public router-hosted client and maintained source, globally
+    activated, public, protected, and JSON-response smokes with an explicit
+    dynamic-resource subscribe, acknowledged update publish, resumable SSE
+    notification, changed reread, and unsubscribe lifecycle.
   - [x] Add optional OAuth Protected Resource Metadata for protected
     router-hosted endpoints, including public JSON discovery and
     `resource_metadata` bearer challenges while preserving authorization on

@@ -168,6 +168,22 @@ delivery. Focused authorization, dynamic-read, delivery, unsubscribe, cleanup,
 public-entrypoint, and isolated consumer regressions passed, as did post-change
 `bin/test-fast` and complete local `bin/verify`. The completed plan is
 `docs/exec-plans/2026-08-01-mcp-router-resource-subscriptions.md`.
+The public router-hosted MCP client now proves that lifecycle from a maintained
+consumer-facing executable. An explicit dynamic resource/update-topic mode
+subscribes through Streamable HTTP, publishes an acknowledged WAMP update,
+polls and validates the resumable SSE notification, rereads changed resource
+content on the same MCP session, and unsubscribes even if an intermediate step
+fails. The neutral router example declares the matching read procedure and
+update topic, and source-checkout, globally activated, public, bearer-protected,
+ticket-protected, and router-forced JSON-response smoke variants cover the
+flow. Direct JSON remains lifecycle-free. Focused validation, post-change
+`bin/test-fast`, and complete local `bin/verify` passed, including formatting,
+113 Rust core tests, 52 FFI tests, 360 core Dart tests, 91 MCP package tests,
+178 client MCP tests, all 96 benchmark tests, the complete 379-test router
+suite, isolated and globally activated package consumers, every maintained
+router-hosted MCP live variant, 13 focused native-router checks, and
+Chrome/Dart2Wasm. The completed plan is
+`docs/exec-plans/2026-08-01-mcp-router-resource-subscription-consumer-smoke.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, workspace analysis, public package-boundary validation, and the
 isolated and globally activated consumer smokes passed on 2026-07-31 for the
@@ -208,6 +224,13 @@ Complete local `bin/verify` then passed, including formatting, 113 Rust core
 tests, 52 FFI tests, 360 core Dart tests, all 96 benchmark tests, the complete
 377-test router suite, isolated and globally activated package consumers, 13
 focused native-router tests, and Chrome/Dart2Wasm.
+Commit `3ddcae2` passed exact-head GitHub CI `30695170585`, including Fast
+Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+artifact. Dart Package Publish Dry Run `30695170614` and WAMP Profile
+Benchmarks `30695170611` passed on their first attempts; WAMP artifact
+`8817071260` was uploaded. The strict deployment-chain audit passed with a
+clean exact-head CI log scan and all required branch, workflow, package,
+benchmark-artifact, and registry gates clean.
 Commit `7465b48` passed exact-head GitHub CI `30691195808`, including Fast
 Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
 artifact. Dart Package Publish Dry Run `30691195791` passed on its first
