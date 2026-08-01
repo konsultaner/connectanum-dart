@@ -1697,8 +1697,8 @@ final class McpStreamableHttpClient {
     try {
       _throwIfHttpError(response, body);
     } on McpStreamableHttpException catch (error) {
+      // A 403, including insufficient_scope, does not terminate the session.
       if (error.statusCode == HttpStatus.unauthorized ||
-          error.statusCode == HttpStatus.forbidden ||
           error.statusCode == HttpStatus.notFound) {
         _clearSessionState();
       }

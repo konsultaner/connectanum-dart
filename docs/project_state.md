@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-07-31
+Last updated: 2026-08-01
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -97,6 +97,14 @@ and mTLS authorization boundaries. Platform-specific browser selection and
 secure-storage selection remain consumer-owned by design. Grant documents
 contain bearer credentials and must be placed only in caller-selected secure
 storage.
+Streamable HTTP client session handling now distinguishes OAuth step-up from
+invalid credentials and terminated sessions. HTTP 403 responses, including a
+Bearer `error="insufficient_scope"` challenge, preserve the active
+`MCP-Session-Id` and `Last-Event-ID` so a consumer can inspect the challenge
+and perform caller-managed step-up without discarding resumable session state.
+HTTP 401 and terminated-session HTTP 404 responses continue to clear local
+session state. Focused POST, GET/SSE, and DELETE regressions, the public MCP IO
+entrypoint, and the isolated client-only consumer smoke cover this contract.
 The completed plans are
 `docs/exec-plans/2026-07-31-mcp-authorization-server-metadata-discovery.md` and
 `docs/exec-plans/2026-07-31-mcp-oauth-authorization-request.md`; the completed
@@ -117,6 +125,8 @@ The completed dynamic-registration persistence plan is
 `docs/exec-plans/2026-07-31-mcp-oauth-dynamic-registration-persistence.md`.
 The completed token-grant persistence plan is
 `docs/exec-plans/2026-07-31-mcp-oauth-token-grant-persistence.md`.
+The completed insufficient-scope session-preservation plan is
+`docs/exec-plans/2026-08-01-mcp-insufficient-scope-session-preservation.md`.
 Pre-change and post-change `bin/test-fast`, focused OAuth and public-entrypoint
 regressions, workspace analysis, public package-boundary validation, and the
 isolated and globally activated consumer smokes passed on 2026-07-31 for the
@@ -131,6 +141,22 @@ external-user-agent orchestration, pending-authorization and issued-registration
 JSON persistence, initial and rotated bearer/refresh-grant persistence, and
 refresh-and-revoke evidence, 13 focused native-router tests, and
 Chrome/Dart2Wasm.
+Pre-change and post-change `bin/test-fast`, focused Streamable HTTP session
+regressions, workspace analysis, the 175-test client MCP suite, the 86-test MCP
+package suite, all 18 public package-boundary checks, and the isolated client
+consumer smoke passed on 2026-08-01 for the insufficient-scope session slice.
+Complete local `bin/verify` then passed, including formatting, 113 Rust core
+tests, 52 FFI tests, 360 core Dart tests, all 96 benchmark tests, the complete
+377-test router suite, isolated and globally activated package consumers,
+router-hosted MCP variants, 13 focused native-router tests, and
+Chrome/Dart2Wasm.
+Commit `679279e` passed exact-head GitHub CI `30659107594`, including Fast
+Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
+artifact. Dart Package Publish Dry Run `30659107694` and WAMP Profile
+Benchmarks `30659108375` passed on their first attempts, including the WAMP
+benchmark artifact upload. The strict deployment-chain audit passed with clean
+exact-head CI logs and all required branch, workflow, package,
+benchmark-artifact, and registry gates clean.
 Commit `6da5288` passed exact-head GitHub CI `30652221043`, including Fast
 Checks, Full Verify, Dart VM Coverage, Codecov upload, and the coverage
 artifact. Dart Package Publish Dry Run `30652221118` and WAMP Profile
@@ -23528,6 +23554,11 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - No active plan. Most recent completed MCP plan:
+  `docs/exec-plans/2026-08-01-mcp-insufficient-scope-session-preservation.md`.
+  It preserves active Streamable HTTP session and resume-cursor state across
+  OAuth insufficient-scope 403 challenges while retaining cleanup for 401 and
+  terminated-session 404 responses.
+- Previously completed MCP public-client identity plan:
   `docs/exec-plans/2026-07-31-mcp-oauth-dynamic-client-registration.md`.
   It adds the RFC 7591 fallback for public consumers when preregistration and
   Client ID Metadata Documents are unavailable while isolating registration

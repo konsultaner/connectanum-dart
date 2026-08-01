@@ -2159,6 +2159,7 @@ Future<void> main() async {
         'x-consumer-trace': 'streamable-initialized',
       },
     );
+    await _smokeInsufficientScopePreservesSession(client, endpoint);
     await _smokeProtectedResourceDiscovery(client, endpoint);
 
     final tools = await client.listTools(
@@ -2268,6 +2269,51 @@ Future<void> main() async {
     authClient?.close(force: true);
     await endpoint.close();
   }
+}
+
+Future<void> _smokeInsufficientScopePreservesSession(
+  McpStreamableHttpClient client,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final sessionId = client.sessionId;
+  _expect(sessionId == _sessionId, 'insufficient-scope smoke missed session');
+  const resumeCursor = 'agent-session:get:step-up-kept';
+  client.lastEventId = resumeCursor;
+
+  try {
+    await client.ping(
+      id: 'insufficient-scope-ping',
+      headers: const <String, String>{
+        'x-consumer-trace': 'insufficient-scope-ping',
+        'x-test-insufficient-scope': '1',
+      },
+    );
+    throw StateError('insufficient-scope MCP request unexpectedly succeeded');
+  } on McpStreamableHttpException catch (error) {
+    _expect(
+      error.statusCode == HttpStatus.forbidden,
+      'insufficient-scope request returned ${error.statusCode}, expected 403',
+    );
+    final challenge = error.bearerChallenges.single;
+    _expect(
+      challenge.error == 'insufficient_scope',
+      'insufficient-scope response missed the Bearer error',
+    );
+    _expect(
+      challenge.scopes.length == 1 && challenge.scopes.single == 'mcp:tools',
+      'insufficient-scope response missed authoritative scopes',
+    );
+    _expect(
+      challenge.resourceMetadata == endpoint.protectedResourceMetadataUri,
+      'insufficient-scope response missed protected-resource metadata',
+    );
+  }
+
+  _expect(
+    client.sessionId == sessionId && client.lastEventId == resumeCursor,
+    'insufficient-scope response discarded Streamable session state',
+  );
+  client.lastEventId = null;
 }
 
 Future<void> _smokeProtectedResourceDiscovery(
@@ -6498,6 +6544,20 @@ final class _AgentMcpEndpoint {
         'scope="mcp:tools mcp:meta"',
       );
       await _writeError(request, HttpStatus.unauthorized, 'missing bearer');
+      return;
+    }
+
+    if (request.headers.value('x-test-insufficient-scope') == '1') {
+      request.response.headers.set(
+        HttpHeaders.wwwAuthenticateHeader,
+        'Bearer error="insufficient_scope", scope="mcp:tools", '
+        'resource_metadata="$protectedResourceMetadataUri"',
+      );
+      await _writeError(
+        request,
+        HttpStatus.forbidden,
+        'additional scope required',
+      );
       return;
     }
 

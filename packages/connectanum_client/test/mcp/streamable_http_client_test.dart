@@ -1875,10 +1875,66 @@ void main() {
           statusCode: HttpStatus.unauthorized,
           label: 'unauthorized',
         );
-        await expectSessionFailureClearsState(
-          staleSessionId: 'forbidden-session',
-          statusCode: HttpStatus.forbidden,
-          label: 'forbidden',
+      },
+    );
+
+    test(
+      'keeps Streamable HTTP session state after insufficient-scope failures',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        Future<void> expectInsufficientScopeKeepsState(
+          Future<void> Function() request, {
+          required String lastEventId,
+          required String method,
+        }) async {
+          client.sessionId = 'forbidden-session';
+          client.lastEventId = lastEventId;
+          await expectLater(
+            request(),
+            throwsA(
+              isA<McpStreamableHttpException>()
+                  .having(
+                    (error) => error.statusCode,
+                    'statusCode',
+                    HttpStatus.forbidden,
+                  )
+                  .having(
+                    (error) => error.bearerChallenges.single.error,
+                    'Bearer error',
+                    'insufficient_scope',
+                  )
+                  .having(
+                    (error) => error.bearerChallenges.single.scopes,
+                    'authoritative scopes',
+                    ['tools:call'],
+                  ),
+            ),
+          );
+          expect(client.sessionId, 'forbidden-session');
+          expect(client.lastEventId, lastEventId);
+          expect(endpoint.requests.last.method, method);
+          expect(endpoint.requests.last.sessionId, 'forbidden-session');
+        }
+
+        await expectInsufficientScopeKeepsState(
+          () async => client.listTools(id: 'insufficient-scope-tools'),
+          lastEventId: 'forbidden-session:post:kept',
+          method: 'POST',
+        );
+        await expectInsufficientScopeKeepsState(
+          client.poll,
+          lastEventId: 'forbidden-session:get:kept',
+          method: 'GET',
+        );
+        await expectInsufficientScopeKeepsState(
+          client.deleteSession,
+          lastEventId: 'forbidden-session:delete:kept',
+          method: 'DELETE',
         );
       },
     );
@@ -5960,7 +6016,13 @@ final class _FakeMcpEndpoint {
         message = 'Missing or invalid bearer token';
       } else if (requestSessionId == 'forbidden-session') {
         statusCode = HttpStatus.forbidden;
-        message = 'MCP session is forbidden';
+        message = 'Additional scope is required';
+        request.response.headers.set(
+          HttpHeaders.wwwAuthenticateHeader,
+          'Bearer error="insufficient_scope", scope="tools:call", '
+          'resource_metadata="https://router.example/.well-known/'
+          'oauth-protected-resource/mcp"',
+        );
       }
       request.response.statusCode = statusCode;
       request.response.headers.contentType = ContentType.json;

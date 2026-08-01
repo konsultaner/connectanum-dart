@@ -1156,6 +1156,57 @@ void main() {
   );
 
   test(
+    'IO entrypoint preserves Streamable state for insufficient scope',
+    () async {
+      final endpoint = await _AuthBackedMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient.withBearerToken(
+        endpoint.mcpUri,
+        _ioAccessToken,
+      );
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize(id: 'io-insufficient-scope-init');
+      expect(client.sessionId, _ioAuthSessionId);
+      client.lastEventId = '$_ioAuthSessionId:get:kept';
+
+      await expectLater(
+        client.ping(
+          id: 'io-insufficient-scope-ping',
+          headers: const <String, String>{
+            'x-consumer-trace': 'io-auth-insufficient-scope',
+          },
+        ),
+        throwsA(
+          isA<McpStreamableHttpException>()
+              .having(
+                (error) => error.statusCode,
+                'statusCode',
+                HttpStatus.forbidden,
+              )
+              .having(
+                (error) => error.bearerChallenges.single.error,
+                'Bearer error',
+                'insufficient_scope',
+              )
+              .having(
+                (error) => error.bearerChallenges.single.scopes,
+                'authoritative scopes',
+                ['tools:call'],
+              ),
+        ),
+      );
+
+      expect(client.sessionId, _ioAuthSessionId);
+      expect(client.lastEventId, '$_ioAuthSessionId:get:kept');
+      expect(endpoint.mcpRequests, hasLength(2));
+      expect(endpoint.mcpRequests.last.sessionId, _ioAuthSessionId);
+      expect(endpoint.mcpRequests.last.body['method'], 'ping');
+    },
+  );
+
+  test(
     'IO entrypoint re-exports Streamable resource and prompt helpers',
     () async {
       final endpoint = await _StreamableMcpEndpoint.bind();
@@ -2624,6 +2675,22 @@ final class _AuthBackedMcpEndpoint {
       await _writeJson(request, const <String, Object?>{
         'error': <String, Object?>{'code': 401, 'message': 'unauthorized'},
       }, statusCode: HttpStatus.unauthorized);
+      return;
+    }
+    if (request.headers.value('x-consumer-trace') ==
+        'io-auth-insufficient-scope') {
+      request.response.headers.set(
+        HttpHeaders.wwwAuthenticateHeader,
+        'Bearer error="insufficient_scope", scope="tools:call", '
+        'resource_metadata="https://router.example/.well-known/'
+        'oauth-protected-resource/mcp"',
+      );
+      await _writeJson(request, const <String, Object?>{
+        'error': <String, Object?>{
+          'code': 403,
+          'message': 'additional scope required',
+        },
+      }, statusCode: HttpStatus.forbidden);
       return;
     }
 

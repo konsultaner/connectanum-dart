@@ -11,6 +11,9 @@
 - Add an RFC 8252 native loopback callback listener with ephemeral ports,
   exact state and redirect validation, bounded stray-request handling, and
   static redacted browser responses.
+- Preserve active Streamable HTTP session and resume-cursor state when a
+  router returns an OAuth `insufficient_scope` HTTP 403 challenge, while still
+  clearing stale state for HTTP 401 and terminated-session HTTP 404 responses.
 - Use UTF-8 for CRA and SCRAM authentication strings by default while retaining
   an explicit UTF-16 compatibility mode for legacy peers.
 
