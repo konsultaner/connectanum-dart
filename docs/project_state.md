@@ -323,15 +323,15 @@ multi-architecture image build, skipped GHCR login, and all required package,
 benchmark, workflow-visibility, branch-protection, and public-router-package
 gates clean.
 
-The active Router Image modern standard pub/sub checkpoint closes the next
-packaged agent-interoperability boundary. The canonical loaded-image smoke now
-proves a modern standard metadata-tool call, a modern direct-method pub/sub
-lifecycle, and compatibility-era standard-tool pub/sub, but a modern agent
-still does not exercise the router-provided pub/sub tools through the standard
-`tools/call` method. The active plan is
+The completed Router Image modern standard pub/sub checkpoint closes the next
+packaged agent-interoperability boundary. Before this checkpoint, the canonical
+loaded-image smoke proved a modern standard metadata-tool call, a modern
+direct-method pub/sub lifecycle, and compatibility-era standard-tool pub/sub,
+but did not exercise the modern router-provided pub/sub tools through the
+standard `tools/call` method. The completed plan is
 `docs/exec-plans/2026-08-02-router-image-modern-standard-pubsub-smoke.md`.
 
-The implementation is now in place locally. A source-contract regression and
+The implementation is now in place. A source-contract regression and
 focused behavior test first failed because the standard modern pub/sub helper
 and its public/protected calls were absent. The loaded-image client now
 completes subscribe, acknowledged publish, event poll, and unsubscribe through
@@ -343,7 +343,36 @@ native router pass. Post-change `bin/test-fast` also passes, including the
 complete MCP/client, live WAMP, and consumer-package regression matrix. Final
 local `bin/verify` passes formatting, Rust core and FFI suites, all Dart suites,
 package/global consumer smokes, live WAMP workloads, and Chrome/Dart2Wasm.
-Commit, push, and exact-head hosted evidence remain.
+Commit `8caec3e` was pushed to GitLab and GitHub. Exact-head CI `30755650315`,
+Dart Package Publish Dry Run `30755675026`, WAMP Profile Benchmarks
+`30755675861`, and Router Image dry run `30755676902` all passed. CI uploaded
+coverage artifact `8836024771`, WAMP uploaded benchmark artifact `8835926281`,
+and Router Image uploaded preview artifact `8835840313`. The comprehensive
+strict deployment-chain audit exited clean with exact-head CI and log
+cleanliness, the loaded-image modern standard pub/sub smoke,
+multi-architecture image build, skipped GHCR login, and all required package,
+benchmark, workflow-visibility, branch-protection, and public-router-package
+gates clean.
+
+The completed Router Image modern WAMP Meta API checkpoint closes the next
+packaged agent-interoperability boundary. Before this checkpoint, the loaded
+image advertised standard WAMP Meta API tools but did not invoke them in the
+canonical release smoke. The completed plan is
+`docs/exec-plans/2026-08-02-router-image-modern-wamp-meta-smoke.md`.
+
+The smoke now requires `wamp.subscription.match` and
+`wamp.subscription.get`, matches the declared neutral topic, and validates the
+returned subscription id, URI, and exact match policy through both modern
+sessionless direct JSON methods and standard `tools/call`. Public and
+bearer-protected endpoints run both call forms, with the router-issued grant
+forwarded on every protected request. A focused behavioral regression first
+failed because this Meta API helper was absent. Pre-change and post-change
+`bin/test-fast`, 12 focused Python tests, Python compilation, the public
+artifact reference check, diff checks, and the complete public/protected smoke
+against a real local native router pass. Final local `bin/verify` passes
+formatting, Rust core and FFI suites, all Dart suites, package/global consumer
+smokes, live WAMP workloads, and Chrome/Dart2Wasm. Commit, push, and exact-head
+hosted evidence remain.
 
 Commit `86cf956` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30728291345` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
@@ -24079,11 +24108,16 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active router-hosted MCP packaging-readiness plan:
+- Most recently completed router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-02-router-image-modern-wamp-meta-smoke.md`. It proves
+  loaded-image WAMP subscription Meta API discovery and detail access through
+  modern sessionless direct JSON and standard `tools/call` on public and
+  bearer-protected endpoints.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-02-router-image-modern-standard-pubsub-smoke.md`.
   It proves a complete modern sessionless standard `tools/call` pub/sub
   lifecycle on public and bearer-protected loaded Router Image endpoints.
-- Most recently completed router-hosted MCP packaging-readiness plan:
+- Earlier completed checkpoint:
   `docs/exec-plans/2026-08-02-router-image-standard-tool-call-smoke.md`. It
   proves standard `tools/call` execution on modern sessionless and
   compatibility-era Streamable paths for public and bearer-protected loaded

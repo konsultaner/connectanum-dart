@@ -71,8 +71,13 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"connectanum.pubsub.publish"',
             '"connectanum.pubsub.poll"',
             '"connectanum.pubsub.unsubscribe"',
+            '"wamp.subscription.match"',
+            '"wamp.subscription.get"',
             "_run_modern_direct_pubsub(endpoint, label=\"Public\")",
             "_run_modern_standard_tool_catalog(endpoint, label=\"Public\")",
+            "_run_modern_wamp_subscription_meta(",
+            'call_mode="direct"',
+            'call_mode="standard"',
             "_run_modern_direct_pubsub(",
             "_run_modern_standard_tool_catalog(",
             "label=\"Protected\"",
@@ -143,6 +148,73 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             post_json.call_args.kwargs["headers"]["Mcp-Name"],
             "connectanum.api.list",
         )
+
+    def test_modern_wamp_subscription_meta_uses_direct_and_standard_calls(self) -> None:
+        subscription_id = 9001
+        responses = [
+            {
+                "result": {
+                    "structuredContent": {"arguments": [subscription_id]},
+                }
+            },
+            {
+                "result": {
+                    "structuredContent": {
+                        "argumentsKeywords": {
+                            "id": subscription_id,
+                            "uri": CLIENT_MODULE.TOPIC,
+                            "match": "exact",
+                        },
+                    }
+                }
+            },
+        ]
+        authorization_headers = {"Authorization": "Bearer issued-token"}
+
+        for call_mode, expected_methods in [
+            (
+                "direct",
+                ["wamp.subscription.match", "wamp.subscription.get"],
+            ),
+            ("standard", ["tools/call", "tools/call"]),
+        ]:
+            with self.subTest(call_mode=call_mode), mock.patch.object(
+                CLIENT_MODULE,
+                "_modern_call",
+                side_effect=responses,
+            ) as modern_call:
+                CLIENT_MODULE._run_modern_wamp_subscription_meta(
+                    "http://router/mcp/secure",
+                    label="Protected",
+                    call_mode=call_mode,
+                    authorization_headers=authorization_headers,
+                )
+
+            self.assertEqual(
+                [call.args[2] for call in modern_call.call_args_list],
+                expected_methods,
+            )
+            expected_arguments = [
+                {"arguments": [CLIENT_MODULE.TOPIC]},
+                {"arguments": [subscription_id]},
+            ]
+            if call_mode == "standard":
+                expected_arguments = [
+                    {
+                        "name": tool_name,
+                        "arguments": arguments,
+                    }
+                    for tool_name, arguments in zip(
+                        ["wamp.subscription.match", "wamp.subscription.get"],
+                        expected_arguments,
+                    )
+                ]
+            self.assertEqual(
+                [call.args[3] for call in modern_call.call_args_list],
+                expected_arguments,
+            )
+            for call in modern_call.call_args_list:
+                self.assertEqual(call.kwargs["headers"], authorization_headers)
 
     def test_modern_standard_pubsub_uses_sessionless_tool_calls(self) -> None:
         marker = "router-image-protected-standard-publish"

@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Completed.
 
 ## Goal
 
@@ -57,4 +57,13 @@ endpoints.
   MCP/client, live WAMP, and consumer-package regression matrix. Final local
   `bin/verify` passes formatting, Rust core and FFI suites, all Dart suites,
   package/global consumer smokes, live WAMP workloads, and Chrome/Dart2Wasm.
-  Commit, push, and exact-head hosted evidence remain pending.
+  Commit `8caec3e` was pushed to GitLab and GitHub.
+- 2026-08-02: Exact-head CI `30755650315`, Dart Package Publish Dry Run
+  `30755675026`, WAMP Profile Benchmarks `30755675861`, and Router Image dry
+  run `30755676902` all passed. CI uploaded coverage artifact `8836024771`,
+  WAMP uploaded benchmark artifact `8835926281`, and Router Image uploaded
+  preview artifact `8835840313`. The comprehensive strict deployment-chain
+  audit exited clean with exact-head CI and log cleanliness, the loaded-image
+  modern standard pub/sub smoke, multi-architecture image build, skipped GHCR
+  login, and every required package, benchmark, workflow-visibility,
+  branch-protection, and public-router-package gate clean.

@@ -252,6 +252,79 @@ def _run_modern_standard_tool_catalog(
         raise AssertionError(f"{label} standard tool API catalog missed {TOPIC}")
 
 
+def _run_modern_wamp_subscription_meta(
+    endpoint: str,
+    *,
+    label: str,
+    call_mode: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    if call_mode not in {"direct", "standard"}:
+        raise AssertionError(f"Unsupported modern Meta API call mode: {call_mode}")
+
+    def call(
+        request_suffix: str,
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        method = tool_name
+        params = arguments
+        if call_mode == "standard":
+            method = "tools/call"
+            params = {"name": tool_name, "arguments": arguments}
+        return _modern_call(
+            endpoint,
+            f"{label.lower()}-{call_mode}-{request_suffix}",
+            method,
+            params,
+            headers=authorization_headers,
+        )
+
+    match = call(
+        "subscription-match",
+        "wamp.subscription.match",
+        {"arguments": [TOPIC]},
+    )
+    match_content = _structured_content(
+        match, label=f"{label} {call_mode} subscription match"
+    )
+    match_ids = match_content.get("arguments")
+    if (
+        not isinstance(match_ids, list)
+        or not match_ids
+        or not isinstance(match_ids[0], int)
+    ):
+        raise AssertionError(
+            f"{label} {call_mode} subscription match missed an id: "
+            f"{match_content}"
+        )
+    subscription_id = match_ids[0]
+
+    details = call(
+        "subscription-get",
+        "wamp.subscription.get",
+        {"arguments": [subscription_id]},
+    )
+    details_content = _structured_content(
+        details, label=f"{label} {call_mode} subscription details"
+    )
+    subscription = details_content.get("argumentsKeywords")
+    if not isinstance(subscription, dict):
+        raise AssertionError(
+            f"{label} {call_mode} subscription details missed keywords: "
+            f"{details_content}"
+        )
+    if (
+        subscription.get("id") != subscription_id
+        or subscription.get("uri") != TOPIC
+        or subscription.get("match") != "exact"
+    ):
+        raise AssertionError(
+            f"{label} {call_mode} subscription details were invalid: "
+            f"{subscription}"
+        )
+
+
 def _run_modern_pubsub(
     endpoint: str,
     *,
@@ -603,6 +676,18 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
         label="Protected",
         authorization_headers=authorization_headers,
     )
+    _run_modern_wamp_subscription_meta(
+        secure_endpoint,
+        label="Protected",
+        call_mode="direct",
+        authorization_headers=authorization_headers,
+    )
+    _run_modern_wamp_subscription_meta(
+        secure_endpoint,
+        label="Protected",
+        call_mode="standard",
+        authorization_headers=authorization_headers,
+    )
     _run_modern_standard_pubsub(
         secure_endpoint,
         label="Protected",
@@ -654,6 +739,8 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         "connectanum.pubsub.publish",
         "connectanum.pubsub.poll",
         "connectanum.pubsub.unsubscribe",
+        "wamp.subscription.match",
+        "wamp.subscription.get",
     }:
         if expected not in tool_names:
             raise AssertionError(f"Modern tools/list missed {expected}")
@@ -664,6 +751,16 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         raise AssertionError(f"Modern direct API catalog missed {TOPIC}")
 
     _run_modern_standard_tool_catalog(endpoint, label="Public")
+    _run_modern_wamp_subscription_meta(
+        endpoint,
+        label="Public",
+        call_mode="direct",
+    )
+    _run_modern_wamp_subscription_meta(
+        endpoint,
+        label="Public",
+        call_mode="standard",
+    )
     _run_modern_standard_pubsub(endpoint, label="Public")
     _run_modern_direct_pubsub(endpoint, label="Public")
     _run_compatibility_pubsub(endpoint, label="Public")
