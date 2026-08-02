@@ -526,6 +526,129 @@ void main() {
     );
 
     test(
+      'keeps protected MCP 2026 listeners isolated from Streamable sessions',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.statelessWithAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'initial-listener-token',
+            tokenType: 'Bearer',
+          ),
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final listener = await client.listen(
+          id: 'protected-streamable-listen',
+          toolsListChanged: true,
+        );
+        client.replaceAuthGrant(
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'replacement-streamable-token',
+            tokenType: 'Bearer',
+          ),
+        );
+        client.protocolVersion =
+            McpStreamableHttpClient.latestSessionProtocolVersion;
+
+        await client.initialize(id: 'listener-streamable-initialize');
+        await client.notifyInitialized();
+        expect(client.sessionId, 'session-1');
+
+        final subscription = await client.subscribeWampTopic(
+          'app.events.audit',
+          id: 'listener-streamable-subscribe',
+          queueLimit: 3,
+        );
+        final publication = await client.publishWampEvent(
+          'app.events.audit',
+          id: 'listener-streamable-publish',
+          argumentsKeywords: const <String, Object?>{'message': 'streamable'},
+          options: mcpWampPublishOptions(acknowledge: true, excludeMe: false),
+        );
+        final events = await client.pollWampEvents(
+          subscription.handle,
+          id: 'listener-streamable-poll',
+        );
+        final unsubscribe = await client.unsubscribeWampTopic(
+          subscription.handle,
+          id: 'listener-streamable-unsubscribe',
+        );
+
+        expect(subscription.topic, 'app.events.audit');
+        expect(subscription.queueLimit, 3);
+        expect(publication.acknowledged, isTrue);
+        expect(events.events.single['argumentsKeywords'], {'message': 'hello'});
+        expect(unsubscribe.unsubscribed, isTrue);
+        expect(client.sessionId, 'session-1');
+
+        await client.deleteSession();
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+
+        final notificationFuture = listener.notifications.first;
+        await endpoint.sendListenNotification(
+          'notifications/tools/list_changed',
+        );
+        expect(
+          (await notificationFuture)['method'],
+          'notifications/tools/list_changed',
+        );
+
+        await listener.close();
+        expect(await listener.closed, McpSubscriptionCloseReason.local);
+        expect(endpoint.requests, hasLength(8));
+        expect(endpoint.requests.map((request) => request.mcpMethod), <String?>[
+          'subscriptions/listen',
+          'initialize',
+          'notifications/initialized',
+          'tools/call',
+          'tools/call',
+          'tools/call',
+          'tools/call',
+          null,
+        ]);
+        expect(
+          endpoint.requests.map((request) => request.authorization),
+          <String?>[
+            'Bearer initial-listener-token',
+            'Bearer replacement-streamable-token',
+            'Bearer replacement-streamable-token',
+            'Bearer replacement-streamable-token',
+            'Bearer replacement-streamable-token',
+            'Bearer replacement-streamable-token',
+            'Bearer replacement-streamable-token',
+            'Bearer replacement-streamable-token',
+          ],
+        );
+        expect(endpoint.requests.map((request) => request.sessionId), <String?>[
+          null,
+          null,
+          'session-1',
+          'session-1',
+          'session-1',
+          'session-1',
+          'session-1',
+          'session-1',
+        ]);
+        expect(
+          endpoint.requests.first.protocolVersion,
+          McpStreamableHttpClient.latestProtocolVersion,
+        );
+        expect(
+          endpoint.requests.skip(1).map((request) => request.protocolVersion),
+          everyElement(McpStreamableHttpClient.latestSessionProtocolVersion),
+        );
+      },
+    );
+
+    test(
       'distinguishes graceful and remote MCP 2026 listener closes',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();

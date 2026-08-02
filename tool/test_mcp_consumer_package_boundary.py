@@ -240,6 +240,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("unsubscribeWampTopicDirect", body)
         self.assertIn("T-consumer-$label-listener-pubsub", body)
         self.assertIn(
+            "McpStreamableHttpClient.latestSessionProtocolVersion",
+            body,
+        )
+        self.assertIn("listener-streamable-initialize", body)
+        self.assertIn("listener-streamable-subscribe", body)
+        self.assertIn("listener-streamable-publish", body)
+        self.assertIn("listener-streamable-unsubscribe", body)
+        self.assertIn("T-consumer-$label-listener-streamable", body)
+        self.assertIn("await client.deleteSession();", body)
+        self.assertIn(
             "MRTR $label calls or pub/sub leaked session state while the",
             body,
         )

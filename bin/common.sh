@@ -9913,6 +9913,77 @@ Future<void> _smokeMrtrFormElicitation(
           'listener was active.',
         );
       }
+
+      client.protocolVersion =
+          McpStreamableHttpClient.latestSessionProtocolVersion;
+      await client.initialize(
+        id: 'consumer-$label-listener-streamable-initialize',
+      );
+      await client.notifyInitialized();
+      final streamableSessionId = client.sessionId;
+      if (streamableSessionId == null || client.lastEventId != null) {
+        throw StateError(
+          'MRTR $label listener did not stay isolated while a Streamable '
+          'session was initialized.',
+        );
+      }
+
+      final streamableSubscription = await client.subscribeWampTopic(
+        _topic,
+        id: 'consumer-$label-listener-streamable-subscribe',
+        queueLimit: 4,
+      );
+      try {
+        final publication = await client.publishWampEvent(
+          _topic,
+          id: 'consumer-$label-listener-streamable-publish',
+          argumentsKeywords: <String, Object?>{
+            'taskId': 'T-consumer-$label-listener-streamable',
+          },
+          options: mcpWampPublishOptions(
+            acknowledge: true,
+            excludeMe: false,
+          ),
+        );
+        if (!publication.acknowledged) {
+          throw StateError(
+            'MRTR $label listener Streamable publish was not acknowledged.',
+          );
+        }
+        final events = await _pollMcpEventsUntil(
+          client,
+          streamableSubscription.handle,
+        );
+        if (!jsonEncode(events.events).contains(
+          'T-consumer-$label-listener-streamable',
+        )) {
+          throw StateError(
+            'MRTR $label listener Streamable poll missed its event.',
+          );
+        }
+      } finally {
+        final unsubscribe = await client.unsubscribeWampTopic(
+          streamableSubscription.handle,
+          id: 'consumer-$label-listener-streamable-unsubscribe',
+        );
+        if (!unsubscribe.unsubscribed) {
+          throw StateError(
+            'MRTR $label listener Streamable unsubscribe was not '
+            'acknowledged.',
+          );
+        }
+      }
+      if (client.sessionId != streamableSessionId) {
+        throw StateError(
+          'MRTR $label listener Streamable pub/sub changed the session id.',
+        );
+      }
+      await client.deleteSession();
+      if (client.sessionId != null || client.lastEventId != null) {
+        throw StateError(
+          'MRTR $label listener Streamable session delete leaked state.',
+        );
+      }
     } finally {
       await listener.close();
     }
