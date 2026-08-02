@@ -68,3 +68,14 @@ API results remain scoped to the current public or bearer-protected endpoint.
   complete 380-case router suite, the 13-case native follow-up, all generated
   and globally activated consumer smokes, and Chrome/Dart2Wasm. Commit, push,
   and exact-head hosted evidence remain.
+- 2026-08-02: Commit `dd4c118` was pushed to GitLab and GitHub. Exact-head CI
+  `30763288420`, Dart Package Publish Dry Run `30763312725`, WAMP Profile
+  Benchmarks `30763313862`, and Router Image dry run `30763315174` all passed.
+  CI uploaded coverage artifact `8838334179`, WAMP uploaded benchmark artifact
+  `8838207127`, and Router Image uploaded preview artifact `8838136650`. The
+  comprehensive strict deployment-chain audit exited clean with exact-head CI
+  and log cleanliness, the loaded-image registration/session Meta API smoke,
+  multi-architecture image build, skipped GHCR login, and every required
+  package, native-release, benchmark, workflow-visibility, branch-protection,
+  and public-router-package gate clean. Selecting a later RC tag remains an
+  approval-gated release action outside this checkpoint.

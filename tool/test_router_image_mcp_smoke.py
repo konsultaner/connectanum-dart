@@ -76,6 +76,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"wamp.registration.match"',
             '"wamp.registration.get"',
             '"wamp.session.count"',
+            '"wamp.session.list"',
+            '"wamp.session.get"',
             "_run_modern_direct_pubsub(endpoint, label=\"Public\")",
             "_run_modern_standard_tool_catalog(endpoint, label=\"Public\")",
             "_run_modern_wamp_registration_session_meta(",
@@ -220,10 +222,11 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             for call in modern_call.call_args_list:
                 self.assertEqual(call.kwargs["headers"], authorization_headers)
 
-    def test_modern_wamp_registration_session_meta_invokes_declared_procedure(
+    def test_modern_wamp_registration_session_meta_preserves_route_identity(
         self,
     ) -> None:
         registration_id = 9002
+        session_id = 7001
         responses = [
             {
                 "result": {
@@ -249,6 +252,26 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                     }
                 }
             },
+            {
+                "result": {
+                    "structuredContent": {
+                        "argumentsKeywords": {"session_ids": [session_id]},
+                    }
+                }
+            },
+            {
+                "result": {
+                    "structuredContent": {
+                        "argumentsKeywords": {
+                            "details": {
+                                "id": session_id,
+                                "authid": CLIENT_MODULE.AUTH_ID,
+                                "authrole": "member",
+                            },
+                        },
+                    }
+                }
+            },
         ]
         authorization_headers = {"Authorization": "Bearer issued-token"}
 
@@ -259,9 +282,11 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                     "wamp.registration.match",
                     "wamp.registration.get",
                     "wamp.session.count",
+                    "wamp.session.list",
+                    "wamp.session.get",
                 ],
             ),
-            ("standard", ["tools/call", "tools/call", "tools/call"]),
+            ("standard", ["tools/call"] * 5),
         ]:
             with self.subTest(call_mode=call_mode), mock.patch.object(
                 CLIENT_MODULE,
@@ -272,6 +297,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                     "http://router/mcp/secure",
                     label="Protected",
                     call_mode=call_mode,
+                    expected_auth_id=CLIENT_MODULE.AUTH_ID,
+                    expected_auth_role="member",
                     authorization_headers=authorization_headers,
                 )
 
@@ -283,6 +310,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 {"arguments": [CLIENT_MODULE.PROCEDURE]},
                 {"arguments": [registration_id]},
                 {},
+                {},
+                {"arguments": [session_id]},
             ]
             if call_mode == "standard":
                 expected_arguments = [
@@ -295,6 +324,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                             "wamp.registration.match",
                             "wamp.registration.get",
                             "wamp.session.count",
+                            "wamp.session.list",
+                            "wamp.session.get",
                         ],
                         expected_arguments,
                     )

@@ -258,6 +258,8 @@ def _run_modern_wamp_registration_session_meta(
     *,
     label: str,
     call_mode: str,
+    expected_auth_id: str,
+    expected_auth_role: str,
     authorization_headers: dict[str, str] | None = None,
 ) -> None:
     if call_mode not in {"direct", "standard"}:
@@ -334,6 +336,50 @@ def _run_modern_wamp_registration_session_meta(
         raise AssertionError(
             f"{label} {call_mode} session count exposed unexpected sessions: "
             f"{result_content}"
+        )
+
+    session_list = call("session-list", "wamp.session.list", {})
+    session_list_content = _structured_content(
+        session_list, label=f"{label} {call_mode} session list"
+    )
+    session_ids = session_list_content.get("argumentsKeywords", {}).get(
+        "session_ids"
+    )
+    if (
+        not isinstance(session_ids, list)
+        or len(session_ids) != 1
+        or not isinstance(session_ids[0], int)
+    ):
+        raise AssertionError(
+            f"{label} {call_mode} session list exposed unexpected sessions: "
+            f"{session_list_content}"
+        )
+    session_id = session_ids[0]
+
+    session_get = call(
+        "session-get",
+        "wamp.session.get",
+        {"arguments": [session_id]},
+    )
+    session_get_content = _structured_content(
+        session_get, label=f"{label} {call_mode} session details"
+    )
+    session_details = session_get_content.get("argumentsKeywords", {}).get(
+        "details"
+    )
+    if not isinstance(session_details, dict):
+        raise AssertionError(
+            f"{label} {call_mode} session details missed keywords: "
+            f"{session_get_content}"
+        )
+    if (
+        session_details.get("id") != session_id
+        or session_details.get("authid") != expected_auth_id
+        or session_details.get("authrole") != expected_auth_role
+    ):
+        raise AssertionError(
+            f"{label} {call_mode} session identity was invalid: "
+            f"{session_details}"
         )
 
 
@@ -765,12 +811,16 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
         secure_endpoint,
         label="Protected",
         call_mode="direct",
+        expected_auth_id=AUTH_ID,
+        expected_auth_role="member",
         authorization_headers=authorization_headers,
     )
     _run_modern_wamp_registration_session_meta(
         secure_endpoint,
         label="Protected",
         call_mode="standard",
+        expected_auth_id=AUTH_ID,
+        expected_auth_role="member",
         authorization_headers=authorization_headers,
     )
     _run_modern_wamp_subscription_meta(
@@ -839,6 +889,8 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         "wamp.registration.match",
         "wamp.registration.get",
         "wamp.session.count",
+        "wamp.session.list",
+        "wamp.session.get",
         "wamp.subscription.match",
         "wamp.subscription.get",
     }:
@@ -855,11 +907,15 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         endpoint,
         label="Public",
         call_mode="direct",
+        expected_auth_id="anonymous",
+        expected_auth_role="anonymous",
     )
     _run_modern_wamp_registration_session_meta(
         endpoint,
         label="Public",
         call_mode="standard",
+        expected_auth_id="anonymous",
+        expected_auth_role="anonymous",
     )
     _run_modern_wamp_subscription_meta(
         endpoint,
