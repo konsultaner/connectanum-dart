@@ -1415,6 +1415,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             '"public":{"stateless2026":true,"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
+            '"resourceSubscriptionSessionDeleteCoexistence":true,'
             '"wampPubSubCoexistence":true,'
             '"wampPubSubSessionDeleteCoexistence":true,'
             '"directJson":true,'
@@ -1432,6 +1433,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"secure":{"ticketGrant":true,"stateless2026":true,'
             '"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
+            '"resourceSubscriptionSessionDeleteCoexistence":true,'
             '"wampPubSubCoexistence":true,'
             '"wampPubSubSessionDeleteCoexistence":true,'
             '"directJson":true,'
@@ -1613,6 +1615,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("direct JSON cleanup changed protocol session state", body)
         self.assertIn(
             "request-scoped listener stopped with the Streamable owner",
+            body,
+        )
+        self.assertIn(
+            "active Streamable session deletion changed modern state",
+            body,
+        )
+        self.assertIn(
+            "replacement session reused the deleted Streamable session ID",
             body,
         )
         self.assertIn(

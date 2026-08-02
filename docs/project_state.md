@@ -126,15 +126,15 @@ artifact `8828058754` was uploaded. The strict deployment-chain audit passed
 with a clean exact-head CI log scan and all required branch, workflow, package,
 publish-dry-run, and benchmark-artifact gates clean.
 
-The active cross-era session-delete checkpoint now proves the remaining WAMP
+The completed cross-era session-delete checkpoint proves the remaining WAMP
 ownership boundary. A focused native-router regression and the isolated
 generated consumer delete an active compatibility-era Streamable session while
 a sessionless direct JSON handle owns the same physical WAMP subscription. The
 direct owner remains sessionless and event-capable, a replacement Streamable
 session rejoins the same physical subscription, and independent final cleanup
 reaches zero broker subscribers. Public and bearer-protected generated routes
-both expose explicit `wampPubSubSessionDeleteCoexistence` evidence. The active
-plan is
+both expose explicit `wampPubSubSessionDeleteCoexistence` evidence. The
+completed plan is
 `docs/exec-plans/2026-08-02-mcp-cross-era-wamp-session-delete-coexistence.md`.
 
 The focused native-router regression, all 19 consumer-boundary tests, and the
@@ -146,6 +146,36 @@ Chrome/Dart2Wasm coverage, all generated and globally activated consumer
 smokes, all 96 benchmark tests, and the complete 380-case router suite. The
 implementation is ready to push; exact-head hosted workflows and the strict
 deployment-chain audit remain.
+
+Commit `5e8b51d` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30733751981` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
+and coverage artifact `8828980789`. Dart Package Publish Dry Run `30733751980`
+and WAMP Profile Benchmarks `30733751982` passed on their first attempts; WAMP
+artifact `8828884780` was uploaded. The strict deployment-chain audit passed
+with a clean exact-head CI log scan and all required branch, workflow, package,
+publish-dry-run, and benchmark-artifact gates clean.
+
+The completed cross-era resource session-delete checkpoint proves the
+analogous dynamic-resource ownership boundary. A focused native-router
+regression and the isolated generated consumer delete an active
+compatibility-era Streamable resource session while a modern request-scoped
+listener owns the same configured WAMP update topic. Streamable deletion
+releases only its local owner while the sessionless modern listener remains
+event-capable. A distinct replacement Streamable session rejoins cleanly,
+survives modern listener closure, and releases the final broker subscriber.
+Public and bearer-protected generated routes both expose explicit
+`resourceSubscriptionSessionDeleteCoexistence` evidence. The completed plan is
+`docs/exec-plans/2026-08-02-mcp-cross-era-resource-session-delete-coexistence.md`.
+
+The focused native-router regression, all 19 consumer-boundary tests, and the
+isolated public/protected generated consumer passed. Pre-change and
+post-change `bin/test-fast` passed on 2026-08-02. Full `bin/verify` passed
+formatting and analysis, 113 Rust core tests, 52 Rust FFI tests, 360 Dart core
+tests, all 94 MCP tests, the complete 193-case MCP/client authorization suite,
+Dart VM and Chrome/Dart2Wasm coverage, all generated and globally activated
+consumer smokes, all 96 benchmark tests, the complete 380-case router suite,
+and the 13-case native-handle follow-up. The implementation is ready to push;
+exact-head hosted workflows and the strict deployment-chain audit remain.
 
 Commit `86cf956` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30728291345` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
@@ -23574,6 +23604,13 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-02: Focused native-router resource session-delete coverage, all 19
+  consumer-boundary tests, the isolated generated public/protected router CLI
+  consumer, pre-change and post-change `bin/test-fast`, `bash -n bin/common.sh`,
+  `git diff --check`, and full `bin/verify` passed after proving that deleting
+  an active Streamable resource session preserves a sessionless modern
+  listener, permits a distinct replacement Streamable session to rejoin, and
+  independently releases the final broker subscriber.
 - 2026-05-21: `bin/test-fast`,
   `dart format packages/connectanum_mcp/test/io_client_export_test.dart`,
   `dart test -p vm packages/connectanum_mcp/test/io_client_export_test.dart`,
@@ -23874,13 +23911,20 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active MCP downstream-application readiness plan:
+- No active execution plan. The most recent completed MCP
+  downstream-application readiness plan is:
+  `docs/exec-plans/2026-08-02-mcp-cross-era-resource-session-delete-coexistence.md`.
+  It proves deleting an active compatibility-era Streamable resource
+  subscription releases only that endpoint while a modern request-scoped
+  listener remains usable and a replacement Streamable session can rejoin and
+  clean up independently.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-02-mcp-cross-era-wamp-session-delete-coexistence.md`.
   It proves deleting an active compatibility-era Streamable session releases
   only that endpoint's WAMP ownership while a sessionless direct JSON owner on
   the same physical subscription remains usable and a replacement Streamable
   session can rejoin cleanly.
-- Most recent completed MCP downstream-application readiness plan:
+- Completed immediately before that:
   `docs/exec-plans/2026-08-02-mcp-cross-era-wamp-pubsub-coexistence.md`. It
   keeps direct JSON and compatibility-era Streamable WAMP topic subscriptions
   active together and proves shared delivery plus independent cleanup without

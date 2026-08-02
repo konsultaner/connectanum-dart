@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Completed.
 
 ## Goal
 
@@ -72,3 +72,9 @@ consumer on the same authorized router session remains usable.
   generated and globally activated consumer smokes, all 96 benchmark tests,
   and the complete 380-case router suite. The implementation is ready to push;
   exact-head hosted workflows and the strict deployment-chain audit remain.
+- 2026-08-02: Commit `5e8b51d` was pushed to GitLab and GitHub. Exact-head
+  GitHub CI `30733751981`, Dart Package Publish Dry Run `30733751980`, and WAMP
+  Profile Benchmarks `30733751982` passed on their first attempts. CI uploaded
+  coverage artifact `8828980789`, WAMP uploaded benchmark artifact
+  `8828884780`, and the strict deployment-chain audit passed with a clean CI
+  log scan and all required gates clean.

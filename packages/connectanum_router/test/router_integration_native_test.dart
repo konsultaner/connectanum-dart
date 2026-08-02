@@ -4461,7 +4461,7 @@ void main() {
     );
 
     test(
-      'deletes MCP Streamable HTTP sessions without interrupting shared direct JSON pubsub owners',
+      'deletes MCP Streamable HTTP sessions without interrupting shared direct JSON pubsub or modern resource owners',
       () async {
         final harness = await _RouterHarness.start(
           connectionId: 9117,
@@ -4469,6 +4469,13 @@ void main() {
           settings: _buildMcpSmokeSettings(),
         );
         addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-resource-delete-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
 
         final listener = harness.binding.listeners.single;
         final httpClient = HttpClient();
@@ -4482,8 +4489,30 @@ void main() {
         );
         final directClient = McpStreamableHttpClient(endpoint);
         addTearDown(() => directClient.close(force: true));
+        final modernClient = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-delete-test',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => modernClient.close(force: true));
         final mcpClient = McpStreamableHttpClient(endpoint);
         addTearDown(() => mcpClient.close(force: true));
+
+        final modernListener = await modernClient.listen(
+          id: 'cleanup-modern-resource-listen',
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+        expect(
+          modernListener.acknowledgedNotifications.resourceSubscriptions,
+          equals(const <String>['app://mcp/live-context']),
+        );
+        final modernNotifications = StreamIterator<Map<String, Object?>>(
+          modernListener.notifications,
+        );
+        expect(modernClient.sessionId, isNull);
+        expect(modernClient.lastEventId, isNull);
 
         final directSubscription = await directClient.subscribeWampTopicDirect(
           'app.events.audit',
@@ -4497,6 +4526,8 @@ void main() {
 
         await mcpClient.initialize(id: 'cleanup-initialize');
         await mcpClient.notifyInitialized();
+        final deletedStreamableSessionId = mcpClient.sessionId;
+        expect(deletedStreamableSessionId, isNotNull);
         final subscription = await mcpClient.subscribeWampTopic(
           'app.events.audit',
           id: 'cleanup-subscribe',
@@ -4546,6 +4577,18 @@ void main() {
           return arguments.single as int;
         }
 
+        Future<int> waitForResourceSubscriberCount(int expected) async {
+          var actual = -1;
+          for (var attempt = 0; attempt < 50; attempt++) {
+            actual = await resourceSubscriberCount();
+            if (actual == expected) {
+              return actual;
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+          }
+          return actual;
+        }
+
         expect(await resourceSubscriberCount(), equals(1));
 
         await mcpClient.deleteSession();
@@ -4555,7 +4598,7 @@ void main() {
         expect(directClient.lastEventId, isNull);
 
         expect(await subscriberCount(), equals(1));
-        expect(await resourceSubscriberCount(), equals(0));
+        expect(await resourceSubscriberCount(), equals(1));
 
         final directPublication = await directClient.publishWampEventDirect(
           'app.events.audit',
@@ -4577,6 +4620,87 @@ void main() {
           jsonEncode(directPoll['events']),
           contains('cleanup-direct-after-delete'),
         );
+
+        final modernUpdateAfterDelete = modernNotifications.moveNext().timeout(
+          const Duration(seconds: 5),
+        );
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{
+            'marker': 'cleanup-modern-after-delete',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        expect(await modernUpdateAfterDelete, isTrue);
+        expect(
+          modernNotifications.current['method'],
+          equals('notifications/resources/updated'),
+        );
+        expect(
+          (modernNotifications.current['params'] as Map)['uri'],
+          equals('app://mcp/live-context'),
+        );
+        expect(modernClient.sessionId, isNull);
+        expect(modernClient.lastEventId, isNull);
+
+        await mcpClient.initialize(id: 'cleanup-replacement-initialize');
+        await mcpClient.notifyInitialized();
+        expect(mcpClient.sessionId, isNotNull);
+        expect(mcpClient.sessionId, isNot(equals(deletedStreamableSessionId)));
+        await mcpClient.subscribeResource(
+          'app://mcp/live-context',
+          id: 'cleanup-replacement-resource-subscribe',
+        );
+        expect(await resourceSubscriberCount(), equals(1));
+
+        await modernNotifications.cancel();
+        await modernListener.close();
+        expect(
+          await modernListener.closed,
+          equals(McpSubscriptionCloseReason.local),
+        );
+        expect(modernClient.sessionId, isNull);
+        expect(modernClient.lastEventId, isNull);
+        expect(await waitForResourceSubscriberCount(1), equals(1));
+
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{
+            'marker': 'cleanup-replacement-after-modern-close',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        final replacementUpdate = await _pollStreamableMcpUntilResourceUpdate(
+          mcpClient,
+          'app://mcp/live-context',
+        );
+        expect(
+          replacementUpdate['method'],
+          equals('notifications/resources/updated'),
+        );
+        await mcpClient.unsubscribeResource(
+          'app://mcp/live-context',
+          id: 'cleanup-replacement-resource-unsubscribe',
+        );
+        var finalResourceSubscriberCount = 1;
+        for (var attempt = 0; attempt < 50; attempt++) {
+          await serviceSession.publish(
+            'app.events.resource.context',
+            argumentsKeywords: <String, Object?>{
+              'marker': 'cleanup-final-resource-$attempt',
+            },
+            options: core.PublishOptions(acknowledge: true),
+          );
+          finalResourceSubscriberCount = await resourceSubscriberCount();
+          if (finalResourceSubscriberCount == 0) {
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(finalResourceSubscriberCount, equals(0));
+        await mcpClient.deleteSession();
+        expect(mcpClient.sessionId, isNull);
+        expect(mcpClient.lastEventId, isNull);
 
         final directUnsubscribe = await directClient.unsubscribeWampTopicDirect(
           directSubscription.handle,

@@ -30770,6 +30770,7 @@ Future<void> main() async {
           'stateless2026': true,
           'subscriptionsListen': true,
           'resourceSubscriptionCoexistence': true,
+          'resourceSubscriptionSessionDeleteCoexistence': true,
           'wampPubSubCoexistence': true,
           'wampPubSubSessionDeleteCoexistence': true,
           'directJson': true,
@@ -30790,6 +30791,7 @@ Future<void> main() async {
           'stateless2026': true,
           'subscriptionsListen': true,
           'resourceSubscriptionCoexistence': true,
+          'resourceSubscriptionSessionDeleteCoexistence': true,
           'wampPubSubCoexistence': true,
           'wampPubSubSessionDeleteCoexistence': true,
           'directJson': true,
@@ -31210,6 +31212,11 @@ Future<void> _expectCrossEraResourceSubscriptionCoexistence({
       '$label Streamable initialize changed protocol.',
     );
     await streamableClient.notifyInitialized();
+    final deletedStreamableSessionId = streamableClient.sessionId;
+    _expect(
+      deletedStreamableSessionId != null,
+      '$label Streamable initialize did not create a session.',
+    );
     await streamableClient.subscribeResource(
       resourceUri,
       id: '$idPrefix-streamable-subscribe',
@@ -31259,6 +31266,61 @@ Future<void> _expectCrossEraResourceSubscriptionCoexistence({
       resourceUri,
       id: '$idPrefix-streamable-resubscribe',
     );
+    await streamableClient.deleteSession();
+    streamableDeleted = true;
+    _expect(
+      streamableClient.sessionId == null &&
+          streamableClient.lastEventId == null &&
+          statelessClient.sessionId == null &&
+          statelessClient.lastEventId == null,
+      '$label active Streamable session deletion changed modern state.',
+    );
+    final modernUpdateAfterStreamableDelete = notifications
+        .moveNext()
+        .timeout(const Duration(seconds: 5));
+    await statelessClient.publishWampEvent(
+      updateTopic,
+      id: '$idPrefix-publish-modern-after-delete',
+      argumentsKeywords: <String, Object?>{
+        'marker': '$idPrefix-modern-after-delete',
+      },
+      acknowledge: true,
+    );
+    _expect(
+      await modernUpdateAfterStreamableDelete &&
+          notifications.current['method'] ==
+              'notifications/resources/updated' &&
+          (notifications.current['params'] as Map)['uri'] == resourceUri,
+      '$label request-scoped listener stopped with the Streamable owner.',
+    );
+
+    streamableDeleted = false;
+    final replacementInitialize = await streamableClient.initialize(
+      id: '$idPrefix-replacement-initialize',
+      protocolVersion: _protocolVersion,
+      clientInfo: <String, Object?>{
+        'name': '$idPrefix-replacement-client',
+        'version': '0.0.0',
+      },
+    );
+    _expect(
+      _resultFrom(
+            replacementInitialize,
+            '$label replacement initialize',
+          )['protocolVersion'] ==
+          _protocolVersion,
+      '$label replacement Streamable initialize changed protocol.',
+    );
+    await streamableClient.notifyInitialized();
+    _expect(
+      streamableClient.sessionId != null &&
+          streamableClient.sessionId != deletedStreamableSessionId,
+      '$label replacement session reused the deleted Streamable session ID.',
+    );
+    await streamableClient.subscribeResource(
+      resourceUri,
+      id: '$idPrefix-replacement-subscribe',
+    );
     await notifications.cancel();
     await listener.close();
     listenerClosed = true;
@@ -31282,7 +31344,7 @@ Future<void> _expectCrossEraResourceSubscriptionCoexistence({
 
     await streamableClient.unsubscribeResource(
       resourceUri,
-      id: '$idPrefix-streamable-final-unsubscribe',
+      id: '$idPrefix-replacement-final-unsubscribe',
     );
     await streamableClient.deleteSession();
     streamableDeleted = true;
@@ -32387,8 +32449,8 @@ DART
   printf '%s\n' "$dart_consumer_summary"
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
-    '"public":{"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"public":{"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"resourceSubscriptionSessionDeleteCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
+    '"secure":{"ticketGrant":true,"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"resourceSubscriptionSessionDeleteCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
