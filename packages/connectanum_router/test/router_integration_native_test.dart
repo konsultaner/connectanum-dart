@@ -4461,7 +4461,7 @@ void main() {
     );
 
     test(
-      'deletes MCP Streamable HTTP sessions and cleans up pubsub subscribers',
+      'deletes MCP Streamable HTTP sessions without interrupting shared direct JSON pubsub owners',
       () async {
         final harness = await _RouterHarness.start(
           connectionId: 9117,
@@ -4474,15 +4474,26 @@ void main() {
         final httpClient = HttpClient();
         addTearDown(() => httpClient.close(force: true));
 
-        final mcpClient = McpStreamableHttpClient(
-          Uri(
-            scheme: 'http',
-            host: '127.0.0.1',
-            port: listener.port,
-            path: '/mcp/public',
-          ),
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
         );
+        final directClient = McpStreamableHttpClient(endpoint);
+        addTearDown(() => directClient.close(force: true));
+        final mcpClient = McpStreamableHttpClient(endpoint);
         addTearDown(() => mcpClient.close(force: true));
+
+        final directSubscription = await directClient.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'cleanup-direct-subscribe',
+          queueLimit: 5,
+        );
+        final subscriptionId = directSubscription.subscriptionId;
+        expect(subscriptionId, isNotNull);
+        expect(directClient.sessionId, isNull);
+        expect(directClient.lastEventId, isNull);
 
         await mcpClient.initialize(id: 'cleanup-initialize');
         await mcpClient.notifyInitialized();
@@ -4491,8 +4502,7 @@ void main() {
           id: 'cleanup-subscribe',
           queueLimit: 5,
         );
-        final subscriptionId = subscription.subscriptionId;
-        expect(subscriptionId, isNotNull);
+        expect(subscription.subscriptionId, equals(subscriptionId));
         await mcpClient.subscribeResource(
           'app://mcp/live-context',
           id: 'cleanup-resource-subscribe',
@@ -4540,9 +4550,42 @@ void main() {
 
         await mcpClient.deleteSession();
         expect(mcpClient.sessionId, isNull);
+        expect(mcpClient.lastEventId, isNull);
+        expect(directClient.sessionId, isNull);
+        expect(directClient.lastEventId, isNull);
 
-        expect(await subscriberCount(), equals(0));
+        expect(await subscriberCount(), equals(1));
         expect(await resourceSubscriberCount(), equals(0));
+
+        final directPublication = await directClient.publishWampEventDirect(
+          'app.events.audit',
+          id: 'cleanup-direct-publish-after-delete',
+          argumentsKeywords: const <String, Object?>{
+            'marker': 'cleanup-direct-after-delete',
+          },
+          acknowledge: true,
+          options: const <String, Object?>{'exclude_me': false},
+        );
+        expect(directPublication.acknowledged, isTrue);
+        final directPoll = await _pollDirectRouterJsonUntilEvents(
+          httpClient,
+          listener.port,
+          '/mcp/public',
+          directSubscription.handle,
+        );
+        expect(
+          jsonEncode(directPoll['events']),
+          contains('cleanup-direct-after-delete'),
+        );
+
+        final directUnsubscribe = await directClient.unsubscribeWampTopicDirect(
+          directSubscription.handle,
+          id: 'cleanup-direct-unsubscribe',
+        );
+        expect(directUnsubscribe.unsubscribed, isTrue);
+        expect(directClient.sessionId, isNull);
+        expect(directClient.lastEventId, isNull);
+        expect(await subscriberCount(), equals(0));
       },
       skip: skipReason,
     );

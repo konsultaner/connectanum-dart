@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -75,3 +75,9 @@ release their ownership independently without interrupting the other consumer.
   generated and globally activated consumer smokes, all 96 benchmark tests,
   and the complete 380-case router suite. The implementation is ready to push;
   exact-head hosted workflows and the strict deployment-chain audit remain.
+- 2026-08-02: Commit `80132e8` was pushed to GitLab and GitHub. Exact-head
+  GitHub CI `30731109989`, Dart Package Publish Dry Run `30731110024`, and WAMP
+  Profile Benchmarks `30731109991` passed on their first attempts. CI uploaded
+  coverage artifact `8828117849`, WAMP uploaded benchmark artifact
+  `8828058754`, and the strict deployment-chain audit passed with a clean CI
+  log scan and all required gates clean.

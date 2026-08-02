@@ -98,7 +98,7 @@ procedures to back resources without an application callee. The completed
 plan is
 `docs/exec-plans/2026-08-02-mcp-cross-era-resource-subscription-coexistence.md`.
 
-The active downstream-readiness checkpoint now proves the same ownership
+The completed downstream-readiness checkpoint proves the same ownership
 boundary for router-hosted WAMP pub/sub. The focused native-router regression
 and isolated generated consumer keep sessionless direct JSON and
 compatibility-era Streamable logical subscriptions active together on the
@@ -107,10 +107,37 @@ acknowledged self-delivered publication, both cleanup orders preserve the
 remaining consumer, direct JSON creates no MCP session or resume state, and
 the final broker subscriber count reaches zero. The generated consumer proves
 the lifecycle for public and bearer-protected routes without private project
-assumptions. The active plan is
+assumptions. The completed plan is
 `docs/exec-plans/2026-08-02-mcp-cross-era-wamp-pubsub-coexistence.md`.
 
 The focused native-router lifecycle, all 19 consumer-boundary tests, and the
+isolated public/protected generated consumer passed. Pre-change and
+post-change `bin/test-fast` passed on 2026-08-02. Full `bin/verify` passed
+formatting and analysis, Rust core and FFI suites, 360 core tests, all 94 MCP
+tests, the complete 193-case MCP/client authorization suite, Dart VM and
+Chrome/Dart2Wasm coverage, all generated and globally activated consumer
+smokes, all 96 benchmark tests, and the complete 380-case router suite.
+
+Commit `80132e8` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30731109989` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
+and coverage artifact `8828117849`. Dart Package Publish Dry Run `30731110024`
+and WAMP Profile Benchmarks `30731109991` passed on their first attempts; WAMP
+artifact `8828058754` was uploaded. The strict deployment-chain audit passed
+with a clean exact-head CI log scan and all required branch, workflow, package,
+publish-dry-run, and benchmark-artifact gates clean.
+
+The active cross-era session-delete checkpoint now proves the remaining WAMP
+ownership boundary. A focused native-router regression and the isolated
+generated consumer delete an active compatibility-era Streamable session while
+a sessionless direct JSON handle owns the same physical WAMP subscription. The
+direct owner remains sessionless and event-capable, a replacement Streamable
+session rejoins the same physical subscription, and independent final cleanup
+reaches zero broker subscribers. Public and bearer-protected generated routes
+both expose explicit `wampPubSubSessionDeleteCoexistence` evidence. The active
+plan is
+`docs/exec-plans/2026-08-02-mcp-cross-era-wamp-session-delete-coexistence.md`.
+
+The focused native-router regression, all 19 consumer-boundary tests, and the
 isolated public/protected generated consumer passed. Pre-change and
 post-change `bin/test-fast` passed on 2026-08-02. Full `bin/verify` passed
 formatting and analysis, Rust core and FFI suites, 360 core tests, all 94 MCP
@@ -23848,11 +23875,17 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active MCP downstream-application readiness plan:
+  `docs/exec-plans/2026-08-02-mcp-cross-era-wamp-session-delete-coexistence.md`.
+  It proves deleting an active compatibility-era Streamable session releases
+  only that endpoint's WAMP ownership while a sessionless direct JSON owner on
+  the same physical subscription remains usable and a replacement Streamable
+  session can rejoin cleanly.
+- Most recent completed MCP downstream-application readiness plan:
   `docs/exec-plans/2026-08-02-mcp-cross-era-wamp-pubsub-coexistence.md`. It
   keeps direct JSON and compatibility-era Streamable WAMP topic subscriptions
-  active together and will prove shared delivery plus independent cleanup
-  without creating direct JSON MCP session or resume state.
-- Most recent completed MCP downstream-application readiness plan:
+  active together and proves shared delivery plus independent cleanup without
+  creating direct JSON MCP session or resume state.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-02-mcp-cross-era-resource-subscription-coexistence.md`.
   It proves modern request-scoped resource listeners and compatibility-era
   Streamable resource subscriptions can receive the same configured WAMP

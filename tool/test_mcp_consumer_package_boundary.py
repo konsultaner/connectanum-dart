@@ -1416,6 +1416,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"public":{"stateless2026":true,"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
             '"wampPubSubCoexistence":true,'
+            '"wampPubSubSessionDeleteCoexistence":true,'
             '"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
@@ -1432,6 +1433,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
             '"wampPubSubCoexistence":true,'
+            '"wampPubSubSessionDeleteCoexistence":true,'
             '"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
@@ -1600,6 +1602,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dart-consumer-public-pubsub-coexistence", body)
         self.assertIn("dart-consumer-secure-pubsub-coexistence", body)
         self.assertIn("did not reuse one physical WAMP subscription", body)
+        self.assertIn(
+            "active Streamable session deletion removed the direct JSON owner",
+            body,
+        )
+        self.assertIn(
+            "replacement session changed the physical WAMP subscription",
+            body,
+        )
         self.assertIn("direct JSON cleanup changed protocol session state", body)
         self.assertIn(
             "request-scoped listener stopped with the Streamable owner",
@@ -1668,7 +1678,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("configured subscription meta", body)
         self.assertIn(
             "public and protected cross-era dynamic resource and WAMP "
-            "pub/sub coexistence with independent cleanup",
+            "pub/sub coexistence with active Streamable session deletion, "
+            "direct JSON survival, replacement-session rejoin, and "
+            "independent cleanup",
             body,
         )
         self.assertIn(
