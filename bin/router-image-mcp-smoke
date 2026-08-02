@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+smoke_config="$repo_root/deploy/docker/router_mcp_smoke.yaml"
+smoke_client="$repo_root/tool/smoke_router_image_mcp.py"
+
+usage() {
+  printf 'Usage: %s IMAGE\n' "${0##*/}" >&2
+}
+
+if [[ "$#" -ne 1 || -z "$1" ]]; then
+  usage
+  exit 2
+fi
+
+for command_name in docker python3; do
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    printf 'Required command is unavailable: %s\n' "$command_name" >&2
+    exit 1
+  fi
+done
+
+image="$1"
+container_name="connectanum-router-mcp-smoke-$$"
+container_id=''
+
+cleanup() {
+  local status=$?
+  trap - EXIT INT TERM
+  if [[ -n "$container_id" ]]; then
+    if [[ "$status" -ne 0 ]]; then
+      printf 'Router image smoke container logs:\n' >&2
+      docker logs "$container_id" >&2 || true
+    fi
+    docker rm --force "$container_id" >/dev/null 2>&1 || true
+  fi
+  exit "$status"
+}
+trap cleanup EXIT INT TERM
+
+container_id="$(
+  docker run --detach \
+    --name "$container_name" \
+    --publish 127.0.0.1::8080 \
+    --volume "$smoke_config:/etc/connectanum/router.yaml:ro" \
+    "$image"
+)"
+
+host_port=''
+for _ in {1..100}; do
+  published_address="$(docker port "$container_id" 8080/tcp 2>/dev/null || true)"
+  if [[ "$published_address" =~ :([0-9]+)$ ]]; then
+    host_port="${BASH_REMATCH[1]}"
+    break
+  fi
+  if ! docker inspect --format '{{.State.Running}}' "$container_id" \
+    2>/dev/null | grep -Fxq true; then
+    printf 'Router image smoke container exited before publishing port 8080.\n' >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+
+if [[ -z "$host_port" ]]; then
+  printf 'Router image smoke container did not publish port 8080.\n' >&2
+  exit 1
+fi
+
+python3 "$smoke_client" --endpoint "http://127.0.0.1:$host_port/mcp"
+printf 'Router image MCP runtime smoke passed for %s.\n' "$image"

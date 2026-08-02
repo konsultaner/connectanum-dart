@@ -188,6 +188,22 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             "- packages/connectanum_mcp/lib/connectanum_mcp_io.dart",
             result.stdout,
         )
+
+    def test_router_image_rejects_evidence_without_mcp_runtime_smoke(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_router_image_audit(
+            current_head,
+            current_head,
+            include_runtime_smoke=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "Finding: latest Router Image dry-run did not pass the "
+            "router-hosted MCP runtime smoke.",
+            result.stdout,
+        )
         self.assertIn("Router image dry-run audit failed.", result.stdout)
 
     def test_rc_readiness_accepts_native_prerelease_evidence(self) -> None:
@@ -1101,6 +1117,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         ci_head: str,
         router_image_head: str,
         changed_paths: str = "",
+        include_runtime_smoke: bool = True,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -1130,6 +1147,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                     repository = "konsultaner/connectanum-dart"
                     router_image_head = os.environ["FAKE_ROUTER_IMAGE_HEAD"]
                     preview_tag = os.environ.get("FAKE_ROUTER_PREVIEW_TAG", "sha-preview")
+                    include_runtime_smoke = os.environ["FAKE_RUNTIME_SMOKE"] == "true"
                     workflow_paths = os.environ["FAKE_WORKFLOW_PATHS"].splitlines()
 
 
@@ -1229,6 +1247,9 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif json_fields == "jobs" and ".steps[]" in jq:
                             print("Resolve image metadata\\tcompleted\\tsuccess")
                             print("Upload router image preview\\tcompleted\\tsuccess")
+                            print("Build local router smoke image\\tcompleted\\tsuccess")
+                            if include_runtime_smoke:
+                                print("Smoke router-hosted MCP image\\tcompleted\\tsuccess")
                             print("Log in to GHCR\\tcompleted\\tskipped")
                             print("Build or publish multi-arch router image\\tcompleted\\tsuccess")
                         elif json_fields == "jobs":
@@ -1319,6 +1340,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             env["GH_BIN"] = str(fake_gh)
             env["FAKE_CI_HEAD"] = ci_head
             env["FAKE_ROUTER_IMAGE_HEAD"] = router_image_head
+            env["FAKE_RUNTIME_SMOKE"] = "true" if include_runtime_smoke else "false"
             env["FAKE_CHANGED_PATHS"] = changed_paths
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
             env["REAL_GIT"] = real_git or "git"
@@ -1532,6 +1554,8 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             if run_id == "126":
                                 print("Resolve image metadata\\tcompleted\\tsuccess")
                                 print("Upload router image preview\\tcompleted\\tsuccess")
+                                print("Build local router smoke image\\tcompleted\\tsuccess")
+                                print("Smoke router-hosted MCP image\\tcompleted\\tsuccess")
                                 print("Log in to GHCR\\tcompleted\\tskipped")
                                 print("Build or publish multi-arch router image\\tcompleted\\tsuccess")
                             elif run_id == "127":
@@ -1896,6 +1920,8 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             if run_id == "126":
                                 print("Resolve image metadata\\tcompleted\\tsuccess")
                                 print("Upload router image preview\\tcompleted\\tsuccess")
+                                print("Build local router smoke image\\tcompleted\\tsuccess")
+                                print("Smoke router-hosted MCP image\\tcompleted\\tsuccess")
                                 print("Log in to GHCR\\tcompleted\\tskipped")
                                 print("Build or publish multi-arch router image\\tcompleted\\tsuccess")
                             elif run_id == "127":

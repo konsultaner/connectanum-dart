@@ -163,6 +163,7 @@ python3 tool/check_public_artifact_references.py
 python3 tool/test_public_artifact_references.py
 python3 tool/test_dart_package_publish_dry_run.py
 python3 tool/test_audit_github_deployment_chain.py
+python3 tool/test_router_image_mcp_smoke.py
 dart test packages/connectanum_core/test
 dart test packages/connectanum_mcp/test
 dart test packages/connectanum/test

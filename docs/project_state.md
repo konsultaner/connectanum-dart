@@ -177,6 +177,44 @@ consumer smokes, all 96 benchmark tests, the complete 380-case router suite,
 and the 13-case native-handle follow-up. The implementation is ready to push;
 exact-head hosted workflows and the strict deployment-chain audit remain.
 
+Commit `01a7654` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30736592378` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
+and coverage artifact `8829984781`. Dart Package Publish Dry Run `30736592418`
+and WAMP Profile Benchmarks `30736592385` passed on their first attempts; WAMP
+artifact `8829836979` was uploaded. The strict deployment-chain audit passed
+with a clean exact-head CI log scan and all required branch, workflow, package,
+publish-dry-run, and benchmark-artifact gates clean.
+
+The active router-image MCP runtime checkpoint closes the next packaging
+boundary. Existing source, globally activated, and isolated consumer smokes
+prove router-hosted MCP comprehensively, while Router Image dry runs currently
+prove only multi-architecture construction and release metadata. The active
+plan adds a neutral black-box image smoke for modern discovery/direct JSON and
+compatibility-era Streamable initialization, pub/sub, and DELETE cleanup, then
+requires that runtime evidence in the deployment-chain audit. The active plan
+is `docs/exec-plans/2026-08-02-router-image-mcp-runtime-smoke.md`.
+
+The implementation is now in place. Router Image builds and loads a Linux/amd64
+image, starts it with a neutral public MCP route, and must pass modern
+`2026-07-28` discovery/direct meta-tool checks plus a compatibility-era
+Streamable pub/sub lifecycle and DELETE teardown before the multi-architecture
+release build. The deployment audit rejects evidence missing either the local
+image build or runtime smoke. All 22 audit regressions and 5 runner regressions
+pass, and a current Linux Dart AOT router packaged over a cached router runtime
+passed the black-box smoke locally. Local registry metadata resolution could
+not provide the uncached canonical Rust and Debian bases, so the exact
+Dockerfile and multi-architecture proof remains pending in the hosted Router
+Image dry run.
+
+Post-change `bin/test-fast` passed. Full `bin/verify` passed with no formatting
+changes, 113 Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP
+tests, the complete 193-case MCP/client suite, all 96 benchmark tests with live
+WAMP workloads, isolated and globally activated consumers, the complete
+380-case router suite, 13 focused native follow-ups, and Chrome/Dart2Wasm
+WebSocket coverage. The router-image MCP runtime implementation is ready to
+push; exact-head hosted CI, package, WAMP, Router Image, and strict-audit
+evidence remain.
+
 Commit `86cf956` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30728291345` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
 and coverage artifact `8827275787`. Dart Package Publish Dry Run `30728291363`
@@ -23911,8 +23949,11 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- No active execution plan. The most recent completed MCP
-  downstream-application readiness plan is:
+- Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-02-router-image-mcp-runtime-smoke.md`. It makes the
+  Router Image workflow run a neutral black-box MCP lifecycle through the
+  locally loaded image and makes the deployment audit require that evidence.
+- Most recent completed MCP downstream-application readiness plan:
   `docs/exec-plans/2026-08-02-mcp-cross-era-resource-session-delete-coexistence.md`.
   It proves deleting an active compatibility-era Streamable resource
   subscription releases only that endpoint while a modern request-scoped

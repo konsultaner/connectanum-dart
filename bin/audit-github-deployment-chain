@@ -985,6 +985,8 @@ router_image_sensitive_changes_since() {
       packages/*/hook/**|\
       packages/*/tool/install_native.dart|\
       pubspec.yaml|\
+      bin/router-image-mcp-smoke|\
+      tool/smoke_router_image_mcp.py|\
       tool/render_router_image_metadata.py|\
       tool/test_render_router_image_metadata.py)
         printf '%s\n' "$path"
@@ -1493,6 +1495,8 @@ print_router_image_dry_run_gate() {
   local changed_paths
   local has_metadata_step=0
   local has_preview_upload=0
+  local has_local_smoke_build=0
+  local has_mcp_runtime_smoke=0
   local has_login_skipped=0
   local has_build_step=0
   local failed=0
@@ -1590,6 +1594,18 @@ print_router_image_dry_run_gate() {
             has_preview_upload=1
           fi
           ;;
+        'Build local router smoke image')
+          printf -- '- step %s: %s/%s\n' "$step_name" "$step_status" "$step_conclusion"
+          if [[ "$step_status" == "completed" && "$step_conclusion" == "success" ]]; then
+            has_local_smoke_build=1
+          fi
+          ;;
+        'Smoke router-hosted MCP image')
+          printf -- '- step %s: %s/%s\n' "$step_name" "$step_status" "$step_conclusion"
+          if [[ "$step_status" == "completed" && "$step_conclusion" == "success" ]]; then
+            has_mcp_runtime_smoke=1
+          fi
+          ;;
         'Log in to GHCR')
           printf -- '- step %s: %s/%s\n' "$step_name" "$step_status" "$step_conclusion"
           if [[ "$step_status" == "completed" && "$step_conclusion" == "skipped" ]]; then
@@ -1619,6 +1635,18 @@ print_router_image_dry_run_gate() {
 
     if [[ "$has_preview_upload" -eq 1 ]] && ! print_router_image_preview_metadata_gate "$run_id"; then
       failed=1
+    fi
+
+    if [[ "$has_local_smoke_build" -ne 1 ]]; then
+      printf 'Finding: latest Router Image dry-run did not build the local runtime smoke image.\n'
+      failed=1
+    fi
+
+    if [[ "$has_mcp_runtime_smoke" -ne 1 ]]; then
+      printf 'Finding: latest Router Image dry-run did not pass the router-hosted MCP runtime smoke.\n'
+      failed=1
+    else
+      printf 'Router image router-hosted MCP runtime smoke: passed.\n'
     fi
 
     if [[ "$has_login_skipped" -ne 1 ]]; then

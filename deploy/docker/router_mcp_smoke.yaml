@@ -1,0 +1,48 @@
+router:
+  session_profiles:
+    - name: public-wamp
+      auth:
+        methods: [anonymous]
+    - name: public-http
+      auth:
+        methods: []
+
+  realms:
+    - name: image.smoke
+      auth:
+        authmethods: [anonymous]
+      roles:
+        - name: anonymous
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [subscribe, publish, call, register, unregister]
+
+  listeners:
+    - endpoint: 0.0.0.0:8080
+      session_profile: public-wamp
+      protocols: [http]
+      tls:
+        mode: disabled
+      http:
+        session_profile: public-http
+        routes:
+          - match:
+              path: /mcp
+            action:
+              type: mcp
+              realm: image.smoke
+              session_profile: public-wamp
+              options:
+                name: router-image-mcp-smoke
+                instructions: Neutral router image MCP runtime smoke endpoint.
+                include_standard_meta_api: true
+                include_pubsub_tools: true
+                topics:
+                  - topic: image.smoke.events
+                    title: Router Image Smoke Events
+                    description: Events used to validate the packaged router runtime.
+
+  authenticators:
+    anonymous:
+      type: anonymous
