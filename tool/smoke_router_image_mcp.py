@@ -122,6 +122,15 @@ def _modern_call(
     *,
     headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
+    request_headers = {
+        **(headers or {}),
+        "MCP-Protocol-Version": MODERN_PROTOCOL,
+        "Mcp-Method": method,
+    }
+    if method == "tools/call" and isinstance(arguments, dict):
+        tool_name = arguments.get("name")
+        if isinstance(tool_name, str):
+            request_headers["Mcp-Name"] = tool_name
     response_headers, response = _post_json(
         endpoint,
         {
@@ -130,11 +139,7 @@ def _modern_call(
             "method": method,
             "params": _modern_params(arguments),
         },
-        headers={
-            **(headers or {}),
-            "MCP-Protocol-Version": MODERN_PROTOCOL,
-            "Mcp-Method": method,
-        },
+        headers=request_headers,
     )
     if response_headers.get("mcp-protocol-version") != MODERN_PROTOCOL:
         raise AssertionError(
@@ -222,6 +227,29 @@ def _issue_ticket_grant(auth_endpoint: str) -> dict[str, Any]:
     if str(grant.get("token_type", "")).lower() != "bearer":
         raise AssertionError(f"Ticket auth response missed Bearer token type: {grant}")
     return grant
+
+
+def _run_modern_standard_tool_catalog(
+    endpoint: str,
+    *,
+    label: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    catalog = _modern_call(
+        endpoint,
+        f"{label.lower()}-standard-catalog",
+        "tools/call",
+        {
+            "name": "connectanum.api.list",
+            "arguments": {"kind": "topic"},
+        },
+        headers=authorization_headers,
+    )
+    catalog_content = _structured_content(
+        catalog, label=f"{label} standard tool API catalog"
+    )
+    if TOPIC not in json.dumps(catalog_content):
+        raise AssertionError(f"{label} standard tool API catalog missed {TOPIC}")
 
 
 def _run_modern_direct_pubsub(
@@ -391,8 +419,11 @@ def _run_compatibility_pubsub(
         {
             "jsonrpc": "2.0",
             "id": f"{label.lower()}-subscribe",
-            "method": "connectanum.pubsub.subscribe",
-            "params": {"topic": TOPIC, "queueLimit": 5},
+            "method": "tools/call",
+            "params": {
+                "name": "connectanum.pubsub.subscribe",
+                "arguments": {"topic": TOPIC, "queueLimit": 5},
+            },
         },
         headers=session_headers,
     )
@@ -407,11 +438,14 @@ def _run_compatibility_pubsub(
         {
             "jsonrpc": "2.0",
             "id": f"{label.lower()}-publish",
-            "method": "connectanum.pubsub.publish",
+            "method": "tools/call",
             "params": {
-                "topic": TOPIC,
-                "argumentsKeywords": {"via": marker},
-                "acknowledge": True,
+                "name": "connectanum.pubsub.publish",
+                "arguments": {
+                    "topic": TOPIC,
+                    "argumentsKeywords": {"via": marker},
+                    "acknowledge": True,
+                },
             },
         },
         headers=session_headers,
@@ -427,8 +461,11 @@ def _run_compatibility_pubsub(
             {
                 "jsonrpc": "2.0",
                 "id": f"{label.lower()}-poll-{attempt}",
-                "method": "connectanum.pubsub.poll",
-                "params": {"handle": handle, "limit": 10},
+                "method": "tools/call",
+                "params": {
+                    "name": "connectanum.pubsub.poll",
+                    "arguments": {"handle": handle, "limit": 10},
+                },
             },
             headers=session_headers,
         )
@@ -446,8 +483,11 @@ def _run_compatibility_pubsub(
         {
             "jsonrpc": "2.0",
             "id": f"{label.lower()}-unsubscribe",
-            "method": "connectanum.pubsub.unsubscribe",
-            "params": {"handle": handle},
+            "method": "tools/call",
+            "params": {
+                "name": "connectanum.pubsub.unsubscribe",
+                "arguments": {"handle": handle},
+            },
         },
         headers=session_headers,
     )
@@ -512,6 +552,11 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
     ):
         raise AssertionError(f"Protected direct API catalog missed {TOPIC}")
 
+    _run_modern_standard_tool_catalog(
+        secure_endpoint,
+        label="Protected",
+        authorization_headers=authorization_headers,
+    )
     _run_modern_direct_pubsub(
         secure_endpoint,
         label="Protected",
@@ -567,6 +612,7 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
     if TOPIC not in json.dumps(catalog_content):
         raise AssertionError(f"Modern direct API catalog missed {TOPIC}")
 
+    _run_modern_standard_tool_catalog(endpoint, label="Public")
     _run_modern_direct_pubsub(endpoint, label="Public")
     _run_compatibility_pubsub(endpoint, label="Public")
     _run_protected_smoke(secure_endpoint, auth_endpoint)

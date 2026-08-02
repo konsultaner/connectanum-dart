@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Completed.
 
 ## Goal
 
@@ -62,5 +62,16 @@ compatibility-era Streamable HTTP lifecycle.
   `bin/test-fast` passed across the complete fast verification matrix.
 - 2026-08-02: Final `bin/verify` passed formatting, the complete Rust and Dart
   test matrices, native and browser transport coverage, real-router benchmark
-  workloads, and standalone/global consumer package smokes. Exact-head hosted
-  Router Image and deployment-chain evidence remain before completion.
+  workloads, and standalone/global consumer package smokes. At that point,
+  exact-head hosted Router Image and deployment-chain evidence remained before
+  completion.
+- 2026-08-02: Commit `8060384` was pushed to GitLab and GitHub. Exact-head CI
+  `30748535720`, Dart Package Publish Dry Run `30749188442`, WAMP Profile
+  Benchmarks `30749188358`, and Router Image dry run `30749188366` all passed.
+  CI uploaded coverage artifact `8833861813`, WAMP uploaded benchmark artifact
+  `8833949873`, and Router Image uploaded preview artifact `8833873924`. The
+  strict deployment-chain audit exited clean with exact-head relevance, clean
+  CI logs, the public and protected modern direct-pub/sub loaded-image smoke,
+  multi-architecture image build, skipped GHCR login, and all required package,
+  benchmark, workflow-visibility, branch-protection, and public-router-package
+  gates clean.

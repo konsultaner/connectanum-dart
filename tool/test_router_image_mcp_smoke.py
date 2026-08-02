@@ -65,13 +65,16 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'MODERN_PROTOCOL = "2026-07-28"',
             'COMPATIBILITY_PROTOCOL = "2025-11-25"',
             '"server/discover"',
+            '"tools/call"',
             '"connectanum.api.list"',
             '"connectanum.pubsub.subscribe"',
             '"connectanum.pubsub.publish"',
             '"connectanum.pubsub.poll"',
             '"connectanum.pubsub.unsubscribe"',
             "_run_modern_direct_pubsub(endpoint, label=\"Public\")",
+            "_run_modern_standard_tool_catalog(endpoint, label=\"Public\")",
             "_run_modern_direct_pubsub(",
+            "_run_modern_standard_tool_catalog(",
             "label=\"Protected\"",
             'endpoint, "DELETE", headers=session_headers',
             'AUTH_ID = "image-smoke-agent"',
@@ -82,6 +85,62 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, client)
+
+    def test_modern_standard_tool_catalog_uses_sessionless_tools_call(self) -> None:
+        authorization_headers = {"Authorization": "Bearer issued-token"}
+        response = {
+            "result": {
+                "structuredContent": {
+                    "topics": [{"uri": CLIENT_MODULE.TOPIC}],
+                }
+            }
+        }
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_modern_call",
+            return_value=response,
+        ) as modern_call:
+            CLIENT_MODULE._run_modern_standard_tool_catalog(
+                "http://router/mcp/secure",
+                label="Protected",
+                authorization_headers=authorization_headers,
+            )
+
+        modern_call.assert_called_once_with(
+            "http://router/mcp/secure",
+            "protected-standard-catalog",
+            "tools/call",
+            {
+                "name": "connectanum.api.list",
+                "arguments": {"kind": "topic"},
+            },
+            headers=authorization_headers,
+        )
+
+    def test_modern_tools_call_routes_with_tool_name_header(self) -> None:
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_post_json",
+            return_value=(
+                {"mcp-protocol-version": CLIENT_MODULE.MODERN_PROTOCOL},
+                {"result": {"structuredContent": {}}},
+            ),
+        ) as post_json:
+            CLIENT_MODULE._modern_call(
+                "http://router/mcp",
+                "standard-call",
+                "tools/call",
+                {
+                    "name": "connectanum.api.list",
+                    "arguments": {"kind": "topic"},
+                },
+            )
+
+        self.assertEqual(
+            post_json.call_args.kwargs["headers"]["Mcp-Name"],
+            "connectanum.api.list",
+        )
 
     def test_ticket_grant_flow_uses_challenge_state_and_signature(self) -> None:
         challenge = {"state": "challenge-state", "challenge": {}}
@@ -163,6 +222,90 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         )
         for call in modern_call.call_args_list:
             self.assertEqual(call.kwargs["headers"], authorization_headers)
+
+    def test_compatibility_pubsub_uses_standard_tool_call_envelopes(self) -> None:
+        marker = "router-image-public-streamable-publish"
+        responses = [
+            (
+                {"mcp-session-id": "compatibility-session"},
+                {
+                    "result": {
+                        "protocolVersion": CLIENT_MODULE.COMPATIBILITY_PROTOCOL,
+                    }
+                },
+            ),
+            (
+                {},
+                {
+                    "result": {
+                        "structuredContent": {
+                            "handle": "compatibility-handle",
+                            "topic": CLIENT_MODULE.TOPIC,
+                        }
+                    }
+                },
+            ),
+            (
+                {},
+                {
+                    "result": {
+                        "structuredContent": {
+                            "topic": CLIENT_MODULE.TOPIC,
+                            "acknowledged": True,
+                        }
+                    }
+                },
+            ),
+            (
+                {},
+                {
+                    "result": {
+                        "structuredContent": {"events": [{"via": marker}]},
+                    }
+                },
+            ),
+            (
+                {},
+                {"result": {"structuredContent": {"unsubscribed": True}}},
+            ),
+        ]
+        request_responses = [
+            (202, {}, ""),
+            (202, {"mcp-session-id": "compatibility-session"}, ""),
+        ]
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_post_json",
+            side_effect=responses,
+        ) as post_json, mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            side_effect=request_responses,
+        ):
+            CLIENT_MODULE._run_compatibility_pubsub(
+                "http://router/mcp",
+                label="Public",
+            )
+
+        tool_payloads = [call.args[1] for call in post_json.call_args_list[1:]]
+        self.assertEqual(
+            [payload["method"] for payload in tool_payloads],
+            ["tools/call"] * 4,
+        )
+        self.assertEqual(
+            [payload["params"]["name"] for payload in tool_payloads],
+            [
+                "connectanum.pubsub.subscribe",
+                "connectanum.pubsub.publish",
+                "connectanum.pubsub.poll",
+                "connectanum.pubsub.unsubscribe",
+            ],
+        )
+        self.assertEqual(
+            tool_payloads[0]["params"]["arguments"],
+            {"topic": CLIENT_MODULE.TOPIC, "queueLimit": 5},
+        )
 
     def test_neutral_config_exposes_public_mcp_and_declared_topic(self) -> None:
         config = CONFIG.read_text(encoding="utf-8")

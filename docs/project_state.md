@@ -259,14 +259,14 @@ image runtime smoke, multi-architecture build, skipped GHCR login, clean
 annotations, and all required package, benchmark, workflow-visibility,
 branch-protection, and public-router-package gates clean.
 
-The active Router Image modern direct-pub/sub checkpoint closes the next
+The Router Image modern direct-pub/sub checkpoint closes the next
 packaging boundary. The canonical loaded-image smoke already proves modern
 discovery and direct meta access plus compatibility-era Streamable HTTP
-pub/sub and DELETE for public and protected routes. The active plan adds a
+pub/sub and DELETE for public and protected routes. The plan adds a
 complete MCP `2026-07-28` sessionless direct subscribe, acknowledged publish,
 event poll, and unsubscribe lifecycle for both routes without weakening the
-existing authentication, revocation, or Streamable evidence. The active plan
-is `docs/exec-plans/2026-08-02-router-image-modern-direct-pubsub-smoke.md`.
+existing authentication, revocation, or Streamable evidence. The completed plan
+was `docs/exec-plans/2026-08-02-router-image-modern-direct-pubsub-smoke.md`.
 
 The implementation is now in place. A focused source-contract regression first
 failed on the absent public and protected paths, and a behavioral regression
@@ -279,7 +279,40 @@ checks, the public-artifact privacy guard, and post-change `bin/test-fast` pass.
 Final `bin/verify` also passes formatting, the complete Rust and Dart test
 matrices, native and browser transport coverage, real-router benchmark
 workloads, and standalone/global consumer package smokes. Exact-head hosted
-image and deployment-chain evidence remain.
+image and deployment-chain evidence also pass. Commit `8060384` was pushed to
+GitLab and GitHub. Exact-head CI `30748535720`, Dart Package Publish Dry Run
+`30749188442`, WAMP Profile Benchmarks `30749188358`, and Router Image dry run
+`30749188366` all passed. CI uploaded coverage artifact `8833861813`, WAMP
+uploaded benchmark artifact `8833949873`, and Router Image uploaded preview
+artifact `8833873924`. The strict deployment-chain audit exited clean with
+exact-head relevance, clean CI logs, the public and protected modern
+direct-pub/sub loaded-image smoke, multi-architecture image build, skipped GHCR
+login, and all required package, benchmark, workflow-visibility,
+branch-protection, and public-router-package gates clean.
+
+The active Router Image standard tool-call checkpoint closes the next packaged
+agent-interoperability boundary. The loaded image currently proves standard
+tool discovery, modern sessionless Connectanum methods, and compatibility-era
+Streamable pub/sub, but the Streamable lifecycle bypasses the standard
+`tools/call` envelope and the modern route does not execute a standard tool
+call. The active plan adds public and bearer-protected sessionless
+`tools/call` metadata access and moves the compatibility pub/sub lifecycle
+through standard tool invocation without removing the existing direct-method,
+auth, revocation, or session-isolation evidence. The active plan is
+`docs/exec-plans/2026-08-02-router-image-standard-tool-call-smoke.md`.
+
+The implementation is now in place locally. New behavioral regressions first
+failed on the absent modern standard call and the compatibility lifecycle's
+custom-method envelopes. The smoke now sends the required `Mcp-Name` header
+for modern `tools/call`, invokes `connectanum.api.list` through that standard
+sessionless path on public and bearer-protected endpoints, and drives
+compatibility subscribe, acknowledged publish, poll, and unsubscribe through
+standard tool calls. Ten focused Python tests, Python compilation, diff checks,
+the complete public/protected smoke against a real local native router, and
+pre-change and post-change `bin/test-fast` pass. Final `bin/verify` also passes
+formatting, the complete Rust and Dart suites, native and browser transport
+coverage, real-router benchmark workloads, and standalone/global consumer
+package smokes. Hosted exact-head evidence remains pending.
 
 Commit `86cf956` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30728291345` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
@@ -24016,6 +24049,11 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-02-router-image-standard-tool-call-smoke.md`. It
+  proves standard `tools/call` execution on modern sessionless and
+  compatibility-era Streamable paths for public and bearer-protected loaded
+  Router Image endpoints.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-02-router-image-modern-direct-pubsub-smoke.md`. It
   adds public and bearer-protected MCP `2026-07-28` sessionless direct-JSON
   pub/sub lifecycle evidence to the canonical loaded Router Image smoke.
