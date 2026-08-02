@@ -26165,6 +26165,10 @@ router:
                     name: cli-context
                     mime_type: text/plain
                     text: Router CLI MCP context.
+                  - uri: cli://mcp/live-context
+                    name: cli-live-context
+                    read_procedure: wamp.session.count
+                    update_topic: cli.smoke.events
                 resource_templates:
                   - uri_template: cli://mcp/task/{taskId}
                     name: cli-task
@@ -26204,6 +26208,10 @@ router:
                     name: cli-secure-context
                     mime_type: text/plain
                     text: Router CLI secure MCP context.
+                  - uri: cli://mcp/secure/live-context
+                    name: cli-secure-live-context
+                    read_procedure: wamp.session.count
+                    update_topic: cli.smoke.secure.events
                 resource_templates:
                   - uri_template: cli://mcp/secure/task/{taskId}
                     name: cli-secure-task
@@ -27416,6 +27424,7 @@ dependency_overrides:
 EOF
 
   cat >"$smoke_dir/dart-consumer/bin/main.dart" <<'DART'
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -27483,32 +27492,19 @@ Future<void> main() async {
       jsonEncode(publicStatelessResource).contains('Router CLI MCP context.'),
       'Dart consumer MCP 2026 resources/read missed public content.',
     );
-    final publicStatelessListener = await publicStatelessClient.listen(
-      id: 'dart-consumer-public-stateless-listen',
-      toolsListChanged: true,
-      resourceSubscriptions: const <String>['cli://mcp/context'],
-    );
+    final publicCoexistenceClient = McpStreamableHttpClient(publicEndpoint);
     try {
-      _expect(
-        publicStatelessListener
-                .acknowledgedNotifications
-                .toolsListChanged &&
-            publicStatelessListener
-                .acknowledgedNotifications
-                .resourceSubscriptions
-                .isEmpty,
-        'Dart consumer MCP 2026 subscriptions/listen acknowledgment was incomplete.',
+      await _expectCrossEraResourceSubscriptionCoexistence(
+        statelessClient: publicStatelessClient,
+        streamableClient: publicCoexistenceClient,
+        resourceUri: 'cli://mcp/live-context',
+        updateTopic: _publicTopic,
+        idPrefix: 'dart-consumer-public-resource-coexistence',
+        label: 'Dart consumer public resource subscription coexistence',
       );
     } finally {
-      await publicStatelessListener.close();
+      publicCoexistenceClient.close(force: true);
     }
-    _expect(
-      (await publicStatelessListener.closed) ==
-              McpSubscriptionCloseReason.local &&
-          publicStatelessClient.sessionId == null &&
-          publicStatelessClient.lastEventId == null,
-      'Dart consumer MCP 2026 subscriptions/listen leaked session state.',
-    );
     final publicStatelessSubscription =
         await publicStatelessClient.subscribeWampTopic(
       _publicTopic,
@@ -27957,32 +27953,22 @@ Future<void> main() async {
         ).contains('Router CLI secure MCP context.'),
         'Dart consumer protected MCP 2026 resources/read missed content.',
       );
-      final secureStatelessListener = await secureStatelessClient.listen(
-        id: 'dart-consumer-secure-stateless-listen',
-        toolsListChanged: true,
-        resourceSubscriptions: const <String>['cli://mcp/secure/context'],
+      final secureCoexistenceClient = McpStreamableHttpClient.withAuthGrant(
+        secureEndpoint,
+        grant,
       );
       try {
-        _expect(
-          secureStatelessListener
-                  .acknowledgedNotifications
-                  .toolsListChanged &&
-              secureStatelessListener
-                  .acknowledgedNotifications
-                  .resourceSubscriptions
-                  .isEmpty,
-          'Dart consumer protected MCP 2026 subscriptions/listen acknowledgment was incomplete.',
+        await _expectCrossEraResourceSubscriptionCoexistence(
+          statelessClient: secureStatelessClient,
+          streamableClient: secureCoexistenceClient,
+          resourceUri: 'cli://mcp/secure/live-context',
+          updateTopic: _secureTopic,
+          idPrefix: 'dart-consumer-secure-resource-coexistence',
+          label: 'Dart consumer protected resource subscription coexistence',
         );
       } finally {
-        await secureStatelessListener.close();
+        secureCoexistenceClient.close(force: true);
       }
-      _expect(
-        (await secureStatelessListener.closed) ==
-                McpSubscriptionCloseReason.local &&
-            secureStatelessClient.sessionId == null &&
-            secureStatelessClient.lastEventId == null,
-        'Dart consumer protected MCP 2026 listener leaked session state.',
-      );
     } finally {
       secureStatelessClient.close(force: true);
     }
@@ -30769,6 +30755,7 @@ Future<void> main() async {
         'public': <String, Object?>{
           'stateless2026': true,
           'subscriptionsListen': true,
+          'resourceSubscriptionCoexistence': true,
           'directJson': true,
           'streamable': true,
           'streamableInvalidLastEventId': true,
@@ -30786,6 +30773,7 @@ Future<void> main() async {
           'ticketGrant': true,
           'stateless2026': true,
           'subscriptionsListen': true,
+          'resourceSubscriptionCoexistence': true,
           'directJson': true,
           'streamable': true,
           'streamableInvalidLastEventId': true,
@@ -30868,6 +30856,169 @@ Future<void> main() async {
     publicStatelessClient.close(force: true);
     publicClient.close(force: true);
   }
+}
+
+Future<void> _expectCrossEraResourceSubscriptionCoexistence({
+  required McpStreamableHttpClient statelessClient,
+  required McpStreamableHttpClient streamableClient,
+  required String resourceUri,
+  required String updateTopic,
+  required String idPrefix,
+  required String label,
+}) async {
+  final resource = await statelessClient.readResource(
+    resourceUri,
+    id: '$idPrefix-resource-read',
+  );
+  _expect(resource.isNotEmpty, '$label dynamic resource read was empty.');
+
+  final listener = await statelessClient.listen(
+    id: '$idPrefix-listen',
+    toolsListChanged: true,
+    resourceSubscriptions: <String>[resourceUri],
+  );
+  final notifications = StreamIterator<McpJsonMap>(listener.notifications);
+  var listenerClosed = false;
+  var streamableDeleted = false;
+  try {
+    _expect(
+      listener.acknowledgedNotifications.toolsListChanged &&
+          listener.acknowledgedNotifications.resourceSubscriptions.contains(
+            resourceUri,
+          ),
+      '$label request-scoped listener acknowledgment was incomplete.',
+    );
+
+    final initialize = await streamableClient.initialize(
+      id: '$idPrefix-streamable-initialize',
+      protocolVersion: _protocolVersion,
+      clientInfo: <String, Object?>{
+        'name': '$idPrefix-streamable-client',
+        'version': '0.0.0',
+      },
+    );
+    _expect(
+      _resultFrom(initialize, '$label initialize')['protocolVersion'] ==
+          _protocolVersion,
+      '$label Streamable initialize changed protocol.',
+    );
+    await streamableClient.notifyInitialized();
+    await streamableClient.subscribeResource(
+      resourceUri,
+      id: '$idPrefix-streamable-subscribe',
+    );
+
+    final modernUpdateWithStreamable = notifications.moveNext().timeout(
+      const Duration(seconds: 5),
+    );
+    await statelessClient.publishWampEvent(
+      updateTopic,
+      id: '$idPrefix-publish-both',
+      argumentsKeywords: <String, Object?>{'marker': '$idPrefix-both'},
+      acknowledge: true,
+    );
+    _expect(
+      await modernUpdateWithStreamable &&
+          notifications.current['method'] ==
+              'notifications/resources/updated' &&
+          (notifications.current['params'] as Map)['uri'] == resourceUri,
+      '$label did not deliver the update to the request-scoped listener.',
+    );
+    await _pollResourceUpdate(
+      streamableClient,
+      resourceUri,
+      label: '$label while both transports were active',
+    );
+
+    await streamableClient.unsubscribeResource(
+      resourceUri,
+      id: '$idPrefix-streamable-unsubscribe',
+    );
+    final modernUpdateAfterStreamableUnsubscribe = notifications
+        .moveNext()
+        .timeout(const Duration(seconds: 5));
+    await statelessClient.publishWampEvent(
+      updateTopic,
+      id: '$idPrefix-publish-modern-only',
+      argumentsKeywords: <String, Object?>{'marker': '$idPrefix-modern-only'},
+      acknowledge: true,
+    );
+    _expect(
+      await modernUpdateAfterStreamableUnsubscribe,
+      '$label request-scoped listener stopped with the Streamable owner.',
+    );
+
+    await streamableClient.subscribeResource(
+      resourceUri,
+      id: '$idPrefix-streamable-resubscribe',
+    );
+    await notifications.cancel();
+    await listener.close();
+    listenerClosed = true;
+    _expect(
+      await listener.closed == McpSubscriptionCloseReason.local &&
+          statelessClient.sessionId == null &&
+          statelessClient.lastEventId == null,
+      '$label request-scoped listener leaked protocol session state.',
+    );
+    await statelessClient.publishWampEvent(
+      updateTopic,
+      id: '$idPrefix-publish-streamable-only',
+      argumentsKeywords: <String, Object?>{'marker': '$idPrefix-streamable-only'},
+      acknowledge: true,
+    );
+    await _pollResourceUpdate(
+      streamableClient,
+      resourceUri,
+      label: '$label after the request-scoped listener closed',
+    );
+
+    await streamableClient.unsubscribeResource(
+      resourceUri,
+      id: '$idPrefix-streamable-final-unsubscribe',
+    );
+    await streamableClient.deleteSession();
+    streamableDeleted = true;
+    _expect(
+      streamableClient.sessionId == null &&
+          streamableClient.lastEventId == null,
+      '$label Streamable cleanup leaked protocol session state.',
+    );
+  } finally {
+    if (!listenerClosed) {
+      await notifications.cancel();
+      await listener.close();
+    }
+    if (!streamableDeleted && streamableClient.sessionId != null) {
+      try {
+        await streamableClient.deleteSession();
+      } catch (_) {
+        // The main smoke failure is reported by the original operation.
+      }
+    }
+  }
+}
+
+Future<McpJsonMap> _pollResourceUpdate(
+  McpStreamableHttpClient client,
+  String resourceUri, {
+  required String label,
+}) async {
+  for (var attempt = 0; attempt < 30; attempt += 1) {
+    final events = await client.poll().timeout(const Duration(seconds: 5));
+    for (final event in events) {
+      final message = event.jsonData;
+      if (message?['method'] != 'notifications/resources/updated') {
+        continue;
+      }
+      final params = message?['params'];
+      if (params is Map && params['uri'] == resourceUri) {
+        return message!;
+      }
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+  }
+  throw StateError('$label did not deliver a Streamable resource update.');
 }
 
 Future<void> _expectSessionProxyRoute({
@@ -31929,12 +32080,12 @@ DART
   printf '%s\n' "$dart_consumer_summary"
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
-    '"public":{"stateless2026":true,"subscriptionsListen":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"stateless2026":true,"subscriptionsListen":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"public":{"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
+    '"secure":{"ticketGrant":true,"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, a configured /proxy/healthz session_proxy route backed by the router internal metrics health service, a configured /php FastCGI route backed by a neutral upstream, a configured /upstream reverse_proxy route backed by a neutral upstream, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub/notification pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/notification pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/empty Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta, resource/prompt, and notification pub-sub isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/notification pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
+  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, a configured /proxy/healthz session_proxy route backed by the router internal metrics health service, a configured /php FastCGI route backed by a neutral upstream, a configured /upstream reverse_proxy route backed by a neutral upstream, /auth, /mcp, /mcp/secure, /mcp/secure-json-post, public and protected cross-era dynamic resource subscription coexistence with independent cleanup, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub/notification pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/notification pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/empty Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta, resource/prompt, and notification pub-sub isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/notification pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
   printf 'Router CLI consumer package smoke rejected stale protected Streamable session replay across the method matrix.\n'
   _cleanup_router_cli_smoke 0
 )

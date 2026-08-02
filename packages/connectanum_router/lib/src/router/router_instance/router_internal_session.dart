@@ -55,7 +55,7 @@ class RouterSession {
 
   final Map<int, Completer<dynamic>> _pendingCommands = {};
   final Map<int, registered_msg.Registered> _registrations = {};
-  final Map<int, subscribed_msg.Subscribed> _subscriptions = {};
+  final Map<int, List<subscribed_msg.Subscribed>> _subscriptions = {};
   final Map<int, StreamController<result_msg.Result>> _callControllers = {};
 
   Future<void> close() async {
@@ -72,8 +72,10 @@ class RouterSession {
       await registered.closeInvocationStream();
     }
     _registrations.clear();
-    for (final subscribed in _subscriptions.values.toList()) {
-      await subscribed.closeEventStream();
+    for (final subscriptions in _subscriptions.values.toList()) {
+      for (final subscribed in subscriptions) {
+        await subscribed.closeEventStream();
+      }
     }
     _subscriptions.clear();
     for (final controller in _callControllers.values.toList()) {
@@ -199,8 +201,10 @@ class RouterSession {
       if (subscriptionId == null || publicationId == null) {
         return;
       }
-      final subscribed = _subscriptions[subscriptionId];
-      if (subscribed == null) {
+      final subscriptions = _subscriptions[subscriptionId]?.toList(
+        growable: false,
+      );
+      if (subscriptions == null || subscriptions.isEmpty) {
         return;
       }
       final detailMap =
@@ -230,41 +234,42 @@ class RouterSession {
       final transferredPayload = _materializeTransferredValue(
         message[_internalMsgLazyPayload],
       );
-      if (!subscribed.hasMaterializedEventConsumers) {
-        subscribed.addLazyEventPayload(
-          event_msg.LazyEventPayload(
-            subscriptionId: subscriptionId,
-            publicationId: publicationId,
-            publisher: message['publisherSessionId'] as int?,
-            topic: message['topic'] as String?,
-            pptScheme: message['pptScheme'] as String?,
-            pptSerializer: message['pptSerializer'] as String?,
-            pptCipher: message['pptCipher'] as String?,
-            pptKeyId: message['pptKeyId'] as String?,
-            customDetails: custom.isEmpty ? null : custom,
-            payload:
-                _lazyPayloadFromTransferredWithPpt(
-                  transferredPayload,
-                  pptScheme: message['pptScheme'] as String?,
-                  pptSerializer: message['pptSerializer'] as String?,
-                  pptCipher: message['pptCipher'] as String?,
-                  pptKeyId: message['pptKeyId'] as String?,
-                ) ??
-                LazyMessagePayload.materialized(
-                  arguments:
-                      (_materializeTransferredValue(message['arguments'])
-                              as List?)
-                          ?.cast<dynamic>()
-                          .toList(growable: false),
-                  argumentsKeywords:
-                      (_materializeTransferredValue(
-                                message['argumentsKeywords'],
-                              )
-                              as Map?)
-                          ?.cast<String, dynamic>(),
-                ),
-          ),
+      if (!subscriptions.any(
+        (subscribed) => subscribed.hasMaterializedEventConsumers,
+      )) {
+        final lazyEvent = event_msg.LazyEventPayload(
+          subscriptionId: subscriptionId,
+          publicationId: publicationId,
+          publisher: message['publisherSessionId'] as int?,
+          topic: message['topic'] as String?,
+          pptScheme: message['pptScheme'] as String?,
+          pptSerializer: message['pptSerializer'] as String?,
+          pptCipher: message['pptCipher'] as String?,
+          pptKeyId: message['pptKeyId'] as String?,
+          customDetails: custom.isEmpty ? null : custom,
+          payload:
+              _lazyPayloadFromTransferredWithPpt(
+                transferredPayload,
+                pptScheme: message['pptScheme'] as String?,
+                pptSerializer: message['pptSerializer'] as String?,
+                pptCipher: message['pptCipher'] as String?,
+                pptKeyId: message['pptKeyId'] as String?,
+              ) ??
+              LazyMessagePayload.materialized(
+                arguments:
+                    (_materializeTransferredValue(message['arguments'])
+                            as List?)
+                        ?.cast<dynamic>()
+                        .toList(growable: false),
+                argumentsKeywords:
+                    (_materializeTransferredValue(message['argumentsKeywords'])
+                            as Map?)
+                        ?.cast<String, dynamic>(),
+              ),
         );
+        for (final subscribed in subscriptions) {
+          subscribed.addLazyEventPayload(lazyEvent);
+        }
         return;
       }
       final event = event_msg.Event(subscriptionId, publicationId, details);
@@ -283,7 +288,9 @@ class RouterSession {
         pptCipher: details.pptCipher,
         pptKeyId: details.pptKeyId,
       );
-      subscribed.addEvent(event);
+      for (final subscribed in subscriptions) {
+        subscribed.addEvent(event);
+      }
     } else if (type == _internalMsgInvocationRequest) {
       final registrationId = message['registrationId'] as int?;
       final invocationId = message['invocationId'] as int?;
@@ -656,7 +663,9 @@ class RouterSession {
             })
             as int;
     final subscribed = subscribed_msg.Subscribed(requestId, subscriptionId);
-    _subscriptions[subscriptionId] = subscribed;
+    _subscriptions
+        .putIfAbsent(subscriptionId, () => <subscribed_msg.Subscribed>[])
+        .add(subscribed);
     return subscribed;
   }
 
@@ -664,8 +673,28 @@ class RouterSession {
     await _sendCommand(_internalCmdUnsubscribe, <String, Object?>{
       'subscriptionId': subscriptionId,
     });
-    final subscribed = _subscriptions.remove(subscriptionId);
-    await subscribed?.closeEventStream();
+    final subscriptions =
+        _subscriptions.remove(subscriptionId) ??
+        const <subscribed_msg.Subscribed>[];
+    for (final subscribed in subscriptions) {
+      await subscribed.closeEventStream();
+    }
+  }
+
+  Future<void> releaseSubscription(subscribed_msg.Subscribed subscribed) async {
+    final subscriptionId = subscribed.subscriptionId;
+    final subscriptions = _subscriptions[subscriptionId];
+    if (subscriptions == null ||
+        !subscriptions.any((candidate) => identical(candidate, subscribed))) {
+      return;
+    }
+    if (subscriptions.length == 1) {
+      await unsubscribe(subscriptionId);
+      return;
+    }
+
+    subscriptions.removeWhere((candidate) => identical(candidate, subscribed));
+    await subscribed.closeEventStream();
   }
 
   Future<published_msg.Published?> publish(

@@ -156,6 +156,7 @@ class Session {
 
   /// A map that stores all the active subscriptions
   final Map<int, Subscribed> subscriptions = {};
+  final Map<int, List<Subscribed>> _subscriptionHandlers = {};
 
   late StreamSubscription<Object?> _transportStreamSubscription;
   final Map<int, _PendingCall> _pendingCalls = {};
@@ -889,6 +890,29 @@ class Session {
     return completer.future;
   }
 
+  /// Releases one local handler attached to a WAMP subscription.
+  ///
+  /// The router is only sent an [Unsubscribe] request after the last local
+  /// handler for [subscribed.subscriptionId] is released.
+  Future<void> releaseSubscription(Subscribed subscribed) async {
+    final subscriptionId = subscribed.subscriptionId;
+    final handlers = _subscriptionHandlers[subscriptionId];
+    if (handlers == null ||
+        !handlers.any((handler) => identical(handler, subscribed))) {
+      return;
+    }
+    if (handlers.length == 1) {
+      await unsubscribe(subscriptionId);
+      return;
+    }
+
+    handlers.removeWhere((handler) => identical(handler, subscribed));
+    if (identical(subscriptions[subscriptionId], subscribed)) {
+      subscriptions[subscriptionId] = handlers.first;
+    }
+    await subscribed.closeEventStream();
+  }
+
   /// This publishes an event to a [topic] with the given [arguments] and [argumentsKeywords].
   Future<Published?> publish(
     String topic, {
@@ -1024,10 +1048,13 @@ class Session {
       return;
     }
     if (message is Subscribed) {
-      subscriptions[message.subscriptionId] = message;
       final pending = _pendingSubscribes.remove(message.subscribeRequestId);
       if (pending != null) {
         message.topic = pending.topic;
+        _subscriptionHandlers
+            .putIfAbsent(message.subscriptionId, () => <Subscribed>[])
+            .add(message);
+        subscriptions.putIfAbsent(message.subscriptionId, () => message);
         pending.completer.complete(message);
       }
       return;
@@ -1037,7 +1064,13 @@ class Session {
       return;
     }
     if (message is Event) {
-      subscriptions[message.subscriptionId]?.addEvent(message);
+      for (final subscribed
+          in _subscriptionHandlers[message.subscriptionId]?.toList(
+                growable: false,
+              ) ??
+              const <Subscribed>[]) {
+        subscribed.addEvent(message);
+      }
       return;
     }
     if (message is Registered) {
@@ -1174,21 +1207,29 @@ class Session {
   }
 
   void _handleNativeEvent(NativeSessionMessage message) {
-    final subscribed = subscriptions[message.metadata.primaryId];
-    if (subscribed == null) {
+    final handlers = _subscriptionHandlers[message.metadata.primaryId]?.toList(
+      growable: false,
+    );
+    if (handlers == null || handlers.isEmpty) {
       return;
     }
-    if (subscribed.hasMaterializedEventConsumers) {
-      subscribed.addEvent(message.materialize() as Event);
+    if (handlers.any(
+      (subscribed) => subscribed.hasMaterializedEventConsumers,
+    )) {
+      final event = message.materialize() as Event;
+      for (final subscribed in handlers) {
+        subscribed.addEvent(event);
+      }
       return;
     }
     final lazyEvent = _lazyEventPayloadFromNative(message);
-    if (subscribed.hasLazyPayloadEventHandler) {
-      subscribed.addLazyEventPayload(lazyEvent);
-      return;
-    }
-    if (subscribed.hasPayloadEventHandler) {
-      subscribed.addEventPayload(lazyEvent.toPayload());
+    EventPayload? eventPayload;
+    for (final subscribed in handlers) {
+      if (subscribed.hasLazyPayloadEventHandler) {
+        subscribed.addLazyEventPayload(lazyEvent);
+      } else if (subscribed.hasPayloadEventHandler) {
+        subscribed.addEventPayload(eventPayload ??= lazyEvent.toPayload());
+      }
     }
   }
 
@@ -1283,8 +1324,10 @@ class Session {
     }
     final revokedSubscription = message.details?.subscription;
     if (revokedSubscription != null) {
-      final subscribed = _removeSubscription(revokedSubscription);
-      subscribed?.revoke(message.details?.reason);
+      final subscribedHandlers = _removeSubscription(revokedSubscription);
+      for (final subscribed in subscribedHandlers) {
+        subscribed.revoke(message.details?.reason);
+      }
     }
   }
 
@@ -1566,12 +1609,14 @@ class Session {
     return invocation;
   }
 
-  Subscribed? _removeSubscription(int subscriptionId) {
+  List<Subscribed> _removeSubscription(int subscriptionId) {
+    final handlers = _subscriptionHandlers.remove(subscriptionId);
     final subscribed = subscriptions.remove(subscriptionId);
-    if (subscribed != null) {
-      unawaited(subscribed.closeEventStream());
+    final removed = handlers ?? <Subscribed>[?subscribed];
+    for (final handler in removed) {
+      unawaited(handler.closeEventStream());
     }
-    return subscribed;
+    return removed;
   }
 
   Registered? _removeRegistration(int registrationId) {
@@ -1636,12 +1681,17 @@ class Session {
       _completePendingError(completer, closureError, stackTrace);
     }
 
-    final activeSubscriptions = subscriptions.values.toList(growable: false);
+    final activeSubscriptions = <Subscribed>[
+      for (final handlers in _subscriptionHandlers.values) ...handlers,
+      for (final entry in subscriptions.entries)
+        if (!_subscriptionHandlers.containsKey(entry.key)) entry.value,
+    ];
     final activeRegistrations = registrations.values.toList(growable: false);
     for (final invocation in _pendingInvocations.values) {
       invocation.dispose();
     }
     _pendingInvocations.clear();
+    _subscriptionHandlers.clear();
     subscriptions.clear();
     registrations.clear();
 

@@ -2479,19 +2479,19 @@ class _RouterMcpEndpoint {
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
   final List<mcp.JsonMap> _pendingSseMessages = <mcp.JsonMap>[];
   final Map<String, int> _sseStreamSequences = <String, int>{};
-  final Set<int> _wampSubscriptionIds = <int>{};
+  final Set<mcp.McpWampSubscription> _wampSubscriptions =
+      <mcp.McpWampSubscription>{};
   int _nextSseStream = 0;
   int _nextModernSubscription = 0;
 
   final Map<int, _RouterMcpModernSubscription> _modernSubscriptions =
       <int, _RouterMcpModernSubscription>{};
   final Map<String, Future<mcp.McpWampSubscription>>
-  _modernResourceUpdateSubscriptions =
+  _sharedResourceUpdateSubscriptions =
       <String, Future<mcp.McpWampSubscription>>{};
   final Map<String, int> _modernResourcePreparationCounts = <String, int>{};
 
-  final Map<String, Future<mcp.McpWampSubscription>>
-  _resourceUpdateSubscriptions = <String, Future<mcp.McpWampSubscription>>{};
+  final Set<String> _streamableResourceSubscriptions = <String>{};
 
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
 
@@ -2504,23 +2504,12 @@ class _RouterMcpEndpoint {
     for (final token in modernSubscriptionTokens) {
       await _closeModernSubscription(token, graceful: true);
     }
-    final modernResourceSubscriptions = _modernResourceUpdateSubscriptions
-        .values
-        .toList(growable: false);
-    _modernResourceUpdateSubscriptions.clear();
-    _modernResourcePreparationCounts.clear();
-    for (final subscriptionFuture in modernResourceSubscriptions) {
-      try {
-        await _unsubscribe(await subscriptionFuture);
-      } catch (_) {
-        // Best-effort cleanup during endpoint disposal.
-      }
-    }
 
-    final resourceSubscriptions = _resourceUpdateSubscriptions.values.toList(
-      growable: false,
-    );
-    _resourceUpdateSubscriptions.clear();
+    final resourceSubscriptions = _sharedResourceUpdateSubscriptions.values
+        .toList(growable: false);
+    _sharedResourceUpdateSubscriptions.clear();
+    _streamableResourceSubscriptions.clear();
+    _modernResourcePreparationCounts.clear();
     for (final subscriptionFuture in resourceSubscriptions) {
       try {
         await _unsubscribe(await subscriptionFuture);
@@ -2529,11 +2518,11 @@ class _RouterMcpEndpoint {
       }
     }
 
-    final subscriptionIds = _wampSubscriptionIds.toList(growable: false);
-    _wampSubscriptionIds.clear();
-    for (final subscriptionId in subscriptionIds) {
+    final subscriptions = _wampSubscriptions.toList(growable: false);
+    _wampSubscriptions.clear();
+    for (final subscription in subscriptions) {
       try {
-        await session.unsubscribe(subscriptionId);
+        await _unsubscribe(subscription);
       } catch (_) {
         // Best-effort cleanup during endpoint disposal.
       }
@@ -2838,7 +2827,7 @@ class _RouterMcpEndpoint {
             !await _isAuthorized(AuthorizationAction.subscribe, updateTopic)) {
           continue;
         }
-        await _ensureModernResourceSubscription(uri, updateTopic);
+        await _ensureResourceUpdateSubscription(uri, updateTopic);
         _modernResourcePreparationCounts.update(
           uri,
           (count) => count + 1,
@@ -2855,7 +2844,7 @@ class _RouterMcpEndpoint {
           _modernResourcePreparationCounts[uri] = count - 1;
         }
       }
-      await _cleanupUnusedModernResourceSubscriptions();
+      await _cleanupUnusedResourceSubscriptions();
       rethrow;
     }
     return _RouterMcpModernSubscriptionPreparation(
@@ -2933,31 +2922,36 @@ class _RouterMcpEndpoint {
     );
   }
 
-  Future<void> _ensureModernResourceSubscription(
+  Future<void> _ensureResourceUpdateSubscription(
     String uri,
     String topic,
   ) async {
-    final existing = _modernResourceUpdateSubscriptions[uri];
+    final existing = _sharedResourceUpdateSubscriptions[uri];
     if (existing != null) {
       await existing;
       return;
     }
     final subscriptionFuture = _subscribe(
       mcp.McpWampSubscribeRequest(topic: topic, queueLimit: 1),
-      (_) => _sendModernNotification(
-        'notifications/resources/updated',
-        params: <String, Object?>{'uri': uri},
-      ),
+      (_) {
+        _sendModernNotification(
+          'notifications/resources/updated',
+          params: <String, Object?>{'uri': uri},
+        );
+        if (_streamableResourceSubscriptions.contains(uri)) {
+          _enqueueResourceUpdatedNotification(uri);
+        }
+      },
     );
-    _modernResourceUpdateSubscriptions[uri] = subscriptionFuture;
+    _sharedResourceUpdateSubscriptions[uri] = subscriptionFuture;
     try {
       await subscriptionFuture;
     } catch (_) {
       if (identical(
-        _modernResourceUpdateSubscriptions[uri],
+        _sharedResourceUpdateSubscriptions[uri],
         subscriptionFuture,
       )) {
-        _modernResourceUpdateSubscriptions.remove(uri);
+        _sharedResourceUpdateSubscriptions.remove(uri);
       }
       rethrow;
     }
@@ -3018,7 +3012,7 @@ class _RouterMcpEndpoint {
         _modernResourcePreparationCounts[uri] = count - 1;
       }
     }
-    await _cleanupUnusedModernResourceSubscriptions();
+    await _cleanupUnusedResourceSubscriptions();
   }
 
   void _sendModernHeartbeat(int token) {
@@ -3119,28 +3113,34 @@ class _RouterMcpEndpoint {
     } catch (error, stackTrace) {
       _reportModernSubscriptionWriteError(error, stackTrace);
     }
-    await _cleanupUnusedModernResourceSubscriptions();
+    await _cleanupUnusedResourceSubscriptions();
   }
 
-  Future<void> _cleanupUnusedModernResourceSubscriptions() async {
+  Future<void> _cleanupUnusedResourceSubscriptions({
+    bool bestEffort = true,
+  }) async {
     final usedResources = <String>{
+      ..._streamableResourceSubscriptions,
       for (final subscription in _modernSubscriptions.values)
         ...subscription.notifications.resourceSubscriptions,
       for (final entry in _modernResourcePreparationCounts.entries)
         if (entry.value > 0) entry.key,
     };
-    final unusedResources = _modernResourceUpdateSubscriptions.keys
+    final unusedResources = _sharedResourceUpdateSubscriptions.keys
         .where((uri) => !usedResources.contains(uri))
         .toList(growable: false);
     for (final uri in unusedResources) {
-      final subscriptionFuture = _modernResourceUpdateSubscriptions.remove(uri);
+      final subscriptionFuture = _sharedResourceUpdateSubscriptions.remove(uri);
       if (subscriptionFuture == null) {
         continue;
       }
       try {
         await _unsubscribe(await subscriptionFuture);
       } catch (_) {
-        // Best-effort cleanup after a request-scoped listener closes.
+        if (!bestEffort) {
+          rethrow;
+        }
+        // Best-effort cleanup after a resource subscription owner releases it.
       }
     }
   }
@@ -3163,10 +3163,16 @@ class _RouterMcpEndpoint {
         'Not authorized to read MCP resource ${request.uri}',
       );
     }
-    final result = await session
-        .call(procedure, arguments: <Object?>[request.uri])
-        .firstWhere((result) => !result.isProgressive());
-    final payload = result.toPayload();
+    final payload = await _call(
+      mcp.McpWampToolCall(
+        procedure: procedure,
+        request: mcp.McpToolRequest(
+          name: 'resources/read',
+          arguments: <String, Object?>{'uri': request.uri},
+        ),
+        payload: mcp.McpWampCallPayload(arguments: <Object?>[request.uri]),
+      ),
+    );
     final body = <String, Object?>{};
     final arguments = payload.arguments;
     if (arguments != null) {
@@ -3215,41 +3221,26 @@ class _RouterMcpEndpoint {
         'Not authorized to subscribe to MCP resource ${request.uri}',
       );
     }
-    final existing = _resourceUpdateSubscriptions[request.uri];
-    if (existing != null) {
-      await existing;
+    if (_streamableResourceSubscriptions.contains(request.uri)) {
+      await _ensureResourceUpdateSubscription(request.uri, updateTopic);
       return;
     }
 
-    final subscriptionFuture = _subscribe(
-      mcp.McpWampSubscribeRequest(topic: updateTopic, queueLimit: 1),
-      (_) {
-        if (!_resourceUpdateSubscriptions.containsKey(request.uri)) {
-          return;
-        }
-        _enqueueResourceUpdatedNotification(request.uri);
-      },
-    );
-    _resourceUpdateSubscriptions[request.uri] = subscriptionFuture;
+    _streamableResourceSubscriptions.add(request.uri);
     try {
-      await subscriptionFuture;
+      await _ensureResourceUpdateSubscription(request.uri, updateTopic);
     } catch (_) {
-      if (identical(
-        _resourceUpdateSubscriptions[request.uri],
-        subscriptionFuture,
-      )) {
-        _resourceUpdateSubscriptions.remove(request.uri);
-      }
+      _streamableResourceSubscriptions.remove(request.uri);
+      await _cleanupUnusedResourceSubscriptions();
       rethrow;
     }
   }
 
   Future<void> _unsubscribeResource(mcp.McpResourceRequest request) async {
-    final subscriptionFuture = _resourceUpdateSubscriptions.remove(request.uri);
-    if (subscriptionFuture == null) {
+    if (!_streamableResourceSubscriptions.remove(request.uri)) {
       return;
     }
-    await _unsubscribe(await subscriptionFuture);
+    await _cleanupUnusedResourceSubscriptions(bestEffort: false);
   }
 
   Future<_DirectJsonMessageResponse?> _handleDirectJsonMessage(
@@ -3797,21 +3788,28 @@ class _RouterMcpEndpoint {
     subscribed.onEventPayload(
       (event) => onEvent(mcp.McpWampEvent.fromPayload(event)),
     );
-    _wampSubscriptionIds.add(subscribed.subscriptionId);
-    return mcp.McpWampSubscription(
+    final subscription = mcp.McpWampSubscription(
       topic: request.topic,
       subscriptionId: subscribed.subscriptionId,
+      sessionSubscription: subscribed,
     );
+    _wampSubscriptions.add(subscription);
+    return subscription;
   }
 
   Future<void> _unsubscribe(mcp.McpWampSubscription subscription) async {
-    final subscriptionId = subscription.subscriptionId;
-    if (subscriptionId != null) {
-      try {
-        await session.unsubscribe(subscriptionId);
-      } finally {
-        _wampSubscriptionIds.remove(subscriptionId);
+    try {
+      final sessionSubscription = subscription.sessionSubscription;
+      if (sessionSubscription != null) {
+        await session.releaseSubscription(sessionSubscription);
+        return;
       }
+      final subscriptionId = subscription.subscriptionId;
+      if (subscriptionId != null) {
+        await session.unsubscribe(subscriptionId);
+      }
+    } finally {
+      _wampSubscriptions.remove(subscription);
     }
   }
 

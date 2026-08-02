@@ -1251,6 +1251,73 @@ void main() {
       expect(event.argumentsKeywords, equals(const {'worker': 1}));
     });
     test(
+      'duplicate subscriptions retain independent local event handlers',
+      () async {
+        final transport = _MockTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        final unsubscribes = <Unsubscribe>[];
+
+        transport.outbound.stream.listen((message) {
+          if (message.id == MessageTypes.codeHello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+            return;
+          }
+          if (message is Subscribe) {
+            transport.receiveMessage(Subscribed(message.requestId, 3031));
+            return;
+          }
+          if (message is Unsubscribe) {
+            unsubscribes.add(message);
+            transport.receiveMessage(Unsubscribed(message.requestId, null));
+          }
+        });
+
+        final session = await client.connect().first;
+        final firstEvents = <int>[];
+        final secondEvents = <int>[];
+        final firstDelivery = Completer<void>();
+        final secondDelivery = Completer<void>();
+        final secondDeliveryAfterRelease = Completer<void>();
+        final first = await session.subscribeHandler('shared.topic', (event) {
+          firstEvents.add(event.publicationId);
+          if (!firstDelivery.isCompleted) {
+            firstDelivery.complete();
+          }
+        });
+        final second = await session.subscribeHandler('shared.topic', (event) {
+          secondEvents.add(event.publicationId);
+          if (!secondDelivery.isCompleted) {
+            secondDelivery.complete();
+          } else if (!secondDeliveryAfterRelease.isCompleted) {
+            secondDeliveryAfterRelease.complete();
+          }
+        });
+
+        expect(first.subscriptionId, equals(second.subscriptionId));
+        transport.receiveMessage(
+          Event(first.subscriptionId, 7001, EventDetails()),
+        );
+        await Future.wait([firstDelivery.future, secondDelivery.future]);
+        expect(firstEvents, equals(const [7001]));
+        expect(secondEvents, equals(const [7001]));
+
+        await session.releaseSubscription(first);
+        expect(unsubscribes, isEmpty);
+        expect(session.subscriptions[first.subscriptionId], same(second));
+
+        transport.receiveMessage(
+          Event(first.subscriptionId, 7002, EventDetails()),
+        );
+        await secondDeliveryAfterRelease.future;
+        expect(firstEvents, equals(const [7001]));
+        expect(secondEvents, equals(const [7001, 7002]));
+
+        await session.releaseSubscription(second);
+        expect(unsubscribes, hasLength(1));
+        expect(session.subscriptions, isEmpty);
+      },
+    );
+    test(
       'subscribeHandler routes events without touching eventStream',
       () async {
         final transport = _MockTransport();

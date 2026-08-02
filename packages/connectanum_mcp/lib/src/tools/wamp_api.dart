@@ -141,9 +141,15 @@ class McpWampApi {
         return McpWampSubscription(
           topic: request.topic,
           subscriptionId: subscribed.subscriptionId,
+          sessionSubscription: subscribed,
         );
       },
       unsubscribe: (subscription) async {
+        final sessionSubscription = subscription.sessionSubscription;
+        if (sessionSubscription != null) {
+          await session.releaseSubscription(sessionSubscription);
+          return;
+        }
         final subscriptionId = subscription.subscriptionId;
         if (subscriptionId != null) {
           await session.unsubscribe(subscriptionId);
@@ -587,10 +593,15 @@ class McpWampSubscribeRequest {
 }
 
 class McpWampSubscription {
-  const McpWampSubscription({required this.topic, this.subscriptionId});
+  const McpWampSubscription({
+    required this.topic,
+    this.subscriptionId,
+    this.sessionSubscription,
+  });
 
   final String topic;
   final int? subscriptionId;
+  final Subscribed? sessionSubscription;
 }
 
 class McpWampEvent {

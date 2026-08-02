@@ -1410,10 +1410,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dart-consumer-public-stateless-discover", body)
         self.assertIn("dart-consumer-secure-stateless-discover", body)
         self.assertIn("dart-consumer-public-stateless-publish", body)
-        self.assertIn("dart-consumer-public-stateless-listen", body)
-        self.assertIn("dart-consumer-secure-stateless-listen", body)
+        self.assertIn("id: '$idPrefix-listen'", body)
+        self.assertIn("resourceSubscriptions: <String>[resourceUri]", body)
         self.assertIn(
             '"public":{"stateless2026":true,"subscriptionsListen":true,'
+            '"resourceSubscriptionCoexistence":true,'
             '"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
@@ -1428,6 +1429,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             '"secure":{"ticketGrant":true,"stateless2026":true,'
             '"subscriptionsListen":true,'
+            '"resourceSubscriptionCoexistence":true,'
             '"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
@@ -1587,6 +1589,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("Dart consumer public Streamable delete leaked state.", body)
+        self.assertIn("update_topic: cli.smoke.events", body)
+        self.assertIn("update_topic: cli.smoke.secure.events", body)
+        self.assertIn("_expectCrossEraResourceSubscriptionCoexistence", body)
+        self.assertIn("dart-consumer-public-resource-coexistence", body)
+        self.assertIn("dart-consumer-secure-resource-coexistence", body)
+        self.assertIn(
+            "request-scoped listener stopped with the Streamable owner",
+            body,
+        )
+        self.assertIn(
+            "after the request-scoped listener closed",
+            body,
+        )
         self.assertIn(
             "Dart consumer token-only JSON-response delete leaked state.",
             body,
@@ -1644,6 +1659,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn("configured subscription meta", body)
+        self.assertIn(
+            "public and protected cross-era dynamic resource subscription "
+            "coexistence with independent cleanup",
+            body,
+        )
         self.assertIn(
             "Router CLI consumer package smoke rejected stale protected "
             "Streamable session replay across the method matrix.",

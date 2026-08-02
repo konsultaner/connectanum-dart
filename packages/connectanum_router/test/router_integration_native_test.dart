@@ -5272,26 +5272,6 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 20));
       }
       expect(subscriberCountWithSecondaryListener, equals(1));
-      await secondaryStatelessNotifications.cancel();
-      await secondaryStatelessSubscription.close();
-      expect(
-        await secondaryStatelessSubscription.closed,
-        equals(McpSubscriptionCloseReason.local),
-      );
-      var subscriberCountAfterClose = 1;
-      for (var attempt = 0; attempt < 50; attempt++) {
-        await serviceSession.publish(
-          'app.events.resource.context',
-          argumentsKeywords: {'version': liveResourceVersion},
-          options: core.PublishOptions(acknowledge: true),
-        );
-        subscriberCountAfterClose = await statelessResourceSubscriberCount();
-        if (subscriberCountAfterClose == 0) {
-          break;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-      }
-      expect(subscriberCountAfterClose, equals(0));
 
       final directPublicResourceTemplates = await directPublicMcpClient
           .listResourceTemplates(
@@ -5551,11 +5531,19 @@ void main() {
         ),
       );
       expect(streamableClient.sessionId, publicStreamableSessionId);
+      final modernUpdateWithStreamable = secondaryStatelessNotifications
+          .moveNext()
+          .timeout(const Duration(seconds: 5));
       liveResourceVersion = 2;
       await serviceSession.publish(
         'app.events.resource.context',
         argumentsKeywords: {'version': liveResourceVersion},
         options: core.PublishOptions(acknowledge: true),
+      );
+      expect(await modernUpdateWithStreamable, isTrue);
+      expect(
+        secondaryStatelessNotifications.current['method'],
+        equals('notifications/resources/updated'),
       );
       final liveResourceUpdate = await _pollStreamableMcpUntilResourceUpdate(
         streamableClient,
@@ -5579,6 +5567,61 @@ void main() {
         'app://mcp/live-context',
         id: 'streamable-live-resource-unsubscribe',
       );
+      final modernUpdateAfterStreamableUnsubscribe =
+          secondaryStatelessNotifications.moveNext().timeout(
+            const Duration(seconds: 5),
+          );
+      liveResourceVersion = 3;
+      await serviceSession.publish(
+        'app.events.resource.context',
+        argumentsKeywords: {'version': liveResourceVersion},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      expect(await modernUpdateAfterStreamableUnsubscribe, isTrue);
+
+      await streamableClient.subscribeResource(
+        'app://mcp/live-context',
+        id: 'streamable-live-resource-resubscribe',
+      );
+      await secondaryStatelessNotifications.cancel();
+      await secondaryStatelessSubscription.close();
+      expect(
+        await secondaryStatelessSubscription.closed,
+        equals(McpSubscriptionCloseReason.local),
+      );
+      liveResourceVersion = 4;
+      await serviceSession.publish(
+        'app.events.resource.context',
+        argumentsKeywords: {'version': liveResourceVersion},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final streamableUpdateAfterModernClose =
+          await _pollStreamableMcpUntilResourceUpdate(
+            streamableClient,
+            'app://mcp/live-context',
+          );
+      expect(
+        streamableUpdateAfterModernClose['method'],
+        equals('notifications/resources/updated'),
+      );
+      await streamableClient.unsubscribeResource(
+        'app://mcp/live-context',
+        id: 'streamable-live-resource-final-unsubscribe',
+      );
+      var subscriberCountAfterClose = 1;
+      for (var attempt = 0; attempt < 50; attempt++) {
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: {'version': liveResourceVersion},
+          options: core.PublishOptions(acknowledge: true),
+        );
+        subscriberCountAfterClose = await statelessResourceSubscriberCount();
+        if (subscriberCountAfterClose == 0) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(subscriberCountAfterClose, equals(0));
 
       final streamableTemplates = await streamableClient.listResourceTemplates(
         id: 'streamable-resource-templates',
