@@ -223,7 +223,7 @@ Router Image MCP runtime smoke, multi-architecture build, skipped GHCR login,
 clean annotations, and all required package, benchmark, workflow-visibility,
 branch-protection, and public-router-package gates clean.
 
-The active protected Router Image MCP runtime checkpoint extends that canonical
+The protected Router Image MCP runtime checkpoint extends that canonical
 package boundary through router-issued HTTP authentication. The neutral image
 configuration now exposes ticket-backed `/auth` and bearer-protected
 `/mcp/secure` routes. Its black-box client covers missing-bearer rejection,
@@ -246,8 +246,40 @@ with live WAMP workloads, isolated and globally activated consumers, the
 complete 380-case router suite, 13 focused native follow-ups, and
 Chrome/Dart2Wasm WebSocket coverage. Local Docker registry metadata resolution
 stalled before uncached canonical bases could resolve, so hosted Router Image
-evidence remains required. The active plan is
+evidence remained required before handoff. The plan is
 `docs/exec-plans/2026-08-02-router-image-protected-mcp-runtime-smoke.md`.
+
+Commit `4b45c77` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30745418545`, Dart Package Publish Dry Run `30745418559`, WAMP Profile
+Benchmarks `30745418533`, and Router Image dry run `30745425927` all passed. CI
+uploaded coverage artifact `8832880535`, WAMP uploaded benchmark artifact
+`8832784387`, and Router Image uploaded preview artifact `8832708869`. The
+strict deployment-chain audit passed with a clean CI log scan, protected MCP
+image runtime smoke, multi-architecture build, skipped GHCR login, clean
+annotations, and all required package, benchmark, workflow-visibility,
+branch-protection, and public-router-package gates clean.
+
+The active Router Image modern direct-pub/sub checkpoint closes the next
+packaging boundary. The canonical loaded-image smoke already proves modern
+discovery and direct meta access plus compatibility-era Streamable HTTP
+pub/sub and DELETE for public and protected routes. The active plan adds a
+complete MCP `2026-07-28` sessionless direct subscribe, acknowledged publish,
+event poll, and unsubscribe lifecycle for both routes without weakening the
+existing authentication, revocation, or Streamable evidence. The active plan
+is `docs/exec-plans/2026-08-02-router-image-modern-direct-pubsub-smoke.md`.
+
+The implementation is now in place. A focused source-contract regression first
+failed on the absent public and protected paths, and a behavioral regression
+now proves the protected lifecycle stays on the modern request helper with its
+bearer grant. The real local native router passed public and protected direct
+subscribe, acknowledged publish, poll, and unsubscribe operations with no MCP
+session header before completing both compatibility-era Streamable lifecycles.
+Seven focused Python tests, Python compilation, shell syntax validation, diff
+checks, the public-artifact privacy guard, and post-change `bin/test-fast` pass.
+Final `bin/verify` also passes formatting, the complete Rust and Dart test
+matrices, native and browser transport coverage, real-router benchmark
+workloads, and standalone/global consumer package smokes. Exact-head hosted
+image and deployment-chain evidence remain.
 
 Commit `86cf956` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30728291345` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
@@ -23984,6 +24016,10 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-02-router-image-modern-direct-pubsub-smoke.md`. It
+  adds public and bearer-protected MCP `2026-07-28` sessionless direct-JSON
+  pub/sub lifecycle evidence to the canonical loaded Router Image smoke.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-02-router-image-protected-mcp-runtime-smoke.md`. It
   adds neutral router-issued ticket auth and protected modern/direct JSON plus
   Streamable pub/sub lifecycle evidence to the canonical image smoke, including

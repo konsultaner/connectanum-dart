@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Completed.
 
 ## Goal
 
@@ -76,3 +76,12 @@ unauthenticated request.
   MCP/client suite, all 96 benchmark tests with live WAMP workloads, isolated
   and globally activated consumers, the complete 380-case router suite, 13
   focused native follow-ups, and Chrome/Dart2Wasm WebSocket coverage.
+- 2026-08-02: Commit `4b45c77` was pushed to GitLab and GitHub. Exact-head CI
+  `30745418545`, Dart Package Publish Dry Run `30745418559`, WAMP Profile
+  Benchmarks `30745418533`, and Router Image dry run `30745425927` all passed.
+  CI uploaded coverage artifact `8832880535`, WAMP uploaded benchmark artifact
+  `8832784387`, and Router Image uploaded preview artifact `8832708869`. The
+  strict deployment-chain audit passed with a clean CI log scan, protected MCP
+  image runtime smoke, multi-architecture build, skipped GHCR login, clean
+  annotations, and all required package, benchmark, workflow-visibility,
+  branch-protection, and public-router-package gates clean.

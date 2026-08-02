@@ -224,6 +224,82 @@ def _issue_ticket_grant(auth_endpoint: str) -> dict[str, Any]:
     return grant
 
 
+def _run_modern_direct_pubsub(
+    endpoint: str,
+    *,
+    label: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    subscribe = _modern_call(
+        endpoint,
+        f"{label.lower()}-direct-subscribe",
+        "connectanum.pubsub.subscribe",
+        {"topic": TOPIC, "queueLimit": 5},
+        headers=authorization_headers,
+    )
+    subscription = _structured_content(
+        subscribe, label=f"{label} direct subscribe"
+    )
+    handle = subscription.get("handle")
+    if not isinstance(handle, str) or not handle or subscription.get("topic") != TOPIC:
+        raise AssertionError(
+            f"{label} direct subscribe returned invalid state: {subscription}"
+        )
+
+    marker = f"router-image-{label.lower()}-direct-publish"
+    publish = _modern_call(
+        endpoint,
+        f"{label.lower()}-direct-publish",
+        "connectanum.pubsub.publish",
+        {
+            "topic": TOPIC,
+            "argumentsKeywords": {"via": marker},
+            "acknowledge": True,
+        },
+        headers=authorization_headers,
+    )
+    publication = _structured_content(publish, label=f"{label} direct publish")
+    if publication.get("topic") != TOPIC or publication.get("acknowledged") is not True:
+        raise AssertionError(
+            f"{label} direct publish was not acknowledged: {publication}"
+        )
+
+    events: list[Any] = []
+    for attempt in range(40):
+        poll = _modern_call(
+            endpoint,
+            f"{label.lower()}-direct-poll-{attempt}",
+            "connectanum.pubsub.poll",
+            {"handle": handle, "limit": 10},
+            headers=authorization_headers,
+        )
+        poll_content = _structured_content(poll, label=f"{label} direct poll")
+        raw_events = poll_content.get("events")
+        events = raw_events if isinstance(raw_events, list) else []
+        if marker in json.dumps(events):
+            break
+        time.sleep(0.05)
+    if marker not in json.dumps(events):
+        raise AssertionError(
+            f"{label} direct pub/sub poll missed the published event"
+        )
+
+    unsubscribe = _modern_call(
+        endpoint,
+        f"{label.lower()}-direct-unsubscribe",
+        "connectanum.pubsub.unsubscribe",
+        {"handle": handle},
+        headers=authorization_headers,
+    )
+    unsubscribe_content = _structured_content(
+        unsubscribe, label=f"{label} direct unsubscribe"
+    )
+    if unsubscribe_content.get("unsubscribed") is not True:
+        raise AssertionError(
+            f"{label} direct unsubscribe failed: {unsubscribe_content}"
+        )
+
+
 def _run_compatibility_pubsub(
     endpoint: str,
     *,
@@ -436,6 +512,11 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
     ):
         raise AssertionError(f"Protected direct API catalog missed {TOPIC}")
 
+    _run_modern_direct_pubsub(
+        secure_endpoint,
+        label="Protected",
+        authorization_headers=authorization_headers,
+    )
     _run_compatibility_pubsub(
         secure_endpoint,
         label="Protected",
@@ -486,6 +567,7 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
     if TOPIC not in json.dumps(catalog_content):
         raise AssertionError(f"Modern direct API catalog missed {TOPIC}")
 
+    _run_modern_direct_pubsub(endpoint, label="Public")
     _run_compatibility_pubsub(endpoint, label="Public")
     _run_protected_smoke(secure_endpoint, auth_endpoint)
 

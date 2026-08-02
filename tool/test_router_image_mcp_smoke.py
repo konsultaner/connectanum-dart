@@ -70,6 +70,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"connectanum.pubsub.publish"',
             '"connectanum.pubsub.poll"',
             '"connectanum.pubsub.unsubscribe"',
+            "_run_modern_direct_pubsub(endpoint, label=\"Public\")",
+            "_run_modern_direct_pubsub(",
+            "label=\"Protected\"",
             'endpoint, "DELETE", headers=session_headers',
             'AUTH_ID = "image-smoke-agent"',
             'AUTH_TICKET = "image-smoke-ticket"',
@@ -113,6 +116,53 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "http://router/auth",
             {"state": "challenge-state", "signature": "image-smoke-ticket"},
         )
+
+    def test_modern_direct_pubsub_uses_sessionless_modern_calls(self) -> None:
+        marker = "router-image-protected-direct-publish"
+        responses = [
+            {
+                "result": {
+                    "structuredContent": {
+                        "handle": "direct-handle",
+                        "topic": CLIENT_MODULE.TOPIC,
+                    }
+                }
+            },
+            {
+                "result": {
+                    "structuredContent": {
+                        "topic": CLIENT_MODULE.TOPIC,
+                        "acknowledged": True,
+                    }
+                }
+            },
+            {"result": {"structuredContent": {"events": [{"via": marker}]}}},
+            {"result": {"structuredContent": {"unsubscribed": True}}},
+        ]
+        authorization_headers = {"Authorization": "Bearer issued-token"}
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_modern_call",
+            side_effect=responses,
+        ) as modern_call:
+            CLIENT_MODULE._run_modern_direct_pubsub(
+                "http://router/mcp/secure",
+                label="Protected",
+                authorization_headers=authorization_headers,
+            )
+
+        self.assertEqual(
+            [call.args[2] for call in modern_call.call_args_list],
+            [
+                "connectanum.pubsub.subscribe",
+                "connectanum.pubsub.publish",
+                "connectanum.pubsub.poll",
+                "connectanum.pubsub.unsubscribe",
+            ],
+        )
+        for call in modern_call.call_args_list:
+            self.assertEqual(call.kwargs["headers"], authorization_headers)
 
     def test_neutral_config_exposes_public_mcp_and_declared_topic(self) -> None:
         config = CONFIG.read_text(encoding="utf-8")
