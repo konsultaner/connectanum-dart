@@ -73,8 +73,16 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"connectanum.pubsub.unsubscribe"',
             '"wamp.subscription.match"',
             '"wamp.subscription.get"',
+            '"wamp.subscription.list"',
+            '"wamp.subscription.lookup"',
+            '"wamp.subscription.list_subscribers"',
+            '"wamp.subscription.count_subscribers"',
             '"wamp.registration.match"',
             '"wamp.registration.get"',
+            '"wamp.registration.list"',
+            '"wamp.registration.lookup"',
+            '"wamp.registration.list_callees"',
+            '"wamp.registration.count_callees"',
             '"wamp.session.count"',
             '"wamp.session.list"',
             '"wamp.session.get"',
@@ -174,15 +182,40 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                     }
                 }
             },
+            {
+                "result": {
+                    "structuredContent": {"arguments": [subscription_id]},
+                }
+            },
+            {
+                "result": {
+                    "structuredContent": {
+                        "argumentsKeywords": {
+                            "exact": [subscription_id],
+                            "prefix": [],
+                            "wildcard": [],
+                        },
+                    }
+                }
+            },
+            {"result": {"structuredContent": {"arguments": []}}},
+            {"result": {"structuredContent": {"arguments": [0]}}},
         ]
         authorization_headers = {"Authorization": "Bearer issued-token"}
 
         for call_mode, expected_methods in [
             (
                 "direct",
-                ["wamp.subscription.match", "wamp.subscription.get"],
+                [
+                    "wamp.subscription.match",
+                    "wamp.subscription.get",
+                    "wamp.subscription.lookup",
+                    "wamp.subscription.list",
+                    "wamp.subscription.list_subscribers",
+                    "wamp.subscription.count_subscribers",
+                ],
             ),
-            ("standard", ["tools/call", "tools/call"]),
+            ("standard", ["tools/call"] * 6),
         ]:
             with self.subTest(call_mode=call_mode), mock.patch.object(
                 CLIENT_MODULE,
@@ -203,6 +236,10 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             expected_arguments = [
                 {"arguments": [CLIENT_MODULE.TOPIC]},
                 {"arguments": [subscription_id]},
+                {"arguments": [CLIENT_MODULE.TOPIC]},
+                {},
+                {"arguments": [subscription_id]},
+                {"arguments": [subscription_id]},
             ]
             if call_mode == "standard":
                 expected_arguments = [
@@ -211,7 +248,14 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                         "arguments": arguments,
                     }
                     for tool_name, arguments in zip(
-                        ["wamp.subscription.match", "wamp.subscription.get"],
+                        [
+                            "wamp.subscription.match",
+                            "wamp.subscription.get",
+                            "wamp.subscription.lookup",
+                            "wamp.subscription.list",
+                            "wamp.subscription.list_subscribers",
+                            "wamp.subscription.count_subscribers",
+                        ],
                         expected_arguments,
                     )
                 ]
@@ -272,6 +316,24 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                     }
                 }
             },
+            {
+                "result": {
+                    "structuredContent": {"arguments": [registration_id]},
+                }
+            },
+            {
+                "result": {
+                    "structuredContent": {
+                        "argumentsKeywords": {
+                            "exact": [registration_id],
+                            "prefix": [],
+                            "wildcard": [],
+                        },
+                    }
+                }
+            },
+            {"result": {"structuredContent": {"arguments": []}}},
+            {"result": {"structuredContent": {"arguments": [0]}}},
         ]
         authorization_headers = {"Authorization": "Bearer issued-token"}
 
@@ -284,9 +346,13 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                     "wamp.session.count",
                     "wamp.session.list",
                     "wamp.session.get",
+                    "wamp.registration.lookup",
+                    "wamp.registration.list",
+                    "wamp.registration.list_callees",
+                    "wamp.registration.count_callees",
                 ],
             ),
-            ("standard", ["tools/call"] * 5),
+            ("standard", ["tools/call"] * 9),
         ]:
             with self.subTest(call_mode=call_mode), mock.patch.object(
                 CLIENT_MODULE,
@@ -312,6 +378,10 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 {},
                 {},
                 {"arguments": [session_id]},
+                {"arguments": [CLIENT_MODULE.PROCEDURE]},
+                {},
+                {"arguments": [registration_id]},
+                {"arguments": [registration_id]},
             ]
             if call_mode == "standard":
                 expected_arguments = [
@@ -326,6 +396,10 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                             "wamp.session.count",
                             "wamp.session.list",
                             "wamp.session.get",
+                            "wamp.registration.lookup",
+                            "wamp.registration.list",
+                            "wamp.registration.list_callees",
+                            "wamp.registration.count_callees",
                         ],
                         expected_arguments,
                     )

@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -67,3 +67,14 @@ bearer-protected MCP endpoints.
   380-case router suite, the 13-case native follow-up, all generated and
   globally activated consumer smokes, and Chrome/Dart2Wasm. Commit, push, and
   exact-head hosted evidence remain.
+- 2026-08-02: Commit `0c736f4` was pushed to GitLab and GitHub. Exact-head CI
+  `30766784326`, Dart Package Publish Dry Run `30767521465`, WAMP Profile
+  Benchmarks `30767522244`, and Router Image dry run `30767523222` all passed.
+  CI uploaded coverage artifact `8839408642`, WAMP uploaded benchmark artifact
+  `8839511593`, and Router Image uploaded preview artifact `8839425199`. The
+  comprehensive strict deployment-chain audit exited clean with exact-head CI
+  and log cleanliness, the loaded-image session-identity Meta API smoke,
+  multi-architecture image build, skipped GHCR login, and every required
+  package, native-release, benchmark, workflow-visibility, branch-protection,
+  and public-router-package gate clean. Selecting a later RC tag remains an
+  approval-gated release action outside this checkpoint.

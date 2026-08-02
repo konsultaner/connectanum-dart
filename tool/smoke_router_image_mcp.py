@@ -382,6 +382,64 @@ def _run_modern_wamp_registration_session_meta(
             f"{session_details}"
         )
 
+    lookup = call(
+        "registration-lookup",
+        "wamp.registration.lookup",
+        {"arguments": [PROCEDURE]},
+    )
+    lookup_content = _structured_content(
+        lookup, label=f"{label} {call_mode} registration lookup"
+    )
+    if lookup_content.get("arguments") != [registration_id]:
+        raise AssertionError(
+            f"{label} {call_mode} registration lookup returned an unexpected "
+            f"registration: {lookup_content}"
+        )
+
+    listing = call("registration-list", "wamp.registration.list", {})
+    listing_content = _structured_content(
+        listing, label=f"{label} {call_mode} registration list"
+    )
+    exact_registrations = listing_content.get("argumentsKeywords", {}).get(
+        "exact"
+    )
+    if (
+        not isinstance(exact_registrations, list)
+        or registration_id not in exact_registrations
+    ):
+        raise AssertionError(
+            f"{label} {call_mode} registration list missed the configured "
+            f"procedure: {listing_content}"
+        )
+
+    callees = call(
+        "registration-list-callees",
+        "wamp.registration.list_callees",
+        {"arguments": [registration_id]},
+    )
+    callees_content = _structured_content(
+        callees, label=f"{label} {call_mode} registration callees"
+    )
+    if callees_content.get("arguments") != []:
+        raise AssertionError(
+            f"{label} {call_mode} configured registration exposed live "
+            f"callees: {callees_content}"
+        )
+
+    callee_count = call(
+        "registration-count-callees",
+        "wamp.registration.count_callees",
+        {"arguments": [registration_id]},
+    )
+    callee_count_content = _structured_content(
+        callee_count, label=f"{label} {call_mode} registration callee count"
+    )
+    if callee_count_content.get("arguments") != [0]:
+        raise AssertionError(
+            f"{label} {call_mode} configured registration reported live "
+            f"callees: {callee_count_content}"
+        )
+
 
 def _run_modern_wamp_subscription_meta(
     endpoint: str,
@@ -453,6 +511,65 @@ def _run_modern_wamp_subscription_meta(
         raise AssertionError(
             f"{label} {call_mode} subscription details were invalid: "
             f"{subscription}"
+        )
+
+    lookup = call(
+        "subscription-lookup",
+        "wamp.subscription.lookup",
+        {"arguments": [TOPIC]},
+    )
+    lookup_content = _structured_content(
+        lookup, label=f"{label} {call_mode} subscription lookup"
+    )
+    if lookup_content.get("arguments") != [subscription_id]:
+        raise AssertionError(
+            f"{label} {call_mode} subscription lookup returned an unexpected "
+            f"subscription: {lookup_content}"
+        )
+
+    listing = call("subscription-list", "wamp.subscription.list", {})
+    listing_content = _structured_content(
+        listing, label=f"{label} {call_mode} subscription list"
+    )
+    exact_subscriptions = listing_content.get("argumentsKeywords", {}).get(
+        "exact"
+    )
+    if (
+        not isinstance(exact_subscriptions, list)
+        or subscription_id not in exact_subscriptions
+    ):
+        raise AssertionError(
+            f"{label} {call_mode} subscription list missed the configured "
+            f"topic: {listing_content}"
+        )
+
+    subscribers = call(
+        "subscription-list-subscribers",
+        "wamp.subscription.list_subscribers",
+        {"arguments": [subscription_id]},
+    )
+    subscribers_content = _structured_content(
+        subscribers, label=f"{label} {call_mode} subscription subscribers"
+    )
+    if subscribers_content.get("arguments") != []:
+        raise AssertionError(
+            f"{label} {call_mode} configured subscription exposed live "
+            f"subscribers: {subscribers_content}"
+        )
+
+    subscriber_count = call(
+        "subscription-count-subscribers",
+        "wamp.subscription.count_subscribers",
+        {"arguments": [subscription_id]},
+    )
+    subscriber_count_content = _structured_content(
+        subscriber_count,
+        label=f"{label} {call_mode} subscription subscriber count",
+    )
+    if subscriber_count_content.get("arguments") != [0]:
+        raise AssertionError(
+            f"{label} {call_mode} configured subscription reported live "
+            f"subscribers: {subscriber_count_content}"
         )
 
 
@@ -888,11 +1005,19 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         "connectanum.pubsub.unsubscribe",
         "wamp.registration.match",
         "wamp.registration.get",
+        "wamp.registration.list",
+        "wamp.registration.lookup",
+        "wamp.registration.list_callees",
+        "wamp.registration.count_callees",
         "wamp.session.count",
         "wamp.session.list",
         "wamp.session.get",
         "wamp.subscription.match",
         "wamp.subscription.get",
+        "wamp.subscription.list",
+        "wamp.subscription.lookup",
+        "wamp.subscription.list_subscribers",
+        "wamp.subscription.count_subscribers",
     }:
         if expected not in tool_names:
             raise AssertionError(f"Modern tools/list missed {expected}")
