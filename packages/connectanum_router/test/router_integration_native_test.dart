@@ -3385,8 +3385,8 @@ void main() {
           equals(HttpStatus.unauthorized),
         );
         expect(
-          streamableMissingBearer.headers['mcp-session-id'],
-          equals(mcpSessionId),
+          streamableMissingBearer.headers,
+          isNot(contains('mcp-session-id')),
         );
 
         final reuseWithOtherPrincipal = await _postHttp3Json(
@@ -4216,8 +4216,8 @@ void main() {
           equals(HttpStatus.unauthorized),
         );
         expect(
-          streamableMissingBearer.headers['mcp-session-id'],
-          equals(primarySessionId),
+          streamableMissingBearer.headers,
+          isNot(contains('mcp-session-id')),
         );
 
         final reuseWithOtherPrincipal = await _postJson(
@@ -7241,7 +7241,10 @@ void main() {
           'method': 'tools/list',
           'params': {},
         },
-        headers: {'mcp-session-id': activeSecureJsonSessionId},
+        headers: {
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'mcp-session-id': activeSecureJsonSessionId,
+        },
       );
       expect(
         activeMissingBearerJsonPost.statusCode,
@@ -7263,6 +7266,7 @@ void main() {
           'params': {},
         },
         headers: {
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
           'authorization': 'Bearer unknown-access-token',
           'mcp-session-id': activeSecureJsonSessionId,
         },

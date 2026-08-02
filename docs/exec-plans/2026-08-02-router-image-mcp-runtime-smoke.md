@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Completed.
 
 ## Goal
 
@@ -74,3 +74,12 @@ source-checkout runtime assumptions.
   consumers, the complete 380-case router suite, 13 focused native follow-ups,
   and Chrome/Dart2Wasm WebSocket coverage. The implementation is ready to push;
   exact-head hosted CI, package, WAMP, Router Image, and audit evidence remain.
+- 2026-08-02: Commit `5dd1e3d` was pushed to GitLab and GitHub. Exact-head CI
+  `30740441950`, Dart Package Publish Dry Run `30740458145`, WAMP Profile
+  Benchmarks `30740459213`, and Router Image dry run `30740460142` all passed.
+  CI uploaded coverage artifact `8831291151`, WAMP uploaded benchmark artifact
+  `8831162094`, and Router Image uploaded preview artifact `8831096195`. The
+  strict deployment-chain audit passed with a clean CI log scan, the canonical
+  Router Image MCP runtime smoke, multi-architecture build, skipped GHCR login,
+  clean annotations, and all required package, benchmark, workflow-visibility,
+  branch-protection, and public-router-package gates clean.

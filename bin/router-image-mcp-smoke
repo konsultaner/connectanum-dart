@@ -68,5 +68,8 @@ if [[ -z "$host_port" ]]; then
   exit 1
 fi
 
-python3 "$smoke_client" --endpoint "http://127.0.0.1:$host_port/mcp"
+python3 "$smoke_client" \
+  --endpoint "http://127.0.0.1:$host_port/mcp" \
+  --secure-endpoint "http://127.0.0.1:$host_port/mcp/secure" \
+  --auth-endpoint "http://127.0.0.1:$host_port/auth"
 printf 'Router image MCP runtime smoke passed for %s.\n' "$image"

@@ -2014,7 +2014,7 @@ class RouterBinding {
       final responseHeaders = mcpRoute == null
           ? authHeaders
           : _mcpHttpResponseHeaders(
-              sessionId: mcpResponseSessionId,
+              sessionId: null,
               extra: <String, String>{
                 ...authHeaders,
                 ..._mcpCorsResponseHeaders(this, request, mcpRoute),

@@ -1737,7 +1737,7 @@ Future<void> _handleMcpHttpRequestForBinding(
           response: NativeHttpResponse(
             status: HttpStatus.unauthorized,
             headers: _mcpHttpResponseHeaders(
-              sessionId: responseMcpSessionId,
+              sessionId: null,
               protocolVersion: responseMcpProtocolVersion,
               extra: <String, String>{
                 ...corsHeaders,
@@ -1780,7 +1780,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       response: NativeHttpResponse(
         status: HttpStatus.unauthorized,
         headers: _mcpHttpResponseHeaders(
-          sessionId: responseMcpSessionId,
+          sessionId: null,
           protocolVersion: responseMcpProtocolVersion,
           extra: <String, String>{
             ...corsHeaders,

@@ -211,9 +211,43 @@ changes, 113 Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP
 tests, the complete 193-case MCP/client suite, all 96 benchmark tests with live
 WAMP workloads, isolated and globally activated consumers, the complete
 380-case router suite, 13 focused native follow-ups, and Chrome/Dart2Wasm
-WebSocket coverage. The router-image MCP runtime implementation is ready to
-push; exact-head hosted CI, package, WAMP, Router Image, and strict-audit
-evidence remain.
+WebSocket coverage.
+
+Commit `5dd1e3d` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30740441950`, Dart Package Publish Dry Run `30740458145`, WAMP Profile
+Benchmarks `30740459213`, and Router Image dry run `30740460142` all passed. CI
+uploaded coverage artifact `8831291151`, WAMP uploaded benchmark artifact
+`8831162094`, and Router Image uploaded preview artifact `8831096195`. The
+strict deployment-chain audit passed with a clean CI log scan, the canonical
+Router Image MCP runtime smoke, multi-architecture build, skipped GHCR login,
+clean annotations, and all required package, benchmark, workflow-visibility,
+branch-protection, and public-router-package gates clean.
+
+The active protected Router Image MCP runtime checkpoint extends that canonical
+package boundary through router-issued HTTP authentication. The neutral image
+configuration now exposes ticket-backed `/auth` and bearer-protected
+`/mcp/secure` routes. Its black-box client covers missing-bearer rejection,
+ticket challenge completion, modern direct meta access, compatibility-era
+Streamable pub/sub and DELETE, access-token revocation, and revoked-bearer
+rejection while retaining the public lifecycle.
+
+The first live packaged run found that a missing-bearer Streamable request
+reflected its client-supplied `MCP-Session-Id` on the 401 response. A focused
+native regression reproduced the leak, and the generated consumer exposed the
+same stale behavior for handler-level invalid-bearer rejection. Both rejection
+paths now omit MCP session headers. Native, HTTP/3, principal-isolation, and
+generated-consumer regressions confirm that missing and invalid bearer attempts
+neither reveal nor destroy the original authenticated session. Six focused
+Python smoke/config tests, Python compilation, shell syntax validation, YAML
+parsing, and post-change `bin/test-fast` pass. Final `bin/verify` passed with no
+formatting changes, 113 Rust core tests, 52 Rust FFI tests, 360 Dart core tests,
+all 94 MCP tests, the complete 193-case MCP/client suite, all 96 benchmark tests
+with live WAMP workloads, isolated and globally activated consumers, the
+complete 380-case router suite, 13 focused native follow-ups, and
+Chrome/Dart2Wasm WebSocket coverage. Local Docker registry metadata resolution
+stalled before uncached canonical bases could resolve, so hosted Router Image
+evidence remains required. The active plan is
+`docs/exec-plans/2026-08-02-router-image-protected-mcp-runtime-smoke.md`.
 
 Commit `86cf956` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30728291345` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
@@ -23950,6 +23984,11 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-02-router-image-protected-mcp-runtime-smoke.md`. It
+  adds neutral router-issued ticket auth and protected modern/direct JSON plus
+  Streamable pub/sub lifecycle evidence to the canonical image smoke, including
+  rejected-credential session-header isolation.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-02-router-image-mcp-runtime-smoke.md`. It makes the
   Router Image workflow run a neutral black-box MCP lifecycle through the
   locally loaded image and makes the deployment audit require that evidence.

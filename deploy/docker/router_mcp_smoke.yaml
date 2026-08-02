@@ -6,13 +6,24 @@ router:
     - name: public-http
       auth:
         methods: []
+    - name: image-smoke-auth
+      realm: image.smoke
+      auth:
+        methods: [ticket]
 
   realms:
     - name: image.smoke
       auth:
-        authmethods: [anonymous]
+        authmethods: [anonymous, ticket]
+        ticket:
+          authenticator: image-smoke-ticket
       roles:
         - name: anonymous
+          permissions:
+            - uri: ""
+              match: prefix
+              allow: [subscribe, publish, call, register, unregister]
+        - name: member
           permissions:
             - uri: ""
               match: prefix
@@ -28,6 +39,16 @@ router:
         session_profile: public-http
         routes:
           - match:
+              path: /auth
+              methods: [POST]
+            action:
+              type: auth
+              session_profile: image-smoke-auth
+              allow_insecure_transport: true
+              token_ttl_ms: 60000
+              refresh_token_ttl_ms: 300000
+              rotate_refresh_tokens: true
+          - match:
               path: /mcp
             action:
               type: mcp
@@ -42,7 +63,31 @@ router:
                   - topic: image.smoke.events
                     title: Router Image Smoke Events
                     description: Events used to validate the packaged router runtime.
+          - match:
+              path: /mcp/secure
+            action:
+              type: mcp
+              realm: image.smoke
+              session_profile: image-smoke-auth
+              options:
+                name: router-image-protected-mcp-smoke
+                instructions: Neutral protected router image MCP runtime smoke endpoint.
+                allow_insecure_transport: true
+                include_standard_meta_api: true
+                include_pubsub_tools: true
+                topics:
+                  - topic: image.smoke.events
+                    title: Router Image Smoke Events
+                    description: Events used to validate the packaged router runtime.
 
   authenticators:
     anonymous:
       type: anonymous
+    image-smoke-ticket:
+      type: ticket
+      options:
+        secrets:
+          image-smoke-agent:
+            ticket: image-smoke-ticket
+            role: member
+            provider: router-image-smoke

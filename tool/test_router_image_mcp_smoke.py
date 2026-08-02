@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -54,6 +56,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         runner = RUNNER.read_text(encoding="utf-8")
         self.assertNotIn("docker run --detach --rm", runner)
         self.assertIn('docker logs "$container_id"', runner)
+        self.assertIn('--secure-endpoint "http://127.0.0.1:$host_port/mcp/secure"', runner)
+        self.assertIn('--auth-endpoint "http://127.0.0.1:$host_port/auth"', runner)
 
     def test_smoke_contract_covers_modern_and_streamable_mcp(self) -> None:
         client = CLIENT.read_text(encoding="utf-8")
@@ -67,16 +71,61 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"connectanum.pubsub.poll"',
             '"connectanum.pubsub.unsubscribe"',
             'endpoint, "DELETE", headers=session_headers',
+            'AUTH_ID = "image-smoke-agent"',
+            'AUTH_TICKET = "image-smoke-ticket"',
+            '"Authorization": f"Bearer {access_token}"',
+            '"grant_type": "revoke"',
+            "verify_missing_bearer=True",
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, client)
+
+    def test_ticket_grant_flow_uses_challenge_state_and_signature(self) -> None:
+        challenge = {"state": "challenge-state", "challenge": {}}
+        grant = {
+            "access_token": "issued-access-token",
+            "token_type": "Bearer",
+            "refresh_token": "issued-refresh-token",
+        }
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            return_value=(401, {}, json.dumps(challenge)),
+        ) as request, mock.patch.object(
+            CLIENT_MODULE,
+            "_post_json",
+            return_value=({}, grant),
+        ) as post_json:
+            result = CLIENT_MODULE._issue_ticket_grant("http://router/auth")
+
+        self.assertEqual(result, grant)
+        request.assert_called_once_with(
+            "http://router/auth",
+            "POST",
+            {
+                "realm": "image.smoke",
+                "authmethod": "ticket",
+                "authid": "image-smoke-agent",
+            },
+            allow_http_error=True,
+        )
+        post_json.assert_called_once_with(
+            "http://router/auth",
+            {"state": "challenge-state", "signature": "image-smoke-ticket"},
+        )
 
     def test_neutral_config_exposes_public_mcp_and_declared_topic(self) -> None:
         config = CONFIG.read_text(encoding="utf-8")
         for expected in [
             "endpoint: 0.0.0.0:8080",
             "path: /mcp",
+            "path: /auth",
+            "path: /mcp/secure",
             "type: mcp",
+            "type: auth",
+            "name: image-smoke-auth",
+            "authmethods: [anonymous, ticket]",
+            "allow_insecure_transport: true",
             "include_standard_meta_api: true",
             "include_pubsub_tools: true",
             "topic: image.smoke.events",

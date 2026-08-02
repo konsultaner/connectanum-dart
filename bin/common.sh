@@ -14051,7 +14051,7 @@ Future<void> _assertMcpStreamableCorsAuthErrors(
     missingPost,
     expectedStatus: HttpStatus.unauthorized,
     label: '$label Streamable POST missing bearer',
-    sessionId: sessionId,
+    expectNoSession: true,
     bodyContains: 'Bearer token required',
   );
   _assertHeaderContains(
@@ -14077,7 +14077,7 @@ Future<void> _assertMcpStreamableCorsAuthErrors(
     invalidPost,
     expectedStatus: HttpStatus.unauthorized,
     label: '$label Streamable POST invalid bearer',
-    sessionId: sessionId,
+    expectNoSession: true,
     bodyContains: 'Bearer token',
   );
   _assertHeaderContains(
@@ -14097,7 +14097,7 @@ Future<void> _assertMcpStreamableCorsAuthErrors(
     missingPoll,
     expectedStatus: HttpStatus.unauthorized,
     label: '$label Streamable poll missing bearer',
-    sessionId: sessionId,
+    expectNoSession: true,
     bodyContains: 'Bearer token required',
   );
   _assertHeaderContains(
@@ -14118,7 +14118,7 @@ Future<void> _assertMcpStreamableCorsAuthErrors(
     invalidDelete,
     expectedStatus: HttpStatus.unauthorized,
     label: '$label Streamable delete invalid bearer',
-    sessionId: sessionId,
+    expectNoSession: true,
     bodyContains: 'Bearer token',
   );
   _assertHeaderContains(
