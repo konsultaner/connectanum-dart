@@ -58,5 +58,18 @@ public and bearer-protected endpoints.
   a real local native router pass. Post-change `bin/test-fast` passes the full
   fast regression matrix. Final `bin/verify` passes formatting, Rust core and
   FFI suites, all Dart suites, package/global consumer smokes, live WAMP
-  workloads, and Chrome/Dart2Wasm. Commit, push, and exact-head hosted evidence
-  remain pending.
+  workloads, and Chrome/Dart2Wasm. Commit `78517c8` was pushed to GitLab and
+  GitHub.
+- 2026-08-02: Exact-head CI `30759070205`, Dart Package Publish Dry Run
+  `30759779550`, WAMP Profile Benchmarks `30759783312` attempt 2, and Router
+  Image dry run `30759786652` all passed. CI uploaded coverage artifact
+  `8837051684`, the successful WAMP attempt uploaded benchmark artifact
+  `8837246670`, and Router Image uploaded preview artifact `8837081146`. WAMP
+  attempt 1 measured `rawsocket_pubsub_aes_dart_64k` at 1.198 Mbps against its
+  1.200 Mbps floor; the immediately preceding exact-head run measured 1.44
+  Mbps, and the unchanged exact-head rerun passed the complete gate. The
+  comprehensive strict deployment-chain audit exited clean with exact-head CI
+  and log cleanliness, the loaded-image modern WAMP Meta API smoke,
+  multi-architecture image build, skipped GHCR login, and every required
+  package, benchmark, workflow-visibility, branch-protection, and public-router
+  package gate clean.

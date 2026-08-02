@@ -59,6 +59,10 @@ router:
                 instructions: Neutral router image MCP runtime smoke endpoint.
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                procedures:
+                  - procedure: wamp.session.count
+                    title: Router Image Smoke Session Count
+                    description: Counts the WAMP session visible to this MCP route.
                 topics:
                   - topic: image.smoke.events
                     title: Router Image Smoke Events
@@ -75,6 +79,10 @@ router:
                 allow_insecure_transport: true
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                procedures:
+                  - procedure: wamp.session.count
+                    title: Router Image Smoke Session Count
+                    description: Counts the WAMP session visible to this MCP route.
                 topics:
                   - topic: image.smoke.events
                     title: Router Image Smoke Events

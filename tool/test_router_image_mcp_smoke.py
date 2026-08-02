@@ -73,8 +73,12 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"connectanum.pubsub.unsubscribe"',
             '"wamp.subscription.match"',
             '"wamp.subscription.get"',
+            '"wamp.registration.match"',
+            '"wamp.registration.get"',
+            '"wamp.session.count"',
             "_run_modern_direct_pubsub(endpoint, label=\"Public\")",
             "_run_modern_standard_tool_catalog(endpoint, label=\"Public\")",
+            "_run_modern_wamp_registration_session_meta(",
             "_run_modern_wamp_subscription_meta(",
             'call_mode="direct"',
             'call_mode="standard"',
@@ -206,6 +210,92 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                     }
                     for tool_name, arguments in zip(
                         ["wamp.subscription.match", "wamp.subscription.get"],
+                        expected_arguments,
+                    )
+                ]
+            self.assertEqual(
+                [call.args[3] for call in modern_call.call_args_list],
+                expected_arguments,
+            )
+            for call in modern_call.call_args_list:
+                self.assertEqual(call.kwargs["headers"], authorization_headers)
+
+    def test_modern_wamp_registration_session_meta_invokes_declared_procedure(
+        self,
+    ) -> None:
+        registration_id = 9002
+        responses = [
+            {
+                "result": {
+                    "structuredContent": {"arguments": [registration_id]},
+                }
+            },
+            {
+                "result": {
+                    "structuredContent": {
+                        "argumentsKeywords": {
+                            "id": registration_id,
+                            "uri": CLIENT_MODULE.PROCEDURE,
+                            "match": "exact",
+                            "invoke": "single",
+                        },
+                    }
+                }
+            },
+            {
+                "result": {
+                    "structuredContent": {
+                        "argumentsKeywords": {"count": 1},
+                    }
+                }
+            },
+        ]
+        authorization_headers = {"Authorization": "Bearer issued-token"}
+
+        for call_mode, expected_methods in [
+            (
+                "direct",
+                [
+                    "wamp.registration.match",
+                    "wamp.registration.get",
+                    "wamp.session.count",
+                ],
+            ),
+            ("standard", ["tools/call", "tools/call", "tools/call"]),
+        ]:
+            with self.subTest(call_mode=call_mode), mock.patch.object(
+                CLIENT_MODULE,
+                "_modern_call",
+                side_effect=responses,
+            ) as modern_call:
+                CLIENT_MODULE._run_modern_wamp_registration_session_meta(
+                    "http://router/mcp/secure",
+                    label="Protected",
+                    call_mode=call_mode,
+                    authorization_headers=authorization_headers,
+                )
+
+            self.assertEqual(
+                [call.args[2] for call in modern_call.call_args_list],
+                expected_methods,
+            )
+            expected_arguments = [
+                {"arguments": [CLIENT_MODULE.PROCEDURE]},
+                {"arguments": [registration_id]},
+                {},
+            ]
+            if call_mode == "standard":
+                expected_arguments = [
+                    {
+                        "name": tool_name,
+                        "arguments": arguments,
+                    }
+                    for tool_name, arguments in zip(
+                        [
+                            "wamp.registration.match",
+                            "wamp.registration.get",
+                            "wamp.session.count",
+                        ],
                         expected_arguments,
                     )
                 ]
@@ -454,6 +544,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, config)
+        self.assertEqual(config.count("procedure: wamp.session.count"), 2)
 
     def test_workflow_smokes_loaded_image_before_multiarch_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

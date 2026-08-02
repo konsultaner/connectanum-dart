@@ -371,8 +371,39 @@ failed because this Meta API helper was absent. Pre-change and post-change
 artifact reference check, diff checks, and the complete public/protected smoke
 against a real local native router pass. Final local `bin/verify` passes
 formatting, Rust core and FFI suites, all Dart suites, package/global consumer
-smokes, live WAMP workloads, and Chrome/Dart2Wasm. Commit, push, and exact-head
-hosted evidence remain.
+smokes, live WAMP workloads, and Chrome/Dart2Wasm. Commit `78517c8` was pushed
+to GitLab and GitHub. Exact-head CI `30759070205`, Dart Package Publish Dry Run
+`30759779550`, WAMP Profile Benchmarks `30759783312` attempt 2, and Router Image
+dry run `30759786652` all passed. CI uploaded coverage artifact `8837051684`,
+the successful WAMP attempt uploaded benchmark artifact `8837246670`, and
+Router Image uploaded preview artifact `8837081146`. WAMP attempt 1 measured
+`rawsocket_pubsub_aes_dart_64k` at 1.198 Mbps against its 1.200 Mbps floor; the
+immediately preceding exact-head run measured 1.44 Mbps, and the unchanged
+exact-head rerun passed the complete gate. The comprehensive strict
+deployment-chain audit exited clean with exact-head CI and log cleanliness,
+the loaded-image modern WAMP Meta API smoke, multi-architecture image build,
+skipped GHCR login, and all required package, benchmark, workflow-visibility,
+branch-protection, and public-router-package gates clean.
+
+The completed Router Image registration/session Meta API checkpoint closes the
+next packaged application-tool boundary. Both loaded-image routes now declare
+the callable `wamp.session.count` procedure. The smoke discovers its
+registration through `wamp.registration.match/get`, validates the id, URI,
+exact match policy, and single invocation policy, invokes it through modern
+sessionless direct JSON and standard `tools/call`, and requires both public and
+bearer-protected routes to expose only their own internal session. Every
+protected request forwards the router-issued bearer. The completed plan is
+`docs/exec-plans/2026-08-02-router-image-modern-registration-session-meta-smoke.md`.
+
+A focused regression first failed because the registration/session helper and
+configured procedure were absent. Pre-change and post-change `bin/test-fast`,
+all 13 focused Python tests, Python compilation, diff checks, and the complete
+public/protected smoke against a real local native router pass. Final local
+`bin/verify` passes formatting, analysis, 113 Rust core tests, 52 Rust FFI
+tests, 360 Dart core tests, all 94 MCP tests, the complete 193-case MCP/client
+suite, all 96 benchmark tests, the complete 380-case router suite, the 13-case
+native follow-up, all generated and globally activated consumer smokes, and
+Chrome/Dart2Wasm. Commit, push, and exact-head hosted evidence remain.
 
 Commit `86cf956` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30728291345` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
@@ -24109,6 +24140,12 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Most recently completed router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-02-router-image-modern-registration-session-meta-smoke.md`.
+  It proves registration discovery/details, actual router-provided WAMP
+  procedure invocation, and current-session isolation through modern direct
+  JSON and standard `tools/call` on public and bearer-protected loaded-image
+  routes.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-02-router-image-modern-wamp-meta-smoke.md`. It proves
   loaded-image WAMP subscription Meta API discovery and detail access through
   modern sessionless direct JSON and standard `tools/call` on public and

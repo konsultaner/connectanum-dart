@@ -14,6 +14,7 @@ from typing import Any
 MODERN_PROTOCOL = "2026-07-28"
 COMPATIBILITY_PROTOCOL = "2025-11-25"
 TOPIC = "image.smoke.events"
+PROCEDURE = "wamp.session.count"
 AUTH_REALM = "image.smoke"
 AUTH_ID = "image-smoke-agent"
 AUTH_TICKET = "image-smoke-ticket"
@@ -250,6 +251,90 @@ def _run_modern_standard_tool_catalog(
     )
     if TOPIC not in json.dumps(catalog_content):
         raise AssertionError(f"{label} standard tool API catalog missed {TOPIC}")
+
+
+def _run_modern_wamp_registration_session_meta(
+    endpoint: str,
+    *,
+    label: str,
+    call_mode: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    if call_mode not in {"direct", "standard"}:
+        raise AssertionError(f"Unsupported modern Meta API call mode: {call_mode}")
+
+    def call(
+        request_suffix: str,
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        method = tool_name
+        params = arguments
+        if call_mode == "standard":
+            method = "tools/call"
+            params = {"name": tool_name, "arguments": arguments}
+        return _modern_call(
+            endpoint,
+            f"{label.lower()}-{call_mode}-{request_suffix}",
+            method,
+            params,
+            headers=authorization_headers,
+        )
+
+    match = call(
+        "registration-match",
+        "wamp.registration.match",
+        {"arguments": [PROCEDURE]},
+    )
+    match_content = _structured_content(
+        match, label=f"{label} {call_mode} registration match"
+    )
+    match_ids = match_content.get("arguments")
+    if (
+        not isinstance(match_ids, list)
+        or not match_ids
+        or not isinstance(match_ids[0], int)
+    ):
+        raise AssertionError(
+            f"{label} {call_mode} registration match missed an id: "
+            f"{match_content}"
+        )
+    registration_id = match_ids[0]
+
+    details = call(
+        "registration-get",
+        "wamp.registration.get",
+        {"arguments": [registration_id]},
+    )
+    details_content = _structured_content(
+        details, label=f"{label} {call_mode} registration details"
+    )
+    registration = details_content.get("argumentsKeywords")
+    if not isinstance(registration, dict):
+        raise AssertionError(
+            f"{label} {call_mode} registration details missed keywords: "
+            f"{details_content}"
+        )
+    if (
+        registration.get("id") != registration_id
+        or registration.get("uri") != PROCEDURE
+        or registration.get("match") != "exact"
+        or registration.get("invoke") != "single"
+    ):
+        raise AssertionError(
+            f"{label} {call_mode} registration details were invalid: "
+            f"{registration}"
+        )
+
+    result = call("session-count", PROCEDURE, {})
+    result_content = _structured_content(
+        result, label=f"{label} {call_mode} session count"
+    )
+    if result_content.get("argumentsKeywords", {}).get("count") != 1:
+        raise AssertionError(
+            f"{label} {call_mode} session count exposed unexpected sessions: "
+            f"{result_content}"
+        )
 
 
 def _run_modern_wamp_subscription_meta(
@@ -676,6 +761,18 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
         label="Protected",
         authorization_headers=authorization_headers,
     )
+    _run_modern_wamp_registration_session_meta(
+        secure_endpoint,
+        label="Protected",
+        call_mode="direct",
+        authorization_headers=authorization_headers,
+    )
+    _run_modern_wamp_registration_session_meta(
+        secure_endpoint,
+        label="Protected",
+        call_mode="standard",
+        authorization_headers=authorization_headers,
+    )
     _run_modern_wamp_subscription_meta(
         secure_endpoint,
         label="Protected",
@@ -739,6 +836,9 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         "connectanum.pubsub.publish",
         "connectanum.pubsub.poll",
         "connectanum.pubsub.unsubscribe",
+        "wamp.registration.match",
+        "wamp.registration.get",
+        "wamp.session.count",
         "wamp.subscription.match",
         "wamp.subscription.get",
     }:
@@ -751,6 +851,16 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         raise AssertionError(f"Modern direct API catalog missed {TOPIC}")
 
     _run_modern_standard_tool_catalog(endpoint, label="Public")
+    _run_modern_wamp_registration_session_meta(
+        endpoint,
+        label="Public",
+        call_mode="direct",
+    )
+    _run_modern_wamp_registration_session_meta(
+        endpoint,
+        label="Public",
+        call_mode="standard",
+    )
     _run_modern_wamp_subscription_meta(
         endpoint,
         label="Public",
