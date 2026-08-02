@@ -94,17 +94,39 @@ subscriptions. The focused native-router regression and isolated generated
 consumer prove dual delivery plus independent cleanup in both orders for
 public and protected routes. Configured dynamic reads now use the same
 authorized call delegate as tools, allowing router-provided WAMP meta
-procedures to back resources without an application callee. The active plan is
+procedures to back resources without an application callee. The completed
+plan is
 `docs/exec-plans/2026-08-02-mcp-cross-era-resource-subscription-coexistence.md`.
 
-The focused client regression passed with all 69 cases, all 94 MCP tests
-passed, the focused native-router lifecycle left no final subscriber, and all
-19 consumer-boundary tests passed. Pre-change and post-change `bin/test-fast`
-passed on 2026-08-02. Full `bin/verify` passed formatting and analysis, Rust
-core and FFI suites, Dart VM and Chrome/Dart2Wasm coverage, all generated and
-globally activated consumer smokes, all 96 benchmark tests, and the complete
-380-case router suite. Exact-head hosted workflow and strict audit evidence is
-still pending the implementation push.
+The active downstream-readiness checkpoint now proves the same ownership
+boundary for router-hosted WAMP pub/sub. The focused native-router regression
+and isolated generated consumer keep sessionless direct JSON and
+compatibility-era Streamable logical subscriptions active together on the
+same declared topic and physical WAMP subscription. Both receive an
+acknowledged self-delivered publication, both cleanup orders preserve the
+remaining consumer, direct JSON creates no MCP session or resume state, and
+the final broker subscriber count reaches zero. The generated consumer proves
+the lifecycle for public and bearer-protected routes without private project
+assumptions. The active plan is
+`docs/exec-plans/2026-08-02-mcp-cross-era-wamp-pubsub-coexistence.md`.
+
+The focused native-router lifecycle, all 19 consumer-boundary tests, and the
+isolated public/protected generated consumer passed. Pre-change and
+post-change `bin/test-fast` passed on 2026-08-02. Full `bin/verify` passed
+formatting and analysis, Rust core and FFI suites, 360 core tests, all 94 MCP
+tests, the complete 193-case MCP/client authorization suite, Dart VM and
+Chrome/Dart2Wasm coverage, all generated and globally activated consumer
+smokes, all 96 benchmark tests, and the complete 380-case router suite. The
+implementation is ready to push; exact-head hosted workflows and the strict
+deployment-chain audit remain.
+
+Commit `86cf956` was pushed to GitLab and GitHub. Exact-head GitHub CI
+`30728291345` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
+and coverage artifact `8827275787`. Dart Package Publish Dry Run `30728291363`
+and WAMP Profile Benchmarks `30728291375` passed on their first attempts; WAMP
+artifact `8827184987` was uploaded. The strict deployment-chain audit passed
+with a clean exact-head CI log scan and all required branch, workflow, package,
+publish-dry-run, and benchmark-artifact gates clean.
 
 Focused client and boundary regressions passed, and the isolated generated
 consumer completed against the native router. Pre-change and post-change
@@ -23826,12 +23848,17 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active MCP downstream-application readiness plan:
+  `docs/exec-plans/2026-08-02-mcp-cross-era-wamp-pubsub-coexistence.md`. It
+  keeps direct JSON and compatibility-era Streamable WAMP topic subscriptions
+  active together and will prove shared delivery plus independent cleanup
+  without creating direct JSON MCP session or resume state.
+- Most recent completed MCP downstream-application readiness plan:
   `docs/exec-plans/2026-08-02-mcp-cross-era-resource-subscription-coexistence.md`.
   It proves modern request-scoped resource listeners and compatibility-era
   Streamable resource subscriptions can receive the same configured WAMP
   update and release their ownership independently without leaking or
   interrupting the remaining consumer.
-- Most recent completed MCP downstream-application readiness plan:
+- Completed immediately before that:
   `docs/exec-plans/2026-08-02-mcp-listener-streamable-session-coexistence.md`.
   It proves modern request-scoped listeners remain independently usable while
   the same public client creates, uses, and deletes a compatibility-era

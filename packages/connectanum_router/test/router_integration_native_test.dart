@@ -5694,6 +5694,17 @@ void main() {
         equals('T-streamable'),
       );
 
+      final crossEraDirectSubscription = await directPublicMcpClient
+          .subscribeWampTopicDirect(
+            'app.events.audit',
+            id: 'cross-era-direct-pubsub-subscribe',
+            queueLimit: 5,
+          );
+      final crossEraDirectHandle = crossEraDirectSubscription.handle;
+      final crossEraSubscriptionId = crossEraDirectSubscription.subscriptionId!;
+      expect(directPublicMcpClient.sessionId, isNull);
+      expect(directPublicMcpClient.lastEventId, isNull);
+
       final streamableSubscribe = await streamableClient.request(
         'tools/call',
         id: 'streamable-pubsub-subscribe',
@@ -5707,6 +5718,12 @@ void main() {
               .cast<String, Object?>();
       final streamableHandle = streamableSubscription['handle'] as String;
       expect(streamableSubscription['topic'], equals('app.events.audit'));
+      expect(
+        streamableSubscription['subscriptionId'],
+        equals(crossEraSubscriptionId),
+      );
+      final crossEraStreamableSessionId = streamableClient.sessionId;
+      expect(crossEraStreamableSessionId, isNotNull);
 
       final streamableSubscriptionLookup = await streamableClient
           .lookupWampSubscription(
@@ -5722,8 +5739,9 @@ void main() {
           'name': 'connectanum.pubsub.publish',
           'arguments': {
             'topic': 'app.events.audit',
-            'argumentsKeywords': {'via': 'streamable-publish'},
+            'argumentsKeywords': {'via': 'cross-era-shared-publish'},
             'acknowledge': true,
+            'options': {'exclude_me': false},
           },
         },
       );
@@ -5731,6 +5749,25 @@ void main() {
           ((streamablePublish['result'] as Map)['structuredContent'] as Map)
               .cast<String, Object?>();
       expect(streamablePublishResult['acknowledged'], isTrue);
+
+      final directCrossEraPoll = await _pollDirectRouterJsonUntilEvents(
+        client,
+        listener.port,
+        '/mcp/public',
+        crossEraDirectHandle,
+      );
+      expect(
+        jsonEncode(directCrossEraPoll['events']),
+        contains('cross-era-shared-publish'),
+      );
+      final streamableCrossEraPoll = await _pollStreamableMcpUntilEvents(
+        streamableClient,
+        streamableHandle,
+      );
+      expect(
+        jsonEncode(streamableCrossEraPoll['events']),
+        contains('cross-era-shared-publish'),
+      );
 
       final streamableReadOnlyPublish = await streamableClient.request(
         'tools/call',
@@ -5752,20 +5789,6 @@ void main() {
         contains('not publishable'),
       );
 
-      await serviceSession.publish(
-        'app.events.audit',
-        argumentsKeywords: {'via': 'streamable-service'},
-        options: core.PublishOptions(acknowledge: true),
-      );
-      final streamablePoll = await _pollStreamableMcpUntilEvents(
-        streamableClient,
-        streamableHandle,
-      );
-      expect(
-        jsonEncode(streamablePoll['events']),
-        contains('streamable-service'),
-      );
-
       final streamableUnsubscribe = await streamableClient.request(
         'tools/call',
         id: 'streamable-pubsub-unsubscribe',
@@ -5778,6 +5801,97 @@ void main() {
           ((streamableUnsubscribe['result'] as Map)['structuredContent'] as Map)
               .cast<String, Object?>();
       expect(streamableUnsubscribeResult['unsubscribed'], isTrue);
+
+      await serviceSession.publish(
+        'app.events.audit',
+        argumentsKeywords: {'via': 'after-streamable-unsubscribe'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final directAfterStreamableUnsubscribe =
+          await _pollDirectRouterJsonUntilEvents(
+            client,
+            listener.port,
+            '/mcp/public',
+            crossEraDirectHandle,
+          );
+      expect(
+        jsonEncode(directAfterStreamableUnsubscribe['events']),
+        contains('after-streamable-unsubscribe'),
+      );
+
+      final streamableResubscribe = await streamableClient.request(
+        'tools/call',
+        id: 'streamable-pubsub-resubscribe',
+        params: {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'app.events.audit', 'queueLimit': 5},
+        },
+      );
+      final streamableResubscription =
+          ((streamableResubscribe['result'] as Map)['structuredContent'] as Map)
+              .cast<String, Object?>();
+      final streamableResubscriptionHandle =
+          streamableResubscription['handle'] as String;
+      expect(
+        streamableResubscription['subscriptionId'],
+        equals(crossEraSubscriptionId),
+      );
+
+      final directCrossEraUnsubscribe = await directPublicMcpClient
+          .unsubscribeWampTopicDirect(
+            crossEraDirectHandle,
+            id: 'cross-era-direct-pubsub-unsubscribe',
+          );
+      expect(directCrossEraUnsubscribe.unsubscribed, isTrue);
+      expect(directPublicMcpClient.sessionId, isNull);
+      expect(directPublicMcpClient.lastEventId, isNull);
+      expect(streamableClient.sessionId, crossEraStreamableSessionId);
+
+      await serviceSession.publish(
+        'app.events.audit',
+        argumentsKeywords: {'via': 'after-direct-unsubscribe'},
+        options: core.PublishOptions(acknowledge: true),
+      );
+      final streamableAfterDirectUnsubscribe =
+          await _pollStreamableMcpUntilEvents(
+            streamableClient,
+            streamableResubscriptionHandle,
+          );
+      expect(
+        jsonEncode(streamableAfterDirectUnsubscribe['events']),
+        contains('after-direct-unsubscribe'),
+      );
+
+      final streamableFinalUnsubscribe = await streamableClient.request(
+        'tools/call',
+        id: 'streamable-pubsub-final-unsubscribe',
+        params: {
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': {'handle': streamableResubscriptionHandle},
+        },
+      );
+      final streamableFinalUnsubscribeResult =
+          ((streamableFinalUnsubscribe['result'] as Map)['structuredContent']
+                  as Map)
+              .cast<String, Object?>();
+      expect(streamableFinalUnsubscribeResult['unsubscribed'], isTrue);
+      expect(streamableClient.sessionId, crossEraStreamableSessionId);
+
+      List<Object?> remainingCrossEraSubscribers = const <Object?>[1];
+      for (var attempt = 0; attempt < 50; attempt++) {
+        final count = await directPublicMcpClient
+            .countWampSubscriptionSubscribersDirect(
+              crossEraSubscriptionId,
+              id: 'cross-era-subscription-final-count-$attempt',
+            );
+        remainingCrossEraSubscribers = count.arguments;
+        if (remainingCrossEraSubscribers.length == 1 &&
+            remainingCrossEraSubscribers.single == 0) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(remainingCrossEraSubscribers, equals([0]));
 
       final streamableSecureTopicDenied = await streamableClient.request(
         'tools/call',

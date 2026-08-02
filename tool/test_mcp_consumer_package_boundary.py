@@ -1415,6 +1415,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             '"public":{"stateless2026":true,"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
+            '"wampPubSubCoexistence":true,'
             '"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
@@ -1430,6 +1431,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"secure":{"ticketGrant":true,"stateless2026":true,'
             '"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
+            '"wampPubSubCoexistence":true,'
             '"directJson":true,'
             '"streamable":true,'
             '"streamableInvalidLastEventId":true,'
@@ -1592,8 +1594,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("update_topic: cli.smoke.events", body)
         self.assertIn("update_topic: cli.smoke.secure.events", body)
         self.assertIn("_expectCrossEraResourceSubscriptionCoexistence", body)
+        self.assertIn("_expectCrossEraWampPubSubCoexistence", body)
         self.assertIn("dart-consumer-public-resource-coexistence", body)
         self.assertIn("dart-consumer-secure-resource-coexistence", body)
+        self.assertIn("dart-consumer-public-pubsub-coexistence", body)
+        self.assertIn("dart-consumer-secure-pubsub-coexistence", body)
+        self.assertIn("did not reuse one physical WAMP subscription", body)
+        self.assertIn("direct JSON cleanup changed protocol session state", body)
         self.assertIn(
             "request-scoped listener stopped with the Streamable owner",
             body,
@@ -1660,8 +1667,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("configured subscription meta", body)
         self.assertIn(
-            "public and protected cross-era dynamic resource subscription "
-            "coexistence with independent cleanup",
+            "public and protected cross-era dynamic resource and WAMP "
+            "pub/sub coexistence with independent cleanup",
             body,
         )
         self.assertIn(

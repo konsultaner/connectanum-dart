@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -88,3 +88,9 @@ handler identity separately from the broker subscription ID and send
   Chrome/Dart2Wasm coverage, all generated and globally activated consumer
   smokes, and the complete router suite. The implementation is ready to push;
   exact-head hosted workflows and the strict deployment-chain audit remain.
+- 2026-08-02: Commit `86cf956` was pushed to GitLab and GitHub. Exact-head
+  GitHub CI `30728291345`, Dart Package Publish Dry Run `30728291363`, and WAMP
+  Profile Benchmarks `30728291375` passed on their first attempts. CI uploaded
+  coverage artifact `8827275787`, WAMP uploaded benchmark artifact
+  `8827184987`, and the strict deployment-chain audit passed with a clean CI
+  log scan and all required gates clean.
