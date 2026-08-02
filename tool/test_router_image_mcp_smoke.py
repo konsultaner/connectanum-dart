@@ -82,6 +82,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"Authorization": f"Bearer {access_token}"',
             '"grant_type": "revoke"',
             "verify_missing_bearer=True",
+            "_run_modern_standard_pubsub(endpoint, label=\"Public\")",
+            "_run_modern_standard_pubsub(",
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, client)
@@ -141,6 +143,61 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             post_json.call_args.kwargs["headers"]["Mcp-Name"],
             "connectanum.api.list",
         )
+
+    def test_modern_standard_pubsub_uses_sessionless_tool_calls(self) -> None:
+        marker = "router-image-protected-standard-publish"
+        responses = [
+            {
+                "result": {
+                    "structuredContent": {
+                        "handle": "standard-handle",
+                        "topic": CLIENT_MODULE.TOPIC,
+                    }
+                }
+            },
+            {
+                "result": {
+                    "structuredContent": {
+                        "topic": CLIENT_MODULE.TOPIC,
+                        "acknowledged": True,
+                    }
+                }
+            },
+            {"result": {"structuredContent": {"events": [{"via": marker}]}}},
+            {"result": {"structuredContent": {"unsubscribed": True}}},
+        ]
+        authorization_headers = {"Authorization": "Bearer issued-token"}
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_modern_call",
+            side_effect=responses,
+        ) as modern_call:
+            CLIENT_MODULE._run_modern_standard_pubsub(
+                "http://router/mcp/secure",
+                label="Protected",
+                authorization_headers=authorization_headers,
+            )
+
+        self.assertEqual(
+            [call.args[2] for call in modern_call.call_args_list],
+            ["tools/call"] * 4,
+        )
+        self.assertEqual(
+            [call.args[3]["name"] for call in modern_call.call_args_list],
+            [
+                "connectanum.pubsub.subscribe",
+                "connectanum.pubsub.publish",
+                "connectanum.pubsub.poll",
+                "connectanum.pubsub.unsubscribe",
+            ],
+        )
+        self.assertEqual(
+            modern_call.call_args_list[0].args[3]["arguments"],
+            {"topic": CLIENT_MODULE.TOPIC, "queueLimit": 5},
+        )
+        for call in modern_call.call_args_list:
+            self.assertEqual(call.kwargs["headers"], authorization_headers)
 
     def test_ticket_grant_flow_uses_challenge_state_and_signature(self) -> None:
         challenge = {"state": "challenge-state", "challenge": {}}

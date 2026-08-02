@@ -290,18 +290,18 @@ direct-pub/sub loaded-image smoke, multi-architecture image build, skipped GHCR
 login, and all required package, benchmark, workflow-visibility,
 branch-protection, and public-router-package gates clean.
 
-The active Router Image standard tool-call checkpoint closes the next packaged
-agent-interoperability boundary. The loaded image currently proves standard
+The completed Router Image standard tool-call checkpoint closes the next
+packaged agent-interoperability boundary. The loaded image currently proves standard
 tool discovery, modern sessionless Connectanum methods, and compatibility-era
 Streamable pub/sub, but the Streamable lifecycle bypasses the standard
 `tools/call` envelope and the modern route does not execute a standard tool
-call. The active plan adds public and bearer-protected sessionless
+call. The plan adds public and bearer-protected sessionless
 `tools/call` metadata access and moves the compatibility pub/sub lifecycle
 through standard tool invocation without removing the existing direct-method,
-auth, revocation, or session-isolation evidence. The active plan is
+auth, revocation, or session-isolation evidence. The completed plan is
 `docs/exec-plans/2026-08-02-router-image-standard-tool-call-smoke.md`.
 
-The implementation is now in place locally. New behavioral regressions first
+The implementation is now in place. New behavioral regressions first
 failed on the absent modern standard call and the compatibility lifecycle's
 custom-method envelopes. The smoke now sends the required `Mcp-Name` header
 for modern `tools/call`, invokes `connectanum.api.list` through that standard
@@ -312,7 +312,38 @@ the complete public/protected smoke against a real local native router, and
 pre-change and post-change `bin/test-fast` pass. Final `bin/verify` also passes
 formatting, the complete Rust and Dart suites, native and browser transport
 coverage, real-router benchmark workloads, and standalone/global consumer
-package smokes. Hosted exact-head evidence remains pending.
+package smokes. Commit `c6540ea` was pushed to GitLab and GitHub. Exact-head CI
+`30752149679`, Dart Package Publish Dry Run `30752167176`, WAMP Profile
+Benchmarks `30752167162`, and Router Image dry run `30752167017` all passed. CI
+uploaded coverage artifact `8834989571`, WAMP uploaded benchmark artifact
+`8834871502`, and Router Image uploaded preview artifact `8834785297`. The
+comprehensive strict deployment-chain audit exited clean with exact-head CI and
+log cleanliness, standard public and protected `tools/call` loaded-image smoke,
+multi-architecture image build, skipped GHCR login, and all required package,
+benchmark, workflow-visibility, branch-protection, and public-router-package
+gates clean.
+
+The active Router Image modern standard pub/sub checkpoint closes the next
+packaged agent-interoperability boundary. The canonical loaded-image smoke now
+proves a modern standard metadata-tool call, a modern direct-method pub/sub
+lifecycle, and compatibility-era standard-tool pub/sub, but a modern agent
+still does not exercise the router-provided pub/sub tools through the standard
+`tools/call` method. The active plan is
+`docs/exec-plans/2026-08-02-router-image-modern-standard-pubsub-smoke.md`.
+
+The implementation is now in place locally. A source-contract regression and
+focused behavior test first failed because the standard modern pub/sub helper
+and its public/protected calls were absent. The loaded-image client now
+completes subscribe, acknowledged publish, event poll, and unsubscribe through
+modern sessionless `tools/call` requests, sends the required `Mcp-Name` for
+each operation, and forwards the router-issued bearer grant on every protected
+call. Pre-change `bin/test-fast`, 11 focused Python tests, Python compilation,
+diff checks, and the complete public/protected smoke against a real local
+native router pass. Post-change `bin/test-fast` also passes, including the
+complete MCP/client, live WAMP, and consumer-package regression matrix. Final
+local `bin/verify` passes formatting, Rust core and FFI suites, all Dart suites,
+package/global consumer smokes, live WAMP workloads, and Chrome/Dart2Wasm.
+Commit, push, and exact-head hosted evidence remain.
 
 Commit `86cf956` was pushed to GitLab and GitHub. Exact-head GitHub CI
 `30728291345` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
@@ -24049,11 +24080,15 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-02-router-image-modern-standard-pubsub-smoke.md`.
+  It proves a complete modern sessionless standard `tools/call` pub/sub
+  lifecycle on public and bearer-protected loaded Router Image endpoints.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-02-router-image-standard-tool-call-smoke.md`. It
   proves standard `tools/call` execution on modern sessionless and
   compatibility-era Streamable paths for public and bearer-protected loaded
   Router Image endpoints.
-- Most recently completed router-hosted MCP packaging-readiness plan:
+- Completed immediately before that:
   `docs/exec-plans/2026-08-02-router-image-modern-direct-pubsub-smoke.md`. It
   adds public and bearer-protected MCP `2026-07-28` sessionless direct-JSON
   pub/sub lifecycle evidence to the canonical loaded Router Image smoke.

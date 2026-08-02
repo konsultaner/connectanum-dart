@@ -252,56 +252,76 @@ def _run_modern_standard_tool_catalog(
         raise AssertionError(f"{label} standard tool API catalog missed {TOPIC}")
 
 
-def _run_modern_direct_pubsub(
+def _run_modern_pubsub(
     endpoint: str,
     *,
     label: str,
+    call_mode: str,
     authorization_headers: dict[str, str] | None = None,
 ) -> None:
-    subscribe = _modern_call(
-        endpoint,
-        f"{label.lower()}-direct-subscribe",
+    if call_mode not in {"direct", "standard"}:
+        raise AssertionError(f"Unsupported modern pub/sub call mode: {call_mode}")
+
+    def call(
+        request_suffix: str,
+        tool_name: str,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        method = tool_name
+        params = arguments
+        if call_mode == "standard":
+            method = "tools/call"
+            params = {"name": tool_name, "arguments": arguments}
+        return _modern_call(
+            endpoint,
+            f"{label.lower()}-{call_mode}-{request_suffix}",
+            method,
+            params,
+            headers=authorization_headers,
+        )
+
+    subscribe = call(
+        "subscribe",
         "connectanum.pubsub.subscribe",
         {"topic": TOPIC, "queueLimit": 5},
-        headers=authorization_headers,
     )
     subscription = _structured_content(
-        subscribe, label=f"{label} direct subscribe"
+        subscribe, label=f"{label} {call_mode} subscribe"
     )
     handle = subscription.get("handle")
     if not isinstance(handle, str) or not handle or subscription.get("topic") != TOPIC:
         raise AssertionError(
-            f"{label} direct subscribe returned invalid state: {subscription}"
+            f"{label} {call_mode} subscribe returned invalid state: {subscription}"
         )
 
-    marker = f"router-image-{label.lower()}-direct-publish"
-    publish = _modern_call(
-        endpoint,
-        f"{label.lower()}-direct-publish",
+    marker = f"router-image-{label.lower()}-{call_mode}-publish"
+    publish = call(
+        "publish",
         "connectanum.pubsub.publish",
         {
             "topic": TOPIC,
             "argumentsKeywords": {"via": marker},
             "acknowledge": True,
         },
-        headers=authorization_headers,
     )
-    publication = _structured_content(publish, label=f"{label} direct publish")
+    publication = _structured_content(
+        publish, label=f"{label} {call_mode} publish"
+    )
     if publication.get("topic") != TOPIC or publication.get("acknowledged") is not True:
         raise AssertionError(
-            f"{label} direct publish was not acknowledged: {publication}"
+            f"{label} {call_mode} publish was not acknowledged: {publication}"
         )
 
     events: list[Any] = []
     for attempt in range(40):
-        poll = _modern_call(
-            endpoint,
-            f"{label.lower()}-direct-poll-{attempt}",
+        poll = call(
+            f"poll-{attempt}",
             "connectanum.pubsub.poll",
             {"handle": handle, "limit": 10},
-            headers=authorization_headers,
         )
-        poll_content = _structured_content(poll, label=f"{label} direct poll")
+        poll_content = _structured_content(
+            poll, label=f"{label} {call_mode} poll"
+        )
         raw_events = poll_content.get("events")
         events = raw_events if isinstance(raw_events, list) else []
         if marker in json.dumps(events):
@@ -309,23 +329,49 @@ def _run_modern_direct_pubsub(
         time.sleep(0.05)
     if marker not in json.dumps(events):
         raise AssertionError(
-            f"{label} direct pub/sub poll missed the published event"
+            f"{label} {call_mode} pub/sub poll missed the published event"
         )
 
-    unsubscribe = _modern_call(
-        endpoint,
-        f"{label.lower()}-direct-unsubscribe",
+    unsubscribe = call(
+        "unsubscribe",
         "connectanum.pubsub.unsubscribe",
         {"handle": handle},
-        headers=authorization_headers,
     )
     unsubscribe_content = _structured_content(
-        unsubscribe, label=f"{label} direct unsubscribe"
+        unsubscribe, label=f"{label} {call_mode} unsubscribe"
     )
     if unsubscribe_content.get("unsubscribed") is not True:
         raise AssertionError(
-            f"{label} direct unsubscribe failed: {unsubscribe_content}"
+            f"{label} {call_mode} unsubscribe failed: {unsubscribe_content}"
         )
+
+
+def _run_modern_direct_pubsub(
+    endpoint: str,
+    *,
+    label: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    _run_modern_pubsub(
+        endpoint,
+        label=label,
+        call_mode="direct",
+        authorization_headers=authorization_headers,
+    )
+
+
+def _run_modern_standard_pubsub(
+    endpoint: str,
+    *,
+    label: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    _run_modern_pubsub(
+        endpoint,
+        label=label,
+        call_mode="standard",
+        authorization_headers=authorization_headers,
+    )
 
 
 def _run_compatibility_pubsub(
@@ -557,6 +603,11 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
         label="Protected",
         authorization_headers=authorization_headers,
     )
+    _run_modern_standard_pubsub(
+        secure_endpoint,
+        label="Protected",
+        authorization_headers=authorization_headers,
+    )
     _run_modern_direct_pubsub(
         secure_endpoint,
         label="Protected",
@@ -613,6 +664,7 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         raise AssertionError(f"Modern direct API catalog missed {TOPIC}")
 
     _run_modern_standard_tool_catalog(endpoint, label="Public")
+    _run_modern_standard_pubsub(endpoint, label="Public")
     _run_modern_direct_pubsub(endpoint, label="Public")
     _run_compatibility_pubsub(endpoint, label="Public")
     _run_protected_smoke(secure_endpoint, auth_endpoint)

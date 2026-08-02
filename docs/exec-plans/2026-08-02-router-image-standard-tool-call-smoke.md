@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Completed.
 
 ## Goal
 
@@ -64,4 +64,14 @@ paths, for public and bearer-protected endpoints.
 - 2026-08-02: Final `bin/verify` passes workspace formatting, the complete
   Rust and Dart suites, 380 router tests, focused native zero-copy coverage,
   real-router benchmarks, standalone/global package smokes, and
-  Chrome/Dart2Wasm transport coverage. Hosted exact-head evidence is pending.
+  Chrome/Dart2Wasm transport coverage.
+- 2026-08-02: Commit `c6540ea` was pushed to GitLab and GitHub. Exact-head CI
+  `30752149679`, Dart Package Publish Dry Run `30752167176`, WAMP Profile
+  Benchmarks `30752167162`, and Router Image dry run `30752167017` all passed.
+  CI uploaded coverage artifact `8834989571`, WAMP uploaded benchmark artifact
+  `8834871502`, and Router Image uploaded preview artifact `8834785297`. The
+  comprehensive strict deployment-chain audit exited clean with exact-head CI
+  and log cleanliness, standard public and protected `tools/call` loaded-image
+  smoke, multi-architecture image build, skipped GHCR login, and all required
+  package, benchmark, workflow-visibility, branch-protection, and
+  public-router-package gates clean.
