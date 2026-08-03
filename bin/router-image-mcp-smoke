@@ -10,6 +10,9 @@ mcp_compatibility_protocol_version="2025-11-25"
 mcp_modern_protocol_version="2026-07-28"
 mcp_procedure="wamp.session.count"
 mcp_topic="image.smoke.events"
+mcp_resource_uri="connectanum://router-image/context"
+mcp_prompt_name="inspect-router-image"
+mcp_prompt_arguments='{"subject":"packaged runtime"}'
 
 usage() {
   printf 'Usage: %s IMAGE\n' "${0##*/}" >&2
@@ -87,6 +90,9 @@ run_package_client_smoke() {
       --protocol-version "$mcp_compatibility_protocol_version" \
       --wamp-procedure "$mcp_procedure" \
       --wamp-topic "$mcp_topic" \
+      --resource-uri "$mcp_resource_uri" \
+      --prompt "$mcp_prompt_name" \
+      --prompt-arguments "$mcp_prompt_arguments" \
       --pubsub-topic "$mcp_topic" \
       --pubsub-event '{"source":"router-image-package-client"}' \
       "$@"
@@ -94,12 +100,20 @@ run_package_client_smoke() {
 
   for marker in \
     '"directStandardTools"' \
+    '"directResources"' \
+    '"directResourceTemplates"' \
+    '"directPrompts"' \
+    '"directPrompt"' \
     '"directWampMetadata"' \
     '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"activeDirectJson"' \
     '"streamable"' \
     '"initializedNotification":{"accepted":true}' \
+    '"resourceTemplates"' \
+    '"resourceContent"' \
+    '"prompts"' \
+    '"prompt"' \
     '"pubsub"'; do
     if [[ "$summary" != *"$marker"* ]]; then
       printf '%s package client smoke omitted required evidence: %s\n' \
@@ -133,6 +147,9 @@ run_stateless_package_client_smoke() {
       --protocol-version "$mcp_modern_protocol_version" \
       --wamp-procedure "$mcp_procedure" \
       --wamp-topic "$mcp_topic" \
+      --resource-uri "$mcp_resource_uri" \
+      --prompt "$mcp_prompt_name" \
+      --prompt-arguments "$mcp_prompt_arguments" \
       --pubsub-topic "$mcp_topic" \
       --pubsub-event '{"source":"router-image-stateless-package-client"}' \
       "$@"
@@ -140,6 +157,10 @@ run_stateless_package_client_smoke() {
 
   for marker in \
     '"directStandardTools"' \
+    '"directResources"' \
+    '"directResourceTemplates"' \
+    '"directPrompts"' \
+    '"directPrompt"' \
     '"directWampMetadata"' \
     '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \

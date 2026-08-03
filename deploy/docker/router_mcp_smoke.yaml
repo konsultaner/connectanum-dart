@@ -59,6 +59,33 @@ router:
                 instructions: Neutral router image MCP runtime smoke endpoint.
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                resource_list_page_size: 10
+                resource_template_list_page_size: 10
+                prompt_list_page_size: 10
+                resources:
+                  - uri: connectanum://router-image/context
+                    name: router-image-context
+                    title: Router Image Context
+                    description: Neutral context exposed by the packaged router.
+                    mime_type: text/plain
+                    text: Router-hosted context from the packaged image.
+                resource_templates:
+                  - uri_template: connectanum://router-image/item/{itemId}
+                    name: router-image-item
+                    title: Router Image Item
+                    description: Template for neutral packaged-router items.
+                    mime_type: application/json
+                prompts:
+                  - name: inspect-router-image
+                    title: Inspect Router Image
+                    description: Builds a neutral packaged-router inspection prompt.
+                    arguments:
+                      - name: subject
+                        description: Subject to inspect.
+                        required: true
+                    messages:
+                      - role: user
+                        text: Inspect {{subject}} using router image context.
                 procedures:
                   - procedure: wamp.session.count
                     title: Router Image Smoke Session Count
@@ -79,6 +106,33 @@ router:
                 allow_insecure_transport: true
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                resource_list_page_size: 10
+                resource_template_list_page_size: 10
+                prompt_list_page_size: 10
+                resources:
+                  - uri: connectanum://router-image/context
+                    name: router-image-context
+                    title: Router Image Context
+                    description: Neutral context exposed by the packaged router.
+                    mime_type: text/plain
+                    text: Router-hosted context from the packaged image.
+                resource_templates:
+                  - uri_template: connectanum://router-image/item/{itemId}
+                    name: router-image-item
+                    title: Router Image Item
+                    description: Template for neutral packaged-router items.
+                    mime_type: application/json
+                prompts:
+                  - name: inspect-router-image
+                    title: Inspect Router Image
+                    description: Builds a neutral packaged-router inspection prompt.
+                    arguments:
+                      - name: subject
+                        description: Subject to inspect.
+                        required: true
+                    messages:
+                      - role: user
+                        text: Inspect {{subject}} using router image context.
                 procedures:
                   - procedure: wamp.session.count
                     title: Router Image Smoke Session Count

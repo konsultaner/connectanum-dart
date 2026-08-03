@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -90,3 +90,20 @@ evidence exclusively to the raw protocol probe.
   benchmark tests, the complete 380-case router suite, the 13-case native
   follow-up, every generated and globally activated package smoke, and
   Chrome/Dart2Wasm.
+- 2026-08-03: Commit `519a8e0` was pushed to GitLab and GitHub. Exact-head CI
+  `30778403924`, Dart Package Publish Dry Run `30778403858`, Router Image dry
+  run `30778430327`, and WAMP Profile Benchmarks `30778435730` all passed. CI
+  uploaded coverage artifact `8843009435`, Router Image uploaded preview
+  artifact `8842836960`, and WAMP uploaded benchmark artifact `8842923179`.
+- 2026-08-03: The hosted fresh-image smoke retained the raw public/protected
+  protocol probe and then ran the shipped executable in stateless mode against
+  both endpoints. Both executions reported protocol `2026-07-28`,
+  `sessionless: true`, discovery support, direct tools, configured WAMP Meta
+  API, and pub/sub before the compatibility-era executable runs and final
+  non-publishing multi-architecture build also passed.
+- 2026-08-03: The comprehensive strict deployment-chain audit exited clean
+  with exact-head CI and log cleanliness, package dry run, relevant native
+  release evidence, Router Image dry run, WAMP artifacts, workflow visibility,
+  branch protection, and public router-package visibility ready. Selecting the
+  suggested follow-up RC tag remains an approval-gated release action outside
+  this plan.

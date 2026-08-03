@@ -442,6 +442,53 @@ workflow, branch-protection, and public-package gates ready. RC tagging remains
 an approval-gated release action outside this checkpoint. The completed plan
 is `docs/exec-plans/2026-08-03-router-image-public-client-runtime-smoke.md`.
 
+The completed Router Image stateless public-client checkpoint extends that
+released executable surface to the current MCP protocol. For `2026-07-28`,
+`connectanum_mcp:router_hosted_client` now selects its public stateless
+constructors, discovers server support, runs typed direct tools, complete WAMP
+Meta API helpers, and pub/sub, and proves it retained neither a protocol
+session id nor resume cursor. Session-only auth lifecycle and dynamic-resource
+subscription options fail before network access in stateless mode. The
+compatibility-era executable runs continue to gate Streamable initialize,
+batch, GET/SSE, DELETE, and protected refresh/revoke behavior.
+
+Focused regressions first failed because the executable rejected the modern
+version and the image runner invoked only compatibility mode. All 33 focused
+Python contracts, package analysis, MCP/client tests, public and protected
+current-native executions, pre-change plus post-change `bin/test-fast`, and
+full local `bin/verify` pass. Commit `519a8e0` was pushed to GitLab and GitHub.
+Exact-head CI `30778403924`, Dart Package Publish Dry Run `30778403858`, Router
+Image dry run `30778430327`, and WAMP Profile Benchmarks `30778435730` all
+passed. CI uploaded coverage artifact `8843009435`, Router Image uploaded
+preview artifact `8842836960`, and WAMP uploaded benchmark artifact
+`8842923179`. Hosted logs show public and protected fresh-image executions
+reporting `2026-07-28`, `sessionless: true`, and the stateless pass marker. The
+comprehensive strict deployment-chain audit exited clean with every required
+CI/log, package, native-release, Router Image, WAMP, workflow,
+branch-protection, and public-package gate ready. RC tagging remains an
+approval-gated release action outside this checkpoint. The completed plan is
+`docs/exec-plans/2026-08-03-router-image-stateless-public-client-smoke.md`.
+
+The active Router Image resource/prompt package checkpoint closes another
+consumer-facing gap in the canonical loaded-image evidence. Both public and
+bearer-protected routes now configure the same neutral static resource,
+resource template, and required-argument prompt. The image runner passes their
+selectors to the shipped `connectanum_mcp:router_hosted_client` executable and
+requires direct resource/template/prompt results in both protocol eras plus
+Streamable HTTP results in compatibility mode.
+
+Focused contracts first failed with 22 missing runner/configuration assertions.
+All 14 focused Python contracts and shell syntax checks now pass. Public and
+ticket-protected package-client runs against a real local native router pass in
+both stateless `2026-07-28` and compatibility `2025-11-25` modes, including the
+protected compatibility auth lifecycle. Pre-change and post-change
+`bin/test-fast` pass. Final local `bin/verify` passes formatting, analysis, 113
+Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP tests, the
+complete 193-case MCP/client suite, all 96 benchmark tests, the complete
+380-case router suite, the 13-case native follow-up, all package smokes, and
+Chrome/Dart2Wasm. Hosted deployment-chain gates remain in progress under
+`docs/exec-plans/2026-08-03-router-image-resource-prompt-package-smoke.md`.
+
 The completed Router Image standard Meta API checkpoint makes the canonical
 loaded-image smoke invoke all 15 standard WAMP session, registration, and
 subscription Meta API procedures exposed by the runtime. The remaining
@@ -24237,19 +24284,26 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-03-router-image-resource-prompt-package-smoke.md`.
+  It adds neutral router-configured resource, resource-template, and prompt
+  data to the canonical Router Image route, then makes the shipped public
+  client executable prove those APIs through modern stateless direct JSON and
+  compatibility-era Streamable HTTP on public and bearer-protected endpoints.
+  Focused source contracts, public/protected real-native-router runs in both
+  protocol eras, pre-change plus post-change `bin/test-fast`, and full local
+  `bin/verify` pass. Hosted deployment-chain verification remains in progress.
+- Most recently completed router-hosted MCP
+  packaging-readiness plan is:
   `docs/exec-plans/2026-08-03-router-image-stateless-public-client-smoke.md`.
   It makes the shipped public client executable use its existing stateless
   `2026-07-28` transport mode for modern discovery, direct tool and WAMP Meta
   API calls, and pub/sub against public and protected loaded-image endpoints,
   while retaining the existing compatibility-era Streamable/session/auth
-  lifecycle runs. The implementation, focused public/protected native-router
-  executions, post-change `bin/test-fast`, and full local `bin/verify` pass.
-  An older cached image exposed a session-header leak that the current native
-  router does not reproduce; rebuilding a fresh local image remains blocked on
-  upstream Dockerfile frontend resolution, so the hosted Router Image workflow
-  owns exact-image proof. Pre-change head remains exact across local, GitLab,
-  and GitHub at `80c9555`.
-- Most recently completed router-hosted MCP packaging-readiness plan:
+  lifecycle runs. Implementation commit `519a8e0`, local `bin/test-fast` and
+  `bin/verify`, exact-head CI, package, Router Image, and WAMP workflows, plus
+  the comprehensive strict deployment-chain audit all pass. Hosted fresh-image
+  logs contain the public/protected stateless `sessionless: true` evidence.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-03-router-image-public-client-runtime-smoke.md`.
   It joins the shipped `connectanum_mcp:router_hosted_client` executable with
   the locally loaded Router Image so release evidence proves public and

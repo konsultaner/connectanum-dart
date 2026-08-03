@@ -68,16 +68,30 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'mcp_modern_protocol_version="2026-07-28"',
             'mcp_procedure="wamp.session.count"',
             'mcp_topic="image.smoke.events"',
+            'mcp_resource_uri="connectanum://router-image/context"',
+            'mcp_prompt_name="inspect-router-image"',
+            'mcp_prompt_arguments=',
             'CONNECTANUM_SKIP_NATIVE_BUILD=true',
             'dart run "$mcp_client_package"',
             '--wamp-procedure "$mcp_procedure"',
             '--wamp-topic "$mcp_topic"',
+            '--resource-uri "$mcp_resource_uri"',
+            '--prompt "$mcp_prompt_name"',
+            '--prompt-arguments "$mcp_prompt_arguments"',
             '--pubsub-topic "$mcp_topic"',
+            '"directResources"',
+            '"directResourceTemplates"',
+            '"directPrompts"',
+            '"directPrompt"',
             '"directWampMetadata"',
             '"configuredRegistrationMetadata"',
             '"configuredSubscriptionMetadata"',
             '"activeDirectJson"',
             '"streamable"',
+            '"resourceTemplates"',
+            '"resourceContent"',
+            '"prompts"',
+            '"prompt"',
             '"pubsub"',
             'run_package_client_smoke "Public"',
             'run_package_client_smoke "Protected"',
@@ -683,10 +697,25 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "include_standard_meta_api: true",
             "include_pubsub_tools: true",
             "topic: image.smoke.events",
+            "resource_list_page_size: 10",
+            "resource_template_list_page_size: 10",
+            "prompt_list_page_size: 10",
+            "uri: connectanum://router-image/context",
+            "uri_template: connectanum://router-image/item/{itemId}",
+            "name: inspect-router-image",
+            "text: Inspect {{subject}} using router image context.",
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, config)
         self.assertEqual(config.count("procedure: wamp.session.count"), 2)
+        self.assertEqual(
+            config.count("uri: connectanum://router-image/context"), 2
+        )
+        self.assertEqual(
+            config.count("uri_template: connectanum://router-image/item/{itemId}"),
+            2,
+        )
+        self.assertEqual(config.count("name: inspect-router-image"), 2)
 
     def test_workflow_smokes_loaded_image_before_multiarch_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
