@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -63,3 +63,20 @@ pub/sub, resource/prompt, session, or authentication gates.
   blocked while Docker resolved its remote build frontend. The exact fresh
   image build, four bounded package evidence lines, hosted workflows, and
   strict audit remain for the pushed commit.
+- 2026-08-03: Commit `97d193e` was pushed to GitLab and GitHub. Exact-head CI
+  `30805930411`, Dart Package Publish Dry Run `30805971846`, Router Image dry
+  run `30805971710`, and WAMP Profile Benchmarks `30805972011` all passed. CI
+  uploaded coverage artifact `8853187370`, Router Image uploaded preview
+  artifact `8852771848`, and WAMP uploaded benchmark artifact `8852927001`.
+- 2026-08-03: Fresh-image logs contain exactly one bounded package evidence
+  line for each public/protected stateless `2026-07-28` and compatibility
+  `2025-11-25` run. They visibly prove anonymous versus router-issued auth,
+  sessionless versus Streamable/session-delete lifecycle, protected auth
+  lifecycle, direct JSON, resources/templates/prompts, WAMP Meta API, pub/sub,
+  and the neutral resource/prompt selectors. The final non-publishing
+  multi-architecture image build passed.
+- 2026-08-03: The comprehensive strict deployment-chain audit exited clean
+  with exact-head CI/logs, package, relevant native release, Router Image,
+  WAMP, workflow, branch-protection, and public-package gates ready. Selecting
+  a follow-up RC tag remains an approval-gated release action outside this
+  plan.

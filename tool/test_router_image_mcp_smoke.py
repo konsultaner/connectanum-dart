@@ -63,7 +63,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         runner = RUNNER.read_text(encoding="utf-8")
         for expected in [
             "for command_name in docker python3 dart; do",
-            'mcp_client_package="connectanum_mcp:router_hosted_client"',
+            'mcp_client_command="router_hosted_client"',
             'mcp_compatibility_protocol_version="2025-11-25"',
             'mcp_modern_protocol_version="2026-07-28"',
             'mcp_procedure="wamp.session.count"',
@@ -72,7 +72,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'mcp_prompt_name="inspect-router-image"',
             'mcp_prompt_arguments=',
             'CONNECTANUM_SKIP_NATIVE_BUILD=true',
-            'dart run "$mcp_client_package"',
+            'PUB_CACHE="$mcp_client_pub_cache" "$mcp_client_command"',
             '--wamp-procedure "$mcp_procedure"',
             '--wamp-topic "$mcp_topic"',
             '--resource-uri "$mcp_resource_uri"',
@@ -109,6 +109,29 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)
+
+    def test_shell_runner_uses_isolated_global_package_activation(self) -> None:
+        runner = RUNNER.read_text(encoding="utf-8")
+        for expected in [
+            'mcp_client_command="router_hosted_client"',
+            'mcp_client_workspace="$(mktemp -d',
+            'mcp_client_pub_cache="$(mktemp -d',
+            "name: connectanum_mcp_router_image_smoke_workspace",
+            "workspace:",
+            "connectanum_core",
+            "connectanum_client",
+            "connectanum_mcp",
+            "dart pub global activate --source path",
+            'command -v "$mcp_client_command"',
+            'PUB_CACHE="$mcp_client_pub_cache" "$mcp_client_command"',
+            "client=globally-activated",
+            'rm -rf -- "$mcp_client_workspace"',
+            'rm -rf -- "$mcp_client_pub_cache"',
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, runner)
+
+        self.assertNotIn('dart run "$mcp_client_package"', runner)
 
     def test_shell_runner_emits_bounded_package_client_evidence(self) -> None:
         runner = RUNNER.read_text(encoding="utf-8")

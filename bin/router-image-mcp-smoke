@@ -5,7 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 smoke_config="$repo_root/deploy/docker/router_mcp_smoke.yaml"
 smoke_client="$repo_root/tool/smoke_router_image_mcp.py"
-mcp_client_package="connectanum_mcp:router_hosted_client"
+mcp_client_command="router_hosted_client"
 mcp_compatibility_protocol_version="2025-11-25"
 mcp_modern_protocol_version="2026-07-28"
 mcp_procedure="wamp.session.count"
@@ -33,6 +33,8 @@ done
 image="$1"
 container_name="connectanum-router-mcp-smoke-$$"
 container_id=''
+mcp_client_workspace=''
+mcp_client_pub_cache=''
 
 cleanup() {
   local status=$?
@@ -43,6 +45,12 @@ cleanup() {
       docker logs "$container_id" >&2 || true
     fi
     docker rm --force "$container_id" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$mcp_client_workspace" && -d "$mcp_client_workspace" ]]; then
+    rm -rf -- "$mcp_client_workspace" || true
+  fi
+  if [[ -n "$mcp_client_pub_cache" && -d "$mcp_client_pub_cache" ]]; then
+    rm -rf -- "$mcp_client_pub_cache" || true
   fi
   exit "$status"
 }
@@ -76,6 +84,70 @@ if [[ -z "$host_port" ]]; then
   exit 1
 fi
 
+prepare_isolated_package_client() {
+  local package_name
+  local package_source
+  local package_target
+  local resolved_command
+
+  mcp_client_workspace="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-router-image-mcp-client-workspace.XXXXXX")"
+  mcp_client_pub_cache="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-router-image-mcp-client-pub-cache.XXXXXX")"
+  mkdir -p "$mcp_client_workspace/packages"
+
+  cat >"$mcp_client_workspace/pubspec.yaml" <<'EOF'
+name: connectanum_mcp_router_image_smoke_workspace
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+workspace:
+  - packages/connectanum_core
+  - packages/connectanum_client
+  - packages/connectanum_mcp
+EOF
+  if [[ -f "$repo_root/pubspec.lock" ]]; then
+    cp "$repo_root/pubspec.lock" "$mcp_client_workspace/pubspec.lock"
+  fi
+
+  for package_name in \
+    connectanum_core \
+    connectanum_client \
+    connectanum_mcp; do
+    package_source="$repo_root/packages/$package_name"
+    package_target="$mcp_client_workspace/packages/$package_name"
+    mkdir -p "$package_target"
+    cp "$package_source/pubspec.yaml" "$package_target/pubspec.yaml"
+    cp -R "$package_source/lib" "$package_target/lib"
+    if [[ -d "$package_source/bin" ]]; then
+      cp -R "$package_source/bin" "$package_target/bin"
+    fi
+    if [[ -d "$package_source/hook" ]]; then
+      cp -R "$package_source/hook" "$package_target/hook"
+    fi
+  done
+
+  CONNECTANUM_SKIP_NATIVE_BUILD=true \
+    PATH="$mcp_client_pub_cache/bin:$PATH" \
+    PUB_CACHE="$mcp_client_pub_cache" \
+    dart pub global activate --source path \
+    "$mcp_client_workspace/packages/connectanum_mcp" >&2
+  resolved_command="$(
+    PATH="$mcp_client_pub_cache/bin:$PATH" \
+      PUB_CACHE="$mcp_client_pub_cache" \
+      command -v "$mcp_client_command" || true
+  )"
+  if [[ "$resolved_command" != "$mcp_client_pub_cache/bin/$mcp_client_command" ]]; then
+    printf 'Expected isolated package client command, got: %s\n' \
+      "${resolved_command:-<missing>}" >&2
+    return 1
+  fi
+
+  printf 'Router Image package client activated in an isolated pub cache.\n'
+}
+
 print_package_client_evidence() {
   local label="$1"
   local protocol_version="$2"
@@ -83,7 +155,7 @@ print_package_client_evidence() {
   local auth_evidence="$4"
   local lifecycle_evidence="$5"
 
-  printf '%s Router Image package evidence: protocol=%s mode=%s auth=%s %s direct_json=true resources=true resource_templates=true prompts=true wamp_meta=true pubsub=true resource_uri=%s prompt=%s.\n' \
+  printf '%s Router Image package evidence: protocol=%s mode=%s auth=%s client=globally-activated %s direct_json=true resources=true resource_templates=true prompts=true wamp_meta=true pubsub=true resource_uri=%s prompt=%s.\n' \
     "$label" \
     "$protocol_version" \
     "$mode" \
@@ -100,9 +172,9 @@ run_package_client_smoke() {
   shift 2
 
   summary="$(
-    cd "$repo_root"
     CONNECTANUM_SKIP_NATIVE_BUILD=true \
-      dart run "$mcp_client_package" \
+      PATH="$mcp_client_pub_cache/bin:$PATH" \
+      PUB_CACHE="$mcp_client_pub_cache" "$mcp_client_command" \
       --endpoint "$endpoint" \
       --protocol-version "$mcp_compatibility_protocol_version" \
       --wamp-procedure "$mcp_procedure" \
@@ -168,9 +240,9 @@ run_stateless_package_client_smoke() {
   shift 2
 
   summary="$(
-    cd "$repo_root"
     CONNECTANUM_SKIP_NATIVE_BUILD=true \
-      dart run "$mcp_client_package" \
+      PATH="$mcp_client_pub_cache/bin:$PATH" \
+      PUB_CACHE="$mcp_client_pub_cache" "$mcp_client_command" \
       --endpoint "$endpoint" \
       --protocol-version "$mcp_modern_protocol_version" \
       --wamp-procedure "$mcp_procedure" \
@@ -223,6 +295,8 @@ python3 "$smoke_client" \
   --endpoint "http://127.0.0.1:$host_port/mcp" \
   --secure-endpoint "http://127.0.0.1:$host_port/mcp/secure" \
   --auth-endpoint "http://127.0.0.1:$host_port/auth"
+
+prepare_isolated_package_client
 
 run_stateless_package_client_smoke "Public" \
   "http://127.0.0.1:$host_port/mcp"
