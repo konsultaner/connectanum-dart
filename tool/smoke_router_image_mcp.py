@@ -206,7 +206,7 @@ def _expect_modern_batch_rejected(
         )
 
 
-def _expect_modern_request_ignores_compatibility_session(
+def _expect_modern_requests_ignore_compatibility_session(
     endpoint: str,
     *,
     label: str,
@@ -214,29 +214,43 @@ def _expect_modern_request_ignores_compatibility_session(
     subscription_handle: str,
     authorization_headers: dict[str, str] | None = None,
 ) -> None:
-    response = _modern_call(
-        endpoint,
-        f"{label.lower()}-modern-live-compatibility-session-poll",
-        "tools/call",
-        {
-            "name": "connectanum.pubsub.poll",
-            "arguments": {"handle": subscription_handle, "limit": 1},
-        },
-        headers={
-            **(authorization_headers or {}),
-            "MCP-Session-Id": session_id,
-        },
-    )
-    result = response.get("result")
     expected_error = f"Unknown WAMP subscription handle: {subscription_handle}"
-    if (
-        not isinstance(result, dict)
-        or result.get("isError") is not True
-        or expected_error not in json.dumps(result)
-    ):
-        raise AssertionError(
-            f"{label} modern request accessed compatibility session state: {response}"
+    arguments = {"handle": subscription_handle, "limit": 1}
+    requests = [
+        (
+            "standard",
+            "tools/call",
+            {
+                "name": "connectanum.pubsub.poll",
+                "arguments": arguments,
+            },
+        ),
+        ("direct", "connectanum.pubsub.poll", arguments),
+    ]
+    for call_mode, method, params in requests:
+        response = _modern_call(
+            endpoint,
+            (
+                f"{label.lower()}-{call_mode}-modern-live-"
+                "compatibility-session-poll"
+            ),
+            method,
+            params,
+            headers={
+                **(authorization_headers or {}),
+                "MCP-Session-Id": session_id,
+            },
         )
+        result = response.get("result")
+        if (
+            not isinstance(result, dict)
+            or result.get("isError") is not True
+            or expected_error not in json.dumps(result)
+        ):
+            raise AssertionError(
+                f"{label} modern {call_mode} request accessed compatibility "
+                f"session state: {response}"
+            )
 
 
 def _structured_content(message: dict[str, Any], *, label: str) -> dict[str, Any]:
@@ -887,7 +901,7 @@ def _run_compatibility_pubsub(
     if not isinstance(handle, str) or not handle or subscription.get("topic") != TOPIC:
         raise AssertionError(f"{label} subscribe returned invalid state: {subscription}")
 
-    _expect_modern_request_ignores_compatibility_session(
+    _expect_modern_requests_ignore_compatibility_session(
         endpoint,
         label=label,
         session_id=session_id,
@@ -1161,7 +1175,8 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
     print(
         "Router Image MCP evidence: modern_batch_rejected=true "
         "status=400 error=-32600 sessionless=true "
-        "modern_live_session_ignored=true compatibility_session_preserved=true "
+        "modern_live_session_ignored=true standard=true direct=true "
+        "compatibility_session_preserved=true "
         "session_header_echoed=false public=true protected=true."
     )
 

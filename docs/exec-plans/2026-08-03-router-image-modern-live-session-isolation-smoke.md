@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -57,4 +57,14 @@ live `2025-11-25` Streamable HTTP session.
   routes. Full `bin/verify` also passed, including formatting, Rust/FFI, the
   updated 19-test Router Image contract, package and consumer smokes, live WAMP
   integration, the complete router suite, HTTP/2 and HTTP/3 integration, and
-  the Chrome/Dart2Wasm browser smoke. Hosted exact-head evidence remains.
+  the Chrome/Dart2Wasm browser smoke.
+- 2026-08-03: Implementation commit `8cbf618` was pushed to GitLab and GitHub.
+  Exact-head CI `30839813099` passed Fast Checks, Dart VM Coverage, Full
+  Verify, the clean hosted-log scan, Codecov upload, and coverage artifact
+  `8866796076`. Router Image dry run `30839831715` passed the loaded-image
+  runtime smoke and uploaded preview artifact `8866312222`; its exact-head log
+  contains the bounded modern-live-session isolation marker plus exactly four
+  public/protected package evidence lines. The latest package publish dry run,
+  native release dry run, and WAMP profile benchmark remain relevant because
+  no sensitive inputs changed. The comprehensive strict deployment-chain audit
+  exited zero with every required gate clean.

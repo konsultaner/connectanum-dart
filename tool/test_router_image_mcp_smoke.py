@@ -241,10 +241,11 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "_expect_modern_batch_rejected(endpoint, label=\"Public\")",
             "_expect_modern_batch_rejected(",
             "label=\"Protected\"",
-            "_expect_modern_request_ignores_compatibility_session(",
+            "_expect_modern_requests_ignore_compatibility_session(",
             '"MCP-Session-Id": session_id',
             '"Router Image MCP evidence: modern_batch_rejected=true "',
-            '"modern_live_session_ignored=true compatibility_session_preserved=true "',
+            '"modern_live_session_ignored=true standard=true direct=true "',
+            '"compatibility_session_preserved=true "',
             '"session_header_echoed=false public=true protected=true."',
         ]:
             with self.subTest(expected=expected):
@@ -295,7 +296,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         )
         self.assertTrue(request.call_args.kwargs["allow_http_error"])
 
-    def test_modern_request_ignores_live_compatibility_session(self) -> None:
+    def test_modern_standard_and_direct_requests_ignore_live_compatibility_session(
+        self,
+    ) -> None:
         authorization_headers = {"Authorization": "Bearer issued-token"}
         session_id = "live-compatibility-session"
         subscription_handle = "wamp-subscription-42"
@@ -319,7 +322,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "_modern_call",
             return_value=response,
         ) as modern_call:
-            CLIENT_MODULE._expect_modern_request_ignores_compatibility_session(
+            CLIENT_MODULE._expect_modern_requests_ignore_compatibility_session(
                 "http://router/mcp/secure",
                 label="Protected",
                 session_id=session_id,
@@ -327,18 +330,33 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 authorization_headers=authorization_headers,
             )
 
-        modern_call.assert_called_once_with(
-            "http://router/mcp/secure",
-            "protected-modern-live-compatibility-session-poll",
-            "tools/call",
-            {
-                "name": "connectanum.pubsub.poll",
-                "arguments": {"handle": subscription_handle, "limit": 1},
-            },
-            headers={
-                **authorization_headers,
-                "MCP-Session-Id": session_id,
-            },
+        self.assertEqual(modern_call.call_count, 2)
+        modern_call.assert_has_calls(
+            [
+                mock.call(
+                    "http://router/mcp/secure",
+                    "protected-standard-modern-live-compatibility-session-poll",
+                    "tools/call",
+                    {
+                        "name": "connectanum.pubsub.poll",
+                        "arguments": {"handle": subscription_handle, "limit": 1},
+                    },
+                    headers={
+                        **authorization_headers,
+                        "MCP-Session-Id": session_id,
+                    },
+                ),
+                mock.call(
+                    "http://router/mcp/secure",
+                    "protected-direct-modern-live-compatibility-session-poll",
+                    "connectanum.pubsub.poll",
+                    {"handle": subscription_handle, "limit": 1},
+                    headers={
+                        **authorization_headers,
+                        "MCP-Session-Id": session_id,
+                    },
+                ),
+            ]
         )
 
     def test_modern_standard_tool_catalog_uses_sessionless_tools_call(self) -> None:
@@ -821,6 +839,23 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 },
             ),
             (
+                {"mcp-protocol-version": CLIENT_MODULE.MODERN_PROTOCOL},
+                {
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "Unknown WAMP subscription handle: "
+                                    "compatibility-handle"
+                                ),
+                            }
+                        ],
+                        "isError": True,
+                    }
+                },
+            ),
+            (
                 {},
                 {
                     "result": {
@@ -866,13 +901,21 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         tool_payloads = [call.args[1] for call in post_json.call_args_list[1:]]
         self.assertEqual(
             [payload["method"] for payload in tool_payloads],
-            ["tools/call"] * 5,
+            [
+                "tools/call",
+                "tools/call",
+                "connectanum.pubsub.poll",
+                "tools/call",
+                "tools/call",
+                "tools/call",
+            ],
         )
         self.assertEqual(
-            [payload["params"]["name"] for payload in tool_payloads],
+            [payload["params"].get("name") for payload in tool_payloads],
             [
                 "connectanum.pubsub.subscribe",
                 "connectanum.pubsub.poll",
+                None,
                 "connectanum.pubsub.publish",
                 "connectanum.pubsub.poll",
                 "connectanum.pubsub.unsubscribe",
@@ -890,6 +933,21 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 "Mcp-Method": "tools/call",
                 "Mcp-Name": "connectanum.pubsub.poll",
             },
+        )
+        self.assertEqual(
+            post_json.call_args_list[3].kwargs["headers"],
+            {
+                "MCP-Session-Id": "compatibility-session",
+                "MCP-Protocol-Version": CLIENT_MODULE.MODERN_PROTOCOL,
+                "Mcp-Method": "connectanum.pubsub.poll",
+            },
+        )
+        self.assertEqual(
+            {
+                key: tool_payloads[2]["params"][key]
+                for key in ("handle", "limit")
+            },
+            {"handle": "compatibility-handle", "limit": 1},
         )
 
     def test_neutral_config_exposes_public_mcp_and_declared_topic(self) -> None:
