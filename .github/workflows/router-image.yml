@@ -33,6 +33,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Resolve Dart workspace dependencies
+        env:
+          CONNECTANUM_SKIP_NATIVE_BUILD: true
+        run: dart pub get
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
         with:

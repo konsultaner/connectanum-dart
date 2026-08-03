@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -69,5 +69,15 @@ both public and bearer-protected endpoints.
   core tests, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP tests, the
   complete 193-case MCP/client suite, all 96 benchmark tests, the complete
   380-case router suite, the 13-case native follow-up, all generated and
-  globally activated consumer smokes, and Chrome/Dart2Wasm. Commit, push, and
-  exact-head hosted evidence remain.
+  globally activated consumer smokes, and Chrome/Dart2Wasm.
+- 2026-08-02: Commit `459a16b` was pushed to GitLab and GitHub. Exact-head CI
+  `30770494000`, Dart Package Publish Dry Run `30771153289`, WAMP Profile
+  Benchmarks `30771153291`, and Router Image dry run `30771153281` all passed.
+  CI uploaded coverage artifact `8840554942`, WAMP uploaded benchmark artifact
+  `8840642436`, and Router Image uploaded preview artifact `8840564135`. The
+  comprehensive strict deployment-chain audit exited clean with exact-head CI
+  and log cleanliness, the loaded-image complete standard Meta API smoke,
+  multi-architecture image build, skipped GHCR login, and all required package,
+  native-release, benchmark, workflow-visibility, branch-protection, and
+  public-router-package gates clean. Selecting a later RC tag remains an
+  approval-gated release action outside this checkpoint.

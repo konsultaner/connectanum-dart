@@ -414,6 +414,36 @@ public-router-package gates clean. Selecting a later RC tag remains an
 approval-gated release action outside this checkpoint. The completed plan is
 `docs/exec-plans/2026-08-02-router-image-modern-session-identity-meta-smoke.md`.
 
+The completed Router Image standard Meta API checkpoint makes the canonical
+loaded-image smoke invoke all 15 standard WAMP session, registration, and
+subscription Meta API procedures exposed by the runtime. The remaining
+registration and subscription list, lookup, member-list, and member-count
+procedures now run through modern direct JSON and standard `tools/call` on
+public and bearer-protected routes. The smoke validates the configured neutral
+procedure and topic, proves their synthetic registrations and subscriptions
+have zero live members, and forwards the router-issued bearer on every
+protected request while preserving the existing pub/sub, Streamable HTTP,
+DELETE, authentication, revocation, and isolation evidence.
+
+A focused regression first failed because the image helpers stopped after the
+existing seven procedures. All 13 focused Python tests, Python compilation, a
+complete public/protected smoke against a real local native router, and
+pre-change and post-change `bin/test-fast` pass. Final local `bin/verify`
+passes formatting, analysis, 113 Rust core tests, 52 Rust FFI tests, 360 Dart
+core tests, all 94 MCP tests, the complete 193-case MCP/client suite, all 96
+benchmark tests, the complete 380-case router suite, the 13-case native
+follow-up, all generated and globally activated consumer smokes, and
+Chrome/Dart2Wasm. Commit `459a16b` was pushed to GitLab and GitHub. Exact-head
+CI `30770494000`, Dart Package Publish Dry Run `30771153289`, WAMP Profile
+Benchmarks `30771153291`, and Router Image dry run `30771153281` all passed. CI
+uploaded coverage artifact `8840554942`, WAMP uploaded benchmark artifact
+`8840642436`, and Router Image uploaded preview artifact `8840564135`. The
+comprehensive strict deployment-chain audit exited clean with every required
+CI/log, package, native-release, Router Image, WAMP benchmark, workflow,
+branch-protection, and public-package gate ready. RC tagging remains an
+approval-gated release action outside this checkpoint. The completed plan is
+`docs/exec-plans/2026-08-02-router-image-complete-standard-meta-smoke.md`.
+
 The completed Router Image registration/session Meta API checkpoint closes the
 next packaged application-tool boundary. Both loaded-image routes now declare
 the callable `wamp.session.count` procedure. The smoke discovers its
@@ -24179,18 +24209,32 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-03-router-image-public-client-runtime-smoke.md`.
+  It joins the shipped `connectanum_mcp:router_hosted_client` executable with
+  the locally loaded Router Image so release evidence proves public and
+  bearer-protected direct JSON, standard tools, configured WAMP Meta API,
+  Streamable HTTP, pub/sub, session deletion, and auth lifecycle behavior
+  without private consumer assumptions. Pre-change `bin/test-fast` passes at
+  exact local, GitLab, and GitHub head `459a16b`. The focused 14-case Router
+  Image suite and public/protected package-client runs against a real local
+  native router pass; the protected run includes refresh and revocation
+  evidence. Post-change `bin/test-fast` also passes the complete fast
+  regression, live WAMP benchmark, packaging, and router CLI consumer matrix.
+  Final local `bin/verify` passes formatting and analysis, 113 Rust core tests,
+  52 Rust FFI tests, 360 Dart core tests, all 94 MCP tests, the complete
+  193-case MCP/client suite, all 96 benchmark tests, the complete 380-case
+  router suite, the 13-case native follow-up, every generated and globally
+  activated package smoke, and Chrome/Dart2Wasm. Exact loaded-image proof
+  remains assigned to the hosted Router Image dry run because Docker Desktop
+  could not resolve its upstream Dockerfile frontend locally.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-02-router-image-complete-standard-meta-smoke.md`.
   It completes loaded-image evidence for all standard session, registration,
   and subscription Meta API procedures through modern direct JSON and standard
-  `tools/call` on public and bearer-protected routes. Focused tests and a real
-  native-router smoke pass, and pre-change plus post-change `bin/test-fast`
-  pass. Final local `bin/verify` passed formatting and analysis, 113 Rust core
-  tests, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP tests, the complete
-  193-case MCP/client suite, all 96 benchmark tests, the complete 380-case
-  router suite, the 13-case native follow-up, all generated and globally
-  activated consumer smokes, and Chrome/Dart2Wasm. Commit, push, and exact-head
-  hosted evidence remain.
-- Most recently completed router-hosted MCP packaging-readiness plan:
+  `tools/call` on public and bearer-protected routes. Commit `459a16b`, local
+  verification, exact-head CI/package/WAMP/Router Image workflows, and the
+  comprehensive strict deployment-chain audit are clean.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-02-router-image-modern-session-identity-meta-smoke.md`.
   It proves route-local session listing and authorization-identity inspection
   through modern direct JSON and standard `tools/call` on public and

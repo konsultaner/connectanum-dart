@@ -5,6 +5,10 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 smoke_config="$repo_root/deploy/docker/router_mcp_smoke.yaml"
 smoke_client="$repo_root/tool/smoke_router_image_mcp.py"
+mcp_client_package="connectanum_mcp:router_hosted_client"
+mcp_protocol_version="2025-11-25"
+mcp_procedure="wamp.session.count"
+mcp_topic="image.smoke.events"
 
 usage() {
   printf 'Usage: %s IMAGE\n' "${0##*/}" >&2
@@ -15,7 +19,7 @@ if [[ "$#" -ne 1 || -z "$1" ]]; then
   exit 2
 fi
 
-for command_name in docker python3; do
+for command_name in docker python3 dart; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     printf 'Required command is unavailable: %s\n' "$command_name" >&2
     exit 1
@@ -68,8 +72,64 @@ if [[ -z "$host_port" ]]; then
   exit 1
 fi
 
+run_package_client_smoke() {
+  local label="$1"
+  local endpoint="$2"
+  local summary
+  shift 2
+
+  summary="$(
+    cd "$repo_root"
+    CONNECTANUM_SKIP_NATIVE_BUILD=true \
+      dart run "$mcp_client_package" \
+      --endpoint "$endpoint" \
+      --protocol-version "$mcp_protocol_version" \
+      --wamp-procedure "$mcp_procedure" \
+      --wamp-topic "$mcp_topic" \
+      --pubsub-topic "$mcp_topic" \
+      --pubsub-event '{"source":"router-image-package-client"}' \
+      "$@"
+  )"
+
+  for marker in \
+    '"directStandardTools"' \
+    '"directWampMetadata"' \
+    '"configuredRegistrationMetadata"' \
+    '"configuredSubscriptionMetadata"' \
+    '"activeDirectJson"' \
+    '"streamable"' \
+    '"initializedNotification":{"accepted":true}' \
+    '"pubsub"'; do
+    if [[ "$summary" != *"$marker"* ]]; then
+      printf '%s package client smoke omitted required evidence: %s\n' \
+        "$label" "$marker" >&2
+      printf '%s\n' "$summary" >&2
+      return 1
+    fi
+  done
+
+  if [[ "$label" == "Protected" && "$summary" != *'"authLifecycle"'* ]]; then
+    printf 'Protected package client smoke omitted auth lifecycle evidence.\n' >&2
+    printf '%s\n' "$summary" >&2
+    return 1
+  fi
+
+  printf '%s\n' "$summary"
+  printf '%s Router Image public package client smoke passed.\n' "$label"
+}
+
 python3 "$smoke_client" \
   --endpoint "http://127.0.0.1:$host_port/mcp" \
   --secure-endpoint "http://127.0.0.1:$host_port/mcp/secure" \
   --auth-endpoint "http://127.0.0.1:$host_port/auth"
+
+run_package_client_smoke "Public" \
+  "http://127.0.0.1:$host_port/mcp"
+run_package_client_smoke "Protected" \
+  "http://127.0.0.1:$host_port/mcp/secure" \
+  --auth-url "http://127.0.0.1:$host_port/auth" \
+  --realm image.smoke \
+  --auth-id image-smoke-agent \
+  --ticket image-smoke-ticket \
+  --auth-lifecycle-smoke
 printf 'Router image MCP runtime smoke passed for %s.\n' "$image"

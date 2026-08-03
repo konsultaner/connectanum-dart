@@ -59,6 +59,37 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         self.assertIn('--secure-endpoint "http://127.0.0.1:$host_port/mcp/secure"', runner)
         self.assertIn('--auth-endpoint "http://127.0.0.1:$host_port/auth"', runner)
 
+    def test_shell_runner_exercises_public_package_client_against_image(self) -> None:
+        runner = RUNNER.read_text(encoding="utf-8")
+        for expected in [
+            "for command_name in docker python3 dart; do",
+            'mcp_client_package="connectanum_mcp:router_hosted_client"',
+            'mcp_protocol_version="2025-11-25"',
+            'mcp_procedure="wamp.session.count"',
+            'mcp_topic="image.smoke.events"',
+            'CONNECTANUM_SKIP_NATIVE_BUILD=true',
+            'dart run "$mcp_client_package"',
+            '--wamp-procedure "$mcp_procedure"',
+            '--wamp-topic "$mcp_topic"',
+            '--pubsub-topic "$mcp_topic"',
+            '"directWampMetadata"',
+            '"configuredRegistrationMetadata"',
+            '"configuredSubscriptionMetadata"',
+            '"activeDirectJson"',
+            '"streamable"',
+            '"pubsub"',
+            'run_package_client_smoke "Public"',
+            'run_package_client_smoke "Protected"',
+            '--auth-url "http://127.0.0.1:$host_port/auth"',
+            '--realm image.smoke',
+            '--auth-id image-smoke-agent',
+            '--ticket image-smoke-ticket',
+            "--auth-lifecycle-smoke",
+            '"authLifecycle"',
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, runner)
+
     def test_smoke_contract_covers_modern_and_streamable_mcp(self) -> None:
         client = CLIENT.read_text(encoding="utf-8")
         for expected in [
@@ -653,11 +684,17 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
 
     def test_workflow_smokes_loaded_image_before_multiarch_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
+        dart_setup = workflow.index("- uses: dart-lang/setup-dart@v1")
+        dart_dependencies = workflow.index(
+            "- name: Resolve Dart workspace dependencies"
+        )
         local_build = workflow.index("- name: Build local router smoke image")
         runtime_smoke = workflow.index("- name: Smoke router-hosted MCP image")
         multiarch_build = workflow.index(
             "- name: Build or publish multi-arch router image"
         )
+        self.assertLess(dart_setup, dart_dependencies)
+        self.assertLess(dart_dependencies, runtime_smoke)
         self.assertLess(local_build, runtime_smoke)
         self.assertLess(runtime_smoke, multiarch_build)
         self.assertIn("load: true", workflow[local_build:runtime_smoke])
