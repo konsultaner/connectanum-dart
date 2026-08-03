@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -65,5 +65,14 @@ accessing or mutating the referenced `2025-11-25` Streamable HTTP session.
   all 94 MCP tests, the complete 193-case MCP/client authorization suite, all
   96 benchmark tests with live WAMP workloads, every isolated and globally
   activated consumer smoke, the complete 380-case router suite, 13 focused
-  native-forwarding tests, and Chrome/Dart2Wasm coverage. Hosted exact-head
-  evidence remains.
+  native-forwarding tests, and Chrome/Dart2Wasm coverage.
+- 2026-08-03: Implementation commit `7ca40a5` was pushed to GitLab and GitHub.
+  Exact-head CI `30845561001` passed Fast Checks, Dart VM Coverage, Full
+  Verify, Codecov upload, and coverage artifact `8869020588`. Router Image dry
+  run `30845587286` passed the loaded-image runtime smoke and uploaded preview
+  artifact `8868540607`; its log contains the bounded
+  `modern_live_session_ignored=true standard=true direct=true` marker plus
+  exactly four public/protected package evidence lines. The latest package
+  publish dry run, native release dry run, and WAMP profile benchmark remain
+  relevant because no sensitive inputs changed. The comprehensive strict
+  deployment-chain audit exited zero with every required gate clean.

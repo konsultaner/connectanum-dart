@@ -636,15 +636,14 @@ sensitive inputs changed. The comprehensive strict deployment-chain audit
 exited zero with every required gate clean. The completed plan is
 `docs/exec-plans/2026-08-03-router-image-modern-live-session-isolation-smoke.md`.
 
-The active Router Image modern direct live-session isolation checkpoint closes
-the corresponding direct JSON evidence gap. The loaded-image smoke already
-proves a modern standard `tools/call` carrying a live compatibility
-`MCP-Session-Id` cannot access or mutate that session. It will now send both
-that standard request and a direct `connectanum.pubsub.poll` request against the
-same real compatibility subscription, require both paths to remain sessionless
-and return the unknown-handle error, then complete the original compatibility
+The completed Router Image modern direct live-session isolation checkpoint
+closes the corresponding direct JSON evidence gap. The loaded-image smoke sends
+both a modern standard `tools/call` and a direct `connectanum.pubsub.poll`
+request carrying a live compatibility `MCP-Session-Id` against the same real
+compatibility subscription. Both paths remain sessionless and return the
+unknown-handle error, then the original compatibility session completes its
 publish, poll, unsubscribe, and DELETE lifecycle. Public and bearer-protected
-routes remain in scope. Pre-change `bin/test-fast` passed. The active plan is
+routes are covered. Pre-change `bin/test-fast` passed. The completed plan is
 `docs/exec-plans/2026-08-03-router-image-modern-direct-live-session-isolation-smoke.md`.
 
 The focused regression failed first because the live-session helper issued
@@ -659,7 +658,43 @@ Rust/FFI suites, the updated Router Image contract, 360 core tests, 94 MCP
 tests, 193 MCP/client authorization cases, all 96 benchmark tests with live
 WAMP workloads, every isolated and globally activated consumer smoke, the
 complete 380-case router suite, 13 native-forwarding follow-ups, and the
-Chrome/Dart2Wasm browser smoke. Hosted exact-head evidence remains.
+Chrome/Dart2Wasm browser smoke. Commit `7ca40a5` was pushed to GitLab and
+GitHub. Exact-head CI `30845561001` passed Fast Checks, Dart VM Coverage, Full
+Verify, the clean hosted-log scan, Codecov upload, and coverage artifact
+`8869020588`. Router Image dry run `30845587286` passed the loaded-image
+runtime smoke and uploaded preview artifact `8868540607`; its log contains the
+bounded standard/direct modern-live-session isolation marker plus exactly four
+public/protected package evidence lines. The latest package publish dry run,
+native release dry run, and WAMP profile benchmark remain relevant because no
+sensitive inputs changed. The comprehensive strict deployment-chain audit
+exited zero with every required gate clean.
+
+The active Router Image modern method live-session isolation checkpoint closes
+the remaining loaded-image cross-era method gap. The MCP `2026-07-28`
+stateless core rejects GET and DELETE, but canonical evidence does not yet prove
+that either request is harmless when it carries a real compatibility session
+identifier. The public and bearer-protected compatibility pub/sub runs will
+send modern GET and DELETE requests with their live `MCP-Session-Id`, require
+the stateless HTTP 405 contract without a response session header, and then
+complete compatibility publish, poll, unsubscribe, and DELETE unchanged.
+Pre-change `bin/test-fast` passed. The active plan is
+`docs/exec-plans/2026-08-03-router-image-modern-method-live-session-isolation-smoke.md`.
+
+The focused contract failed first because the runner had no modern GET/DELETE
+live-session probe. The new probe requires HTTP 405, `Allow: POST, OPTIONS`,
+the modern protocol header, JSON-RPC `-32600`, and no response session ID from
+both methods before the compatibility lifecycle continues. Python compilation,
+all 20 Router Image contracts, and the complete runner against a freshly built
+Linux/amd64 image pass. The bounded raw evidence reports
+`modern_methods_rejected=true get=true delete=true` for public and protected
+routes, and all four globally activated package-client evidence lines remain
+green. Full `bin/verify` also passed, including formatting, 113 Rust core
+tests, 52 Rust FFI tests plus the focused metrics follow-up, the updated
+20-test Router Image contract, 360 core tests, all 94 MCP tests, the complete
+193-case MCP/client authorization suite, all 96 benchmark tests with live WAMP
+workloads, every isolated and globally activated consumer smoke, the complete
+380-case router suite, 13 focused native-forwarding tests, and
+Chrome/Dart2Wasm coverage. Hosted exact-head evidence remains.
 
 The completed Router Image modern batch-rejection checkpoint pins a protocol-era
 boundary that was implemented but absent from release evidence. The public
@@ -24492,15 +24527,25 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-03-router-image-modern-method-live-session-isolation-smoke.md`.
+  It extends the real loaded-image compatibility-session isolation proof to
+  modern GET and DELETE, requiring the stateless HTTP 405 contract and the
+  complete compatibility pub/sub and DELETE lifecycle to remain intact for
+  public and protected routes. Pre-change `bin/test-fast`, the focused
+  fail-first contract, all 20 Router Image contracts, and the complete fresh
+  local image runner pass. Full `bin/verify` also passes; hosted exact-head
+  evidence remains.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-03-router-image-modern-direct-live-session-isolation-smoke.md`.
   It extends the loaded-image cross-era isolation proof through both modern
   standard `tools/call` and direct JSON tool/meta requests carrying the same
   live compatibility session ID, while requiring the compatibility pub/sub and
   DELETE lifecycle to remain intact. Pre-change `bin/test-fast`, the focused
-  failing regression, all 19 contracts, and the complete fresh local image
-  runner pass. Full `bin/verify` also passes; hosted exact-head evidence
-  remains.
-- Most recently completed router-hosted MCP packaging-readiness plan:
+  failing regression, all 19 contracts, the complete fresh local image runner,
+  and full `bin/verify` pass. Implementation commit `7ca40a5`, exact-head CI
+  and Router Image workflows, relevant package/native/WAMP evidence, and the
+  comprehensive strict audit all pass.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-03-router-image-modern-live-session-isolation-smoke.md`.
   It proves that modern public and bearer-protected requests carrying a live
   compatibility session ID cannot access or mutate that session, do not echo

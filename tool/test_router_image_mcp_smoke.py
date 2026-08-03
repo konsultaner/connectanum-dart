@@ -242,9 +242,11 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "_expect_modern_batch_rejected(",
             "label=\"Protected\"",
             "_expect_modern_requests_ignore_compatibility_session(",
+            "_expect_modern_session_methods_rejected(",
             '"MCP-Session-Id": session_id',
             '"Router Image MCP evidence: modern_batch_rejected=true "',
             '"modern_live_session_ignored=true standard=true direct=true "',
+            '"modern_methods_rejected=true get=true delete=true "',
             '"compatibility_session_preserved=true "',
             '"session_header_echoed=false public=true protected=true."',
         ]:
@@ -355,6 +357,65 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                         **authorization_headers,
                         "MCP-Session-Id": session_id,
                     },
+                ),
+            ]
+        )
+
+    def test_modern_get_and_delete_reject_live_compatibility_session(
+        self,
+    ) -> None:
+        authorization_headers = {"Authorization": "Bearer issued-token"}
+        session_id = "live-compatibility-session"
+        response_headers = {
+            "allow": "POST, OPTIONS",
+            "mcp-protocol-version": CLIENT_MODULE.MODERN_PROTOCOL,
+        }
+        response_body = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "error": {
+                    "code": -32600,
+                    "message": "MCP 2026 HTTP endpoints support POST and OPTIONS",
+                },
+            }
+        )
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            side_effect=[
+                (405, response_headers, response_body),
+                (405, response_headers, response_body),
+            ],
+        ) as request:
+            CLIENT_MODULE._expect_modern_session_methods_rejected(
+                "http://router/mcp/secure",
+                label="Protected",
+                session_id=session_id,
+                authorization_headers=authorization_headers,
+            )
+
+        request.assert_has_calls(
+            [
+                mock.call(
+                    "http://router/mcp/secure",
+                    "GET",
+                    headers={
+                        **authorization_headers,
+                        "MCP-Protocol-Version": CLIENT_MODULE.MODERN_PROTOCOL,
+                        "MCP-Session-Id": session_id,
+                    },
+                    allow_http_error=True,
+                ),
+                mock.call(
+                    "http://router/mcp/secure",
+                    "DELETE",
+                    headers={
+                        **authorization_headers,
+                        "MCP-Protocol-Version": CLIENT_MODULE.MODERN_PROTOCOL,
+                        "MCP-Session-Id": session_id,
+                    },
+                    allow_http_error=True,
                 ),
             ]
         )
@@ -881,6 +942,42 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]
         request_responses = [
             (202, {}, ""),
+            (
+                405,
+                {
+                    "allow": "POST, OPTIONS",
+                    "mcp-protocol-version": CLIENT_MODULE.MODERN_PROTOCOL,
+                },
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "error": {
+                            "code": -32600,
+                            "message": (
+                                "MCP 2026 HTTP endpoints support POST and OPTIONS"
+                            ),
+                        },
+                    }
+                ),
+            ),
+            (
+                405,
+                {
+                    "allow": "POST, OPTIONS",
+                    "mcp-protocol-version": CLIENT_MODULE.MODERN_PROTOCOL,
+                },
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "error": {
+                            "code": -32600,
+                            "message": (
+                                "MCP 2026 HTTP endpoints support POST and OPTIONS"
+                            ),
+                        },
+                    }
+                ),
+            ),
             (202, {"mcp-session-id": "compatibility-session"}, ""),
         ]
 

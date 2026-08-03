@@ -253,6 +253,54 @@ def _expect_modern_requests_ignore_compatibility_session(
             )
 
 
+def _expect_modern_session_methods_rejected(
+    endpoint: str,
+    *,
+    label: str,
+    session_id: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    headers = {
+        **(authorization_headers or {}),
+        "MCP-Protocol-Version": MODERN_PROTOCOL,
+        "MCP-Session-Id": session_id,
+    }
+    for method in ("GET", "DELETE"):
+        status, response_headers, body = _request(
+            endpoint,
+            method,
+            headers=headers,
+            allow_http_error=True,
+        )
+        if status != 405:
+            raise AssertionError(
+                f"{label} modern {method} returned HTTP {status}: {body}"
+            )
+        if response_headers.get("mcp-session-id") is not None:
+            raise AssertionError(
+                f"{label} modern {method} leaked the compatibility session ID"
+            )
+        if response_headers.get("mcp-protocol-version") != MODERN_PROTOCOL:
+            raise AssertionError(
+                f"{label} modern {method} missed the negotiated protocol header"
+            )
+        if response_headers.get("allow") != "POST, OPTIONS":
+            raise AssertionError(
+                f"{label} modern {method} returned an unexpected Allow header: "
+                f"{response_headers.get('allow')!r}"
+            )
+        parsed = _json_payload(body)
+        error = parsed.get("error") if isinstance(parsed, dict) else None
+        if not isinstance(error, dict) or error.get("code") != -32600:
+            raise AssertionError(
+                f"{label} modern {method} missed invalidRequest: {parsed}"
+            )
+        if "support POST and OPTIONS" not in str(error.get("message", "")):
+            raise AssertionError(
+                f"{label} modern {method} had an unexpected message: {error}"
+            )
+
+
 def _structured_content(message: dict[str, Any], *, label: str) -> dict[str, Any]:
     result = message.get("result")
     if not isinstance(result, dict):
@@ -908,6 +956,12 @@ def _run_compatibility_pubsub(
         subscription_handle=handle,
         authorization_headers=authorization_headers,
     )
+    _expect_modern_session_methods_rejected(
+        endpoint,
+        label=label,
+        session_id=session_id,
+        authorization_headers=authorization_headers,
+    )
 
     marker = f"router-image-{label.lower()}-streamable-publish"
     _, publish = _post_json(
@@ -1176,6 +1230,7 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         "Router Image MCP evidence: modern_batch_rejected=true "
         "status=400 error=-32600 sessionless=true "
         "modern_live_session_ignored=true standard=true direct=true "
+        "modern_methods_rejected=true get=true delete=true "
         "compatibility_session_preserved=true "
         "session_header_echoed=false public=true protected=true."
     )
