@@ -206,6 +206,39 @@ def _expect_modern_batch_rejected(
         )
 
 
+def _expect_modern_request_ignores_compatibility_session(
+    endpoint: str,
+    *,
+    label: str,
+    session_id: str,
+    subscription_handle: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    response = _modern_call(
+        endpoint,
+        f"{label.lower()}-modern-live-compatibility-session-poll",
+        "tools/call",
+        {
+            "name": "connectanum.pubsub.poll",
+            "arguments": {"handle": subscription_handle, "limit": 1},
+        },
+        headers={
+            **(authorization_headers or {}),
+            "MCP-Session-Id": session_id,
+        },
+    )
+    result = response.get("result")
+    expected_error = f"Unknown WAMP subscription handle: {subscription_handle}"
+    if (
+        not isinstance(result, dict)
+        or result.get("isError") is not True
+        or expected_error not in json.dumps(result)
+    ):
+        raise AssertionError(
+            f"{label} modern request accessed compatibility session state: {response}"
+        )
+
+
 def _structured_content(message: dict[str, Any], *, label: str) -> dict[str, Any]:
     result = message.get("result")
     if not isinstance(result, dict):
@@ -854,6 +887,14 @@ def _run_compatibility_pubsub(
     if not isinstance(handle, str) or not handle or subscription.get("topic") != TOPIC:
         raise AssertionError(f"{label} subscribe returned invalid state: {subscription}")
 
+    _expect_modern_request_ignores_compatibility_session(
+        endpoint,
+        label=label,
+        session_id=session_id,
+        subscription_handle=handle,
+        authorization_headers=authorization_headers,
+    )
+
     marker = f"router-image-{label.lower()}-streamable-publish"
     _, publish = _post_json(
         endpoint,
@@ -1119,7 +1160,9 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
     _run_protected_smoke(secure_endpoint, auth_endpoint)
     print(
         "Router Image MCP evidence: modern_batch_rejected=true "
-        "status=400 error=-32600 sessionless=true public=true protected=true."
+        "status=400 error=-32600 sessionless=true "
+        "modern_live_session_ignored=true compatibility_session_preserved=true "
+        "session_header_echoed=false public=true protected=true."
     )
 
 

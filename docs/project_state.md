@@ -609,7 +609,26 @@ and both revocation checks, while compatibility Streamable evidence remains
 intact. The comprehensive strict deployment-chain audit exited clean with every
 required gate ready. RC tagging remains approval-gated.
 
-The active Router Image modern batch-rejection checkpoint pins a protocol-era
+The active Router Image modern live-session isolation checkpoint closes a
+cross-era auth/session evidence gap. The MCP `2026-07-28` transport requires a
+server to ignore an incoming compatibility `MCP-Session-Id` without minting or
+echoing session state. The canonical loaded-image smoke now creates a real
+`2025-11-25` public or bearer-protected pub/sub subscription, sends a modern
+standard tool poll carrying that live session ID, and requires the modern
+sessionless endpoint to reject access to the compatibility handle. The original
+compatibility session must then publish, poll, unsubscribe, and delete normally,
+proving the cross-era request neither hijacked nor mutated it. Pre-change
+`bin/test-fast`, the focused 19-test Router Image contract, and the complete
+runner against a fresh local amd64 image passed. The raw evidence reports the
+modern live session was ignored, the compatibility session was preserved, and
+no session header was echoed for both public and protected routes. Full
+`bin/verify` also passed, including formatting, Rust/FFI, package and consumer
+smokes, live WAMP integration, the complete router suite, HTTP/2 and HTTP/3
+integration, and the Chrome/Dart2Wasm browser smoke. Hosted exact-head evidence
+remains. The active plan is
+`docs/exec-plans/2026-08-03-router-image-modern-live-session-isolation-smoke.md`.
+
+The completed Router Image modern batch-rejection checkpoint pins a protocol-era
 boundary that was implemented but absent from release evidence. The public
 client intentionally rejects JSON-RPC batches for MCP `2026-07-28` before an
 HTTP request, and the router rejects a raw modern batch with HTTP 400,
@@ -618,7 +637,7 @@ session header. The globally activated package executable now proves its local
 guard without changing session state, while the canonical loaded-image smoke
 proves the same server rejection on public and bearer-protected endpoints. The
 maintained `2025-11-25` compatibility runs retain positive direct and
-Streamable batch coverage. The active plan is
+Streamable batch coverage. The completed plan is
 `docs/exec-plans/2026-08-03-router-image-modern-batch-rejection-smoke.md`.
 
 Pre-change `bin/test-fast` passed. Dart package analysis, the focused native
@@ -634,7 +653,16 @@ router tests, 13 focused native-forwarding tests, and the Dart2Wasm browser
 smoke. The first full run exposed a successful browser watchdog that held the
 output pipe open for its unused timeout; the browser runner now reuses the
 tested shared timeout helper, and the final full rerun exits immediately after
-the browser pass. Hosted exact-head evidence remains.
+the browser pass. Commit `437df23` was pushed to GitLab and GitHub. Exact-head
+CI `30832856716`, Dart Package Publish Dry Run `30832856688`, Router Image dry
+run `30834158108`, and WAMP Profile Benchmarks `30832856637` all passed. CI
+uploaded coverage artifact `8864028186`, Router Image uploaded preview artifact
+`8864138423`, and WAMP uploaded benchmark artifact `8863836803`. Fresh-image
+logs contain the raw rejection marker plus exactly four bounded package lines;
+both modern lines report `modern_batch_unsupported=true`, and both
+compatibility lines retain Streamable HTTP/session-deletion evidence. The
+comprehensive strict deployment-chain audit exited zero with every required
+gate ready. RC tagging remains approval-gated.
 
 The completed Router Image standard Meta API checkpoint makes the canonical
 loaded-image smoke invoke all 15 standard WAMP session, registration, and
@@ -24431,13 +24459,23 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-03-router-image-modern-live-session-isolation-smoke.md`.
+  It proves that modern public and bearer-protected requests carrying a live
+  compatibility session ID cannot access or mutate that session, do not echo
+  the identifier, and leave the full compatibility pub/sub and DELETE lifecycle
+  intact. Pre-change `bin/test-fast`, the focused contract, and the complete
+  local loaded-image runner pass. Full `bin/verify` passes; hosted exact-head
+  evidence remains.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-03-router-image-modern-batch-rejection-smoke.md`.
   It pins the MCP 2026 no-batch boundary in the native router, the globally
   activated public package executable, and public/protected loaded-image smoke
   while retaining compatibility-era batch support. Pre-change `bin/test-fast`,
   focused analysis/tests, the complete local image runner, and full local
-  verification pass; hosted exact-head evidence remains.
-- Most recently completed router-hosted MCP packaging-readiness plan:
+  verification pass. Implementation commit `437df23`, exact-head CI, package,
+  Router Image, and WAMP workflows, plus the comprehensive strict audit all
+  pass.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-03-router-image-modern-auth-lifecycle-package-smoke.md`.
   It makes the globally activated protected modern client prove grant refresh,
   request-scoped operation with the refreshed grant, revoked-access rejection,
@@ -24447,7 +24485,7 @@ at the older `47bbf9c` commit.
   image runner, full `bin/verify`, implementation commit `93ed142`, exact-head
   CI, package, Router Image, and WAMP workflows, plus the comprehensive strict
   audit all pass.
-- Completed immediately before that:
+- Completed before that:
   `docs/exec-plans/2026-08-03-router-image-modern-resource-listener-package-smoke.md`.
   It extends the globally activated fresh-image package client with a modern
   request-scoped dynamic-resource listener, acknowledged direct JSON update,

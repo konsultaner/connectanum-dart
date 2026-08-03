@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -58,4 +58,16 @@ supported batch behavior.
   browser-watchdog sleeper; the runner now delegates to the shared timeout
   helper and has a focused prompt-return regression. The final full
   `bin/verify` rerun passed and returned immediately after the Dart2Wasm
-  browser smoke. Hosted exact-head evidence remains.
+  browser smoke.
+- 2026-08-03: Commit `437df23` was pushed to GitLab and GitHub. Exact-head CI
+  `30832856716`, Dart Package Publish Dry Run `30832856688`, Router Image dry
+  run `30834158108`, and WAMP Profile Benchmarks `30832856637` all passed. CI
+  uploaded coverage artifact `8864028186`, Router Image uploaded preview
+  artifact `8864138423`, and WAMP uploaded benchmark artifact `8863836803`.
+- 2026-08-03: Fresh-image logs contain the raw
+  `modern_batch_rejected=true status=400 error=-32600 sessionless=true`
+  evidence plus exactly four bounded package lines. Both modern lines report
+  `modern_batch_unsupported=true`; both compatibility lines retain Streamable
+  HTTP and session deletion. The comprehensive strict deployment-chain audit
+  exited zero with every required gate ready. RC tagging remains
+  approval-gated.
