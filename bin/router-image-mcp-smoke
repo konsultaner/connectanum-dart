@@ -76,6 +76,23 @@ if [[ -z "$host_port" ]]; then
   exit 1
 fi
 
+print_package_client_evidence() {
+  local label="$1"
+  local protocol_version="$2"
+  local mode="$3"
+  local auth_evidence="$4"
+  local lifecycle_evidence="$5"
+
+  printf '%s Router Image package evidence: protocol=%s mode=%s auth=%s %s direct_json=true resources=true resource_templates=true prompts=true wamp_meta=true pubsub=true resource_uri=%s prompt=%s.\n' \
+    "$label" \
+    "$protocol_version" \
+    "$mode" \
+    "$auth_evidence" \
+    "$lifecycle_evidence" \
+    "$mcp_resource_uri" \
+    "$mcp_prompt_name"
+}
+
 run_package_client_smoke() {
   local label="$1"
   local endpoint="$2"
@@ -129,8 +146,19 @@ run_package_client_smoke() {
     return 1
   fi
 
-  printf '%s\n' "$summary"
-  printf '%s Router Image public package client smoke passed.\n' "$label"
+  local auth_evidence="anonymous"
+  local lifecycle_evidence="streamable_http=true session_delete=true"
+  if [[ "$label" == "Protected" ]]; then
+    auth_evidence="router-issued"
+    lifecycle_evidence+=" auth_lifecycle=true"
+  fi
+  print_package_client_evidence \
+    "$label" \
+    "$mcp_compatibility_protocol_version" \
+    "compatibility" \
+    "$auth_evidence" \
+    "$lifecycle_evidence"
+  printf '%s Router Image package client smoke passed.\n' "$label"
 }
 
 run_stateless_package_client_smoke() {
@@ -177,8 +205,17 @@ run_stateless_package_client_smoke() {
     fi
   done
 
-  printf '%s\n' "$summary"
-  printf '%s Router Image stateless public package client smoke passed.\n' \
+  local auth_evidence="anonymous"
+  if [[ "$label" == "Protected" ]]; then
+    auth_evidence="router-issued"
+  fi
+  print_package_client_evidence \
+    "$label" \
+    "$mcp_modern_protocol_version" \
+    "stateless" \
+    "$auth_evidence" \
+    "sessionless=true"
+  printf '%s Router Image stateless package client smoke passed.\n' \
     "$label"
 }
 

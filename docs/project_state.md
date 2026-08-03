@@ -469,7 +469,7 @@ branch-protection, and public-package gate ready. RC tagging remains an
 approval-gated release action outside this checkpoint. The completed plan is
 `docs/exec-plans/2026-08-03-router-image-stateless-public-client-smoke.md`.
 
-The active Router Image resource/prompt package checkpoint closes another
+The completed Router Image resource/prompt package checkpoint closes another
 consumer-facing gap in the canonical loaded-image evidence. Both public and
 bearer-protected routes now configure the same neutral static resource,
 resource template, and required-argument prompt. The image runner passes their
@@ -486,8 +486,34 @@ protected compatibility auth lifecycle. Pre-change and post-change
 Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP tests, the
 complete 193-case MCP/client suite, all 96 benchmark tests, the complete
 380-case router suite, the 13-case native follow-up, all package smokes, and
-Chrome/Dart2Wasm. Hosted deployment-chain gates remain in progress under
+Chrome/Dart2Wasm. Commit `093e032` was pushed to GitLab and GitHub. Exact-head
+CI `30799920053`, Dart Package Publish Dry Run `30799932547`, Router Image dry
+run `30799932602`, and WAMP Profile Benchmarks `30799932723` all passed. CI
+uploaded coverage artifact `8850823884`, Router Image uploaded preview artifact
+`8850398719`, and WAMP uploaded benchmark artifact `8850584445`.
+
+Hosted Router Image logs contain the configured resource URI, template URI,
+prompt name, rendered neutral prompt, and public/protected stateless pass
+markers; the successful compatibility runs gated the required direct and
+Streamable resource/template/prompt markers. The comprehensive strict
+deployment-chain audit exited clean with every required CI/log, package,
+native-release, Router Image, WAMP, workflow, branch-protection, and
+public-package gate ready. RC tagging remains an approval-gated release action
+outside this checkpoint. The completed plan is
 `docs/exec-plans/2026-08-03-router-image-resource-prompt-package-smoke.md`.
+
+The active Router Image readable-evidence checkpoint keeps that runtime matrix
+intact while making its hosted proof operationally useful. The image runner
+now validates every public/protected modern and compatibility marker in
+captured output, then emits one bounded evidence line instead of replaying the
+entire successful client summary. Those lines identify protocol version,
+authentication class, lifecycle mode, direct JSON, resources/templates/
+prompts, WAMP Meta API, pub/sub, and the configured resource/prompt selectors;
+full summaries remain available on failure. The focused contract first failed
+against the old replay and all 15 Router Image MCP smoke contracts now pass.
+Pre-change `bin/test-fast` and full post-change `bin/verify` pass. A fresh
+hosted image build, exact four-line log evidence, and deployment-chain audit
+remain under the active plan.
 
 The completed Router Image standard Meta API checkpoint makes the canonical
 loaded-image smoke invoke all 15 standard WAMP session, registration, and
@@ -24284,6 +24310,11 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-03-router-image-readable-mcp-evidence.md`.
+  It keeps the complete image package-client marker gates but replaces
+  successful oversized summary replay with bounded public/protected,
+  modern/compatibility evidence lines that remain visible in hosted logs.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-03-router-image-resource-prompt-package-smoke.md`.
   It adds neutral router-configured resource, resource-template, and prompt
   data to the canonical Router Image route, then makes the shipped public
@@ -24291,9 +24322,12 @@ at the older `47bbf9c` commit.
   compatibility-era Streamable HTTP on public and bearer-protected endpoints.
   Focused source contracts, public/protected real-native-router runs in both
   protocol eras, pre-change plus post-change `bin/test-fast`, and full local
-  `bin/verify` pass. Hosted deployment-chain verification remains in progress.
-- Most recently completed router-hosted MCP
-  packaging-readiness plan is:
+  `bin/verify` pass. Implementation commit `093e032`, exact-head CI, package,
+  Router Image, and WAMP workflows, plus the comprehensive strict audit all
+  pass. Hosted fresh-image logs contain the configured resource, template,
+  rendered prompt, and public/protected stateless evidence, while compatibility
+  runs gate the direct and Streamable resource/template/prompt markers.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-03-router-image-stateless-public-client-smoke.md`.
   It makes the shipped public client executable use its existing stateless
   `2026-07-28` transport mode for modern discovery, direct tool and WAMP Meta

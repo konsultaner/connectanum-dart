@@ -110,6 +110,36 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)
 
+    def test_shell_runner_emits_bounded_package_client_evidence(self) -> None:
+        runner = RUNNER.read_text(encoding="utf-8")
+        for expected in [
+            "print_package_client_evidence() {",
+            "Router Image package evidence: protocol=%s mode=%s auth=%s",
+            "direct_json=true resources=true resource_templates=true",
+            "prompts=true wamp_meta=true pubsub=true",
+            "resource_uri=%s prompt=%s",
+            '"sessionless=true"',
+            '"streamable_http=true session_delete=true"',
+            'lifecycle_evidence+=" auth_lifecycle=true"',
+            "%s Router Image package client smoke passed.",
+            "%s Router Image stateless package client smoke passed.",
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, runner)
+
+        self.assertNotIn("Router Image public package client", runner)
+        self.assertNotIn("Router Image stateless public package client", runner)
+
+        summary_prints = [
+            line.strip()
+            for line in runner.splitlines()
+            if 'printf \'%s\\n\' "$summary"' in line
+        ]
+        self.assertEqual(
+            summary_prints,
+            ['printf \'%s\\n\' "$summary" >&2'] * 3,
+        )
+
     def test_smoke_contract_covers_modern_and_streamable_mcp(self) -> None:
         client = CLIENT.read_text(encoding="utf-8")
         for expected in [

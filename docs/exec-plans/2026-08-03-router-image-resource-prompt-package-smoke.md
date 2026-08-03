@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -74,3 +74,18 @@ both modern stateless direct JSON and compatibility-era Streamable HTTP.
   tests, all 94 MCP tests, the complete 193-case MCP/client suite, all 96
   benchmark tests with 36 live WAMP workloads, the complete 380-case router
   suite, the 13-case native follow-up, all package smokes, and Chrome/Dart2Wasm.
+- 2026-08-03: Commit `093e032` was pushed to GitLab and GitHub. Exact-head CI
+  `30799920053`, Dart Package Publish Dry Run `30799932547`, Router Image dry
+  run `30799932602`, and WAMP Profile Benchmarks `30799932723` all passed. CI
+  uploaded coverage artifact `8850823884`, Router Image uploaded preview
+  artifact `8850398719`, and WAMP uploaded benchmark artifact `8850584445`.
+- 2026-08-03: Hosted Router Image logs visibly contain the configured resource
+  URI, template URI, prompt name, rendered neutral prompt, and public/protected
+  stateless pass markers. The successful compatibility runs gated the required
+  direct and Streamable resource/template/prompt markers before the final
+  non-publishing multi-architecture build.
+- 2026-08-03: The comprehensive strict deployment-chain audit exited clean
+  with exact-head CI and log cleanliness, package dry run, relevant native
+  release evidence, Router Image dry run, WAMP artifacts, workflow visibility,
+  branch protection, and public router-package visibility ready. Selecting a
+  follow-up RC tag remains an approval-gated release action outside this plan.
