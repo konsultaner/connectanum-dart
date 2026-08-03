@@ -243,10 +243,13 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "label=\"Protected\"",
             "_expect_modern_requests_ignore_compatibility_session(",
             "_expect_modern_session_methods_rejected(",
+            "_expect_compatibility_session_methods_require_bearer(",
             '"MCP-Session-Id": session_id',
             '"Router Image MCP evidence: modern_batch_rejected=true "',
             '"modern_live_session_ignored=true standard=true direct=true "',
             '"modern_methods_rejected=true get=true delete=true "',
+            '"compatibility_method_auth_isolated=true missing_bearer=true "',
+            '"unknown_bearer=true compatibility_get=true compatibility_delete=true "',
             '"compatibility_session_preserved=true "',
             '"session_header_echoed=false public=true protected=true."',
         ]:
@@ -414,6 +417,72 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                         **authorization_headers,
                         "MCP-Protocol-Version": CLIENT_MODULE.MODERN_PROTOCOL,
                         "MCP-Session-Id": session_id,
+                    },
+                    allow_http_error=True,
+                ),
+            ]
+        )
+
+    def test_compatibility_get_and_delete_require_missing_or_unknown_bearer(
+        self,
+    ) -> None:
+        session_id = "live-compatibility-session"
+        response_headers = {
+            "mcp-protocol-version": CLIENT_MODULE.COMPATIBILITY_PROTOCOL,
+            "www-authenticate": 'Bearer realm="image.smoke"',
+        }
+        response_body = json.dumps(
+            {
+                "status": "error",
+                "reason": "unauthorized",
+                "message": "Bearer token required",
+            }
+        )
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            return_value=(401, response_headers, response_body),
+        ) as request:
+            CLIENT_MODULE._expect_compatibility_session_methods_require_bearer(
+                "http://router/mcp/secure",
+                label="Protected",
+                session_id=session_id,
+            )
+
+        common_headers = {
+            "MCP-Protocol-Version": CLIENT_MODULE.COMPATIBILITY_PROTOCOL,
+            "MCP-Session-Id": session_id,
+        }
+        request.assert_has_calls(
+            [
+                mock.call(
+                    "http://router/mcp/secure",
+                    "GET",
+                    headers=common_headers,
+                    allow_http_error=True,
+                ),
+                mock.call(
+                    "http://router/mcp/secure",
+                    "DELETE",
+                    headers=common_headers,
+                    allow_http_error=True,
+                ),
+                mock.call(
+                    "http://router/mcp/secure",
+                    "GET",
+                    headers={
+                        **common_headers,
+                        "Authorization": "Bearer router-image-unknown-token",
+                    },
+                    allow_http_error=True,
+                ),
+                mock.call(
+                    "http://router/mcp/secure",
+                    "DELETE",
+                    headers={
+                        **common_headers,
+                        "Authorization": "Bearer router-image-unknown-token",
                     },
                     allow_http_error=True,
                 ),

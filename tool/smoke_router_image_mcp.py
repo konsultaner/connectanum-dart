@@ -301,6 +301,59 @@ def _expect_modern_session_methods_rejected(
             )
 
 
+def _expect_compatibility_session_methods_require_bearer(
+    endpoint: str,
+    *,
+    label: str,
+    session_id: str,
+) -> None:
+    credentials = [
+        ("missing bearer", {}),
+        (
+            "unknown bearer",
+            {"Authorization": "Bearer router-image-unknown-token"},
+        ),
+    ]
+    for credential_label, authorization_headers in credentials:
+        headers = {
+            "MCP-Protocol-Version": COMPATIBILITY_PROTOCOL,
+            "MCP-Session-Id": session_id,
+            **authorization_headers,
+        }
+        for method in ("GET", "DELETE"):
+            status, response_headers, body = _request(
+                endpoint,
+                method,
+                headers=headers,
+                allow_http_error=True,
+            )
+            if status != 401:
+                raise AssertionError(
+                    f"{label} compatibility {method} with {credential_label} "
+                    f"returned HTTP {status}: {body}"
+                )
+            if response_headers.get("mcp-session-id") is not None:
+                raise AssertionError(
+                    f"{label} compatibility {method} with {credential_label} "
+                    "leaked the live session ID"
+                )
+            if (
+                response_headers.get("mcp-protocol-version")
+                != COMPATIBILITY_PROTOCOL
+            ):
+                raise AssertionError(
+                    f"{label} compatibility {method} with {credential_label} "
+                    "missed the negotiated protocol header"
+                )
+            if "bearer" not in response_headers.get(
+                "www-authenticate", ""
+            ).lower():
+                raise AssertionError(
+                    f"{label} compatibility {method} with {credential_label} "
+                    "missed the Bearer challenge"
+                )
+
+
 def _structured_content(message: dict[str, Any], *, label: str) -> dict[str, Any]:
     result = message.get("result")
     if not isinstance(result, dict):
@@ -949,6 +1002,12 @@ def _run_compatibility_pubsub(
     if not isinstance(handle, str) or not handle or subscription.get("topic") != TOPIC:
         raise AssertionError(f"{label} subscribe returned invalid state: {subscription}")
 
+    if verify_missing_bearer:
+        _expect_compatibility_session_methods_require_bearer(
+            endpoint,
+            label=label,
+            session_id=session_id,
+        )
     _expect_modern_requests_ignore_compatibility_session(
         endpoint,
         label=label,
@@ -1231,6 +1290,8 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         "status=400 error=-32600 sessionless=true "
         "modern_live_session_ignored=true standard=true direct=true "
         "modern_methods_rejected=true get=true delete=true "
+        "compatibility_method_auth_isolated=true missing_bearer=true "
+        "unknown_bearer=true compatibility_get=true compatibility_delete=true "
         "compatibility_session_preserved=true "
         "session_header_echoed=false public=true protected=true."
     )

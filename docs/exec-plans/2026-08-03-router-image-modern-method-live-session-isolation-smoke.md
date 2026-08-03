@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -69,5 +69,14 @@ traffic without polling, terminating, or otherwise mutating the referenced
   MCP tests, the complete 193-case MCP/client authorization suite, all 96
   benchmark tests with live WAMP workloads, every isolated and globally
   activated consumer smoke, the complete 380-case router suite, 13 focused
-  native-forwarding tests, and Chrome/Dart2Wasm coverage. Hosted exact-head
-  evidence remains.
+  native-forwarding tests, and Chrome/Dart2Wasm coverage.
+- 2026-08-03: Implementation commit `2291098` was pushed to GitLab and GitHub.
+  Exact-head CI `30851310348` passed Fast Checks, Dart VM Coverage, Full
+  Verify, the clean hosted-log scan, Codecov upload, and coverage artifact
+  `8871195577`. Router Image dry run `30851343795` passed the loaded-image
+  runtime smoke and uploaded preview artifact `8870717306`; its log contains
+  `modern_methods_rejected=true get=true delete=true` plus exactly four
+  public/protected package evidence lines. The retained package publish dry
+  run, native release dry run, and WAMP profile benchmark remain relevant
+  because no sensitive inputs changed. The comprehensive strict
+  deployment-chain audit exited zero with every required gate clean.
