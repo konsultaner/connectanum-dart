@@ -1804,6 +1804,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertNotRegex(runner, r"import 'package:connectanum_router/")
 
         for public_helper in (
+            "McpStreamableHttpClient.stateless",
+            "McpStreamableHttpClient.statelessWithBearerToken",
+            "McpStreamableHttpClient.statelessWithAuthGrant",
             "McpStreamableHttpClient.withBearerToken",
             "McpStreamableHttpClient.withAuthGrant",
             "ConnectanumHttpAuthClient",
@@ -1825,9 +1828,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Use --auth-lifecycle-smoke together with --auth-url.",
             "--auth-lifecycle-smoke",
             "McpStreamableHttpClient.latestSessionProtocolVersion",
+            "McpStreamableHttpClient.latestProtocolVersion",
             "_supportedMcpProtocolVersions",
             "_protocolVersionOption",
             "Unsupported MCP protocol version",
+            "_runStatelessExample",
+            "'stateless'",
+            "--auth-lifecycle-smoke requires a session-era MCP protocol version.",
+            "--resource-update-topic requires a session-era MCP protocol version.",
             "_httpUri",
             "must be an absolute http or https URL.",
             "_bearerTokenOption",
@@ -2439,6 +2447,19 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("dry_run_summary=\"$(", body)
         self.assertIn('"authMode":"none"', body)
         self.assertIn('"protocolVersion":"2025-06-18"', body)
+        self.assertIn("stateless_dry_run_summary=\"$(", body)
+        self.assertIn("--protocol-version 2026-07-28", body)
+        self.assertIn('"transportMode":"stateless"', body)
+        self.assertIn("stateless_auth_lifecycle_output=\"$(", body)
+        self.assertIn(
+            "--auth-lifecycle-smoke requires a session-era MCP protocol version.",
+            body,
+        )
+        self.assertIn("stateless_resource_update_output=\"$(", body)
+        self.assertIn(
+            "--resource-update-topic requires a session-era MCP protocol version.",
+            body,
+        )
         self.assertIn('"resourceTemplates":true', body)
         self.assertIn("resource-template discovery", body)
         self.assertIn('"configuredSubscriptionMetadata":true', body)

@@ -6,7 +6,8 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 smoke_config="$repo_root/deploy/docker/router_mcp_smoke.yaml"
 smoke_client="$repo_root/tool/smoke_router_image_mcp.py"
 mcp_client_package="connectanum_mcp:router_hosted_client"
-mcp_protocol_version="2025-11-25"
+mcp_compatibility_protocol_version="2025-11-25"
+mcp_modern_protocol_version="2026-07-28"
 mcp_procedure="wamp.session.count"
 mcp_topic="image.smoke.events"
 
@@ -83,7 +84,7 @@ run_package_client_smoke() {
     CONNECTANUM_SKIP_NATIVE_BUILD=true \
       dart run "$mcp_client_package" \
       --endpoint "$endpoint" \
-      --protocol-version "$mcp_protocol_version" \
+      --protocol-version "$mcp_compatibility_protocol_version" \
       --wamp-procedure "$mcp_procedure" \
       --wamp-topic "$mcp_topic" \
       --pubsub-topic "$mcp_topic" \
@@ -118,11 +119,61 @@ run_package_client_smoke() {
   printf '%s Router Image public package client smoke passed.\n' "$label"
 }
 
+run_stateless_package_client_smoke() {
+  local label="$1"
+  local endpoint="$2"
+  local summary
+  shift 2
+
+  summary="$(
+    cd "$repo_root"
+    CONNECTANUM_SKIP_NATIVE_BUILD=true \
+      dart run "$mcp_client_package" \
+      --endpoint "$endpoint" \
+      --protocol-version "$mcp_modern_protocol_version" \
+      --wamp-procedure "$mcp_procedure" \
+      --wamp-topic "$mcp_topic" \
+      --pubsub-topic "$mcp_topic" \
+      --pubsub-event '{"source":"router-image-stateless-package-client"}' \
+      "$@"
+  )"
+
+  for marker in \
+    '"directStandardTools"' \
+    '"directWampMetadata"' \
+    '"configuredRegistrationMetadata"' \
+    '"configuredSubscriptionMetadata"' \
+    '"pubsubTopic"' \
+    '"stateless"' \
+    '"protocolVersion":"2026-07-28"' \
+    '"sessionless":true' \
+    '"supportedVersions"'; do
+    if [[ "$summary" != *"$marker"* ]]; then
+      printf '%s stateless package client smoke omitted required evidence: %s\n' \
+        "$label" "$marker" >&2
+      printf '%s\n' "$summary" >&2
+      return 1
+    fi
+  done
+
+  printf '%s\n' "$summary"
+  printf '%s Router Image stateless public package client smoke passed.\n' \
+    "$label"
+}
+
 python3 "$smoke_client" \
   --endpoint "http://127.0.0.1:$host_port/mcp" \
   --secure-endpoint "http://127.0.0.1:$host_port/mcp/secure" \
   --auth-endpoint "http://127.0.0.1:$host_port/auth"
 
+run_stateless_package_client_smoke "Public" \
+  "http://127.0.0.1:$host_port/mcp"
+run_stateless_package_client_smoke "Protected" \
+  "http://127.0.0.1:$host_port/mcp/secure" \
+  --auth-url "http://127.0.0.1:$host_port/auth" \
+  --realm image.smoke \
+  --auth-id image-smoke-agent \
+  --ticket image-smoke-ticket
 run_package_client_smoke "Public" \
   "http://127.0.0.1:$host_port/mcp"
 run_package_client_smoke "Protected" \

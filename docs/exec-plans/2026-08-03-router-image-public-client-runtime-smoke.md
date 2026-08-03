@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -84,3 +84,19 @@ consumer assumptions.
   benchmark tests, the complete 380-case router suite, the 13-case native
   follow-up, every generated and globally activated package smoke, and
   Chrome/Dart2Wasm.
+- 2026-08-03: Commit `80c9555` was pushed to GitLab and GitHub. Exact-head CI
+  `30774284699`, Dart Package Publish Dry Run `30774352475`, WAMP Profile
+  Benchmarks `30774355708`, and Router Image dry run `30774361256` all passed.
+  CI uploaded coverage artifact `8841708210`, WAMP uploaded benchmark artifact
+  `8841594868`, and Router Image uploaded preview artifact `8841513687`.
+- 2026-08-03: The hosted loaded-image smoke installed Dart, resolved the public
+  workspace, retained the raw public/protected compatibility check, and ran the
+  shipped package executable against both image endpoints. Its public and
+  protected direct JSON, standard tools, configured Meta API, Streamable HTTP,
+  pub/sub, DELETE, and protected refresh/revoke evidence passed before the
+  non-publishing multi-architecture build completed successfully.
+- 2026-08-03: The comprehensive strict deployment-chain audit exited clean
+  with exact-head CI and CI-log cleanliness, package dry run, relevant native
+  release dry run, Router Image dry run, WAMP benchmarks, workflow visibility,
+  branch protection, and public router package gates all ready. Selecting the
+  next RC tag remains an approval-gated release action outside this plan.

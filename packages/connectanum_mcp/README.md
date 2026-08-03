@@ -328,11 +328,26 @@ dart run packages/connectanum_mcp/example/router_hosted_client.dart \
   --resource-update-topic example.events.context.updated
 ```
 
+From a consumer package, run the packaged executable directly. Select the
+stateless protocol to exercise discovery, direct JSON tools, WAMP metadata,
+and pub/sub without creating an MCP session:
+
+```bash
+dart run connectanum_mcp:router_hosted_client \
+  --endpoint http://127.0.0.1:8080/mcp \
+  --protocol-version 2026-07-28 \
+  --wamp-procedure wamp.session.count \
+  --wamp-topic example.events \
+  --pubsub-topic example.events \
+  --pubsub-event '{"source":"consumer-application"}'
+```
+
 The example imports only `package:connectanum_mcp/connectanum_mcp_io.dart` and
 shows direct JSON tool/catalog calls, optional bearer or ticket auth-grant
-client construction, direct JSON pub/sub helpers, Streamable HTTP
-`initialize`, and session deletion. The optional resource-update arguments run
-the complete typed lifecycle against an explicitly mapped dynamic resource:
+client construction, direct JSON pub/sub helpers, session-era Streamable HTTP
+`initialize` and deletion, or stateless `server/discover`. The optional
+resource-update arguments are session-era only and run the complete typed
+lifecycle against an explicitly mapped dynamic resource:
 subscribe, publish an acknowledged WAMP update, poll the resumable GET/SSE
 channel for `notifications/resources/updated`, read changed resource content,
 and unsubscribe. Use `--resource-update-event` to replace the default JSON

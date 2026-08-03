@@ -7,6 +7,7 @@ const _supportedMcpProtocolVersions = <String>[
   '2025-03-26',
   '2025-06-18',
   McpStreamableHttpClient.latestSessionProtocolVersion,
+  McpStreamableHttpClient.latestProtocolVersion,
 ];
 final _mcpToolNamePattern = RegExp(r'^[A-Za-z0-9_.-]{1,128}$');
 
@@ -33,21 +34,28 @@ Future<void> runRouterHostedClient(List<String> args) async {
 
   final clientContext = await _createClient(options);
   final client = clientContext.client;
+  final stateless = _isStatelessProtocolVersion(options.protocolVersion);
   try {
-    await _runDirectJsonExample(client, options);
-    await _runDirectBatchExample(client, options);
-    await _runDirectWampMetadataExample(client, options);
-    if (options.pubsubTopic != null) {
-      await _runDirectPubSubExample(client, options);
+    if (stateless) {
+      await _runStatelessExample(client, options);
+    } else {
+      await _runDirectJsonExample(client, options);
+      await _runDirectBatchExample(client, options);
+      await _runDirectWampMetadataExample(client, options);
+      if (options.pubsubTopic != null) {
+        await _runDirectPubSubExample(client, options);
+      }
+      await _runStreamableSessionExample(
+        client,
+        options,
+        authorizationHeader: clientContext.authorizationHeader,
+      );
     }
-    await _runStreamableSessionExample(
-      client,
-      options,
-      authorizationHeader: clientContext.authorizationHeader,
-    );
   } finally {
     try {
-      await _deleteStreamableSession(client);
+      if (!stateless) {
+        await _deleteStreamableSession(client);
+      }
     } finally {
       client.close(force: true);
     }
@@ -59,6 +67,12 @@ Future<void> runRouterHostedClient(List<String> args) async {
 }
 
 Future<_ClientContext> _createClient(_Options options) async {
+  const clientInfo = <String, Object?>{
+    'name': 'connectanum-mcp-router-hosted-client-example',
+    'version': '3.0.0-beta',
+  };
+  final stateless = _isStatelessProtocolVersion(options.protocolVersion);
+
   if (options.authEndpoint != null) {
     final authClient = ConnectanumHttpAuthClient(
       options.authEndpoint!,
@@ -72,13 +86,21 @@ Future<_ClientContext> _createClient(_Options options) async {
         ticket: options.ticket!,
       );
       return _ClientContext(
-        McpStreamableHttpClient.withAuthGrant(
-          options.endpoint,
-          grant,
-          httpClient: _shortLivedHttpClient(),
-          defaultProtocolVersion: options.protocolVersion,
-          closeHttpClient: true,
-        ),
+        stateless
+            ? McpStreamableHttpClient.statelessWithAuthGrant(
+                options.endpoint,
+                grant,
+                clientInfo: clientInfo,
+                httpClient: _shortLivedHttpClient(),
+                closeHttpClient: true,
+              )
+            : McpStreamableHttpClient.withAuthGrant(
+                options.endpoint,
+                grant,
+                httpClient: _shortLivedHttpClient(),
+                defaultProtocolVersion: options.protocolVersion,
+                closeHttpClient: true,
+              ),
         authorizationHeader: 'Bearer ${grant.accessToken}',
       );
     } finally {
@@ -89,24 +111,77 @@ Future<_ClientContext> _createClient(_Options options) async {
   final bearerToken = options.bearerToken;
   if (bearerToken != null) {
     return _ClientContext(
-      McpStreamableHttpClient.withBearerToken(
-        options.endpoint,
-        bearerToken,
-        httpClient: _shortLivedHttpClient(),
-        defaultProtocolVersion: options.protocolVersion,
-        closeHttpClient: true,
-      ),
+      stateless
+          ? McpStreamableHttpClient.statelessWithBearerToken(
+              options.endpoint,
+              bearerToken,
+              clientInfo: clientInfo,
+              httpClient: _shortLivedHttpClient(),
+              closeHttpClient: true,
+            )
+          : McpStreamableHttpClient.withBearerToken(
+              options.endpoint,
+              bearerToken,
+              httpClient: _shortLivedHttpClient(),
+              defaultProtocolVersion: options.protocolVersion,
+              closeHttpClient: true,
+            ),
       authorizationHeader: 'Bearer $bearerToken',
     );
   }
 
   return _ClientContext(
-    McpStreamableHttpClient(
-      options.endpoint,
-      httpClient: _shortLivedHttpClient(),
-      defaultProtocolVersion: options.protocolVersion,
-      closeHttpClient: true,
-    ),
+    stateless
+        ? McpStreamableHttpClient.stateless(
+            options.endpoint,
+            clientInfo: clientInfo,
+            httpClient: _shortLivedHttpClient(),
+            closeHttpClient: true,
+          )
+        : McpStreamableHttpClient(
+            options.endpoint,
+            httpClient: _shortLivedHttpClient(),
+            defaultProtocolVersion: options.protocolVersion,
+            closeHttpClient: true,
+          ),
+  );
+}
+
+bool _isStatelessProtocolVersion(String protocolVersion) =>
+    protocolVersion == McpStreamableHttpClient.latestProtocolVersion;
+
+Future<void> _runStatelessExample(
+  McpStreamableHttpClient client,
+  _Options options,
+) async {
+  final discovery = await client.discover(id: 'stateless-discover');
+  if (!discovery.supportedVersions.contains(client.protocolVersion)) {
+    throw StateError(
+      'Stateless discovery did not advertise ${client.protocolVersion}.',
+    );
+  }
+
+  await _runDirectJsonExample(client, options);
+  await _runDirectWampMetadataExample(client, options);
+  if (options.pubsubTopic != null) {
+    await _runDirectPubSubExample(client, options);
+  }
+
+  if (client.sessionId != null || client.lastEventId != null) {
+    throw StateError('Stateless execution created Streamable session state.');
+  }
+  stdout.writeln(
+    jsonEncode({
+      'stateless': <String, Object?>{
+        'protocolVersion': client.protocolVersion,
+        'sessionless': true,
+        'supportedVersions': discovery.supportedVersions,
+        'capabilities': discovery.capabilities,
+        if (discovery.serverInfo != null) 'serverInfo': discovery.serverInfo,
+        if (discovery.ttlMs != null) 'ttlMs': discovery.ttlMs,
+        if (discovery.cacheScope != null) 'cacheScope': discovery.cacheScope,
+      },
+    }),
   );
 }
 
@@ -123,6 +198,7 @@ void _printDryRunSummary(IOSink sink, _Options options) {
     (_, Uri()) => 'ticket',
     _ => 'none',
   };
+  final stateless = _isStatelessProtocolVersion(options.protocolVersion);
 
   sink.writeln(
     jsonEncode({
@@ -130,6 +206,7 @@ void _printDryRunSummary(IOSink sink, _Options options) {
       'endpoint': options.endpoint.toString(),
       'authMode': authMode,
       'protocolVersion': options.protocolVersion,
+      'transportMode': stateless ? 'stateless' : 'streamable',
       if (options.authEndpoint != null)
         'authEndpoint': options.authEndpoint.toString(),
       if (options.authRealm != null) 'realm': options.authRealm,
@@ -4976,6 +5053,11 @@ final class _Options {
         'Use --auth-lifecycle-smoke together with --auth-url.',
       );
     }
+    if (_isStatelessProtocolVersion(protocolVersion) && authLifecycleSmoke) {
+      throw const FormatException(
+        '--auth-lifecycle-smoke requires a session-era MCP protocol version.',
+      );
+    }
 
     if (values.containsKey('--tool-arguments') &&
         !values.containsKey('--tool')) {
@@ -4991,6 +5073,12 @@ final class _Options {
         !values.containsKey('--resource-update-topic')) {
       throw const FormatException(
         'Use --resource-update-event together with --resource-update-topic.',
+      );
+    }
+    if (_isStatelessProtocolVersion(protocolVersion) &&
+        values.containsKey('--resource-update-topic')) {
+      throw const FormatException(
+        '--resource-update-topic requires a session-era MCP protocol version.',
       );
     }
     if (values.containsKey('--prompt-arguments') &&

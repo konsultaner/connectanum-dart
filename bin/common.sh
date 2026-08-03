@@ -518,6 +518,7 @@ run_public_router_hosted_mcp_client_example_dry_run() {
 
 run_public_router_hosted_mcp_client_dry_run_smoke() {
   local dry_run_summary
+  local stateless_dry_run_summary
 
   dry_run_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
@@ -556,6 +557,52 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
   if [[ "$dry_run_summary" != *'"configuredRegistrationMetadata":true'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report configured registration metadata lookup.\n'
+    return 1
+  fi
+
+  stateless_dry_run_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --protocol-version 2026-07-28 \
+    --tool example.task.lookup \
+    --wamp-procedure example.task.configured.lookup \
+    --wamp-topic example.events.task \
+    --pubsub-topic example.events.task \
+    --dry-run)"
+  if [[ "$stateless_dry_run_summary" != *'"transportMode":"stateless"'* ]]; then
+    printf 'Public router-hosted MCP client modern dry-run did not report stateless transport mode.\n'
+    return 1
+  fi
+
+  local stateless_auth_lifecycle_output
+  if stateless_auth_lifecycle_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --protocol-version 2026-07-28 \
+    --auth-url http://127.0.0.1:8080/auth \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --ticket dry-run-ticket-secret \
+    --auth-lifecycle-smoke \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client accepted session auth lifecycle smoke in stateless mode.\n'
+    return 1
+  fi
+  if [[ "$stateless_auth_lifecycle_output" != *'--auth-lifecycle-smoke requires a session-era MCP protocol version.'* ]]; then
+    printf 'Public router-hosted MCP client did not reject session auth lifecycle smoke in stateless mode.\n'
+    return 1
+  fi
+
+  local stateless_resource_update_output
+  if stateless_resource_update_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --protocol-version 2026-07-28 \
+    --resource-uri app://example/context/live \
+    --resource-update-topic example.events.context.updated \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client accepted a session resource subscription in stateless mode.\n'
+    return 1
+  fi
+  if [[ "$stateless_resource_update_output" != *'--resource-update-topic requires a session-era MCP protocol version.'* ]]; then
+    printf 'Public router-hosted MCP client did not reject a session resource subscription in stateless mode.\n'
     return 1
   fi
 

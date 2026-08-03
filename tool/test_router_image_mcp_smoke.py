@@ -64,7 +64,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         for expected in [
             "for command_name in docker python3 dart; do",
             'mcp_client_package="connectanum_mcp:router_hosted_client"',
-            'mcp_protocol_version="2025-11-25"',
+            'mcp_compatibility_protocol_version="2025-11-25"',
+            'mcp_modern_protocol_version="2026-07-28"',
             'mcp_procedure="wamp.session.count"',
             'mcp_topic="image.smoke.events"',
             'CONNECTANUM_SKIP_NATIVE_BUILD=true',
@@ -86,6 +87,11 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '--ticket image-smoke-ticket',
             "--auth-lifecycle-smoke",
             '"authLifecycle"',
+            'run_stateless_package_client_smoke "Public"',
+            'run_stateless_package_client_smoke "Protected"',
+            '"stateless"',
+            '"sessionless":true',
+            '"supportedVersions"',
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)

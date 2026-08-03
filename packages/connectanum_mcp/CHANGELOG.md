@@ -17,6 +17,9 @@
 - Re-export in-place router HTTP-auth grant replacement for refreshes that
   continue on an established Streamable HTTP session.
 - Add isolated server, client, executable, and consumer application smokes.
+- Let the public router-hosted client executable run either the session-era
+  Streamable HTTP lifecycle or the `2026-07-28` stateless discovery lifecycle,
+  including direct JSON tools, WAMP metadata, and pub/sub coverage.
 
 ## 0.1.0
 
