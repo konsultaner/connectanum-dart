@@ -196,6 +196,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
 
     def test_smoke_contract_covers_modern_and_streamable_mcp(self) -> None:
         client = CLIENT.read_text(encoding="utf-8")
+        config = CONFIG.read_text(encoding="utf-8")
         for expected in [
             'MODERN_PROTOCOL = "2026-07-28"',
             'COMPATIBILITY_PROTOCOL = "2025-11-25"',
@@ -233,6 +234,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'endpoint, "DELETE", headers=session_headers',
             'AUTH_ID = "image-smoke-agent"',
             'AUTH_TICKET = "image-smoke-ticket"',
+            'OTHER_AUTH_ID = "image-smoke-peer"',
+            'OTHER_AUTH_TICKET = "image-smoke-peer-ticket"',
             '"Authorization": f"Bearer {access_token}"',
             '"grant_type": "revoke"',
             "verify_missing_bearer=True",
@@ -244,17 +247,31 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "_expect_modern_requests_ignore_compatibility_session(",
             "_expect_modern_session_methods_rejected(",
             "_expect_compatibility_session_methods_require_bearer(",
+            "_expect_compatibility_session_isolated_from_other_principal(",
+            "other_principal_authorization_headers=other_authorization_headers",
             '"MCP-Session-Id": session_id',
             '"Router Image MCP evidence: modern_batch_rejected=true "',
             '"modern_live_session_ignored=true standard=true direct=true "',
             '"modern_methods_rejected=true get=true delete=true "',
             '"compatibility_method_auth_isolated=true missing_bearer=true "',
             '"unknown_bearer=true compatibility_get=true compatibility_delete=true "',
+            '"compatibility_principal_isolated=true valid_other_principal=true "',
+            '"principal_post=true principal_get=true principal_delete=true "',
+            '"authenticated_404=true requested_session_echoed=true "',
             '"compatibility_session_preserved=true "',
             '"session_header_echoed=false public=true protected=true."',
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, client)
+
+        for expected in [
+            "image-smoke-agent:",
+            "ticket: image-smoke-ticket",
+            "image-smoke-peer:",
+            "ticket: image-smoke-peer-ticket",
+        ]:
+            with self.subTest(config_expected=expected):
+                self.assertIn(expected, config)
 
     def test_modern_batch_rejection_requires_http_error_without_session(self) -> None:
         authorization_headers = {"Authorization": "Bearer issued-token"}
@@ -484,6 +501,72 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                         **common_headers,
                         "Authorization": "Bearer router-image-unknown-token",
                     },
+                    allow_http_error=True,
+                ),
+            ]
+        )
+
+    def test_compatibility_session_rejects_valid_other_principal_across_methods(
+        self,
+    ) -> None:
+        session_id = "live-compatibility-session"
+        authorization_headers = {"Authorization": "Bearer other-principal-token"}
+        response_headers = {
+            "mcp-protocol-version": CLIENT_MODULE.COMPATIBILITY_PROTOCOL,
+            "mcp-session-id": session_id,
+        }
+        response_body = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {
+                    "code": -32600,
+                    "message": "Unknown MCP HTTP session",
+                },
+            }
+        )
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            return_value=(404, response_headers, response_body),
+        ) as request:
+            CLIENT_MODULE._expect_compatibility_session_isolated_from_other_principal(
+                "http://router/mcp/secure",
+                label="Protected",
+                session_id=session_id,
+                authorization_headers=authorization_headers,
+            )
+
+        common_headers = {
+            **authorization_headers,
+            "MCP-Protocol-Version": CLIENT_MODULE.COMPATIBILITY_PROTOCOL,
+            "MCP-Session-Id": session_id,
+        }
+        request.assert_has_calls(
+            [
+                mock.call(
+                    "http://router/mcp/secure",
+                    "POST",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": "protected-other-principal-tools",
+                        "method": "tools/list",
+                        "params": {},
+                    },
+                    headers=common_headers,
+                    allow_http_error=True,
+                ),
+                mock.call(
+                    "http://router/mcp/secure",
+                    "GET",
+                    headers=common_headers,
+                    allow_http_error=True,
+                ),
+                mock.call(
+                    "http://router/mcp/secure",
+                    "DELETE",
+                    headers=common_headers,
                     allow_http_error=True,
                 ),
             ]
@@ -880,6 +963,46 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         post_json.assert_called_once_with(
             "http://router/auth",
             {"state": "challenge-state", "signature": "image-smoke-ticket"},
+        )
+
+    def test_ticket_grant_flow_accepts_a_distinct_identity(self) -> None:
+        challenge = {"state": "peer-challenge-state", "challenge": {}}
+        grant = {
+            "access_token": "peer-access-token",
+            "token_type": "Bearer",
+        }
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            return_value=(401, {}, json.dumps(challenge)),
+        ) as request, mock.patch.object(
+            CLIENT_MODULE,
+            "_post_json",
+            return_value=({}, grant),
+        ) as post_json:
+            result = CLIENT_MODULE._issue_ticket_grant(
+                "http://router/auth",
+                auth_id="image-smoke-peer",
+                ticket="image-smoke-peer-ticket",
+            )
+
+        self.assertEqual(result, grant)
+        request.assert_called_once_with(
+            "http://router/auth",
+            "POST",
+            {
+                "realm": "image.smoke",
+                "authmethod": "ticket",
+                "authid": "image-smoke-peer",
+            },
+            allow_http_error=True,
+        )
+        post_json.assert_called_once_with(
+            "http://router/auth",
+            {
+                "state": "peer-challenge-state",
+                "signature": "image-smoke-peer-ticket",
+            },
         )
 
     def test_modern_direct_pubsub_uses_sessionless_modern_calls(self) -> None:

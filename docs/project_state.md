@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-03
+Last updated: 2026-08-04
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -705,7 +705,28 @@ publish dry run, native release dry run, and WAMP profile benchmark remain
 relevant because no sensitive inputs changed. The comprehensive strict
 deployment-chain audit exited zero with every required gate clean.
 
-The active Router Image protected compatibility method-auth isolation
+The active Router Image compatibility principal-isolation checkpoint extends
+the packaged security proof from invalid credentials to principal-keyed
+session ownership. A second neutral ticket identity will obtain a valid router
+bearer and attempt POST, GET, and DELETE against the primary principal's live
+protected compatibility session. Every request must return HTTP 404 with the
+`Unknown MCP HTTP session` JSON-RPC error and compatibility session headers,
+without a Bearer challenge. The primary owner must then complete publish,
+poll, unsubscribe, and DELETE unchanged. Pre-change `bin/test-fast` passed,
+and the focused contract failed first because the loaded-image runner had no
+valid-other-principal session-isolation helper. Python compilation, all 23
+Router Image contracts, and the complete runner against a freshly rebuilt
+current-source Linux/arm64 image now pass. Its bounded marker records
+valid-other-principal POST/GET/DELETE isolation, and all four globally
+activated package-client evidence lines remain green. Full `bin/verify` also
+passed formatting, all Rust and FFI suites, 360 core tests, 94 MCP tests, 193
+MCP/client authorization cases, all 96 benchmark tests with live WAMP
+workloads, every isolated and globally activated consumer smoke, the complete
+380-case router suite, 13 native-forwarding follow-ups, and Chrome/Dart2Wasm
+coverage. The active plan is
+`docs/exec-plans/2026-08-04-router-image-compatibility-principal-isolation-smoke.md`.
+
+The completed Router Image protected compatibility method-auth isolation
 checkpoint closes the corresponding loaded-image security evidence gap. The
 canonical protected compatibility pub/sub session now sends GET/SSE and DELETE
 with its real `MCP-Session-Id` first without a bearer and then with an unknown
@@ -722,9 +743,19 @@ suites, 360 core tests, 94 MCP tests, 193 MCP/client authorization cases, all
 96 benchmark tests with live WAMP workloads, every isolated and globally
 activated consumer smoke, the complete 380-case router suite, 13
 native-forwarding follow-ups, and Chrome/Dart2Wasm coverage. The local Docker
-credential helper blocked a tagged-base refresh, so the canonical Linux/amd64
-image build remains pending in the exact-head hosted Router Image dry run. The
-active plan is
+credential helper blocked a tagged-base refresh, so the local proof used a
+fresh current-source Linux/arm64 image; the hosted workflow supplied the
+canonical Linux/amd64 proof. Implementation commit `8698877` was pushed to
+GitLab and GitHub. Exact-head CI `30857570369` passed Fast Checks, Full Verify,
+Dart VM Coverage, Codecov upload, the clean hosted-log scan, and coverage
+artifact `8873442353`. Router Image dry run `30857594325` passed the canonical
+loaded-image runtime smoke and multi-architecture dry build, then uploaded
+preview artifact `8873068535`; its log contains the bounded missing/unknown
+bearer GET/DELETE marker plus exactly four public/protected package evidence
+lines. The retained package publish dry run, native release dry run, and WAMP
+profile benchmark remain relevant because no sensitive inputs changed. The
+comprehensive strict deployment-chain audit exited zero with every required
+gate clean. The completed plan is
 `docs/exec-plans/2026-08-03-router-image-compatibility-method-auth-isolation-smoke.md`.
 
 The completed Router Image modern batch-rejection checkpoint pins a protocol-era
@@ -24558,6 +24589,18 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-04-router-image-compatibility-principal-isolation-smoke.md`.
+  It adds a second neutral Router Image ticket identity and proves its valid
+  bearer cannot POST to, poll, or DELETE the primary principal's live protected
+  compatibility session. The rejected method matrix must return the
+  principal-scoped HTTP 404 contract before the primary owner completes its
+  full pub/sub and DELETE lifecycle. Pre-change `bin/test-fast` passed, and the
+  focused contract failed first because the runner did not yet expose the
+  principal-isolation probe. Python compilation, all 23 Router Image
+  contracts, and a freshly rebuilt current-source local image smoke now pass;
+  full `bin/verify` also passes. Exact-head hosted evidence remains.
+- Most recently completed router-hosted MCP
+  packaging-readiness plan:
   `docs/exec-plans/2026-08-03-router-image-compatibility-method-auth-isolation-smoke.md`.
   It extends the real loaded-image protected compatibility-session proof to
   missing and unknown bearer GET/SSE and DELETE requests, requiring HTTP 401,
@@ -24565,9 +24608,10 @@ at the older `47bbf9c` commit.
   ID, and an unchanged authenticated pub/sub plus DELETE lifecycle. Pre-change
   `bin/test-fast`, the focused fail-first contract, all 21 Router Image
   contracts, a fresh current-source local image runner, and full `bin/verify`
-  pass. The implementation is ready to push; exact-head CI, the canonical
-  Linux/amd64 Router Image dry run, relevant package/native/WAMP evidence, and
-  the comprehensive strict audit remain.
+  pass. Implementation commit `8698877`, exact-head CI and Router Image
+  workflows, coverage and Router Image preview artifacts, relevant
+  package/native/WAMP evidence, the clean hosted-log scan, and the
+  comprehensive strict audit all pass.
 - Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-03-router-image-modern-method-live-session-isolation-smoke.md`.
   It extends the real loaded-image compatibility-session isolation proof to

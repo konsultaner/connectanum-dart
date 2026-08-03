@@ -18,6 +18,8 @@ PROCEDURE = "wamp.session.count"
 AUTH_REALM = "image.smoke"
 AUTH_ID = "image-smoke-agent"
 AUTH_TICKET = "image-smoke-ticket"
+OTHER_AUTH_ID = "image-smoke-peer"
+OTHER_AUTH_TICKET = "image-smoke-peer-ticket"
 
 
 def _json_payload(body: str) -> Any:
@@ -354,6 +356,84 @@ def _expect_compatibility_session_methods_require_bearer(
                 )
 
 
+def _expect_compatibility_session_isolated_from_other_principal(
+    endpoint: str,
+    *,
+    label: str,
+    session_id: str,
+    authorization_headers: dict[str, str],
+) -> None:
+    headers = {
+        **authorization_headers,
+        "MCP-Protocol-Version": COMPATIBILITY_PROTOCOL,
+        "MCP-Session-Id": session_id,
+    }
+    requests = [
+        (
+            "POST",
+            {
+                "jsonrpc": "2.0",
+                "id": f"{label.lower()}-other-principal-tools",
+                "method": "tools/list",
+                "params": {},
+            },
+        ),
+        ("GET", None),
+        ("DELETE", None),
+    ]
+    for method, payload in requests:
+        if payload is None:
+            status, response_headers, body = _request(
+                endpoint,
+                method,
+                headers=headers,
+                allow_http_error=True,
+            )
+        else:
+            status, response_headers, body = _request(
+                endpoint,
+                method,
+                payload,
+                headers=headers,
+                allow_http_error=True,
+            )
+        if status != 404:
+            raise AssertionError(
+                f"{label} compatibility {method} with another valid principal "
+                f"returned HTTP {status}: {body}"
+            )
+        if (
+            response_headers.get("mcp-protocol-version")
+            != COMPATIBILITY_PROTOCOL
+        ):
+            raise AssertionError(
+                f"{label} compatibility {method} with another valid principal "
+                "missed the negotiated protocol header"
+            )
+        if response_headers.get("mcp-session-id") != session_id:
+            raise AssertionError(
+                f"{label} compatibility {method} with another valid principal "
+                "missed the requested session ID"
+            )
+        if response_headers.get("www-authenticate") is not None:
+            raise AssertionError(
+                f"{label} compatibility {method} with another valid principal "
+                "unexpectedly returned an authentication challenge"
+            )
+        parsed = _json_payload(body)
+        error = parsed.get("error") if isinstance(parsed, dict) else None
+        if not isinstance(error, dict) or error.get("code") != -32600:
+            raise AssertionError(
+                f"{label} compatibility {method} with another valid principal "
+                f"missed invalidRequest: {parsed}"
+            )
+        if "Unknown MCP HTTP session" not in str(error.get("message", "")):
+            raise AssertionError(
+                f"{label} compatibility {method} with another valid principal "
+                f"had an unexpected message: {error}"
+            )
+
+
 def _structured_content(message: dict[str, Any], *, label: str) -> dict[str, Any]:
     result = message.get("result")
     if not isinstance(result, dict):
@@ -399,14 +479,19 @@ def _expect_unauthorized(
         raise AssertionError(f"{label} missed the Bearer challenge")
 
 
-def _issue_ticket_grant(auth_endpoint: str) -> dict[str, Any]:
+def _issue_ticket_grant(
+    auth_endpoint: str,
+    *,
+    auth_id: str = AUTH_ID,
+    ticket: str = AUTH_TICKET,
+) -> dict[str, Any]:
     status, _, body = _request(
         auth_endpoint,
         "POST",
         {
             "realm": AUTH_REALM,
             "authmethod": "ticket",
-            "authid": AUTH_ID,
+            "authid": auth_id,
         },
         allow_http_error=True,
     )
@@ -423,7 +508,7 @@ def _issue_ticket_grant(auth_endpoint: str) -> dict[str, Any]:
 
     _, grant = _post_json(
         auth_endpoint,
-        {"state": state, "signature": AUTH_TICKET},
+        {"state": state, "signature": ticket},
     )
     access_token = grant.get("access_token")
     if not isinstance(access_token, str) or not access_token:
@@ -904,6 +989,7 @@ def _run_compatibility_pubsub(
     label: str,
     authorization_headers: dict[str, str] | None = None,
     verify_missing_bearer: bool = False,
+    other_principal_authorization_headers: dict[str, str] | None = None,
 ) -> None:
     compatibility_headers = {
         **(authorization_headers or {}),
@@ -1007,6 +1093,13 @@ def _run_compatibility_pubsub(
             endpoint,
             label=label,
             session_id=session_id,
+        )
+    if other_principal_authorization_headers is not None:
+        _expect_compatibility_session_isolated_from_other_principal(
+            endpoint,
+            label=label,
+            session_id=session_id,
+            authorization_headers=other_principal_authorization_headers,
         )
     _expect_modern_requests_ignore_compatibility_session(
         endpoint,
@@ -1119,6 +1212,15 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
     grant = _issue_ticket_grant(auth_endpoint)
     access_token = str(grant["access_token"])
     authorization_headers = {"Authorization": f"Bearer {access_token}"}
+    other_grant = _issue_ticket_grant(
+        auth_endpoint,
+        auth_id=OTHER_AUTH_ID,
+        ticket=OTHER_AUTH_TICKET,
+    )
+    other_access_token = str(other_grant["access_token"])
+    other_authorization_headers = {
+        "Authorization": f"Bearer {other_access_token}"
+    }
     secure_discovery = _modern_call(
         secure_endpoint,
         "secure-discover",
@@ -1195,15 +1297,17 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
         label="Protected",
         authorization_headers=authorization_headers,
         verify_missing_bearer=True,
+        other_principal_authorization_headers=other_authorization_headers,
     )
-    _post_json(
-        auth_endpoint,
-        {
-            "grant_type": "revoke",
-            "token": access_token,
-            "token_type_hint": "access_token",
-        },
-    )
+    for token in (other_access_token, access_token):
+        _post_json(
+            auth_endpoint,
+            {
+                "grant_type": "revoke",
+                "token": token,
+                "token_type_hint": "access_token",
+            },
+        )
     _expect_unauthorized(
         secure_endpoint,
         unauthenticated_payload,
@@ -1292,6 +1396,9 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         "modern_methods_rejected=true get=true delete=true "
         "compatibility_method_auth_isolated=true missing_bearer=true "
         "unknown_bearer=true compatibility_get=true compatibility_delete=true "
+        "compatibility_principal_isolated=true valid_other_principal=true "
+        "principal_post=true principal_get=true principal_delete=true "
+        "authenticated_404=true requested_session_echoed=true "
         "compatibility_session_preserved=true "
         "session_header_echoed=false public=true protected=true."
     )

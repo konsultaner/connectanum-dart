@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation complete; hosted evidence pending.
+Completed.
 
 ## Goal
 
@@ -72,3 +72,14 @@ pub/sub and session lifecycle.
   suite, all 96 benchmark tests with live WAMP workloads, every isolated and
   globally activated consumer smoke, the complete 380-case router suite, 13
   native-forwarding follow-ups, and Chrome/Dart2Wasm coverage.
+- 2026-08-03: Implementation commit `8698877` was pushed to GitLab and GitHub.
+  Exact-head CI `30857570369` passed Fast Checks, Full Verify, Dart VM
+  Coverage, Codecov upload, the clean hosted-log scan, and coverage artifact
+  `8873442353`. Router Image dry run `30857594325` passed the canonical
+  Linux/amd64 loaded-image smoke and multi-architecture dry build, then
+  uploaded preview artifact `8873068535`. Its log contains
+  `compatibility_method_auth_isolated=true missing_bearer=true unknown_bearer=true compatibility_get=true compatibility_delete=true`
+  plus exactly four public/protected package evidence lines. The retained
+  package publish dry run, native release dry run, and WAMP profile benchmark
+  remain relevant because no sensitive inputs changed. The comprehensive
+  strict deployment-chain audit exited zero with every required gate clean.

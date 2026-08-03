@@ -167,3 +167,7 @@ router:
             ticket: image-smoke-ticket
             role: member
             provider: router-image-smoke
+          image-smoke-peer:
+            ticket: image-smoke-peer-ticket
+            role: member
+            provider: router-image-smoke
