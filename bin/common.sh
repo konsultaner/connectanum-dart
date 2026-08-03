@@ -591,18 +591,16 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
-  local stateless_resource_update_output
-  if stateless_resource_update_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+  local stateless_resource_update_summary
+  stateless_resource_update_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
     --protocol-version 2026-07-28 \
     --resource-uri app://example/context/live \
     --resource-update-topic example.events.context.updated \
-    --dry-run 2>&1)"; then
-    printf 'Public router-hosted MCP client accepted a session resource subscription in stateless mode.\n'
-    return 1
-  fi
-  if [[ "$stateless_resource_update_output" != *'--resource-update-topic requires a session-era MCP protocol version.'* ]]; then
-    printf 'Public router-hosted MCP client did not reject a session resource subscription in stateless mode.\n'
+    --dry-run)"
+  if [[ "$stateless_resource_update_summary" != *'"resourceSubscription"'* ||
+        "$stateless_resource_update_summary" != *'"updateTopic":"example.events.context.updated"'* ]]; then
+    printf 'Public router-hosted MCP client stateless dry-run omitted request-scoped resource subscription metadata.\n'
     return 1
   fi
 

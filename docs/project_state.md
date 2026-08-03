@@ -528,7 +528,7 @@ with every required gate ready. RC tagging remains approval-gated. The
 completed plan is
 `docs/exec-plans/2026-08-03-router-image-readable-mcp-evidence.md`.
 
-The active Router Image isolated-package checkpoint now stages the public
+The completed Router Image isolated-package checkpoint stages the public
 `connectanum_core`/`connectanum_client`/`connectanum_mcp` graph in a temporary
 workspace, globally activates `router_hosted_client` into an isolated pub
 cache, verifies the resolved command path, and uses that executable for every
@@ -537,8 +537,39 @@ complete black-box runner pass; its four bounded lines carry
 `client=globally-activated` alongside the existing auth, session, direct JSON,
 resource/prompt, WAMP Meta API, and pub/sub evidence. Pre-change
 `bin/test-fast`, the initial failing source contract, all 16 focused contracts,
-and post-change `bin/verify` pass. Hosted exact-head evidence remains under
+and post-change `bin/verify` pass. Commit `6a30c3e` was pushed to GitLab and
+GitHub. Exact-head CI `30810635357`, Dart Package Publish Dry Run `30811078023`,
+Router Image dry run `30811080116`, and WAMP Profile Benchmarks `30811082354`
+all passed. CI uploaded coverage artifact `8855086596`, Router Image uploaded
+preview artifact `8854799471`, and WAMP uploaded benchmark artifact
+`8854957906`. Fresh-image logs contain exactly four bounded evidence lines and
+every line proves the isolated global executable provenance. The comprehensive
+strict deployment-chain audit exited clean with every required gate ready. RC
+tagging remains approval-gated. The completed plan is
 `docs/exec-plans/2026-08-03-router-image-isolated-package-client-smoke.md`.
+
+The active Router Image modern resource-listener package checkpoint closes the
+next current-protocol executable gap. The public client API and router already
+support request-scoped `subscriptions/listen`, but `router_hosted_client`
+currently rejects resource update options in stateless mode and the canonical
+fresh-image package runs therefore omit that lifecycle. The active plan makes
+the globally activated executable open a filtered listener, publish an
+acknowledged update through direct JSON, validate the resource notification and
+reread, close locally, and prove public and bearer-protected runs retain no MCP
+session or resume state. The active plan is
+`docs/exec-plans/2026-08-03-router-image-modern-resource-listener-package-smoke.md`.
+
+Pre-change `bin/test-fast` passed. Focused contracts first failed on the old
+stateless option rejection and missing executable/image listener evidence. The
+globally activated executable now completes the filtered acknowledgment,
+direct JSON update publication, resource notification, reread, and local close
+without session or resume state. Both Router Image auth surfaces declare the
+same neutral procedure-backed resource. All 17 image and 19 package-boundary
+contracts, package analysis, all 113 focused client MCP tests, and the
+complete local image runner pass; its public and protected modern evidence
+lines record `request_listener=true`. Full `bin/verify` also passes, including
+isolated globally activated MCP client, consumer-package, router CLI, live WAMP,
+native/FFI, and Chrome/Wasm coverage. Hosted exact-head evidence remains.
 
 The completed Router Image standard Meta API checkpoint makes the canonical
 loaded-image smoke invoke all 15 standard WAMP session, registration, and
@@ -24335,6 +24366,15 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-03-router-image-modern-resource-listener-package-smoke.md`.
+  It extends the globally activated fresh-image package client with a modern
+  request-scoped dynamic-resource listener, acknowledged direct JSON update,
+  filtered notification, reread, local close, and explicit sessionless state
+  checks on public and bearer-protected endpoints. Pre-change `bin/test-fast`,
+  the focused failing contract, package analysis/tests, and the complete local
+  image runner pass. Full `bin/verify` also passes; hosted exact-head evidence
+  remains.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-03-router-image-isolated-package-client-smoke.md`.
   It joins the canonical fresh Router Image proof with an isolated global
   activation of the public `connectanum_mcp` executable, so every modern and
@@ -24344,7 +24384,8 @@ at the older `47bbf9c` commit.
   shell syntax, all 16 focused Router Image MCP contracts, an exact local image
   build, and the complete raw plus four-run image smoke are green. The four
   bounded evidence lines record `client=globally-activated`; full `bin/verify`
-  also passes. Hosted exact-head evidence remains.
+  also passes. Implementation commit `6a30c3e`, exact-head CI, package, Router
+  Image, and WAMP workflows, plus the comprehensive strict audit all pass.
 - Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-03-router-image-readable-mcp-evidence.md`.
   It keeps the complete image package-client marker gates but replaces

@@ -167,6 +167,16 @@ Future<void> _runStatelessExample(
     await _runDirectPubSubExample(client, options);
   }
 
+  final resourceUpdateTopic = options.resourceUpdateTopic;
+  final requestScopedResourceSubscription = resourceUpdateTopic == null
+      ? null
+      : await _runStatelessResourceSubscriptionExample(
+          client,
+          resourceUri: options.resourceUri!,
+          updateTopic: resourceUpdateTopic,
+          updateEvent: options.resourceUpdateEvent,
+        );
+
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Stateless execution created Streamable session state.');
   }
@@ -177,12 +187,118 @@ Future<void> _runStatelessExample(
         'sessionless': true,
         'supportedVersions': discovery.supportedVersions,
         'capabilities': discovery.capabilities,
+        'requestScopedResourceSubscription': ?requestScopedResourceSubscription,
         if (discovery.serverInfo != null) 'serverInfo': discovery.serverInfo,
         if (discovery.ttlMs != null) 'ttlMs': discovery.ttlMs,
         if (discovery.cacheScope != null) 'cacheScope': discovery.cacheScope,
       },
     }),
   );
+}
+
+Future<McpJsonMap> _runStatelessResourceSubscriptionExample(
+  McpStreamableHttpClient client, {
+  required String resourceUri,
+  required String updateTopic,
+  required McpJsonMap updateEvent,
+}) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  final listener = await client.listen(
+    id: 'stateless-resource-listen',
+    resourceSubscriptions: <String>[resourceUri],
+    headers: const <String, String>{
+      'x-consumer-trace': 'router-hosted-client-stateless-resource-listen',
+    },
+  );
+
+  late final McpStreamableWampPublicationResult publication;
+  late final McpJsonMap notification;
+  late final List<McpJsonMap> refreshedContent;
+  try {
+    final acknowledged = listener.acknowledgedNotifications;
+    if (acknowledged.toolsListChanged ||
+        acknowledged.promptsListChanged ||
+        acknowledged.resourcesListChanged ||
+        acknowledged.resourceSubscriptions.length != 1 ||
+        acknowledged.resourceSubscriptions.single != resourceUri) {
+      throw StateError(
+        'Stateless resource listener did not acknowledge only $resourceUri.',
+      );
+    }
+
+    final notificationFuture = listener.notifications.first.timeout(
+      const Duration(seconds: 10),
+    );
+    publication = await client.publishWampEventDirect(
+      updateTopic,
+      id: 'stateless-resource-update-publish',
+      argumentsKeywords: updateEvent,
+      acknowledge: true,
+      headers: const <String, String>{
+        'x-consumer-trace':
+            'router-hosted-client-stateless-resource-update-publish',
+      },
+    );
+    _expectWampPublication(
+      publication,
+      topic: updateTopic,
+      label: 'Stateless resource update',
+    );
+
+    notification = await notificationFuture;
+    final params = notification['params'];
+    if (notification['method'] != 'notifications/resources/updated' ||
+        params is! Map ||
+        params['uri'] != resourceUri) {
+      throw StateError(
+        'Stateless resource listener returned an unexpected notification.',
+      );
+    }
+
+    refreshedContent = await client.readResourceDirect(
+      resourceUri,
+      id: 'stateless-resource-reread',
+      headers: const <String, String>{
+        'x-consumer-trace': 'router-hosted-client-stateless-resource-reread',
+      },
+    );
+    _expectStreamableStateUnchanged(
+      client,
+      sessionId: previousSessionId,
+      lastEventId: previousEventId,
+      label: 'Stateless resource listener',
+    );
+  } finally {
+    final closed = listener.closed;
+    await listener.close();
+    if (await closed != McpSubscriptionCloseReason.local) {
+      throw StateError('Stateless resource listener did not close locally.');
+    }
+    _expectStreamableStateUnchanged(
+      client,
+      sessionId: previousSessionId,
+      lastEventId: previousEventId,
+      label: 'Stateless resource listener close',
+    );
+  }
+
+  return <String, Object?>{
+    'uri': resourceUri,
+    'updateTopic': updateTopic,
+    'updateEvent': updateEvent,
+    'acknowledged': true,
+    'publication': <String, Object?>{
+      'acknowledged': publication.acknowledged,
+      if (publication.publicationId != null)
+        'publicationId': publication.publicationId,
+    },
+    'notificationReceived': true,
+    'notification': notification,
+    'refreshedContent': refreshedContent,
+    'closedLocally': true,
+    'sessionless': true,
+  };
 }
 
 class _ClientContext {
@@ -5075,12 +5191,6 @@ final class _Options {
         'Use --resource-update-event together with --resource-update-topic.',
       );
     }
-    if (_isStatelessProtocolVersion(protocolVersion) &&
-        values.containsKey('--resource-update-topic')) {
-      throw const FormatException(
-        '--resource-update-topic requires a session-era MCP protocol version.',
-      );
-    }
     if (values.containsKey('--prompt-arguments') &&
         !values.containsKey('--prompt')) {
       throw const FormatException(
@@ -5400,8 +5510,8 @@ Options:
   --auth-lifecycle-smoke            Refresh/revoke ticket auth grant lifecycle (requires --auth-url).
   --tool NAME                       Call this direct JSON tool.
   --tool-arguments JSON_OBJECT      Arguments for --tool.
-  --resource-uri URI                Read this resource and list templates through direct JSON and Streamable HTTP.
-  --resource-update-topic TOPIC     Subscribe to --resource-uri, publish this WAMP update, poll SSE, and reread.
+  --resource-uri URI                Read this resource and list templates through direct JSON and compatibility Streamable HTTP.
+  --resource-update-topic TOPIC     Listen request-scoped in modern mode or subscribe in compatibility mode, publish, and reread.
   --resource-update-event JSON      Event kwargs for --resource-update-topic.
   --prompt NAME                     Get this prompt through direct JSON and Streamable HTTP.
   --prompt-arguments JSON_OBJECT    String arguments for --prompt.

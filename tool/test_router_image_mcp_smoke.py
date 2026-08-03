@@ -141,7 +141,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "direct_json=true resources=true resource_templates=true",
             "prompts=true wamp_meta=true pubsub=true",
             "resource_uri=%s prompt=%s",
-            '"sessionless=true"',
+            '"sessionless=true request_listener=true"',
             '"streamable_http=true session_delete=true"',
             'lifecycle_evidence+=" auth_lifecycle=true"',
             "%s Router Image package client smoke passed.",
@@ -162,6 +162,30 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             summary_prints,
             ['printf \'%s\\n\' "$summary" >&2'] * 3,
         )
+
+    def test_shell_runner_exercises_modern_resource_listener(self) -> None:
+        runner = RUNNER.read_text(encoding="utf-8")
+        config = CONFIG.read_text(encoding="utf-8")
+
+        for expected in [
+            'mcp_dynamic_resource_uri="connectanum://router-image/live-context"',
+            'mcp_resource_update_topic="image.smoke.events"',
+            '--resource-uri "$mcp_dynamic_resource_uri"',
+            '--resource-update-topic "$mcp_resource_update_topic"',
+            '--resource-update-event',
+            '"requestScopedResourceSubscription"',
+            '"acknowledged":true',
+            '"notificationReceived":true',
+            '"closedLocally":true',
+            '"sessionless":true',
+            'request_listener=true',
+        ]:
+            with self.subTest(expected=expected):
+                self.assertIn(expected, runner)
+
+        self.assertEqual(config.count("uri: connectanum://router-image/live-context"), 2)
+        self.assertEqual(config.count("read_procedure: wamp.session.count"), 2)
+        self.assertEqual(config.count("update_topic: image.smoke.events"), 2)
 
     def test_smoke_contract_covers_modern_and_streamable_mcp(self) -> None:
         client = CLIENT.read_text(encoding="utf-8")
@@ -760,7 +784,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, config)
-        self.assertEqual(config.count("procedure: wamp.session.count"), 2)
+        self.assertEqual(config.count("- procedure: wamp.session.count"), 2)
         self.assertEqual(
             config.count("uri: connectanum://router-image/context"), 2
         )

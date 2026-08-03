@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -65,4 +65,14 @@ running the client from the repository workspace.
 - 2026-08-03: Full `bin/verify` passed after the change, including formatting,
   Rust core/FFI, MCP/client/package-boundary and global-activation smokes, live
   WAMP benchmarks, all router tests, native follow-ups, and Chrome/Dart2Wasm.
-  Exact-head hosted workflows and the strict deployment-chain audit remain.
+- 2026-08-03: Commit `6a30c3e` was pushed to GitLab and GitHub. Exact-head CI
+  `30810635357`, Dart Package Publish Dry Run `30811078023`, Router Image dry
+  run `30811080116`, and WAMP Profile Benchmarks `30811082354` all passed. CI
+  uploaded coverage artifact `8855086596`, Router Image uploaded preview
+  artifact `8854799471`, and WAMP uploaded benchmark artifact `8854957906`.
+- 2026-08-03: Fresh-image logs contain exactly four bounded package evidence
+  lines, and every line records `client=globally-activated` for the isolated
+  public executable. The comprehensive strict deployment-chain audit exited
+  clean with exact-head CI/logs, package, relevant native release, Router
+  Image, WAMP, workflow, branch-protection, and public-package gates ready. RC
+  tagging remains approval-gated.

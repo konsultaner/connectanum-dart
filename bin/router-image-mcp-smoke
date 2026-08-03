@@ -11,6 +11,8 @@ mcp_modern_protocol_version="2026-07-28"
 mcp_procedure="wamp.session.count"
 mcp_topic="image.smoke.events"
 mcp_resource_uri="connectanum://router-image/context"
+mcp_dynamic_resource_uri="connectanum://router-image/live-context"
+mcp_resource_update_topic="image.smoke.events"
 mcp_prompt_name="inspect-router-image"
 mcp_prompt_arguments='{"subject":"packaged runtime"}'
 
@@ -154,6 +156,7 @@ print_package_client_evidence() {
   local mode="$3"
   local auth_evidence="$4"
   local lifecycle_evidence="$5"
+  local resource_uri="$6"
 
   printf '%s Router Image package evidence: protocol=%s mode=%s auth=%s client=globally-activated %s direct_json=true resources=true resource_templates=true prompts=true wamp_meta=true pubsub=true resource_uri=%s prompt=%s.\n' \
     "$label" \
@@ -161,7 +164,7 @@ print_package_client_evidence() {
     "$mode" \
     "$auth_evidence" \
     "$lifecycle_evidence" \
-    "$mcp_resource_uri" \
+    "$resource_uri" \
     "$mcp_prompt_name"
 }
 
@@ -229,7 +232,8 @@ run_package_client_smoke() {
     "$mcp_compatibility_protocol_version" \
     "compatibility" \
     "$auth_evidence" \
-    "$lifecycle_evidence"
+    "$lifecycle_evidence" \
+    "$mcp_resource_uri"
   printf '%s Router Image package client smoke passed.\n' "$label"
 }
 
@@ -247,7 +251,9 @@ run_stateless_package_client_smoke() {
       --protocol-version "$mcp_modern_protocol_version" \
       --wamp-procedure "$mcp_procedure" \
       --wamp-topic "$mcp_topic" \
-      --resource-uri "$mcp_resource_uri" \
+      --resource-uri "$mcp_dynamic_resource_uri" \
+      --resource-update-topic "$mcp_resource_update_topic" \
+      --resource-update-event '{"source":"router-image-stateless-resource-update"}' \
       --prompt "$mcp_prompt_name" \
       --prompt-arguments "$mcp_prompt_arguments" \
       --pubsub-topic "$mcp_topic" \
@@ -265,6 +271,10 @@ run_stateless_package_client_smoke() {
     '"configuredRegistrationMetadata"' \
     '"configuredSubscriptionMetadata"' \
     '"pubsubTopic"' \
+    '"requestScopedResourceSubscription"' \
+    '"acknowledged":true' \
+    '"notificationReceived":true' \
+    '"closedLocally":true' \
     '"stateless"' \
     '"protocolVersion":"2026-07-28"' \
     '"sessionless":true' \
@@ -286,7 +296,8 @@ run_stateless_package_client_smoke() {
     "$mcp_modern_protocol_version" \
     "stateless" \
     "$auth_evidence" \
-    "sessionless=true"
+    "sessionless=true request_listener=true" \
+    "$mcp_dynamic_resource_uri"
   printf '%s Router Image stateless package client smoke passed.\n' \
     "$label"
 }

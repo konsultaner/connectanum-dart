@@ -1833,9 +1833,12 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "_protocolVersionOption",
             "Unsupported MCP protocol version",
             "_runStatelessExample",
+            "_runStatelessResourceSubscriptionExample",
+            "client.listen(",
+            "McpSubscriptionCloseReason.local",
+            "requestScopedResourceSubscription",
             "'stateless'",
             "--auth-lifecycle-smoke requires a session-era MCP protocol version.",
-            "--resource-update-topic requires a session-era MCP protocol version.",
             "_httpUri",
             "must be an absolute http or https URL.",
             "_bearerTokenOption",
@@ -2455,11 +2458,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "--auth-lifecycle-smoke requires a session-era MCP protocol version.",
             body,
         )
-        self.assertIn("stateless_resource_update_output=\"$(", body)
-        self.assertIn(
-            "--resource-update-topic requires a session-era MCP protocol version.",
-            body,
-        )
+        self.assertIn("stateless_resource_update_summary=\"$(", body)
+        self.assertIn('"resourceSubscription"', body)
+        self.assertIn('"updateTopic":"example.events.context.updated"', body)
         self.assertIn('"resourceTemplates":true', body)
         self.assertIn("resource-template discovery", body)
         self.assertIn('"configuredSubscriptionMetadata":true', body)

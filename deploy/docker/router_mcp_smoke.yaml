@@ -69,6 +69,13 @@ router:
                     description: Neutral context exposed by the packaged router.
                     mime_type: text/plain
                     text: Router-hosted context from the packaged image.
+                  - uri: connectanum://router-image/live-context
+                    name: router-image-live-context
+                    title: Router Image Live Context
+                    description: Procedure-backed context with packaged-router update notices.
+                    mime_type: application/json
+                    read_procedure: wamp.session.count
+                    update_topic: image.smoke.events
                 resource_templates:
                   - uri_template: connectanum://router-image/item/{itemId}
                     name: router-image-item
@@ -116,6 +123,13 @@ router:
                     description: Neutral context exposed by the packaged router.
                     mime_type: text/plain
                     text: Router-hosted context from the packaged image.
+                  - uri: connectanum://router-image/live-context
+                    name: router-image-live-context
+                    title: Router Image Live Context
+                    description: Procedure-backed context with packaged-router update notices.
+                    mime_type: application/json
+                    read_procedure: wamp.session.count
+                    update_topic: image.smoke.events
                 resource_templates:
                   - uri_template: connectanum://router-image/item/{itemId}
                     name: router-image-item
