@@ -579,14 +579,13 @@ and protected auth-lifecycle evidence remain intact. The comprehensive strict
 deployment-chain audit exited clean with every required gate ready. RC tagging
 remains approval-gated.
 
-The active Router Image modern authentication-lifecycle package checkpoint
+The completed Router Image modern authentication-lifecycle package checkpoint
 closes the next protected-executable gap. The globally activated client already
-uses a router-issued bearer for its sessionless direct JSON, pub/sub, and
-request-scoped resource-listener run, but `--auth-lifecycle-smoke` still rejects
-MCP `2026-07-28`. The active plan makes refresh and both access/refresh
-revocation observable on the protected modern endpoint while preserving
-explicit absence of session and resume state and retaining the compatibility
-initialize/delete lifecycle. The active plan is
+used a router-issued bearer for its sessionless direct JSON, pub/sub, and
+request-scoped resource-listener run; it now also makes refresh and both
+access/refresh revocation observable on the protected modern endpoint while
+preserving explicit absence of session and resume state and retaining the
+compatibility initialize/delete lifecycle. The completed plan is
 `docs/exec-plans/2026-08-03-router-image-modern-auth-lifecycle-package-smoke.md`.
 
 Pre-change `bin/test-fast` passed. Focused contracts failed on the old modern
@@ -598,8 +597,44 @@ absent, and rejects revoked access and refresh tokens. Package analysis, all
 19 package-boundary contracts, all 17 Router Image contracts, the complete
 isolated local image runner, and full `bin/verify` pass. The protected modern
 bounded evidence records
-`auth_lifecycle=true refreshed_grant_listener=true`; hosted exact-head evidence
-remains.
+`auth_lifecycle=true refreshed_grant_listener=true`. Commit `93ed142` was
+pushed to GitLab and GitHub. Exact-head CI `30823927110`, Dart Package Publish
+Dry Run `30823926183`, Router Image dry run `30825339516`, and WAMP Profile
+Benchmarks `30825346436` all passed. CI uploaded coverage artifact
+`8860503359`, Router Image uploaded preview artifact `8860601699`, and WAMP
+uploaded benchmark artifact `8860818718`. Fresh-image logs contain exactly
+four bounded package evidence lines; the protected modern line proves the
+router-issued grant, sessionless original and refreshed listener lifecycles,
+and both revocation checks, while compatibility Streamable evidence remains
+intact. The comprehensive strict deployment-chain audit exited clean with every
+required gate ready. RC tagging remains approval-gated.
+
+The active Router Image modern batch-rejection checkpoint pins a protocol-era
+boundary that was implemented but absent from release evidence. The public
+client intentionally rejects JSON-RPC batches for MCP `2026-07-28` before an
+HTTP request, and the router rejects a raw modern batch with HTTP 400,
+JSON-RPC `invalidRequest`, the negotiated modern protocol header, and no MCP
+session header. The globally activated package executable now proves its local
+guard without changing session state, while the canonical loaded-image smoke
+proves the same server rejection on public and bearer-protected endpoints. The
+maintained `2025-11-25` compatibility runs retain positive direct and
+Streamable batch coverage. The active plan is
+`docs/exec-plans/2026-08-03-router-image-modern-batch-rejection-smoke.md`.
+
+Pre-change `bin/test-fast` passed. Dart package analysis, the focused native
+router regression, all 37 package-boundary and Router Image contracts, and the
+complete local loaded-image runner pass. Its bounded raw evidence records
+`modern_batch_rejected=true status=400 error=-32600 sessionless=true` for
+public and protected endpoints, and both modern package evidence lines record
+`modern_batch_unsupported=true`. Full `bin/verify` passes formatting, 113 Rust
+core tests, 52 Rust FFI tests, all Python contracts, 360 core tests, 94 MCP
+tests, 193 client/MCP tests, 96 benchmark tests including the live real-router
+suite, all consumer-package and globally activated executable smokes, 380
+router tests, 13 focused native-forwarding tests, and the Dart2Wasm browser
+smoke. The first full run exposed a successful browser watchdog that held the
+output pipe open for its unused timeout; the browser runner now reuses the
+tested shared timeout helper, and the final full rerun exits immediately after
+the browser pass. Hosted exact-head evidence remains.
 
 The completed Router Image standard Meta API checkpoint makes the canonical
 loaded-image smoke invoke all 15 standard WAMP session, registration, and
@@ -24396,14 +24431,23 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-03-router-image-modern-batch-rejection-smoke.md`.
+  It pins the MCP 2026 no-batch boundary in the native router, the globally
+  activated public package executable, and public/protected loaded-image smoke
+  while retaining compatibility-era batch support. Pre-change `bin/test-fast`,
+  focused analysis/tests, the complete local image runner, and full local
+  verification pass; hosted exact-head evidence remains.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-03-router-image-modern-auth-lifecycle-package-smoke.md`.
   It makes the globally activated protected modern client prove grant refresh,
   request-scoped operation with the refreshed grant, revoked-access rejection,
   revoked-refresh rejection, and sessionless state while preserving the
   compatibility Streamable authentication lifecycle. Pre-change
   `bin/test-fast`, focused contracts, package analysis, the complete local
-  image runner, and full `bin/verify` pass; hosted exact-head evidence remains.
-- Most recently completed router-hosted MCP packaging-readiness plan:
+  image runner, full `bin/verify`, implementation commit `93ed142`, exact-head
+  CI, package, Router Image, and WAMP workflows, plus the comprehensive strict
+  audit all pass.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-03-router-image-modern-resource-listener-package-smoke.md`.
   It extends the globally activated fresh-image package client with a modern
   request-scoped dynamic-resource listener, acknowledged direct JSON update,
@@ -24413,7 +24457,7 @@ at the older `47bbf9c` commit.
   image runner pass. Full `bin/verify`, implementation commit `310f5f9`,
   exact-head CI, package, Router Image, and WAMP workflows, plus the
   comprehensive strict audit all pass.
-- Completed immediately before that:
+- Completed before that:
   `docs/exec-plans/2026-08-03-router-image-isolated-package-client-smoke.md`.
   It joins the canonical fresh Router Image proof with an isolated global
   activation of the public `connectanum_mcp` executable, so every modern and

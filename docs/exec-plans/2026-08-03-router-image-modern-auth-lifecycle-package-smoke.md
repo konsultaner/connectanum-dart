@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -60,5 +60,16 @@ state.
 - 2026-08-03: Package analysis, all 19 package-boundary contracts, all 17
   Router Image contracts, the complete isolated real-image runner, and full
   `bin/verify` pass. The protected modern bounded evidence records
-  `auth_lifecycle=true refreshed_grant_listener=true`; hosted exact-head
-  evidence remains.
+  `auth_lifecycle=true refreshed_grant_listener=true`.
+- 2026-08-03: Commit `93ed142` was pushed to GitLab and GitHub. Exact-head CI
+  `30823927110`, Dart Package Publish Dry Run `30823926183`, Router Image dry
+  run `30825339516`, and WAMP Profile Benchmarks `30825346436` all passed. CI
+  uploaded coverage artifact `8860503359`, Router Image uploaded preview
+  artifact `8860601699`, and WAMP uploaded benchmark artifact `8860818718`.
+- 2026-08-03: Fresh-image logs contain exactly four bounded package evidence
+  lines. The protected modern line proves the globally activated client used a
+  router-issued grant, remained sessionless, completed its original request
+  listener, and completed `auth_lifecycle=true refreshed_grant_listener=true`.
+  Both compatibility lines retain Streamable HTTP and session deletion. The
+  comprehensive strict deployment-chain audit exited clean with every required
+  gate ready. RC tagging remains approval-gated.

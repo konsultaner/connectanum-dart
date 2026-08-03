@@ -85,31 +85,10 @@ run_client_browser_websocket_test() {
       timeout_seconds="$1"
       shift
 
-      "$@" &
-      local command_pid=$!
-
-      (
-        sleep "$timeout_seconds"
-        if kill -0 "$command_pid" 2>/dev/null; then
-          printf 'Browser WebSocket smoke exceeded %ss; terminating stalled attempt.\n' "$timeout_seconds" >&2
-          kill "$command_pid" 2>/dev/null || true
-          sleep 2
-          kill -9 "$command_pid" 2>/dev/null || true
-        fi
-      ) &
-      local timeout_pid=$!
-
-      local command_status
-      if wait "$command_pid"; then
-        command_status=0
-      else
-        command_status=$?
-      fi
-
-      kill "$timeout_pid" 2>/dev/null || true
-      wait "$timeout_pid" 2>/dev/null || true
-
-      return "$command_status"
+      run_command_with_timeout \
+        "Browser WebSocket smoke" \
+        "$timeout_seconds" \
+        "$@"
     }
 
     for attempt in $(seq 1 "$max_attempts"); do

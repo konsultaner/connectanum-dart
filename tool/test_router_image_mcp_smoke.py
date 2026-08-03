@@ -103,6 +103,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"authLifecycle"',
             'run_stateless_package_client_smoke "Public"',
             'run_stateless_package_client_smoke "Protected"',
+            '"modernBatchUnsupported"',
             '"stateless"',
             '"sessionless":true',
             '"refreshedSessionless":true',
@@ -146,6 +147,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "prompts=true wamp_meta=true pubsub=true",
             "resource_uri=%s prompt=%s",
             '"sessionless=true request_listener=true"',
+            "modern_batch_unsupported=true",
             "refreshed_grant_listener=true",
             '"streamable_http=true session_delete=true"',
             'lifecycle_evidence+=" auth_lifecycle=true"',
@@ -236,9 +238,59 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "verify_missing_bearer=True",
             "_run_modern_standard_pubsub(endpoint, label=\"Public\")",
             "_run_modern_standard_pubsub(",
+            "_expect_modern_batch_rejected(endpoint, label=\"Public\")",
+            "_expect_modern_batch_rejected(",
+            "label=\"Protected\"",
+            '"Router Image MCP evidence: modern_batch_rejected=true "',
+            '"status=400 error=-32600 sessionless=true public=true protected=true."',
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, client)
+
+    def test_modern_batch_rejection_requires_http_error_without_session(self) -> None:
+        authorization_headers = {"Authorization": "Bearer issued-token"}
+        response = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {
+                    "code": -32600,
+                    "message": "MCP 2026 HTTP POST requires one JSON-RPC message object",
+                },
+            }
+        )
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            return_value=(
+                400,
+                {"mcp-protocol-version": CLIENT_MODULE.MODERN_PROTOCOL},
+                response,
+            ),
+        ) as request:
+            CLIENT_MODULE._expect_modern_batch_rejected(
+                "http://router/mcp/secure",
+                label="Protected",
+                headers=authorization_headers,
+            )
+
+        request.assert_called_once()
+        self.assertEqual(
+            request.call_args.args[:2],
+            ("http://router/mcp/secure", "POST"),
+        )
+        payload = request.call_args.args[2]
+        self.assertIsInstance(payload, list)
+        self.assertEqual(len(payload), 2)
+        self.assertEqual(
+            request.call_args.kwargs["headers"],
+            {
+                **authorization_headers,
+                "MCP-Protocol-Version": CLIENT_MODULE.MODERN_PROTOCOL,
+            },
+        )
+        self.assertTrue(request.call_args.kwargs["allow_http_error"])
 
     def test_modern_standard_tool_catalog_uses_sessionless_tools_call(self) -> None:
         authorization_headers = {"Authorization": "Bearer issued-token"}

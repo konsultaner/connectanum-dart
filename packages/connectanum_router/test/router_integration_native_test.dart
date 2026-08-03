@@ -2734,6 +2734,61 @@ void main() {
         );
         expect(rawModern.headers, isNot(contains('mcp-session-id')));
 
+        final rawModernBatch = await _postJsonValue(
+          rawClient,
+          listener.port,
+          '/mcp',
+          [
+            {
+              'jsonrpc': '2.0',
+              'id': 'raw-modern-batch-tools',
+              'method': 'tools/list',
+              'params': {
+                '_meta': {
+                  'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                  'io.modelcontextprotocol/clientCapabilities':
+                      <String, Object?>{},
+                },
+              },
+            },
+            {
+              'jsonrpc': '2.0',
+              'id': 'raw-modern-batch-ping',
+              'method': 'ping',
+              'params': {
+                '_meta': {
+                  'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                  'io.modelcontextprotocol/clientCapabilities':
+                      <String, Object?>{},
+                },
+              },
+            },
+          ],
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2026-07-28',
+          },
+        );
+        expect(rawModernBatch.statusCode, equals(HttpStatus.badRequest));
+        final rawModernBatchBody = (rawModernBatch.json as Map)
+            .cast<String, Object?>();
+        final rawModernBatchError = (rawModernBatchBody['error'] as Map)
+            .cast<String, Object?>();
+        expect(rawModernBatchBody['id'], isNull);
+        expect(
+          rawModernBatchError['code'],
+          equals(McpErrorCodes.invalidRequest),
+        );
+        expect(
+          rawModernBatchError['message'],
+          contains('one JSON-RPC message object'),
+        );
+        expect(
+          rawModernBatch.headers['mcp-protocol-version'],
+          equals('2026-07-28'),
+        );
+        expect(rawModernBatch.headers, isNot(contains('mcp-session-id')));
+
         final missingMetadata = await _postJson(
           rawClient,
           listener.port,

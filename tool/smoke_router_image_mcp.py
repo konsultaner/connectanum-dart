@@ -50,7 +50,7 @@ def _json_payload(body: str) -> Any:
 def _request(
     endpoint: str,
     method: str,
-    payload: dict[str, Any] | None = None,
+    payload: Any | None = None,
     *,
     headers: dict[str, str] | None = None,
     allow_http_error: bool = False,
@@ -149,6 +149,61 @@ def _modern_call(
     if response_headers.get("mcp-session-id") is not None:
         raise AssertionError("Modern stateless response unexpectedly created a session")
     return response
+
+
+def _expect_modern_batch_rejected(
+    endpoint: str,
+    *,
+    label: str,
+    headers: dict[str, str] | None = None,
+) -> None:
+    request_headers = {
+        **(headers or {}),
+        "MCP-Protocol-Version": MODERN_PROTOCOL,
+    }
+    status, response_headers, body = _request(
+        endpoint,
+        "POST",
+        [
+            {
+                "jsonrpc": "2.0",
+                "id": f"{label.lower()}-modern-batch-tools",
+                "method": "tools/list",
+                "params": _modern_params(),
+            },
+            {
+                "jsonrpc": "2.0",
+                "id": f"{label.lower()}-modern-batch-ping",
+                "method": "ping",
+                "params": _modern_params(),
+            },
+        ],
+        headers=request_headers,
+        allow_http_error=True,
+    )
+    if status != 400:
+        raise AssertionError(f"{label} modern batch returned HTTP {status}: {body}")
+    if response_headers.get("mcp-protocol-version") != MODERN_PROTOCOL:
+        raise AssertionError(
+            f"{label} modern batch rejection missed {MODERN_PROTOCOL} protocol header"
+        )
+    if response_headers.get("mcp-session-id") is not None:
+        raise AssertionError(f"{label} modern batch rejection leaked a session header")
+
+    parsed = _json_payload(body)
+    if not isinstance(parsed, dict) or parsed.get("id") is not None:
+        raise AssertionError(
+            f"{label} modern batch rejection was not a request-level error: {parsed}"
+        )
+    error = parsed.get("error")
+    if not isinstance(error, dict) or error.get("code") != -32600:
+        raise AssertionError(
+            f"{label} modern batch rejection missed invalidRequest: {parsed}"
+        )
+    if "one JSON-RPC message object" not in str(error.get("message", "")):
+        raise AssertionError(
+            f"{label} modern batch rejection had an unexpected message: {error}"
+        )
 
 
 def _structured_content(message: dict[str, Any], *, label: str) -> dict[str, Any]:
@@ -908,6 +963,11 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
         raise AssertionError(
             f"Protected modern discovery missed {MODERN_PROTOCOL}: {secure_discovery}"
         )
+    _expect_modern_batch_rejected(
+        secure_endpoint,
+        label="Protected",
+        headers=authorization_headers,
+    )
     secure_catalog = _modern_call(
         secure_endpoint,
         "secure-catalog",
@@ -991,6 +1051,7 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         discovery_result, dict
     ) or MODERN_PROTOCOL not in discovery_result.get("supportedVersions", []):
         raise AssertionError(f"Modern discovery missed {MODERN_PROTOCOL}: {discovery}")
+    _expect_modern_batch_rejected(endpoint, label="Public")
 
     tools = _modern_call(endpoint, "modern-tools", "tools/list")
     tool_list = tools.get("result", {}).get("tools", [])
@@ -1056,6 +1117,10 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
     _run_modern_direct_pubsub(endpoint, label="Public")
     _run_compatibility_pubsub(endpoint, label="Public")
     _run_protected_smoke(secure_endpoint, auth_endpoint)
+    print(
+        "Router Image MCP evidence: modern_batch_rejected=true "
+        "status=400 error=-32600 sessionless=true public=true protected=true."
+    )
 
 
 def main() -> int:

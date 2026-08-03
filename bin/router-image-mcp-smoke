@@ -262,6 +262,7 @@ run_stateless_package_client_smoke() {
   )"
 
   for marker in \
+    '"modernBatchUnsupported"' \
     '"directStandardTools"' \
     '"directResources"' \
     '"directResourceTemplates"' \
@@ -289,6 +290,7 @@ run_stateless_package_client_smoke() {
 
   local auth_evidence="anonymous"
   local lifecycle_evidence="sessionless=true request_listener=true"
+  lifecycle_evidence+=" modern_batch_unsupported=true"
   if [[ "$label" == "Protected" ]]; then
     auth_evidence="router-issued"
     for marker in \

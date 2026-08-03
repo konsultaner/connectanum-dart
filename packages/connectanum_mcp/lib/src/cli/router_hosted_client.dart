@@ -161,6 +161,7 @@ Future<void> _runStatelessExample(
     );
   }
 
+  await _expectModernBatchUnsupported(client);
   await _runDirectJsonExample(client, options);
   await _runDirectWampMetadataExample(client, options);
   if (options.pubsubTopic != null) {
@@ -194,6 +195,51 @@ Future<void> _runStatelessExample(
       },
     }),
   );
+}
+
+Future<void> _expectModernBatchUnsupported(
+  McpStreamableHttpClient client,
+) async {
+  final previousSessionId = client.sessionId;
+  final previousEventId = client.lastEventId;
+  try {
+    await client.postBatchDirect(<McpJsonMap>[
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'stateless-batch-tools',
+        'method': 'tools/list',
+        'params': <String, Object?>{},
+      },
+      <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'stateless-batch-ping',
+        'method': 'ping',
+        'params': <String, Object?>{},
+      },
+    ]);
+  } on McpStreamableProtocolException catch (error) {
+    if (!error.message.contains('MCP 2026') ||
+        !error.message.contains('JSON-RPC batches')) {
+      rethrow;
+    }
+    _expectStreamableStateUnchanged(
+      client,
+      sessionId: previousSessionId,
+      lastEventId: previousEventId,
+      label: 'Modern batch rejection',
+    );
+    stdout.writeln(
+      jsonEncode({
+        'modernBatchUnsupported': <String, Object?>{
+          'protocolVersion': client.protocolVersion,
+          'rejectedLocally': true,
+          'sessionless': true,
+        },
+      }),
+    );
+    return;
+  }
+  throw StateError('MCP 2026 client unexpectedly accepted a JSON-RPC batch.');
 }
 
 Future<McpJsonMap> _runStatelessResourceSubscriptionExample(

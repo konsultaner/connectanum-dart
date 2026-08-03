@@ -345,6 +345,7 @@ class VerificationScriptsTest(unittest.TestCase):
         self,
     ) -> None:
         script = TEST_ALL.read_text(encoding="utf-8")
+        common_script = COMMON.read_text(encoding="utf-8")
 
         self.assertIn("run_client_browser_websocket_test()", script)
         self.assertIn('CONNECTANUM_BROWSER_TEST_ATTEMPTS:-2', script)
@@ -354,8 +355,12 @@ class VerificationScriptsTest(unittest.TestCase):
         )
         self.assertIn("run_browser_websocket_test_attempt()", script)
         self.assertIn(
-            "Browser WebSocket smoke exceeded %ss",
+            'run_command_with_timeout \\\n        "Browser WebSocket smoke"',
             script,
+        )
+        self.assertIn(
+            "%s exceeded %ss; terminating stalled command.",
+            common_script,
         )
         self.assertIn('args+=(--reporter=expanded)', script)
         self.assertIn(
@@ -368,6 +373,28 @@ class VerificationScriptsTest(unittest.TestCase):
             script,
         )
         self.assertIn('return "$status"', script)
+
+    def test_timeout_helper_does_not_leave_success_watchdog_alive(self) -> None:
+        script = textwrap.dedent(
+            f"""
+            set -euo pipefail
+            source "{COMMON}"
+            run_command_with_timeout "quick command" 5 bash -c 'printf done'
+            """
+        )
+
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=REPO_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=3,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(result.stdout, "done")
 
 
 if __name__ == "__main__":
