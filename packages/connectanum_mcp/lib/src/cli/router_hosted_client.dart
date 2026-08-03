@@ -381,6 +381,11 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
     throw StateError('Auth lifecycle smoke requires --auth-url.');
   }
 
+  const clientInfo = <String, Object?>{
+    'name': 'connectanum-mcp-router-hosted-client-example',
+    'version': '3.0.0-beta',
+  };
+  final stateless = _isStatelessProtocolVersion(options.protocolVersion);
   final authClient = ConnectanumHttpAuthClient(
     authEndpoint,
     httpClient: _shortLivedHttpClient(),
@@ -388,6 +393,7 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
   );
   McpStreamableHttpClient? refreshedClient;
   McpStreamableHttpClient? revokedClient;
+  Map<String, Object?>? refreshedRequestScopedResourceSubscription;
   try {
     final grant = await authClient.issueTicketToken(
       realm: options.authRealm!,
@@ -413,13 +419,21 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
       throw StateError('Auth lifecycle smoke did not rotate a refresh token.');
     }
 
-    refreshedClient = McpStreamableHttpClient.withAuthGrant(
-      options.endpoint,
-      refreshed,
-      httpClient: _shortLivedHttpClient(),
-      defaultProtocolVersion: options.protocolVersion,
-      closeHttpClient: true,
-    );
+    refreshedClient = stateless
+        ? McpStreamableHttpClient.statelessWithAuthGrant(
+            options.endpoint,
+            refreshed,
+            clientInfo: clientInfo,
+            httpClient: _shortLivedHttpClient(),
+            closeHttpClient: true,
+          )
+        : McpStreamableHttpClient.withAuthGrant(
+            options.endpoint,
+            refreshed,
+            httpClient: _shortLivedHttpClient(),
+            defaultProtocolVersion: options.protocolVersion,
+            closeHttpClient: true,
+          );
     await refreshedClient.pingDirect(
       id: 'auth-lifecycle-refreshed-direct-ping',
       headers: const <String, String>{
@@ -431,26 +445,45 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
       throw StateError('Auth lifecycle direct ping created Streamable state.');
     }
 
-    await refreshedClient.initialize(
-      id: 'auth-lifecycle-refreshed-initialize',
-      headers: const <String, String>{
-        'x-consumer-trace': 'auth-lifecycle-refreshed-initialize',
-      },
-    );
-    final refreshedSessionId = refreshedClient.sessionId;
-    if (refreshedSessionId == null || refreshedSessionId.isEmpty) {
-      throw StateError(
-        'Auth lifecycle refreshed grant did not initialize a Streamable session.',
+    if (stateless) {
+      final updateTopic = options.resourceUpdateTopic;
+      if (updateTopic != null) {
+        refreshedRequestScopedResourceSubscription =
+            await _runStatelessResourceSubscriptionExample(
+              refreshedClient,
+              resourceUri: options.resourceUri!,
+              updateTopic: updateTopic,
+              updateEvent: options.resourceUpdateEvent,
+            );
+      }
+      if (refreshedClient.sessionId != null ||
+          refreshedClient.lastEventId != null) {
+        throw StateError(
+          'Auth lifecycle request-scoped listener created Streamable state.',
+        );
+      }
+    } else {
+      await refreshedClient.initialize(
+        id: 'auth-lifecycle-refreshed-initialize',
+        headers: const <String, String>{
+          'x-consumer-trace': 'auth-lifecycle-refreshed-initialize',
+        },
       );
+      final refreshedSessionId = refreshedClient.sessionId;
+      if (refreshedSessionId == null || refreshedSessionId.isEmpty) {
+        throw StateError(
+          'Auth lifecycle refreshed grant did not initialize a Streamable session.',
+        );
+      }
+      await refreshedClient.notifyInitialized(
+        headers: const <String, String>{
+          'x-consumer-trace': 'auth-lifecycle-refreshed-initialized',
+        },
+      );
+      await _deleteStreamableSession(refreshedClient);
+      refreshedClient.close(force: true);
+      refreshedClient = null;
     }
-    await refreshedClient.notifyInitialized(
-      headers: const <String, String>{
-        'x-consumer-trace': 'auth-lifecycle-refreshed-initialized',
-      },
-    );
-    await _deleteStreamableSession(refreshedClient);
-    refreshedClient.close(force: true);
-    refreshedClient = null;
 
     await authClient.revokeToken(
       refreshed.accessToken,
@@ -458,13 +491,21 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
         'x-consumer-trace': 'router-hosted-client-auth-lifecycle-revoke-access',
       },
     );
-    revokedClient = McpStreamableHttpClient.withAuthGrant(
-      options.endpoint,
-      refreshed,
-      httpClient: _shortLivedHttpClient(),
-      defaultProtocolVersion: options.protocolVersion,
-      closeHttpClient: true,
-    );
+    revokedClient = stateless
+        ? McpStreamableHttpClient.statelessWithAuthGrant(
+            options.endpoint,
+            refreshed,
+            clientInfo: clientInfo,
+            httpClient: _shortLivedHttpClient(),
+            closeHttpClient: true,
+          )
+        : McpStreamableHttpClient.withAuthGrant(
+            options.endpoint,
+            refreshed,
+            httpClient: _shortLivedHttpClient(),
+            defaultProtocolVersion: options.protocolVersion,
+            closeHttpClient: true,
+          );
     await _expectMcpUnauthorized(
       () async {
         await revokedClient!.pingDirect(
@@ -497,7 +538,12 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
           'issued': true,
           'refreshed': true,
           'refreshedDirectPing': true,
-          'refreshedStreamableSession': true,
+          if (stateless) ...{
+            'refreshedSessionless': true,
+            'refreshedRequestScopedResourceSubscription':
+                ?refreshedRequestScopedResourceSubscription,
+          } else
+            'refreshedStreamableSession': true,
           'revokedAccessRejected': true,
           'revokedRefreshRejected': true,
         },
@@ -5169,12 +5215,6 @@ final class _Options {
         'Use --auth-lifecycle-smoke together with --auth-url.',
       );
     }
-    if (_isStatelessProtocolVersion(protocolVersion) && authLifecycleSmoke) {
-      throw const FormatException(
-        '--auth-lifecycle-smoke requires a session-era MCP protocol version.',
-      );
-    }
-
     if (values.containsKey('--tool-arguments') &&
         !values.containsKey('--tool')) {
       throw const FormatException('Use --tool-arguments together with --tool.');

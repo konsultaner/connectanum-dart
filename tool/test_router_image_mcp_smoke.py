@@ -105,10 +105,14 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'run_stateless_package_client_smoke "Protected"',
             '"stateless"',
             '"sessionless":true',
+            '"refreshedSessionless":true',
+            '"refreshedRequestScopedResourceSubscription"',
             '"supportedVersions"',
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)
+
+        self.assertEqual(runner.count("--auth-lifecycle-smoke"), 2)
 
     def test_shell_runner_uses_isolated_global_package_activation(self) -> None:
         runner = RUNNER.read_text(encoding="utf-8")
@@ -142,6 +146,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "prompts=true wamp_meta=true pubsub=true",
             "resource_uri=%s prompt=%s",
             '"sessionless=true request_listener=true"',
+            "refreshed_grant_listener=true",
             '"streamable_http=true session_delete=true"',
             'lifecycle_evidence+=" auth_lifecycle=true"',
             "%s Router Image package client smoke passed.",
@@ -160,7 +165,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]
         self.assertEqual(
             summary_prints,
-            ['printf \'%s\\n\' "$summary" >&2'] * 3,
+            ['printf \'%s\\n\' "$summary" >&2'] * 4,
         )
 
     def test_shell_runner_exercises_modern_resource_listener(self) -> None:

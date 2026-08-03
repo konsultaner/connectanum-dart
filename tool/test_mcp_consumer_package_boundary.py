@@ -1821,6 +1821,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "auth-lifecycle-refreshed-direct-ping",
             "auth-lifecycle-refreshed-initialize",
             "auth-lifecycle-refreshed-initialized",
+            "refreshedSessionless",
+            "refreshedRequestScopedResourceSubscription",
             "auth-lifecycle-revoked-direct-ping",
             "authLifecycle",
             "revokedAccessRejected",
@@ -1838,7 +1840,6 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "McpSubscriptionCloseReason.local",
             "requestScopedResourceSubscription",
             "'stateless'",
-            "--auth-lifecycle-smoke requires a session-era MCP protocol version.",
             "_httpUri",
             "must be an absolute http or https URL.",
             "_bearerTokenOption",
@@ -2453,11 +2454,9 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("stateless_dry_run_summary=\"$(", body)
         self.assertIn("--protocol-version 2026-07-28", body)
         self.assertIn('"transportMode":"stateless"', body)
-        self.assertIn("stateless_auth_lifecycle_output=\"$(", body)
-        self.assertIn(
-            "--auth-lifecycle-smoke requires a session-era MCP protocol version.",
-            body,
-        )
+        self.assertIn("stateless_auth_lifecycle_summary=\"$(", body)
+        self.assertIn('"authLifecycleSmoke":true', body)
+        self.assertIn('"authMode":"ticket"', body)
         self.assertIn("stateless_resource_update_summary=\"$(", body)
         self.assertIn('"resourceSubscription"', body)
         self.assertIn('"updateTopic":"example.events.context.updated"', body)

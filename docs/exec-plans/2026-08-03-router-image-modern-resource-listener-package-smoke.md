@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -66,3 +66,15 @@ fresh Router Image without creating compatibility-era session or resume state.
 - 2026-08-03: Full `bin/verify` passes, including the isolated globally
   activated MCP client, consumer-package and router CLI smokes, all 36 live
   WAMP integration scenarios, 380 router tests, and Chrome/Wasm coverage.
+- 2026-08-03: Commit `310f5f9` was pushed to GitLab and GitHub. Exact-head CI
+  `30817465499`, Dart Package Publish Dry Run `30817465556`, Router Image dry
+  run `30817501254`, and WAMP Profile Benchmarks `30817504487` all passed. CI
+  uploaded coverage artifact `8857900538`, Router Image uploaded preview
+  artifact `8857367289`, and WAMP uploaded benchmark artifact `8857602022`.
+- 2026-08-03: Fresh-image logs contain exactly four bounded package evidence
+  lines. The public and protected modern lines prove the globally activated
+  executable used the dynamic resource, remained sessionless, and completed
+  `request_listener=true`; both compatibility lines retain Streamable session
+  deletion, and the protected line retains authentication lifecycle evidence.
+  The comprehensive strict deployment-chain audit exited clean with every
+  required gate ready. RC tagging remains approval-gated.

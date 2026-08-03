@@ -573,8 +573,8 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
-  local stateless_auth_lifecycle_output
-  if stateless_auth_lifecycle_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+  local stateless_auth_lifecycle_summary
+  stateless_auth_lifecycle_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --protocol-version 2026-07-28 \
     --auth-url http://127.0.0.1:8080/auth \
@@ -582,12 +582,11 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     --auth-id mcp-user \
     --ticket dry-run-ticket-secret \
     --auth-lifecycle-smoke \
-    --dry-run 2>&1)"; then
-    printf 'Public router-hosted MCP client accepted session auth lifecycle smoke in stateless mode.\n'
-    return 1
-  fi
-  if [[ "$stateless_auth_lifecycle_output" != *'--auth-lifecycle-smoke requires a session-era MCP protocol version.'* ]]; then
-    printf 'Public router-hosted MCP client did not reject session auth lifecycle smoke in stateless mode.\n'
+    --dry-run)"
+  if [[ "$stateless_auth_lifecycle_summary" != *'"transportMode":"stateless"'* ||
+        "$stateless_auth_lifecycle_summary" != *'"authMode":"ticket"'* ||
+        "$stateless_auth_lifecycle_summary" != *'"authLifecycleSmoke":true'* ]]; then
+    printf 'Public router-hosted MCP client modern auth lifecycle dry-run omitted stateless ticket-mode evidence.\n'
     return 1
   fi
 

@@ -288,15 +288,30 @@ run_stateless_package_client_smoke() {
   done
 
   local auth_evidence="anonymous"
+  local lifecycle_evidence="sessionless=true request_listener=true"
   if [[ "$label" == "Protected" ]]; then
     auth_evidence="router-issued"
+    for marker in \
+      '"authLifecycle"' \
+      '"refreshedSessionless":true' \
+      '"refreshedRequestScopedResourceSubscription"' \
+      '"revokedAccessRejected":true' \
+      '"revokedRefreshRejected":true'; do
+      if [[ "$summary" != *"$marker"* ]]; then
+        printf '%s stateless auth lifecycle smoke omitted required evidence: %s\n' \
+          "$label" "$marker" >&2
+        printf '%s\n' "$summary" >&2
+        return 1
+      fi
+    done
+    lifecycle_evidence+=" auth_lifecycle=true refreshed_grant_listener=true"
   fi
   print_package_client_evidence \
     "$label" \
     "$mcp_modern_protocol_version" \
     "stateless" \
     "$auth_evidence" \
-    "sessionless=true request_listener=true" \
+    "$lifecycle_evidence" \
     "$mcp_dynamic_resource_uri"
   printf '%s Router Image stateless package client smoke passed.\n' \
     "$label"
@@ -316,7 +331,8 @@ run_stateless_package_client_smoke "Protected" \
   --auth-url "http://127.0.0.1:$host_port/auth" \
   --realm image.smoke \
   --auth-id image-smoke-agent \
-  --ticket image-smoke-ticket
+  --ticket image-smoke-ticket \
+  --auth-lifecycle-smoke
 run_package_client_smoke "Public" \
   "http://127.0.0.1:$host_port/mcp"
 run_package_client_smoke "Protected" \
