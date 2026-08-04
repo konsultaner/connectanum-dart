@@ -164,7 +164,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)
 
-        self.assertEqual(runner.count("--auth-lifecycle-smoke"), 3)
+        self.assertEqual(runner.count("--auth-lifecycle-smoke"), 4)
 
     def test_shell_runner_exercises_protected_json_response_package_client(
         self,
@@ -182,7 +182,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
 
         for expected in [
             '--json-response-endpoint "http://127.0.0.1:$host_port/mcp/secure-json"',
+            'run_stateless_package_client_smoke "Protected JSON-response"',
             'run_package_client_smoke "Protected JSON-response"',
+            'lifecycle_evidence+=" post_response=json"',
             'post_response=json post_sse_cursor=false',
         ]:
             with self.subTest(runner_expected=expected):

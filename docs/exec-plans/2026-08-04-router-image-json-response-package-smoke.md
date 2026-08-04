@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress.
+Completed.
 
 ## Goal
 
@@ -83,3 +83,18 @@ route's authenticated lifecycle without source-tree assumptions.
   suite, all 96 benchmark tests with 36 live real-router WAMP workloads, every
   isolated and globally activated consumer smoke, the complete 380-case router
   suite, 13 native-forwarding follow-ups, and Chrome/Dart2Wasm coverage.
+- 2026-08-04: Implementation commit `982b113` was pushed to GitLab and GitHub.
+  Exact-head CI `30871127631` passed Fast Checks, Full Verify, Dart VM Coverage,
+  Codecov upload, the clean hosted-log scan, and coverage artifact
+  `8878173146`. Router Image dry run `30871145474` passed its canonical
+  Linux/amd64 current-source build, loaded-image runtime smoke, non-publishing
+  multi-architecture build, skipped GHCR login, and clean annotations, and
+  uploaded preview artifact `8877920088`. Its hosted log contains the raw
+  `json_response_ready=true protected=true compatibility_json=true
+  protocol_header=true session_header=true session_delete=true
+  post_sse_cursor=false` marker and exactly five package-client evidence lines,
+  including the protected JSON-response package lifecycle. The package
+  publish, native release, and WAMP profile evidence remains relevant because
+  no corresponding sensitive inputs changed. The comprehensive strict
+  deployment-chain audit exited zero with every required gate ready; RC tagging
+  and prerelease creation remain separate approval-gated release actions.

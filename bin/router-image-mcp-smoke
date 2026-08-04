@@ -295,7 +295,7 @@ run_stateless_package_client_smoke() {
   local auth_evidence="anonymous"
   local lifecycle_evidence="sessionless=true request_listener=true"
   lifecycle_evidence+=" modern_batch_unsupported=true"
-  if [[ "$label" == "Protected" ]]; then
+  if [[ "$label" == Protected* ]]; then
     auth_evidence="router-issued"
     for marker in \
       '"authLifecycle"' \
@@ -311,6 +311,9 @@ run_stateless_package_client_smoke() {
       fi
     done
     lifecycle_evidence+=" auth_lifecycle=true refreshed_grant_listener=true"
+  fi
+  if [[ "$label" == "Protected JSON-response" ]]; then
+    lifecycle_evidence+=" post_response=json"
   fi
   print_package_client_evidence \
     "$label" \
@@ -335,6 +338,13 @@ run_stateless_package_client_smoke "Public" \
   "http://127.0.0.1:$host_port/mcp"
 run_stateless_package_client_smoke "Protected" \
   "http://127.0.0.1:$host_port/mcp/secure" \
+  --auth-url "http://127.0.0.1:$host_port/auth" \
+  --realm image.smoke \
+  --auth-id image-smoke-agent \
+  --ticket image-smoke-ticket \
+  --auth-lifecycle-smoke
+run_stateless_package_client_smoke "Protected JSON-response" \
+  "http://127.0.0.1:$host_port/mcp/secure-json" \
   --auth-url "http://127.0.0.1:$host_port/auth" \
   --realm image.smoke \
   --auth-id image-smoke-agent \

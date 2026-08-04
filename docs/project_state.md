@@ -777,7 +777,7 @@ with every required gate ready; RC tagging and prerelease creation remain
 approval-gated. The completed plan is
 `docs/exec-plans/2026-08-04-router-image-independent-principal-lifecycle-smoke.md`.
 
-The active Router Image protected JSON-response package checkpoint closes a
+The completed Router Image protected JSON-response package checkpoint closes a
 canonical deployment-config gap. Source, native integration, public examples,
 and generated consumers already cover the router's
 `post_response_transport: json` option, but the loaded image exposed only the
@@ -798,12 +798,25 @@ compatibility protocol and stable session headers, no SSE cursor dependency,
 and session DELETE, and its log contains exactly five bounded package-client
 evidence lines. The normal canonical Dockerfile build stalled at Docker Hub's
 Dockerfile-frontend metadata lookup and was canceled cleanly, so the exact-head
-hosted Linux/amd64 build remains required before closure. Full `bin/verify`
+hosted Linux/amd64 build remained required at that point. Full `bin/verify`
 passes formatting, all Rust and FFI suites, 360 core tests, 94 MCP tests, 193
 MCP/client authorization cases, all 96 benchmark tests with 36 live WAMP
 workloads, every isolated and globally activated consumer smoke, the complete
 380-case router suite, 13 native-forwarding follow-ups, and Chrome/Dart2Wasm
-coverage. The active plan is
+coverage. Implementation commit `982b113` was pushed to GitLab and GitHub.
+Exact-head CI
+`30871127631` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov upload,
+the clean hosted-log scan, and coverage artifact `8878173146`. Router Image dry
+run `30871145474` passed the canonical Linux/amd64 current-source build,
+loaded-image runtime smoke, non-publishing multi-architecture build, skipped
+GHCR login, and clean annotations, and uploaded preview artifact `8877920088`.
+Its hosted log contains the complete bounded raw JSON-response marker and
+exactly five package-client evidence lines, including the protected
+JSON-response lifecycle. The package publish, native release, and WAMP profile
+evidence remains relevant because no corresponding sensitive inputs changed.
+The comprehensive strict deployment-chain audit exited zero with every
+required gate ready; RC tagging and prerelease creation remain approval-gated.
+The completed plan is
 `docs/exec-plans/2026-08-04-router-image-json-response-package-smoke.md`.
 
 The completed Router Image protected compatibility method-auth isolation
@@ -24669,6 +24682,24 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-04-router-image-json-response-stateless-package-smoke.md`.
+  It extends the globally activated public package smoke to the protected
+  `/mcp/secure-json` endpoint with the modern stateless protocol, router-issued
+  auth refresh/revocation, direct JSON and WAMP Meta APIs, pub/sub, and
+  request-scoped resource updates. Pre-change `bin/test-fast` passed, and the
+  focused contract failed first on the absent fourth authenticated lifecycle
+  and stateless JSON-response invocation. The focused implementation checks and
+  all 27 Router Image contracts pass. The complete loaded-image runner passes
+  against the newest verified source-equivalent local router binary with
+  exactly six bounded package evidence lines, including modern sessionless,
+  refreshed authenticated listener, and JSON POST response evidence for the
+  protected JSON-response route. Full `bin/verify` passes formatting, all Rust
+  and FFI suites, 360 core tests, 94 MCP tests, 193 MCP/client authorization
+  cases, all 96 benchmark tests with 36 live WAMP workloads, every isolated and
+  globally activated consumer smoke, the complete 380-case router suite, 13
+  native-forwarding follow-ups, and Chrome/Dart2Wasm coverage.
+- Most recently completed router-hosted MCP
+  packaging-readiness plan:
   `docs/exec-plans/2026-08-04-router-image-json-response-package-smoke.md`.
   It adds the neutral protected `/mcp/secure-json` route to the canonical image
   config, requires raw unframed JSON response/session/delete behavior, and runs
@@ -24676,8 +24707,10 @@ at the older `47bbf9c` commit.
   on that route. The fail-first contract, Python compilation, shell syntax
   validation, all 27 Router Image contracts, the complete loaded-image runner,
   and full `bin/verify` pass. The local log contains the bounded raw
-  JSON-response marker and exactly five package-client evidence lines; the
-  exact-head hosted canonical Linux/amd64 build remains required.
+  JSON-response marker and exactly five package-client evidence lines.
+  Exact-head hosted CI `30871127631`, coverage artifact `8878173146`, Router
+  Image dry run `30871145474`, preview artifact `8877920088`, matching hosted
+  evidence, the clean log scan, and the comprehensive strict audit all pass.
 - Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-04-router-image-independent-principal-lifecycle-smoke.md`.
   It extends the second valid bearer proof beyond rejected primary-session
