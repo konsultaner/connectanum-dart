@@ -3768,6 +3768,190 @@ void main() {
     );
 
     test(
+      'keeps replacement session state after a stale DELETE completes',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'stale-delete-init');
+        client.lastEventId = 'session-1:get:before-delete';
+
+        final delete = client.deleteSession(
+          headers: const <String, String>{
+            'x-test-block-response': '1',
+            'x-test-response-session-id': 'session-1',
+          },
+        );
+        await endpoint.waitForBlockedRequest();
+
+        await client.initialize(
+          id: 'stale-delete-reinitialize',
+          headers: const <String, String>{
+            'x-test-response-session-id': 'session-1',
+          },
+        );
+        client.lastEventId = 'session-1:get:replacement';
+
+        endpoint.releaseBlockedRequest();
+        await delete;
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:replacement');
+      },
+    );
+
+    test(
+      'treats explicit same-id session assignment as a new lifecycle',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'same-id-assignment-init');
+        final delete = client.deleteSession(
+          headers: const <String, String>{
+            'x-test-block-response': '1',
+            'x-test-response-session-id': 'session-1',
+          },
+        );
+        await endpoint.waitForBlockedRequest();
+
+        client.sessionId = 'session-1';
+        client.lastEventId = 'session-1:get:manual-reattach';
+
+        endpoint.releaseBlockedRequest();
+        await delete;
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:manual-reattach');
+      },
+    );
+
+    test(
+      'keeps replacement session state after a stale 404 response',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        client.sessionId = 'expired-session';
+        client.lastEventId = 'expired-session:get:before-request';
+        final request = client.listTools(
+          id: 'stale-session-request',
+          streamable: false,
+          headers: const <String, String>{'x-test-block-response': '1'},
+        );
+        await endpoint.waitForBlockedRequest();
+
+        await client.initialize(
+          id: 'stale-session-reinitialize',
+          headers: const <String, String>{
+            'x-test-response-session-id': 'session-2',
+          },
+        );
+        client.lastEventId = 'session-2:get:replacement';
+
+        endpoint.releaseBlockedRequest();
+        await expectLater(
+          request,
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.notFound,
+            ),
+          ),
+        );
+        expect(client.sessionId, 'session-2');
+        expect(client.lastEventId, 'session-2:get:replacement');
+      },
+    );
+
+    test(
+      'keeps replacement resume state after a stale poll completes',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'stale-poll-init');
+        client.lastEventId = 'session-1:get:before-poll';
+        final poll = client.poll(
+          headers: const <String, String>{
+            'x-test-block-response': '1',
+            'x-test-response-session-id': 'session-1',
+          },
+        );
+        await endpoint.waitForBlockedRequest();
+
+        await client.initialize(
+          id: 'stale-poll-reinitialize',
+          headers: const <String, String>{
+            'x-test-response-session-id': 'session-2',
+          },
+        );
+        client.lastEventId = 'session-2:get:replacement';
+
+        endpoint.releaseBlockedRequest();
+        final events = await poll;
+
+        expect(events, hasLength(1));
+        expect(client.sessionId, 'session-2');
+        expect(client.lastEventId, 'session-2:get:replacement');
+        final pollRequest = endpoint.requests.firstWhere(
+          (request) => request.method == 'GET',
+        );
+        expect(pollRequest.sessionId, 'session-1');
+        expect(pollRequest.lastEventId, 'session-1:get:before-poll');
+      },
+    );
+
+    test(
+      'keeps replacement session state after stale initialize validation',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'stale-validation-init');
+        final staleInitialize = client.initialize(
+          id: 'stale-invalid-reinitialize',
+          headers: const <String, String>{
+            'x-test-block-response': '1',
+            'x-test-omit-result-protocol-version': '1',
+            'x-test-response-session-id': 'untrusted-session',
+          },
+        );
+        await endpoint.waitForBlockedRequest();
+
+        await client.initialize(
+          id: 'stale-validation-replacement',
+          headers: const <String, String>{
+            'x-test-response-session-id': 'session-2',
+          },
+        );
+        client.lastEventId = 'session-2:get:replacement';
+
+        endpoint.releaseBlockedRequest();
+        await expectLater(staleInitialize, throwsA(isA<FormatException>()));
+
+        expect(client.sessionId, 'session-2');
+        expect(client.lastEventId, 'session-2:get:replacement');
+      },
+    );
+
+    test(
       'keeps Streamable HTTP session state after malformed POST responses',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -7810,6 +7994,8 @@ final class _FakeMcpEndpoint {
   late final StreamSubscription<HttpRequest> _subscription;
   HttpResponse? _listenResponse;
   Object? _listenRequestId;
+  Completer<void>? _blockedRequestSeen;
+  Completer<void>? _blockedRequestRelease;
 
   Uri get uri => Uri(
     scheme: 'http',
@@ -7824,9 +8010,20 @@ final class _FakeMcpEndpoint {
   }
 
   Future<void> close() async {
+    releaseBlockedRequest();
     await _listenResponse?.close();
     await _subscription.cancel();
     await _server.close(force: true);
+  }
+
+  Future<void> waitForBlockedRequest() =>
+      (_blockedRequestSeen ??= Completer<void>()).future;
+
+  void releaseBlockedRequest() {
+    final release = _blockedRequestRelease;
+    if (release != null && !release.isCompleted) {
+      release.complete();
+    }
   }
 
   Future<void> sendListenNotification(
@@ -7882,6 +8079,14 @@ final class _FakeMcpEndpoint {
     final body = await utf8.decoder.bind(request).join();
     final jsonBody = body.isEmpty ? null : jsonDecode(body);
     requests.add(_SeenRequest.from(request, jsonBody));
+
+    if (request.headers.value('x-test-block-response') == '1') {
+      final seen = _blockedRequestSeen ??= Completer<void>();
+      if (!seen.isCompleted) {
+        seen.complete();
+      }
+      await (_blockedRequestRelease ??= Completer<void>()).future;
+    }
 
     final requestSessionId = request.headers.value(_headerSessionId);
     if (request.headers.value('x-test-oauth-step-up') == '1' &&

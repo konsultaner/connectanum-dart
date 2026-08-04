@@ -1274,6 +1274,13 @@ class McpStreamableSubscription {
   }
 }
 
+final class _McpSessionStateSnapshot {
+  const _McpSessionStateSnapshot(this.token, this.sessionId);
+
+  final Object token;
+  final String? sessionId;
+}
+
 /// HTTP client for session-based MCP revisions and stateless MCP 2026.
 ///
 /// For session-based revisions, the client keeps the negotiated MCP session
@@ -1456,10 +1463,21 @@ final class McpStreamableHttpClient {
   int _nextRequestId = 1;
 
   String _protocolVersion;
-  String? sessionId;
+  String? _sessionId;
+  Object _sessionStateToken = Object();
   String? lastEventId;
 
   String get protocolVersion => _protocolVersion;
+
+  String? get sessionId => _sessionId;
+
+  set sessionId(String? value) {
+    _sessionId = value;
+    _sessionStateToken = Object();
+  }
+
+  _McpSessionStateSnapshot get _sessionStateSnapshot =>
+      _McpSessionStateSnapshot(_sessionStateToken, _sessionId);
 
   set protocolVersion(String value) {
     final validated = _validatedMcpProtocolVersion(value, 'protocolVersion');
@@ -2911,6 +2929,7 @@ final class McpStreamableHttpClient {
     required String protocolVersion,
     Map<String, String> extraHeaders = const <String, String>{},
   }) async {
+    final requestSessionState = _sessionStateSnapshot;
     final request = await _httpClient.postUrl(endpoint);
     final acceptsSse = streamable || protocolVersion == latestProtocolVersion;
     _applyHeaders(
@@ -2918,6 +2937,7 @@ final class McpStreamableHttpClient {
       accept: acceptsSse ? _acceptStreamableHttp : _acceptJson,
       includeSession: includeSession,
       protocolVersion: protocolVersion,
+      sessionState: requestSessionState,
       extraHeaders: extraHeaders,
     );
     _applyStandardRequestHeaders(request, message);
@@ -2935,7 +2955,11 @@ final class McpStreamableHttpClient {
     final response = await request.close();
     final body = await _readBody(response);
     if (affectsSessionState) {
-      _throwIfHttpErrorForSession(response, body);
+      _throwIfHttpErrorForSession(
+        response,
+        body,
+        expectedToken: requestSessionState.token,
+      );
     } else {
       _throwIfHttpError(response, body);
     }
@@ -2955,6 +2979,7 @@ final class McpStreamableHttpClient {
           responseValue: null,
           requestProtocolVersion: protocolVersion,
           requestIncludesSession: includeSession,
+          requestSessionState: requestSessionState,
           clearSessionOnMissing: clearsSessionOnMissing,
           resetLastEventId: resetsLastEventId,
         );
@@ -2979,6 +3004,7 @@ final class McpStreamableHttpClient {
           responseValue: value,
           requestProtocolVersion: protocolVersion,
           requestIncludesSession: includeSession,
+          requestSessionState: requestSessionState,
           clearSessionOnMissing: clearsSessionOnMissing,
           resetLastEventId: resetsLastEventId,
         );
@@ -3009,6 +3035,7 @@ final class McpStreamableHttpClient {
         responseValue: value,
         requestProtocolVersion: protocolVersion,
         requestIncludesSession: includeSession,
+        requestSessionState: requestSessionState,
         clearSessionOnMissing: clearsSessionOnMissing,
         resetLastEventId: resetsLastEventId,
       );
@@ -3139,17 +3166,26 @@ final class McpStreamableHttpClient {
         'MCP 2026 HTTP does not support GET polling',
       );
     }
+    final requestSessionState = _sessionStateSnapshot;
+    final requestProtocolVersion = protocolVersion;
+    final requestLastEventId = lastEventId ?? this.lastEventId;
     final request = await _httpClient.getUrl(endpoint);
     _applyHeaders(
       request,
       accept: _acceptSse,
-      lastEventId: lastEventId ?? this.lastEventId,
+      lastEventId: requestLastEventId,
+      protocolVersion: requestProtocolVersion,
+      sessionState: requestSessionState,
       extraHeaders: headers,
     );
 
     final response = await request.close();
     final body = await _readBody(response);
-    _throwIfHttpErrorForSession(response, body);
+    _throwIfHttpErrorForSession(
+      response,
+      body,
+      expectedToken: requestSessionState.token,
+    );
 
     if (!_isSse(response)) {
       throw FormatException(
@@ -3165,8 +3201,19 @@ final class McpStreamableHttpClient {
       }
     }
     _validateMcpSseEventIds(events);
-    _captureSessionHeaders(response, expectedProtocolVersion: protocolVersion);
-    _captureLastEventId(events);
+    final ownsSessionState = identical(
+      _sessionStateToken,
+      requestSessionState.token,
+    );
+    _captureSessionHeaders(
+      response,
+      captureSessionState: ownsSessionState,
+      expectedSessionState: requestSessionState,
+      expectedProtocolVersion: requestProtocolVersion,
+    );
+    if (ownsSessionState) {
+      _captureLastEventId(events);
+    }
     return events;
   }
 
@@ -3178,7 +3225,8 @@ final class McpStreamableHttpClient {
         'MCP 2026 HTTP does not support DELETE session requests',
       );
     }
-    final activeSessionId = sessionId;
+    final requestSessionState = _sessionStateSnapshot;
+    final activeSessionId = requestSessionState.sessionId;
     if (activeSessionId == null) {
       _clearSessionState();
       return;
@@ -3189,17 +3237,26 @@ final class McpStreamableHttpClient {
       request,
       accept: _acceptJson,
       protocolVersion: activeProtocolVersion,
+      sessionState: requestSessionState,
       extraHeaders: headers,
     );
 
     final response = await request.close();
     final body = await _readBody(response);
-    _throwIfHttpErrorForSession(response, body);
+    _throwIfHttpErrorForSession(
+      response,
+      body,
+      expectedToken: requestSessionState.token,
+    );
     _captureSessionHeaders(
       response,
+      captureSessionState: false,
+      expectedSessionState: requestSessionState,
       expectedProtocolVersion: activeProtocolVersion,
     );
-    _clearSessionState();
+    if (identical(_sessionStateToken, requestSessionState.token)) {
+      _clearSessionState();
+    }
   }
 
   void close({bool force = false}) {
@@ -3232,6 +3289,7 @@ final class McpStreamableHttpClient {
     String? lastEventId,
     bool includeSession = true,
     String? protocolVersion,
+    _McpSessionStateSnapshot? sessionState,
     Map<String, String> extraHeaders = const <String, String>{},
   }) {
     final effectiveProtocolVersion = _validatedMcpProtocolVersion(
@@ -3255,7 +3313,11 @@ final class McpStreamableHttpClient {
     if (authorizationHeader != null) {
       request.headers.set(HttpHeaders.authorizationHeader, authorizationHeader);
     }
-    final session = includeSession ? sessionId : null;
+    final session = includeSession
+        ? sessionState == null
+              ? sessionId
+              : sessionState.sessionId
+        : null;
     if (session != null) {
       if (!_mcpSessionIdHeaderValueValid(session)) {
         throw const FormatException(
@@ -3299,6 +3361,7 @@ final class McpStreamableHttpClient {
     bool allowSessionAssignment = false,
     bool captureSessionState = true,
     bool forbidSessionId = false,
+    _McpSessionStateSnapshot? expectedSessionState,
     String? expectedProtocolVersion,
     String protocolVersionExpectation = 'active protocol version',
     bool clearSessionOnMissing = false,
@@ -3336,22 +3399,26 @@ final class McpStreamableHttpClient {
         'MCP stateless response must not create a session',
       );
     }
+    if (negotiatedSessionId != null && !allowSessionAssignment) {
+      final expectedSessionId = expectedSessionState == null
+          ? sessionId
+          : expectedSessionState.sessionId;
+      if (negotiatedSessionId != expectedSessionId) {
+        throw const McpStreamableProtocolException(
+          'MCP-Session-Id response header did not match the active session',
+        );
+      }
+    }
 
     if (!captureSessionState) {
       return;
     }
     if (negotiatedSessionId != null) {
-      if (!allowSessionAssignment) {
-        if (negotiatedSessionId != sessionId) {
-          throw const McpStreamableProtocolException(
-            'MCP-Session-Id response header did not match the active session',
-          );
-        }
-      } else {
+      if (allowSessionAssignment) {
         if (resetLastEventId || sessionId != negotiatedSessionId) {
           lastEventId = null;
         }
-        sessionId = negotiatedSessionId;
+        _sessionId = negotiatedSessionId;
       }
     } else if (clearSessionOnMissing) {
       _clearSessionState();
@@ -3364,6 +3431,7 @@ final class McpStreamableHttpClient {
     required Object? responseValue,
     required String requestProtocolVersion,
     required bool requestIncludesSession,
+    required _McpSessionStateSnapshot requestSessionState,
     bool clearSessionOnMissing = false,
     bool resetLastEventId = false,
   }) {
@@ -3380,7 +3448,9 @@ final class McpStreamableHttpClient {
         allowSessionAssignment: true,
         captureSessionState: false,
       );
-      _clearSessionState();
+      if (identical(_sessionStateToken, requestSessionState.token)) {
+        _clearSessionState();
+      }
       return false;
     }
 
@@ -3390,6 +3460,23 @@ final class McpStreamableHttpClient {
         final negotiatedProtocolVersion = _validatedInitializeProtocolVersion(
           responseValue,
         );
+        final ownsSessionState = identical(
+          _sessionStateToken,
+          requestSessionState.token,
+        );
+        if (!ownsSessionState) {
+          // An initialize response establishes a new session; stale responses
+          // validate their own header shape but never compare with active state.
+          _captureSessionHeaders(
+            response,
+            allowSessionAssignment: true,
+            captureSessionState: false,
+            expectedProtocolVersion: negotiatedProtocolVersion,
+            protocolVersionExpectation: 'initialize result',
+          );
+          return false;
+        }
+
         _captureSessionHeaders(
           response,
           allowSessionAssignment: true,
@@ -3399,10 +3486,14 @@ final class McpStreamableHttpClient {
           resetLastEventId: resetLastEventId,
         );
         protocolVersion = negotiatedProtocolVersion;
+        _sessionStateToken = Object();
         return true;
       } catch (_) {
-        protocolVersion = previousProtocolVersion;
-        _clearSessionState();
+        if (identical(_sessionStateToken, requestSessionState.token)) {
+          // The previous value was already validated before this request.
+          _protocolVersion = previousProtocolVersion;
+          _clearSessionState();
+        }
         rethrow;
       }
     }
@@ -3410,10 +3501,15 @@ final class McpStreamableHttpClient {
     final statelessRequest =
         !requestIncludesSession ||
         requestProtocolVersion == latestProtocolVersion;
+    final ownsSessionState = identical(
+      _sessionStateToken,
+      requestSessionState.token,
+    );
     _captureSessionHeaders(
       response,
-      captureSessionState: !statelessRequest,
+      captureSessionState: !statelessRequest && ownsSessionState,
       forbidSessionId: statelessRequest,
+      expectedSessionState: requestSessionState,
       expectedProtocolVersion: requestProtocolVersion,
       protocolVersionExpectation: requestProtocolVersion == protocolVersion
           ? 'active protocol version'
@@ -3421,16 +3517,24 @@ final class McpStreamableHttpClient {
       clearSessionOnMissing: clearSessionOnMissing,
       resetLastEventId: resetLastEventId,
     );
-    return !statelessRequest;
+    return !statelessRequest && ownsSessionState;
   }
 
-  void _throwIfHttpErrorForSession(HttpClientResponse response, String body) {
+  void _throwIfHttpErrorForSession(
+    HttpClientResponse response,
+    String body, {
+    Object? expectedToken,
+  }) {
     try {
       _throwIfHttpError(response, body);
     } on McpStreamableHttpException catch (error) {
       // A 403, including insufficient_scope, does not terminate the session.
-      if (error.statusCode == HttpStatus.unauthorized ||
-          error.statusCode == HttpStatus.notFound) {
+      final terminatesSession =
+          error.statusCode == HttpStatus.unauthorized ||
+          error.statusCode == HttpStatus.notFound;
+      final ownsSessionState =
+          expectedToken == null || identical(expectedToken, _sessionStateToken);
+      if (terminatesSession && ownsSessionState) {
         _clearSessionState();
       }
       rethrow;
@@ -3438,8 +3542,9 @@ final class McpStreamableHttpClient {
   }
 
   void _clearSessionState() {
-    sessionId = null;
+    _sessionId = null;
     lastEventId = null;
+    _sessionStateToken = Object();
   }
 
   Object? _jsonRpcResponseValueFromSseEvents(

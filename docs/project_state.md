@@ -24374,6 +24374,19 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-04: Five fail-first Streamable HTTP client regressions reproduced
+  stale lifecycle mutation from delayed DELETE success, explicit same-ID
+  manual reattachment, delayed 404 failure, delayed compatibility polling, and
+  delayed malformed initialize validation. Focused client analysis, all 133
+  Streamable HTTP client tests, the generated client-only consumer-package
+  smoke, pre-change and post-change
+  `bin/test-fast`, `git diff --check`, and full `bin/verify` passed after
+  pinning each in-flight compatibility request to an opaque lifecycle
+  generation. Full verification covered 113 Rust core tests, 52 Rust FFI
+  tests, 360 Dart core tests, all 94 MCP tests, the complete 213-case
+  MCP/client authorization suite, all 96 benchmark tests, all 384 router
+  tests, native follow-ups, Chrome/Dart2Wasm coverage, and every isolated and
+  globally activated consumer/CLI smoke.
 - 2026-08-02: Focused native-router resource session-delete coverage, all 19
   consumer-boundary tests, the isolated generated public/protected router CLI
   consumer, pre-change and post-change `bin/test-fast`, `bash -n bin/common.sh`,
@@ -24681,7 +24694,22 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- No active execution plan. The most recently completed router-hosted MCP
+- No execution plan is active. The most recently completed router-hosted MCP
+  client session lifecycle concurrency plan is:
+  `docs/exec-plans/2026-08-04-mcp-client-session-lifecycle-concurrency.md`.
+  Compatibility requests now capture an opaque lifecycle generation plus the
+  original session, protocol, and cursor state before their first await.
+  Delayed DELETE success, 401/404 failure, polling, ordinary POST, and
+  initialize responses validate against the lifecycle they started on but
+  cannot clear or overwrite a replacement session or resume cursor. A
+  successful initialize renews the generation even when the router returns
+  the same session identifier, while direct JSON remains lifecycle-free.
+  Five fail-first overlap regressions, focused client analysis, all 133
+  Streamable HTTP client tests, the generated client-only consumer-package
+  smoke, pre-change and post-change `bin/test-fast`, and final `bin/verify`
+  pass. Exact-head hosted workflows and the strict deployment-chain audit
+  remain before handoff.
+- The most recently completed router-hosted MCP
   client response-header integrity plan is:
   `docs/exec-plans/2026-08-04-mcp-client-response-header-integrity.md`.
   Standard Streamable POST now separates response-header validation from
@@ -24696,8 +24724,17 @@ at the older `47bbf9c` commit.
   Rust FFI tests, 360 Dart core tests, 94 MCP tests, the complete 208-case
   MCP/client authorization suite, all 96 benchmark tests, all 384 router tests,
   native and Chrome/Dart2Wasm follow-ups, and every isolated and globally
-  activated consumer/CLI smoke. Exact-head hosted workflows and the strict
-  deployment-chain audit remain after push.
+  activated consumer/CLI smoke. Implementation commit `1420c0d` is on both
+  maintained `master` branches. Exact-head CI `30931583546`, Dart Package
+  Publish Dry Run `30931583530`, WAMP Profile Benchmarks `30931586035`, and
+  Router Image dry run `30933114054` all passed on their first attempts.
+  Coverage artifact `8901921112`, WAMP artifact `8901505282`, Router Image
+  preview artifact `8901965043`, and Docker build records `8902067169` and
+  `8902066706` were uploaded. The comprehensive strict deployment-chain audit
+  passes with clean exact-head CI logs, loaded-image MCP runtime smoke,
+  multi-architecture image build, and all required gates clean. Its non-gating
+  release-candidate summary remains intentionally not ready because no
+  approved RC tag points at this implementation commit.
 - The previously completed router-hosted MCP client protocol-negotiation
   integrity plan is:
   `docs/exec-plans/2026-08-04-mcp-client-protocol-negotiation-integrity.md`.

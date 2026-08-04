@@ -65,5 +65,15 @@ into session-aware operations.
   tests, 94 MCP tests, the complete 208-case MCP/client authorization suite,
   all 96 benchmark tests, all 384 router tests, native and Chrome/Dart2Wasm
   follow-ups, and every isolated and globally activated consumer/CLI smoke.
-  Exact-head hosted workflows and the strict deployment-chain audit remain
-  after push.
+- 2026-08-04: Implementation commit `1420c0d` is on both maintained `master`
+  branches. Exact-head CI `30931583546`, Dart Package Publish Dry Run
+  `30931583530`, WAMP Profile Benchmarks `30931586035`, and Router Image dry
+  run `30933114054` all passed on their first attempts. Coverage artifact
+  `8901921112`, WAMP artifact `8901505282`, Router Image preview artifact
+  `8901965043`, and Docker build records `8902067169` and `8902066706` were
+  uploaded. The comprehensive strict deployment-chain audit passes with clean
+  exact-head CI logs, loaded-image MCP runtime smoke, multi-architecture image
+  build, and all required branch, workflow, package, native-release,
+  publish-dry-run, and benchmark gates clean. Its non-gating release-candidate
+  summary remains intentionally not ready because no approved RC tag points at
+  this implementation commit.
