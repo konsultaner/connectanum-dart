@@ -249,6 +249,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "_expect_compatibility_session_methods_require_bearer(",
             "_expect_compatibility_session_isolated_from_other_principal(",
             "other_principal_authorization_headers=other_authorization_headers",
+            "_run_independent_principal_lifecycle(",
+            'label=f"{label}Peer"',
+            "disallowed_session_id=owner_session_id",
             '"MCP-Session-Id": session_id',
             '"Router Image MCP evidence: modern_batch_rejected=true "',
             '"modern_live_session_ignored=true standard=true direct=true "',
@@ -258,6 +261,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"compatibility_principal_isolated=true valid_other_principal=true "',
             '"principal_post=true principal_get=true principal_delete=true "',
             '"authenticated_404=true requested_session_echoed=true "',
+            '"independent_principal_ready=true direct_meta=true direct_pubsub=true "',
+            '"sessionless_direct=true distinct_streamable_session=true "',
+            '"streamable_pubsub=true owner_preserved=true "',
             '"compatibility_session_preserved=true "',
             '"session_header_echoed=false public=true protected=true."',
         ]:
@@ -571,6 +577,106 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 ),
             ]
         )
+
+    def test_valid_other_principal_runs_independent_direct_and_streamable_lifecycle(
+        self,
+    ) -> None:
+        authorization_headers = {"Authorization": "Bearer other-principal-token"}
+
+        with (
+            mock.patch.object(
+                CLIENT_MODULE,
+                "_modern_call",
+                return_value={
+                    "result": {
+                        "supportedVersions": [CLIENT_MODULE.MODERN_PROTOCOL],
+                    }
+                },
+            ) as modern_call,
+            mock.patch.object(
+                CLIENT_MODULE,
+                "_run_modern_wamp_registration_session_meta",
+            ) as direct_meta,
+            mock.patch.object(
+                CLIENT_MODULE,
+                "_run_modern_direct_pubsub",
+            ) as direct_pubsub,
+            mock.patch.object(
+                CLIENT_MODULE,
+                "_run_compatibility_pubsub",
+                return_value="other-principal-session",
+            ) as streamable_pubsub,
+        ):
+            session_id = CLIENT_MODULE._run_independent_principal_lifecycle(
+                "http://router/mcp/secure",
+                label="ProtectedPeer",
+                owner_session_id="owner-session",
+                authorization_headers=authorization_headers,
+            )
+
+        self.assertEqual(session_id, "other-principal-session")
+        modern_call.assert_called_once_with(
+            "http://router/mcp/secure",
+            "protectedpeer-discover",
+            "server/discover",
+            headers=authorization_headers,
+        )
+        direct_meta.assert_called_once_with(
+            "http://router/mcp/secure",
+            label="ProtectedPeer",
+            call_mode="direct",
+            expected_auth_id=CLIENT_MODULE.OTHER_AUTH_ID,
+            expected_auth_role="member",
+            authorization_headers=authorization_headers,
+        )
+        direct_pubsub.assert_called_once_with(
+            "http://router/mcp/secure",
+            label="ProtectedPeer",
+            authorization_headers=authorization_headers,
+        )
+        streamable_pubsub.assert_called_once_with(
+            "http://router/mcp/secure",
+            label="ProtectedPeer",
+            authorization_headers=authorization_headers,
+            disallowed_session_id="owner-session",
+        )
+
+    def test_valid_other_principal_requires_distinct_streamable_session(
+        self,
+    ) -> None:
+        with (
+            mock.patch.object(
+                CLIENT_MODULE,
+                "_modern_call",
+                return_value={
+                    "result": {
+                        "supportedVersions": [CLIENT_MODULE.MODERN_PROTOCOL],
+                    }
+                },
+            ),
+            mock.patch.object(
+                CLIENT_MODULE,
+                "_run_modern_wamp_registration_session_meta",
+            ),
+            mock.patch.object(CLIENT_MODULE, "_run_modern_direct_pubsub"),
+            mock.patch.object(
+                CLIENT_MODULE,
+                "_run_compatibility_pubsub",
+                return_value="owner-session",
+            ),
+        ):
+            with self.assertRaisesRegex(
+                AssertionError,
+                "reused the owner's session ID",
+            ):
+                CLIENT_MODULE._run_independent_principal_lifecycle(
+                    "http://router/mcp/secure",
+                    label="ProtectedPeer",
+                    owner_session_id="owner-session",
+                    authorization_headers={
+                        "Authorization": "Bearer other-principal-token"
+                    },
+                )
 
     def test_modern_standard_tool_catalog_uses_sessionless_tools_call(self) -> None:
         authorization_headers = {"Authorization": "Bearer issued-token"}

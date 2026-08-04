@@ -705,10 +705,10 @@ publish dry run, native release dry run, and WAMP profile benchmark remain
 relevant because no sensitive inputs changed. The comprehensive strict
 deployment-chain audit exited zero with every required gate clean.
 
-The active Router Image compatibility principal-isolation checkpoint extends
+The completed Router Image compatibility principal-isolation checkpoint extends
 the packaged security proof from invalid credentials to principal-keyed
-session ownership. A second neutral ticket identity will obtain a valid router
-bearer and attempt POST, GET, and DELETE against the primary principal's live
+session ownership. A second neutral ticket identity obtains a valid router
+bearer and attempts POST, GET, and DELETE against the primary principal's live
 protected compatibility session. Every request must return HTTP 404 with the
 `Unknown MCP HTTP session` JSON-RPC error and compatibility session headers,
 without a Bearer challenge. The primary owner must then complete publish,
@@ -723,8 +723,46 @@ passed formatting, all Rust and FFI suites, 360 core tests, 94 MCP tests, 193
 MCP/client authorization cases, all 96 benchmark tests with live WAMP
 workloads, every isolated and globally activated consumer smoke, the complete
 380-case router suite, 13 native-forwarding follow-ups, and Chrome/Dart2Wasm
-coverage. The active plan is
+coverage. Implementation commit `e3279ad` was pushed to GitLab and GitHub.
+Exact-head CI `30862279119` passed Fast Checks, Full Verify, Dart VM Coverage,
+the clean hosted-log scan, and Codecov upload, and retained coverage artifact
+`8875142443`. Router Image dry run `30862290601` passed the canonical
+Linux/amd64 build, loaded-image runtime smoke, non-publishing multi-architecture
+build, skipped GHCR login, and clean annotations, and uploaded preview artifact
+`8874782274`. Its hosted log contains the valid-other-principal
+POST/GET/DELETE isolation marker and exactly four public/protected package
+evidence lines. The package publish dry run, native release dry run, and WAMP
+profile benchmark remain relevant because no sensitive inputs changed. The
+comprehensive strict deployment-chain audit exited zero with every required
+gate ready; RC tagging and prerelease creation remain approval-gated. The
+completed plan is
 `docs/exec-plans/2026-08-04-router-image-compatibility-principal-isolation-smoke.md`.
+
+The active Router Image independent-principal lifecycle checkpoint extends
+that packaged security proof from rejection to safe successful use. After the
+second valid bearer is denied access to the primary principal's live
+compatibility session, it must complete modern discovery, direct WAMP
+registration/session metadata, and direct JSON pub/sub without MCP session
+state, then create a distinct compatibility session and complete its own
+pub/sub plus DELETE lifecycle. The primary owner must remain usable and finish
+normally afterward. Pre-change `bin/test-fast` passed, and the focused
+contract failed first because the runner did not yet expose the independent
+principal lifecycle. The runner now verifies the peer's router-issued
+identity through direct WAMP registration/session metadata, completes
+sessionless direct JSON pub/sub, requires a distinct compatibility session for
+the peer's complete pub/sub and DELETE lifecycle, and then lets the primary
+owner finish unchanged. Python compilation, all 25 Router Image contracts, and
+the complete runner against a fresh current-source Linux/amd64 image assembled
+from the previously verified cached canonical build inputs pass. The normal
+Dockerfile build could not reach Docker Hub's Dockerfile-frontend metadata
+locally, so the canonical hosted build remains required. The local image log
+contains the bounded independent-principal marker and exactly four package
+evidence lines. Full `bin/verify` also passed formatting, all Rust and FFI
+suites, 360 core tests, 94 MCP tests, 193 MCP/client authorization cases, all
+96 benchmark tests with live WAMP workloads, every isolated and globally
+activated consumer smoke, the complete 380-case router suite, 13
+native-forwarding follow-ups, and Chrome/Dart2Wasm coverage. The active plan is
+`docs/exec-plans/2026-08-04-router-image-independent-principal-lifecycle-smoke.md`.
 
 The completed Router Image protected compatibility method-auth isolation
 checkpoint closes the corresponding loaded-image security evidence gap. The
@@ -24589,6 +24627,20 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-04-router-image-independent-principal-lifecycle-smoke.md`.
+  It extends the second valid bearer proof beyond rejected primary-session
+  reuse: the principal must complete sessionless modern direct Meta API and
+  pub/sub operations, create and delete a distinct compatibility Streamable
+  session with its own pub/sub lifecycle, and leave the primary owner usable.
+  Pre-change `bin/test-fast` passed, and the focused contract failed first on
+  the missing independent-principal helper. Python compilation, all 25 Router
+  Image contracts, the complete runner against a fresh current-source
+  Linux/amd64 image assembled from cached canonical build inputs, and full
+  `bin/verify` pass. The local log contains the bounded independent-principal
+  marker and exactly four package-client evidence lines; exact-head hosted CI
+  and the canonical Router Image dry run remain required.
+- Most recently completed router-hosted MCP
+  packaging-readiness plan:
   `docs/exec-plans/2026-08-04-router-image-compatibility-principal-isolation-smoke.md`.
   It adds a second neutral Router Image ticket identity and proves its valid
   bearer cannot POST to, poll, or DELETE the primary principal's live protected
@@ -24598,7 +24650,11 @@ at the older `47bbf9c` commit.
   focused contract failed first because the runner did not yet expose the
   principal-isolation probe. Python compilation, all 23 Router Image
   contracts, and a freshly rebuilt current-source local image smoke now pass;
-  full `bin/verify` also passes. Exact-head hosted evidence remains.
+  full `bin/verify` also passes. Implementation commit `e3279ad`, exact-head
+  CI `30862279119`, coverage artifact `8875142443`, Router Image dry run
+  `30862290601`, preview artifact `8874782274`, relevant package/native/WAMP
+  evidence, the clean hosted-log scan, and the comprehensive strict audit all
+  pass.
 - Most recently completed router-hosted MCP
   packaging-readiness plan:
   `docs/exec-plans/2026-08-03-router-image-compatibility-method-auth-isolation-smoke.md`.

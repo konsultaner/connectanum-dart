@@ -990,7 +990,8 @@ def _run_compatibility_pubsub(
     authorization_headers: dict[str, str] | None = None,
     verify_missing_bearer: bool = False,
     other_principal_authorization_headers: dict[str, str] | None = None,
-) -> None:
+    disallowed_session_id: str | None = None,
+) -> str:
     compatibility_headers = {
         **(authorization_headers or {}),
         "MCP-Protocol-Version": COMPATIBILITY_PROTOCOL,
@@ -1015,6 +1016,10 @@ def _run_compatibility_pubsub(
     session_id = initialize_headers.get("mcp-session-id")
     if not session_id:
         raise AssertionError(f"{label} initialize did not create a session")
+    if session_id == disallowed_session_id:
+        raise AssertionError(
+            f"{label} initialize reused another principal's session ID"
+        )
     if initialize.get("result", {}).get("protocolVersion") != COMPATIBILITY_PROTOCOL:
         raise AssertionError(f"{label} initialize changed the protocol version")
 
@@ -1099,6 +1104,12 @@ def _run_compatibility_pubsub(
             endpoint,
             label=label,
             session_id=session_id,
+            authorization_headers=other_principal_authorization_headers,
+        )
+        _run_independent_principal_lifecycle(
+            endpoint,
+            label=f"{label}Peer",
+            owner_session_id=session_id,
             authorization_headers=other_principal_authorization_headers,
         )
     _expect_modern_requests_ignore_compatibility_session(
@@ -1189,6 +1200,52 @@ def _run_compatibility_pubsub(
         )
     if delete_headers.get("mcp-session-id") != session_id:
         raise AssertionError(f"{label} DELETE did not echo the removed session ID")
+    return session_id
+
+
+def _run_independent_principal_lifecycle(
+    endpoint: str,
+    *,
+    label: str,
+    owner_session_id: str,
+    authorization_headers: dict[str, str],
+) -> str:
+    discovery = _modern_call(
+        endpoint,
+        f"{label.lower()}-discover",
+        "server/discover",
+        headers=authorization_headers,
+    )
+    if MODERN_PROTOCOL not in discovery.get("result", {}).get(
+        "supportedVersions", []
+    ):
+        raise AssertionError(
+            f"{label} modern discovery missed {MODERN_PROTOCOL}: {discovery}"
+        )
+    _run_modern_wamp_registration_session_meta(
+        endpoint,
+        label=label,
+        call_mode="direct",
+        expected_auth_id=OTHER_AUTH_ID,
+        expected_auth_role="member",
+        authorization_headers=authorization_headers,
+    )
+    _run_modern_direct_pubsub(
+        endpoint,
+        label=label,
+        authorization_headers=authorization_headers,
+    )
+    independent_session_id = _run_compatibility_pubsub(
+        endpoint,
+        label=label,
+        authorization_headers=authorization_headers,
+        disallowed_session_id=owner_session_id,
+    )
+    if independent_session_id == owner_session_id:
+        raise AssertionError(
+            f"{label} compatibility lifecycle reused the owner's session ID"
+        )
+    return independent_session_id
 
 
 def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
@@ -1399,6 +1456,9 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
         "compatibility_principal_isolated=true valid_other_principal=true "
         "principal_post=true principal_get=true principal_delete=true "
         "authenticated_404=true requested_session_echoed=true "
+        "independent_principal_ready=true direct_meta=true direct_pubsub=true "
+        "sessionless_direct=true distinct_streamable_session=true "
+        "streamable_pubsub=true owner_preserved=true "
         "compatibility_session_preserved=true "
         "session_header_echoed=false public=true protected=true."
     )
