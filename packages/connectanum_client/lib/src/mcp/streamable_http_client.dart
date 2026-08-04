@@ -2960,8 +2960,10 @@ final class McpStreamableHttpClient {
         protocolVersion: protocolVersion,
       );
       if (capturesSessionHeaders) {
-        _captureSessionHeaders(
+        _capturePostResponseSessionState(
           response,
+          requestMethod: requestMethod,
+          responseValue: null,
           captureProtocolVersion: capturesProtocolVersion,
           clearSessionOnMissing: clearsSessionOnMissing,
           resetLastEventId: resetsLastEventId,
@@ -2981,13 +2983,17 @@ final class McpStreamableHttpClient {
       );
       _validateMcpSseEventIds(events);
       if (capturesSessionHeaders) {
-        _captureSessionHeaders(
+        final capturedSessionState = _capturePostResponseSessionState(
           response,
+          requestMethod: requestMethod,
+          responseValue: value,
           captureProtocolVersion: capturesProtocolVersion,
           clearSessionOnMissing: clearsSessionOnMissing,
           resetLastEventId: resetsLastEventId,
         );
-        _captureLastEventId(events);
+        if (capturedSessionState) {
+          _captureLastEventId(events);
+        }
       }
       return value;
     }
@@ -3006,8 +3012,10 @@ final class McpStreamableHttpClient {
       protocolVersion: protocolVersion,
     );
     if (capturesSessionHeaders) {
-      _captureSessionHeaders(
+      _capturePostResponseSessionState(
         response,
+        requestMethod: requestMethod,
+        responseValue: value,
         captureProtocolVersion: capturesProtocolVersion,
         clearSessionOnMissing: clearsSessionOnMissing,
         resetLastEventId: resetsLastEventId,
@@ -3315,6 +3323,43 @@ final class McpStreamableHttpClient {
         negotiatedProtocolVersion.isNotEmpty) {
       protocolVersion = negotiatedProtocolVersion;
     }
+  }
+
+  bool _capturePostResponseSessionState(
+    HttpClientResponse response, {
+    required String? requestMethod,
+    required Object? responseValue,
+    bool captureProtocolVersion = true,
+    bool clearSessionOnMissing = false,
+    bool resetLastEventId = false,
+  }) {
+    final rejectedInitialize =
+        requestMethod == 'initialize' &&
+        responseValue is Map &&
+        responseValue['error'] is Map;
+    if (rejectedInitialize) {
+      // The JSON-RPC envelope was validated before this helper. Validate its
+      // response headers too, but a rejected initialize cannot negotiate any
+      // reusable session, protocol-version, or resume state.
+      final previousProtocolVersion = protocolVersion;
+      _captureSessionHeaders(
+        response,
+        captureProtocolVersion: captureProtocolVersion,
+        clearSessionOnMissing: clearSessionOnMissing,
+        resetLastEventId: resetLastEventId,
+      );
+      protocolVersion = previousProtocolVersion;
+      _clearSessionState();
+      return false;
+    }
+
+    _captureSessionHeaders(
+      response,
+      captureProtocolVersion: captureProtocolVersion,
+      clearSessionOnMissing: clearSessionOnMissing,
+      resetLastEventId: resetLastEventId,
+    );
+    return true;
   }
 
   void _throwIfHttpErrorForSession(HttpClientResponse response, String body) {

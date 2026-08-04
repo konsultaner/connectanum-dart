@@ -2261,6 +2261,8 @@ Future<void> main() async {
       endpoint,
     );
 
+    await _smokeRejectedInitializeSessionIsolation(client);
+
     final initialize = await client.initialize(
       clientInfo: const <String, Object?>{
         'name': 'consumer-agent-smoke',
@@ -2474,6 +2476,29 @@ Future<void> _smokeInsufficientScopeStepUp(
   } finally {
     stepUpClient.close(force: true);
   }
+}
+
+Future<void> _smokeRejectedInitializeSessionIsolation(
+  McpStreamableHttpClient client,
+) async {
+  client.sessionId = 'stale-session-before-rejected-initialize';
+  client.lastEventId = 'stale-session-before-rejected-initialize:get:1';
+  final rejected = await client.initialize(
+    id: 'rejected-initialize-session-isolation',
+    headers: const <String, String>{
+      'x-test-initialize-jsonrpc-error': '1',
+      'x-test-response-session-id': 'rejected-agent-session',
+    },
+  );
+  _expect(
+    rejected['id'] == 'rejected-initialize-session-isolation' &&
+        rejected['error'] is Map<String, Object?>,
+    'rejected initialize did not preserve its JSON-RPC error',
+  );
+  _expect(
+    client.sessionId == null && client.lastEventId == null,
+    'rejected initialize captured Streamable session state',
+  );
 }
 
 McpOAuthTokenGrant _smokeOAuthGrant(
@@ -6926,6 +6951,21 @@ final class _AgentMcpEndpoint {
 
     switch (method) {
       case 'initialize':
+        if (request.headers.value('x-test-initialize-jsonrpc-error') == '1') {
+          request.response.headers.set(
+            'MCP-Protocol-Version',
+            _protocolVersion,
+          );
+          await _writeJson(request, <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': id,
+            'error': <String, Object?>{
+              'code': -32602,
+              'message': 'initialize rejected',
+            },
+          });
+          return;
+        }
         _sessionActive = true;
         sessionDeleted = false;
         request.response.headers

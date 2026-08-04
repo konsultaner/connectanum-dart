@@ -24681,7 +24681,27 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active router-hosted MCP session-correctness plan:
+- Active router-hosted MCP client session-correctness plan:
+  `docs/exec-plans/2026-08-04-mcp-client-rejected-initialize-cleanup.md`. It
+  prevents a valid JSON-RPC error returned from `initialize` from establishing
+  local Streamable session, protocol-version, or resume state when a server or
+  proxy includes valid-looking response headers. The invariant covers both
+  the typed initialize helper and generic public JSON-RPC POST usage while
+  preserving successful initialization, ordinary request errors, malformed
+  response handling, and modern stateless calls. Focused tests and an isolated
+  generated consumer package reproduce the failure through public APIs:
+  typed initialize retains `rejected-initialize-session`, while generic POST
+  retains `generic-rejected-session`. Validated initialize errors now validate
+  but do not adopt response headers, restore the prior protocol version, and
+  clear Streamable session/resume state. Focused analysis, Streamable client
+  tests, shell validation, and the isolated generated consumer-package smoke
+  pass. Pre-change `bin/test-fast` also passed the complete fast verification
+  flow. Full `bin/verify` passes formatting and analysis, 113 Rust core and 52
+  Rust FFI tests, all 360 Dart core tests, all 94 MCP tests, the complete
+  196-case MCP/client authorization suite, all 96 benchmark tests, all 384
+  router tests, native follow-ups, Chrome/Dart2Wasm coverage, and every
+  isolated and globally activated consumer/CLI smoke.
+- Most recently completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-tentative-initialize-cleanup.md`. It makes a
   newly allocated compatibility Streamable endpoint tentative across catalog
   refresh, parameter-header validation, MCP dispatch, and response delivery.
@@ -24703,9 +24723,14 @@ at the older `47bbf9c` commit.
   MCP tests, the complete 193-case MCP/client authorization suite, all 96
   benchmark tests, all 384 router tests, native follow-ups,
   Chrome/Dart2Wasm coverage, and every isolated and globally activated
-  consumer/CLI smoke. Exact-head hosted workflows and the strict
-  deployment-chain audit remain.
-- Most recently completed router-hosted MCP session-correctness plan:
+  consumer/CLI smoke. Implementation commit `1d0ac41` is on both maintained
+  `master` branches. Exact-head CI `30903324385`, Dart Package Publish Dry Run
+  `30903324602`, WAMP Profile Benchmarks `30903324320`, and Router Image dry
+  run `30903336234` passed on their first attempts with zero check annotations.
+  Coverage artifact `8890450507`, WAMP artifact `8890188059`, Router Image
+  preview artifact `8889992368`, both Docker build records, and the
+  comprehensive strict deployment-chain audit all pass.
+- Previous completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-streamable-catalog-refresh-lease.md`. It
   protects compatibility POST requests while asynchronous realm-snapshot and
   authorization work refreshes the router-provided tool catalog, then starts a

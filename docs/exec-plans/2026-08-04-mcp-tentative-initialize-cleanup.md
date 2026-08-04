@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -70,5 +70,13 @@ reusable only after its `initialize` request succeeds and its response is sent.
   52 Rust FFI tests, all 360 Dart core tests, all 94 MCP tests, the complete
   193-case MCP/client authorization suite, all 96 benchmark tests, all 384
   router tests, native follow-ups, Chrome/Dart2Wasm coverage, and every
-  isolated and globally activated consumer/CLI smoke. Exact-head hosted
-  workflows and the strict deployment-chain audit remain before completion.
+  isolated and globally activated consumer/CLI smoke.
+- 2026-08-04: Implementation commit `1d0ac41` is on both maintained `master`
+  branches. Exact-head CI `30903324385`, Dart Package Publish Dry Run
+  `30903324602`, WAMP Profile Benchmarks `30903324320`, and Router Image dry
+  run `30903336234` passed on their first attempts with zero check annotations.
+  Coverage artifact `8890450507`, WAMP artifact `8890188059`, Router Image
+  preview artifact `8889992368`, and both Docker build records were uploaded.
+  The comprehensive strict deployment-chain audit passed with all required
+  branch, workflow, package, publish-dry-run, and benchmark-artifact gates
+  clean.

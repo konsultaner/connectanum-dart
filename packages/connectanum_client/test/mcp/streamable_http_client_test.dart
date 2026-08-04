@@ -2997,6 +2997,115 @@ void main() {
     });
 
     test(
+      'clears session state when initialize returns a JSON-RPC error',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        client.sessionId = 'stale-session-before-rejected-init';
+        client.lastEventId = 'stale-session-before-rejected-init:get:1';
+
+        final rejected = await client.initialize(
+          id: 'rejected-initialize',
+          headers: const <String, String>{
+            'x-test-initialize-jsonrpc-error': '1',
+            'x-test-response-session-id': 'rejected-initialize-session',
+            'x-test-response-protocol-version': '2025-03-26',
+          },
+        );
+
+        expect(rejected['id'], 'rejected-initialize');
+        expect(rejected['error'], isA<Map<String, Object?>>());
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(
+          client.protocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
+        );
+        expect(endpoint.requests.single.sessionId, isNull);
+
+        final recovered = await client.initialize(
+          id: 'initialize-after-rejection',
+        );
+        expect(recovered['id'], 'initialize-after-rejection');
+        expect(client.sessionId, 'session-1');
+      },
+    );
+
+    test(
+      'generic initialize POST does not capture state from JSON-RPC errors',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final rejected = await client.post(
+          const <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'generic-rejected-initialize',
+            'method': 'initialize',
+            'params': <String, Object?>{
+              'protocolVersion':
+                  McpStreamableHttpClient.latestSessionProtocolVersion,
+              'capabilities': <String, Object?>{},
+              'clientInfo': <String, Object?>{
+                'name': 'connectanum_client_test',
+                'version': '0.1.0',
+              },
+            },
+          },
+          includeSession: false,
+          headers: const <String, String>{
+            'x-test-initialize-jsonrpc-error': '1',
+            'x-test-response-session-id': 'generic-rejected-session',
+          },
+        );
+
+        expect(rejected?['id'], 'generic-rejected-initialize');
+        expect(rejected?['error'], isA<Map<String, Object?>>());
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'validates rejected initialize headers before clearing session state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        client.sessionId = 'active-before-malformed-rejected-initialize';
+        client.lastEventId =
+            'active-before-malformed-rejected-initialize:get:1';
+
+        await expectLater(
+          client.initialize(
+            id: 'malformed-rejected-initialize',
+            headers: const <String, String>{
+              'x-test-initialize-jsonrpc-error': '1',
+              'x-test-response-session-id': 'malformed session',
+            },
+          ),
+          throwsA(isA<McpStreamableProtocolException>()),
+        );
+
+        expect(client.sessionId, 'active-before-malformed-rejected-initialize');
+        expect(
+          client.lastEventId,
+          'active-before-malformed-rejected-initialize:get:1',
+        );
+      },
+    );
+
+    test(
       'clears stale resume cursor when initialize returns current session id',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -7531,6 +7640,17 @@ final class _FakeMcpEndpoint {
           jsonEncode(<String, Object?>{'error': 'missing token'}),
         );
         await request.response.close();
+        return;
+      }
+      if (request.headers.value('x-test-initialize-jsonrpc-error') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'error': <String, Object?>{
+            'code': -32602,
+            'message': 'initialize rejected',
+          },
+        });
         return;
       }
       final params = _jsonMapFrom(
