@@ -5206,6 +5206,188 @@ void main() {
     expect(deleteResponse.headers, isNot(contains('x-ratelimit-limit')));
   });
 
+  test('expires idle Streamable MCP sessions and permits replacement', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addAuthenticator(
+        'anonymous',
+        const AuthenticatorDefinition(type: 'anonymous'),
+      )
+      ..addRealmFromBuilder(
+        RealmSettingsBuilder('router.http')
+          ..addAuthMethod('anonymous')
+          ..addRoleFromBuilder(
+            RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+              PermissionSettingsBuilder('')
+                ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                ..allowOperations(const [
+                  'call',
+                  'publish',
+                  'subscribe',
+                  'unsubscribe',
+                ]),
+            ),
+          ),
+      )
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'router.http',
+                    options: <String, Object?>{
+                      'post_response_transport': 'json',
+                      'session_idle_timeout_ms': 250,
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    var connectionId = 150;
+    var handle = 20;
+
+    Future<NativeHttpResponse> sendMcpRequest({
+      required String method,
+      required Map<String, String> headers,
+      Uint8List? body,
+    }) async {
+      final requestConnectionId = connectionId++;
+      runtime.setConnectionProtocol(
+        requestConnectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        requestConnectionId,
+        NativeHttpHandshake.synthetic(
+          handle: handle++,
+          method: method,
+          target: '/mcp',
+          path: '/mcp',
+          protocol: 'http/1.1',
+          headers: headers,
+          body: body ?? Uint8List(0),
+          realm: 'router.http',
+          procedure: 'router.http.mcp',
+        ),
+      );
+      await _waitUntil(
+        () => runtime.httpResponses[requestConnectionId]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 2),
+      );
+      return runtime.httpResponses[requestConnectionId]!.single;
+    }
+
+    final initializeBody = Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 'initialize-idle-session',
+          'method': 'initialize',
+          'params': {
+            'protocolVersion': '2025-11-25',
+            'capabilities': <String, Object?>{},
+            'clientInfo': {
+              'name': 'router-runtime-idle-session-test',
+              'version': '0.1.0',
+            },
+          },
+        }),
+      ),
+    );
+    final initializeHeaders = <String, String>{
+      'accept': 'application/json, text/event-stream',
+      'content-type': 'application/json',
+      'mcp-protocol-version': '2025-11-25',
+      'mcp-method': 'initialize',
+    };
+    final initializeResponse = await sendMcpRequest(
+      method: 'POST',
+      headers: initializeHeaders,
+      body: initializeBody,
+    );
+    expect(initializeResponse.status, HttpStatus.ok);
+    final expiredSessionId = initializeResponse.headers['MCP-Session-Id'];
+    expect(expiredSessionId, isNotNull);
+    expect(expiredSessionId, isNotEmpty);
+
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+
+    final toolsBody = Uint8List.fromList(
+      utf8.encode(
+        '{"jsonrpc":"2.0","id":"expired-tools","method":"tools/list","params":{}}',
+      ),
+    );
+    final expiredResponse = await sendMcpRequest(
+      method: 'POST',
+      headers: {
+        'accept': 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        'mcp-session-id': expiredSessionId!,
+        'mcp-protocol-version': '2025-11-25',
+        'mcp-method': 'tools/list',
+      },
+      body: toolsBody,
+    );
+    expect(expiredResponse.status, HttpStatus.notFound);
+    expect(
+      jsonEncode(_jsonResponseBody(expiredResponse)),
+      contains('Unknown MCP HTTP session'),
+    );
+
+    final replacementInitialize = await sendMcpRequest(
+      method: 'POST',
+      headers: initializeHeaders,
+      body: initializeBody,
+    );
+    expect(replacementInitialize.status, HttpStatus.ok);
+    final replacementSessionId =
+        replacementInitialize.headers['MCP-Session-Id'];
+    expect(replacementSessionId, isNotNull);
+    expect(replacementSessionId, isNot(equals(expiredSessionId)));
+
+    final replacementTools = await sendMcpRequest(
+      method: 'POST',
+      headers: {
+        'accept': 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        'mcp-session-id': replacementSessionId!,
+        'mcp-protocol-version': '2025-11-25',
+        'mcp-method': 'tools/list',
+      },
+      body: toolsBody,
+    );
+    expect(replacementTools.status, HttpStatus.ok);
+    expect(replacementTools.headers['MCP-Session-Id'], replacementSessionId);
+  });
+
   test('creates internal sessions from session profile defaults', () async {
     final runtime = _HandleRuntime();
     final router = Router(

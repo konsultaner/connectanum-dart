@@ -43,6 +43,18 @@ final Expando<Object> _mcpProtectedResourceMetadataCache = Expando<Object>(
   'MCP protected resource metadata',
 );
 
+const int _mcpDefaultSessionIdleTimeoutMs = 600000;
+
+Duration? _mcpSessionIdleTimeoutForRoute(HttpRouteSettings route) {
+  final timeoutMs =
+      _intOptionAny(route.action.options, const <String>[
+        'session_idle_timeout_ms',
+        'sessionIdleTimeoutMs',
+      ]) ??
+      _mcpDefaultSessionIdleTimeoutMs;
+  return timeoutMs == 0 ? null : Duration(milliseconds: timeoutMs);
+}
+
 class _McpProtectedResourceMetadata {
   const _McpProtectedResourceMetadata({
     required this.metadataUrl,
@@ -2285,6 +2297,20 @@ extension _RouterBindingMcp on RouterBinding {
     ].join(':');
   }
 
+  void _expireIdleMcpEndpoints() {
+    final expiredEndpoints = <_RouterMcpEndpoint>[];
+    _mcpEndpoints.removeWhere((_, endpoint) {
+      if (!endpoint.sessionIdleExpired) {
+        return false;
+      }
+      expiredEndpoints.add(endpoint);
+      return true;
+    });
+    for (final endpoint in expiredEndpoints) {
+      unawaited(endpoint.dispose());
+    }
+  }
+
   _RouterMcpEndpoint? _mcpEndpointForRoute({
     required RouterHttpRequest request,
     required HttpRouteSettings route,
@@ -2292,19 +2318,30 @@ extension _RouterBindingMcp on RouterBinding {
     String? mcpSessionId,
     bool create = true,
   }) {
+    _expireIdleMcpEndpoints();
     final key = _mcpEndpointKeyForRoute(
       request: request,
       route: route,
       session: session,
       mcpSessionId: mcpSessionId,
     );
-    if (!create) {
-      return _mcpEndpoints[key];
+    final existing = _mcpEndpoints[key];
+    if (existing != null) {
+      existing.markSessionActivity();
+      return existing;
     }
-    return _mcpEndpoints.putIfAbsent(
-      key,
-      () => _RouterMcpEndpoint(binding: this, route: route, session: session),
+    if (!create) {
+      return null;
+    }
+    final endpoint = _RouterMcpEndpoint(
+      binding: this,
+      route: route,
+      session: session,
+      mcpSessionId: mcpSessionId,
+      sessionIdleTimeout: _mcpSessionIdleTimeoutForRoute(route),
     );
+    _mcpEndpoints[key] = endpoint;
+    return endpoint;
   }
 
   Future<_RouterMcpEndpoint?> _removeMcpEndpointForRoute({
@@ -2313,6 +2350,7 @@ extension _RouterBindingMcp on RouterBinding {
     required RouterSession session,
     required String mcpSessionId,
   }) async {
+    _expireIdleMcpEndpoints();
     final endpoint = _mcpEndpoints.remove(
       _mcpEndpointKeyForRoute(
         request: request,
@@ -2429,6 +2467,8 @@ class _RouterMcpEndpoint {
     required this.binding,
     required this.route,
     required this.session,
+    required this.mcpSessionId,
+    required this.sessionIdleTimeout,
   }) {
     final options = route.action.options;
     final resourceSubscriptionsEnabled = _hasConfiguredResourceSubscriptions(
@@ -2472,6 +2512,9 @@ class _RouterMcpEndpoint {
   final RouterBinding binding;
   final HttpRouteSettings route;
   final RouterSession session;
+  final String? mcpSessionId;
+  final Duration? sessionIdleTimeout;
+  final Stopwatch _sessionIdleStopwatch = Stopwatch()..start();
   late final mcp.McpServer server;
   late final RealmAuthorizationProviderCache _authorizationProviderCache =
       RealmAuthorizationProviderCache(binding.settings);
@@ -2492,6 +2535,19 @@ class _RouterMcpEndpoint {
   final Map<String, int> _modernResourcePreparationCounts = <String, int>{};
 
   final Set<String> _streamableResourceSubscriptions = <String>{};
+
+  bool get sessionIdleExpired {
+    final timeout = sessionIdleTimeout;
+    return mcpSessionId != null &&
+        timeout != null &&
+        _sessionIdleStopwatch.elapsed >= timeout;
+  }
+
+  void markSessionActivity() {
+    if (mcpSessionId != null) {
+      _sessionIdleStopwatch.reset();
+    }
+  }
 
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
 
@@ -4335,6 +4391,13 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'resourceTemplateListPageSize',
   ]) {
     _validateMcpPositiveIntRouteOption(options, key);
+  }
+
+  for (final key in const <String>[
+    'session_idle_timeout_ms',
+    'sessionIdleTimeoutMs',
+  ]) {
+    _validateMcpNonNegativeIntConfigOption(options, 'route', key);
   }
 
   for (final key in const <String>[

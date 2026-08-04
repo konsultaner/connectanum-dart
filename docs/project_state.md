@@ -24681,7 +24681,24 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active router-hosted MCP packaging-readiness plan:
+- Active router-hosted MCP session-correctness plan:
+  `docs/exec-plans/2026-08-04-mcp-streamable-session-idle-expiry.md`. It adds
+  bounded idle expiry for compatibility Streamable HTTP sessions so abandoned
+  endpoint resources and subscriptions do not remain indefinitely, expired
+  identifiers receive `404`, and a consumer can initialize a distinct
+  replacement session. Modern stateless and direct JSON requests remain
+  sessionless. Pre-change `bin/test-fast` passes. Fail-first regressions proved
+  negative timeout options were accepted and idle sessions still returned
+  `200`; both are now fixed. Formatting, targeted analysis, configuration,
+  synthetic runtime, and native public-client regressions pass, including
+  client state clearing, replacement initialization, and WAMP subscription
+  cleanup. Full `bin/verify` passes the native and Rust suites, 360 core tests,
+  94 MCP tests, 193 MCP/client cases, all 96 benchmark tests with 36 live
+  real-router WAMP workloads, every isolated and globally activated consumer
+  and CLI smoke, the complete 382-case router suite, 13 native-forwarding
+  follow-ups, and Chrome/Dart2Wasm coverage. Hosted evidence is pending.
+- Most recently completed router-hosted MCP
+  packaging-readiness plan:
   `docs/exec-plans/2026-08-04-router-image-json-response-stateless-package-smoke.md`.
   It extends the globally activated public package smoke to the protected
   `/mcp/secure-json` endpoint with the modern stateless protocol, router-issued
@@ -24697,7 +24714,13 @@ at the older `47bbf9c` commit.
   and FFI suites, 360 core tests, 94 MCP tests, 193 MCP/client authorization
   cases, all 96 benchmark tests with 36 live WAMP workloads, every isolated and
   globally activated consumer smoke, the complete 380-case router suite, 13
-  native-forwarding follow-ups, and Chrome/Dart2Wasm coverage.
+  native-forwarding follow-ups, and Chrome/Dart2Wasm coverage. Implementation
+  commit `d779ce5` is on both GitLab and GitHub master. Exact-head CI
+  `30874512855`, coverage artifact `8879349824`, Router Image dry run
+  `30874549110`, preview artifact `8879056488`, the hosted raw compatibility
+  marker, exactly six package evidence lines including the new protected
+  JSON-response stateless lifecycle, zero check annotations, and the
+  comprehensive strict deployment-chain audit all pass.
 - Most recently completed router-hosted MCP
   packaging-readiness plan:
   `docs/exec-plans/2026-08-04-router-image-json-response-package-smoke.md`.

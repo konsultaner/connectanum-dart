@@ -841,6 +841,24 @@ void main() {
         'toolListPageSize': 0,
       }, 'MCP toolListPageSize must be a positive integer');
       _expectInvalidMcpOptions({
+        'session_idle_timeout_ms': -1,
+      }, 'MCP route.session_idle_timeout_ms must be a non-negative integer');
+      _expectInvalidMcpOptions({
+        'sessionIdleTimeoutMs': -1,
+      }, 'MCP route.sessionIdleTimeoutMs must be a non-negative integer');
+      expect(
+        _routerWithMcpOptions(const {
+          'session_idle_timeout_ms': 0,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      expect(
+        _routerWithMcpOptions(const {
+          'sessionIdleTimeoutMs': 600000,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      _expectInvalidMcpOptions({
         'allowed_origins': ['https://agent.example', 7],
       }, 'MCP allowed_origins must be a string or list of strings');
       _expectInvalidMcpOptions({

@@ -156,6 +156,7 @@ const HttpRouteSettings(
     type: HttpRouteActionType.mcp,
     realm: 'realm1',
     options: {
+      'session_idle_timeout_ms': 600000,
       'resources': [
         {
           'uri': 'app://example/context',
@@ -195,6 +196,14 @@ and `connectanum.pubsub.*` helpers are enabled by default, then filtered by the
 route-authenticated principal's realm permissions before they are advertised.
 Configured resources, resource templates, and prompts are served by the
 standard MCP `resources/*` and `prompts/*` methods.
+
+Compatibility Streamable HTTP sessions expire after 10 minutes without MCP
+traffic by default. Set `session_idle_timeout_ms` (or
+`sessionIdleTimeoutMs`) per route to choose another non-negative millisecond
+budget; `0` disables idle expiry. Expiry disposes the session's endpoint state
+and subscriptions, and later requests carrying that stale session identifier
+receive `404` so a conforming client can initialize a replacement session.
+Modern `2026-07-28` and direct JSON requests remain sessionless.
 
 Procedure-backed resources call the configured WAMP procedure with the
 resource URI as the first positional argument and return its final result as

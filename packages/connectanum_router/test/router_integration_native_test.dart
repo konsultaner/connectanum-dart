@@ -4516,10 +4516,96 @@ void main() {
     );
 
     test(
-      'deletes MCP Streamable HTTP sessions without interrupting shared direct JSON pubsub or modern resource owners',
+      'clears and recovers the public client after MCP session idle expiry',
       () async {
         final harness = await _RouterHarness.start(
           connectionId: 9117,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(sessionIdleTimeoutMs: 1000),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        addTearDown(() => client.close(force: true));
+        final directClient = McpStreamableHttpClient(endpoint);
+        addTearDown(() => directClient.close(force: true));
+
+        await client.initialize(id: 'idle-expiry-initialize');
+        await client.notifyInitialized();
+        final expiredSessionId = client.sessionId;
+        expect(expiredSessionId, isNotNull);
+        final expiringSubscription = await client.subscribeWampTopic(
+          'app.events.audit',
+          id: 'idle-expiry-subscribe',
+          queueLimit: 4,
+        );
+        final subscriptionId = expiringSubscription.subscriptionId!;
+        final initialSubscribers = await directClient
+            .countWampSubscriptionSubscribersDirect(
+              subscriptionId,
+              id: 'idle-expiry-initial-subscriber-count',
+            );
+        expect(initialSubscribers.arguments, equals([1]));
+
+        await Future<void>.delayed(const Duration(milliseconds: 1500));
+
+        await expectLater(
+          client.listTools(id: 'idle-expiry-stale-tools'),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.notFound,
+            ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+
+        var subscriberCount = 1;
+        for (var attempt = 0; attempt < 50; attempt++) {
+          final result = await directClient
+              .countWampSubscriptionSubscribersDirect(
+                subscriptionId,
+                id: 'idle-expiry-final-subscriber-count-$attempt',
+              );
+          subscriberCount = (result.arguments.single as num).toInt();
+          if (subscriberCount == 0) {
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(subscriberCount, equals(0));
+
+        await client.initialize(id: 'idle-expiry-replacement-initialize');
+        expect(client.sessionId, isNotNull);
+        expect(client.sessionId, isNot(equals(expiredSessionId)));
+        await client.notifyInitialized();
+        final replacementTools = await client.listTools(
+          id: 'idle-expiry-replacement-tools',
+        );
+        expect(
+          replacementTools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        await client.deleteSession();
+        expect(client.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'deletes MCP Streamable HTTP sessions without interrupting shared direct JSON pubsub or modern resource owners',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9118,
           nativeLib: nativeLib,
           settings: _buildMcpSmokeSettings(),
         );
@@ -9342,7 +9428,10 @@ RouterSettings _buildMcpAnonymousIsolationSettings() {
       .build();
 }
 
-RouterSettings _buildMcpSmokeSettings({bool enableHttp3 = false}) {
+RouterSettings _buildMcpSmokeSettings({
+  bool enableHttp3 = false,
+  int? sessionIdleTimeoutMs,
+}) {
   const protectedResourceMetadata = <String, Object?>{
     'metadata_url': 'https://mcp.example.test/mcp/secure',
     'resource': 'https://mcp.example.test/mcp/secure',
@@ -9350,8 +9439,9 @@ RouterSettings _buildMcpSmokeSettings({bool enableHttp3 = false}) {
     'scopes_supported': ['mcp:read', 'mcp:write'],
     'resource_name': 'Connectanum MCP',
   };
-  const mcpOptions = <String, Object?>{
+  final mcpOptions = <String, Object?>{
     'tool_list_page_size': 100,
+    'session_idle_timeout_ms': ?sessionIdleTimeoutMs,
     'procedures': [
       {
         'procedure': 'app.documented.only',
@@ -9539,7 +9629,7 @@ RouterSettings _buildMcpSmokeSettings({bool enableHttp3 = false}) {
         alpn: enableHttp3 ? const ['http/1.1', 'h2', 'h3'] : const ['http/1.1'],
         http3: enableHttp3 ? const Http3Settings(enabled: true, port: 0) : null,
         sessionProfile: 'public-http',
-        routes: const [
+        routes: [
           HttpRouteSettings(
             match: HttpRouteMatch(path: '/auth'),
             action: HttpRouteAction(
