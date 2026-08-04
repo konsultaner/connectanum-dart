@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -65,3 +65,15 @@ proxy includes a valid-looking session header on the rejected response.
   196-case MCP/client authorization suite, all 96 benchmark tests, all 384
   router tests, native follow-ups, Chrome/Dart2Wasm coverage, and every
   isolated and globally activated consumer/CLI smoke.
+- 2026-08-04: Implementation commit `696417d` is on both maintained `master`
+  branches. Exact-head Dart Package Publish Dry Run `30909007328`, WAMP
+  Profile Benchmarks `30909005756`, and Router Image dry run `30909023890`
+  passed on their first attempts. CI `30909004375` passed on attempt 2: its
+  first Full Verify attempt timed out only on the pre-existing proactive MCP
+  idle-expiry subscriber-cleanup observation, while five immediate local
+  reruns of that exact native test and the hosted Full Verify rerun passed
+  without code changes. Final check jobs have zero annotations. Coverage
+  artifact `8892772599`, WAMP artifact `8892454148`, Router Image preview
+  artifact `8892258065`, and Docker build records `8892359207` and
+  `8892358600` were uploaded. The comprehensive strict deployment-chain audit
+  passed with both maintained remote heads at `696417d`.

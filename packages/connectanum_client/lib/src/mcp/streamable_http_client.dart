@@ -3287,6 +3287,7 @@ final class McpStreamableHttpClient {
 
   void _captureSessionHeaders(
     HttpClientResponse response, {
+    bool allowSessionAssignment = false,
     bool captureProtocolVersion = true,
     bool clearSessionOnMissing = false,
     bool resetLastEventId = false,
@@ -3312,10 +3313,18 @@ final class McpStreamableHttpClient {
     }
 
     if (negotiatedSessionId != null) {
-      if (resetLastEventId || sessionId != negotiatedSessionId) {
-        lastEventId = null;
+      if (!allowSessionAssignment) {
+        if (negotiatedSessionId != sessionId) {
+          throw const McpStreamableProtocolException(
+            'MCP-Session-Id response header did not match the active session',
+          );
+        }
+      } else {
+        if (resetLastEventId || sessionId != negotiatedSessionId) {
+          lastEventId = null;
+        }
+        sessionId = negotiatedSessionId;
       }
-      sessionId = negotiatedSessionId;
     } else if (clearSessionOnMissing) {
       _clearSessionState();
     }
@@ -3344,6 +3353,7 @@ final class McpStreamableHttpClient {
       final previousProtocolVersion = protocolVersion;
       _captureSessionHeaders(
         response,
+        allowSessionAssignment: true,
         captureProtocolVersion: captureProtocolVersion,
         clearSessionOnMissing: clearSessionOnMissing,
         resetLastEventId: resetLastEventId,
@@ -3355,6 +3365,7 @@ final class McpStreamableHttpClient {
 
     _captureSessionHeaders(
       response,
+      allowSessionAssignment: requestMethod == 'initialize',
       captureProtocolVersion: captureProtocolVersion,
       clearSessionOnMissing: clearSessionOnMissing,
       resetLastEventId: resetLastEventId,

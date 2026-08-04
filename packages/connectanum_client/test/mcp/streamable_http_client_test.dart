@@ -2970,6 +2970,99 @@ void main() {
       },
     );
 
+    test(
+      'rejects POST response session changes without poisoning state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(id: 'post-session-init');
+        expect(initialize['id'], 'post-session-init');
+        expect(client.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-post-mismatch';
+        await expectLater(
+          client.listTools(
+            id: 'post-session-mismatch',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-response-session-id': 'session-2',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              contains('did not match the active session'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-post-mismatch');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+
+        final recovered = await client.listTools(
+          id: 'post-session-mismatch-recovery',
+          streamable: false,
+        );
+        expect(
+          recovered.tools.map((tool) => tool['name']),
+          contains('app.echo'),
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-post-mismatch');
+      },
+    );
+
+    test(
+      'rejects GET response session changes without poisoning state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final initialize = await client.initialize(id: 'get-session-init');
+        expect(initialize['id'], 'get-session-init');
+        expect(client.sessionId, 'session-1');
+
+        client.lastEventId = 'session-1:get:kept-get-mismatch';
+        await expectLater(
+          client.poll(
+            headers: const <String, String>{
+              'x-test-response-session-id': 'session-2',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              contains('did not match the active session'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-get-mismatch');
+        expect(endpoint.requests.last.method, 'GET');
+        expect(endpoint.requests.last.sessionId, 'session-1');
+        expect(
+          endpoint.requests.last.lastEventId,
+          'session-1:get:kept-get-mismatch',
+        );
+
+        final recovered = await client.poll();
+        expect(recovered, hasLength(1));
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:1');
+      },
+    );
+
     test('clears stale session state when initialize is sessionless', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -3131,6 +3224,39 @@ void main() {
         expect(events, hasLength(1));
         expect(endpoint.requests.last.method, 'GET');
         expect(endpoint.requests.last.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'lets successful initialize replace stale local session state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        client.sessionId = 'stale-session-before-reinitialize';
+        client.lastEventId = 'stale-session-before-reinitialize:get:1';
+
+        final initialize = await client.initialize(
+          id: 'replacement-session-initialize',
+          headers: const <String, String>{
+            'x-test-response-session-id': 'session-2',
+          },
+        );
+
+        expect(initialize['id'], 'replacement-session-initialize');
+        expect(client.sessionId, 'session-2');
+        expect(client.lastEventId, isNull);
+        expect(endpoint.requests.single.sessionId, isNull);
+
+        final tools = await client.listTools(
+          id: 'replacement-session-tools',
+          streamable: false,
+        );
+        expect(tools.tools.map((tool) => tool['name']), contains('app.echo'));
+        expect(endpoint.requests.last.sessionId, 'session-2');
       },
     );
 

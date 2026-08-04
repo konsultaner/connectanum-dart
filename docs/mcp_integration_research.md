@@ -61,6 +61,10 @@ Driving use case: downstream application integrations
   compatibility era with `initialize`, optional `MCP-Session-Id`, GET/SSE,
   DELETE, and resume cursors. Connectanum retains that lifecycle explicitly;
   it does not reinterpret a 2025 session as a 2026 request.
+  A compatibility client accepts a newly assigned session ID only from the
+  response carrying a successful `InitializeResult`; a later response may
+  omit that header or echo the active ID, but a different ID is a protocol
+  error rather than an implicit session rotation.
 - Servers advertise capabilities through `server/discover` in the modern era
   and during `initialize` in the legacy era. The relevant server surfaces for
   Connectanum are `tools`, `resources`, `prompts`, `logging`, and eventually

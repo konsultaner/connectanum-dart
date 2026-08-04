@@ -2357,8 +2357,14 @@ extension _RouterBindingMcp on RouterBinding {
     required String endpointKey,
     required _RouterMcpEndpoint endpoint,
   }) {
-    if (!endpoint.sessionIdleExpired ||
-        !identical(_mcpEndpoints[endpointKey], endpoint)) {
+    if (!identical(_mcpEndpoints[endpointKey], endpoint)) {
+      return;
+    }
+    if (!endpoint.sessionIdleExpired) {
+      // A Timer may wake slightly before the Stopwatch reaches the deadline.
+      // Preserve the original idle interval and schedule the remaining delay
+      // instead of silently losing proactive expiry.
+      endpoint._armSessionIdleDeadline(resetStopwatch: false);
       return;
     }
     _mcpEndpoints.remove(endpointKey);
