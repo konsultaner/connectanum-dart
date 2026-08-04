@@ -252,6 +252,109 @@ void main() {
       },
     );
 
+    test('rejects lifecycle headers on MCP 2026 standard responses', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient.stateless(
+        endpoint.uri,
+        clientInfo: const <String, Object?>{
+          'name': 'response-integrity-test',
+          'version': '1.0.0',
+        },
+      );
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.listTools(
+          id: 'modern-response-session',
+          headers: const <String, String>{
+            'x-test-response-session-id': 'unexpected-modern-session',
+          },
+        ),
+        throwsA(
+          isA<McpStreamableProtocolException>().having(
+            (error) => error.message,
+            'message',
+            contains('must not create a session'),
+          ),
+        ),
+      );
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+
+      await expectLater(
+        client.listTools(
+          id: 'modern-response-version',
+          headers: const <String, String>{
+            'x-test-response-protocol-version': '2025-06-18',
+          },
+        ),
+        throwsA(
+          isA<McpStreamableProtocolException>().having(
+            (error) => error.message,
+            'message',
+            contains('did not match the active protocol version'),
+          ),
+        ),
+      );
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+
+      final recovered = await client.listTools(id: 'modern-response-recovery');
+      expect(recovered.tools, isEmpty);
+    });
+
+    test(
+      'keeps compatibility state after rejected MCP 2026 response headers',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'cross-era-response-init');
+        final activeSessionId = client.sessionId;
+        final activeProtocolVersion = client.protocolVersion;
+        client.lastEventId = '$activeSessionId:get:cross-era-kept';
+
+        await expectLater(
+          client.listTools(
+            id: 'cross-era-response-session',
+            protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+            headers: const <String, String>{
+              'x-test-response-session-id': 'unexpected-modern-session',
+            },
+          ),
+          throwsA(isA<McpStreamableProtocolException>()),
+        );
+        expect(client.protocolVersion, activeProtocolVersion);
+        expect(client.sessionId, activeSessionId);
+        expect(client.lastEventId, '$activeSessionId:get:cross-era-kept');
+
+        await expectLater(
+          client.listTools(
+            id: 'cross-era-response-version',
+            protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+            headers: <String, String>{
+              'x-test-response-protocol-version': activeProtocolVersion,
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              contains('did not match the request protocol version override'),
+            ),
+          ),
+        );
+        expect(client.protocolVersion, activeProtocolVersion);
+        expect(client.sessionId, activeSessionId);
+        expect(client.lastEventId, '$activeSessionId:get:cross-era-kept');
+      },
+    );
+
     test(
       'rejects removed MCP 2026 session and batch operations locally',
       () async {
@@ -366,6 +469,39 @@ void main() {
         expect(client.lastEventId, isNull);
       },
     );
+
+    test('rejects MCP 2026 listener response version drift', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient.stateless(
+        endpoint.uri,
+        clientInfo: const <String, Object?>{
+          'name': 'response-integrity-test',
+          'version': '1.0.0',
+        },
+      );
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.listen(
+          id: 'listen-response-version-drift',
+          toolsListChanged: true,
+          headers: const <String, String>{
+            'x-test-response-protocol-version': '2025-06-18',
+          },
+        ),
+        throwsA(
+          isA<McpStreamableProtocolException>().having(
+            (error) => error.message,
+            'message',
+            contains('did not match the active protocol version'),
+          ),
+        ),
+      );
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
 
     test(
       'keeps protected MCP 2026 listeners isolated from direct JSON calls',
@@ -1117,6 +1253,7 @@ void main() {
         },
         protocolVersion: '2025-03-26',
         headers: const <String, String>{
+          'x-test-response-protocol-version': '2025-06-18',
           'x-test-response-session-id': 'ignored-direct-json-session',
         },
       );
@@ -3589,6 +3726,42 @@ void main() {
             'x-test-response-session-id': 'session-1',
           },
         );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'validates DELETE response protocol headers before local cleanup',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'delete-version-init');
+        final activeSessionId = client.sessionId;
+        client.lastEventId = '$activeSessionId:get:kept-delete-version';
+
+        await expectLater(
+          client.deleteSession(
+            headers: const <String, String>{
+              'x-test-response-protocol-version': '2025-03-26',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              contains('did not match the active protocol version'),
+            ),
+          ),
+        );
+        expect(client.sessionId, activeSessionId);
+        expect(client.lastEventId, '$activeSessionId:get:kept-delete-version');
+
+        await client.deleteSession();
         expect(client.sessionId, isNull);
         expect(client.lastEventId, isNull);
       },
@@ -8106,7 +8279,8 @@ final class _FakeMcpEndpoint {
       );
       response.headers.set(
         _headerProtocolVersion,
-        McpStreamableHttpClient.latestProtocolVersion,
+        request.headers.value('x-test-response-protocol-version') ??
+            McpStreamableHttpClient.latestProtocolVersion,
       );
       _listenResponse = response;
       _listenRequestId = requestBody['id'];
@@ -9283,10 +9457,15 @@ final class _FakeMcpEndpoint {
           request.headers.value(_headerProtocolVersion) ??
           McpStreamableHttpClient.latestSessionProtocolVersion,
     );
-    request.response.headers.set(
-      _headerSessionId,
-      request.headers.value('x-test-response-session-id') ?? 'session-1',
-    );
+    final responseSessionId =
+        request.headers.value('x-test-response-session-id') ??
+        (request.headers.value(_headerProtocolVersion) ==
+                McpStreamableHttpClient.latestProtocolVersion
+            ? null
+            : 'session-1');
+    if (responseSessionId != null) {
+      request.response.headers.set(_headerSessionId, responseSessionId);
+    }
     request.response.write(body);
     unawaited(request.response.close());
   }

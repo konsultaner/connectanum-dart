@@ -78,3 +78,21 @@ silently changing the version used by an established client session.
   WAMP workloads, all 384 router tests, native follow-ups, Chrome/Dart2Wasm,
   and every isolated and globally activated consumer/CLI smoke. Exact-head
   hosted workflows and the strict deployment-chain audit remain after push.
+- 2026-08-04: Implementation commit `906902c` is on both maintained `master`
+  branches. Exact-head CI `30924642685`, Dart Package Publish Dry Run
+  `30924643524`, WAMP Profile Benchmarks `30924642579`, and Router Image dry
+  run `30926239109` all passed on their first attempts with zero check
+  annotations. Coverage artifact `8899168851`, WAMP artifact `8898809505`,
+  Router Image preview artifact `8899216738`, and Docker build records
+  `8899352937` and `8899352028` were uploaded. Comprehensive
+  `bin/audit-github-deployment-chain --branch master --run-limit 8 --strict
+  --require-workflows-visible --require-router-package
+  --require-clean-latest-ci --require-clean-latest-ci-logs
+  --require-clean-dart-package-publish-dry-run
+  --require-clean-native-release-dry-run --require-clean-router-image-dry-run
+  --require-clean-wamp-profile-benchmarks --show-rc-readiness` passes with
+  clean exact-head CI logs, loaded-image MCP runtime smoke,
+  multi-architecture image build, and all required branch, workflow, package,
+  native-release, publish-dry-run, and benchmark gates clean. Its non-gating
+  release-candidate summary remains intentionally not ready because no
+  approved RC tag points at this implementation commit.

@@ -24682,7 +24682,24 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - No active execution plan. The most recently completed router-hosted MCP
-  client protocol-negotiation integrity plan is:
+  client response-header integrity plan is:
+  `docs/exec-plans/2026-08-04-mcp-client-response-header-integrity.md`.
+  Standard Streamable POST now separates response-header validation from
+  session-state mutation. Modern stateless standard requests reject response
+  sessions and validate optional protocol echoes while preserving any
+  unrelated compatibility session and resume cursor. Request-scoped
+  `subscriptions/listen` validates the same lifecycle metadata before exposing
+  a listener, and compatibility DELETE validates protocol and session echoes
+  before local cleanup. Direct JSON remains lifecycle-free. Focused client
+  analysis, all 128 Streamable HTTP client tests, post-change `bin/test-fast`,
+  and final `bin/verify` pass. Final verification covers 113 Rust core and 52
+  Rust FFI tests, 360 Dart core tests, 94 MCP tests, the complete 208-case
+  MCP/client authorization suite, all 96 benchmark tests, all 384 router tests,
+  native and Chrome/Dart2Wasm follow-ups, and every isolated and globally
+  activated consumer/CLI smoke. Exact-head hosted workflows and the strict
+  deployment-chain audit remain after push.
+- The previously completed router-hosted MCP client protocol-negotiation
+  integrity plan is:
   `docs/exec-plans/2026-08-04-mcp-client-protocol-negotiation-integrity.md`.
   It makes the required successful standard initialize result version
   authoritative, rejects disagreement with an optional response echo, and
@@ -24696,8 +24713,23 @@ at the older `47bbf9c` commit.
   tests, 360 Dart core tests, 94 MCP tests, the complete 204-case MCP/client
   authorization suite, all 96 benchmark tests, all 384 router tests, native
   and Chrome/Dart2Wasm follow-ups, and every isolated and globally activated
-  consumer/CLI smoke. Exact-head hosted workflows and the strict deployment-
-  chain audit remain after push.
+  consumer/CLI smoke. Implementation commit `906902c` is on both maintained
+  `master` branches. Exact-head CI `30924642685`, Dart Package Publish Dry Run
+  `30924643524`, WAMP Profile Benchmarks `30924642579`, and Router Image dry
+  run `30926239109` all passed on their first attempts with zero check
+  annotations. Coverage artifact `8899168851`, WAMP artifact `8898809505`,
+  Router Image preview artifact `8899216738`, and Docker build records
+  `8899352937` and `8899352028` were uploaded. Comprehensive
+  `bin/audit-github-deployment-chain --branch master --run-limit 8 --strict
+  --require-workflows-visible --require-router-package
+  --require-clean-latest-ci --require-clean-latest-ci-logs
+  --require-clean-dart-package-publish-dry-run
+  --require-clean-native-release-dry-run --require-clean-router-image-dry-run
+  --require-clean-wamp-profile-benchmarks --show-rc-readiness` passes with
+  clean exact-head CI logs, loaded-image MCP runtime smoke,
+  multi-architecture image build, and all required gates clean. Its non-gating
+  release-candidate summary remains intentionally not ready because no
+  approved RC tag points at this implementation commit.
 - The most recently completed router-hosted MCP
   client session-integrity plan is:
   `docs/exec-plans/2026-08-04-mcp-client-session-response-integrity.md`. It
