@@ -2311,6 +2311,18 @@ extension _RouterBindingMcp on RouterBinding {
     }
   }
 
+  void _expireMcpEndpointIfIdle({
+    required String endpointKey,
+    required _RouterMcpEndpoint endpoint,
+  }) {
+    if (!endpoint.sessionIdleExpired ||
+        !identical(_mcpEndpoints[endpointKey], endpoint)) {
+      return;
+    }
+    _mcpEndpoints.remove(endpointKey);
+    unawaited(endpoint.dispose());
+  }
+
   _RouterMcpEndpoint? _mcpEndpointForRoute({
     required RouterHttpRequest request,
     required HttpRouteSettings route,
@@ -2335,6 +2347,7 @@ extension _RouterBindingMcp on RouterBinding {
     }
     final endpoint = _RouterMcpEndpoint(
       binding: this,
+      endpointKey: key,
       route: route,
       session: session,
       mcpSessionId: mcpSessionId,
@@ -2465,6 +2478,7 @@ class _RouterMcpModernSubscription {
 class _RouterMcpEndpoint {
   _RouterMcpEndpoint({
     required this.binding,
+    required this.endpointKey,
     required this.route,
     required this.session,
     required this.mcpSessionId,
@@ -2507,14 +2521,18 @@ class _RouterMcpEndpoint {
       ]),
       capabilities: _mcpServerCapabilitiesForOptions(options),
     );
+    markSessionActivity();
   }
 
   final RouterBinding binding;
+  final String endpointKey;
   final HttpRouteSettings route;
   final RouterSession session;
   final String? mcpSessionId;
   final Duration? sessionIdleTimeout;
   final Stopwatch _sessionIdleStopwatch = Stopwatch()..start();
+  Timer? _sessionIdleTimer;
+  Future<void>? _disposeFuture;
   late final mcp.McpServer server;
   late final RealmAuthorizationProviderCache _authorizationProviderCache =
       RealmAuthorizationProviderCache(binding.settings);
@@ -2544,14 +2562,29 @@ class _RouterMcpEndpoint {
   }
 
   void markSessionActivity() {
-    if (mcpSessionId != null) {
-      _sessionIdleStopwatch.reset();
+    final timeout = sessionIdleTimeout;
+    if (mcpSessionId == null || timeout == null || _disposeFuture != null) {
+      return;
     }
+    _sessionIdleStopwatch.reset();
+    _sessionIdleTimer?.cancel();
+    _sessionIdleTimer = Timer(timeout, () {
+      _sessionIdleTimer = null;
+      binding._expireMcpEndpointIfIdle(
+        endpointKey: endpointKey,
+        endpoint: this,
+      );
+    });
   }
 
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
 
-  Future<void> dispose() async {
+  Future<void> dispose() => _disposeFuture ??= _dispose();
+
+  Future<void> _dispose() async {
+    _sessionIdleTimer?.cancel();
+    _sessionIdleTimer = null;
+    _sessionIdleStopwatch.stop();
     server.shutdown();
 
     final modernSubscriptionTokens = _modernSubscriptions.keys.toList(

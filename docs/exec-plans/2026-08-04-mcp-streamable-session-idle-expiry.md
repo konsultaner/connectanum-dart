@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -72,3 +72,14 @@ session.
   consumer and CLI smoke, the complete 382-case router suite, 13
   native-forwarding follow-ups, and Chrome/Dart2Wasm coverage. Exact-head
   hosted evidence and the strict deployment-chain audit remain pending.
+- 2026-08-04: Implementation commit `4688c64` was pushed to GitLab and GitHub.
+  Exact-head CI `30878850923`, Dart Package Publish Dry Run `30878850921`,
+  WAMP Profile Benchmarks `30878850950`, and non-publishing Router Image dry
+  run `30879775060` all passed with zero check annotations. CI uploaded Dart VM
+  coverage artifact `8880801653`, WAMP uploaded profile artifact `8880628574`,
+  and Router Image uploaded preview artifact `8880832976` plus both Docker
+  build records after its exact-source build, loaded-image MCP smoke, and
+  multi-architecture build. Both maintained masters resolve to the
+  implementation commit, and the comprehensive strict deployment-chain audit
+  exited zero. Numeric RC tagging, prerelease creation, image publication, and
+  pub.dev publication remain separate approval-gated release actions.

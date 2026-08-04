@@ -24682,6 +24682,19 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP session-correctness plan:
+  `docs/exec-plans/2026-08-04-mcp-streamable-proactive-idle-cleanup.md`. It
+  makes compatibility-session idle expiry autonomous so a quiet router releases
+  endpoint state and WAMP subscriptions without waiting for another MCP request
+  to run the fallback sweep. It preserves stale-session `404` recovery and
+  keeps modern stateless and direct JSON requests sessionless. Pre-change
+  `bin/test-fast` passed; the fail-first router-state regression reproduced the
+  retained subscriber, and focused autonomous cleanup, activity reset,
+  disabled-timeout, stale recovery, formatting, and analysis now pass. Full
+  `bin/verify` passes, including all 382 router cases, 96 benchmark cases with
+  live WAMP workloads, isolated and global consumer/CLI smokes,
+  native-forwarding follow-ups, and Chrome/Dart2Wasm. Hosted evidence is
+  pending.
+- Most recently completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-streamable-session-idle-expiry.md`. It adds
   bounded idle expiry for compatibility Streamable HTTP sessions so abandoned
   endpoint resources and subscriptions do not remain indefinitely, expired
@@ -24696,7 +24709,13 @@ at the older `47bbf9c` commit.
   94 MCP tests, 193 MCP/client cases, all 96 benchmark tests with 36 live
   real-router WAMP workloads, every isolated and globally activated consumer
   and CLI smoke, the complete 382-case router suite, 13 native-forwarding
-  follow-ups, and Chrome/Dart2Wasm coverage. Hosted evidence is pending.
+  follow-ups, and Chrome/Dart2Wasm coverage. Implementation commit `4688c64`
+  is on both GitLab and GitHub master. Exact-head CI `30878850923`, Dart Package
+  Publish Dry Run `30878850921`, WAMP Profile Benchmarks `30878850950`, and
+  Router Image dry run `30879775060` all pass with zero check annotations.
+  Coverage artifact `8880801653`, WAMP artifact `8880628574`, Router Image
+  preview artifact `8880832976`, both Docker build records, and the
+  comprehensive strict deployment-chain audit all pass.
 - Most recently completed router-hosted MCP
   packaging-readiness plan:
   `docs/exec-plans/2026-08-04-router-image-json-response-stateless-package-smoke.md`.

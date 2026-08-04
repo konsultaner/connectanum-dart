@@ -4534,8 +4534,6 @@ void main() {
         );
         final client = McpStreamableHttpClient(endpoint);
         addTearDown(() => client.close(force: true));
-        final directClient = McpStreamableHttpClient(endpoint);
-        addTearDown(() => directClient.close(force: true));
 
         await client.initialize(id: 'idle-expiry-initialize');
         await client.notifyInitialized();
@@ -4547,14 +4545,30 @@ void main() {
           queueLimit: 4,
         );
         final subscriptionId = expiringSubscription.subscriptionId!;
-        final initialSubscribers = await directClient
-            .countWampSubscriptionSubscribersDirect(
-              subscriptionId,
-              id: 'idle-expiry-initial-subscriber-count',
-            );
-        expect(initialSubscribers.arguments, equals([1]));
+
+        Future<int> subscriberCount() async {
+          final snapshot = await _fetchSnapshot(harness._statePort);
+          for (final subscription in snapshot.subscriptions) {
+            if (subscription.id == subscriptionId) {
+              return subscription.subscribers.length;
+            }
+          }
+          return 0;
+        }
+
+        expect(await subscriberCount(), equals(1));
 
         await Future<void>.delayed(const Duration(milliseconds: 1500));
+
+        var observedSubscriberCount = 1;
+        for (var attempt = 0; attempt < 50; attempt++) {
+          observedSubscriberCount = await subscriberCount();
+          if (observedSubscriberCount == 0) {
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(observedSubscriberCount, equals(0));
 
         await expectLater(
           client.listTools(id: 'idle-expiry-stale-tools'),
@@ -4568,21 +4582,6 @@ void main() {
         );
         expect(client.sessionId, isNull);
         expect(client.lastEventId, isNull);
-
-        var subscriberCount = 1;
-        for (var attempt = 0; attempt < 50; attempt++) {
-          final result = await directClient
-              .countWampSubscriptionSubscribersDirect(
-                subscriptionId,
-                id: 'idle-expiry-final-subscriber-count-$attempt',
-              );
-          subscriberCount = (result.arguments.single as num).toInt();
-          if (subscriberCount == 0) {
-            break;
-          }
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-        }
-        expect(subscriberCount, equals(0));
 
         await client.initialize(id: 'idle-expiry-replacement-initialize');
         expect(client.sessionId, isNotNull);

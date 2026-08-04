@@ -5206,7 +5206,7 @@ void main() {
     expect(deleteResponse.headers, isNot(contains('x-ratelimit-limit')));
   });
 
-  test('expires idle Streamable MCP sessions and permits replacement', () async {
+  test('refreshes and disables Streamable MCP idle expiry', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()
       ..addAuthenticator(
@@ -5242,7 +5242,18 @@ void main() {
                     realm: 'router.http',
                     options: <String, Object?>{
                       'post_response_transport': 'json',
-                      'session_idle_timeout_ms': 250,
+                      'session_idle_timeout_ms': 500,
+                    },
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp/no-expiry'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'router.http',
+                    options: <String, Object?>{
+                      'post_response_transport': 'json',
+                      'session_idle_timeout_ms': 0,
                     },
                   ),
                 ),
@@ -5276,6 +5287,7 @@ void main() {
     Future<NativeHttpResponse> sendMcpRequest({
       required String method,
       required Map<String, String> headers,
+      String path = '/mcp',
       Uint8List? body,
     }) async {
       final requestConnectionId = connectionId++;
@@ -5289,8 +5301,8 @@ void main() {
         NativeHttpHandshake.synthetic(
           handle: handle++,
           method: method,
-          target: '/mcp',
-          path: '/mcp',
+          target: path,
+          path: path,
           protocol: 'http/1.1',
           headers: headers,
           body: body ?? Uint8List(0),
@@ -5338,22 +5350,42 @@ void main() {
     expect(expiredSessionId, isNotNull);
     expect(expiredSessionId, isNotEmpty);
 
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
     final toolsBody = Uint8List.fromList(
       utf8.encode(
         '{"jsonrpc":"2.0","id":"expired-tools","method":"tools/list","params":{}}',
       ),
     );
+    final sessionHeaders = <String, String>{
+      'accept': 'application/json, text/event-stream',
+      'content-type': 'application/json',
+      'mcp-session-id': expiredSessionId!,
+      'mcp-protocol-version': '2025-11-25',
+      'mcp-method': 'tools/list',
+    };
+
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    final firstActiveResponse = await sendMcpRequest(
+      method: 'POST',
+      headers: sessionHeaders,
+      body: toolsBody,
+    );
+    expect(firstActiveResponse.status, HttpStatus.ok);
+    expect(firstActiveResponse.headers['MCP-Session-Id'], expiredSessionId);
+
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    final secondActiveResponse = await sendMcpRequest(
+      method: 'POST',
+      headers: sessionHeaders,
+      body: toolsBody,
+    );
+    expect(secondActiveResponse.status, HttpStatus.ok);
+    expect(secondActiveResponse.headers['MCP-Session-Id'], expiredSessionId);
+
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+
     final expiredResponse = await sendMcpRequest(
       method: 'POST',
-      headers: {
-        'accept': 'application/json, text/event-stream',
-        'content-type': 'application/json',
-        'mcp-session-id': expiredSessionId!,
-        'mcp-protocol-version': '2025-11-25',
-        'mcp-method': 'tools/list',
-      },
+      headers: sessionHeaders,
       body: toolsBody,
     );
     expect(expiredResponse.status, HttpStatus.notFound);
@@ -5386,6 +5418,44 @@ void main() {
     );
     expect(replacementTools.status, HttpStatus.ok);
     expect(replacementTools.headers['MCP-Session-Id'], replacementSessionId);
+
+    final disabledInitialize = await sendMcpRequest(
+      method: 'POST',
+      path: '/mcp/no-expiry',
+      headers: initializeHeaders,
+      body: initializeBody,
+    );
+    expect(disabledInitialize.status, HttpStatus.ok);
+    final disabledSessionId = disabledInitialize.headers['MCP-Session-Id'];
+    expect(disabledSessionId, isNotNull);
+
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+
+    final disabledTools = await sendMcpRequest(
+      method: 'POST',
+      path: '/mcp/no-expiry',
+      headers: {
+        'accept': 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        'mcp-session-id': disabledSessionId!,
+        'mcp-protocol-version': '2025-11-25',
+        'mcp-method': 'tools/list',
+      },
+      body: toolsBody,
+    );
+    expect(disabledTools.status, HttpStatus.ok);
+    expect(disabledTools.headers['MCP-Session-Id'], disabledSessionId);
+
+    final disabledDelete = await sendMcpRequest(
+      method: 'DELETE',
+      path: '/mcp/no-expiry',
+      headers: {
+        'accept': 'application/json, text/event-stream',
+        'mcp-session-id': disabledSessionId,
+        'mcp-protocol-version': '2025-11-25',
+      },
+    );
+    expect(disabledDelete.status, HttpStatus.accepted);
   });
 
   test('creates internal sessions from session profile defaults', () async {
