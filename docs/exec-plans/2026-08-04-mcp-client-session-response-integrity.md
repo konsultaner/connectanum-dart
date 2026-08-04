@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -80,3 +80,13 @@ later POST or GET response silently replace its established session.
   activated consumer/CLI smoke. One HTTP/3 FFI handshake timed out on its
   first attempt and passed on the built-in retry. Exact-head hosted workflows
   and the strict deployment-chain audit remain after push.
+- 2026-08-04: Implementation commit `57a41f5` is on both maintained `master`
+  branches. Exact-head CI `30917453920`, Dart Package Publish Dry Run
+  `30917448873`, WAMP Profile Benchmarks `30917453719`, and Router Image dry
+  run `30919095170` all passed on their first attempts with zero check
+  annotations. Coverage artifact `8896223621`, WAMP artifact `8895894527`,
+  Router Image preview artifact `8896308893`, and Docker build records
+  `8896474266` and `8896473269` were uploaded. The comprehensive strict
+  deployment-chain audit passes with clean exact-head CI logs, loaded-image
+  MCP runtime smoke, multi-architecture image build, and all required branch,
+  workflow, package, publish-dry-run, and benchmark gates clean.

@@ -900,6 +900,106 @@ void main() {
     });
 
     test(
+      'generic initialize requires a result protocol version before state capture',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        client.sessionId = 'stale-before-missing-result-version';
+        client.lastEventId = 'stale-before-missing-result-version:get:1';
+
+        await expectLater(
+          client.post(
+            const <String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 'generic-missing-result-version',
+              'method': 'initialize',
+              'params': <String, Object?>{
+                'protocolVersion':
+                    McpStreamableHttpClient.latestSessionProtocolVersion,
+                'capabilities': <String, Object?>{},
+                'clientInfo': <String, Object?>{
+                  'name': 'connectanum_client_test',
+                  'version': '0.1.0',
+                },
+              },
+            },
+            includeSession: false,
+            headers: const <String, String>{
+              'x-test-omit-result-protocol-version': '1',
+              'x-test-response-session-id': 'untrusted-session',
+            },
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('initialize result protocolVersion'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(
+          client.protocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
+        );
+
+        final recovered = await client.initialize(
+          id: 'generic-missing-result-version-recovery',
+        );
+        expect(recovered['id'], 'generic-missing-result-version-recovery');
+        expect(client.sessionId, 'session-1');
+      },
+    );
+
+    test(
+      'rejects initialize response version disagreement before state capture',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri)
+          ..protocolVersion = '2025-03-26'
+          ..sessionId = 'stale-before-version-disagreement'
+          ..lastEventId = 'stale-before-version-disagreement:get:1';
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.initialize(
+            id: 'initialize-version-disagreement',
+            headers: const <String, String>{
+              'x-test-response-protocol-version': '2025-06-18',
+              'x-test-response-session-id': 'untrusted-session',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              contains('did not match the initialize result'),
+            ),
+          ),
+        );
+
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(client.protocolVersion, '2025-03-26');
+
+        final recovered = await client.initialize(
+          id: 'initialize-version-disagreement-recovery',
+        );
+        expect(recovered['id'], 'initialize-version-disagreement-recovery');
+        expect(client.sessionId, 'session-1');
+        expect(client.protocolVersion, '2025-03-26');
+      },
+    );
+
+    test(
       'uses explicit initialize protocol version in request headers',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -955,8 +1055,77 @@ void main() {
           McpStreamableHttpClient.latestSessionProtocolVersion,
         );
         expect(client.sessionId, sessionId);
+
+        await expectLater(
+          client.ping(
+            id: 'streamable-protocol-override-mismatch',
+            protocolVersion: '2025-03-26',
+            headers: const <String, String>{
+              'x-test-response-protocol-version': '2025-06-18',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              contains('did not match the request protocol version override'),
+            ),
+          ),
+        );
+        expect(
+          client.protocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
+        );
+        expect(client.sessionId, sessionId);
+
+        final recovered = await client.ping(
+          id: 'streamable-protocol-override-recovery',
+          protocolVersion: '2025-03-26',
+        );
+        expect(recovered, isEmpty);
+        expect(
+          client.protocolVersion,
+          McpStreamableHttpClient.latestSessionProtocolVersion,
+        );
+        expect(client.sessionId, sessionId);
       },
     );
+
+    test('keeps direct JSON initialize payloads lifecycle-free', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri)
+        ..sessionId = 'active-direct-json-session'
+        ..lastEventId = 'active-direct-json-session:get:1';
+      addTearDown(() => client.close(force: true));
+      final negotiatedVersion = client.protocolVersion;
+
+      final response = await client.postDirect(
+        const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'direct-json-initialize-payload',
+          'method': 'initialize',
+          'params': <String, Object?>{
+            'protocolVersion': '2025-03-26',
+            'capabilities': <String, Object?>{},
+            'clientInfo': <String, Object?>{
+              'name': 'connectanum_client_test',
+              'version': '0.1.0',
+            },
+          },
+        },
+        protocolVersion: '2025-03-26',
+        headers: const <String, String>{
+          'x-test-response-session-id': 'ignored-direct-json-session',
+        },
+      );
+
+      expect(response?['id'], 'direct-json-initialize-payload');
+      expect(client.protocolVersion, negotiatedVersion);
+      expect(client.sessionId, 'active-direct-json-session');
+      expect(client.lastEventId, 'active-direct-json-session:get:1');
+    });
 
     test('lets direct JSON helpers override protocol headers', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
@@ -3058,6 +3227,94 @@ void main() {
 
         final recovered = await client.poll();
         expect(recovered, hasLength(1));
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:1');
+      },
+    );
+
+    test(
+      'rejects POST response version changes without poisoning state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'post-version-init');
+        final negotiatedVersion = client.protocolVersion;
+        client.lastEventId = 'session-1:get:kept-post-version-mismatch';
+
+        await expectLater(
+          client.listTools(
+            id: 'post-version-mismatch',
+            streamable: false,
+            headers: const <String, String>{
+              'x-test-response-protocol-version': '2025-03-26',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              contains('did not match the active protocol version'),
+            ),
+          ),
+        );
+
+        expect(client.protocolVersion, negotiatedVersion);
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-post-version-mismatch');
+
+        final recovered = await client.listTools(
+          id: 'post-version-mismatch-recovery',
+          streamable: false,
+        );
+        expect(
+          recovered.tools.map((tool) => tool['name']),
+          contains('app.echo'),
+        );
+        expect(client.protocolVersion, negotiatedVersion);
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-post-version-mismatch');
+      },
+    );
+
+    test(
+      'rejects GET response version changes without poisoning state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'get-version-init');
+        final negotiatedVersion = client.protocolVersion;
+        client.lastEventId = 'session-1:get:kept-get-version-mismatch';
+
+        await expectLater(
+          client.poll(
+            headers: const <String, String>{
+              'x-test-response-protocol-version': '2025-03-26',
+            },
+          ),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              contains('did not match the active protocol version'),
+            ),
+          ),
+        );
+
+        expect(client.protocolVersion, negotiatedVersion);
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:kept-get-version-mismatch');
+
+        final recovered = await client.poll();
+        expect(recovered, hasLength(1));
+        expect(client.protocolVersion, negotiatedVersion);
         expect(client.sessionId, 'session-1');
         expect(client.lastEventId, 'session-1:get:1');
       },
@@ -7792,11 +8049,13 @@ final class _FakeMcpEndpoint {
         'jsonrpc': '2.0',
         'id': requestBody['id'],
         'result': <String, Object?>{
-          'protocolVersion':
-              request.headers.value('x-test-result-protocol-version') ??
-              (requestedProtocolVersion is String
-                  ? requestedProtocolVersion
-                  : McpStreamableHttpClient.latestSessionProtocolVersion),
+          if (request.headers.value('x-test-omit-result-protocol-version') !=
+              '1')
+            'protocolVersion':
+                request.headers.value('x-test-result-protocol-version') ??
+                (requestedProtocolVersion is String
+                    ? requestedProtocolVersion
+                    : McpStreamableHttpClient.latestSessionProtocolVersion),
           'capabilities': <String, Object?>{},
           'serverInfo': <String, Object?>{
             'name': 'fake-router',
@@ -9020,7 +9279,8 @@ final class _FakeMcpEndpoint {
     );
     request.response.headers.set(
       _headerProtocolVersion,
-      request.headers.value(_headerProtocolVersion) ??
+      request.headers.value('x-test-response-protocol-version') ??
+          request.headers.value(_headerProtocolVersion) ??
           McpStreamableHttpClient.latestSessionProtocolVersion,
     );
     request.response.headers.set(

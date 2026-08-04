@@ -1,6 +1,6 @@
 # MCP Integration Research
 
-Last checked: 2026-08-01
+Last checked: 2026-08-04
 Driving use case: downstream application integrations
 
 ## Sources
@@ -17,6 +17,8 @@ Driving use case: downstream application integrations
   https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle
 - Legacy Streamable HTTP transport retained for compatibility:
   https://modelcontextprotocol.io/specification/2025-11-25/basic/transports
+- Legacy schema, including the required `InitializeResult.protocolVersion`:
+  https://modelcontextprotocol.io/specification/2025-11-25/schema
 - MCP tools:
   https://modelcontextprotocol.io/specification/2025-11-25/server/tools
 - MCP pagination:
@@ -65,6 +67,16 @@ Driving use case: downstream application integrations
   response carrying a successful `InitializeResult`; a later response may
   omit that header or echo the active ID, but a different ID is a protocol
   error rather than an implicit session rotation.
+  The successful result's required `protocolVersion` is likewise the
+  authoritative negotiated version for the session, and clients must send
+  that value in the `MCP-Protocol-Version` header on subsequent HTTP requests.
+  The legacy transport specifies that request header but does not define a
+  response version header. Connectanum accepts an optional response header as
+  an interoperability echo only: it must match the successful initialize
+  result or the already-active version, and it cannot renegotiate the client
+  independently. A caller-supplied one-request compatibility override remains
+  a Connectanum extension: its response echo must match that request override,
+  but the override does not replace the session's negotiated version.
 - Servers advertise capabilities through `server/discover` in the modern era
   and during `initialize` in the legacy era. The relevant server surfaces for
   Connectanum are `tools`, `resources`, `prompts`, `logging`, and eventually

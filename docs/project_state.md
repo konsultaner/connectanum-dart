@@ -24681,7 +24681,25 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active router-hosted MCP client session-integrity plan:
+- No active execution plan. The most recently completed router-hosted MCP
+  client protocol-negotiation integrity plan is:
+  `docs/exec-plans/2026-08-04-mcp-client-protocol-negotiation-integrity.md`.
+  It makes the required successful standard initialize result version
+  authoritative, rejects disagreement with an optional response echo, and
+  prevents later POST/batch or compatibility GET/SSE response headers from
+  silently changing established state. All checks complete before session,
+  cursor, or version mutation; caller-supplied one-request overrides validate
+  their own echo without renegotiating, while direct JSON remains entirely
+  lifecycle-free. Pre-change `bin/test-fast`, focused analysis, all 124
+  Streamable client tests, the generated client-only package smoke, and final
+  `bin/verify` pass. Final verification covers 113 Rust core and 52 Rust FFI
+  tests, 360 Dart core tests, 94 MCP tests, the complete 204-case MCP/client
+  authorization suite, all 96 benchmark tests, all 384 router tests, native
+  and Chrome/Dart2Wasm follow-ups, and every isolated and globally activated
+  consumer/CLI smoke. Exact-head hosted workflows and the strict deployment-
+  chain audit remain after push.
+- The most recently completed router-hosted MCP
+  client session-integrity plan is:
   `docs/exec-plans/2026-08-04-mcp-client-session-response-integrity.md`. It
   limits compatibility-era session assignment to a successful initialize and
   rejects later POST or GET response headers that differ from the established
@@ -24698,8 +24716,17 @@ at the older `47bbf9c` commit.
   MCP/client authorization suite, all 96 benchmark tests, all 384 router tests,
   native and Chrome/Dart2Wasm follow-ups, and every isolated and globally
   activated consumer/CLI smoke. One HTTP/3 FFI handshake timed out on its
-  first attempt and passed on the built-in retry. Exact-head hosted workflows
-  and the strict deployment-chain audit remain after push.
+  first attempt and passed on the built-in retry. Implementation commit
+  `57a41f5` is on both maintained `master` branches. Exact-head CI
+  `30917453920`, Dart Package Publish Dry Run `30917448873`, WAMP Profile
+  Benchmarks `30917453719`, and Router Image dry run `30919095170` all passed
+  on their first attempts with zero check annotations. Coverage artifact
+  `8896223621`, WAMP artifact `8895894527`, Router Image preview artifact
+  `8896308893`, and Docker build records `8896474266` and `8896473269` were
+  uploaded. The comprehensive strict deployment-chain audit passes with clean
+  exact-head CI logs, loaded-image MCP runtime smoke, multi-architecture image
+  build, and all required branch, workflow, package, publish-dry-run, and
+  benchmark gates clean.
 - Most recently completed router-hosted MCP client session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-client-rejected-initialize-cleanup.md`. It
   prevents a valid JSON-RPC error returned from `initialize` from establishing

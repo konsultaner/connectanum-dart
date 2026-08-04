@@ -1725,21 +1725,6 @@ final class McpStreamableHttpClient {
     if (response == null) {
       throw const FormatException('initialize did not return a JSON-RPC body');
     }
-    final result = response['result'];
-    if (result is Map) {
-      final negotiatedProtocolVersion = result['protocolVersion'];
-      if (negotiatedProtocolVersion is String &&
-          negotiatedProtocolVersion.isNotEmpty) {
-        if (!_mcpProtocolVersionSupported(negotiatedProtocolVersion)) {
-          _clearSessionState();
-          throw McpStreamableProtocolException(
-            'Unsupported initialize protocolVersion: '
-            '$negotiatedProtocolVersion',
-          );
-        }
-        this.protocolVersion = negotiatedProtocolVersion;
-      }
-    }
     return response;
   }
 
@@ -2918,7 +2903,7 @@ final class McpStreamableHttpClient {
     Object? message, {
     bool streamable = true,
     bool includeSession = true,
-    String? protocolVersion,
+    required String protocolVersion,
     Map<String, String> extraHeaders = const <String, String>{},
   }) async {
     final request = await _httpClient.postUrl(endpoint);
@@ -2939,8 +2924,6 @@ final class McpStreamableHttpClient {
     final requestMethod = _requestMethodForStandardHeaders(message);
     final capturesSessionHeaders =
         includeSession || (streamable && requestMethod == 'initialize');
-    final capturesProtocolVersion =
-        protocolVersion == null || requestMethod == 'initialize';
     final clearsSessionOnMissing = requestMethod == 'initialize';
     final resetsLastEventId = requestMethod == 'initialize';
     final response = await request.close();
@@ -2964,7 +2947,7 @@ final class McpStreamableHttpClient {
           response,
           requestMethod: requestMethod,
           responseValue: null,
-          captureProtocolVersion: capturesProtocolVersion,
+          requestProtocolVersion: protocolVersion,
           clearSessionOnMissing: clearsSessionOnMissing,
           resetLastEventId: resetsLastEventId,
         );
@@ -2987,7 +2970,7 @@ final class McpStreamableHttpClient {
           response,
           requestMethod: requestMethod,
           responseValue: value,
-          captureProtocolVersion: capturesProtocolVersion,
+          requestProtocolVersion: protocolVersion,
           clearSessionOnMissing: clearsSessionOnMissing,
           resetLastEventId: resetsLastEventId,
         );
@@ -3016,7 +2999,7 @@ final class McpStreamableHttpClient {
         response,
         requestMethod: requestMethod,
         responseValue: value,
-        captureProtocolVersion: capturesProtocolVersion,
+        requestProtocolVersion: protocolVersion,
         clearSessionOnMissing: clearsSessionOnMissing,
         resetLastEventId: resetsLastEventId,
       );
@@ -3173,7 +3156,7 @@ final class McpStreamableHttpClient {
       }
     }
     _validateMcpSseEventIds(events);
-    _captureSessionHeaders(response);
+    _captureSessionHeaders(response, expectedProtocolVersion: protocolVersion);
     _captureLastEventId(events);
     return events;
   }
@@ -3285,10 +3268,32 @@ final class McpStreamableHttpClient {
     }
   }
 
+  String _validatedInitializeProtocolVersion(Object? responseValue) {
+    if (responseValue is! Map || responseValue['result'] is! Map) {
+      throw const FormatException('initialize result must be a JSON object');
+    }
+    final result = responseValue['result'] as Map;
+    final negotiatedProtocolVersion = result['protocolVersion'];
+    if (negotiatedProtocolVersion is! String ||
+        negotiatedProtocolVersion.isEmpty) {
+      throw const FormatException(
+        'initialize result protocolVersion must be a non-empty string',
+      );
+    }
+    if (!_mcpProtocolVersionSupported(negotiatedProtocolVersion)) {
+      throw McpStreamableProtocolException(
+        'Unsupported initialize protocolVersion: $negotiatedProtocolVersion',
+      );
+    }
+    return negotiatedProtocolVersion;
+  }
+
   void _captureSessionHeaders(
     HttpClientResponse response, {
     bool allowSessionAssignment = false,
-    bool captureProtocolVersion = true,
+    bool captureSessionState = true,
+    String? expectedProtocolVersion,
+    String protocolVersionExpectation = 'active protocol version',
     bool clearSessionOnMissing = false,
     bool resetLastEventId = false,
   }) {
@@ -3300,18 +3305,29 @@ final class McpStreamableHttpClient {
       );
     }
 
-    final negotiatedProtocolVersion = captureProtocolVersion
-        ? response.headers.value(_headerProtocolVersion)
-        : null;
-    if (negotiatedProtocolVersion != null &&
-        negotiatedProtocolVersion.isNotEmpty &&
-        !_mcpProtocolVersionSupported(negotiatedProtocolVersion)) {
+    final responseProtocolVersion = response.headers.value(
+      _headerProtocolVersion,
+    );
+    if (responseProtocolVersion != null &&
+        !_mcpProtocolVersionSupported(responseProtocolVersion)) {
       throw McpStreamableProtocolException(
         'Unsupported MCP-Protocol-Version response header: '
-        '$negotiatedProtocolVersion',
+        '$responseProtocolVersion',
+      );
+    }
+    if (responseProtocolVersion != null &&
+        expectedProtocolVersion != null &&
+        responseProtocolVersion != expectedProtocolVersion) {
+      throw McpStreamableProtocolException(
+        'MCP-Protocol-Version response header did not match the '
+        '$protocolVersionExpectation '
+        '(expected $expectedProtocolVersion, got $responseProtocolVersion)',
       );
     }
 
+    if (!captureSessionState) {
+      return;
+    }
     if (negotiatedSessionId != null) {
       if (!allowSessionAssignment) {
         if (negotiatedSessionId != sessionId) {
@@ -3328,17 +3344,13 @@ final class McpStreamableHttpClient {
     } else if (clearSessionOnMissing) {
       _clearSessionState();
     }
-    if (negotiatedProtocolVersion != null &&
-        negotiatedProtocolVersion.isNotEmpty) {
-      protocolVersion = negotiatedProtocolVersion;
-    }
   }
 
   bool _capturePostResponseSessionState(
     HttpClientResponse response, {
     required String? requestMethod,
     required Object? responseValue,
-    bool captureProtocolVersion = true,
+    required String requestProtocolVersion,
     bool clearSessionOnMissing = false,
     bool resetLastEventId = false,
   }) {
@@ -3350,23 +3362,44 @@ final class McpStreamableHttpClient {
       // The JSON-RPC envelope was validated before this helper. Validate its
       // response headers too, but a rejected initialize cannot negotiate any
       // reusable session, protocol-version, or resume state.
-      final previousProtocolVersion = protocolVersion;
       _captureSessionHeaders(
         response,
         allowSessionAssignment: true,
-        captureProtocolVersion: captureProtocolVersion,
-        clearSessionOnMissing: clearSessionOnMissing,
-        resetLastEventId: resetLastEventId,
+        captureSessionState: false,
       );
-      protocolVersion = previousProtocolVersion;
       _clearSessionState();
       return false;
     }
 
+    if (requestMethod == 'initialize') {
+      final previousProtocolVersion = protocolVersion;
+      try {
+        final negotiatedProtocolVersion = _validatedInitializeProtocolVersion(
+          responseValue,
+        );
+        _captureSessionHeaders(
+          response,
+          allowSessionAssignment: true,
+          expectedProtocolVersion: negotiatedProtocolVersion,
+          protocolVersionExpectation: 'initialize result',
+          clearSessionOnMissing: clearSessionOnMissing,
+          resetLastEventId: resetLastEventId,
+        );
+        protocolVersion = negotiatedProtocolVersion;
+        return true;
+      } catch (_) {
+        protocolVersion = previousProtocolVersion;
+        _clearSessionState();
+        rethrow;
+      }
+    }
+
     _captureSessionHeaders(
       response,
-      allowSessionAssignment: requestMethod == 'initialize',
-      captureProtocolVersion: captureProtocolVersion,
+      expectedProtocolVersion: requestProtocolVersion,
+      protocolVersionExpectation: requestProtocolVersion == protocolVersion
+          ? 'active protocol version'
+          : 'request protocol version override',
       clearSessionOnMissing: clearSessionOnMissing,
       resetLastEventId: resetLastEventId,
     );
