@@ -1851,7 +1851,6 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
-    await endpoint._refreshTools();
     final lastEventId = _mcpHeaderValue(
       binding,
       request,
@@ -1872,12 +1871,8 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
-    final _RouterMcpSsePollBatch pollBatch;
     try {
-      pollBatch = endpoint.ssePollEvents(
-        sessionId: mcpSessionId,
-        lastEventId: lastEventId,
-      );
+      endpoint._validateSseLastEventId(lastEventId);
     } on _UnknownMcpSseEventId {
       await binding._sendImmediateHttpResponse(
         request: request,
@@ -1893,31 +1888,58 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
-    final sent = await _mcpSendSseResponse(
-      binding,
-      request: request,
-      handshake: handshake,
-      sessionId: mcpSessionId,
-      events: pollBatch.events,
-      protocolVersion: responseMcpProtocolVersion,
-      extraHeaders: corsHeaders,
-    );
-    if (!sent) {
-      endpoint.restoreSsePollBatch(pollBatch);
-      await binding._sendImmediateHttpResponse(
+    final sessionRequestAcquired = endpoint._beginSessionRequest();
+    try {
+      await endpoint._refreshTools();
+      final _RouterMcpSsePollBatch pollBatch;
+      try {
+        pollBatch = endpoint.ssePollEvents(
+          sessionId: mcpSessionId,
+          lastEventId: lastEventId,
+        );
+      } on _UnknownMcpSseEventId {
+        await binding._sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: _mcpJsonRpcHttpError(
+            status: HttpStatus.badRequest,
+            code: mcp.McpErrorCodes.invalidRequest,
+            message: 'Unknown MCP SSE Last-Event-ID',
+            sessionId: mcpSessionId,
+            protocolVersion: responseMcpProtocolVersion,
+            extraHeaders: corsHeaders,
+          ),
+        );
+        return;
+      }
+      final sent = await _mcpSendSseResponse(
+        binding,
         request: request,
         handshake: handshake,
-        response: _mcpJsonRpcHttpError(
-          status: HttpStatus.internalServerError,
-          code: mcp.McpErrorCodes.internalError,
-          message: 'MCP SSE stream could not be opened',
-          sessionId: mcpSessionId,
-          protocolVersion: responseMcpProtocolVersion,
-          extraHeaders: corsHeaders,
-        ),
+        sessionId: mcpSessionId,
+        events: pollBatch.events,
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
       );
-    } else {
-      endpoint.commitSsePollBatch(pollBatch);
+      if (!sent) {
+        endpoint.restoreSsePollBatch(pollBatch);
+        await binding._sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: _mcpJsonRpcHttpError(
+            status: HttpStatus.internalServerError,
+            code: mcp.McpErrorCodes.internalError,
+            message: 'MCP SSE stream could not be opened',
+            sessionId: mcpSessionId,
+            protocolVersion: responseMcpProtocolVersion,
+            extraHeaders: corsHeaders,
+          ),
+        );
+      } else {
+        endpoint.commitSsePollBatch(pollBatch);
+      }
+    } finally {
+      endpoint._endSessionRequest(sessionRequestAcquired);
     }
     return;
   }
@@ -2139,145 +2161,150 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  if (statelessHttpRequest && requestMethod == 'subscriptions/listen') {
-    final _RouterMcpModernSubscriptionPreparation preparation;
-    try {
-      preparation = await endpoint.prepareModernSubscription(rawMessage);
-    } on mcp.McpException catch (error) {
-      final response = endpoint.modernizeResponse(
-        mcp.JsonRpcResponse.error(
-          _recoverDirectJsonRequestId(rawMessage),
-          error,
-        ).toJson(),
-      );
-      await binding._sendImmediateHttpResponse(
-        request: request,
-        handshake: handshake,
-        response: NativeHttpResponse(
-          status: HttpStatus.badRequest,
-          headers: _mcpHttpResponseHeaders(
-            protocolVersion: effectiveResponseMcpProtocolVersion,
-            extra: corsHeaders,
-          ),
-          body: NativeHttpResponseJson(response),
-        ),
-      );
-      return;
-    }
-    final stream = _mcpOpenSseResponse(
-      binding,
-      request: request,
-      handshake: handshake,
-      protocolVersion: effectiveResponseMcpProtocolVersion,
-      extraHeaders: corsHeaders,
-    );
-    if (stream == null) {
-      await endpoint.releaseModernSubscriptionPreparation(preparation);
-      await binding._sendImmediateHttpResponse(
-        request: request,
-        handshake: handshake,
-        response: _mcpJsonRpcHttpError(
-          status: HttpStatus.internalServerError,
-          code: mcp.McpErrorCodes.internalError,
-          message: 'MCP subscription stream could not be opened',
-          id: _recoverDirectJsonRequestId(rawMessage),
-          protocolVersion: effectiveResponseMcpProtocolVersion,
-          extraHeaders: corsHeaders,
-        ),
-      );
-      return;
-    }
-    await endpoint.activateModernSubscription(preparation, stream);
-    return;
-  }
-
-  final rawResponse = await endpoint.handleMessage(
-    rawMessage,
-    resourceSubscriptionsAllowed:
-        streamableHttpRequest && effectiveMcpSessionId != null,
-  );
-  final response = statelessHttpRequest
-      ? endpoint.modernizeResponse(rawResponse)
-      : rawResponse;
-  final rejectedNewInitialize =
-      isInitialize &&
-      streamableHttpRequest &&
-      !endpointAlreadyExisted &&
-      effectiveMcpSessionId != null &&
-      response is Map &&
-      response['error'] is Map;
-  final responseSessionId = rejectedNewInitialize
-      ? null
-      : effectiveMcpSessionId;
-  if (rejectedNewInitialize) {
-    await binding._removeMcpEndpointForRoute(
-      request: request,
-      route: route,
-      session: session,
-      mcpSessionId: effectiveMcpSessionId,
-    );
-  }
-  if (response != null &&
-      _mcpPostResponsesUseSse(
-        binding,
-        request,
-        route,
-        isInitialize: isInitialize,
-        sessionId: effectiveMcpSessionId,
-      )) {
-    final responseBatch = endpoint.ssePostResponseEvents(
-      sessionId: effectiveMcpSessionId!,
-      response: response,
-    );
-    final sent = await _mcpSendSseResponse(
-      binding,
-      request: request,
-      handshake: handshake,
-      sessionId: effectiveMcpSessionId,
-      events: responseBatch.events,
-      protocolVersion: effectiveResponseMcpProtocolVersion,
-      extraHeaders: corsHeaders,
-    );
-    if (sent) {
-      endpoint.commitSsePollBatch(responseBatch);
-      return;
-    }
-  }
-  final responseErrorCode = response is Map && response['error'] is Map
-      ? (response['error'] as Map)['code']
-      : null;
-  final responseStatus = !statelessHttpRequest
-      ? HttpStatus.ok
-      : switch (responseErrorCode) {
-          mcp.McpErrorCodes.methodNotFound => HttpStatus.notFound,
-          mcp.McpErrorCodes.missingRequiredClientCapability =>
-            HttpStatus.badRequest,
-          _ => HttpStatus.ok,
-        };
-  await binding._sendImmediateHttpResponse(
-    request: request,
-    handshake: handshake,
-    response: response == null
-        ? NativeHttpResponse(
-            status: HttpStatus.accepted,
+  final sessionRequestAcquired = endpoint._beginSessionRequest();
+  try {
+    if (statelessHttpRequest && requestMethod == 'subscriptions/listen') {
+      final _RouterMcpModernSubscriptionPreparation preparation;
+      try {
+        preparation = await endpoint.prepareModernSubscription(rawMessage);
+      } on mcp.McpException catch (error) {
+        final response = endpoint.modernizeResponse(
+          mcp.JsonRpcResponse.error(
+            _recoverDirectJsonRequestId(rawMessage),
+            error,
+          ).toJson(),
+        );
+        await binding._sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: NativeHttpResponse(
+            status: HttpStatus.badRequest,
             headers: _mcpHttpResponseHeaders(
-              json: false,
-              sessionId: responseSessionId,
-              protocolVersion: effectiveResponseMcpProtocolVersion,
-              extra: corsHeaders,
-            ),
-            body: NativeHttpResponseText(''),
-          )
-        : NativeHttpResponse(
-            status: responseStatus,
-            headers: _mcpHttpResponseHeaders(
-              sessionId: responseSessionId,
               protocolVersion: effectiveResponseMcpProtocolVersion,
               extra: corsHeaders,
             ),
             body: NativeHttpResponseJson(response),
           ),
-  );
+        );
+        return;
+      }
+      final stream = _mcpOpenSseResponse(
+        binding,
+        request: request,
+        handshake: handshake,
+        protocolVersion: effectiveResponseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      );
+      if (stream == null) {
+        await endpoint.releaseModernSubscriptionPreparation(preparation);
+        await binding._sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: _mcpJsonRpcHttpError(
+            status: HttpStatus.internalServerError,
+            code: mcp.McpErrorCodes.internalError,
+            message: 'MCP subscription stream could not be opened',
+            id: _recoverDirectJsonRequestId(rawMessage),
+            protocolVersion: effectiveResponseMcpProtocolVersion,
+            extraHeaders: corsHeaders,
+          ),
+        );
+        return;
+      }
+      await endpoint.activateModernSubscription(preparation, stream);
+      return;
+    }
+
+    final rawResponse = await endpoint.handleMessage(
+      rawMessage,
+      resourceSubscriptionsAllowed:
+          streamableHttpRequest && effectiveMcpSessionId != null,
+    );
+    final response = statelessHttpRequest
+        ? endpoint.modernizeResponse(rawResponse)
+        : rawResponse;
+    final rejectedNewInitialize =
+        isInitialize &&
+        streamableHttpRequest &&
+        !endpointAlreadyExisted &&
+        effectiveMcpSessionId != null &&
+        response is Map &&
+        response['error'] is Map;
+    final responseSessionId = rejectedNewInitialize
+        ? null
+        : effectiveMcpSessionId;
+    if (rejectedNewInitialize) {
+      await binding._removeMcpEndpointForRoute(
+        request: request,
+        route: route,
+        session: session,
+        mcpSessionId: effectiveMcpSessionId,
+      );
+    }
+    if (response != null &&
+        _mcpPostResponsesUseSse(
+          binding,
+          request,
+          route,
+          isInitialize: isInitialize,
+          sessionId: effectiveMcpSessionId,
+        )) {
+      final responseBatch = endpoint.ssePostResponseEvents(
+        sessionId: effectiveMcpSessionId!,
+        response: response,
+      );
+      final sent = await _mcpSendSseResponse(
+        binding,
+        request: request,
+        handshake: handshake,
+        sessionId: effectiveMcpSessionId,
+        events: responseBatch.events,
+        protocolVersion: effectiveResponseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      );
+      if (sent) {
+        endpoint.commitSsePollBatch(responseBatch);
+        return;
+      }
+    }
+    final responseErrorCode = response is Map && response['error'] is Map
+        ? (response['error'] as Map)['code']
+        : null;
+    final responseStatus = !statelessHttpRequest
+        ? HttpStatus.ok
+        : switch (responseErrorCode) {
+            mcp.McpErrorCodes.methodNotFound => HttpStatus.notFound,
+            mcp.McpErrorCodes.missingRequiredClientCapability =>
+              HttpStatus.badRequest,
+            _ => HttpStatus.ok,
+          };
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: response == null
+          ? NativeHttpResponse(
+              status: HttpStatus.accepted,
+              headers: _mcpHttpResponseHeaders(
+                json: false,
+                sessionId: responseSessionId,
+                protocolVersion: effectiveResponseMcpProtocolVersion,
+                extra: corsHeaders,
+              ),
+              body: NativeHttpResponseText(''),
+            )
+          : NativeHttpResponse(
+              status: responseStatus,
+              headers: _mcpHttpResponseHeaders(
+                sessionId: responseSessionId,
+                protocolVersion: effectiveResponseMcpProtocolVersion,
+                extra: corsHeaders,
+              ),
+              body: NativeHttpResponseJson(response),
+            ),
+    );
+  } finally {
+    endpoint._endSessionRequest(sessionRequestAcquired);
+  }
 }
 
 extension _RouterBindingMcp on RouterBinding {
@@ -2339,7 +2366,6 @@ extension _RouterBindingMcp on RouterBinding {
     );
     final existing = _mcpEndpoints[key];
     if (existing != null) {
-      existing.markSessionActivity();
       return existing;
     }
     if (!create) {
@@ -2521,7 +2547,7 @@ class _RouterMcpEndpoint {
       ]),
       capabilities: _mcpServerCapabilitiesForOptions(options),
     );
-    markSessionActivity();
+    _armSessionIdleDeadline();
   }
 
   final RouterBinding binding;
@@ -2532,6 +2558,7 @@ class _RouterMcpEndpoint {
   final Duration? sessionIdleTimeout;
   final Stopwatch _sessionIdleStopwatch = Stopwatch()..start();
   Timer? _sessionIdleTimer;
+  int _activeSessionRequests = 0;
   Future<void>? _disposeFuture;
   late final mcp.McpServer server;
   late final RealmAuthorizationProviderCache _authorizationProviderCache =
@@ -2558,12 +2585,16 @@ class _RouterMcpEndpoint {
     final timeout = sessionIdleTimeout;
     return mcpSessionId != null &&
         timeout != null &&
+        _activeSessionRequests == 0 &&
         _sessionIdleStopwatch.elapsed >= timeout;
   }
 
-  void markSessionActivity() {
+  void _armSessionIdleDeadline() {
     final timeout = sessionIdleTimeout;
-    if (mcpSessionId == null || timeout == null || _disposeFuture != null) {
+    if (mcpSessionId == null ||
+        timeout == null ||
+        _activeSessionRequests != 0 ||
+        _disposeFuture != null) {
       return;
     }
     _sessionIdleStopwatch.reset();
@@ -2575,6 +2606,29 @@ class _RouterMcpEndpoint {
         endpoint: this,
       );
     });
+  }
+
+  bool _beginSessionRequest() {
+    if (mcpSessionId == null ||
+        sessionIdleTimeout == null ||
+        _disposeFuture != null) {
+      return false;
+    }
+    _activeSessionRequests++;
+    _sessionIdleTimer?.cancel();
+    _sessionIdleTimer = null;
+    return true;
+  }
+
+  void _endSessionRequest(bool acquired) {
+    if (!acquired) {
+      return;
+    }
+    assert(_activeSessionRequests > 0);
+    _activeSessionRequests--;
+    if (_activeSessionRequests == 0) {
+      _armSessionIdleDeadline();
+    }
   }
 
   bool ownsSession(RouterSession candidate) => identical(candidate, session);
@@ -2735,6 +2789,15 @@ class _RouterMcpEndpoint {
       return directResponse.response;
     }
     return server.handleMessage(rawMessage);
+  }
+
+  void _validateSseLastEventId(String? lastEventId) {
+    if (lastEventId == null || lastEventId.isEmpty) {
+      return;
+    }
+    if (!_sseHistory.any((event) => event.id == lastEventId)) {
+      throw _UnknownMcpSseEventId(lastEventId);
+    }
   }
 
   _RouterMcpSsePollBatch ssePollEvents({

@@ -24682,6 +24682,25 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP session-correctness plan:
+  `docs/exec-plans/2026-08-04-mcp-streamable-in-flight-idle-lease.md`. It keeps
+  compatibility endpoints alive while valid GET/SSE or POST JSON-RPC work is
+  in flight, begins the idle deadline after the final active request completes,
+  and prevents malformed traffic from extending session lifetime. The focused
+  regressions will cover a slow WAMP-backed tool, immediate session reuse,
+  post-completion expiry, and malformed request handling without changing
+  modern stateless or direct JSON lifecycle semantics. Pre-change
+  `bin/test-fast` passes, and the fail-first native public-client regression
+  reproduces a delayed authorized tool completing into an endpoint that has
+  already been removed, so its next request receives `404`. Compatibility
+  endpoints now count validated GET/POST requests, keep the deadline canceled
+  while any are active, and rearm after the final request completes. Lookup and
+  malformed Last-Event-ID traffic no longer refresh the deadline. The
+  overlapping slow-tool regression, existing autonomous cleanup regression,
+  complete synthetic runtime suite, formatting, and targeted router analysis
+  pass. Full `bin/verify` passes twice against the exact implementation tree.
+  The implementation is ready to push; exact-head hosted workflows, Router
+  Image dry-run evidence, and the strict deployment-chain audit remain.
+- Most recently completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-streamable-proactive-idle-cleanup.md`. It
   makes compatibility-session idle expiry autonomous so a quiet router releases
   endpoint state and WAMP subscriptions without waiting for another MCP request
@@ -24689,12 +24708,17 @@ at the older `47bbf9c` commit.
   keeps modern stateless and direct JSON requests sessionless. Pre-change
   `bin/test-fast` passed; the fail-first router-state regression reproduced the
   retained subscriber, and focused autonomous cleanup, activity reset,
-  disabled-timeout, stale recovery, formatting, and analysis now pass. Full
+  disabled-timeout, stale recovery, formatting, and analysis pass. Full
   `bin/verify` passes, including all 382 router cases, 96 benchmark cases with
   live WAMP workloads, isolated and global consumer/CLI smokes,
-  native-forwarding follow-ups, and Chrome/Dart2Wasm. Hosted evidence is
-  pending.
-- Most recently completed router-hosted MCP session-correctness plan:
+  native-forwarding follow-ups, and Chrome/Dart2Wasm. Implementation commit
+  `6c7b8d5` is on both maintained `master` branches. Exact-head CI
+  `30883755775`, Dart Package Publish Dry Run `30883755750`, WAMP Profile
+  Benchmarks `30883755730`, and Router Image dry run `30883773059` all pass with
+  zero check annotations. Coverage artifact `8882639657`, WAMP artifact
+  `8882375519`, Router Image preview artifact `8882273324`, both Docker build
+  records, and the comprehensive strict deployment-chain audit all pass.
+- Previous completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-streamable-session-idle-expiry.md`. It adds
   bounded idle expiry for compatibility Streamable HTTP sessions so abandoned
   endpoint resources and subscriptions do not remain indefinitely, expired

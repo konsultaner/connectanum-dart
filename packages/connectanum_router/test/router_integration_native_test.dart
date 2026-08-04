@@ -4516,6 +4516,135 @@ void main() {
     );
 
     test(
+      'keeps the public MCP session alive while a tool call is in flight',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9137,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(sessionIdleTimeoutMs: 300),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-slow-tool-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final invocationsStarted = Completer<void>();
+        var invocationCount = 0;
+        final registration = await serviceSession.register(
+          'app.safe.slow_lookup',
+          options: core.RegisterOptions(
+            custom: const <String, Object?>{
+              '_ai_meta_data': <String, Object?>{
+                'short_description': 'Complete a delayed lookup',
+                'description': 'Returns after a bounded application delay.',
+                'read_only_hint': true,
+                'destructive_hint': false,
+                'idempotent_hint': true,
+                'open_world_hint': false,
+              },
+            },
+          ),
+        );
+        registration.onInvoke((invocation) async {
+          invocationCount++;
+          if (invocationCount == 2 && !invocationsStarted.isCompleted) {
+            invocationsStarted.complete();
+          }
+          final delayMs = invocation.argumentsKeywords?['delayMs'] as int;
+          await Future<void>.delayed(Duration(milliseconds: delayMs));
+          invocation.respondWith(
+            argumentsKeywords: <String, Object?>{
+              'status': 'complete',
+              'delayMs': delayMs,
+            },
+          );
+        });
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'in-flight-idle-initialize');
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        expect(sessionId, isNotNull);
+
+        final firstToolCall = client.callTool(
+          'app.safe.slow_lookup',
+          id: 'in-flight-idle-first-tool',
+          arguments: const <String, Object?>{'delayMs': 700},
+        );
+        final secondToolCall = client.callTool(
+          'app.safe.slow_lookup',
+          id: 'in-flight-idle-second-tool',
+          arguments: const <String, Object?>{'delayMs': 1200},
+        );
+        await invocationsStarted.future.timeout(const Duration(seconds: 2));
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+
+        final firstToolResult = await firstToolCall.timeout(
+          const Duration(seconds: 2),
+        );
+        expect(firstToolResult['isError'], isFalse);
+        expect(
+          (firstToolResult['structuredContent'] as Map)['argumentsKeywords'],
+          containsPair('delayMs', 700),
+        );
+        expect(client.sessionId, equals(sessionId));
+
+        final toolsWhileSecondCallActive = await client.listTools(
+          id: 'in-flight-idle-concurrent-tools',
+        );
+        expect(
+          toolsWhileSecondCallActive.tools.map((tool) => tool['name']),
+          contains('app.safe.slow_lookup'),
+        );
+
+        final secondToolResult = await secondToolCall.timeout(
+          const Duration(seconds: 2),
+        );
+        expect(secondToolResult['isError'], isFalse);
+        expect(
+          (secondToolResult['structuredContent'] as Map)['argumentsKeywords'],
+          containsPair('delayMs', 1200),
+        );
+        expect(client.sessionId, equals(sessionId));
+
+        final activeTools = await client.listTools(
+          id: 'in-flight-idle-active-tools',
+        );
+        expect(
+          activeTools.tools.map((tool) => tool['name']),
+          contains('app.safe.slow_lookup'),
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        await expectLater(
+          client.listTools(id: 'in-flight-idle-expired-tools'),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.notFound,
+            ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'clears and recovers the public client after MCP session idle expiry',
       () async {
         final harness = await _RouterHarness.start(

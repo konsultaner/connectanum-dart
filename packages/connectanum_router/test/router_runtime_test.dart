@@ -5381,7 +5381,26 @@ void main() {
     expect(secondActiveResponse.status, HttpStatus.ok);
     expect(secondActiveResponse.headers['MCP-Session-Id'], expiredSessionId);
 
-    await Future<void>.delayed(const Duration(milliseconds: 650));
+    final invalidPollHeaders = <String, String>{
+      'accept': 'text/event-stream',
+      'mcp-session-id': expiredSessionId,
+      'mcp-protocol-version': '2025-11-25',
+      'last-event-id': 'cursor\nnext',
+    };
+    for (var attempt = 0; attempt < 2; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      final invalidPollResponse = await sendMcpRequest(
+        method: 'GET',
+        headers: invalidPollHeaders,
+      );
+      expect(invalidPollResponse.status, HttpStatus.badRequest);
+      expect(
+        jsonEncode(_jsonResponseBody(invalidPollResponse)),
+        contains('Invalid Last-Event-ID header'),
+      );
+    }
+
+    await Future<void>.delayed(const Duration(milliseconds: 250));
 
     final expiredResponse = await sendMcpRequest(
       method: 'POST',

@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -67,5 +67,10 @@ session indefinitely.
 - 2026-08-04: Full `bin/verify` passed, including formatting, Rust/native FFI,
   all 382 router cases, 96 benchmark cases with live WAMP workloads, package
   and CLI consumer smokes, native-forwarding follow-ups, and Chrome/Dart2Wasm.
-  Exact-head hosted evidence and the strict deployment-chain audit remain
-  pending.
+  Implementation commit `6c7b8d5` is on both maintained `master` branches.
+- 2026-08-04: Exact-head CI `30883755775`, Dart Package Publish Dry Run
+  `30883755750`, WAMP Profile Benchmarks `30883755730`, and Router Image dry run
+  `30883773059` all passed with zero check annotations. Coverage artifact
+  `8882639657`, WAMP artifact `8882375519`, Router Image preview artifact
+  `8882273324`, Docker build records `8882356026` and `8882356366`, and the
+  comprehensive strict deployment-chain audit all passed.
