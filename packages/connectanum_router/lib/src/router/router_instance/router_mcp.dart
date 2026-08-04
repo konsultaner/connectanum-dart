@@ -2141,6 +2141,10 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
+  final tentativeInitializeSessionId = endpointAlreadyExisted
+      ? null
+      : issuedSessionId;
+  var retainTentativeInitializeEndpoint = false;
   final sessionRequestAcquired = endpoint._beginSessionRequest();
   var refreshIdleDeadline = false;
   try {
@@ -2151,7 +2155,9 @@ Future<void> _handleMcpHttpRequestForBinding(
       rawMessage: rawMessage,
       endpoint: endpoint,
       requireHeaders: statelessHttpRequest || streamableHttpRequest,
-      sessionId: effectiveMcpSessionId,
+      sessionId: tentativeInitializeSessionId == null
+          ? effectiveMcpSessionId
+          : null,
       protocolVersion: effectiveResponseMcpProtocolVersion,
       extraHeaders: corsHeaders,
     );
@@ -2226,23 +2232,12 @@ Future<void> _handleMcpHttpRequestForBinding(
         ? endpoint.modernizeResponse(rawResponse)
         : rawResponse;
     final rejectedNewInitialize =
-        isInitialize &&
-        streamableHttpRequest &&
-        !endpointAlreadyExisted &&
-        effectiveMcpSessionId != null &&
+        tentativeInitializeSessionId != null &&
         response is Map &&
         response['error'] is Map;
     final responseSessionId = rejectedNewInitialize
         ? null
         : effectiveMcpSessionId;
-    if (rejectedNewInitialize) {
-      await binding._removeMcpEndpointForRoute(
-        request: request,
-        route: route,
-        session: session,
-        mcpSessionId: effectiveMcpSessionId,
-      );
-    }
     if (response != null &&
         _mcpPostResponsesUseSse(
           binding,
@@ -2304,11 +2299,26 @@ Future<void> _handleMcpHttpRequestForBinding(
               body: NativeHttpResponseJson(response),
             ),
     );
+    if (tentativeInitializeSessionId != null) {
+      retainTentativeInitializeEndpoint = !rejectedNewInitialize;
+    }
   } finally {
-    endpoint._endSessionRequest(
-      sessionRequestAcquired,
-      refreshIdleDeadline: refreshIdleDeadline,
-    );
+    try {
+      endpoint._endSessionRequest(
+        sessionRequestAcquired,
+        refreshIdleDeadline: refreshIdleDeadline,
+      );
+    } finally {
+      if (tentativeInitializeSessionId != null &&
+          !retainTentativeInitializeEndpoint) {
+        await binding._removeMcpEndpointForRoute(
+          request: request,
+          route: route,
+          session: session,
+          mcpSessionId: tentativeInitializeSessionId,
+        );
+      }
+    }
   }
 }
 

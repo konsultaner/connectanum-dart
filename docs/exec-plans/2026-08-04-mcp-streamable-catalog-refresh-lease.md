@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -62,3 +62,10 @@ parameter metadata to reset the session idle deadline.
   benchmark tests, browser coverage, router/native follow-ups, and the
   isolated and globally activated consumer-package smokes. Exact-head hosted
   workflows and the strict deployment-chain audit remain before completion.
+- 2026-08-04: Implementation commit `b7a7054` is on both maintained `master`
+  branches. Exact-head CI `30897299635`, Dart Package Publish Dry Run
+  `30897299482`, WAMP Profile Benchmarks `30897299577`, and Router Image dry
+  run `30897311408` all pass with zero check annotations. Coverage artifact
+  `8888082227`, WAMP artifact `8887775755`, Router Image preview artifact
+  `8887575115`, Docker build records `8887704043` and `8887703468`, and the
+  comprehensive strict deployment-chain audit all pass.

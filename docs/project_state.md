@@ -24682,6 +24682,30 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP session-correctness plan:
+  `docs/exec-plans/2026-08-04-mcp-tentative-initialize-cleanup.md`. It makes a
+  newly allocated compatibility Streamable endpoint tentative across catalog
+  refresh, parameter-header validation, MCP dispatch, and response delivery.
+  A rejected initialize must not expose the server-generated session
+  identifier or leave endpoint state reusable; successful initialize,
+  established sessions, modern stateless/direct JSON traffic, GET/SSE,
+  DELETE, and idle leases remain unchanged. A native HTTP regression will
+  first reproduce the catalog-dependent pre-dispatch rejection through public
+  protocol behavior. Pre-change `bin/test-fast` passes. The raw native HTTP
+  fail-first proves the rejected initialize leaks a generated session ID whose
+  DELETE is accepted, rather than behaving as an unknown session. Newly issued
+  initialize endpoints now remain tentative until a non-error response is
+  delivered. Pre-dispatch rejection omits the generated ID, while exceptions,
+  rejected server responses, and response-delivery failures release the
+  request hold and remove the endpoint. The fail-first native contract, prior
+  in-flight and catalog-refresh lease regressions, targeted router analysis,
+  and all 76 synthetic runtime tests pass. Full `bin/verify` passes formatting,
+  analysis, 113 Rust core and 52 Rust FFI tests, all 360 Dart core tests, all 94
+  MCP tests, the complete 193-case MCP/client authorization suite, all 96
+  benchmark tests, all 384 router tests, native follow-ups,
+  Chrome/Dart2Wasm coverage, and every isolated and globally activated
+  consumer/CLI smoke. Exact-head hosted workflows and the strict
+  deployment-chain audit remain.
+- Most recently completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-streamable-catalog-refresh-lease.md`. It
   protects compatibility POST requests while asynchronous realm-snapshot and
   authorization work refreshes the router-provided tool catalog, then starts a
@@ -24700,9 +24724,15 @@ at the older `47bbf9c` commit.
   targeted router analysis pass. Full `bin/verify` passes formatting, Rust and
   Dart analysis and tests, native FFI coverage, all 384 core tests, all 94 MCP
   tests, all 96 benchmark tests, browser coverage, router/native follow-ups,
-  and the isolated and globally activated consumer-package smokes. Exact-head
-  hosted workflows and the strict deployment-chain audit remain.
-- Most recently completed router-hosted MCP session-correctness plan:
+  and the isolated and globally activated consumer-package smokes.
+  Implementation commit `b7a7054` is on both maintained `master` branches.
+  Exact-head CI `30897299635`, Dart Package Publish Dry Run `30897299482`, WAMP
+  Profile Benchmarks `30897299577`, and Router Image dry run `30897311408` all
+  pass with zero check annotations. Coverage artifact `8888082227`, WAMP
+  artifact `8887775755`, Router Image preview artifact `8887575115`, both
+  Docker build records, and the comprehensive strict deployment-chain audit
+  all pass.
+- Previous completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-streamable-in-flight-idle-lease.md`. It keeps
   compatibility endpoints alive while valid GET/SSE or POST JSON-RPC work is
   in flight, begins the idle deadline after the final active request completes,

@@ -1884,6 +1884,69 @@ void main() {
       );
       expect(rejectedInitialize.headers, isNot(contains('mcp-session-id')));
 
+      final rejectedHeaderInitializeBody = utf8.encode(jsonEncode(payload));
+      final rejectedHeaderInitializeSocket = await Socket.connect(
+        '127.0.0.1',
+        listener.port,
+      );
+      late final String rejectedHeaderInitialize;
+      try {
+        rejectedHeaderInitializeSocket.add(
+          utf8.encode(
+            'POST /mcp HTTP/1.1\r\n'
+            'Host: 127.0.0.1:${listener.port}\r\n'
+            'Connection: close\r\n'
+            'Origin: http://127.0.0.1:${listener.port}\r\n'
+            'Accept: application/json, text/event-stream\r\n'
+            'Content-Type: application/json\r\n'
+            'Mcp-Method: initialize\r\n'
+            'Mcp-Param-Probe: café\r\n'
+            'Content-Length: ${rejectedHeaderInitializeBody.length}\r\n'
+            '\r\n',
+          ),
+        );
+        rejectedHeaderInitializeSocket.add(rejectedHeaderInitializeBody);
+        await rejectedHeaderInitializeSocket.flush();
+        rejectedHeaderInitialize = await _readHttpResponse(
+          rejectedHeaderInitializeSocket,
+        );
+      } finally {
+        rejectedHeaderInitializeSocket.destroy();
+      }
+      expect(
+        rejectedHeaderInitialize,
+        startsWith('HTTP/1.1 ${HttpStatus.badRequest}'),
+      );
+      final rejectedHeaderBodyStart =
+          rejectedHeaderInitialize.indexOf('\r\n\r\n') + 4;
+      final rejectedHeaderJson =
+          jsonDecode(
+                rejectedHeaderInitialize.substring(rejectedHeaderBodyStart),
+              )
+              as Map<String, Object?>;
+      expect(
+        jsonEncode(rejectedHeaderJson['error']),
+        contains('contains invalid characters'),
+      );
+      final rejectedHeaderSessionId = RegExp(
+        r'^mcp-session-id:\s*(\S+)\s*$',
+        caseSensitive: false,
+        multiLine: true,
+      ).firstMatch(rejectedHeaderInitialize)?.group(1);
+      if (rejectedHeaderSessionId != null) {
+        final rejectedHeaderSessionDelete = await _deleteHttp(
+          client,
+          listener.port,
+          '/mcp',
+          headers: {'MCP-Session-Id': rejectedHeaderSessionId},
+        );
+        expect(
+          rejectedHeaderSessionDelete.statusCode,
+          equals(HttpStatus.notFound),
+        );
+      }
+      expect(rejectedHeaderSessionId, isNull);
+
       final clientSuppliedSessionInitialize = await _postJson(
         client,
         listener.port,
