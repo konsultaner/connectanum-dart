@@ -24682,6 +24682,27 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP session-correctness plan:
+  `docs/exec-plans/2026-08-04-mcp-streamable-catalog-refresh-lease.md`. It
+  protects compatibility POST requests while asynchronous realm-snapshot and
+  authorization work refreshes the router-provided tool catalog, then starts a
+  fresh idle interval only for accepted requests. Catalog-dependent parameter
+  metadata rejection will preserve the original idle deadline rather than
+  acting as a keepalive. Modern stateless, direct JSON, disabled-timeout,
+  explicit DELETE, and disposal behavior remain unchanged. Pre-change
+  `bin/test-fast` passes, and a native public-client regression reproduces a
+  valid initialize losing its session identifier after endpoint expiry during
+  a deliberately delayed catalog authorization decision. Compatibility POST
+  handling now holds the endpoint before catalog refresh, aggregates accepted
+  activity across concurrent holds, and preserves the original deadline when
+  catalog-dependent parameter metadata is rejected. The fail-first native
+  regression, existing overlapping slow-tool regression, rejected metadata
+  deadline regression, all 76 synthetic runtime cases, formatting, and
+  targeted router analysis pass. Full `bin/verify` passes formatting, Rust and
+  Dart analysis and tests, native FFI coverage, all 384 core tests, all 94 MCP
+  tests, all 96 benchmark tests, browser coverage, router/native follow-ups,
+  and the isolated and globally activated consumer-package smokes. Exact-head
+  hosted workflows and the strict deployment-chain audit remain.
+- Most recently completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-streamable-in-flight-idle-lease.md`. It keeps
   compatibility endpoints alive while valid GET/SSE or POST JSON-RPC work is
   in flight, begins the idle deadline after the final active request completes,
@@ -24698,9 +24719,14 @@ at the older `47bbf9c` commit.
   overlapping slow-tool regression, existing autonomous cleanup regression,
   complete synthetic runtime suite, formatting, and targeted router analysis
   pass. Full `bin/verify` passes twice against the exact implementation tree.
-  The implementation is ready to push; exact-head hosted workflows, Router
-  Image dry-run evidence, and the strict deployment-chain audit remain.
-- Most recently completed router-hosted MCP session-correctness plan:
+  Implementation commit `bbb0dea` is on both maintained `master` branches.
+  Exact-head CI `30891197308`, Dart Package Publish Dry Run `30891197512`, WAMP
+  Profile Benchmarks `30891195436`, and Router Image dry run `30891203830` all
+  pass with zero check annotations. Coverage artifact `8885593882`, WAMP
+  artifact `8885261362`, Router Image preview artifact `8885106190`, both
+  Docker build records, and the comprehensive strict deployment-chain audit
+  all pass.
+- Previous completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-streamable-proactive-idle-cleanup.md`. It
   makes compatibility-session idle expiry autonomous so a quiet router releases
   endpoint state and WAMP subscriptions without waiting for another MCP request
@@ -24718,7 +24744,7 @@ at the older `47bbf9c` commit.
   zero check annotations. Coverage artifact `8882639657`, WAMP artifact
   `8882375519`, Router Image preview artifact `8882273324`, both Docker build
   records, and the comprehensive strict deployment-chain audit all pass.
-- Previous completed router-hosted MCP session-correctness plan:
+- Earlier completed router-hosted MCP session-correctness plan:
   `docs/exec-plans/2026-08-04-mcp-streamable-session-idle-expiry.md`. It adds
   bounded idle expiry for compatibility Streamable HTTP sessions so abandoned
   endpoint resources and subscriptions do not remain indefinitely, expired

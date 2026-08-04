@@ -2141,28 +2141,30 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  await endpoint._refreshTools();
-  final toolParameterHeaderError = _mcpToolParameterHeaderValidationError(
-    binding,
-    request: request,
-    rawMessage: rawMessage,
-    endpoint: endpoint,
-    requireHeaders: statelessHttpRequest || streamableHttpRequest,
-    sessionId: effectiveMcpSessionId,
-    protocolVersion: effectiveResponseMcpProtocolVersion,
-    extraHeaders: corsHeaders,
-  );
-  if (toolParameterHeaderError != null) {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: toolParameterHeaderError,
-    );
-    return;
-  }
-
   final sessionRequestAcquired = endpoint._beginSessionRequest();
+  var refreshIdleDeadline = false;
   try {
+    await endpoint._refreshTools();
+    final toolParameterHeaderError = _mcpToolParameterHeaderValidationError(
+      binding,
+      request: request,
+      rawMessage: rawMessage,
+      endpoint: endpoint,
+      requireHeaders: statelessHttpRequest || streamableHttpRequest,
+      sessionId: effectiveMcpSessionId,
+      protocolVersion: effectiveResponseMcpProtocolVersion,
+      extraHeaders: corsHeaders,
+    );
+    if (toolParameterHeaderError != null) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: toolParameterHeaderError,
+      );
+      return;
+    }
+    refreshIdleDeadline = true;
+
     if (statelessHttpRequest && requestMethod == 'subscriptions/listen') {
       final _RouterMcpModernSubscriptionPreparation preparation;
       try {
@@ -2303,7 +2305,10 @@ Future<void> _handleMcpHttpRequestForBinding(
             ),
     );
   } finally {
-    endpoint._endSessionRequest(sessionRequestAcquired);
+    endpoint._endSessionRequest(
+      sessionRequestAcquired,
+      refreshIdleDeadline: refreshIdleDeadline,
+    );
   }
 }
 
@@ -2559,6 +2564,7 @@ class _RouterMcpEndpoint {
   final Stopwatch _sessionIdleStopwatch = Stopwatch()..start();
   Timer? _sessionIdleTimer;
   int _activeSessionRequests = 0;
+  bool _refreshIdleDeadlineAfterRequests = false;
   Future<void>? _disposeFuture;
   late final mcp.McpServer server;
   late final RealmAuthorizationProviderCache _authorizationProviderCache =
@@ -2589,7 +2595,7 @@ class _RouterMcpEndpoint {
         _sessionIdleStopwatch.elapsed >= timeout;
   }
 
-  void _armSessionIdleDeadline() {
+  void _armSessionIdleDeadline({bool resetStopwatch = true}) {
     final timeout = sessionIdleTimeout;
     if (mcpSessionId == null ||
         timeout == null ||
@@ -2597,15 +2603,21 @@ class _RouterMcpEndpoint {
         _disposeFuture != null) {
       return;
     }
-    _sessionIdleStopwatch.reset();
+    if (resetStopwatch) {
+      _sessionIdleStopwatch.reset();
+    }
+    final remaining = timeout - _sessionIdleStopwatch.elapsed;
     _sessionIdleTimer?.cancel();
-    _sessionIdleTimer = Timer(timeout, () {
-      _sessionIdleTimer = null;
-      binding._expireMcpEndpointIfIdle(
-        endpointKey: endpointKey,
-        endpoint: this,
-      );
-    });
+    _sessionIdleTimer = Timer(
+      remaining.isNegative ? Duration.zero : remaining,
+      () {
+        _sessionIdleTimer = null;
+        binding._expireMcpEndpointIfIdle(
+          endpointKey: endpointKey,
+          endpoint: this,
+        );
+      },
+    );
   }
 
   bool _beginSessionRequest() {
@@ -2620,14 +2632,19 @@ class _RouterMcpEndpoint {
     return true;
   }
 
-  void _endSessionRequest(bool acquired) {
+  void _endSessionRequest(bool acquired, {bool refreshIdleDeadline = true}) {
     if (!acquired) {
       return;
     }
     assert(_activeSessionRequests > 0);
+    // One accepted request makes the concurrent group active, but the new
+    // idle interval starts only after every request hold has been released.
+    _refreshIdleDeadlineAfterRequests |= refreshIdleDeadline;
     _activeSessionRequests--;
     if (_activeSessionRequests == 0) {
-      _armSessionIdleDeadline();
+      final resetStopwatch = _refreshIdleDeadlineAfterRequests;
+      _refreshIdleDeadlineAfterRequests = false;
+      _armSessionIdleDeadline(resetStopwatch: resetStopwatch);
     }
   }
 

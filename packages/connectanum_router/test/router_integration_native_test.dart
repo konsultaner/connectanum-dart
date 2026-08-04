@@ -15,6 +15,7 @@ import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:connectanum_core/connectanum_core.dart' as core;
 import 'package:connectanum_router/src/native/ffi_bindings.dart';
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/router/auth/authorization.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/sni_certificate.dart';
@@ -4640,6 +4641,72 @@ void main() {
           ),
         );
         expect(client.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'keeps a new MCP session alive while its tool catalog refreshes',
+      () async {
+        final refreshEntered = Completer<void>();
+        final releaseRefresh = Completer<void>();
+        AuthorizationProviderRegistry.registerProvider(
+          _BlockingCatalogAuthorizationProvider(
+            action: AuthorizationAction.publish,
+            uri: 'app.events.audit',
+            entered: refreshEntered,
+            release: releaseRefresh,
+          ),
+        );
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9138,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(sessionIdleTimeoutMs: 500),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        addTearDown(() => client.close(force: true));
+        addTearDown(() {
+          if (!releaseRefresh.isCompleted) {
+            releaseRefresh.complete();
+          }
+        });
+
+        final initialize = client.initialize(
+          id: 'catalog-refresh-idle-initialize',
+        );
+        await refreshEntered.future.timeout(const Duration(seconds: 2));
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+        releaseRefresh.complete();
+
+        final initializeResult = await initialize.timeout(
+          const Duration(seconds: 3),
+        );
+        expect(
+          initializeResult['id'],
+          equals('catalog-refresh-idle-initialize'),
+        );
+        final sessionId = client.sessionId;
+        expect(sessionId, isNotNull);
+
+        await client.notifyInitialized();
+        final tools = await client.listTools(id: 'catalog-refresh-idle-tools');
+        expect(
+          tools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        expect(client.sessionId, equals(sessionId));
+        await client.deleteSession();
       },
       skip: skipReason,
     );
@@ -9554,6 +9621,34 @@ RouterSettings _buildMcpAnonymousIsolationSettings() {
           const AuthenticatorDefinition(type: 'anonymous'),
         ))
       .build();
+}
+
+final class _BlockingCatalogAuthorizationProvider
+    implements AuthorizationProvider {
+  _BlockingCatalogAuthorizationProvider({
+    required this.action,
+    required this.uri,
+    required this.entered,
+    required this.release,
+  });
+
+  final AuthorizationAction action;
+  final String uri;
+  final Completer<void> entered;
+  final Completer<void> release;
+  bool _blocked = false;
+
+  @override
+  Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
+    if (!_blocked && request.action == action && request.uri == uri) {
+      _blocked = true;
+      if (!entered.isCompleted) {
+        entered.complete();
+      }
+      await release.future;
+    }
+    return null;
+  }
 }
 
 RouterSettings _buildMcpSmokeSettings({

@@ -2,7 +2,7 @@
 
 ## Status
 
-Active.
+Completed.
 
 ## Goal
 
@@ -66,3 +66,10 @@ an already-expired session.
 - 2026-08-04: Full `bin/verify` passes twice against the exact implementation
   tree. The implementation is ready to push; exact-head hosted workflows,
   Router Image dry-run evidence, and the strict deployment-chain audit remain.
+- 2026-08-04: Implementation commit `bbb0dea` is on both maintained `master`
+  branches. Exact-head CI `30891197308`, Dart Package Publish Dry Run
+  `30891197512`, WAMP Profile Benchmarks `30891195436`, and Router Image dry
+  run `30891203830` all pass with zero check annotations. Coverage artifact
+  `8885593882`, WAMP artifact `8885261362`, Router Image preview artifact
+  `8885106190`, Docker build records `8885216150` and `8885215685`, and the
+  comprehensive strict deployment-chain audit all pass.

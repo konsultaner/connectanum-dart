@@ -5243,6 +5243,21 @@ void main() {
                     options: <String, Object?>{
                       'post_response_transport': 'json',
                       'session_idle_timeout_ms': 500,
+                      'procedures': <Object?>[
+                        <String, Object?>{
+                          'procedure': 'app.safe.header_lookup',
+                          'description': 'Lookup with mirrored parameter data.',
+                          'input_schema': <String, Object?>{
+                            'type': 'object',
+                            'properties': <String, Object?>{
+                              'taskId': <String, Object?>{
+                                'type': 'string',
+                                'x-mcp-header': 'task-id',
+                              },
+                            },
+                          },
+                        },
+                      ],
                     },
                   ),
                 ),
@@ -5399,6 +5414,34 @@ void main() {
         contains('Invalid Last-Event-ID header'),
       );
     }
+
+    final mismatchedToolResponse = await sendMcpRequest(
+      method: 'POST',
+      headers: <String, String>{
+        ...sessionHeaders,
+        'mcp-method': 'tools/call',
+        'mcp-name': 'app.safe.header_lookup',
+        'mcp-param-task-id': 'task-2',
+      },
+      body: Uint8List.fromList(
+        utf8.encode(
+          jsonEncode(<String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'mismatched-tool-headers',
+            'method': 'tools/call',
+            'params': <String, Object?>{
+              'name': 'app.safe.header_lookup',
+              'arguments': <String, Object?>{'taskId': 'task-1'},
+            },
+          }),
+        ),
+      ),
+    );
+    expect(mismatchedToolResponse.status, HttpStatus.badRequest);
+    expect(
+      jsonEncode(_jsonResponseBody(mismatchedToolResponse)),
+      contains("does not match body value 'task-1'"),
+    );
 
     await Future<void>.delayed(const Duration(milliseconds: 250));
 
