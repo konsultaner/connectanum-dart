@@ -103,6 +103,32 @@ def _post_json(
     return response_headers, parsed
 
 
+def _post_json_response(
+    endpoint: str,
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str] | None = None,
+) -> tuple[dict[str, str], dict[str, Any]]:
+    status, response_headers, body = _request(
+        endpoint, "POST", payload, headers=headers
+    )
+    if status < 200 or status >= 300:
+        raise AssertionError(f"Unexpected MCP HTTP status {status}: {body}")
+    content_type = response_headers.get("content-type", "")
+    if content_type.split(";", 1)[0].strip().lower() != "application/json":
+        raise AssertionError(
+            f"MCP JSON-response route returned {content_type!r}, not application/json"
+        )
+    if any(line.startswith("data:") for line in body.splitlines()):
+        raise AssertionError("MCP JSON-response route returned SSE framing")
+    parsed = json.loads(body)
+    if not isinstance(parsed, dict):
+        raise AssertionError(f"MCP response was not a JSON object: {parsed}")
+    if "error" in parsed:
+        raise AssertionError(f"MCP JSON-RPC error: {parsed['error']}")
+    return response_headers, parsed
+
+
 def _modern_params(arguments: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         **(arguments or {}),
@@ -1248,7 +1274,128 @@ def _run_independent_principal_lifecycle(
     return independent_session_id
 
 
-def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
+def _run_protected_json_response_smoke(
+    endpoint: str,
+    *,
+    authorization_headers: dict[str, str],
+) -> None:
+    initialize_payload = {
+        "jsonrpc": "2.0",
+        "id": "protected-json-initialize",
+        "method": "initialize",
+        "params": {
+            "protocolVersion": COMPATIBILITY_PROTOCOL,
+            "capabilities": {},
+            "clientInfo": {
+                "name": "router-image-json-response-smoke",
+                "version": "0.0.0",
+            },
+        },
+    }
+    compatibility_headers = {
+        "MCP-Protocol-Version": COMPATIBILITY_PROTOCOL,
+    }
+    _expect_unauthorized(
+        endpoint,
+        initialize_payload,
+        headers=compatibility_headers,
+        label="Protected JSON-response initialize without bearer",
+    )
+
+    initialize_headers, initialize = _post_json_response(
+        endpoint,
+        initialize_payload,
+        headers={**authorization_headers, **compatibility_headers},
+    )
+    session_id = initialize_headers.get("mcp-session-id")
+    if not session_id:
+        raise AssertionError("Protected JSON-response initialize missed a session ID")
+    if (
+        initialize_headers.get("mcp-protocol-version")
+        != COMPATIBILITY_PROTOCOL
+    ):
+        raise AssertionError(
+            "Protected JSON-response initialize missed the compatibility "
+            "protocol header"
+        )
+    if initialize.get("result", {}).get("protocolVersion") != COMPATIBILITY_PROTOCOL:
+        raise AssertionError(
+            "Protected JSON-response initialize changed the protocol version"
+        )
+
+    session_headers = {
+        **authorization_headers,
+        **compatibility_headers,
+        "MCP-Session-Id": session_id,
+    }
+    initialized_status, _, initialized_body = _request(
+        endpoint,
+        "POST",
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        headers=session_headers,
+    )
+    if initialized_status < 200 or initialized_status >= 300:
+        raise AssertionError(
+            "Protected JSON-response initialized notification returned "
+            f"{initialized_status}"
+        )
+    if initialized_body.strip():
+        initialized_payload = _json_payload(initialized_body)
+        if isinstance(initialized_payload, dict) and "error" in initialized_payload:
+            raise AssertionError(
+                "Protected JSON-response initialized notification failed: "
+                f"{initialized_payload}"
+            )
+
+    response_headers, count = _post_json_response(
+        endpoint,
+        {
+            "jsonrpc": "2.0",
+            "id": "protected-json-session-count",
+            "method": "tools/call",
+            "params": {
+                "name": PROCEDURE,
+                "arguments": {},
+            },
+        },
+        headers=session_headers,
+    )
+    if response_headers.get("mcp-session-id") != session_id:
+        raise AssertionError(
+            "Protected JSON-response tool call changed the MCP session ID"
+        )
+    if response_headers.get("mcp-protocol-version") != COMPATIBILITY_PROTOCOL:
+        raise AssertionError(
+            "Protected JSON-response tool call missed the compatibility "
+            "protocol header"
+        )
+    _structured_content(count, label="Protected JSON-response session count")
+
+    delete_status, delete_headers, delete_body = _request(
+        endpoint, "DELETE", headers=session_headers
+    )
+    if delete_status != 202 or delete_body.strip():
+        raise AssertionError(
+            "Protected JSON-response DELETE returned "
+            f"{delete_status} with body {delete_body!r}"
+        )
+    if delete_headers.get("mcp-session-id") != session_id:
+        raise AssertionError(
+            "Protected JSON-response DELETE did not echo the removed session ID"
+        )
+    print(
+        "Router Image MCP JSON-response evidence: "
+        "json_response_ready=true protected=true compatibility_json=true "
+        "protocol_header=true session_header=true session_delete=true "
+        "post_sse_cursor=false."
+    )
+
+
+def _run_protected_smoke(
+    secure_endpoint: str,
+    json_response_endpoint: str,
+    auth_endpoint: str,
+) -> None:
     unauthenticated_payload = {
         "jsonrpc": "2.0",
         "id": "secure-unauthenticated-discover",
@@ -1356,6 +1503,10 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
         verify_missing_bearer=True,
         other_principal_authorization_headers=other_authorization_headers,
     )
+    _run_protected_json_response_smoke(
+        json_response_endpoint,
+        authorization_headers=authorization_headers,
+    )
     for token in (other_access_token, access_token):
         _post_json(
             auth_endpoint,
@@ -1373,7 +1524,12 @@ def _run_protected_smoke(secure_endpoint: str, auth_endpoint: str) -> None:
     )
 
 
-def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
+def run_smoke(
+    endpoint: str,
+    secure_endpoint: str,
+    json_response_endpoint: str,
+    auth_endpoint: str,
+) -> None:
     discovery = _wait_for_discovery(endpoint)
     discovery_result = discovery.get("result")
     if not isinstance(
@@ -1445,7 +1601,11 @@ def run_smoke(endpoint: str, secure_endpoint: str, auth_endpoint: str) -> None:
     _run_modern_standard_pubsub(endpoint, label="Public")
     _run_modern_direct_pubsub(endpoint, label="Public")
     _run_compatibility_pubsub(endpoint, label="Public")
-    _run_protected_smoke(secure_endpoint, auth_endpoint)
+    _run_protected_smoke(
+        secure_endpoint,
+        json_response_endpoint,
+        auth_endpoint,
+    )
     print(
         "Router Image MCP evidence: modern_batch_rejected=true "
         "status=400 error=-32600 sessionless=true "
@@ -1468,11 +1628,13 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoint", required=True)
     parser.add_argument("--secure-endpoint", required=True)
+    parser.add_argument("--json-response-endpoint", required=True)
     parser.add_argument("--auth-endpoint", required=True)
     arguments = parser.parse_args()
     run_smoke(
         arguments.endpoint,
         arguments.secure_endpoint,
+        arguments.json_response_endpoint,
         arguments.auth_endpoint,
     )
     print("Router image public and protected MCP checks passed.")

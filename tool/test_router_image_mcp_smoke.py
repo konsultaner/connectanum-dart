@@ -31,6 +31,57 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         )
         self.assertEqual(payload, {"jsonrpc": "2.0", "id": 1})
 
+    def test_json_response_parser_requires_unframed_application_json(self) -> None:
+        response_body = json.dumps(
+            {"jsonrpc": "2.0", "id": "json-response", "result": {}}
+        )
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            return_value=(
+                200,
+                {"content-type": "application/json; charset=utf-8"},
+                response_body,
+            ),
+        ) as request:
+            headers, payload = CLIENT_MODULE._post_json_response(
+                "http://router/mcp/secure-json",
+                {"jsonrpc": "2.0", "id": "json-response", "method": "ping"},
+                headers={"MCP-Protocol-Version": "2025-11-25"},
+            )
+
+        self.assertEqual(headers["content-type"], "application/json; charset=utf-8")
+        self.assertEqual(payload["result"], {})
+        request.assert_called_once()
+
+        for content_type, body, message in [
+            (
+                "text/event-stream",
+                f"event: message\ndata: {response_body}\n\n",
+                "not application/json",
+            ),
+            (
+                "application/json",
+                f"data: {response_body}\n\n",
+                "SSE framing",
+            ),
+        ]:
+            with self.subTest(content_type=content_type, message=message):
+                with mock.patch.object(
+                    CLIENT_MODULE,
+                    "_request",
+                    return_value=(200, {"content-type": content_type}, body),
+                ):
+                    with self.assertRaisesRegex(AssertionError, message):
+                        CLIENT_MODULE._post_json_response(
+                            "http://router/mcp/secure-json",
+                            {
+                                "jsonrpc": "2.0",
+                                "id": "json-response",
+                                "method": "ping",
+                            },
+                        )
+
     def test_shell_runner_is_syntax_clean_and_requires_one_image(self) -> None:
         syntax = subprocess.run(
             ["bash", "-n", str(RUNNER)],
@@ -113,7 +164,38 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)
 
-        self.assertEqual(runner.count("--auth-lifecycle-smoke"), 2)
+        self.assertEqual(runner.count("--auth-lifecycle-smoke"), 3)
+
+    def test_shell_runner_exercises_protected_json_response_package_client(
+        self,
+    ) -> None:
+        runner = RUNNER.read_text(encoding="utf-8")
+        client = CLIENT.read_text(encoding="utf-8")
+        config = CONFIG.read_text(encoding="utf-8")
+
+        for expected in [
+            "path: /mcp/secure-json",
+            "post_response_transport: json",
+        ]:
+            with self.subTest(config_expected=expected):
+                self.assertIn(expected, config)
+
+        for expected in [
+            '--json-response-endpoint "http://127.0.0.1:$host_port/mcp/secure-json"',
+            'run_package_client_smoke "Protected JSON-response"',
+            'post_response=json post_sse_cursor=false',
+        ]:
+            with self.subTest(runner_expected=expected):
+                self.assertIn(expected, runner)
+
+        for expected in [
+            "_run_protected_json_response_smoke(",
+            'content_type.split(";", 1)[0].strip().lower() != "application/json"',
+            '"json_response_ready=true protected=true compatibility_json=true "',
+            '"protocol_header=true session_header=true session_delete=true "',
+        ]:
+            with self.subTest(client_expected=expected):
+                self.assertIn(expected, client)
 
     def test_shell_runner_uses_isolated_global_package_activation(self) -> None:
         runner = RUNNER.read_text(encoding="utf-8")
@@ -190,9 +272,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)
 
-        self.assertEqual(config.count("uri: connectanum://router-image/live-context"), 2)
-        self.assertEqual(config.count("read_procedure: wamp.session.count"), 2)
-        self.assertEqual(config.count("update_topic: image.smoke.events"), 2)
+        self.assertEqual(config.count("uri: connectanum://router-image/live-context"), 3)
+        self.assertEqual(config.count("read_procedure: wamp.session.count"), 3)
+        self.assertEqual(config.count("update_topic: image.smoke.events"), 3)
 
     def test_smoke_contract_covers_modern_and_streamable_mcp(self) -> None:
         client = CLIENT.read_text(encoding="utf-8")
@@ -1370,15 +1452,15 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, config)
-        self.assertEqual(config.count("- procedure: wamp.session.count"), 2)
+        self.assertEqual(config.count("- procedure: wamp.session.count"), 3)
         self.assertEqual(
-            config.count("uri: connectanum://router-image/context"), 2
+            config.count("uri: connectanum://router-image/context"), 3
         )
         self.assertEqual(
             config.count("uri_template: connectanum://router-image/item/{itemId}"),
-            2,
+            3,
         )
-        self.assertEqual(config.count("name: inspect-router-image"), 2)
+        self.assertEqual(config.count("name: inspect-router-image"), 3)
 
     def test_workflow_smokes_loaded_image_before_multiarch_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

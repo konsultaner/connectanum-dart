@@ -738,7 +738,7 @@ gate ready; RC tagging and prerelease creation remain approval-gated. The
 completed plan is
 `docs/exec-plans/2026-08-04-router-image-compatibility-principal-isolation-smoke.md`.
 
-The active Router Image independent-principal lifecycle checkpoint extends
+The completed Router Image independent-principal lifecycle checkpoint extends
 that packaged security proof from rejection to safe successful use. After the
 second valid bearer is denied access to the primary principal's live
 compatibility session, it must complete modern discovery, direct WAMP
@@ -755,14 +755,56 @@ owner finish unchanged. Python compilation, all 25 Router Image contracts, and
 the complete runner against a fresh current-source Linux/amd64 image assembled
 from the previously verified cached canonical build inputs pass. The normal
 Dockerfile build could not reach Docker Hub's Dockerfile-frontend metadata
-locally, so the canonical hosted build remains required. The local image log
+locally, so the canonical hosted build remained required at that checkpoint.
+The local image log
 contains the bounded independent-principal marker and exactly four package
 evidence lines. Full `bin/verify` also passed formatting, all Rust and FFI
 suites, 360 core tests, 94 MCP tests, 193 MCP/client authorization cases, all
 96 benchmark tests with live WAMP workloads, every isolated and globally
 activated consumer smoke, the complete 380-case router suite, 13
-native-forwarding follow-ups, and Chrome/Dart2Wasm coverage. The active plan is
+native-forwarding follow-ups, and Chrome/Dart2Wasm coverage. Implementation
+commit `8d241b1` was pushed to GitLab and GitHub. Exact-head CI
+`30866566807` passed Fast Checks, Dart VM Coverage, Full Verify, Codecov upload,
+the clean hosted-log scan, and coverage artifact `8876620154`. Router Image dry
+run `30866579221` passed the canonical Linux/amd64 build, loaded-image runtime
+smoke, non-publishing multi-architecture build, skipped GHCR login, and clean
+annotations, and uploaded preview artifact `8876322227`. Its hosted log
+contains the complete bounded independent-principal marker and exactly four
+public/protected package-client evidence lines. The package publish, native
+release, and WAMP profile evidence remains relevant because no sensitive
+inputs changed. The comprehensive strict deployment-chain audit exited zero
+with every required gate ready; RC tagging and prerelease creation remain
+approval-gated. The completed plan is
 `docs/exec-plans/2026-08-04-router-image-independent-principal-lifecycle-smoke.md`.
+
+The active Router Image protected JSON-response package checkpoint closes a
+canonical deployment-config gap. Source, native integration, public examples,
+and generated consumers already cover the router's
+`post_response_transport: json` option, but the loaded image exposed only the
+default public and protected POST response behavior. The neutral image smoke
+config now adds a protected `/mcp/secure-json` route with the same declared
+tools, resources, prompts, WAMP metadata, and pub/sub surface. Its raw check
+requires missing-bearer rejection, an unframed `application/json` initialize
+and tool response, one stable compatibility session ID, and successful DELETE.
+The globally activated public package client then runs its complete protected
+direct JSON, Streamable HTTP, resource, prompt, metadata, pub/sub, and auth
+lifecycle against that route and emits a fifth bounded package evidence line.
+The fail-first contract, Python compilation, shell syntax validation, and all
+27 Router Image contracts pass. The complete runner also passes with the
+mounted current config and clients against the immediately preceding verified
+Router Image, whose router binary inputs are unchanged by this
+config/runner-only checkpoint. Its raw marker proves JSON content type,
+compatibility protocol and stable session headers, no SSE cursor dependency,
+and session DELETE, and its log contains exactly five bounded package-client
+evidence lines. The normal canonical Dockerfile build stalled at Docker Hub's
+Dockerfile-frontend metadata lookup and was canceled cleanly, so the exact-head
+hosted Linux/amd64 build remains required before closure. Full `bin/verify`
+passes formatting, all Rust and FFI suites, 360 core tests, 94 MCP tests, 193
+MCP/client authorization cases, all 96 benchmark tests with 36 live WAMP
+workloads, every isolated and globally activated consumer smoke, the complete
+380-case router suite, 13 native-forwarding follow-ups, and Chrome/Dart2Wasm
+coverage. The active plan is
+`docs/exec-plans/2026-08-04-router-image-json-response-package-smoke.md`.
 
 The completed Router Image protected compatibility method-auth isolation
 checkpoint closes the corresponding loaded-image security evidence gap. The
@@ -24627,6 +24669,16 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active router-hosted MCP packaging-readiness plan:
+  `docs/exec-plans/2026-08-04-router-image-json-response-package-smoke.md`.
+  It adds the neutral protected `/mcp/secure-json` route to the canonical image
+  config, requires raw unframed JSON response/session/delete behavior, and runs
+  the globally activated package client through its full protected lifecycle
+  on that route. The fail-first contract, Python compilation, shell syntax
+  validation, all 27 Router Image contracts, the complete loaded-image runner,
+  and full `bin/verify` pass. The local log contains the bounded raw
+  JSON-response marker and exactly five package-client evidence lines; the
+  exact-head hosted canonical Linux/amd64 build remains required.
+- Most recently completed router-hosted MCP packaging-readiness plan:
   `docs/exec-plans/2026-08-04-router-image-independent-principal-lifecycle-smoke.md`.
   It extends the second valid bearer proof beyond rejected primary-session
   reuse: the principal must complete sessionless modern direct Meta API and
@@ -24637,8 +24689,11 @@ at the older `47bbf9c` commit.
   Image contracts, the complete runner against a fresh current-source
   Linux/amd64 image assembled from cached canonical build inputs, and full
   `bin/verify` pass. The local log contains the bounded independent-principal
-  marker and exactly four package-client evidence lines; exact-head hosted CI
-  and the canonical Router Image dry run remain required.
+  marker and exactly four package-client evidence lines. Implementation commit
+  `8d241b1`, exact-head CI `30866566807`, coverage artifact `8876620154`, Router
+  Image dry run `30866579221`, preview artifact `8876322227`, relevant
+  package/native/WAMP evidence, the clean hosted-log scan, and the comprehensive
+  strict audit all pass.
 - Most recently completed router-hosted MCP
   packaging-readiness plan:
   `docs/exec-plans/2026-08-04-router-image-compatibility-principal-isolation-smoke.md`.

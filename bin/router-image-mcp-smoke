@@ -215,17 +215,21 @@ run_package_client_smoke() {
     fi
   done
 
-  if [[ "$label" == "Protected" && "$summary" != *'"authLifecycle"'* ]]; then
-    printf 'Protected package client smoke omitted auth lifecycle evidence.\n' >&2
+  if [[ "$label" == Protected* && "$summary" != *'"authLifecycle"'* ]]; then
+    printf '%s package client smoke omitted auth lifecycle evidence.\n' \
+      "$label" >&2
     printf '%s\n' "$summary" >&2
     return 1
   fi
 
   local auth_evidence="anonymous"
   local lifecycle_evidence="streamable_http=true session_delete=true"
-  if [[ "$label" == "Protected" ]]; then
+  if [[ "$label" == Protected* ]]; then
     auth_evidence="router-issued"
     lifecycle_evidence+=" auth_lifecycle=true"
+  fi
+  if [[ "$label" == "Protected JSON-response" ]]; then
+    lifecycle_evidence+=" post_response=json post_sse_cursor=false"
   fi
   print_package_client_evidence \
     "$label" \
@@ -322,6 +326,7 @@ run_stateless_package_client_smoke() {
 python3 "$smoke_client" \
   --endpoint "http://127.0.0.1:$host_port/mcp" \
   --secure-endpoint "http://127.0.0.1:$host_port/mcp/secure" \
+  --json-response-endpoint "http://127.0.0.1:$host_port/mcp/secure-json" \
   --auth-endpoint "http://127.0.0.1:$host_port/auth"
 
 prepare_isolated_package_client
@@ -339,6 +344,13 @@ run_package_client_smoke "Public" \
   "http://127.0.0.1:$host_port/mcp"
 run_package_client_smoke "Protected" \
   "http://127.0.0.1:$host_port/mcp/secure" \
+  --auth-url "http://127.0.0.1:$host_port/auth" \
+  --realm image.smoke \
+  --auth-id image-smoke-agent \
+  --ticket image-smoke-ticket \
+  --auth-lifecycle-smoke
+run_package_client_smoke "Protected JSON-response" \
+  "http://127.0.0.1:$host_port/mcp/secure-json" \
   --auth-url "http://127.0.0.1:$host_port/auth" \
   --realm image.smoke \
   --auth-id image-smoke-agent \

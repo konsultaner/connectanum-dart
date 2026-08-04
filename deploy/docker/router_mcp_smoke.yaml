@@ -155,6 +155,61 @@ router:
                   - topic: image.smoke.events
                     title: Router Image Smoke Events
                     description: Events used to validate the packaged router runtime.
+          - match:
+              path: /mcp/secure-json
+            action:
+              type: mcp
+              realm: image.smoke
+              session_profile: image-smoke-auth
+              options:
+                name: router-image-protected-json-response-mcp-smoke
+                instructions: Neutral protected router image MCP JSON-response smoke endpoint.
+                allow_insecure_transport: true
+                post_response_transport: json
+                include_standard_meta_api: true
+                include_pubsub_tools: true
+                resource_list_page_size: 10
+                resource_template_list_page_size: 10
+                prompt_list_page_size: 10
+                resources:
+                  - uri: connectanum://router-image/context
+                    name: router-image-context
+                    title: Router Image Context
+                    description: Neutral context exposed by the packaged router.
+                    mime_type: text/plain
+                    text: Router-hosted context from the packaged image.
+                  - uri: connectanum://router-image/live-context
+                    name: router-image-live-context
+                    title: Router Image Live Context
+                    description: Procedure-backed context with packaged-router update notices.
+                    mime_type: application/json
+                    read_procedure: wamp.session.count
+                    update_topic: image.smoke.events
+                resource_templates:
+                  - uri_template: connectanum://router-image/item/{itemId}
+                    name: router-image-item
+                    title: Router Image Item
+                    description: Template for neutral packaged-router items.
+                    mime_type: application/json
+                prompts:
+                  - name: inspect-router-image
+                    title: Inspect Router Image
+                    description: Builds a neutral packaged-router inspection prompt.
+                    arguments:
+                      - name: subject
+                        description: Subject to inspect.
+                        required: true
+                    messages:
+                      - role: user
+                        text: Inspect {{subject}} using router image context.
+                procedures:
+                  - procedure: wamp.session.count
+                    title: Router Image Smoke Session Count
+                    description: Counts the WAMP session visible to this MCP route.
+                topics:
+                  - topic: image.smoke.events
+                    title: Router Image Smoke Events
+                    description: Events used to validate the packaged router runtime.
 
   authenticators:
     anonymous:
