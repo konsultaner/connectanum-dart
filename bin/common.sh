@@ -2260,6 +2260,7 @@ Future<void> main() async {
     await _smokeToolCatalogStateIntegrity(grant);
     await _smokeListenerCloseConcurrency(endpoint.uri);
     await _smokeClientCloseSessionState();
+    await _smokeClientCloseResponseBody();
     await _smokeAuthGrantRefreshAndRevokeLifecycle(
       authClient,
       grant,
@@ -4098,6 +4099,64 @@ Future<void> _smokeClientCloseSessionState() async {
     await replacementClient.deleteSession();
   } finally {
     endpoint.releaseBlockedResponse();
+    replacementClient?.close(force: true);
+    client.close(force: true);
+    sharedHttpClient.close(force: true);
+    await endpoint.close();
+  }
+}
+
+Future<void> _smokeClientCloseResponseBody() async {
+  final endpoint = await _AgentMcpEndpoint.bind();
+  final sharedHttpClient = _ResponseBodyObservedHttpClient(HttpClient());
+  final client = McpStreamableHttpClient.withBearerToken(
+    endpoint.uri,
+    _accessToken,
+    httpClient: sharedHttpClient,
+  );
+  McpStreamableHttpClient? replacementClient;
+  try {
+    final responseBodyListened = sharedHttpClient.waitForNextResponseBody();
+    final pendingPing = client.pingDirect(
+      id: 'consumer-close-pending-response-body',
+      headers: const <String, String>{
+        'x-test-block-response-body': '1',
+      },
+    );
+    await endpoint.waitForBlockedResponseBody();
+    await responseBodyListened.timeout(const Duration(seconds: 10));
+
+    client.close();
+    var rejected = false;
+    try {
+      await pendingPing.timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      throw StateError(
+        'client close did not abort a pending ordinary MCP response body',
+      );
+    } catch (_) {
+      rejected = true;
+    }
+    _expect(
+      rejected,
+      'client close allowed a pending ordinary MCP response body to complete',
+    );
+    endpoint.releaseBlockedResponseBody();
+
+    replacementClient = McpStreamableHttpClient.withBearerToken(
+      endpoint.uri,
+      _accessToken,
+      httpClient: sharedHttpClient,
+    );
+    final replacementPing = await replacementClient.pingDirect(
+      id: 'consumer-close-response-body-replacement',
+    );
+    _expect(
+      replacementPing.isEmpty,
+      'response-body shutdown terminated a caller-owned HTTP transport',
+    );
+  } finally {
+    endpoint.releaseBlockedResponseBody();
     replacementClient?.close(force: true);
     client.close(force: true);
     sharedHttpClient.close(force: true);
@@ -7044,6 +7103,118 @@ final class _DelayedListenerHttpClient implements HttpClient {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+final class _ResponseBodyObservedHttpClient implements HttpClient {
+  _ResponseBodyObservedHttpClient(this._delegate);
+
+  final HttpClient _delegate;
+  Completer<void>? _nextResponseBodyListen;
+
+  Future<void> waitForNextResponseBody() {
+    final pending = _nextResponseBodyListen;
+    if (pending != null && !pending.isCompleted) {
+      throw StateError('Already waiting for the next response body');
+    }
+    final next = Completer<void>();
+    _nextResponseBodyListen = next;
+    return next.future;
+  }
+
+  void _responseBodyListened() {
+    final pending = _nextResponseBodyListen;
+    _nextResponseBodyListen = null;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete();
+    }
+  }
+
+  Future<HttpClientRequest> _wrap(
+    Future<HttpClientRequest> request,
+  ) async => _ResponseBodyObservedRequest(
+    await request,
+    _responseBodyListened,
+  );
+
+  @override
+  Future<HttpClientRequest> postUrl(Uri url) => _wrap(_delegate.postUrl(url));
+
+  @override
+  void close({bool force = false}) => _delegate.close(force: force);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _ResponseBodyObservedRequest implements HttpClientRequest {
+  _ResponseBodyObservedRequest(this._delegate, this._onResponseBodyListen);
+
+  final HttpClientRequest _delegate;
+  final void Function() _onResponseBodyListen;
+
+  @override
+  HttpHeaders get headers => _delegate.headers;
+
+  @override
+  int get contentLength => _delegate.contentLength;
+
+  @override
+  set contentLength(int value) => _delegate.contentLength = value;
+
+  @override
+  void add(List<int> data) => _delegate.add(data);
+
+  @override
+  void abort([Object? exception, StackTrace? stackTrace]) =>
+      _delegate.abort(exception, stackTrace);
+
+  @override
+  Future<HttpClientResponse> close() async => _ResponseBodyObservedResponse(
+    await _delegate.close(),
+    _onResponseBodyListen,
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _ResponseBodyObservedResponse implements HttpClientResponse {
+  _ResponseBodyObservedResponse(this._delegate, this._onListen);
+
+  final HttpClientResponse _delegate;
+  final void Function() _onListen;
+
+  @override
+  HttpHeaders get headers => _delegate.headers;
+
+  @override
+  int get statusCode => _delegate.statusCode;
+
+  @override
+  String get reasonPhrase => _delegate.reasonPhrase;
+
+  @override
+  Stream<S> transform<S>(StreamTransformer<List<int>, S> streamTransformer) =>
+      streamTransformer.bind(this);
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    _onListen();
+    return _delegate.listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 final class _AgentMcpEndpoint {
   _AgentMcpEndpoint._(this._server) {
     _subscription = _server.listen(_handle);
@@ -7073,6 +7244,8 @@ final class _AgentMcpEndpoint {
   final _rotatedRefreshTokens = <String>{};
   final _blockedResponseSeen = Completer<void>();
   final _releaseBlockedResponse = Completer<void>();
+  final _blockedResponseBodySeen = Completer<void>();
+  final _releaseBlockedResponseBody = Completer<void>();
   var sawDirectRequestWithoutSession = false;
   var sessionDeleted = false;
   var authorizationDiscoveryProbeCount = 0;
@@ -7151,7 +7324,22 @@ final class _AgentMcpEndpoint {
     }
   }
 
+  Future<void> waitForBlockedResponseBody() =>
+      _blockedResponseBodySeen.future.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () =>
+            throw StateError('timed out waiting for blocked response body'),
+      );
+
+  void releaseBlockedResponseBody() {
+    if (!_releaseBlockedResponseBody.isCompleted) {
+      _releaseBlockedResponseBody.complete();
+    }
+  }
+
   Future<void> close() async {
+    releaseBlockedResponse();
+    releaseBlockedResponseBody();
     await _subscription.cancel();
     await _server.close(force: true);
   }
@@ -7319,6 +7507,11 @@ final class _AgentMcpEndpoint {
         int.tryParse(forcedStatus) ?? HttpStatus.internalServerError,
         'forced test HTTP status',
       );
+      return;
+    }
+
+    if (request.headers.value('x-test-block-response-body') == '1') {
+      await _writeBlockedResponseBody(request, _pingResponse(id));
       return;
     }
 
@@ -8774,6 +8967,29 @@ final class _AgentMcpEndpoint {
     _applyTestResponseHeaders(request);
     request.response.write(jsonEncode(body));
     await request.response.close();
+  }
+
+  Future<void> _writeBlockedResponseBody(
+    HttpRequest request,
+    Object? body,
+  ) async {
+    final encoded = jsonEncode(body);
+    request.response.headers.contentType = ContentType.json;
+    _applyTestResponseHeaders(request);
+    request.response.write(encoded.substring(0, 1));
+    await request.response.flush();
+    if (!_blockedResponseBodySeen.isCompleted) {
+      _blockedResponseBodySeen.complete();
+    }
+    await _releaseBlockedResponseBody.future;
+    try {
+      request.response.write(encoded.substring(1));
+      await request.response.close();
+    } on HttpException {
+      // The client intentionally cancels this stalled response body.
+    } on SocketException {
+      // The client intentionally cancels this stalled response body.
+    }
   }
 
   Future<void> _writeMalformedJson(HttpRequest request) async {

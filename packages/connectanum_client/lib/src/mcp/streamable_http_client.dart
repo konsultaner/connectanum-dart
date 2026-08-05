@@ -1295,6 +1295,59 @@ final class _McpResumeStateSnapshot {
   final String? lastEventId;
 }
 
+final class _McpPendingHttpResponseBody {
+  _McpPendingHttpResponseBody(HttpClientResponse response) {
+    _subscription = response
+        .transform(utf8.decoder)
+        .listen(
+          _buffer.write,
+          onError: _fail,
+          onDone: _finish,
+          cancelOnError: true,
+        );
+  }
+
+  final StringBuffer _buffer = StringBuffer();
+  final Completer<String> _result = Completer<String>();
+  late final StreamSubscription<String> _subscription;
+  bool _finished = false;
+
+  Future<String> get future => _result.future;
+
+  void abort(Object error) {
+    if (_finished) {
+      return;
+    }
+    _finished = true;
+    _result.completeError(error, StackTrace.current);
+    unawaited(_cancel());
+  }
+
+  void _finish() {
+    if (_finished) {
+      return;
+    }
+    _finished = true;
+    _result.complete(_buffer.toString());
+  }
+
+  void _fail(Object error, StackTrace stackTrace) {
+    if (_finished) {
+      return;
+    }
+    _finished = true;
+    _result.completeError(error, stackTrace);
+  }
+
+  Future<void> _cancel() async {
+    try {
+      await _subscription.cancel();
+    } catch (_) {
+      // The deterministic close error has already completed the body future.
+    }
+  }
+}
+
 /// HTTP client for session-based MCP revisions and stateless MCP 2026.
 ///
 /// For session-based revisions, the client keeps the negotiated MCP session
@@ -1470,6 +1523,8 @@ final class McpStreamableHttpClient {
   final McpHttpClientFactory _subscriptionHttpClientFactory;
   final bool _ownsHttpClient;
   final Set<HttpClientRequest> _pendingHttpRequests = <HttpClientRequest>{};
+  final Set<_McpPendingHttpResponseBody> _pendingHttpResponseBodies =
+      <_McpPendingHttpResponseBody>{};
   Object _httpRequestStateToken = Object();
   String? _authorizationHeader;
   Object _authorizationStateToken = Object();
@@ -3021,7 +3076,7 @@ final class McpStreamableHttpClient {
     final clearsSessionOnMissing = requestMethod == 'initialize';
     final resetsLastEventId = requestMethod == 'initialize';
     final response = await _sendTrackedHttpRequest(request);
-    final body = await _readBody(response);
+    final body = await _readTrackedHttpResponseBody(request, response);
     if (affectsSessionState) {
       _throwIfHttpErrorForSession(
         response,
@@ -3260,7 +3315,7 @@ final class McpStreamableHttpClient {
     );
 
     final response = await _sendTrackedHttpRequest(request);
-    final body = await _readBody(response);
+    final body = await _readTrackedHttpResponseBody(request, response);
     _throwIfHttpErrorForSession(
       response,
       body,
@@ -3330,7 +3385,7 @@ final class McpStreamableHttpClient {
     );
 
     final response = await _sendTrackedHttpRequest(request);
-    final body = await _readBody(response);
+    final body = await _readTrackedHttpResponseBody(request, response);
     _throwIfHttpErrorForSession(
       response,
       body,
@@ -3369,7 +3424,35 @@ final class McpStreamableHttpClient {
   ) async {
     try {
       return await request.close();
+    } catch (_) {
+      _pendingHttpRequests.remove(request);
+      rethrow;
+    }
+  }
+
+  Future<String> _readTrackedHttpResponseBody(
+    HttpClientRequest request,
+    HttpClientResponse response,
+  ) async {
+    late final _McpPendingHttpResponseBody pendingBody;
+    try {
+      pendingBody = _McpPendingHttpResponseBody(response);
+    } catch (_) {
+      _pendingHttpRequests.remove(request);
+      rethrow;
+    }
+    _pendingHttpResponseBodies.add(pendingBody);
+    if (!_pendingHttpRequests.contains(request)) {
+      pendingBody.abort(
+        StateError(
+          'MCP client closed before an HTTP response body could be read',
+        ),
+      );
+    }
+    try {
+      return await pendingBody.future;
     } finally {
+      _pendingHttpResponseBodies.remove(pendingBody);
       _pendingHttpRequests.remove(request);
     }
   }
@@ -3379,9 +3462,16 @@ final class McpStreamableHttpClient {
     _httpRequestStateToken = Object();
     final pendingHttpRequests = _pendingHttpRequests.toList(growable: false);
     _pendingHttpRequests.clear();
+    final pendingHttpResponseBodies = _pendingHttpResponseBodies.toList(
+      growable: false,
+    );
+    _pendingHttpResponseBodies.clear();
     final closeError = StateError(
       'MCP client closed while an HTTP request was pending',
     );
+    for (final responseBody in pendingHttpResponseBodies) {
+      responseBody.abort(closeError);
+    }
     for (final request in pendingHttpRequests) {
       request.abort(closeError);
     }

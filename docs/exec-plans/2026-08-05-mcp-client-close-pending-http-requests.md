@@ -51,6 +51,18 @@ request-scoped clients and remains an independent ownership boundary.
   234-case MCP/client suite, all 96 benchmark tests including 36 live WAMP
   workloads, all 384 router tests, 13 native follow-ups, Chrome/Dart2Wasm, and
   every isolated and globally activated consumer/CLI smoke.
+- Hosted exact-head deployment audit: passed. Commit `8d32cabe` is on both
+  maintained `master` branches. GitHub CI `31035995120`, Dart Package Publish
+  Dry Run `31035994759`, WAMP Profile Benchmarks `31035995121`, and Router
+  Image dry run `31037400034` passed. Coverage artifact `8943112042`, WAMP
+  artifact `8942815840`, Router Image preview artifact `8943149795`, and Docker
+  build records `8943287796` and `8943286778` were uploaded. The comprehensive
+  strict deployment-chain audit passes with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, and all
+  required branch, workflow, package, native-release, publish-dry-run,
+  benchmark, and registry gates clean. Release-candidate readiness remains
+  intentionally non-gating until an approved numeric RC tag points at the
+  release commit.
 
 ## Outcome
 
