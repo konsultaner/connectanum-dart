@@ -2,7 +2,7 @@
 
 ## Status
 
-Completed locally; exact-head hosted verification remains.
+Completed.
 
 ## Goal
 
@@ -67,3 +67,13 @@ flight.
   payload, and E2EE workloads, all 384 router tests, native follow-ups,
   Chrome/Dart2Wasm coverage, and every isolated and globally activated
   consumer/CLI smoke.
+- 2026-08-04: Commit `8112d2f` was pushed to both maintained `master`
+  branches. Exact-head GitHub CI `30943739400` passed Fast Checks, Full
+  Verify, Dart VM Coverage, Codecov upload, and coverage artifact
+  `8906705801`. Dart Package Publish Dry Run `30943739278`, WAMP Profile
+  Benchmarks `30943743770` with artifact `8906420086`, and Router Image dry
+  run `30945104629` with preview artifact `8906752105` and build records
+  `8906852367` and `8906851618` all passed. The comprehensive strict
+  deployment-chain audit passed. Release-candidate readiness remains
+  intentionally non-gating until an approved numeric RC tag points at the
+  release commit.

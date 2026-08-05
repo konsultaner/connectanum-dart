@@ -2255,6 +2255,7 @@ Future<void> main() async {
 
     client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
     await _smokeAuthGrantDirectJsonBeforeLifecycle(client, endpoint);
+    await _smokeAuthGrantRotationConcurrency(grant, endpoint);
     await _smokeAuthGrantRefreshAndRevokeLifecycle(
       authClient,
       grant,
@@ -3740,6 +3741,73 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
     ),
     'revoked refresh-token request body was not sent as expected',
   );
+}
+
+Future<void> _smokeAuthGrantRotationConcurrency(
+  ConnectanumHttpAuthGrant grant,
+  _AgentMcpEndpoint endpoint,
+) async {
+  final client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
+  try {
+    await client.initialize(id: 'auth-rotation-initialize');
+    _expect(
+      client.sessionId == _sessionId,
+      'auth rotation concurrency smoke did not establish a session',
+    );
+    const resumeCursor = 'agent-session:auth-rotation:kept';
+    client.lastEventId = resumeCursor;
+
+    final delayedRequest = client.ping(
+      id: 'auth-rotation-delayed-401',
+      headers: const <String, String>{
+        'x-consumer-trace': 'auth-rotation-delayed-401',
+        'x-test-block-response': '1',
+        'x-test-force-status': '401',
+      },
+    );
+    await endpoint.waitForBlockedResponse();
+    client.replaceAuthGrant(
+      const ConnectanumHttpAuthGrant(
+        accessToken: _refreshedAccessToken,
+        tokenType: 'Bearer',
+      ),
+    );
+    endpoint.releaseBlockedResponse();
+
+    try {
+      await delayedRequest;
+      throw StateError('delayed stale-bearer request did not return 401');
+    } on McpStreamableHttpException catch (error) {
+      _expect(
+        error.statusCode == HttpStatus.unauthorized,
+        'delayed stale-bearer request returned ${error.statusCode}, '
+        'expected 401',
+      );
+    }
+    _expect(
+      client.sessionId == _sessionId && client.lastEventId == resumeCursor,
+      'delayed old-credential 401 cleared replacement auth session state',
+    );
+
+    const recoveryTrace = 'auth-rotation-replacement-bearer';
+    final recovery = await client.pingDirect(
+      id: recoveryTrace,
+      headers: const <String, String>{'x-consumer-trace': recoveryTrace},
+    );
+    _expect(recovery.isEmpty, 'auth rotation recovery ping failed');
+    _expect(
+      endpoint.directAuthorizationHeadersByTrace[recoveryTrace] ==
+          'Bearer $_refreshedAccessToken',
+      'auth rotation recovery did not use the replacement bearer',
+    );
+    _expect(
+      client.sessionId == _sessionId && client.lastEventId == resumeCursor,
+      'auth rotation recovery changed Streamable session state',
+    );
+  } finally {
+    endpoint.releaseBlockedResponse();
+    client.close(force: true);
+  }
 }
 
 Future<void> _smokeMalformedResponseSessionHeader(
@@ -6677,6 +6745,8 @@ final class _AgentMcpEndpoint {
   final _revokedAccessTokens = <String>{};
   final _revokedRefreshTokens = <String>{};
   final _rotatedRefreshTokens = <String>{};
+  final _blockedResponseSeen = Completer<void>();
+  final _releaseBlockedResponse = Completer<void>();
   var sawDirectRequestWithoutSession = false;
   var sessionDeleted = false;
   var authorizationDiscoveryProbeCount = 0;
@@ -6742,6 +6812,17 @@ final class _AgentMcpEndpoint {
   static Future<_AgentMcpEndpoint> bind() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     return _AgentMcpEndpoint._(server);
+  }
+
+  Future<void> waitForBlockedResponse() => _blockedResponseSeen.future.timeout(
+    const Duration(seconds: 10),
+    onTimeout: () => throw StateError('timed out waiting for blocked response'),
+  );
+
+  void releaseBlockedResponse() {
+    if (!_releaseBlockedResponse.isCompleted) {
+      _releaseBlockedResponse.complete();
+    }
   }
 
   Future<void> close() async {
@@ -6824,6 +6905,13 @@ final class _AgentMcpEndpoint {
         'additional scope required',
       );
       return;
+    }
+
+    if (request.headers.value('x-test-block-response') == '1') {
+      if (!_blockedResponseSeen.isCompleted) {
+        _blockedResponseSeen.complete();
+      }
+      await _releaseBlockedResponse.future;
     }
 
     if (request.method == 'GET') {

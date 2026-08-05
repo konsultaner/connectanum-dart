@@ -1281,6 +1281,13 @@ final class _McpSessionStateSnapshot {
   final String? sessionId;
 }
 
+final class _McpAuthorizationStateSnapshot {
+  const _McpAuthorizationStateSnapshot(this.token, this.headerValue);
+
+  final Object token;
+  final String? headerValue;
+}
+
 /// HTTP client for session-based MCP revisions and stateless MCP 2026.
 ///
 /// For session-based revisions, the client keeps the negotiated MCP session
@@ -1456,6 +1463,7 @@ final class McpStreamableHttpClient {
   final McpHttpClientFactory _subscriptionHttpClientFactory;
   final bool _ownsHttpClient;
   String? _authorizationHeader;
+  Object _authorizationStateToken = Object();
   final Set<McpStreamableSubscription> _subscriptions =
       <McpStreamableSubscription>{};
   final _toolHeaderParametersByName = <String, List<_McpToolHeaderParameter>>{};
@@ -1478,6 +1486,12 @@ final class McpStreamableHttpClient {
 
   _McpSessionStateSnapshot get _sessionStateSnapshot =>
       _McpSessionStateSnapshot(_sessionStateToken, _sessionId);
+
+  _McpAuthorizationStateSnapshot get _authorizationStateSnapshot =>
+      _McpAuthorizationStateSnapshot(
+        _authorizationStateToken,
+        _authorizationHeader,
+      );
 
   set protocolVersion(String value) {
     final validated = _validatedMcpProtocolVersion(value, 'protocolVersion');
@@ -1692,26 +1706,33 @@ final class McpStreamableHttpClient {
   ///
   /// The [grant] must contain a valid Bearer access token. Streamable HTTP
   /// session, resume, protocol, request, and connection state remain unchanged.
-  /// Refresh timing and request retries stay caller-controlled.
+  /// Requests already in flight keep their captured credential, and a delayed
+  /// 401 for that credential cannot clear the replacement authorization
+  /// state's active session. Refresh timing and request retries stay
+  /// caller-controlled.
   void replaceAuthGrant(ConnectanumHttpAuthGrant grant) {
     final authorizationHeader = _authorizationHeaderFrom(
       _headersWithAuthGrant(const <String, String>{}, grant),
     );
     _authorizationHeader = authorizationHeader;
+    _authorizationStateToken = Object();
   }
 
   /// Replaces the OAuth access token used for subsequent MCP HTTP requests.
   ///
   /// The [grant] must be unexpired and bound to this client's MCP endpoint.
   /// Streamable HTTP session, resume, protocol, request, and connection state
-  /// remain unchanged. Authorization flows and request retries stay
-  /// caller-controlled.
+  /// remain unchanged. Requests already in flight keep their captured
+  /// credential, and a delayed 401 for that credential cannot clear the
+  /// replacement authorization state's active session. Authorization flows
+  /// and request retries stay caller-controlled.
   void replaceOAuthToken(McpOAuthTokenGrant grant) {
     _validateOAuthTokenGrant(endpoint, grant);
     final authorizationHeader = _authorizationHeaderFrom(
       _headersWithBearerToken(const <String, String>{}, grant.accessToken),
     );
     _authorizationHeader = authorizationHeader;
+    _authorizationStateToken = Object();
   }
 
   Future<McpJsonMap> initialize({
@@ -1859,6 +1880,7 @@ final class McpStreamableHttpClient {
       latestProtocolVersion,
     );
 
+    final requestAuthorizationState = _authorizationStateSnapshot;
     final subscriptionHttpClient = _subscriptionHttpClientFactory();
     final HttpClientRequest request;
     try {
@@ -1874,6 +1896,7 @@ final class McpStreamableHttpClient {
         accept: _acceptStreamableHttp,
         includeSession: false,
         protocolVersion: latestProtocolVersion,
+        authorizationState: requestAuthorizationState,
         extraHeaders: headers,
       );
       _applyStandardRequestHeaders(request, preparedMessage);
@@ -2930,6 +2953,7 @@ final class McpStreamableHttpClient {
     Map<String, String> extraHeaders = const <String, String>{},
   }) async {
     final requestSessionState = _sessionStateSnapshot;
+    final requestAuthorizationState = _authorizationStateSnapshot;
     final request = await _httpClient.postUrl(endpoint);
     final acceptsSse = streamable || protocolVersion == latestProtocolVersion;
     _applyHeaders(
@@ -2938,6 +2962,7 @@ final class McpStreamableHttpClient {
       includeSession: includeSession,
       protocolVersion: protocolVersion,
       sessionState: requestSessionState,
+      authorizationState: requestAuthorizationState,
       extraHeaders: extraHeaders,
     );
     _applyStandardRequestHeaders(request, message);
@@ -2958,7 +2983,8 @@ final class McpStreamableHttpClient {
       _throwIfHttpErrorForSession(
         response,
         body,
-        expectedToken: requestSessionState.token,
+        expectedSessionToken: requestSessionState.token,
+        expectedAuthorizationToken: requestAuthorizationState.token,
       );
     } else {
       _throwIfHttpError(response, body);
@@ -3167,6 +3193,7 @@ final class McpStreamableHttpClient {
       );
     }
     final requestSessionState = _sessionStateSnapshot;
+    final requestAuthorizationState = _authorizationStateSnapshot;
     final requestProtocolVersion = protocolVersion;
     final requestLastEventId = lastEventId ?? this.lastEventId;
     final request = await _httpClient.getUrl(endpoint);
@@ -3176,6 +3203,7 @@ final class McpStreamableHttpClient {
       lastEventId: requestLastEventId,
       protocolVersion: requestProtocolVersion,
       sessionState: requestSessionState,
+      authorizationState: requestAuthorizationState,
       extraHeaders: headers,
     );
 
@@ -3184,7 +3212,8 @@ final class McpStreamableHttpClient {
     _throwIfHttpErrorForSession(
       response,
       body,
-      expectedToken: requestSessionState.token,
+      expectedSessionToken: requestSessionState.token,
+      expectedAuthorizationToken: requestAuthorizationState.token,
     );
 
     if (!_isSse(response)) {
@@ -3226,6 +3255,7 @@ final class McpStreamableHttpClient {
       );
     }
     final requestSessionState = _sessionStateSnapshot;
+    final requestAuthorizationState = _authorizationStateSnapshot;
     final activeSessionId = requestSessionState.sessionId;
     if (activeSessionId == null) {
       _clearSessionState();
@@ -3238,6 +3268,7 @@ final class McpStreamableHttpClient {
       accept: _acceptJson,
       protocolVersion: activeProtocolVersion,
       sessionState: requestSessionState,
+      authorizationState: requestAuthorizationState,
       extraHeaders: headers,
     );
 
@@ -3246,7 +3277,8 @@ final class McpStreamableHttpClient {
     _throwIfHttpErrorForSession(
       response,
       body,
-      expectedToken: requestSessionState.token,
+      expectedSessionToken: requestSessionState.token,
+      expectedAuthorizationToken: requestAuthorizationState.token,
     );
     _captureSessionHeaders(
       response,
@@ -3290,6 +3322,7 @@ final class McpStreamableHttpClient {
     bool includeSession = true,
     String? protocolVersion,
     _McpSessionStateSnapshot? sessionState,
+    _McpAuthorizationStateSnapshot? authorizationState,
     Map<String, String> extraHeaders = const <String, String>{},
   }) {
     final effectiveProtocolVersion = _validatedMcpProtocolVersion(
@@ -3309,7 +3342,9 @@ final class McpStreamableHttpClient {
 
     applyConsumerHeaders(headers);
     applyConsumerHeaders(extraHeaders);
-    final authorizationHeader = _authorizationHeader;
+    final authorizationHeader = authorizationState == null
+        ? _authorizationHeader
+        : authorizationState.headerValue;
     if (authorizationHeader != null) {
       request.headers.set(HttpHeaders.authorizationHeader, authorizationHeader);
     }
@@ -3523,18 +3558,24 @@ final class McpStreamableHttpClient {
   void _throwIfHttpErrorForSession(
     HttpClientResponse response,
     String body, {
-    Object? expectedToken,
+    Object? expectedSessionToken,
+    Object? expectedAuthorizationToken,
   }) {
     try {
       _throwIfHttpError(response, body);
     } on McpStreamableHttpException catch (error) {
       // A 403, including insufficient_scope, does not terminate the session.
-      final terminatesSession =
-          error.statusCode == HttpStatus.unauthorized ||
-          error.statusCode == HttpStatus.notFound;
       final ownsSessionState =
-          expectedToken == null || identical(expectedToken, _sessionStateToken);
-      if (terminatesSession && ownsSessionState) {
+          expectedSessionToken == null ||
+          identical(expectedSessionToken, _sessionStateToken);
+      final ownsAuthorizationState =
+          expectedAuthorizationToken == null ||
+          identical(expectedAuthorizationToken, _authorizationStateToken);
+      final terminatesCurrentSession =
+          error.statusCode == HttpStatus.notFound ||
+          (error.statusCode == HttpStatus.unauthorized &&
+              ownsAuthorizationState);
+      if (terminatesCurrentSession && ownsSessionState) {
         _clearSessionState();
       }
       rethrow;

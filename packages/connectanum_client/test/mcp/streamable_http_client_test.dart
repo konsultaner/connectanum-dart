@@ -4356,6 +4356,257 @@ void main() {
     );
 
     test(
+      'snapshots bearer credentials before opening an HTTP request',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final delayedHttpClient = _DelayedPostHttpClient(HttpClient());
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'pre-await-initial-token',
+            tokenType: 'Bearer',
+          ),
+          httpClient: delayedHttpClient,
+          closeHttpClient: true,
+        );
+        addTearDown(() => client.close(force: true));
+        client.sessionId = 'pre-await-session';
+        client.lastEventId = 'pre-await-session:get:kept';
+
+        final request = client.ping(
+          id: 'pre-await-auth-snapshot',
+          headers: const <String, String>{'x-test-force-status': '401'},
+        );
+        await delayedHttpClient.waitForPost();
+        client.replaceAuthGrant(
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'pre-await-refreshed-token',
+            tokenType: 'Bearer',
+          ),
+        );
+        delayedHttpClient.releasePost();
+
+        await expectLater(
+          request,
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.unauthorized,
+            ),
+          ),
+        );
+        expect(
+          endpoint.requests.single.authorization,
+          'Bearer pre-await-initial-token',
+        );
+        expect(client.sessionId, 'pre-await-session');
+        expect(client.lastEventId, 'pre-await-session:get:kept');
+      },
+    );
+
+    test(
+      'keeps session state after delayed 401 from replaced credentials',
+      () async {
+        for (final operation in <String>['POST', 'GET', 'DELETE']) {
+          final endpoint = await _FakeMcpEndpoint.bind();
+          final usesOAuthGrant = operation == 'GET';
+          final initialToken = 'initial-${operation.toLowerCase()}-token';
+          final refreshedToken = 'refreshed-${operation.toLowerCase()}-token';
+          final client = usesOAuthGrant
+              ? McpStreamableHttpClient.withOAuthToken(
+                  endpoint.uri,
+                  _testOAuthGrant(
+                    endpoint.uri,
+                    accessToken: initialToken,
+                    scopes: const <String>['tools:read'],
+                  ),
+                )
+              : McpStreamableHttpClient.withAuthGrant(
+                  endpoint.uri,
+                  ConnectanumHttpAuthGrant(
+                    accessToken: initialToken,
+                    tokenType: 'Bearer',
+                  ),
+                );
+
+          try {
+            await client.initialize(id: 'auth-rotation-$operation-initialize');
+            client.lastEventId = 'session-1:auth-rotation:$operation';
+
+            final staleHeaders = <String, String>{
+              'x-test-block-response': '1',
+              'x-test-force-status': '${HttpStatus.unauthorized}',
+            };
+            Future<void> sendStaleRequest() async {
+              switch (operation) {
+                case 'POST':
+                  await client.ping(
+                    id: 'auth-rotation-post',
+                    headers: staleHeaders,
+                  );
+                case 'GET':
+                  await client.poll(headers: staleHeaders);
+                case 'DELETE':
+                  await client.deleteSession(headers: staleHeaders);
+              }
+            }
+
+            final staleRequest = sendStaleRequest();
+            await endpoint.waitForBlockedRequest();
+            expect(
+              endpoint.requests.last.authorization,
+              'Bearer $initialToken',
+            );
+
+            if (usesOAuthGrant) {
+              client.replaceOAuthToken(
+                _testOAuthGrant(
+                  endpoint.uri,
+                  accessToken: refreshedToken,
+                  scopes: const <String>['tools:read'],
+                ),
+              );
+            } else {
+              client.replaceAuthGrant(
+                ConnectanumHttpAuthGrant(
+                  accessToken: refreshedToken,
+                  tokenType: 'Bearer',
+                ),
+              );
+            }
+
+            endpoint.releaseBlockedRequest();
+            await expectLater(
+              staleRequest,
+              throwsA(
+                isA<McpStreamableHttpException>().having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.unauthorized,
+                ),
+              ),
+            );
+            expect(client.sessionId, 'session-1');
+            expect(client.lastEventId, 'session-1:auth-rotation:$operation');
+
+            await client.ping(id: 'auth-rotation-$operation-after');
+            expect(
+              endpoint.requests.last.authorization,
+              'Bearer $refreshedToken',
+            );
+            expect(endpoint.requests.last.sessionId, 'session-1');
+          } finally {
+            client.close(force: true);
+            await endpoint.close();
+          }
+        }
+      },
+    );
+
+    test(
+      'failed auth replacement keeps delayed 401 session ownership',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'unchanged-authorization-token',
+            tokenType: 'Bearer',
+          ),
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'failed-auth-rotation-initialize');
+        client.lastEventId = 'session-1:failed-auth-rotation';
+        final delayedRequest = client.ping(
+          id: 'failed-auth-rotation-401',
+          headers: const <String, String>{
+            'x-test-block-response': '1',
+            'x-test-force-status': '401',
+          },
+        );
+        await endpoint.waitForBlockedRequest();
+
+        expect(
+          () => client.replaceAuthGrant(
+            const ConnectanumHttpAuthGrant(
+              accessToken: 'rejected-auth-token',
+              tokenType: 'Basic',
+            ),
+          ),
+          throwsArgumentError,
+        );
+        endpoint.releaseBlockedRequest();
+
+        await expectLater(
+          delayedRequest,
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.unauthorized,
+            ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
+      'clears the same session after delayed 404 despite auth replacement',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'initial-not-found-token',
+            tokenType: 'Bearer',
+          ),
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'auth-rotation-404-initialize');
+        client.lastEventId = 'session-1:auth-rotation:404';
+        final staleRequest = client.ping(
+          id: 'auth-rotation-404',
+          headers: const <String, String>{
+            'x-test-block-response': '1',
+            'x-test-force-status': '404',
+          },
+        );
+        await endpoint.waitForBlockedRequest();
+
+        client.replaceAuthGrant(
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'refreshed-not-found-token',
+            tokenType: 'Bearer',
+          ),
+        );
+        endpoint.releaseBlockedRequest();
+
+        await expectLater(
+          staleRequest,
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.notFound,
+            ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
       'uses HTTP auth grants for direct JSON helpers without lifecycle',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -9695,6 +9946,37 @@ McpJsonMap _toolInputSchemaWithHeaders() {
       'wrapper': <String, Object?>{'type': 'string', 'x-mcp-header': 'Wrapper'},
     },
   };
+}
+
+final class _DelayedPostHttpClient implements HttpClient {
+  _DelayedPostHttpClient(this._delegate);
+
+  final HttpClient _delegate;
+  final Completer<void> _postStarted = Completer<void>();
+  final Completer<void> _releasePost = Completer<void>();
+
+  Future<void> waitForPost() => _postStarted.future;
+
+  void releasePost() {
+    if (!_releasePost.isCompleted) {
+      _releasePost.complete();
+    }
+  }
+
+  @override
+  Future<HttpClientRequest> postUrl(Uri url) async {
+    if (!_postStarted.isCompleted) {
+      _postStarted.complete();
+    }
+    await _releasePost.future;
+    return _delegate.postUrl(url);
+  }
+
+  @override
+  void close({bool force = false}) => _delegate.close(force: force);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _SeenRequest {

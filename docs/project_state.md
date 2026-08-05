@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-04
+Last updated: 2026-08-05
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -24694,8 +24694,29 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- No execution plan is active. The most recently completed router-hosted MCP
-  client session lifecycle concurrency plan is:
+- No execution plan is active after completing the router-hosted MCP client
+  auth-rotation concurrency slice. Select the next MCP production-readiness
+  gap from `ROADMAP_NEXT.md` and `ROADMAP.md` together.
+- The most recently completed router-hosted MCP client auth-rotation
+  concurrency plan is:
+  `docs/exec-plans/2026-08-05-mcp-client-auth-rotation-concurrency.md`.
+  Every MCP HTTP path now snapshots an opaque authorization generation and the
+  effective client-owned bearer header before its first await. Validated grant
+  replacement renews that generation, and a 401 clears compatibility state
+  only while both the original credential and session generations remain
+  current. A delayed 404 remains session-authoritative. Focused regressions
+  cover POST, GET/SSE, DELETE, rejected replacements, and 404 cleanup; the
+  neutral generated client-only consumer package proves the delayed-401 and
+  replacement-bearer contract without private assumptions. Focused analysis,
+  all 137 Streamable client tests, the generated package smoke, post-change
+  `bin/test-fast`, and full `bin/verify` pass. Final verification covers 113
+  Rust core tests, 52 Rust FFI tests, 360 Dart core tests, 94 MCP tests, the
+  complete 217-case MCP/client suite, all 96 benchmark tests, all 384 router
+  tests, native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
+  activated consumer/CLI smoke. Implementation is ready to publish; exact-head
+  hosted workflows and the strict deployment-chain audit remain.
+- The previously completed router-hosted MCP client session lifecycle
+  concurrency plan is:
   `docs/exec-plans/2026-08-04-mcp-client-session-lifecycle-concurrency.md`.
   Compatibility requests now capture an opaque lifecycle generation plus the
   original session, protocol, and cursor state before their first await.
@@ -24707,8 +24728,15 @@ at the older `47bbf9c` commit.
   Five fail-first overlap regressions, focused client analysis, all 133
   Streamable HTTP client tests, the generated client-only consumer-package
   smoke, pre-change and post-change `bin/test-fast`, and final `bin/verify`
-  pass. Exact-head hosted workflows and the strict deployment-chain audit
-  remain before handoff.
+  pass. Commit `8112d2f` is on both maintained `master` branches. Exact-head
+  GitHub CI `30943739400` passed Fast Checks, Full Verify, Dart VM Coverage,
+  Codecov upload, and coverage artifact `8906705801`. Dart Package Publish Dry
+  Run `30943739278`, WAMP Profile Benchmarks `30943743770` with artifact
+  `8906420086`, and Router Image dry run `30945104629` with preview artifact
+  `8906752105` and build records `8906852367` and `8906851618` all passed. The
+  comprehensive strict deployment-chain audit passed. Release-candidate
+  readiness remains intentionally non-gating until an approved numeric RC tag
+  points at the release commit.
 - The most recently completed router-hosted MCP
   client response-header integrity plan is:
   `docs/exec-plans/2026-08-04-mcp-client-response-header-integrity.md`.
