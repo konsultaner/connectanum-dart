@@ -45,7 +45,18 @@ invisible to `close()` and can establish after shutdown.
   228-case MCP/client suite, all 96 benchmark tests including 36 live WAMP
   workloads, all 384 router tests, 13 native follow-ups, Chrome/Dart2Wasm, and
   every isolated and globally activated consumer/CLI smoke.
-- Hosted exact-head deployment audit: pending.
+- Hosted exact-head deployment audit: passed. Commit `7f7b0ea4` is on both
+  maintained `master` branches. GitHub CI `31022233783`, Dart Package Publish
+  Dry Run `31022234067`, WAMP Profile Benchmarks `31022233751`, and Router
+  Image dry run `31023620393` passed. Coverage artifact `8937595450`, WAMP
+  artifact `8937332685`, Router Image preview artifact `8937663622`, and
+  Docker build records `8937780968` and `8937780005` were uploaded. The
+  comprehensive strict deployment-chain audit passes with clean exact-head CI
+  logs, loaded-image MCP runtime smoke, multi-architecture image build, and all
+  required branch, workflow, package, native-release, publish-dry-run,
+  benchmark, and registry gates clean. Release-candidate readiness remains
+  intentionally non-gating until an approved numeric RC tag points at the
+  release commit.
 
 ## Outcome
 

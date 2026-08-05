@@ -4114,6 +4114,53 @@ void main() {
     );
 
     test(
+      'client close prevents pending initialize from establishing state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final httpClient = HttpClient();
+        addTearDown(() => httpClient.close(force: true));
+
+        final client = McpStreamableHttpClient(
+          endpoint.uri,
+          httpClient: httpClient,
+        );
+        addTearDown(() => client.close(force: true));
+
+        final delayedInitialize = client.initialize(
+          id: 'close-pending-initialize',
+          headers: const <String, String>{'x-test-block-response': '1'},
+        );
+        await endpoint.waitForBlockedRequest();
+
+        client.close();
+        endpoint.releaseBlockedRequest();
+
+        final initialized = await delayedInitialize;
+        expect(initialized['id'], 'close-pending-initialize');
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test('client close clears active compatibility state locally', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize(id: 'close-active-state-initialize');
+      client.lastEventId = 'session-1:get:close-active-state';
+      expect(client.sessionId, 'session-1');
+
+      client.close();
+
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
+    test(
       'keeps Streamable HTTP session state after malformed POST responses',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();

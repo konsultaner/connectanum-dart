@@ -2259,6 +2259,7 @@ Future<void> main() async {
     await _smokeResumeCursorConcurrency(grant);
     await _smokeToolCatalogStateIntegrity(grant);
     await _smokeListenerCloseConcurrency(endpoint.uri);
+    await _smokeClientCloseSessionState();
     await _smokeAuthGrantRefreshAndRevokeLifecycle(
       authClient,
       grant,
@@ -4040,6 +4041,54 @@ Future<void> _smokeListenerCloseConcurrency(Uri endpoint) async {
   } finally {
     listenerHttpClient.releasePost();
     client.close(force: true);
+  }
+}
+
+Future<void> _smokeClientCloseSessionState() async {
+  final endpoint = await _AgentMcpEndpoint.bind();
+  final sharedHttpClient = HttpClient();
+  final client = McpStreamableHttpClient.withBearerToken(
+    endpoint.uri,
+    _accessToken,
+    httpClient: sharedHttpClient,
+  );
+  McpStreamableHttpClient? replacementClient;
+  try {
+    final delayedInitialize = client.initialize(
+      id: 'consumer-close-pending-initialize',
+      headers: const <String, String>{'x-test-block-response': '1'},
+    );
+    await endpoint.waitForBlockedResponse();
+
+    client.close();
+    _expect(
+      client.sessionId == null && client.lastEventId == null,
+      'client close retained compatibility session state',
+    );
+    endpoint.releaseBlockedResponse();
+    await delayedInitialize;
+    _expect(
+      client.sessionId == null && client.lastEventId == null,
+      'delayed initialize established state after client close',
+    );
+
+    replacementClient = McpStreamableHttpClient.withBearerToken(
+      endpoint.uri,
+      _accessToken,
+      httpClient: sharedHttpClient,
+    );
+    await replacementClient.initialize(id: 'consumer-close-replacement');
+    _expect(
+      replacementClient.sessionId != null,
+      'client close terminated a caller-owned shared HTTP transport',
+    );
+    await replacementClient.deleteSession();
+  } finally {
+    endpoint.releaseBlockedResponse();
+    replacementClient?.close(force: true);
+    client.close(force: true);
+    sharedHttpClient.close(force: true);
+    await endpoint.close();
   }
 }
 

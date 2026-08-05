@@ -3341,6 +3341,7 @@ final class McpStreamableHttpClient {
   }
 
   void close({bool force = false}) {
+    _clearSessionState();
     _subscriptionStateToken = Object();
     final pendingSubscriptionHttpClients = _pendingSubscriptionHttpClients
         .toList(growable: false);
