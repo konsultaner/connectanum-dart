@@ -1474,8 +1474,10 @@ final class McpStreamableHttpClient {
   final Set<McpStreamableSubscription> _subscriptions =
       <McpStreamableSubscription>{};
   final _toolHeaderParametersByName = <String, List<_McpToolHeaderParameter>>{};
+  final _toolHeaderParameterGenerationByName = <String, int>{};
 
   int _nextRequestId = 1;
+  int _toolCatalogRequestGeneration = 0;
 
   String _protocolVersion;
   String? _sessionId;
@@ -2072,30 +2074,32 @@ final class McpStreamableHttpClient {
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) async {
+    const method = 'tools/list';
+    final requestGeneration = _claimToolCatalogRequestGeneration();
     final response = await request(
-      'tools/list',
+      method,
       id: id,
       params: _cursorParams(cursor),
       streamable: streamable,
       protocolVersion: protocolVersion,
       headers: headers,
     );
-    final result = _jsonRpcResultFrom(response, method: 'tools/list');
-    final tools = _rememberToolHeaderParameters(
-      _validatedToolCatalogEntries(
-        _jsonMapListFrom(
-          result,
-          key: 'tools',
-          method: 'tools/list',
-          label: 'tools/list result tool',
-        ),
-        label: 'tools/list result tool',
+    final result = _jsonRpcResultFrom(response, method: method);
+    final catalogTools = _validatedToolCatalogEntries(
+      _jsonMapListFrom(
+        result,
+        key: 'tools',
+        method: method,
+        label: '$method result tool',
       ),
+      label: '$method result tool',
     );
-    return McpStreamableToolListPage(
-      tools: tools,
-      nextCursor: _nextCursorFrom(result, method: 'tools/list'),
+    final nextCursor = _nextCursorFrom(result, method: method);
+    final tools = _rememberToolHeaderParameters(
+      catalogTools,
+      requestGeneration: requestGeneration,
     );
+    return McpStreamableToolListPage(tools: tools, nextCursor: nextCursor);
   }
 
   Future<McpStreamableToolListPage> listToolsDirect({
@@ -2105,6 +2109,7 @@ final class McpStreamableHttpClient {
     Map<String, String> headers = const <String, String>{},
   }) async {
     const method = 'tools/list';
+    final requestGeneration = _claimToolCatalogRequestGeneration();
     final response = await requestDirect(
       method,
       id: id,
@@ -2113,21 +2118,21 @@ final class McpStreamableHttpClient {
       headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: method);
-    final tools = _rememberToolHeaderParameters(
-      _validatedToolCatalogEntries(
-        _jsonMapListFrom(
-          result,
-          key: 'tools',
-          method: method,
-          label: '$method result tool',
-        ),
+    final catalogTools = _validatedToolCatalogEntries(
+      _jsonMapListFrom(
+        result,
+        key: 'tools',
+        method: method,
         label: '$method result tool',
       ),
+      label: '$method result tool',
     );
-    return McpStreamableToolListPage(
-      tools: tools,
-      nextCursor: _nextCursorFrom(result, method: method),
+    final nextCursor = _nextCursorFrom(result, method: method);
+    final tools = _rememberToolHeaderParameters(
+      catalogTools,
+      requestGeneration: requestGeneration,
     );
+    return McpStreamableToolListPage(tools: tools, nextCursor: nextCursor);
   }
 
   Future<McpJsonMap> callTool(
@@ -2374,6 +2379,7 @@ final class McpStreamableHttpClient {
     Map<String, String> headers = const <String, String>{},
   }) async {
     const method = 'connectanum.tools.list';
+    final requestGeneration = _claimToolCatalogRequestGeneration();
     final response = await request(
       method,
       id: id,
@@ -2384,21 +2390,21 @@ final class McpStreamableHttpClient {
       headers: headers,
     );
     final result = _jsonRpcResultFrom(response, method: method);
-    final tools = _rememberToolHeaderParameters(
-      _validatedToolCatalogEntries(
-        _jsonMapListFrom(
-          result,
-          key: 'tools',
-          method: method,
-          label: '$method result tool',
-        ),
+    final catalogTools = _validatedToolCatalogEntries(
+      _jsonMapListFrom(
+        result,
+        key: 'tools',
+        method: method,
         label: '$method result tool',
       ),
+      label: '$method result tool',
     );
-    return McpStreamableToolListPage(
-      tools: tools,
-      nextCursor: _nextCursorFrom(result, method: method),
+    final nextCursor = _nextCursorFrom(result, method: method);
+    final tools = _rememberToolHeaderParameters(
+      catalogTools,
+      requestGeneration: requestGeneration,
     );
+    return McpStreamableToolListPage(tools: tools, nextCursor: nextCursor);
   }
 
   Future<McpJsonMap> callConnectanumToolDirect(
@@ -3741,7 +3747,12 @@ final class McpStreamableHttpClient {
     }
   }
 
-  List<McpJsonMap> _rememberToolHeaderParameters(List<McpJsonMap> tools) {
+  int _claimToolCatalogRequestGeneration() => ++_toolCatalogRequestGeneration;
+
+  List<McpJsonMap> _rememberToolHeaderParameters(
+    List<McpJsonMap> tools, {
+    required int requestGeneration,
+  }) {
     final visibleTools = <McpJsonMap>[];
     for (final tool in tools) {
       final name = tool['name'];
@@ -3750,16 +3761,20 @@ final class McpStreamableHttpClient {
         continue;
       }
       final headerParameters = _mcpToolHeaderParametersFromTool(tool);
-      if (headerParameters == null) {
-        _toolHeaderParametersByName.remove(name);
-        continue;
+      final lastGeneration = _toolHeaderParameterGenerationByName[name];
+      final ownsCacheUpdate =
+          lastGeneration == null || requestGeneration >= lastGeneration;
+      if (ownsCacheUpdate) {
+        _toolHeaderParameterGenerationByName[name] = requestGeneration;
+        if (headerParameters == null || headerParameters.isEmpty) {
+          _toolHeaderParametersByName.remove(name);
+        } else {
+          _toolHeaderParametersByName[name] = headerParameters;
+        }
       }
-      if (headerParameters.isEmpty) {
-        _toolHeaderParametersByName.remove(name);
-      } else {
-        _toolHeaderParametersByName[name] = headerParameters;
+      if (headerParameters != null) {
+        visibleTools.add(tool);
       }
-      visibleTools.add(tool);
     }
     return List<McpJsonMap>.unmodifiable(visibleTools);
   }

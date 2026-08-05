@@ -2257,6 +2257,7 @@ Future<void> main() async {
     await _smokeAuthGrantDirectJsonBeforeLifecycle(client, endpoint);
     await _smokeAuthGrantRotationConcurrency(grant, endpoint);
     await _smokeResumeCursorConcurrency(grant);
+    await _smokeToolCatalogStateIntegrity(grant);
     await _smokeAuthGrantRefreshAndRevokeLifecycle(
       authClient,
       grant,
@@ -3914,6 +3915,82 @@ Future<void> _smokeResumeCursorConcurrency(
       client.sessionId == _sessionId &&
           client.lastEventId == 'agent-session:post:2',
       'delayed GET/SSE response overwrote the newer resume cursor',
+    );
+  } finally {
+    endpoint.releaseBlockedResponse();
+    client.close(force: true);
+    await endpoint.close();
+  }
+}
+
+Future<void> _smokeToolCatalogStateIntegrity(
+  ConnectanumHttpAuthGrant grant,
+) async {
+  final endpoint = await _AgentMcpEndpoint.bind();
+  final client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
+  try {
+    await client.listToolsDirect(
+      id: 'tool-catalog-valid',
+      headers: const <String, String>{
+        'x-test-tool-text-header': 'CurrentText',
+      },
+    );
+    try {
+      await client.listToolsDirect(
+        id: 'tool-catalog-invalid-cursor',
+        headers: const <String, String>{
+          'x-test-invalid-tool-next-cursor': '1',
+          'x-test-tool-text-header': 'PoisonedText',
+        },
+      );
+      throw StateError('malformed tool catalog cursor was accepted');
+    } on FormatException {
+      // Expected: a failed catalog page must not update the header cache.
+    }
+
+    const atomicTrace = 'tool-catalog-atomic-call';
+    await client.callToolDirect(
+      _toolName,
+      id: atomicTrace,
+      arguments: const <String, Object?>{'text': 'still-current'},
+      headers: const <String, String>{'x-consumer-trace': atomicTrace},
+    );
+    _expect(
+      jsonEncode(endpoint.directMcpParameterHeadersByTrace[atomicTrace]) ==
+          jsonEncode(<String, String>{
+            'mcp-param-currenttext': 'still-current',
+          }),
+      'malformed tool catalog page poisoned the header cache',
+    );
+
+    final olderCatalog = client.listToolsDirect(
+      id: 'tool-catalog-older',
+      headers: const <String, String>{
+        'x-test-block-response': '1',
+        'x-test-tool-text-header': 'OlderText',
+      },
+    );
+    await endpoint.waitForBlockedResponse();
+    await client.listConnectanumToolsDirect(
+      id: 'tool-catalog-newer',
+      headers: const <String, String>{
+        'x-test-tool-text-header': 'NewerText',
+      },
+    );
+    endpoint.releaseBlockedResponse();
+    await olderCatalog;
+
+    const overlapTrace = 'tool-catalog-overlap-call';
+    await client.callToolDirect(
+      _toolName,
+      id: overlapTrace,
+      arguments: const <String, Object?>{'text': 'newest'},
+      headers: const <String, String>{'x-consumer-trace': overlapTrace},
+    );
+    _expect(
+      jsonEncode(endpoint.directMcpParameterHeadersByTrace[overlapTrace]) ==
+          jsonEncode(<String, String>{'mcp-param-newertext': 'newest'}),
+      'delayed older tool catalog overwrote newer header routing',
     );
   } finally {
     endpoint.releaseBlockedResponse();
@@ -7244,7 +7321,7 @@ final class _AgentMcpEndpoint {
             ),
             MapEntry<String, Object?>(
               'agent-session:post:2',
-              _toolListResponse(id, message),
+              _toolListResponseForRequest(request, id, message),
             ),
           ]);
           return;
@@ -7260,11 +7337,17 @@ final class _AgentMcpEndpoint {
                 'params': <String, Object?>{'progress': 1},
               },
             ),
-            MapEntry<String, Object?>('', _toolListResponse(id, message)),
+            MapEntry<String, Object?>(
+              '',
+              _toolListResponseForRequest(request, id, message),
+            ),
           ]);
           return;
         }
-        await _writeJson(request, _toolListResponse(id, message));
+        await _writeJson(
+          request,
+          _toolListResponseForRequest(request, id, message),
+        );
       case 'tools/call':
         if (_isStreamableRequest(request) && !_hasSession(request)) {
           await _writeSessionError(request);
@@ -7274,7 +7357,10 @@ final class _AgentMcpEndpoint {
       case 'connectanum.tools.list':
         sawDirectRequestWithoutSession =
             request.headers.value('MCP-Session-Id') == null;
-        await _writeJson(request, _toolListResponse(id, message));
+        await _writeJson(
+          request,
+          _toolListResponseForRequest(request, id, message),
+        );
       case 'connectanum.tool.call':
       case 'connectanum.tools.call':
         await _writeJson(request, _toolCallResponse(id, message));
@@ -7994,10 +8080,28 @@ final class _AgentMcpEndpoint {
     return null;
   }
 
-  Map<String, Object?> _toolListResponse(
+  Map<String, Object?> _toolListResponseForRequest(
+    HttpRequest request,
     Object? id,
     Map<String, Object?> message,
   ) {
+    return _toolListResponse(
+      id,
+      message,
+      toolName: request.headers.value('x-test-tool-name'),
+      textHeaderName: request.headers.value('x-test-tool-text-header'),
+      invalidCursor:
+          request.headers.value('x-test-invalid-tool-next-cursor') == '1',
+    );
+  }
+
+  Map<String, Object?> _toolListResponse(
+    Object? id,
+    Map<String, Object?> message, {
+    String? toolName,
+    String? textHeaderName,
+    bool invalidCursor = false,
+  }) {
     final cursor = _cursorFrom(message);
     if (cursor == _toolCursor) {
       return <String, Object?>{
@@ -8015,14 +8119,14 @@ final class _AgentMcpEndpoint {
       'result': <String, Object?>{
         'tools': <Object?>[
           <String, Object?>{
-            'name': _toolName,
+            'name': toolName ?? _toolName,
             'description': 'Echoes an agent request.',
             'inputSchema': <String, Object?>{
               'type': 'object',
               'properties': <String, Object?>{
                 'text': <String, Object?>{
                   'type': 'string',
-                  'x-mcp-header': 'Text',
+                  'x-mcp-header': textHeaderName ?? 'Text',
                 },
               },
             },
@@ -8049,7 +8153,7 @@ final class _AgentMcpEndpoint {
           _toolDefinition('wamp.subscription.list_subscribers'),
           _toolDefinition('wamp.subscription.count_subscribers'),
         ],
-        'nextCursor': _toolCursor,
+        'nextCursor': invalidCursor ? 'bad cursor' : _toolCursor,
       },
     };
   }

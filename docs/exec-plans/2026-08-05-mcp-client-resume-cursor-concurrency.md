@@ -78,3 +78,15 @@ Streamable HTTP resume cursor while the session itself remains unchanged.
   every isolated and globally activated consumer/CLI smoke. The bounded
   router-shutdown `Broken pipe` output remains teardown-only noise; no test
   failed.
+- 2026-08-05: Commit `bcf2555` is on both maintained `master` branches.
+  Exact-head GitHub CI `31008088792`, Dart Package Publish Dry Run
+  `31008088759`, WAMP Profile Benchmarks `31008088758`, and Router Image dry
+  run `31008103652` passed on their first attempts. CI uploaded coverage
+  artifact `8931698086`, WAMP uploaded benchmark artifact `8931426941`, and
+  Router Image uploaded preview artifact `8931204162` plus Docker build
+  records `8931319541` and `8931319025`. The comprehensive strict
+  deployment-chain audit passes with clean exact-head CI logs, loaded-image
+  MCP runtime smoke, multi-architecture image build, and every required
+  branch, workflow, package, native-release, publish-dry-run, benchmark, and
+  registry gate clean. Release-candidate readiness remains intentionally
+  non-gating until an approved numeric RC tag points at the release commit.

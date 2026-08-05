@@ -6372,6 +6372,133 @@ void main() {
       },
     );
 
+    test('does not cache tool headers from a malformed catalog page', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.listToolsDirect(
+        id: 'valid-tool-catalog',
+        headers: const <String, String>{
+          'x-test-tool-message-header': 'CurrentMessage',
+        },
+      );
+
+      await expectLater(
+        client.listToolsDirect(
+          id: 'invalid-tool-catalog-cursor',
+          headers: const <String, String>{
+            'x-test-invalid-tool-next-cursor': '1',
+            'x-test-tool-message-header': 'PoisonedMessage',
+          },
+        ),
+        throwsA(isA<FormatException>()),
+      );
+
+      endpoint.requests.clear();
+      await client.callToolDirect(
+        'app.echo',
+        id: 'call-after-invalid-tool-catalog',
+        arguments: const <String, Object?>{'message': 'still-current'},
+      );
+
+      expect(endpoint.requests.single.mcpParameterHeaders, {
+        'mcp-param-currentmessage': 'still-current',
+      });
+    });
+
+    test(
+      'keeps newer tool headers when an older catalog finishes later',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final olderCatalog = client.listToolsDirect(
+          id: 'older-tool-catalog',
+          headers: const <String, String>{
+            'x-test-block-response': '1',
+            'x-test-tool-message-header': 'OlderMessage',
+          },
+        );
+        await endpoint.waitForBlockedRequest();
+
+        await client.listConnectanumToolsDirect(
+          id: 'newer-tool-catalog',
+          headers: const <String, String>{
+            'x-test-tool-message-header': 'NewerMessage',
+          },
+        );
+        endpoint.releaseBlockedRequest();
+        await olderCatalog;
+
+        endpoint.requests.clear();
+        await client.callToolDirect(
+          'app.echo',
+          id: 'call-after-overlapping-tool-catalogs',
+          arguments: const <String, Object?>{'message': 'newest'},
+        );
+
+        expect(endpoint.requests.single.mcpParameterHeaders, {
+          'mcp-param-newermessage': 'newest',
+        });
+      },
+    );
+
+    test(
+      'accumulates disjoint tool headers from overlapping catalogs',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        final firstCatalog = client.listToolsDirect(
+          id: 'first-tool-catalog',
+          headers: const <String, String>{
+            'x-test-block-response': '1',
+            'x-test-tool-name': 'app.first',
+            'x-test-tool-message-header': 'FirstMessage',
+          },
+        );
+        await endpoint.waitForBlockedRequest();
+
+        await client.listConnectanumToolsDirect(
+          id: 'second-tool-catalog',
+          headers: const <String, String>{
+            'x-test-tool-name': 'app.second',
+            'x-test-tool-message-header': 'SecondMessage',
+          },
+        );
+        endpoint.releaseBlockedRequest();
+        await firstCatalog;
+
+        endpoint.requests.clear();
+        await client.callToolDirect(
+          'app.first',
+          id: 'first-tool-call',
+          arguments: const <String, Object?>{'message': 'first'},
+        );
+        await client.callToolDirect(
+          'app.second',
+          id: 'second-tool-call',
+          arguments: const <String, Object?>{'message': 'second'},
+        );
+
+        expect(endpoint.requests[0].mcpParameterHeaders, {
+          'mcp-param-firstmessage': 'first',
+        });
+        expect(endpoint.requests[1].mcpParameterHeaders, {
+          'mcp-param-secondmessage': 'second',
+        });
+      },
+    );
+
     test('uses typed helpers for resources and prompts', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -9162,9 +9289,13 @@ final class _FakeMcpEndpoint {
         'result': <String, Object?>{
           'tools': <Object?>[
             <String, Object?>{
-              'name': 'app.echo',
+              'name': request.headers.value('x-test-tool-name') ?? 'app.echo',
               'description': 'Echoes arguments.',
-              'inputSchema': _toolInputSchemaWithHeaders(),
+              'inputSchema': _toolInputSchemaWithHeaders(
+                messageHeaderName:
+                    request.headers.value('x-test-tool-message-header') ??
+                    'Message',
+              ),
             },
             <String, Object?>{
               'name': 'wamp.registration.match',
@@ -9932,7 +10063,17 @@ final class _FakeMcpEndpoint {
         'jsonrpc': '2.0',
         'id': requestBody['id'],
         'result': <String, Object?>{
-          'tools': <Object?>[],
+          'tools': <Object?>[
+            <String, Object?>{
+              'name': request.headers.value('x-test-tool-name') ?? 'app.echo',
+              'description': 'Echoes arguments.',
+              'inputSchema': _toolInputSchemaWithHeaders(
+                messageHeaderName:
+                    request.headers.value('x-test-tool-message-header') ??
+                    'Message',
+              ),
+            },
+          ],
           'nextCursor': 'bad cursor',
         },
       });
@@ -9966,9 +10107,13 @@ final class _FakeMcpEndpoint {
               request.headers.value('x-test-result-type') ?? 'complete',
         'tools': <Object?>[
           <String, Object?>{
-            'name': 'app.echo',
+            'name': request.headers.value('x-test-tool-name') ?? 'app.echo',
             'description': 'Echoes arguments.',
-            'inputSchema': _toolInputSchemaWithHeaders(),
+            'inputSchema': _toolInputSchemaWithHeaders(
+              messageHeaderName:
+                  request.headers.value('x-test-tool-message-header') ??
+                  'Message',
+            ),
           },
           <String, Object?>{
             'name': 'app.invalid-header',
@@ -10201,11 +10346,14 @@ const _headerSessionId = 'MCP-Session-Id';
 const _headerMethod = 'Mcp-Method';
 const _headerName = 'Mcp-Name';
 
-McpJsonMap _toolInputSchemaWithHeaders() {
+McpJsonMap _toolInputSchemaWithHeaders({String messageHeaderName = 'Message'}) {
   return <String, Object?>{
     'type': 'object',
     'properties': <String, Object?>{
-      'message': <String, Object?>{'type': 'string', 'x-mcp-header': 'Message'},
+      'message': <String, Object?>{
+        'type': 'string',
+        'x-mcp-header': messageHeaderName,
+      },
       'attempt': <String, Object?>{
         'type': 'integer',
         'x-mcp-header': 'Attempt',
