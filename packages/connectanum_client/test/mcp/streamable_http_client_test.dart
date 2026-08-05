@@ -4368,6 +4368,90 @@ void main() {
       },
     );
 
+    test(
+      'client close rejects new requests while shared transport stays reusable',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final httpClient = HttpClient();
+        addTearDown(() => httpClient.close(force: true));
+        final client = McpStreamableHttpClient(
+          endpoint.uri,
+          httpClient: httpClient,
+        );
+        addTearDown(() => client.close(force: true));
+
+        client.close();
+        client.close();
+        await expectLater(
+          client.pingDirect(id: 'closed-client-ping'),
+          throwsA(isA<StateError>()),
+        );
+        expect(endpoint.requests, isEmpty);
+
+        final replacement = McpStreamableHttpClient(
+          endpoint.uri,
+          httpClient: httpClient,
+        );
+        addTearDown(() => replacement.close(force: true));
+        expect(
+          await replacement.pingDirect(id: 'replacement-client-ping'),
+          isEmpty,
+        );
+        expect(endpoint.requests, hasLength(1));
+      },
+    );
+
+    test(
+      'client close rejects new listeners before allocating transport',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        var listenerClientAllocations = 0;
+        final client = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: const <String, Object?>{
+            'name': 'closed-listener-test',
+            'version': '1.0.0',
+          },
+          subscriptionHttpClientFactory: () {
+            listenerClientAllocations += 1;
+            return HttpClient();
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        client.close();
+        await expectLater(
+          client.listen(id: 'closed-listener', toolsListChanged: true),
+          throwsA(isA<StateError>()),
+        );
+
+        expect(listenerClientAllocations, 0);
+        expect(endpoint.requests, isEmpty);
+      },
+    );
+
+    test('client close rejects new OAuth discovery requests', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+      final httpClient = HttpClient();
+      addTearDown(() => httpClient.close(force: true));
+      final client = McpStreamableHttpClient(
+        endpoint.uri,
+        httpClient: httpClient,
+      );
+      addTearDown(() => client.close(force: true));
+
+      client.close();
+      expect(
+        client.discoverProtectedResourceMetadata,
+        throwsA(isA<StateError>()),
+      );
+
+      expect(endpoint.requests, isEmpty);
+    });
+
     test('client close clears active compatibility state locally', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);

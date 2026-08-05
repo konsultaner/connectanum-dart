@@ -24374,6 +24374,21 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-05: Three fail-first Streamable HTTP client regressions reproduced a
+  closed client sending a new direct request, allocating and establishing a new
+  MCP 2026 listener, and performing OAuth protected-resource discovery. Close
+  is now a terminal lifecycle boundary for ordinary requests, modern listeners,
+  and instance OAuth network helpers while caller-owned transport remains open
+  for a replacement client. Focused analysis, all 161 Streamable HTTP client
+  tests, the complete 241-case MCP/client suite, the source-path and globally
+  activated neutral client-only consumer smoke, pre-change `bin/test-fast`,
+  `bash -n bin/common.sh`, the public-artifact reference guard,
+  `git diff --check`, and full `bin/verify` pass. Full verification covered 113
+  Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP tests, all
+  96 benchmark tests including 36 live WAMP workloads, all 384 router tests, 13
+  native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
+  activated consumer/CLI smoke. Exact-head hosted workflow and deployment-audit
+  evidence remains to be collected after push.
 - 2026-08-05: Fail-first Streamable HTTP client regressions reproduced stalled
   direct JSON `POST`, compatibility `GET`, and session `DELETE` response bodies
   surviving client close after response headers arrived, plus a response
@@ -24388,8 +24403,15 @@ at the older `47bbf9c` commit.
   verification covered 113 Rust core tests, 52 Rust FFI tests, 360 Dart core
   tests, all 94 MCP tests, all 96 benchmark tests including 36 live WAMP
   workloads, all 384 router tests, 13 native follow-ups, Chrome/Dart2Wasm, and
-  every isolated and globally activated consumer/CLI smoke. Exact-head hosted
-  workflow and deployment-audit evidence remains to be collected after push.
+  every isolated and globally activated consumer/CLI smoke. Commit `0589faa5`
+  is on both maintained `master` branches. Exact-head GitHub CI `31045416577`,
+  Dart Package Publish Dry Run `31045416678`, WAMP Profile Benchmarks
+  `31045416853`, and Router Image dry run `31045483684` passed. Coverage
+  artifact `8946769962`, WAMP artifact `8946451040`, Router Image preview
+  artifact `8946265081`, and Docker build records `8946373432` and
+  `8946372789` were uploaded. The comprehensive strict deployment-chain audit
+  passes with clean exact-head CI logs, loaded-image MCP runtime smoke,
+  multi-architecture image build, and all required deployment gates clean.
 - 2026-08-05: Two fail-first Streamable HTTP client regressions reproduced a
   delayed compatibility initialize assigning reusable session state after
   `McpStreamableHttpClient.close()` and active session/resume state remaining
@@ -24818,6 +24840,16 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - No execution plan is active after completing the router-hosted MCP client
+  terminal-close plan:
+  `docs/exec-plans/2026-08-05-mcp-client-terminal-close.md`. It makes close a
+  terminal lifecycle boundary for new ordinary requests, modern listeners, and
+  OAuth network helpers on the same client while preserving a caller-owned HTTP
+  transport for a replacement client. Pre-change `bin/test-fast`, fail-first
+  regressions, focused client analysis, all 161 Streamable HTTP client tests,
+  the complete 241-case MCP/client suite, and the source plus globally
+  activated neutral consumer smoke pass. Full `bin/verify` also passes; hosted
+  exact-head evidence remains pending after push.
+- The most recently completed router-hosted MCP client
   response-body shutdown plan:
   `docs/exec-plans/2026-08-05-mcp-client-close-pending-response-bodies.md`.
   Ordinary direct JSON `POST`, compatibility `GET`, and session `DELETE`
@@ -24827,8 +24859,11 @@ at the older `47bbf9c` commit.
   caller-owned HTTP transport remains reusable. Fail-first coverage, all 158
   Streamable HTTP client tests, the complete 238-case MCP/client suite, the
   source and globally activated neutral consumer smoke, pre-change
-  `bin/test-fast`, and full `bin/verify` pass. Exact-head hosted workflow and
-  deployment-audit evidence remains to be collected after push.
+  `bin/test-fast`, and full `bin/verify` pass. Commit `0589faa5` is on both
+  maintained `master` branches; exact-head GitHub CI `31045416577`, Dart
+  Package Publish Dry Run `31045416678`, WAMP Profile Benchmarks `31045416853`,
+  Router Image dry run `31045483684`, their required artifacts, and the
+  comprehensive strict deployment-chain audit are clean.
 - The most recently completed router-hosted MCP client pending-request shutdown
   plan is:
   `docs/exec-plans/2026-08-05-mcp-client-close-pending-http-requests.md`. It

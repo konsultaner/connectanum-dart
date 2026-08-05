@@ -2261,6 +2261,7 @@ Future<void> main() async {
     await _smokeListenerCloseConcurrency(endpoint.uri);
     await _smokeClientCloseSessionState();
     await _smokeClientCloseResponseBody();
+    await _smokeClientTerminalClose();
     await _smokeAuthGrantRefreshAndRevokeLifecycle(
       authClient,
       grant,
@@ -4157,6 +4158,87 @@ Future<void> _smokeClientCloseResponseBody() async {
     );
   } finally {
     endpoint.releaseBlockedResponseBody();
+    replacementClient?.close(force: true);
+    client.close(force: true);
+    sharedHttpClient.close(force: true);
+    await endpoint.close();
+  }
+}
+
+Future<void> _smokeClientTerminalClose() async {
+  final endpoint = await _AgentMcpEndpoint.bind();
+  final sharedHttpClient = HttpClient();
+  var listenerClientAllocations = 0;
+  final client = McpStreamableHttpClient.withBearerToken(
+    endpoint.uri,
+    _accessToken,
+    httpClient: sharedHttpClient,
+    subscriptionHttpClientFactory: () {
+      listenerClientAllocations += 1;
+      return HttpClient();
+    },
+  );
+  McpStreamableHttpClient? replacementClient;
+  try {
+    client.close();
+    client.close();
+
+    var directRequestRejected = false;
+    try {
+      await client.pingDirect(id: 'consumer-terminal-close-ping');
+    } on StateError {
+      directRequestRejected = true;
+    }
+    _expect(
+      directRequestRejected,
+      'closed MCP client accepted a new direct request',
+    );
+
+    var listenerRejected = false;
+    try {
+      final escapedListener = await client.listen(
+        id: 'consumer-terminal-close-listener',
+        toolsListChanged: true,
+      );
+      await escapedListener.close();
+    } on StateError {
+      listenerRejected = true;
+    }
+    _expect(listenerRejected, 'closed MCP client accepted a new listener');
+
+    var discoveryRejected = false;
+    try {
+      await client.discoverProtectedResourceMetadata();
+    } on StateError {
+      discoveryRejected = true;
+    }
+    _expect(
+      discoveryRejected,
+      'closed MCP client accepted a new OAuth discovery request',
+    );
+    _expect(
+      endpoint.directMethodsWithoutSession.isEmpty &&
+          endpoint.protectedResourceMetadataRequestCount == 0,
+      'closed MCP client sent network traffic after shutdown',
+    );
+    _expect(
+      listenerClientAllocations == 0,
+      'closed MCP client allocated a listener transport after shutdown',
+    );
+
+    replacementClient = McpStreamableHttpClient.withBearerToken(
+      endpoint.uri,
+      _accessToken,
+      httpClient: sharedHttpClient,
+    );
+    final replacementPing = await replacementClient.pingDirect(
+      id: 'consumer-terminal-close-replacement-ping',
+    );
+    _expect(
+      replacementPing.isEmpty,
+      'terminal client close terminated a caller-owned HTTP transport',
+    );
+  } finally {
     replacementClient?.close(force: true);
     client.close(force: true);
     sharedHttpClient.close(force: true);

@@ -1522,6 +1522,7 @@ final class McpStreamableHttpClient {
   final HttpClient _httpClient;
   final McpHttpClientFactory _subscriptionHttpClientFactory;
   final bool _ownsHttpClient;
+  bool _closed = false;
   final Set<HttpClientRequest> _pendingHttpRequests = <HttpClientRequest>{};
   final Set<_McpPendingHttpResponseBody> _pendingHttpResponseBodies =
       <_McpPendingHttpResponseBody>{};
@@ -1647,6 +1648,7 @@ final class McpStreamableHttpClient {
     Map<String, String> headers = const <String, String>{},
     int maxMetadataBytes = 1024 * 1024,
   }) {
+    _throwIfClosed();
     return discoverMcpProtectedResourceMetadata(
       endpoint,
       httpClient: _httpClient,
@@ -1661,6 +1663,7 @@ final class McpStreamableHttpClient {
     Map<String, String> headers = const <String, String>{},
     int maxMetadataBytes = 1024 * 1024,
   }) {
+    _throwIfClosed();
     return discoverMcpAuthorizationServerMetadata(
       issuer,
       httpClient: _httpClient,
@@ -1695,6 +1698,7 @@ final class McpStreamableHttpClient {
     Duration timeout = const Duration(seconds: 30),
     int maxResponseBytes = 64 * 1024,
   }) {
+    _throwIfClosed();
     return registerMcpOAuthClient(
       authorizationServer: authorizationServer,
       registration: registration,
@@ -1713,6 +1717,7 @@ final class McpStreamableHttpClient {
     Duration timeout = const Duration(seconds: 30),
     int maxResponseBytes = 64 * 1024,
   }) {
+    _throwIfClosed();
     if (!_sameMcpOAuthResource(authorizationCode.request.resource, endpoint)) {
       throw McpOAuthTokenException(
         'Authorization code is not valid for this MCP resource.',
@@ -1738,6 +1743,7 @@ final class McpStreamableHttpClient {
     Duration timeout = const Duration(seconds: 30),
     int maxResponseBytes = 64 * 1024,
   }) {
+    _throwIfClosed();
     if (!grant.isForResource(endpoint)) {
       throw McpOAuthTokenException(
         'OAuth token grant is not valid for this MCP resource.',
@@ -1764,6 +1770,7 @@ final class McpStreamableHttpClient {
     Duration timeout = const Duration(seconds: 30),
     int maxResponseBytes = 64 * 1024,
   }) {
+    _throwIfClosed();
     if (!grant.isForResource(endpoint)) {
       throw McpOAuthTokenException(
         'OAuth token grant is not valid for this MCP resource.',
@@ -1916,6 +1923,7 @@ final class McpStreamableHttpClient {
     Iterable<String> resourceSubscriptions = const <String>[],
     Map<String, String> headers = const <String, String>{},
   }) async {
+    _throwIfClosed();
     if (protocolVersion != latestProtocolVersion) {
       throw const McpStreamableProtocolException(
         'subscriptions/listen requires the MCP 2026 stateless protocol',
@@ -3406,6 +3414,7 @@ final class McpStreamableHttpClient {
   Future<HttpClientRequest> _openTrackedHttpRequest(
     Future<HttpClientRequest> Function() open,
   ) async {
+    _throwIfClosed();
     final requestStateToken = _httpRequestStateToken;
     final request = await open();
     if (!identical(_httpRequestStateToken, requestStateToken)) {
@@ -3457,7 +3466,18 @@ final class McpStreamableHttpClient {
     }
   }
 
+  void _throwIfClosed() {
+    if (_closed) {
+      throw StateError('MCP client is closed.');
+    }
+  }
+
+  /// Permanently closes this MCP client and rejects subsequent network work.
+  ///
+  /// A caller-owned HTTP transport is left open so a replacement MCP client
+  /// can reuse it.
   void close({bool force = false}) {
+    _closed = true;
     _clearSessionState();
     _httpRequestStateToken = Object();
     final pendingHttpRequests = _pendingHttpRequests.toList(growable: false);

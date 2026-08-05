@@ -54,6 +54,18 @@ clients and remains an independent ownership boundary.
   238-case MCP/client suite, all 96 benchmark tests including 36 live WAMP
   workloads, all 384 router tests, 13 native follow-ups, Chrome/Dart2Wasm, and
   every isolated and globally activated consumer/CLI smoke.
+- Hosted exact-head deployment audit: passed. Commit `0589faa5` is on both
+  maintained `master` branches. GitHub CI `31045416577`, Dart Package Publish
+  Dry Run `31045416678`, WAMP Profile Benchmarks `31045416853`, and Router
+  Image dry run `31045483684` passed. Coverage artifact `8946769962`, WAMP
+  artifact `8946451040`, Router Image preview artifact `8946265081`, and Docker
+  build records `8946373432` and `8946372789` were uploaded. The comprehensive
+  strict deployment-chain audit passes with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, and all
+  required branch, workflow, package, native-release, publish-dry-run,
+  benchmark, and registry gates clean. Release-candidate readiness remains
+  intentionally non-gating until an approved numeric RC tag points at the
+  release commit.
 
 ## Outcome
 
@@ -62,5 +74,5 @@ response-body completion. Client close rejects registered readers with a
 deterministic state error and cancels their stream subscriptions, including a
 response delivered across the close boundary. The caller-owned transport
 remains open and reusable, and modern request-scoped listener ownership remains
-independent. Exact-head hosted workflow and deployment-audit evidence remains
-to be collected after the implementation is pushed.
+independent. Exact-head hosted workflow and deployment-audit evidence is
+complete at implementation commit `0589faa5`.
