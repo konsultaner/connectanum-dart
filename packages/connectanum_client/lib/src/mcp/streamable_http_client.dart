@@ -1473,6 +1473,8 @@ final class McpStreamableHttpClient {
   Object _authorizationStateToken = Object();
   final Set<McpStreamableSubscription> _subscriptions =
       <McpStreamableSubscription>{};
+  final Set<HttpClient> _pendingSubscriptionHttpClients = <HttpClient>{};
+  Object _subscriptionStateToken = Object();
   final _toolHeaderParametersByName = <String, List<_McpToolHeaderParameter>>{};
   final _toolHeaderParameterGenerationByName = <String, int>{};
 
@@ -1901,12 +1903,19 @@ final class McpStreamableHttpClient {
     );
 
     final requestAuthorizationState = _authorizationStateSnapshot;
+    final subscriptionStateToken = _subscriptionStateToken;
     final subscriptionHttpClient = _subscriptionHttpClientFactory();
+    _pendingSubscriptionHttpClients.add(subscriptionHttpClient);
+    void closeSubscriptionHttpClient() {
+      _pendingSubscriptionHttpClients.remove(subscriptionHttpClient);
+      subscriptionHttpClient.close(force: true);
+    }
+
     final HttpClientRequest request;
     try {
       request = await subscriptionHttpClient.postUrl(endpoint);
     } catch (_) {
-      subscriptionHttpClient.close(force: true);
+      closeSubscriptionHttpClient();
       rethrow;
     }
     final HttpClientResponse response;
@@ -1927,32 +1936,29 @@ final class McpStreamableHttpClient {
       request.add(requestBody);
       response = await request.close();
     } catch (_) {
-      subscriptionHttpClient.close(force: true);
+      closeSubscriptionHttpClient();
       rethrow;
     }
-    if (response.statusCode < HttpStatus.ok ||
-        response.statusCode >= HttpStatus.multipleChoices) {
-      final body = await _readBody(response);
-      subscriptionHttpClient.close(force: true);
-      _throwIfHttpError(response, body);
-    }
-    if (!_isSse(response)) {
-      final body = await _readBody(response);
-      if (_isJson(response) && body.isNotEmpty) {
-        final jsonResponse = _jsonMapFromBody(
-          body,
-          'subscriptions/listen JSON response',
-        );
-        subscriptionHttpClient.close(force: true);
-        _jsonRpcResultFrom(jsonResponse, method: 'subscriptions/listen');
-      }
-      subscriptionHttpClient.close(force: true);
-      throw FormatException(
-        'Expected $_acceptSse response, got '
-        '${response.headers.contentType?.mimeType ?? 'unknown'}',
-      );
-    }
     try {
+      if (response.statusCode < HttpStatus.ok ||
+          response.statusCode >= HttpStatus.multipleChoices) {
+        final body = await _readBody(response);
+        _throwIfHttpError(response, body);
+      }
+      if (!_isSse(response)) {
+        final body = await _readBody(response);
+        if (_isJson(response) && body.isNotEmpty) {
+          final jsonResponse = _jsonMapFromBody(
+            body,
+            'subscriptions/listen JSON response',
+          );
+          _jsonRpcResultFrom(jsonResponse, method: 'subscriptions/listen');
+        }
+        throw FormatException(
+          'Expected $_acceptSse response, got '
+          '${response.headers.contentType?.mimeType ?? 'unknown'}',
+        );
+      }
       _captureSessionHeaders(
         response,
         captureSessionState: false,
@@ -1960,8 +1966,15 @@ final class McpStreamableHttpClient {
         expectedProtocolVersion: latestProtocolVersion,
       );
     } catch (_) {
-      subscriptionHttpClient.close(force: true);
+      closeSubscriptionHttpClient();
       rethrow;
+    }
+
+    if (!identical(subscriptionStateToken, _subscriptionStateToken)) {
+      closeSubscriptionHttpClient();
+      throw StateError(
+        'MCP client closed while subscriptions/listen was pending.',
+      );
     }
 
     late final McpStreamableSubscription subscription;
@@ -1973,6 +1986,7 @@ final class McpStreamableHttpClient {
       response: response,
       onClosed: () => _subscriptions.remove(subscription),
     );
+    _pendingSubscriptionHttpClients.remove(subscriptionHttpClient);
     _subscriptions.add(subscription);
     subscription._start();
     try {
@@ -3327,6 +3341,13 @@ final class McpStreamableHttpClient {
   }
 
   void close({bool force = false}) {
+    _subscriptionStateToken = Object();
+    final pendingSubscriptionHttpClients = _pendingSubscriptionHttpClients
+        .toList(growable: false);
+    _pendingSubscriptionHttpClients.clear();
+    for (final httpClient in pendingSubscriptionHttpClients) {
+      httpClient.close(force: true);
+    }
     for (final subscription in _subscriptions.toList(growable: false)) {
       unawaited(subscription.close());
     }

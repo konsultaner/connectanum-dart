@@ -2258,6 +2258,7 @@ Future<void> main() async {
     await _smokeAuthGrantRotationConcurrency(grant, endpoint);
     await _smokeResumeCursorConcurrency(grant);
     await _smokeToolCatalogStateIntegrity(grant);
+    await _smokeListenerCloseConcurrency(endpoint.uri);
     await _smokeAuthGrantRefreshAndRevokeLifecycle(
       authClient,
       grant,
@@ -3996,6 +3997,49 @@ Future<void> _smokeToolCatalogStateIntegrity(
     endpoint.releaseBlockedResponse();
     client.close(force: true);
     await endpoint.close();
+  }
+}
+
+Future<void> _smokeListenerCloseConcurrency(Uri endpoint) async {
+  late final _DelayedListenerHttpClient listenerHttpClient;
+  final client = McpStreamableHttpClient.stateless(
+    endpoint,
+    clientInfo: const <String, Object?>{
+      'name': 'consumer-listener-close-smoke',
+      'version': '1.0.0',
+    },
+    subscriptionHttpClientFactory: () {
+      listenerHttpClient = _DelayedListenerHttpClient(HttpClient());
+      return listenerHttpClient;
+    },
+  );
+  try {
+    final pendingListener = client.listen(
+      id: 'consumer-pending-listener-close',
+      toolsListChanged: true,
+    );
+    await listenerHttpClient.waitForPost();
+    client.close();
+    listenerHttpClient.releasePost();
+
+    var rejected = false;
+    try {
+      final escapedListener = await pendingListener;
+      await escapedListener.close();
+    } catch (_) {
+      rejected = true;
+    }
+    _expect(
+      rejected,
+      'client close allowed a pending request-scoped listener to establish',
+    );
+    _expect(
+      client.sessionId == null && client.lastEventId == null,
+      'pending listener shutdown created protocol session state',
+    );
+  } finally {
+    listenerHttpClient.releasePost();
+    client.close(force: true);
   }
 }
 
@@ -6905,6 +6949,37 @@ Future<void> _expectInvalidLastEventIdRejectedWithoutSessionLoss(
     client.sessionId == sessionId,
     'invalid Last-Event-ID recovery lost the session id',
   );
+}
+
+final class _DelayedListenerHttpClient implements HttpClient {
+  _DelayedListenerHttpClient(this._delegate);
+
+  final HttpClient _delegate;
+  final Completer<void> _postStarted = Completer<void>();
+  final Completer<void> _releasePost = Completer<void>();
+
+  Future<void> waitForPost() => _postStarted.future;
+
+  void releasePost() {
+    if (!_releasePost.isCompleted) {
+      _releasePost.complete();
+    }
+  }
+
+  @override
+  Future<HttpClientRequest> postUrl(Uri url) async {
+    if (!_postStarted.isCompleted) {
+      _postStarted.complete();
+    }
+    await _releasePost.future;
+    return _delegate.postUrl(url);
+  }
+
+  @override
+  void close({bool force = false}) => _delegate.close(force: force);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _AgentMcpEndpoint {

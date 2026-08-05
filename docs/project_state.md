@@ -24374,6 +24374,21 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-05: A fail-first Streamable HTTP client regression reproduced a
+  delayed MCP `2026-07-28` request-scoped listener becoming active after
+  `McpStreamableHttpClient.close()`. Dedicated listener clients are now
+  shutdown-visible from creation through atomic promotion, and an ownership
+  token prevents a validated delayed response from escaping shutdown. Both
+  pending-open and post-validation close races, focused analysis, all 148
+  Streamable HTTP client tests, the generated client-only consumer package,
+  pre-change `bin/test-fast`, `git diff --check`, `bash -n bin/common.sh`, and
+  full `bin/verify` pass. Full verification covered 113 Rust core tests, 52
+  Rust FFI tests, 360 Dart core tests, all 94 MCP tests, the complete 228-case
+  MCP/client suite, all 96 benchmark tests including 36 live WAMP workloads,
+  all 384 router tests, 13 native follow-ups, Chrome/Dart2Wasm, and every
+  isolated and globally activated consumer/CLI smoke. The implementation is
+  ready to push; exact-head hosted workflows and the strict deployment-chain
+  audit remain.
 - 2026-08-05: Two fail-first Streamable HTTP client regressions reproduced a
   malformed tool catalog page poisoning a previously valid `x-mcp-header`
   mapping and a delayed older catalog response overwriting newer metadata for
@@ -24387,8 +24402,14 @@ at the older `47bbf9c` commit.
   tests, all 94 MCP tests, the complete 226-case MCP/client suite, all 96
   benchmark tests including 36 live WAMP workloads, all 384 router tests, 13
   native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
-  activated consumer/CLI smoke. The implementation is ready to push;
-  exact-head hosted workflows and the strict deployment-chain audit remain.
+  activated consumer/CLI smoke. Commit `2c61d68` is on both maintained
+  `master` branches. Exact-head GitHub CI `31014617079`, Dart Package Publish
+  Dry Run `31014617543`, WAMP Profile Benchmarks `31014617286`, and Router
+  Image dry run `31014824011` passed. Coverage artifact `8934452507`, WAMP
+  artifact `8934171955`, Router Image preview artifact `8934006449`, and
+  Docker build records `8934127171` and `8934126501` were uploaded. The
+  comprehensive strict deployment-chain audit passes with clean exact-head CI
+  logs and all required deployment gates ready.
 - 2026-08-05: Three fail-first Streamable HTTP client regressions reproduced
   delayed GET/SSE and POST/SSE responses overwriting caller-installed or newer
   completed-response resume cursors while the session remained unchanged.
@@ -24752,9 +24773,22 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- No execution plan is active after completing the MCP client tool-catalog
-  state-integrity slice. Select the next concrete shipped-path correctness or
-  downstream-readiness gap from `ROADMAP_NEXT.md` and `ROADMAP.md` together.
+- No execution plan is active after completing the router-hosted MCP client
+  listener-close concurrency plan:
+  `docs/exec-plans/2026-08-05-mcp-client-listener-close-concurrency.md`.
+  Dedicated request-scoped listener clients are shutdown-visible from creation
+  until atomic promotion, while an ownership token prevents a delayed validated
+  response from becoming active after client close. Pending clients and active
+  subscriptions close independently from compatibility session, resume-cursor,
+  and bearer-rotation state. The fail-first regression, both final concurrency
+  races, all 148 Streamable client tests, the generated client-only consumer
+  package, pre-change `bin/test-fast`, and full `bin/verify` pass. Final
+  verification covers 113 Rust core tests, 52 Rust FFI tests, 360 Dart core
+  tests, 94 MCP tests, the complete 228-case MCP/client suite, all 96 benchmark
+  tests including 36 live WAMP workloads, all 384 router tests, 13 native
+  follow-ups, Chrome/Dart2Wasm, and every isolated and globally activated
+  consumer/CLI smoke. Exact-head hosted workflows and the strict
+  deployment-chain audit remain.
 - The most recently completed router-hosted MCP client tool-catalog
   state-integrity plan is:
   `docs/exec-plans/2026-08-05-mcp-client-tool-catalog-state-integrity.md`.
@@ -24769,7 +24803,9 @@ at the older `47bbf9c` commit.
   core tests, 94 MCP tests, the complete 226-case MCP/client suite, all 96
   benchmark tests including 36 live WAMP workloads, all 384 router tests, 13
   native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
-  activated consumer/CLI smoke.
+  activated consumer/CLI smoke. Commit `2c61d68` is on both maintained
+  `master` branches; exact-head CI, package, WAMP, and Router Image workflows
+  plus the comprehensive strict deployment-chain audit are clean.
 - The most recently completed router-hosted MCP client resume-cursor
   concurrency plan is:
   `docs/exec-plans/2026-08-05-mcp-client-resume-cursor-concurrency.md`.

@@ -77,3 +77,15 @@ deterministic when tool catalog pages are malformed or overlap in flight.
   isolated and globally activated consumer/CLI smoke. The implementation is
   ready to push; exact-head hosted workflows and the strict deployment-chain
   audit remain.
+- 2026-08-05: Commit `2c61d68` is on both maintained `master` branches.
+  Exact-head GitHub CI `31014617079`, Dart Package Publish Dry Run
+  `31014617543`, WAMP Profile Benchmarks `31014617286`, and Router Image dry
+  run `31014824011` passed. CI uploaded coverage artifact `8934452507`, WAMP
+  uploaded benchmark artifact `8934171955`, and Router Image uploaded preview
+  artifact `8934006449` plus Docker build records `8934127171` and
+  `8934126501`. The comprehensive strict deployment-chain audit passes with
+  clean exact-head CI logs, loaded-image MCP runtime smoke,
+  multi-architecture image build, and every required branch, workflow,
+  package, native-release, publish-dry-run, benchmark, and registry gate
+  clean. Release-candidate readiness remains intentionally non-gating until
+  an approved numeric RC tag points at the release commit.

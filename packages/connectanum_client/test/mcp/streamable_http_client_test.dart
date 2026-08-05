@@ -470,6 +470,89 @@ void main() {
       },
     );
 
+    test('client close cancels a pending MCP 2026 listener', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      late final _DelayedPostHttpClient listenerHttpClient;
+      final client = McpStreamableHttpClient.stateless(
+        endpoint.uri,
+        clientInfo: const <String, Object?>{
+          'name': 'listener-close-test',
+          'version': '1.0.0',
+        },
+        subscriptionHttpClientFactory: () {
+          listenerHttpClient = _DelayedPostHttpClient(HttpClient());
+          return listenerHttpClient;
+        },
+      );
+      addTearDown(() => client.close(force: true));
+
+      final listener = client.listen(
+        id: 'pending-listener-close',
+        toolsListChanged: true,
+      );
+      await listenerHttpClient.waitForPost();
+
+      client.close();
+      listenerHttpClient.releasePost();
+
+      await expectLater(listener, throwsA(anything));
+      expect(endpoint.requests, isEmpty);
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+    });
+
+    test(
+      'client close prevents a pending listener from becoming active',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        late final _DelayedPostHttpClient listenerHttpClient;
+        final client = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: const <String, Object?>{
+            'name': 'listener-close-generation-test',
+            'version': '1.0.0',
+          },
+          subscriptionHttpClientFactory: () {
+            listenerHttpClient = _DelayedPostHttpClient(
+              HttpClient(),
+              deferFirstClose: true,
+            );
+            return listenerHttpClient;
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final listener = client.listen(
+          id: 'pending-listener-promotion',
+          toolsListChanged: true,
+        );
+        await listenerHttpClient.waitForPost();
+
+        client.close();
+        expect(listenerHttpClient.closeCalls, 1);
+        listenerHttpClient.releasePost();
+
+        await expectLater(
+          listener,
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              contains('subscriptions/listen was pending'),
+            ),
+          ),
+        );
+        expect(listenerHttpClient.closeCalls, 2);
+        expect(endpoint.requests, hasLength(1));
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
     test('rejects MCP 2026 listener response version drift', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -10366,11 +10449,13 @@ McpJsonMap _toolInputSchemaWithHeaders({String messageHeaderName = 'Message'}) {
 }
 
 final class _DelayedPostHttpClient implements HttpClient {
-  _DelayedPostHttpClient(this._delegate);
+  _DelayedPostHttpClient(this._delegate, {this.deferFirstClose = false});
 
   final HttpClient _delegate;
+  final bool deferFirstClose;
   final Completer<void> _postStarted = Completer<void>();
   final Completer<void> _releasePost = Completer<void>();
+  var closeCalls = 0;
 
   Future<void> waitForPost() => _postStarted.future;
 
@@ -10390,7 +10475,12 @@ final class _DelayedPostHttpClient implements HttpClient {
   }
 
   @override
-  void close({bool force = false}) => _delegate.close(force: force);
+  void close({bool force = false}) {
+    closeCalls += 1;
+    if (!deferFirstClose || closeCalls > 1) {
+      _delegate.close(force: force);
+    }
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
