@@ -4065,8 +4065,21 @@ Future<void> _smokeClientCloseSessionState() async {
       client.sessionId == null && client.lastEventId == null,
       'client close retained compatibility session state',
     );
+    var rejected = false;
+    try {
+      await delayedInitialize.timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      throw StateError(
+        'client close did not abort a pending compatibility request',
+      );
+    } catch (_) {
+      rejected = true;
+    }
+    _expect(
+      rejected,
+      'client close allowed a pending compatibility request to complete',
+    );
     endpoint.releaseBlockedResponse();
-    await delayedInitialize;
     _expect(
       client.sessionId == null && client.lastEventId == null,
       'delayed initialize established state after client close',

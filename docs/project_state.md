@@ -24387,9 +24387,15 @@ at the older `47bbf9c` commit.
   Rust FFI tests, 360 Dart core tests, all 94 MCP tests, the complete 230-case
   MCP/client suite, all 96 benchmark tests including 36 live WAMP workloads,
   all 384 router tests, 13 native follow-ups, Chrome/Dart2Wasm, and every
-  isolated and globally activated consumer/CLI smoke. The implementation is
-  ready to push; exact-head hosted workflows and the strict deployment-chain
-  audit remain.
+  isolated and globally activated consumer/CLI smoke. Commit `01d44976` is on
+  both maintained `master` branches. Exact-head GitHub CI `31028976087`, Dart
+  Package Publish Dry Run `31028976021`, WAMP Profile Benchmarks `31028976517`,
+  and Router Image dry run `31030424768` passed. Coverage artifact
+  `8940392983`, WAMP artifact `8940067055`, Router Image preview artifact
+  `8940419706`, and Docker build records `8940541202` and `8940540220` were
+  uploaded. The comprehensive strict deployment-chain audit passes with clean
+  exact-head CI logs, loaded-image MCP runtime smoke, multi-architecture image
+  build, and all required deployment gates ready.
 - 2026-08-05: A fail-first Streamable HTTP client regression reproduced a
   delayed MCP `2026-07-28` request-scoped listener becoming active after
   `McpStreamableHttpClient.close()`. Dedicated listener clients are now
@@ -24795,7 +24801,24 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active router-hosted MCP client close/session-state plan is:
+- No execution plan is active after completing the router-hosted MCP client
+  pending-request shutdown plan:
+  `docs/exec-plans/2026-08-05-mcp-client-close-pending-http-requests.md`. It
+  covers request ownership for standard/direct JSON `POST`, compatibility
+  `GET`, and session `DELETE` traffic on caller-owned transports. The intended
+  boundary aborts requests still establishing a response when the MCP client
+  closes, rejects request objects opened across that close boundary, preserves
+  shared transport reuse, and leaves modern request-scoped listener ownership
+  independent. Both fail-first shutdown gaps, focused analysis, all 154
+  Streamable HTTP client tests, and the source plus globally activated
+  client-only consumer-package smoke pass. Full `bin/verify` also passes with
+  113 Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP tests,
+  the complete 234-case MCP/client suite, all 96 benchmark tests including 36
+  live WAMP workloads, all 384 router tests, 13 native follow-ups,
+  Chrome/Dart2Wasm, and every isolated and globally activated consumer/CLI
+  smoke.
+- The most recently completed router-hosted MCP client close/session-state plan
+  is:
   `docs/exec-plans/2026-08-05-mcp-client-close-session-state.md`. It covers the
   shutdown race where a compatibility-era initialize request retained session
   and resume ownership across `McpStreamableHttpClient.close()` and could
@@ -24804,8 +24827,9 @@ at the older `47bbf9c` commit.
   caller-owned transport and modern listener ownership boundaries. Both
   fail-first regressions, all 150 Streamable client tests, the generated
   client-only consumer package, pre-change `bin/test-fast`, and full
-  `bin/verify` pass. Exact-head hosted workflows and the strict deployment-chain
-  audit remain.
+  `bin/verify` pass. Commit `01d44976` is on both maintained `master` branches;
+  exact-head CI, package, WAMP, and Router Image workflows plus the
+  comprehensive strict deployment-chain audit are clean.
 - The most recently completed router-hosted MCP client listener-close
   concurrency plan is:
   `docs/exec-plans/2026-08-05-mcp-client-listener-close-concurrency.md`.

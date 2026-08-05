@@ -4134,12 +4134,128 @@ void main() {
         await endpoint.waitForBlockedRequest();
 
         client.close();
+        await expectLater(
+          delayedInitialize.timeout(const Duration(seconds: 1)),
+          throwsA(isA<StateError>()),
+        );
         endpoint.releaseBlockedRequest();
 
-        final initialized = await delayedInitialize;
-        expect(initialized['id'], 'close-pending-initialize');
         expect(client.sessionId, isNull);
         expect(client.lastEventId, isNull);
+
+        final replacement = McpStreamableHttpClient(
+          endpoint.uri,
+          httpClient: httpClient,
+        );
+        addTearDown(() => replacement.close(force: true));
+        final initialized = await replacement.initialize(
+          id: 'close-pending-replacement',
+        );
+        expect(initialized['id'], 'close-pending-replacement');
+        expect(replacement.sessionId, 'session-1');
+      },
+    );
+
+    for (final operation in <String>['direct POST', 'GET poll', 'DELETE']) {
+      test(
+        'client close aborts pending $operation on a shared transport',
+        () async {
+          final endpoint = await _FakeMcpEndpoint.bind();
+          addTearDown(endpoint.close);
+          final httpClient = HttpClient();
+          addTearDown(() => httpClient.close(force: true));
+
+          final client = McpStreamableHttpClient(
+            endpoint.uri,
+            httpClient: httpClient,
+          );
+          addTearDown(() => client.close(force: true));
+          if (operation != 'direct POST') {
+            await client.initialize(id: 'close-$operation-initialize');
+          }
+
+          Future<void> sendPendingRequest() async {
+            switch (operation) {
+              case 'direct POST':
+                await client.pingDirect(
+                  id: 'close-direct-post',
+                  headers: const <String, String>{'x-test-block-response': '1'},
+                );
+                return;
+              case 'GET poll':
+                await client.poll(
+                  headers: const <String, String>{'x-test-block-response': '1'},
+                );
+                return;
+              case 'DELETE':
+                await client.deleteSession(
+                  headers: const <String, String>{'x-test-block-response': '1'},
+                );
+                return;
+            }
+          }
+
+          final pendingRequest = sendPendingRequest();
+          await endpoint.waitForBlockedRequest();
+
+          client.close();
+          await expectLater(
+            pendingRequest.timeout(const Duration(seconds: 1)),
+            throwsA(isA<StateError>()),
+          );
+          endpoint.releaseBlockedRequest();
+
+          final replacement = McpStreamableHttpClient(
+            endpoint.uri,
+            httpClient: httpClient,
+          );
+          addTearDown(() => replacement.close(force: true));
+          final initialized = await replacement.initialize(
+            id: 'close-$operation-replacement',
+          );
+          expect(initialized['id'], 'close-$operation-replacement');
+          expect(replacement.sessionId, 'session-1');
+        },
+      );
+    }
+
+    test(
+      'client close rejects an HTTP request opened across shutdown',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final delayedHttpClient = _DelayedPostHttpClient(HttpClient());
+        addTearDown(() => delayedHttpClient.close(force: true));
+
+        final client = McpStreamableHttpClient(
+          endpoint.uri,
+          httpClient: delayedHttpClient,
+        );
+        addTearDown(() => client.close(force: true));
+
+        final delayedInitialize = client.initialize(
+          id: 'close-delayed-request-open',
+        );
+        await delayedHttpClient.waitForPost();
+
+        client.close();
+        delayedHttpClient.releasePost();
+
+        await expectLater(delayedInitialize, throwsA(isA<StateError>()));
+        expect(endpoint.requests, isEmpty);
+        expect(delayedHttpClient.closeCalls, 0);
+
+        final replacement = McpStreamableHttpClient(
+          endpoint.uri,
+          httpClient: delayedHttpClient,
+        );
+        addTearDown(() => replacement.close(force: true));
+        final initialized = await replacement.initialize(
+          id: 'close-delayed-request-replacement',
+        );
+        expect(initialized['id'], 'close-delayed-request-replacement');
+        expect(replacement.sessionId, 'session-1');
+        expect(delayedHttpClient.closeCalls, 0);
       },
     );
 

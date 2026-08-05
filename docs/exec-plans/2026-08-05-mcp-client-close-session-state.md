@@ -1,6 +1,6 @@
 # MCP Client Close Session-State Integrity
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -49,7 +49,18 @@ client.
   230-case MCP/client suite, all 96 benchmark tests including 36 live WAMP
   workloads, all 384 router tests, 13 native follow-ups, Chrome/Dart2Wasm, and
   every isolated and globally activated consumer/CLI smoke.
-- Hosted exact-head deployment audit: pending.
+- Hosted exact-head deployment audit: passed. Commit `01d44976` is on both
+  maintained `master` branches. GitHub CI `31028976087`, Dart Package Publish
+  Dry Run `31028976021`, WAMP Profile Benchmarks `31028976517`, and Router
+  Image dry run `31030424768` passed. Coverage artifact `8940392983`, WAMP
+  artifact `8940067055`, Router Image preview artifact `8940419706`, and
+  Docker build records `8940541202` and `8940540220` were uploaded. The
+  comprehensive strict deployment-chain audit passes with clean exact-head CI
+  logs, loaded-image MCP runtime smoke, multi-architecture image build, and all
+  required branch, workflow, package, native-release, publish-dry-run,
+  benchmark, and registry gates clean. Release-candidate readiness remains
+  intentionally non-gating until an approved numeric RC tag points at the
+  release commit.
 
 ## Outcome
 

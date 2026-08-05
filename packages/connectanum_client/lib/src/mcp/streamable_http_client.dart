@@ -1469,6 +1469,8 @@ final class McpStreamableHttpClient {
   final HttpClient _httpClient;
   final McpHttpClientFactory _subscriptionHttpClientFactory;
   final bool _ownsHttpClient;
+  final Set<HttpClientRequest> _pendingHttpRequests = <HttpClientRequest>{};
+  Object _httpRequestStateToken = Object();
   String? _authorizationHeader;
   Object _authorizationStateToken = Object();
   final Set<McpStreamableSubscription> _subscriptions =
@@ -2993,7 +2995,9 @@ final class McpStreamableHttpClient {
     final requestSessionState = _sessionStateSnapshot;
     final requestAuthorizationState = _authorizationStateSnapshot;
     final requestResumeState = _resumeStateSnapshot;
-    final request = await _httpClient.postUrl(endpoint);
+    final request = await _openTrackedHttpRequest(
+      () => _httpClient.postUrl(endpoint),
+    );
     final acceptsSse = streamable || protocolVersion == latestProtocolVersion;
     _applyHeaders(
       request,
@@ -3016,7 +3020,7 @@ final class McpStreamableHttpClient {
         includeSession || (streamable && requestMethod == 'initialize');
     final clearsSessionOnMissing = requestMethod == 'initialize';
     final resetsLastEventId = requestMethod == 'initialize';
-    final response = await request.close();
+    final response = await _sendTrackedHttpRequest(request);
     final body = await _readBody(response);
     if (affectsSessionState) {
       _throwIfHttpErrorForSession(
@@ -3242,7 +3246,9 @@ final class McpStreamableHttpClient {
     final requestResumeState = _resumeStateSnapshot;
     final requestProtocolVersion = protocolVersion;
     final requestLastEventId = lastEventId ?? requestResumeState.lastEventId;
-    final request = await _httpClient.getUrl(endpoint);
+    final request = await _openTrackedHttpRequest(
+      () => _httpClient.getUrl(endpoint),
+    );
     _applyHeaders(
       request,
       accept: _acceptSse,
@@ -3253,7 +3259,7 @@ final class McpStreamableHttpClient {
       extraHeaders: headers,
     );
 
-    final response = await request.close();
+    final response = await _sendTrackedHttpRequest(request);
     final body = await _readBody(response);
     _throwIfHttpErrorForSession(
       response,
@@ -3311,7 +3317,9 @@ final class McpStreamableHttpClient {
       return;
     }
     final activeProtocolVersion = protocolVersion;
-    final request = await _httpClient.deleteUrl(endpoint);
+    final request = await _openTrackedHttpRequest(
+      () => _httpClient.deleteUrl(endpoint),
+    );
     _applyHeaders(
       request,
       accept: _acceptJson,
@@ -3321,7 +3329,7 @@ final class McpStreamableHttpClient {
       extraHeaders: headers,
     );
 
-    final response = await request.close();
+    final response = await _sendTrackedHttpRequest(request);
     final body = await _readBody(response);
     _throwIfHttpErrorForSession(
       response,
@@ -3340,8 +3348,44 @@ final class McpStreamableHttpClient {
     }
   }
 
+  Future<HttpClientRequest> _openTrackedHttpRequest(
+    Future<HttpClientRequest> Function() open,
+  ) async {
+    final requestStateToken = _httpRequestStateToken;
+    final request = await open();
+    if (!identical(_httpRequestStateToken, requestStateToken)) {
+      final error = StateError(
+        'MCP client closed while opening an HTTP request',
+      );
+      request.abort(error);
+      throw error;
+    }
+    _pendingHttpRequests.add(request);
+    return request;
+  }
+
+  Future<HttpClientResponse> _sendTrackedHttpRequest(
+    HttpClientRequest request,
+  ) async {
+    try {
+      return await request.close();
+    } finally {
+      _pendingHttpRequests.remove(request);
+    }
+  }
+
   void close({bool force = false}) {
     _clearSessionState();
+    _httpRequestStateToken = Object();
+    final pendingHttpRequests = _pendingHttpRequests.toList(growable: false);
+    _pendingHttpRequests.clear();
+    final closeError = StateError(
+      'MCP client closed while an HTTP request was pending',
+    );
+    for (final request in pendingHttpRequests) {
+      request.abort(closeError);
+    }
+
     _subscriptionStateToken = Object();
     final pendingSubscriptionHttpClients = _pendingSubscriptionHttpClients
         .toList(growable: false);
