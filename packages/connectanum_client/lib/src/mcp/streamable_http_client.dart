@@ -1348,6 +1348,24 @@ final class _McpPendingHttpResponseBody {
   }
 }
 
+final class _McpPendingOAuthHttpOperation {
+  final Completer<void> _canceled = Completer<void>();
+  Object? _error;
+
+  Future<T> cancellation<T>() async {
+    await _canceled.future;
+    throw _error!;
+  }
+
+  void abort(Object error) {
+    if (_canceled.isCompleted) {
+      return;
+    }
+    _error = error;
+    _canceled.complete();
+  }
+}
+
 /// HTTP client for session-based MCP revisions and stateless MCP 2026.
 ///
 /// For session-based revisions, the client keeps the negotiated MCP session
@@ -1524,6 +1542,8 @@ final class McpStreamableHttpClient {
   final bool _ownsHttpClient;
   bool _closed = false;
   final Set<HttpClientRequest> _pendingHttpRequests = <HttpClientRequest>{};
+  final Set<_McpPendingOAuthHttpOperation> _pendingOAuthHttpOperations =
+      <_McpPendingOAuthHttpOperation>{};
   final Set<_McpPendingHttpResponseBody> _pendingHttpResponseBodies =
       <_McpPendingHttpResponseBody>{};
   Object _httpRequestStateToken = Object();
@@ -1648,12 +1668,14 @@ final class McpStreamableHttpClient {
     Map<String, String> headers = const <String, String>{},
     int maxMetadataBytes = 1024 * 1024,
   }) {
-    _throwIfClosed();
-    return discoverMcpProtectedResourceMetadata(
-      endpoint,
-      httpClient: _httpClient,
-      headers: headers,
-      maxMetadataBytes: maxMetadataBytes,
+    return _runTrackedOAuthHttpOperation(
+      (onRequestOpened) => discoverMcpProtectedResourceMetadata(
+        endpoint,
+        httpClient: _httpClient,
+        headers: headers,
+        maxMetadataBytes: maxMetadataBytes,
+        onRequestOpened: onRequestOpened,
+      ),
     );
   }
 
@@ -1663,12 +1685,14 @@ final class McpStreamableHttpClient {
     Map<String, String> headers = const <String, String>{},
     int maxMetadataBytes = 1024 * 1024,
   }) {
-    _throwIfClosed();
-    return discoverMcpAuthorizationServerMetadata(
-      issuer,
-      httpClient: _httpClient,
-      headers: headers,
-      maxMetadataBytes: maxMetadataBytes,
+    return _runTrackedOAuthHttpOperation(
+      (onRequestOpened) => discoverMcpAuthorizationServerMetadata(
+        issuer,
+        httpClient: _httpClient,
+        headers: headers,
+        maxMetadataBytes: maxMetadataBytes,
+        onRequestOpened: onRequestOpened,
+      ),
     );
   }
 
@@ -1698,15 +1722,17 @@ final class McpStreamableHttpClient {
     Duration timeout = const Duration(seconds: 30),
     int maxResponseBytes = 64 * 1024,
   }) {
-    _throwIfClosed();
-    return registerMcpOAuthClient(
-      authorizationServer: authorizationServer,
-      registration: registration,
-      initialAccessToken: initialAccessToken,
-      httpClient: _httpClient,
-      headers: headers,
-      timeout: timeout,
-      maxResponseBytes: maxResponseBytes,
+    return _runTrackedOAuthHttpOperation(
+      (onRequestOpened) => registerMcpOAuthClient(
+        authorizationServer: authorizationServer,
+        registration: registration,
+        initialAccessToken: initialAccessToken,
+        httpClient: _httpClient,
+        headers: headers,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+        onRequestOpened: onRequestOpened,
+      ),
     );
   }
 
@@ -1724,13 +1750,16 @@ final class McpStreamableHttpClient {
         endpoint: endpoint,
       );
     }
-    return exchangeMcpAuthorizationCode(
-      authorizationCode,
-      clientAuthentication: clientAuthentication,
-      httpClient: _httpClient,
-      headers: headers,
-      timeout: timeout,
-      maxResponseBytes: maxResponseBytes,
+    return _runTrackedOAuthHttpOperation(
+      (onRequestOpened) => exchangeMcpAuthorizationCode(
+        authorizationCode,
+        clientAuthentication: clientAuthentication,
+        httpClient: _httpClient,
+        headers: headers,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+        onRequestOpened: onRequestOpened,
+      ),
     );
   }
 
@@ -1750,14 +1779,17 @@ final class McpStreamableHttpClient {
         endpoint: endpoint,
       );
     }
-    return refreshMcpOAuthToken(
-      grant,
-      clientAuthentication: clientAuthentication,
-      scopes: scopes,
-      httpClient: _httpClient,
-      headers: headers,
-      timeout: timeout,
-      maxResponseBytes: maxResponseBytes,
+    return _runTrackedOAuthHttpOperation(
+      (onRequestOpened) => refreshMcpOAuthToken(
+        grant,
+        clientAuthentication: clientAuthentication,
+        scopes: scopes,
+        httpClient: _httpClient,
+        headers: headers,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+        onRequestOpened: onRequestOpened,
+      ),
     );
   }
 
@@ -1777,14 +1809,17 @@ final class McpStreamableHttpClient {
         endpoint: endpoint,
       );
     }
-    return revokeMcpOAuthToken(
-      grant,
-      clientAuthentication: clientAuthentication,
-      tokenKind: tokenKind,
-      httpClient: _httpClient,
-      headers: headers,
-      timeout: timeout,
-      maxResponseBytes: maxResponseBytes,
+    return _runTrackedOAuthHttpOperation(
+      (onRequestOpened) => revokeMcpOAuthToken(
+        grant,
+        clientAuthentication: clientAuthentication,
+        tokenKind: tokenKind,
+        httpClient: _httpClient,
+        headers: headers,
+        timeout: timeout,
+        maxResponseBytes: maxResponseBytes,
+        onRequestOpened: onRequestOpened,
+      ),
     );
   }
 
@@ -3411,6 +3446,50 @@ final class McpStreamableHttpClient {
     }
   }
 
+  Future<T> _runTrackedOAuthHttpOperation<T>(
+    Future<T> Function(void Function(HttpClientRequest request) onRequestOpened)
+    operation,
+  ) {
+    _throwIfClosed();
+    final requestStateToken = _httpRequestStateToken;
+    final pendingOperation = _McpPendingOAuthHttpOperation();
+    final operationRequests = <HttpClientRequest>{};
+    _pendingOAuthHttpOperations.add(pendingOperation);
+
+    void onRequestOpened(HttpClientRequest request) {
+      if (!identical(_httpRequestStateToken, requestStateToken)) {
+        request.abort(
+          StateError('MCP client closed while opening an OAuth HTTP request'),
+        );
+        return;
+      }
+      operationRequests.add(request);
+      _pendingHttpRequests.add(request);
+    }
+
+    final operationFuture = Future<T>.sync(() => operation(onRequestOpened));
+
+    void removeOperationRequests() {
+      for (final request in operationRequests) {
+        _pendingHttpRequests.remove(request);
+      }
+    }
+
+    unawaited(
+      operationFuture.then<void>(
+        (_) => removeOperationRequests(),
+        onError: (Object _, StackTrace _) => removeOperationRequests(),
+      ),
+    );
+
+    return Future.any<T>(<Future<T>>[
+      operationFuture,
+      pendingOperation.cancellation<T>(),
+    ]).whenComplete(() {
+      _pendingOAuthHttpOperations.remove(pendingOperation);
+    });
+  }
+
   Future<HttpClientRequest> _openTrackedHttpRequest(
     Future<HttpClientRequest> Function() open,
   ) async {
@@ -3482,6 +3561,10 @@ final class McpStreamableHttpClient {
     _httpRequestStateToken = Object();
     final pendingHttpRequests = _pendingHttpRequests.toList(growable: false);
     _pendingHttpRequests.clear();
+    final pendingOAuthHttpOperations = _pendingOAuthHttpOperations.toList(
+      growable: false,
+    );
+    _pendingOAuthHttpOperations.clear();
     final pendingHttpResponseBodies = _pendingHttpResponseBodies.toList(
       growable: false,
     );
@@ -3489,6 +3572,12 @@ final class McpStreamableHttpClient {
     final closeError = StateError(
       'MCP client closed while an HTTP request was pending',
     );
+    final oauthCloseError = StateError(
+      'MCP client closed while an OAuth HTTP request was pending',
+    );
+    for (final pendingOperation in pendingOAuthHttpOperations) {
+      pendingOperation.abort(oauthCloseError);
+    }
     for (final responseBody in pendingHttpResponseBodies) {
       responseBody.abort(closeError);
     }

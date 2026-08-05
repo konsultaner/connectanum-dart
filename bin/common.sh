@@ -2261,6 +2261,7 @@ Future<void> main() async {
     await _smokeListenerCloseConcurrency(endpoint.uri);
     await _smokeClientCloseSessionState();
     await _smokeClientCloseResponseBody();
+    await _smokeClientCloseOAuthRequest();
     await _smokeClientTerminalClose();
     await _smokeAuthGrantRefreshAndRevokeLifecycle(
       authClient,
@@ -4158,6 +4159,58 @@ Future<void> _smokeClientCloseResponseBody() async {
     );
   } finally {
     endpoint.releaseBlockedResponseBody();
+    replacementClient?.close(force: true);
+    client.close(force: true);
+    sharedHttpClient.close(force: true);
+    await endpoint.close();
+  }
+}
+
+Future<void> _smokeClientCloseOAuthRequest() async {
+  final endpoint = await _AgentMcpEndpoint.bind();
+  final sharedHttpClient = HttpClient();
+  final client = McpStreamableHttpClient(
+    endpoint.uri,
+    httpClient: sharedHttpClient,
+  );
+  McpStreamableHttpClient? replacementClient;
+  try {
+    final pendingDiscovery = client.discoverProtectedResourceMetadata(
+      headers: const <String, String>{'x-test-block-response': '1'},
+    );
+    await endpoint.waitForBlockedResponse();
+
+    client.close();
+    var rejected = false;
+    try {
+      await pendingDiscovery.timeout(const Duration(seconds: 2));
+    } on StateError catch (error) {
+      rejected = error.message.toString().contains(
+        'OAuth HTTP request was pending',
+      );
+    } on TimeoutException {
+      throw StateError(
+        'client close did not abort a pending OAuth discovery request',
+      );
+    }
+    _expect(
+      rejected,
+      'client close allowed a pending OAuth discovery request to complete',
+    );
+    endpoint.releaseBlockedResponse();
+
+    replacementClient = McpStreamableHttpClient(
+      endpoint.uri,
+      httpClient: sharedHttpClient,
+    );
+    final discovery = await replacementClient
+        .discoverProtectedResourceMetadata();
+    _expect(
+      discovery.metadata.resource == endpoint.uri,
+      'OAuth request shutdown terminated a caller-owned HTTP transport',
+    );
+  } finally {
+    endpoint.releaseBlockedResponse();
     replacementClient?.close(force: true);
     client.close(force: true);
     sharedHttpClient.close(force: true);
@@ -7820,6 +7873,12 @@ final class _AgentMcpEndpoint {
     }
     protectedResourceMetadataRequestCount += 1;
     _recordAuthorizationDiscoveryRequest(request);
+    if (request.headers.value('x-test-block-response') == '1') {
+      if (!_blockedResponseSeen.isCompleted) {
+        _blockedResponseSeen.complete();
+      }
+      await _releaseBlockedResponse.future;
+    }
     await _writeJson(request, <String, Object?>{
       'resource': uri.toString(),
       'authorization_servers': <String>[

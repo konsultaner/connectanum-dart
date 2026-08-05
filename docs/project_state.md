@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -24387,8 +24387,15 @@ at the older `47bbf9c` commit.
   Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP tests, all
   96 benchmark tests including 36 live WAMP workloads, all 384 router tests, 13
   native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
-  activated consumer/CLI smoke. Exact-head hosted workflow and deployment-audit
-  evidence remains to be collected after push.
+  activated consumer/CLI smoke. Commit `d0cd1c0c` is on both maintained
+  `master` branches. Exact-head GitHub CI `31051953413`, Dart Package Publish
+  Dry Run `31051954139`, WAMP Profile Benchmarks `31051953192`, and Router
+  Image dry run `31053156773` passed. Coverage artifact `8949174172`, WAMP
+  artifact `8948847968`, Router Image preview artifact `8949213785`, and Docker
+  build records `8949295252` and `8949294843` were uploaded. The comprehensive
+  strict deployment-chain audit passes with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, and all
+  required deployment gates clean.
 - 2026-08-05: Fail-first Streamable HTTP client regressions reproduced stalled
   direct JSON `POST`, compatibility `GET`, and session `DELETE` response bodies
   surviving client close after response headers arrived, plus a response
@@ -24840,6 +24847,26 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - No execution plan is active after completing the router-hosted MCP client
+  in-flight OAuth close plan:
+  `docs/exec-plans/2026-08-06-mcp-client-inflight-oauth-close.md`. All six
+  client-bound OAuth network operations now participate in terminal close:
+  protected-resource and authorization-server discovery, dynamic registration,
+  authorization-code exchange, refresh, and revocation. Requests blocked on
+  response headers or response-body completion fail promptly with a redacted
+  OAuth lifecycle error, while a caller-owned shared HTTP transport remains
+  reusable by a replacement client. The standalone helpers keep their current
+  behavior behind optional request-open observers. Focused OAuth coverage
+  passes all 38 cases, Streamable HTTP client coverage passes all 163 cases,
+  the complete MCP/client suite passes all 243 cases, all 19 package-boundary
+  contracts pass, and the source plus globally activated neutral client-only
+  package smoke proves close and shared-transport reuse. Post-change
+  `bin/test-fast` and full `bin/verify` pass on 2026-08-06; the full gate
+  includes 113 Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94
+  MCP tests, all 96 benchmark tests with live router workloads, all 384 router
+  tests, the 13-case native-forwarding follow-up, every isolated and globally
+  activated package smoke, and Chrome/Dart2Wasm coverage. Exact-head hosted
+  deployment evidence remains pending until the implementation is pushed.
+- Completed immediately before that, the router-hosted MCP client
   terminal-close plan:
   `docs/exec-plans/2026-08-05-mcp-client-terminal-close.md`. It makes close a
   terminal lifecycle boundary for new ordinary requests, modern listeners, and
@@ -24848,7 +24875,9 @@ at the older `47bbf9c` commit.
   regressions, focused client analysis, all 161 Streamable HTTP client tests,
   the complete 241-case MCP/client suite, and the source plus globally
   activated neutral consumer smoke pass. Full `bin/verify` also passes; hosted
-  exact-head evidence remains pending after push.
+  exact-head CI, package dry run, WAMP benchmark, Router Image dry run, required
+  artifacts, and the comprehensive strict deployment-chain audit are clean at
+  implementation commit `d0cd1c0c`.
 - The most recently completed router-hosted MCP client
   response-body shutdown plan:
   `docs/exec-plans/2026-08-05-mcp-client-close-pending-response-bodies.md`.

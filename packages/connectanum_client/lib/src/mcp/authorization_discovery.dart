@@ -213,13 +213,15 @@ final class McpAuthorizationDiscoveryException implements Exception {
 ///
 /// Requests intentionally omit MCP session and authorization headers. Explicit
 /// [headers] are accepted for metadata-specific routing, but credential and
-/// session headers are rejected.
+/// session headers are rejected. [onRequestOpened] observes each request before
+/// it is sent so an owning client can bind it to a larger lifecycle.
 Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
   Uri endpoint, {
   HttpClient? httpClient,
   Map<String, String> headers = const <String, String>{},
   bool closeHttpClient = false,
   int maxMetadataBytes = _defaultMaxMetadataBytes,
+  void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   _validateProtectedResourceUri(endpoint, 'endpoint');
   if (maxMetadataBytes <= 0) {
@@ -239,6 +241,7 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
       endpoint,
       headers: headers,
       maxMetadataBytes: maxMetadataBytes,
+      onRequestOpened: onRequestOpened,
     );
     final challenges = parseMcpBearerChallenges(
       probe.headers[HttpHeaders.wwwAuthenticateHeader] ?? const <String>[],
@@ -271,6 +274,7 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
         endpoint,
         headers: headers,
         maxMetadataBytes: maxMetadataBytes,
+        onRequestOpened: onRequestOpened,
       );
       return McpProtectedResourceDiscovery(
         metadataUri: metadataUri,
@@ -287,6 +291,7 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
         metadataUri,
         headers: headers,
         maxMetadataBytes: maxMetadataBytes,
+        onRequestOpened: onRequestOpened,
       );
       if (response.statusCode == HttpStatus.notFound ||
           response.statusCode == HttpStatus.gone) {
@@ -322,12 +327,15 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
 ///
 /// The RFC 8414 and OpenID Connect endpoints are attempted in MCP priority
 /// order. Requests intentionally omit authorization and MCP session state.
+/// [onRequestOpened] observes each request before it is sent so an owning
+/// client can bind it to a larger lifecycle.
 Future<McpAuthorizationServerDiscovery> discoverMcpAuthorizationServerMetadata(
   Uri issuer, {
   HttpClient? httpClient,
   Map<String, String> headers = const <String, String>{},
   bool closeHttpClient = false,
   int maxMetadataBytes = _defaultMaxMetadataBytes,
+  void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   _validateAuthorizationServerIssuer(issuer, 'issuer');
   if (maxMetadataBytes <= 0) {
@@ -353,6 +361,7 @@ Future<McpAuthorizationServerDiscovery> discoverMcpAuthorizationServerMetadata(
           headers: headers,
           maxMetadataBytes: maxMetadataBytes,
           documentLabel: 'Authorization Server Metadata',
+          onRequestOpened: onRequestOpened,
         );
         if (response.statusCode != HttpStatus.ok) {
           throw McpAuthorizationDiscoveryException(
@@ -437,12 +446,14 @@ Future<McpProtectedResourceMetadata> _fetchRequiredMetadata(
   Uri expectedResource, {
   required Map<String, String> headers,
   required int maxMetadataBytes,
+  required void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   final response = await _getDiscoveryDocument(
     client,
     metadataUri,
     headers: headers,
     maxMetadataBytes: maxMetadataBytes,
+    onRequestOpened: onRequestOpened,
   );
   if (response.statusCode != HttpStatus.ok) {
     throw McpAuthorizationDiscoveryException(
@@ -977,8 +988,15 @@ Future<_DiscoveryResponse> _getDiscoveryDocument(
   required Map<String, String> headers,
   required int maxMetadataBytes,
   String documentLabel = 'Protected Resource Metadata',
+  void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   final request = await client.getUrl(uri);
+  try {
+    onRequestOpened?.call(request);
+  } catch (error) {
+    request.abort(error);
+    rethrow;
+  }
   for (final entry in headers.entries) {
     request.headers.set(entry.key, entry.value);
   }

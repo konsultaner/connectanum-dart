@@ -361,6 +361,10 @@ final class McpOAuthClientRegistrationException implements Exception {
   }
 }
 
+/// Registers a public OAuth client through the advertised RFC 7591 endpoint.
+///
+/// [onRequestOpened] observes the request before it is sent so an owning client
+/// can bind it to a larger lifecycle.
 Future<McpOAuthDynamicClientRegistration> registerMcpOAuthClient({
   required McpAuthorizationServerMetadata authorizationServer,
   required McpOAuthDynamicClientRegistrationRequest registration,
@@ -369,6 +373,7 @@ Future<McpOAuthDynamicClientRegistration> registerMcpOAuthClient({
   Map<String, String> headers = const <String, String>{},
   Duration timeout = _defaultRegistrationTimeout,
   int maxResponseBytes = _defaultRegistrationResponseBytes,
+  void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   final endpoint = authorizationServer.registrationEndpoint;
   if (endpoint == null) {
@@ -396,6 +401,12 @@ Future<McpOAuthDynamicClientRegistration> registerMcpOAuthClient({
     request = await client
         .postUrl(endpoint)
         .timeout(_remaining(deadline, endpoint));
+    try {
+      onRequestOpened?.call(request);
+    } catch (error) {
+      request.abort(error);
+      rethrow;
+    }
     request.followRedirects = false;
     request.headers.contentType = ContentType.json;
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');

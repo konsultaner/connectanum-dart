@@ -357,6 +357,9 @@ final class McpOAuthTokenException implements Exception {
 }
 
 /// Redeems a validated MCP authorization code at its discovered token endpoint.
+///
+/// [onRequestOpened] observes the request before it is sent so an owning client
+/// can bind it to a larger lifecycle.
 Future<McpOAuthTokenGrant> exchangeMcpAuthorizationCode(
   McpAuthorizationCode authorizationCode, {
   required McpOAuthClientAuthentication clientAuthentication,
@@ -364,6 +367,7 @@ Future<McpOAuthTokenGrant> exchangeMcpAuthorizationCode(
   Map<String, String> headers = const <String, String>{},
   Duration timeout = _defaultTokenTimeout,
   int maxResponseBytes = _defaultTokenResponseBytes,
+  void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   final requestState = authorizationCode.request;
   final authorizationServer = requestState.authorizationServer;
@@ -395,6 +399,7 @@ Future<McpOAuthTokenGrant> exchangeMcpAuthorizationCode(
     timeout: timeout,
     maxResponseBytes: maxResponseBytes,
     endpointLabel: 'OAuth token endpoint',
+    onRequestOpened: onRequestOpened,
   );
   return _parseTokenGrantResponse(
     statusCode: response.statusCode,
@@ -409,6 +414,9 @@ Future<McpOAuthTokenGrant> exchangeMcpAuthorizationCode(
 }
 
 /// Refreshes a resource-bound MCP OAuth grant without mutating [grant].
+///
+/// [onRequestOpened] observes the request before it is sent so an owning client
+/// can bind it to a larger lifecycle.
 Future<McpOAuthTokenGrant> refreshMcpOAuthToken(
   McpOAuthTokenGrant grant, {
   required McpOAuthClientAuthentication clientAuthentication,
@@ -417,6 +425,7 @@ Future<McpOAuthTokenGrant> refreshMcpOAuthToken(
   Map<String, String> headers = const <String, String>{},
   Duration timeout = _defaultTokenTimeout,
   int maxResponseBytes = _defaultTokenResponseBytes,
+  void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   final authorizationServer = grant.authorizationServer;
   final endpoint = authorizationServer.tokenEndpoint;
@@ -471,6 +480,7 @@ Future<McpOAuthTokenGrant> refreshMcpOAuthToken(
     timeout: timeout,
     maxResponseBytes: maxResponseBytes,
     endpointLabel: 'OAuth token endpoint',
+    onRequestOpened: onRequestOpened,
   );
   return _parseTokenGrantResponse(
     statusCode: response.statusCode,
@@ -487,6 +497,9 @@ Future<McpOAuthTokenGrant> refreshMcpOAuthToken(
 }
 
 /// Revokes one credential from [grant] through its discovered RFC 7009 endpoint.
+///
+/// [onRequestOpened] observes the request before it is sent so an owning client
+/// can bind it to a larger lifecycle.
 Future<void> revokeMcpOAuthToken(
   McpOAuthTokenGrant grant, {
   required McpOAuthClientAuthentication clientAuthentication,
@@ -495,6 +508,7 @@ Future<void> revokeMcpOAuthToken(
   Map<String, String> headers = const <String, String>{},
   Duration timeout = _defaultTokenTimeout,
   int maxResponseBytes = _defaultTokenResponseBytes,
+  void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   final authorizationServer = grant.authorizationServer;
   final endpoint = authorizationServer.revocationEndpoint;
@@ -543,6 +557,7 @@ Future<void> revokeMcpOAuthToken(
     timeout: timeout,
     maxResponseBytes: maxResponseBytes,
     endpointLabel: 'OAuth revocation endpoint',
+    onRequestOpened: onRequestOpened,
   );
   if (response.statusCode == HttpStatus.ok) {
     return;
@@ -853,6 +868,7 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
   required Duration timeout,
   required int maxResponseBytes,
   required String endpointLabel,
+  required void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   final encodedForm = utf8.encode(Uri(queryParameters: form).query);
   final client = httpClient ?? HttpClient();
@@ -864,6 +880,12 @@ Future<_OAuthEndpointResponse> _postOAuthForm({
     request = await client
         .postUrl(endpoint)
         .timeout(_remaining(deadline, endpoint, endpointLabel));
+    try {
+      onRequestOpened?.call(request);
+    } catch (error) {
+      request.abort(error);
+      rethrow;
+    }
     request.followRedirects = false;
     request.headers.contentType = ContentType(
       'application',
