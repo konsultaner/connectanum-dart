@@ -3915,6 +3915,85 @@ void main() {
       },
     );
 
+    test('keeps caller resume cursor ownership after delayed poll', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize(id: 'caller-cursor-poll-init');
+      client.lastEventId = 'session-1:get:before-delayed-poll';
+      final delayedPoll = client.poll(
+        headers: const <String, String>{'x-test-block-response': '1'},
+      );
+      await endpoint.waitForBlockedRequest();
+
+      client.lastEventId = 'session-1:get:caller-replacement';
+      endpoint.releaseBlockedRequest();
+      final events = await delayedPoll;
+
+      expect(events, hasLength(1));
+      expect(client.sessionId, 'session-1');
+      expect(client.lastEventId, 'session-1:get:caller-replacement');
+    });
+
+    test(
+      'keeps caller resume cursor ownership after delayed POST SSE',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'caller-cursor-post-init');
+        client.lastEventId = 'session-1:get:before-delayed-post';
+        final delayedPost = client.listTools(
+          id: 'caller-cursor-delayed-post',
+          headers: const <String, String>{'x-test-block-response': '1'},
+        );
+        await endpoint.waitForBlockedRequest();
+
+        client.lastEventId = 'session-1:get:caller-post-replacement';
+        endpoint.releaseBlockedRequest();
+        final page = await delayedPost;
+
+        expect(page.tools, isEmpty);
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:get:caller-post-replacement');
+      },
+    );
+
+    test(
+      'keeps newer response resume cursor ownership after stale poll',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'response-cursor-poll-init');
+        client.lastEventId = 'session-1:get:before-concurrent-response';
+        final delayedPoll = client.poll(
+          headers: const <String, String>{'x-test-block-response': '1'},
+        );
+        await endpoint.waitForBlockedRequest();
+
+        final page = await client.listTools(id: 'response-cursor-newer-post');
+        expect(page.tools, isEmpty);
+        expect(client.lastEventId, 'session-1:post:2');
+
+        endpoint.releaseBlockedRequest();
+        final events = await delayedPoll;
+
+        expect(events, hasLength(1));
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:post:2');
+      },
+    );
+
     test(
       'keeps replacement session state after stale initialize validation',
       () async {

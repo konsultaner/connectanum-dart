@@ -24374,6 +24374,21 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-05: Three fail-first Streamable HTTP client regressions reproduced
+  delayed GET/SSE and POST/SSE responses overwriting caller-installed or newer
+  completed-response resume cursors while the session remained unchanged.
+  Resume state now has an opaque ownership generation independent of session
+  and authorization state; compatibility SSE responses capture or clear the
+  cursor only while they retain both session and resume ownership. Focused
+  analysis, all 143 Streamable HTTP client tests, the generated client-only
+  consumer smoke with a live delayed-GET/newer-POST proof, pre-change
+  `bin/test-fast`, `bash -n bin/common.sh`, the public-artifact reference
+  guard, `git diff --check`, and full `bin/verify` pass. Full verification
+  covered 113 Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94
+  MCP tests, the complete 223-case MCP/client suite, all 96 benchmark tests
+  including 36 live WAMP workloads, all 384 router tests, 13 native
+  follow-ups, Chrome/Dart2Wasm, and every isolated and globally activated
+  consumer/CLI smoke.
 - 2026-08-05: A fail-first Streamable HTTP client regression reproduced a
   delayed rejected initialize clearing the active compatibility session and
   cursor after validated bearer replacement. Initialize failure cleanup now
@@ -24385,7 +24400,16 @@ at the older `47bbf9c` commit.
   core tests, all 94 MCP tests, the complete 220-case MCP/client suite, all 96
   benchmark tests including 36 live WAMP workloads, all 384 router tests, 13
   native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
-  activated consumer/CLI smoke.
+  activated consumer/CLI smoke. Commit `5f2481b` is on both maintained
+  `master` branches. Exact-head GitHub CI `31002848933`, Dart Package Publish
+  Dry Run `31002848932`, WAMP Profile Benchmarks `31002848966`, and Router
+  Image dry run `31002873688` passed on their first attempts. Coverage artifact
+  `8929501266`, WAMP artifact `8929227043`, Router Image preview artifact
+  `8929042082`, and Docker build records `8929129838` and `8929129286` were
+  uploaded. The comprehensive strict deployment-chain audit passes with clean
+  exact-head CI logs and all required deployment gates ready. Release-candidate
+  readiness remains intentionally non-gating until an approved numeric RC tag
+  points at the release commit.
 - 2026-08-04: Five fail-first Streamable HTTP client regressions reproduced
   stale lifecycle mutation from delayed DELETE success, explicit same-ID
   manual reattachment, delayed 404 failure, delayed compatibility polling, and
@@ -24706,7 +24730,24 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- There is no active execution plan. The most recently completed
+- No execution plan is active after completing the resume-cursor concurrency
+  checkpoint. Choose the next concrete shipped-path or downstream-readiness
+  gap from `ROADMAP_NEXT.md` and `ROADMAP.md` together.
+- The most recently completed router-hosted MCP client resume-cursor
+  concurrency plan is:
+  `docs/exec-plans/2026-08-05-mcp-client-resume-cursor-concurrency.md`.
+  Compatibility GET/SSE and POST/SSE responses now retain an opaque resume
+  generation independent of session and authorization state, so delayed
+  responses cannot overwrite caller-installed or newer completed-response
+  cursors while the same session remains active. Three focused races, all 143
+  Streamable client tests, focused analysis, the generated client-only
+  consumer smoke, pre-change `bin/test-fast`, and full `bin/verify` pass. Final
+  verification covers 113 Rust core tests, 52 Rust FFI tests, 360 Dart core
+  tests, 94 MCP tests, the complete 223-case MCP/client suite, all 96
+  benchmark tests including 36 live WAMP workloads, all 384 router tests, 13
+  native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
+  activated consumer/CLI smoke.
+- The most recently completed
   router-hosted MCP client initialize auth-rotation concurrency plan is:
   `docs/exec-plans/2026-08-05-mcp-client-initialize-auth-rotation-concurrency.md`.
   A delayed rejected or malformed compatibility initialize response can no

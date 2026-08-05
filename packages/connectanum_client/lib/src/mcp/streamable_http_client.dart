@@ -1288,6 +1288,13 @@ final class _McpAuthorizationStateSnapshot {
   final String? headerValue;
 }
 
+final class _McpResumeStateSnapshot {
+  const _McpResumeStateSnapshot(this.token, this.lastEventId);
+
+  final Object token;
+  final String? lastEventId;
+}
+
 /// HTTP client for session-based MCP revisions and stateless MCP 2026.
 ///
 /// For session-based revisions, the client keeps the negotiated MCP session
@@ -1473,7 +1480,8 @@ final class McpStreamableHttpClient {
   String _protocolVersion;
   String? _sessionId;
   Object _sessionStateToken = Object();
-  String? lastEventId;
+  String? _lastEventId;
+  Object _resumeStateToken = Object();
 
   String get protocolVersion => _protocolVersion;
 
@@ -1486,6 +1494,16 @@ final class McpStreamableHttpClient {
 
   _McpSessionStateSnapshot get _sessionStateSnapshot =>
       _McpSessionStateSnapshot(_sessionStateToken, _sessionId);
+
+  String? get lastEventId => _lastEventId;
+
+  set lastEventId(String? value) {
+    _lastEventId = value;
+    _resumeStateToken = Object();
+  }
+
+  _McpResumeStateSnapshot get _resumeStateSnapshot =>
+      _McpResumeStateSnapshot(_resumeStateToken, _lastEventId);
 
   _McpAuthorizationStateSnapshot get _authorizationStateSnapshot =>
       _McpAuthorizationStateSnapshot(
@@ -2954,6 +2972,7 @@ final class McpStreamableHttpClient {
   }) async {
     final requestSessionState = _sessionStateSnapshot;
     final requestAuthorizationState = _authorizationStateSnapshot;
+    final requestResumeState = _resumeStateSnapshot;
     final request = await _httpClient.postUrl(endpoint);
     final acceptsSse = streamable || protocolVersion == latestProtocolVersion;
     _applyHeaders(
@@ -3037,7 +3056,10 @@ final class McpStreamableHttpClient {
           resetLastEventId: resetsLastEventId,
         );
         if (capturedSessionState) {
-          _captureLastEventId(events);
+          _captureLastEventId(
+            events,
+            expectedResumeToken: requestResumeState.token,
+          );
         }
       }
       return value;
@@ -3197,8 +3219,9 @@ final class McpStreamableHttpClient {
     }
     final requestSessionState = _sessionStateSnapshot;
     final requestAuthorizationState = _authorizationStateSnapshot;
+    final requestResumeState = _resumeStateSnapshot;
     final requestProtocolVersion = protocolVersion;
-    final requestLastEventId = lastEventId ?? this.lastEventId;
+    final requestLastEventId = lastEventId ?? requestResumeState.lastEventId;
     final request = await _httpClient.getUrl(endpoint);
     _applyHeaders(
       request,
@@ -3244,7 +3267,10 @@ final class McpStreamableHttpClient {
       expectedProtocolVersion: requestProtocolVersion,
     );
     if (ownsSessionState) {
-      _captureLastEventId(events);
+      _captureLastEventId(
+        events,
+        expectedResumeToken: requestResumeState.token,
+      );
     }
     return events;
   }
@@ -3693,12 +3719,25 @@ final class McpStreamableHttpClient {
     }
   }
 
-  void _captureLastEventId(List<McpSseEvent> events) {
+  void _captureLastEventId(
+    List<McpSseEvent> events, {
+    required Object expectedResumeToken,
+  }) {
+    if (!identical(_resumeStateToken, expectedResumeToken)) {
+      return;
+    }
+    String? capturedLastEventId;
+    var captured = false;
     for (final event in events) {
       final id = event.id;
       if (id != null) {
-        lastEventId = id.isEmpty ? null : id;
+        capturedLastEventId = id.isEmpty ? null : id;
+        captured = true;
       }
+    }
+    if (captured) {
+      _lastEventId = capturedLastEventId;
+      _resumeStateToken = Object();
     }
   }
 

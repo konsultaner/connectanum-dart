@@ -2256,6 +2256,7 @@ Future<void> main() async {
     client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
     await _smokeAuthGrantDirectJsonBeforeLifecycle(client, endpoint);
     await _smokeAuthGrantRotationConcurrency(grant, endpoint);
+    await _smokeResumeCursorConcurrency(grant);
     await _smokeAuthGrantRefreshAndRevokeLifecycle(
       authClient,
       grant,
@@ -3872,6 +3873,52 @@ Future<void> _smokeAuthGrantRotationConcurrency(
     initializeEndpoint.releaseBlockedResponse();
     initializeClient.close(force: true);
     await initializeEndpoint.close();
+  }
+}
+
+Future<void> _smokeResumeCursorConcurrency(
+  ConnectanumHttpAuthGrant grant,
+) async {
+  final endpoint = await _AgentMcpEndpoint.bind();
+  final client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
+  try {
+    await client.initialize(id: 'resume-cursor-concurrency-initialize');
+    _expect(
+      client.sessionId == _sessionId && client.lastEventId == null,
+      'resume cursor concurrency smoke did not establish a clean session',
+    );
+
+    final delayedPoll = client.poll(
+      headers: const <String, String>{'x-test-block-response': '1'},
+    );
+    await endpoint.waitForBlockedResponse();
+
+    client.lastEventId = 'agent-session:caller-replacement';
+    final page = await client.listTools(
+      id: 'resume-cursor-concurrency-newer-post',
+      headers: const <String, String>{'x-test-sse-prefix-notification': '1'},
+    );
+    _expect(
+      jsonEncode(page.tools).contains(_toolName),
+      'resume cursor concurrency POST/SSE tool list failed',
+    );
+    _expect(
+      client.lastEventId == 'agent-session:post:2',
+      'newer POST/SSE response did not acquire resume cursor ownership',
+    );
+
+    endpoint.releaseBlockedResponse();
+    final events = await delayedPoll;
+    _expect(events.length == 1, 'delayed resume cursor poll returned no event');
+    _expect(
+      client.sessionId == _sessionId &&
+          client.lastEventId == 'agent-session:post:2',
+      'delayed GET/SSE response overwrote the newer resume cursor',
+    );
+  } finally {
+    endpoint.releaseBlockedResponse();
+    client.close(force: true);
+    await endpoint.close();
   }
 }
 
