@@ -3808,6 +3808,71 @@ Future<void> _smokeAuthGrantRotationConcurrency(
     endpoint.releaseBlockedResponse();
     client.close(force: true);
   }
+
+  final initializeEndpoint = await _AgentMcpEndpoint.bind();
+  final initializeClient = McpStreamableHttpClient.withAuthGrant(
+    initializeEndpoint.uri,
+    grant,
+  );
+  try {
+    await initializeClient.initialize(
+      id: 'auth-rotation-initialize-failure-session',
+    );
+    const initializeResumeCursor =
+        'agent-session:auth-rotation:initialize-kept';
+    initializeClient.lastEventId = initializeResumeCursor;
+
+    final delayedInitialize = initializeClient.initialize(
+      id: 'auth-rotation-delayed-rejected-initialize',
+      headers: const <String, String>{
+        'x-test-block-response': '1',
+        'x-test-initialize-jsonrpc-error': '1',
+      },
+    );
+    await initializeEndpoint.waitForBlockedResponse();
+    initializeClient.replaceAuthGrant(
+      const ConnectanumHttpAuthGrant(
+        accessToken: _refreshedAccessToken,
+        tokenType: 'Bearer',
+      ),
+    );
+    initializeEndpoint.releaseBlockedResponse();
+
+    final rejectedInitialize = await delayedInitialize;
+    _expect(
+      rejectedInitialize['error'] is Map<String, Object?>,
+      'delayed initialize rejection did not preserve its JSON-RPC error',
+    );
+    _expect(
+      initializeClient.sessionId == _sessionId &&
+          initializeClient.lastEventId == initializeResumeCursor,
+      'delayed old-credential initialize rejection cleared replacement auth '
+      'session state',
+    );
+
+    const initializeRecoveryTrace =
+        'auth-rotation-initialize-replacement-bearer';
+    final initializeRecovery = await initializeClient.pingDirect(
+      id: initializeRecoveryTrace,
+      headers: const <String, String>{
+        'x-consumer-trace': initializeRecoveryTrace,
+      },
+    );
+    _expect(
+      initializeRecovery.isEmpty,
+      'initialize auth rotation recovery ping failed',
+    );
+    _expect(
+      initializeEndpoint
+              .directAuthorizationHeadersByTrace[initializeRecoveryTrace] ==
+          'Bearer $_refreshedAccessToken',
+      'initialize auth rotation recovery did not use the replacement bearer',
+    );
+  } finally {
+    initializeEndpoint.releaseBlockedResponse();
+    initializeClient.close(force: true);
+    await initializeEndpoint.close();
+  }
 }
 
 Future<void> _smokeMalformedResponseSessionHeader(

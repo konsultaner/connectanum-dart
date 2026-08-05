@@ -4558,6 +4558,196 @@ void main() {
     );
 
     test(
+      'keeps session state after delayed initialize failures from replaced credentials',
+      () async {
+        for (final failureMode in <String>['rejected', 'malformed']) {
+          final endpoint = await _FakeMcpEndpoint.bind();
+          final usesOAuthGrant = failureMode == 'malformed';
+          final initialToken = 'initial-$failureMode-initialize-token';
+          final refreshedToken = 'refreshed-$failureMode-initialize-token';
+          final client = usesOAuthGrant
+              ? McpStreamableHttpClient.withOAuthToken(
+                  endpoint.uri,
+                  _testOAuthGrant(
+                    endpoint.uri,
+                    accessToken: initialToken,
+                    scopes: const <String>['tools:read'],
+                  ),
+                )
+              : McpStreamableHttpClient.withAuthGrant(
+                  endpoint.uri,
+                  ConnectanumHttpAuthGrant(
+                    accessToken: initialToken,
+                    tokenType: 'Bearer',
+                  ),
+                );
+
+          try {
+            client.sessionId = 'active-$failureMode-initialize-session';
+            client.lastEventId =
+                'active-$failureMode-initialize-session:get:kept';
+            final headers = <String, String>{'x-test-block-response': '1'};
+            if (failureMode == 'rejected') {
+              headers.addAll(const <String, String>{
+                'x-test-initialize-jsonrpc-error': '1',
+                'x-test-response-session-id': 'rejected-initialize-session',
+              });
+            } else {
+              headers['x-test-response-session-id'] = 'malformed session';
+            }
+
+            final delayedInitialize = client.initialize(
+              id: 'auth-rotation-$failureMode-initialize',
+              headers: headers,
+            );
+            await endpoint.waitForBlockedRequest();
+            expect(
+              endpoint.requests.last.authorization,
+              'Bearer $initialToken',
+            );
+
+            if (usesOAuthGrant) {
+              client.replaceOAuthToken(
+                _testOAuthGrant(
+                  endpoint.uri,
+                  accessToken: refreshedToken,
+                  scopes: const <String>['tools:read'],
+                ),
+              );
+            } else {
+              client.replaceAuthGrant(
+                ConnectanumHttpAuthGrant(
+                  accessToken: refreshedToken,
+                  tokenType: 'Bearer',
+                ),
+              );
+            }
+            endpoint.releaseBlockedRequest();
+
+            if (failureMode == 'rejected') {
+              final rejected = await delayedInitialize;
+              expect(rejected['error'], isA<Map<String, Object?>>());
+            } else {
+              await expectLater(
+                delayedInitialize,
+                throwsA(isA<McpStreamableProtocolException>()),
+              );
+            }
+            expect(client.sessionId, 'active-$failureMode-initialize-session');
+            expect(
+              client.lastEventId,
+              'active-$failureMode-initialize-session:get:kept',
+            );
+
+            await client.ping(id: 'auth-rotation-$failureMode-after');
+            expect(
+              endpoint.requests.last.authorization,
+              'Bearer $refreshedToken',
+            );
+            expect(
+              endpoint.requests.last.sessionId,
+              'active-$failureMode-initialize-session',
+            );
+          } finally {
+            client.close(force: true);
+            await endpoint.close();
+          }
+        }
+      },
+    );
+
+    test(
+      'keeps successful in-flight initialize authoritative after auth replacement',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'initial-successful-initialize-token',
+            tokenType: 'Bearer',
+          ),
+        );
+        addTearDown(() => client.close(force: true));
+        client.sessionId = 'stale-before-successful-initialize';
+        client.lastEventId = 'stale-before-successful-initialize:get:1';
+
+        final delayedInitialize = client.initialize(
+          id: 'auth-rotation-successful-initialize',
+          headers: const <String, String>{'x-test-block-response': '1'},
+        );
+        await endpoint.waitForBlockedRequest();
+        client.replaceAuthGrant(
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'refreshed-successful-initialize-token',
+            tokenType: 'Bearer',
+          ),
+        );
+        endpoint.releaseBlockedRequest();
+
+        final initialized = await delayedInitialize;
+        expect(initialized['id'], 'auth-rotation-successful-initialize');
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, isNull);
+        expect(
+          endpoint.requests.single.authorization,
+          'Bearer initial-successful-initialize-token',
+        );
+
+        await client.ping(id: 'auth-rotation-successful-after');
+        expect(
+          endpoint.requests.last.authorization,
+          'Bearer refreshed-successful-initialize-token',
+        );
+        expect(endpoint.requests.last.sessionId, 'session-1');
+      },
+    );
+
+    test(
+      'failed auth replacement keeps initialize failure ownership',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'unchanged-initialize-failure-token',
+            tokenType: 'Bearer',
+          ),
+        );
+        addTearDown(() => client.close(force: true));
+        client.sessionId = 'owned-initialize-failure-session';
+        client.lastEventId = 'owned-initialize-failure-session:get:1';
+
+        final delayedInitialize = client.initialize(
+          id: 'failed-auth-rotation-rejected-initialize',
+          headers: const <String, String>{
+            'x-test-block-response': '1',
+            'x-test-initialize-jsonrpc-error': '1',
+          },
+        );
+        await endpoint.waitForBlockedRequest();
+        expect(
+          () => client.replaceAuthGrant(
+            const ConnectanumHttpAuthGrant(
+              accessToken: 'rejected-initialize-replacement-token',
+              tokenType: 'Basic',
+            ),
+          ),
+          throwsArgumentError,
+        );
+        endpoint.releaseBlockedRequest();
+
+        final rejected = await delayedInitialize;
+        expect(rejected['error'], isA<Map<String, Object?>>());
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
+    test(
       'clears the same session after delayed 404 despite auth replacement',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();

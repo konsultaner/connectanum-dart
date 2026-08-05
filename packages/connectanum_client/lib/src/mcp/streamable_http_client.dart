@@ -1707,9 +1707,9 @@ final class McpStreamableHttpClient {
   /// The [grant] must contain a valid Bearer access token. Streamable HTTP
   /// session, resume, protocol, request, and connection state remain unchanged.
   /// Requests already in flight keep their captured credential, and a delayed
-  /// 401 for that credential cannot clear the replacement authorization
-  /// state's active session. Refresh timing and request retries stay
-  /// caller-controlled.
+  /// 401 or failed initialize for that credential cannot clear the replacement
+  /// authorization state's active session. Refresh timing and request retries
+  /// stay caller-controlled.
   void replaceAuthGrant(ConnectanumHttpAuthGrant grant) {
     final authorizationHeader = _authorizationHeaderFrom(
       _headersWithAuthGrant(const <String, String>{}, grant),
@@ -1723,9 +1723,9 @@ final class McpStreamableHttpClient {
   /// The [grant] must be unexpired and bound to this client's MCP endpoint.
   /// Streamable HTTP session, resume, protocol, request, and connection state
   /// remain unchanged. Requests already in flight keep their captured
-  /// credential, and a delayed 401 for that credential cannot clear the
-  /// replacement authorization state's active session. Authorization flows
-  /// and request retries stay caller-controlled.
+  /// credential, and a delayed 401 or failed initialize for that credential
+  /// cannot clear the replacement authorization state's active session.
+  /// Authorization flows and request retries stay caller-controlled.
   void replaceOAuthToken(McpOAuthTokenGrant grant) {
     _validateOAuthTokenGrant(endpoint, grant);
     final authorizationHeader = _authorizationHeaderFrom(
@@ -3006,6 +3006,7 @@ final class McpStreamableHttpClient {
           requestProtocolVersion: protocolVersion,
           requestIncludesSession: includeSession,
           requestSessionState: requestSessionState,
+          requestAuthorizationState: requestAuthorizationState,
           clearSessionOnMissing: clearsSessionOnMissing,
           resetLastEventId: resetsLastEventId,
         );
@@ -3031,6 +3032,7 @@ final class McpStreamableHttpClient {
           requestProtocolVersion: protocolVersion,
           requestIncludesSession: includeSession,
           requestSessionState: requestSessionState,
+          requestAuthorizationState: requestAuthorizationState,
           clearSessionOnMissing: clearsSessionOnMissing,
           resetLastEventId: resetsLastEventId,
         );
@@ -3062,6 +3064,7 @@ final class McpStreamableHttpClient {
         requestProtocolVersion: protocolVersion,
         requestIncludesSession: includeSession,
         requestSessionState: requestSessionState,
+        requestAuthorizationState: requestAuthorizationState,
         clearSessionOnMissing: clearsSessionOnMissing,
         resetLastEventId: resetsLastEventId,
       );
@@ -3467,9 +3470,18 @@ final class McpStreamableHttpClient {
     required String requestProtocolVersion,
     required bool requestIncludesSession,
     required _McpSessionStateSnapshot requestSessionState,
+    required _McpAuthorizationStateSnapshot requestAuthorizationState,
     bool clearSessionOnMissing = false,
     bool resetLastEventId = false,
   }) {
+    final ownsRequestSessionState = identical(
+      _sessionStateToken,
+      requestSessionState.token,
+    );
+    final ownsRequestAuthorizationState = identical(
+      _authorizationStateToken,
+      requestAuthorizationState.token,
+    );
     final rejectedInitialize =
         requestMethod == 'initialize' &&
         responseValue is Map &&
@@ -3483,7 +3495,7 @@ final class McpStreamableHttpClient {
         allowSessionAssignment: true,
         captureSessionState: false,
       );
-      if (identical(_sessionStateToken, requestSessionState.token)) {
+      if (ownsRequestSessionState && ownsRequestAuthorizationState) {
         _clearSessionState();
       }
       return false;
@@ -3495,11 +3507,7 @@ final class McpStreamableHttpClient {
         final negotiatedProtocolVersion = _validatedInitializeProtocolVersion(
           responseValue,
         );
-        final ownsSessionState = identical(
-          _sessionStateToken,
-          requestSessionState.token,
-        );
-        if (!ownsSessionState) {
+        if (!ownsRequestSessionState) {
           // An initialize response establishes a new session; stale responses
           // validate their own header shape but never compare with active state.
           _captureSessionHeaders(
@@ -3524,7 +3532,7 @@ final class McpStreamableHttpClient {
         _sessionStateToken = Object();
         return true;
       } catch (_) {
-        if (identical(_sessionStateToken, requestSessionState.token)) {
+        if (ownsRequestSessionState && ownsRequestAuthorizationState) {
           // The previous value was already validated before this request.
           _protocolVersion = previousProtocolVersion;
           _clearSessionState();
@@ -3536,13 +3544,9 @@ final class McpStreamableHttpClient {
     final statelessRequest =
         !requestIncludesSession ||
         requestProtocolVersion == latestProtocolVersion;
-    final ownsSessionState = identical(
-      _sessionStateToken,
-      requestSessionState.token,
-    );
     _captureSessionHeaders(
       response,
-      captureSessionState: !statelessRequest && ownsSessionState,
+      captureSessionState: !statelessRequest && ownsRequestSessionState,
       forbidSessionId: statelessRequest,
       expectedSessionState: requestSessionState,
       expectedProtocolVersion: requestProtocolVersion,
@@ -3552,7 +3556,7 @@ final class McpStreamableHttpClient {
       clearSessionOnMissing: clearSessionOnMissing,
       resetLastEventId: resetLastEventId,
     );
-    return !statelessRequest && ownsSessionState;
+    return !statelessRequest && ownsRequestSessionState;
   }
 
   void _throwIfHttpErrorForSession(

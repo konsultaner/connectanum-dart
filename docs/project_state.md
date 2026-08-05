@@ -24374,6 +24374,18 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-05: A fail-first Streamable HTTP client regression reproduced a
+  delayed rejected initialize clearing the active compatibility session and
+  cursor after validated bearer replacement. Initialize failure cleanup now
+  requires both captured session and authorization ownership. Three focused
+  regressions, all 140 Streamable HTTP client tests, focused analysis, the
+  source-path and globally activated generated client-only consumer smoke,
+  pre-change `bin/test-fast`, `git diff --check`, and full `bin/verify` pass.
+  Full verification covered 113 Rust core tests, 52 Rust FFI tests, 360 Dart
+  core tests, all 94 MCP tests, the complete 220-case MCP/client suite, all 96
+  benchmark tests including 36 live WAMP workloads, all 384 router tests, 13
+  native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
+  activated consumer/CLI smoke.
 - 2026-08-04: Five fail-first Streamable HTTP client regressions reproduced
   stale lifecycle mutation from delayed DELETE success, explicit same-ID
   manual reattachment, delayed 404 failure, delayed compatibility polling, and
@@ -24694,9 +24706,22 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- No execution plan is active after completing the router-hosted MCP client
-  auth-rotation concurrency slice. Select the next MCP production-readiness
-  gap from `ROADMAP_NEXT.md` and `ROADMAP.md` together.
+- There is no active execution plan. The most recently completed
+  router-hosted MCP client initialize auth-rotation concurrency plan is:
+  `docs/exec-plans/2026-08-05-mcp-client-initialize-auth-rotation-concurrency.md`.
+  A delayed rejected or malformed compatibility initialize response can no
+  longer clear the active session and resume cursor after validated bearer
+  replacement: failure cleanup requires both captured session and
+  authorization ownership. Successful in-flight initialize and HTTP 404
+  cleanup remain session-authoritative, and rejected credential replacement
+  leaves ownership unchanged. Three focused regressions, all 140 Streamable
+  client tests, focused analysis, the generated source-path and globally
+  activated client-only consumer smoke, and full `bin/verify` pass. Final
+  verification covers 113 Rust core tests, 52 Rust FFI tests, 360 Dart core
+  tests, 94 MCP tests, the complete 220-case MCP/client suite, all 96
+  benchmark tests including 36 live WAMP workloads, all 384 router tests, 13
+  native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
+  activated consumer/CLI smoke.
 - The most recently completed router-hosted MCP client auth-rotation
   concurrency plan is:
   `docs/exec-plans/2026-08-05-mcp-client-auth-rotation-concurrency.md`.
@@ -24713,8 +24738,16 @@ at the older `47bbf9c` commit.
   Rust core tests, 52 Rust FFI tests, 360 Dart core tests, 94 MCP tests, the
   complete 217-case MCP/client suite, all 96 benchmark tests, all 384 router
   tests, native follow-ups, Chrome/Dart2Wasm, and every isolated and globally
-  activated consumer/CLI smoke. Implementation is ready to publish; exact-head
-  hosted workflows and the strict deployment-chain audit remain.
+  activated consumer/CLI smoke. Commit `30a98a0` is on both maintained
+  `master` branches. Exact-head GitHub CI `30995656889`, Dart Package Publish
+  Dry Run `30995656655`, WAMP Profile Benchmarks `30995657433`, and Router
+  Image dry run `30997101357` passed on their first attempts. Coverage artifact
+  `8926539516`, WAMP artifact `8926234529`, Router Image preview artifact
+  `8926635049`, and Docker build records `8926789532` and `8926788685` were
+  uploaded. The comprehensive strict deployment-chain audit passes with clean
+  exact-head CI logs and all required deployment gates ready. Release-candidate
+  readiness remains intentionally non-gating until an approved numeric RC tag
+  points at the release commit.
 - The previously completed router-hosted MCP client session lifecycle
   concurrency plan is:
   `docs/exec-plans/2026-08-04-mcp-client-session-lifecycle-concurrency.md`.

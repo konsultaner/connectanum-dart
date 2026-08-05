@@ -67,3 +67,15 @@ from clearing the active MCP Streamable HTTP session and resume cursor.
   complete 217-case MCP/client suite, all 96 benchmark tests, all 384 router
   tests, native follow-ups, Chrome/Dart2Wasm coverage, and every isolated and
   globally activated consumer/CLI smoke.
+- 2026-08-05: Commit `30a98a0` is on both maintained `master` branches.
+  Exact-head GitHub CI `30995656889`, Dart Package Publish Dry Run
+  `30995656655`, WAMP Profile Benchmarks `30995657433`, and Router Image dry
+  run `30997101357` passed on their first attempts. CI uploaded coverage
+  artifact `8926539516`, WAMP uploaded benchmark artifact `8926234529`, and
+  Router Image uploaded preview artifact `8926635049` plus Docker build
+  records `8926789532` and `8926788685`. The comprehensive strict
+  deployment-chain audit passes with clean exact-head CI logs, loaded-image
+  MCP runtime smoke, multi-architecture image build, and every required
+  branch, workflow, package, native-release, publish-dry-run, benchmark, and
+  registry gate clean. Release-candidate readiness remains intentionally
+  non-gating until an approved numeric RC tag points at the release commit.
