@@ -1387,6 +1387,43 @@ void main() {
     });
 
     test(
+      'rejects unencodable direct JSON before opening HTTP transport',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final httpClient = _CountingPostHttpClient(HttpClient());
+        addTearDown(() => httpClient.close(force: true));
+        final client = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+          httpClient: httpClient,
+        );
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.requestDirect(
+            'app.echo',
+            id: 'unencodable-direct-request',
+            params: <String, Object?>{'value': Object()},
+          ),
+          throwsA(isA<JsonUnsupportedObjectError>()),
+        );
+        expect(httpClient.postUrlCalls, 0);
+        expect(endpoint.requests, isEmpty);
+
+        expect(
+          await client.pingDirect(id: 'valid-after-unencodable-request'),
+          containsPair('resultType', 'complete'),
+        );
+        expect(httpClient.postUrlCalls, 1);
+        expect(endpoint.requests, hasLength(1));
+      },
+    );
+
+    test(
       'rejects unsupported explicit protocol versions before requests',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -11572,6 +11609,25 @@ final class _DelayedPostHttpClient implements HttpClient {
       _delegate.close(force: force);
     }
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _CountingPostHttpClient implements HttpClient {
+  _CountingPostHttpClient(this._delegate);
+
+  final HttpClient _delegate;
+  var postUrlCalls = 0;
+
+  @override
+  Future<HttpClientRequest> postUrl(Uri url) {
+    postUrlCalls += 1;
+    return _delegate.postUrl(url);
+  }
+
+  @override
+  void close({bool force = false}) => _delegate.close(force: force);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

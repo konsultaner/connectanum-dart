@@ -1,6 +1,6 @@
 # MCP Streamable HTTP Operation Deadline
 
-Status: implementation complete; local verification clean
+Status: complete; local and hosted deployment-chain evidence clean
 
 ## Goal
 
@@ -69,6 +69,19 @@ notifications remain lifetime-incremental.
   95 MCP, 277 MCP/client, 96 benchmark/live-router, and 387 router tests; all
   13 focused native-forwarding regressions; every neutral consumer package and
   CLI smoke; and Chrome Dart2Wasm WebSocket coverage.
+- Implementation commit `6195cb7a` is on both maintained `master` branches.
+  Exact-head GitHub CI `31113544240`, Dart Package Publish Dry Run
+  `31113544692`, WAMP Profile Benchmarks `31113543904`, and Router Image dry
+  run `31115047438` passed on their first attempts. CI uploaded coverage
+  artifact `8973216507`, WAMP uploaded benchmark artifact `8972967733`, and
+  Router Image uploaded preview artifact `8973285432` plus Docker build records
+  `8973391635` and `8973391036`.
+- The comprehensive strict deployment-chain audit exited zero with clean exact-
+  head CI logs, relevant package and native-release evidence, loaded-image MCP
+  runtime smoke, clean image annotations, multi-architecture image build,
+  visible workflows, protected branch gates, and the public router image
+  package all ready. A numeric release-candidate tag remains an explicit
+  release-approval action outside this checkpoint.
 
 ## Outcome
 
@@ -79,4 +92,5 @@ deadline. Every public constructor forwards the setting. Timeout rejects with
 buffered response body, preserves MCP session and resume state, and leaves a
 caller-owned shared transport reusable. Listener setup remains bounded through
 its acknowledgment while established SSE subscriptions remain long lived.
-Commit, push, and exact-head hosted deployment evidence are pending.
+Exact-head hosted workflow and deployment audit evidence is clean, and both
+maintained branches contain the implementation.

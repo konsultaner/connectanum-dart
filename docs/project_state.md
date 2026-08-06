@@ -24846,7 +24846,25 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the MCP Streamable HTTP operation-deadline plan is
+- Active now, the MCP request-serialization preflight plan is
+  `docs/exec-plans/2026-08-06-mcp-request-serialization-preflight.md`.
+  Ordinary Streamable and direct JSON POST operations plus request-scoped
+  listener setup now encode the complete JSON request body before opening HTTP
+  transport or applying authorization/session headers. A focused regression
+  reproduced the old behavior with one unexpected `postUrl` call for a nested
+  non-JSON-encodable direct request; it now observes zero transport calls and
+  no endpoint request, then proves a valid direct ping succeeds through the
+  same caller-owned client. Both maintained packages analyze cleanly, all 173
+  focused Streamable client cases and 14 public MCP IO-boundary cases pass, and
+  post-change `bin/test-fast` passes 360 core, 95 MCP, 278 MCP/client, and 96
+  benchmark/live-router cases plus all neutral consumer, global-activation,
+  CLI, and focused native/router follow-ups. Final `bin/verify` passes with zero
+  formatting changes; 113 Rust core tests plus serializer integrations; 52
+  Rust FFI tests; 360 Dart core, 95 MCP, 278 MCP/client, 96 benchmark/live-
+  router, and 387 router tests; all 13 focused native-forwarding regressions;
+  every neutral consumer package and CLI smoke; and Chrome Dart2Wasm WebSocket
+  coverage. Commit/push and exact-head hosted evidence remain.
+- Completed most recently, the MCP Streamable HTTP operation-deadline plan is
   `docs/exec-plans/2026-08-06-mcp-streamable-operation-deadline.md`. Ordinary
   public POST, GET, and DELETE exchanges plus `subscriptions/listen` setup now
   share a validated 30-second default total deadline across request opening,
@@ -24865,8 +24883,19 @@ at the older `47bbf9c` commit.
   113 Rust core tests plus serializer integrations; 52 Rust FFI tests; 360 Dart
   core, 95 MCP, 277 MCP/client, 96 benchmark/live-router, and 387 router tests;
   all 13 focused native-forwarding regressions; every neutral consumer package
-  and CLI smoke; and Chrome Dart2Wasm WebSocket coverage. Commit, push, and
-  exact-head hosted evidence remain.
+  and CLI smoke; and Chrome Dart2Wasm WebSocket coverage. Implementation commit
+  `6195cb7a` is on both maintained `master` branches. Exact-head GitHub CI
+  `31113544240`, Dart Package Publish Dry Run `31113544692`, WAMP Profile
+  Benchmarks `31113543904`, and Router Image dry run `31115047438` passed on
+  their first attempts. Coverage artifact `8973216507`, WAMP artifact
+  `8972967733`, Router Image preview artifact `8973285432`, and Docker build
+  records `8973391635` and `8973391036` were uploaded. The comprehensive strict
+  deployment-chain audit exited zero with clean exact-head CI logs, relevant
+  package and native-release evidence, loaded-image MCP runtime smoke, clean
+  image annotations, multi-architecture image build, visible workflows,
+  protected branch gates, and the public router image package all ready. A
+  numeric release-candidate tag remains an explicit release-approval action
+  outside this checkpoint.
 - Completed most recently, the MCP HTTP-auth operation-bounds plan is
   `docs/exec-plans/2026-08-06-mcp-http-auth-operation-bounds.md`. Router
   HTTP-auth issue, challenge, refresh, and revoke operations now share a

@@ -2232,6 +2232,7 @@ final class McpStreamableHttpClient {
       message,
       latestProtocolVersion,
     );
+    final requestBody = utf8.encode(jsonEncode(preparedMessage));
 
     HttpClient? pendingSubscriptionHttpClient;
     void abortSubscriptionSetup() {
@@ -2286,7 +2287,6 @@ final class McpStreamableHttpClient {
           _applyStandardRequestHeaders(request, preparedMessage);
           request.headers.contentType = ContentType.json;
           request.persistentConnection = false;
-          final requestBody = utf8.encode(jsonEncode(preparedMessage));
           request.contentLength = requestBody.length;
           request.add(requestBody);
           response = await _sendTrackedHttpRequest(request, operation);
@@ -3361,6 +3361,7 @@ final class McpStreamableHttpClient {
     Map<String, String> extraHeaders = const <String, String>{},
   }) async {
     return _runTrackedHttpOperation<Object?>((operation) async {
+      final requestBody = utf8.encode(jsonEncode(message));
       final requestSessionState = _sessionStateSnapshot;
       final requestAuthorizationState = _authorizationStateSnapshot;
       final requestResumeState = _resumeStateSnapshot;
@@ -3380,7 +3381,6 @@ final class McpStreamableHttpClient {
       );
       _applyStandardRequestHeaders(request, message);
       request.headers.contentType = ContentType.json;
-      final requestBody = utf8.encode(jsonEncode(message));
       request.contentLength = requestBody.length;
       request.add(requestBody);
 
