@@ -24846,8 +24846,26 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- No execution plan is active after completing the router-hosted MCP client
-  in-flight OAuth close plan:
+- The active router-hosted MCP HTTP-auth lifecycle plan is
+  `docs/exec-plans/2026-08-06-mcp-http-auth-client-terminal-close.md`.
+  `ConnectanumHttpAuthClient.close()` now rejects new challenge/token,
+  refresh, and revocation work; cancels operations blocked on response headers
+  or response bodies; and terminates authentication paused between its
+  challenge and token requests with one redacted error. Only requests owned by
+  that helper are aborted, so a replacement auth client can reuse a
+  caller-owned shared HTTP transport. The four-case fail-first lifecycle
+  regression, focused 16-case HTTP-auth suite, all 19 generated-consumer
+  source contracts, and the neutral client-only source package smoke pass.
+  Pre-change plus post-change `bin/test-fast` pass on 2026-08-06. Full
+  `bin/verify` passes with no formatting changes, 113 Rust core tests plus
+  serializer integrations, 52 Rust FFI tests, 360 Dart core tests, all 94 MCP
+  tests, the complete 247-case MCP/client suite, all 96 benchmark tests with
+  live router workloads, all 384 router tests, the 13-case native-forwarding
+  follow-up, every isolated and globally activated package smoke, and
+  Chrome/Dart2Wasm coverage. The implementation is ready to push; exact-head
+  hosted workflows and the strict deployment-chain audit remain.
+- Completed immediately before that, the router-hosted MCP client in-flight
+  OAuth close plan:
   `docs/exec-plans/2026-08-06-mcp-client-inflight-oauth-close.md`. All six
   client-bound OAuth network operations now participate in terminal close:
   protected-resource and authorization-server discovery, dynamic registration,
@@ -24864,8 +24882,15 @@ at the older `47bbf9c` commit.
   includes 113 Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 94
   MCP tests, all 96 benchmark tests with live router workloads, all 384 router
   tests, the 13-case native-forwarding follow-up, every isolated and globally
-  activated package smoke, and Chrome/Dart2Wasm coverage. Exact-head hosted
-  deployment evidence remains pending until the implementation is pushed.
+  activated package smoke, and Chrome/Dart2Wasm coverage. Implementation commit
+  `2355c986` is on both maintained `master` branches. Exact-head GitHub CI
+  `31057540146`, Dart Package Publish Dry Run `31057540155`, WAMP Profile
+  Benchmarks `31057540122`, and Router Image dry run `31058689297` passed.
+  Coverage artifact `8951187153`, WAMP artifact `8950966844`, Router Image
+  preview artifact `8951247298`, and Docker build records `8951318125` and
+  `8951317633` were uploaded. The comprehensive strict deployment-chain audit
+  passes with clean exact-head CI logs, loaded-image MCP runtime smoke,
+  multi-architecture image build, and all required deployment gates clean.
 - Completed immediately before that, the router-hosted MCP client
   terminal-close plan:
   `docs/exec-plans/2026-08-05-mcp-client-terminal-close.md`. It makes close a

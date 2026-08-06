@@ -134,6 +134,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("await _smokeClientCloseOAuthRequest();", body)
         self.assertIn("OAuth HTTP request was pending", body)
+        self.assertIn("await _smokeHttpAuthClientCloseRequest();", body)
+        self.assertIn("ConnectanumHttpAuthClient is closed.", body)
         self.assertIn(
             "authorizationDiscoverySawCredentials",
             body,

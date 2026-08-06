@@ -2262,6 +2262,7 @@ Future<void> main() async {
     await _smokeClientCloseSessionState();
     await _smokeClientCloseResponseBody();
     await _smokeClientCloseOAuthRequest();
+    await _smokeHttpAuthClientCloseRequest();
     await _smokeClientTerminalClose();
     await _smokeAuthGrantRefreshAndRevokeLifecycle(
       authClient,
@@ -4208,6 +4209,62 @@ Future<void> _smokeClientCloseOAuthRequest() async {
     _expect(
       discovery.metadata.resource == endpoint.uri,
       'OAuth request shutdown terminated a caller-owned HTTP transport',
+    );
+  } finally {
+    endpoint.releaseBlockedResponse();
+    replacementClient?.close(force: true);
+    client.close(force: true);
+    sharedHttpClient.close(force: true);
+    await endpoint.close();
+  }
+}
+
+Future<void> _smokeHttpAuthClientCloseRequest() async {
+  final endpoint = await _AgentMcpEndpoint.bind();
+  final sharedHttpClient = HttpClient();
+  final client = ConnectanumHttpAuthClient(
+    endpoint.authUri,
+    httpClient: sharedHttpClient,
+  );
+  ConnectanumHttpAuthClient? replacementClient;
+  try {
+    final pendingRevoke = client.revokeToken(
+      'consumer-close-token',
+      headers: const <String, String>{'x-test-block-response': '1'},
+    );
+    await endpoint.waitForBlockedResponse();
+
+    client.close();
+    var rejected = false;
+    try {
+      await pendingRevoke.timeout(const Duration(seconds: 2));
+    } on StateError catch (error) {
+      rejected = error.message.toString().contains(
+        'ConnectanumHttpAuthClient is closed.',
+      );
+    } on TimeoutException {
+      throw StateError(
+        'HTTP auth client close did not abort a pending revoke request',
+      );
+    }
+    _expect(
+      rejected,
+      'HTTP auth client close allowed a pending revoke request to complete',
+    );
+    endpoint.releaseBlockedResponse();
+
+    replacementClient = ConnectanumHttpAuthClient(
+      endpoint.authUri,
+      httpClient: sharedHttpClient,
+    );
+    final replacementGrant = await replacementClient.issueTicketToken(
+      realm: _authRealm,
+      authId: _authId,
+      ticket: _ticketSecret,
+    );
+    _expect(
+      replacementGrant.accessToken == _accessToken,
+      'HTTP auth client shutdown terminated a caller-owned HTTP transport',
     );
   } finally {
     endpoint.releaseBlockedResponse();
@@ -8160,6 +8217,13 @@ final class _AgentMcpEndpoint {
     final body = await utf8.decoder.bind(request).join();
     final message = _jsonMapFrom(jsonDecode(body), label: 'auth request');
     authRequestBodies.add(message);
+
+    if (request.headers.value('x-test-block-response') == '1') {
+      if (!_blockedResponseSeen.isCompleted) {
+        _blockedResponseSeen.complete();
+      }
+      await _releaseBlockedResponse.future;
+    }
 
     switch (message['grant_type']) {
       case 'refresh_token':

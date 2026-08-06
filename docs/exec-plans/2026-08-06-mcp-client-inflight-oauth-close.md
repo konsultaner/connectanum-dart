@@ -61,6 +61,17 @@ a replacement MCP client must remain able to reuse it.
   benchmark tests including live router workloads, all 384 router tests, the
   13-case native-forwarding follow-up, every isolated and globally activated
   package smoke, and Chrome/Dart2Wasm WebSocket coverage.
+- Implementation commit `2355c986` is on both maintained `master` branches.
+  Exact-head GitHub CI `31057540146`, Dart Package Publish Dry Run
+  `31057540155`, WAMP Profile Benchmarks `31057540122`, and manually dispatched
+  Router Image dry run `31058689297` all passed. Coverage artifact
+  `8951187153`, WAMP artifact `8950966844`, Router Image preview artifact
+  `8951247298`, and Docker build records `8951318125` and `8951317633` were
+  uploaded. The comprehensive strict deployment-chain audit passed with a
+  clean exact-head CI log scan, loaded-image MCP runtime smoke,
+  multi-architecture image build, and every required deployment gate ready.
+  Release-candidate readiness remains intentionally non-gating because no
+  approved numeric RC tag points at this commit.
 
 ## Outcome
 

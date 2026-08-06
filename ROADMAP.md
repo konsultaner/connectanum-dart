@@ -418,9 +418,10 @@
   - [x] Add bounded OAuth token refresh and RFC 7009 revocation through
     discovered endpoints, including resource retention, scope
     non-escalation, refresh-token rotation, and Streamable session isolation.
-  - [x] Make terminal client close reject new and cancel in-flight ordinary MCP
-    and OAuth network operations, including requests blocked on response
-    headers or response bodies, without closing a caller-owned shared HTTP
+  - [x] Make terminal client close reject new and cancel in-flight ordinary MCP,
+    OAuth, and router HTTP-auth operations, including requests blocked on
+    response headers or response bodies and authentication paused between its
+    challenge and token requests, without closing a caller-owned shared HTTP
     transport.
   - [x] Add typed Client ID Metadata Documents for public clients when the
     authorization server advertises support, including HTTPS client identity,

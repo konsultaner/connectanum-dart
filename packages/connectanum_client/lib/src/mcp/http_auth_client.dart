@@ -1,7 +1,38 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectanum_core/connectanum_core.dart';
+
+typedef _HttpAuthRequestOpener = Future<HttpClientRequest> Function();
+
+abstract interface class _PendingHttpAuthOperation {
+  void reject(Object error, StackTrace stackTrace);
+}
+
+final class _PendingHttpAuthOperationHandle<T>
+    implements _PendingHttpAuthOperation {
+  final Completer<T> _completer = Completer<T>();
+
+  Future<T> get future => _completer.future;
+
+  void complete(T value) {
+    if (!_completer.isCompleted) {
+      _completer.complete(value);
+    }
+  }
+
+  void completeError(Object error, StackTrace stackTrace) {
+    if (!_completer.isCompleted) {
+      _completer.completeError(error, stackTrace);
+    }
+  }
+
+  @override
+  void reject(Object error, StackTrace stackTrace) {
+    completeError(error, stackTrace);
+  }
+}
 
 /// Dart IO client for Connectanum router HTTP auth bridge endpoints.
 ///
@@ -22,6 +53,10 @@ final class ConnectanumHttpAuthClient {
   final Map<String, String> headers;
   final HttpClient _httpClient;
   final bool _ownsHttpClient;
+  final Set<HttpClientRequest> _pendingRequests = <HttpClientRequest>{};
+  final Set<_PendingHttpAuthOperation> _pendingOperations =
+      <_PendingHttpAuthOperation>{};
+  bool _closed = false;
 
   Future<ConnectanumHttpAuthGrant> issueTicketToken({
     required String realm,
@@ -75,137 +110,218 @@ final class ConnectanumHttpAuthClient {
     String? authMethod,
     Map<String, Object?> authextra = const <String, Object?>{},
     Map<String, String> headers = const <String, String>{},
-  }) async {
-    final requestRealm = _nonEmptyArgument(realm, 'realm');
-    final requestAuthId = _nonEmptyArgument(authId, 'authId');
-    final method = _httpAuthMethodName(authMethod ?? authentication.getName());
-    final details = Details.forHello()
-      ..authid = requestAuthId
-      ..authmethods = <String>[method];
-    if (authextra.isNotEmpty) {
-      details.authextra = Map<String, dynamic>.from(authextra);
-    }
-    await authentication.hello(requestRealm, details);
+  }) {
+    return _runTrackedOperation((openRequest) async {
+      final requestRealm = _nonEmptyArgument(realm, 'realm');
+      final requestAuthId = _nonEmptyArgument(authId, 'authId');
+      final method = _httpAuthMethodName(
+        authMethod ?? authentication.getName(),
+      );
+      final details = Details.forHello()
+        ..authid = requestAuthId
+        ..authmethods = <String>[method];
+      if (authextra.isNotEmpty) {
+        details.authextra = Map<String, dynamic>.from(authextra);
+      }
+      await authentication.hello(requestRealm, details);
 
-    final startBody = <String, Object?>{
-      'realm': requestRealm,
-      'authmethod': method,
-      'authid': requestAuthId,
-      if (details.authextra != null && details.authextra!.isNotEmpty)
-        'authextra': Map<String, Object?>.from(details.authextra!),
-    };
-    final challenge = await _postJsonObject(
-      startBody,
-      expectedStatus: HttpStatus.unauthorized,
-      label: 'HTTP auth challenge',
-      extraHeaders: headers,
-    );
-    final state = _nonEmptyString(challenge['state'], 'state');
-    final authenticate = await authentication.challenge(
-      _challengeExtraFrom(challenge['challenge']),
-    );
+      final startBody = <String, Object?>{
+        'realm': requestRealm,
+        'authmethod': method,
+        'authid': requestAuthId,
+        if (details.authextra != null && details.authextra!.isNotEmpty)
+          'authextra': Map<String, Object?>.from(details.authextra!),
+      };
+      final challenge = await _postJsonObject(
+        startBody,
+        expectedStatus: HttpStatus.unauthorized,
+        label: 'HTTP auth challenge',
+        extraHeaders: headers,
+        openRequest: openRequest,
+      );
+      final state = _nonEmptyString(challenge['state'], 'state');
+      final authenticate = await authentication.challenge(
+        _challengeExtraFrom(challenge['challenge']),
+      );
 
-    final grant = await _postJsonObject(
-      <String, Object?>{
-        'state': state,
-        if (authenticate.signature != null) 'signature': authenticate.signature,
-        if (authenticate.extra != null)
-          'extra': Map<String, Object?>.from(authenticate.extra!),
-      },
-      expectedStatus: HttpStatus.ok,
-      label: 'HTTP auth token request',
-      extraHeaders: headers,
-    );
-    return ConnectanumHttpAuthGrant.fromJson(grant);
+      final grant = await _postJsonObject(
+        <String, Object?>{
+          'state': state,
+          if (authenticate.signature != null)
+            'signature': authenticate.signature,
+          if (authenticate.extra != null)
+            'extra': Map<String, Object?>.from(authenticate.extra!),
+        },
+        expectedStatus: HttpStatus.ok,
+        label: 'HTTP auth token request',
+        extraHeaders: headers,
+        openRequest: openRequest,
+      );
+      return ConnectanumHttpAuthGrant.fromJson(grant);
+    });
   }
 
   Future<ConnectanumHttpAuthGrant> refreshToken(
     String refreshToken, {
     Map<String, String> headers = const <String, String>{},
-  }) async {
-    final token = _nonEmptyToken(refreshToken, 'refreshToken');
-    final grant = await _postJsonObject(
-      <String, Object?>{'grant_type': 'refresh_token', 'refresh_token': token},
-      expectedStatus: HttpStatus.ok,
-      label: 'HTTP auth refresh request',
-      extraHeaders: headers,
-    );
-    return ConnectanumHttpAuthGrant.fromJson(grant);
+  }) {
+    return _runTrackedOperation((openRequest) async {
+      final token = _nonEmptyToken(refreshToken, 'refreshToken');
+      final grant = await _postJsonObject(
+        <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': token,
+        },
+        expectedStatus: HttpStatus.ok,
+        label: 'HTTP auth refresh request',
+        extraHeaders: headers,
+        openRequest: openRequest,
+      );
+      return ConnectanumHttpAuthGrant.fromJson(grant);
+    });
   }
 
   Future<void> revokeToken(
     String token, {
     String? tokenTypeHint,
     Map<String, String> headers = const <String, String>{},
-  }) async {
-    final revokeToken = _nonEmptyToken(token, 'token');
-    final revokeTokenTypeHint = _optionalTokenTypeHint(tokenTypeHint);
-    final request = <String, Object?>{
-      'grant_type': 'revoke',
-      'token': revokeToken,
-    };
-    if (revokeTokenTypeHint != null) {
-      request['token_type_hint'] = revokeTokenTypeHint;
-    }
-    await _postJsonObject(
-      request,
-      expectedStatus: HttpStatus.ok,
-      label: 'HTTP auth revoke request',
-      extraHeaders: headers,
-    );
+  }) {
+    return _runTrackedOperation((openRequest) async {
+      final revokeToken = _nonEmptyToken(token, 'token');
+      final revokeTokenTypeHint = _optionalTokenTypeHint(tokenTypeHint);
+      final request = <String, Object?>{
+        'grant_type': 'revoke',
+        'token': revokeToken,
+      };
+      if (revokeTokenTypeHint != null) {
+        request['token_type_hint'] = revokeTokenTypeHint;
+      }
+      await _postJsonObject(
+        request,
+        expectedStatus: HttpStatus.ok,
+        label: 'HTTP auth revoke request',
+        extraHeaders: headers,
+        openRequest: openRequest,
+      );
+    });
   }
 
   void close({bool force = false}) {
+    if (_closed) {
+      return;
+    }
+    _closed = true;
+
+    final error = _closedError();
+    final stackTrace = StackTrace.current;
+    final operations = List<_PendingHttpAuthOperation>.of(_pendingOperations);
+    final requests = List<HttpClientRequest>.of(_pendingRequests);
+    _pendingOperations.clear();
+    _pendingRequests.clear();
+    for (final operation in operations) {
+      operation.reject(error, stackTrace);
+    }
+    for (final request in requests) {
+      request.abort(error, stackTrace);
+    }
     if (_ownsHttpClient) {
       _httpClient.close(force: force);
     }
+  }
+
+  Future<T> _runTrackedOperation<T>(
+    Future<T> Function(_HttpAuthRequestOpener openRequest) operation,
+  ) {
+    if (_closed) {
+      return Future<T>.error(_closedError(), StackTrace.current);
+    }
+
+    final pending = _PendingHttpAuthOperationHandle<T>();
+    _pendingOperations.add(pending);
+
+    Future<HttpClientRequest> openRequest() async {
+      if (_closed) {
+        throw _closedError();
+      }
+      final request = await _httpClient.postUrl(endpoint);
+      if (_closed) {
+        final error = _closedError();
+        request.abort(error, StackTrace.current);
+        throw error;
+      }
+      _pendingRequests.add(request);
+      return request;
+    }
+
+    unawaited(
+      Future<T>.sync(() => operation(openRequest))
+          .then<void>(
+            pending.complete,
+            onError: (Object error, StackTrace stackTrace) {
+              pending.completeError(error, stackTrace);
+            },
+          )
+          .whenComplete(() {
+            _pendingOperations.remove(pending);
+          }),
+    );
+    return pending.future;
+  }
+
+  StateError _closedError() {
+    return StateError('ConnectanumHttpAuthClient is closed.');
   }
 
   Future<Map<String, Object?>> _postJsonObject(
     Map<String, Object?> payload, {
     required int expectedStatus,
     required String label,
+    required _HttpAuthRequestOpener openRequest,
     Map<String, String> extraHeaders = const <String, String>{},
   }) async {
-    final request = await _httpClient.postUrl(endpoint);
-    void applyConsumerHeaders(Map<String, String> source) {
-      for (final header in source.entries) {
-        if (_isControlledHttpAuthRequestHeader(header.key)) {
-          continue;
-        }
-        request.headers.set(header.key, header.value);
-      }
-    }
-
-    applyConsumerHeaders(headers);
-    applyConsumerHeaders(extraHeaders);
-    request.headers.contentType = ContentType.json;
-    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-    final bodyBytes = utf8.encode(jsonEncode(payload));
-    request.contentLength = bodyBytes.length;
-    request.add(bodyBytes);
-
-    final response = await request.close();
-    final body = await utf8.decodeStream(response);
-    Object? decoded;
-    if (body.isNotEmpty) {
-      try {
-        decoded = jsonDecode(body);
-      } on FormatException {
-        if (response.statusCode == expectedStatus) {
-          rethrow;
+    final request = await openRequest();
+    try {
+      void applyConsumerHeaders(Map<String, String> source) {
+        for (final header in source.entries) {
+          if (_isControlledHttpAuthRequestHeader(header.key)) {
+            continue;
+          }
+          request.headers.set(header.key, header.value);
         }
       }
+
+      applyConsumerHeaders(headers);
+      applyConsumerHeaders(extraHeaders);
+      request.headers.contentType = ContentType.json;
+      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      final bodyBytes = utf8.encode(jsonEncode(payload));
+      request.contentLength = bodyBytes.length;
+      request.add(bodyBytes);
+
+      final response = await request.close();
+      final body = await utf8.decodeStream(response);
+      Object? decoded;
+      if (body.isNotEmpty) {
+        try {
+          decoded = jsonDecode(body);
+        } on FormatException {
+          if (response.statusCode == expectedStatus) {
+            rethrow;
+          }
+        }
+      }
+      if (response.statusCode != expectedStatus) {
+        throw ConnectanumHttpAuthException(
+          statusCode: response.statusCode,
+          reasonPhrase: response.reasonPhrase,
+          body: body,
+          error: decoded,
+        );
+      }
+      return _jsonObject(decoded, label);
+    } finally {
+      _pendingRequests.remove(request);
     }
-    if (response.statusCode != expectedStatus) {
-      throw ConnectanumHttpAuthException(
-        statusCode: response.statusCode,
-        reasonPhrase: response.reasonPhrase,
-        body: body,
-        error: decoded,
-      );
-    }
-    return _jsonObject(decoded, label);
   }
 
   static String _httpAuthMethodName(String authMethod) {
