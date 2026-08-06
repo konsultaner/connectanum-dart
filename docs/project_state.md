@@ -24846,13 +24846,36 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active MCP Streamable HTTP response-bounds plan is
+- The active MCP listener-response-bounds plan is
+  `docs/exec-plans/2026-08-06-mcp-listener-response-bounds.md`. Ordinary
+  and listener setup bodies now share the public raw-byte response limit.
+  Successful `subscriptions/listen` responses remain lifetime-incremental while
+  a raw-byte line decoder bounds every complete SSE event, counts CR, LF, and
+  CRLF framing across chunk boundaries, and rejects oversized input before
+  UTF-8 or JSON decoding. Focused regressions cover oversized success/error
+  setup bodies, multibyte and exact-boundary events, typed cleanup, and same-
+  client recovery without session or resume state. Both-package analysis and
+  all 172 focused Streamable HTTP cases pass. Pre-change and uninterrupted
+  post-change `bin/test-fast` pass; the latter includes 360 core, 94 MCP, 264
+  MCP/client, and 96 benchmark/live-router tests plus every neutral generated/
+  global consumer smoke, the router CLI MCP lifecycle matrix, and focused
+  native/router regressions. An earlier post-change run transiently timed out
+  one native cancel-cycle benchmark after unrelated local workload contention;
+  the isolated case immediately passed and the clean full rerun passed all 96
+  benchmark cases. Final exact-code `bin/verify` passes with zero formatting
+  changes; 113 Rust core tests plus serializer integrations; 52 Rust FFI tests;
+  360 Dart core, 94 MCP, 264 MCP/client, 96 benchmark/live-router, and 387
+  router tests; all 13 focused native-forwarding regressions; every neutral
+  consumer package and CLI smoke; and Chrome Dart2Wasm WebSocket coverage.
+  Commit publication and exact-head deployment evidence remain.
+- Completed most recently, the MCP Streamable HTTP response-bounds plan is
   `docs/exec-plans/2026-08-06-mcp-streamable-response-bounds.md`. OAuth helpers
-  already bound response bodies, but ordinary Streamable POST, GET, and DELETE
-  responses remain buffered without a byte cap before JSON or SSE validation.
-  This checkpoint adds one configurable raw-byte limit across every public
-  client constructor, preserves MCP session and resume state on oversized
-  responses, and leaves long-lived request-scoped listeners incremental. Pre-
+  already bounded response bodies, but ordinary Streamable POST, GET, and
+  DELETE responses had remained buffered without a byte cap before JSON or SSE
+  validation. This checkpoint added one configurable raw-byte limit across
+  every public client constructor, preserved MCP session and resume state on
+  oversized responses, and left long-lived request-scoped listeners
+  incremental. Pre-
   change `bin/test-fast` passes with 360 core tests, all 94 MCP tests, the
   complete 257-case MCP/client suite, all 96 benchmark/live-router tests,
   every neutral package/consumer smoke, the router CLI MCP lifecycle matrix,
@@ -24868,10 +24891,18 @@ at the older `47bbf9c` commit.
   core tests plus serializer integrations; 52 Rust FFI tests; 360 Dart core,
   94 MCP, 260 MCP/client, 96 benchmark/live-router, and 387 router tests; all
   13 focused native-forwarding regressions; every neutral consumer package and
-  CLI smoke; and Chrome Dart2Wasm WebSocket coverage. The implementation is
-  ready to push; exact-head hosted workflows and the strict deployment-chain
-  audit remain.
-- Completed most recently, the MCP HTTP redirect-isolation plan:
+  CLI smoke; and Chrome Dart2Wasm WebSocket coverage. Implementation commit
+  `d8071919` is on both maintained `master` branches. Exact-head GitHub CI
+  `31090133222`, Dart Package Publish Dry Run `31090133381`, WAMP Profile
+  Benchmarks `31090133069`, and Router Image dry run `31091444072` passed on
+  their first attempts. Coverage artifact `8963555998`, WAMP artifact
+  `8963271885`, Router Image preview artifact `8963617527`, and Docker build
+  records `8963722690` and `8963723322` were uploaded. The comprehensive strict
+  deployment-chain audit exited zero with clean exact-head CI logs, loaded-
+  image MCP runtime smoke, multi-architecture image build, and every required
+  deployment gate ready. A new RC tag remains an explicit release-approval
+  action outside this checkpoint.
+- Completed immediately before that, the MCP HTTP redirect-isolation plan:
   `docs/exec-plans/2026-08-06-mcp-http-redirect-isolation.md`. Protected
   Streamable HTTP POST, GET, DELETE, and request-scoped listen traffic plus
   router HTTP authentication now disable automatic redirects before writing

@@ -905,6 +905,77 @@ McpSubscriptionFilter _mcpSubscriptionFilterFromJson(
   );
 }
 
+/// Splits SSE lines while bounding each complete event in raw bytes.
+final class _McpBoundedSseLineTransformer
+    extends StreamTransformerBase<List<int>, String> {
+  const _McpBoundedSseLineTransformer(this.maxEventBytes);
+
+  final int maxEventBytes;
+
+  @override
+  Stream<String> bind(Stream<List<int>> stream) async* {
+    final lineBytes = BytesBuilder(copy: false);
+    var eventBytes = 0;
+    String? pendingCarriageReturnLine;
+
+    void countByte() {
+      eventBytes += 1;
+      if (eventBytes > maxEventBytes) {
+        throw McpStreamableProtocolException(
+          'MCP SSE event exceeds $maxEventBytes bytes.',
+        );
+      }
+    }
+
+    String takeLine() => utf8.decode(lineBytes.takeBytes());
+
+    await for (final chunk in stream) {
+      for (final byte in chunk) {
+        final pendingLine = pendingCarriageReturnLine;
+        if (pendingLine != null) {
+          if (byte == 0x0a) {
+            countByte();
+            yield pendingLine;
+            if (pendingLine.isEmpty) {
+              eventBytes = 0;
+            }
+            pendingCarriageReturnLine = null;
+            continue;
+          }
+          yield pendingLine;
+          if (pendingLine.isEmpty) {
+            eventBytes = 0;
+          }
+          pendingCarriageReturnLine = null;
+        }
+
+        countByte();
+        if (byte == 0x0d) {
+          pendingCarriageReturnLine = takeLine();
+          continue;
+        }
+        if (byte == 0x0a) {
+          final line = takeLine();
+          yield line;
+          if (line.isEmpty) {
+            eventBytes = 0;
+          }
+          continue;
+        }
+        lineBytes.addByte(byte);
+      }
+    }
+
+    final pendingLine = pendingCarriageReturnLine;
+    if (pendingLine != null) {
+      yield pendingLine;
+    }
+    if (lineBytes.length != 0) {
+      yield takeLine();
+    }
+  }
+}
+
 /// Active MCP 2026 request-scoped SSE subscription.
 class McpStreamableSubscription {
   McpStreamableSubscription._({
@@ -913,10 +984,12 @@ class McpStreamableSubscription {
     required HttpClient httpClient,
     required HttpClientRequest request,
     required HttpClientResponse response,
+    required int maxEventBytes,
     required void Function() onClosed,
   }) : _httpClient = httpClient,
        _request = request,
        _response = response,
+       _maxEventBytes = maxEventBytes,
        _onClosed = onClosed;
 
   final Object id;
@@ -924,6 +997,7 @@ class McpStreamableSubscription {
   final HttpClient _httpClient;
   final HttpClientRequest _request;
   final HttpClientResponse _response;
+  final int _maxEventBytes;
   final void Function() _onClosed;
   final StreamController<McpJsonMap> _notifications =
       StreamController<McpJsonMap>();
@@ -954,8 +1028,7 @@ class McpStreamableSubscription {
 
   void _start() {
     _lineSubscription = _response
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
+        .transform(_McpBoundedSseLineTransformer(_maxEventBytes))
         .listen(
           _handleLine,
           onError: _handleStreamError,
@@ -1425,7 +1498,7 @@ final class _McpPendingOAuthHttpOperation {
 /// headers and SSE cursor so consumer applications do not need to reimplement
 /// the transport details.
 final class McpStreamableHttpClient {
-  /// Default maximum raw byte length buffered for an ordinary response.
+  /// Default maximum raw byte length for buffered responses and SSE events.
   static const int defaultMaxResponseBytes = 16 * 1024 * 1024;
 
   static const latestProtocolVersion = _mcpLatestProtocolVersion;
@@ -1602,10 +1675,10 @@ final class McpStreamableHttpClient {
          closeHttpClient: closeHttpClient,
        );
 
-  /// Maximum raw byte length buffered for each ordinary HTTP response.
+  /// Maximum raw byte length for each buffered HTTP response or SSE event.
   ///
-  /// Request-scoped listener responses are consumed incrementally and do not
-  /// use this limit.
+  /// Request-scoped listener streams remain incremental: this limit applies to
+  /// each complete SSE event, not to the total lifetime response.
   final int maxResponseBytes;
 
   final Uri endpoint;
@@ -2127,11 +2200,11 @@ final class McpStreamableHttpClient {
     try {
       if (response.statusCode < HttpStatus.ok ||
           response.statusCode >= HttpStatus.multipleChoices) {
-        final body = await _readBody(response);
+        final body = await _readBody(response, maxResponseBytes);
         _throwIfHttpError(response, body);
       }
       if (!_isSse(response)) {
-        final body = await _readBody(response);
+        final body = await _readBody(response, maxResponseBytes);
         if (_isJson(response) && body.isNotEmpty) {
           final jsonResponse = _jsonMapFromBody(
             body,
@@ -2169,6 +2242,7 @@ final class McpStreamableHttpClient {
       httpClient: subscriptionHttpClient,
       request: request,
       response: response,
+      maxEventBytes: maxResponseBytes,
       onClosed: () => _subscriptions.remove(subscription),
     );
     _pendingSubscriptionHttpClients.remove(subscriptionHttpClient);
@@ -4554,8 +4628,8 @@ List<McpSseEvent> parseMcpSseEvents(String body) {
   return events;
 }
 
-Future<String> _readBody(HttpClientResponse response) {
-  return response.transform(utf8.decoder).join();
+Future<String> _readBody(HttpClientResponse response, int maxResponseBytes) {
+  return _McpPendingHttpResponseBody(response, maxResponseBytes).future;
 }
 
 bool _isSse(HttpClientResponse response) {

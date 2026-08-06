@@ -1,6 +1,6 @@
 # MCP Streamable HTTP Response Bounds
 
-Status: active
+Status: complete; local and hosted deployment-chain evidence clean
 
 ## Goal
 
@@ -56,8 +56,25 @@ outside this buffering limit because they are consumed incrementally.
   94 MCP, 260 MCP/client, 96 benchmark/live-router, and 387 router tests; all 13
   focused native-forwarding regressions; every neutral consumer package and
   CLI smoke; and Chrome Dart2Wasm WebSocket coverage.
+- Implementation commit `d8071919` is on both maintained `master` branches.
+  Exact-head GitHub CI `31090133222`, Dart Package Publish Dry Run
+  `31090133381`, WAMP Profile Benchmarks `31090133069`, and Router Image dry
+  run `31091444072` passed on their first attempts. CI uploaded coverage
+  artifact `8963555998`, WAMP uploaded benchmark artifact `8963271885`, and
+  Router Image uploaded preview artifact `8963617527` plus Docker build records
+  `8963722690` and `8963723322`.
+- The comprehensive strict deployment-chain audit exited zero with clean
+  exact-head CI logs, package and native-release dry-run evidence, the loaded-
+  image MCP runtime smoke, the multi-architecture image build, the WAMP profile
+  gate, workflow visibility, branch protection, and the public router package
+  all ready. A numeric release-candidate tag remains an explicit release-
+  approval action outside this checkpoint.
 
 ## Outcome
 
-Local implementation and verification are complete. Exact-head hosted
-deployment-chain evidence remains.
+Ordinary buffered MCP Streamable HTTP POST, GET, and DELETE responses now have
+a configurable raw-byte bound across every public client constructor. An
+oversized body is cancelled with a typed protocol failure without disturbing
+active session or resume state, exact UTF-8 byte boundaries remain valid, and
+the same client and transport recover for later requests. Local verification,
+both maintained branches, and the exact-head hosted deployment chain are clean.

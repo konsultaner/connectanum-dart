@@ -111,10 +111,11 @@ TLS settings, pass a `subscriptionHttpClientFactory` that returns a fresh
 configured `HttpClient` for each listener so each stream remains independently
 cancellable.
 
-Ordinary buffered `POST`, `GET`, and `DELETE` responses have a 16 MiB raw-byte
-limit by default. Set `maxResponseBytes` on any client constructor when an
-endpoint needs a different bound. Request-scoped listener streams remain
-incremental and do not use this buffered-response limit.
+Ordinary buffered `POST`, `GET`, and `DELETE` responses plus request-scoped
+listener setup bodies have a 16 MiB raw-byte limit by default. Set
+`maxResponseBytes` on any client constructor when an endpoint needs a different
+bound. Long-lived listener streams remain incremental; the same limit applies
+separately to each complete SSE event, not to the total lifetime response.
 
 Large tool catalogs can be paged by setting `toolListPageSize`:
 

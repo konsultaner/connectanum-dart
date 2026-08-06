@@ -635,6 +635,203 @@ void main() {
       },
     );
 
+    test('bounds MCP 2026 listener setup response bodies', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient.stateless(
+        endpoint.uri,
+        clientInfo: const <String, Object?>{
+          'name': 'listener-setup-limit-test',
+          'version': '1.0.0',
+        },
+        maxResponseBytes: 256,
+      );
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.listen(
+          id: 'listen-oversized-setup',
+          toolsListChanged: true,
+          headers: const <String, String>{
+            'x-test-response-padding-count': '256',
+          },
+        ),
+        throwsA(
+          isA<McpStreamableProtocolException>().having(
+            (error) => error.message,
+            'message',
+            'MCP HTTP response exceeds 256 bytes.',
+          ),
+        ),
+      );
+      await expectLater(
+        client.listen(
+          id: 'listen-oversized-http-error',
+          toolsListChanged: true,
+          headers: const <String, String>{
+            'x-test-listen-error-padding-count': '256',
+          },
+        ),
+        throwsA(
+          isA<McpStreamableProtocolException>().having(
+            (error) => error.message,
+            'message',
+            'MCP HTTP response exceeds 256 bytes.',
+          ),
+        ),
+      );
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+
+      final recovered = await client.requestDirect(
+        'ping',
+        id: 'listener-setup-recovered',
+      );
+      expect(recovered['id'], 'listener-setup-recovered');
+    });
+
+    test('bounds each MCP 2026 listener SSE event in raw bytes', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient.stateless(
+        endpoint.uri,
+        clientInfo: const <String, Object?>{
+          'name': 'listener-event-limit-test',
+          'version': '1.0.0',
+        },
+        maxResponseBytes: 512,
+      );
+      addTearDown(() => client.close(force: true));
+
+      final subscription = await client.listen(
+        id: 'listen-oversized-event',
+        toolsListChanged: true,
+      );
+      final notificationError = expectLater(
+        subscription.notifications,
+        emitsError(
+          isA<McpStreamableProtocolException>().having(
+            (error) => error.message,
+            'message',
+            'MCP SSE event exceeds 512 bytes.',
+          ),
+        ),
+      );
+      await endpoint.sendListenNotification(
+        'notifications/tools/list_changed',
+        params: <String, Object?>{
+          'padding': List<String>.filled(512, 'é').join(),
+        },
+      );
+
+      await notificationError;
+      expect(await subscription.closed, McpSubscriptionCloseReason.remote);
+      expect(client.sessionId, isNull);
+      expect(client.lastEventId, isNull);
+
+      final recovered = await client.requestDirect(
+        'ping',
+        id: 'listener-event-recovered',
+      );
+      expect(recovered['id'], 'listener-event-recovered');
+    });
+
+    test('accepts an MCP 2026 SSE event at the exact raw-byte limit', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      const listenerId = 'listen-exact-event-limit';
+      final message = <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/tools/list_changed',
+        'params': <String, Object?>{
+          'padding': List<String>.filled(64, 'é').join(),
+          '_meta': <String, Object?>{
+            'io.modelcontextprotocol/subscriptionId': listenerId,
+          },
+        },
+      };
+      final eventBytes = utf8.encode('data: ${jsonEncode(message)}\r\n\r\n');
+      final client = McpStreamableHttpClient.stateless(
+        endpoint.uri,
+        clientInfo: const <String, Object?>{
+          'name': 'listener-exact-limit-test',
+          'version': '1.0.0',
+        },
+        maxResponseBytes: eventBytes.length,
+      );
+      addTearDown(() => client.close(force: true));
+
+      final subscription = await client.listen(
+        id: listenerId,
+        toolsListChanged: true,
+      );
+      final notification = subscription.notifications.first;
+      final multibyteStart = eventBytes.indexOf(0xc3);
+      await endpoint.sendRawListenEventChunks(<List<int>>[
+        eventBytes.sublist(0, multibyteStart + 1),
+        eventBytes.sublist(multibyteStart + 1, eventBytes.length - 4),
+        eventBytes.sublist(eventBytes.length - 4, eventBytes.length - 3),
+        eventBytes.sublist(eventBytes.length - 3),
+      ]);
+
+      expect(
+        (await notification)['method'],
+        'notifications/tools/list_changed',
+      );
+      await subscription.close();
+      expect(await subscription.closed, McpSubscriptionCloseReason.local);
+    });
+
+    test('counts complete CRLF framing toward the SSE event limit', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      const listenerId = 'listen-crlf-framing-limit';
+      final message = <String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/tools/list_changed',
+        'params': <String, Object?>{
+          'padding': List<String>.filled(64, 'é').join(),
+          '_meta': <String, Object?>{
+            'io.modelcontextprotocol/subscriptionId': listenerId,
+          },
+        },
+      };
+      final eventBytes = utf8.encode('data: ${jsonEncode(message)}\r\n\r\n');
+      final client = McpStreamableHttpClient.stateless(
+        endpoint.uri,
+        clientInfo: const <String, Object?>{
+          'name': 'listener-crlf-limit-test',
+          'version': '1.0.0',
+        },
+        maxResponseBytes: eventBytes.length - 1,
+      );
+      addTearDown(() => client.close(force: true));
+
+      final subscription = await client.listen(
+        id: listenerId,
+        toolsListChanged: true,
+      );
+      final notificationError = expectLater(
+        subscription.notifications,
+        emitsError(isA<McpStreamableProtocolException>()),
+      );
+      try {
+        await endpoint.sendRawListenEventChunks(<List<int>>[
+          eventBytes.sublist(0, eventBytes.length - 1),
+          eventBytes.sublist(eventBytes.length - 1),
+        ]);
+      } on McpStreamableProtocolException {
+        // The in-process server can observe the client's typed abort error.
+      }
+
+      await notificationError;
+      expect(await subscription.closed, McpSubscriptionCloseReason.remote);
+    });
+
     test('client close cancels a pending MCP 2026 listener', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -9536,6 +9733,17 @@ final class _FakeMcpEndpoint {
     await response.flush();
   }
 
+  Future<void> sendRawListenEventChunks(Iterable<List<int>> chunks) async {
+    final response = _listenResponse;
+    if (response == null) {
+      throw StateError('No subscriptions/listen response is open');
+    }
+    for (final chunk in chunks) {
+      response.add(chunk);
+      await response.flush();
+    }
+  }
+
   Future<void> closeListenGracefully() async {
     final response = _listenResponse;
     final requestId = _listenRequestId;
@@ -9582,6 +9790,19 @@ final class _FakeMcpEndpoint {
     }
 
     final requestSessionId = request.headers.value(_headerSessionId);
+    final listenerErrorPaddingCount = int.tryParse(
+      request.headers.value('x-test-listen-error-padding-count') ?? '',
+    );
+    if (listenerErrorPaddingCount != null) {
+      request.response.statusCode = HttpStatus.internalServerError;
+      request.response.headers.contentType = ContentType.json;
+      _applyTestResponseHeaders(request);
+      request.response.write(
+        List<String>.filled(listenerErrorPaddingCount, 'é').join(),
+      );
+      await request.response.close();
+      return;
+    }
     final responsePaddingCount = int.tryParse(
       request.headers.value('x-test-response-padding-count') ?? '',
     );
