@@ -7352,6 +7352,12 @@ final class _ResponseBodyObservedRequest implements HttpClientRequest {
   set contentLength(int value) => _delegate.contentLength = value;
 
   @override
+  bool get followRedirects => _delegate.followRedirects;
+
+  @override
+  set followRedirects(bool value) => _delegate.followRedirects = value;
+
+  @override
   void add(List<int> data) => _delegate.add(data);
 
   @override

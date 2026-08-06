@@ -2022,6 +2022,7 @@ final class McpStreamableHttpClient {
     final HttpClientRequest request;
     try {
       request = await subscriptionHttpClient.postUrl(endpoint);
+      request.followRedirects = false;
     } catch (_) {
       closeSubscriptionHttpClient();
       rethrow;
@@ -3510,6 +3511,12 @@ final class McpStreamableHttpClient {
       );
       request.abort(error);
       throw error;
+    }
+    try {
+      request.followRedirects = false;
+    } catch (error, stackTrace) {
+      request.abort(error, stackTrace);
+      rethrow;
     }
     _pendingHttpRequests.add(request);
     return request;

@@ -425,6 +425,11 @@
     response headers or response bodies and authentication paused between its
     challenge and token requests, without closing a caller-owned shared HTTP
     transport.
+  - [x] Bind protected HTTP authority to the consumer-selected endpoint:
+    ordinary Streamable POST/GET/DELETE, request-scoped MCP 2026 listeners,
+    and router HTTP-auth requests disable automatic redirects before writing
+    credentials, session/resume headers, or JSON. Redirect responses remain
+    typed 3xx failures and do not mutate MCP session or resume state.
   - [x] Add typed Client ID Metadata Documents for public clients when the
     authorization server advertises support, including HTTPS client identity,
     exact redirect registration, public token-endpoint authentication, and

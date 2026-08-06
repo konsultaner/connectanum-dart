@@ -281,6 +281,7 @@ final class ConnectanumHttpAuthClient {
   }) async {
     final request = await openRequest();
     try {
+      request.followRedirects = false;
       void applyConsumerHeaders(Map<String, String> source) {
         for (final header in source.entries) {
           if (_isControlledHttpAuthRequestHeader(header.key)) {

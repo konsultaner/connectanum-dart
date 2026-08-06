@@ -1,6 +1,6 @@
 # MCP OAuth Discovery Deadline
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -64,6 +64,19 @@ operations immediately.
   MCP/client, 96 benchmark/live-router, and 387 router tests; focused native
   and router regressions; every neutral consumer package and CLI smoke; and
   Chrome Dart2Wasm WebSocket coverage.
+- Implementation commit `eea78895` is on both maintained `master` branches.
+  Exact-head GitHub CI `31075172121`, Dart Package Publish Dry Run
+  `31075172097`, WAMP Profile Benchmarks `31075172100`, and Router Image dry
+  run `31075183929` passed without a rerun.
+- CI uploaded coverage artifact `8957556217`; WAMP uploaded benchmark artifact
+  `8957335493`; Router Image uploaded preview artifact `8957201307` and Docker
+  build records `8957267159` and `8957266808`.
+- The comprehensive strict deployment-chain audit passed with clean exact-head
+  CI logs, package and native-release dry-run evidence, the loaded-image MCP
+  runtime smoke, the multi-architecture image build, the WAMP profile gate,
+  workflow visibility, branch protection, and the public router package all
+  ready. RC tagging remains an explicit release-approval action outside this
+  checkpoint.
 
 ## Outcome
 
@@ -73,5 +86,5 @@ budgets the endpoint probe, challenged and well-known metadata, response
 headers and bounded bodies, and every authorization-server fallback. Timeout
 failures remain typed and do not include response or credential material;
 requests that open after their caller has already timed out are aborted, and
-client close remains authoritative. Local verification is complete; exact-head
-hosted deployment-chain evidence remains.
+client close remains authoritative. Local verification, exact-head hosted
+workflows, and the comprehensive strict deployment-chain audit are clean.

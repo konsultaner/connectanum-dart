@@ -353,6 +353,37 @@ void main() {
       );
     });
 
+    test(
+      'rejects redirected refresh requests without accepting moved grants',
+      () async {
+        final endpoint = await _RedirectingHttpAuthEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = ConnectanumHttpAuthClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.refreshToken(
+            'refresh-secret',
+            headers: const <String, String>{
+              HttpHeaders.authorizationHeader: 'Bearer bridge-secret',
+            },
+          ),
+          throwsA(
+            isA<ConnectanumHttpAuthException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.seeOther,
+            ),
+          ),
+        );
+
+        expect(endpoint.initialRequests, 1);
+        expect(endpoint.redirectedRequests, 0);
+        expect(endpoint.redirectedAuthorization, isNull);
+      },
+    );
+
     test('throws typed exceptions for non-JSON auth error bodies', () async {
       final endpoint = await _FakeHttpAuthEndpoint.bind(
         failChallengeWithText: true,
@@ -557,6 +588,61 @@ void main() {
       },
     );
   });
+}
+
+final class _RedirectingHttpAuthEndpoint {
+  _RedirectingHttpAuthEndpoint._(this._server) {
+    _subscription = _server.listen(_handle);
+  }
+
+  final HttpServer _server;
+  late final StreamSubscription<HttpRequest> _subscription;
+  var initialRequests = 0;
+  var redirectedRequests = 0;
+  String? redirectedAuthorization;
+
+  Uri get uri => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/auth',
+  );
+
+  static Future<_RedirectingHttpAuthEndpoint> bind() async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    return _RedirectingHttpAuthEndpoint._(server);
+  }
+
+  Future<void> close() async {
+    await _subscription.cancel();
+    await _server.close(force: true);
+  }
+
+  Future<void> _handle(HttpRequest request) async {
+    await request.drain<void>();
+    if (request.uri.path == '/redirected') {
+      redirectedRequests++;
+      redirectedAuthorization = request.headers.value(
+        HttpHeaders.authorizationHeader,
+      );
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(const <String, Object?>{
+          'status': 'ok',
+          'token_type': 'Bearer',
+          'access_token': 'redirected-access-token',
+          'refresh_token': 'redirected-refresh-token',
+        }),
+      );
+      await request.response.close();
+      return;
+    }
+
+    initialRequests++;
+    request.response.statusCode = HttpStatus.seeOther;
+    request.response.headers.set(HttpHeaders.locationHeader, '/redirected');
+    await request.response.close();
+  }
 }
 
 final class _FakeHttpAuthEndpoint {

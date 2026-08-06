@@ -159,7 +159,10 @@ Driving use case: downstream application integrations
   public and credential-free; its initial probe, response headers and body,
   challenged or well-known metadata, and authorization-server fallbacks share
   one configurable ten-second default deadline. Normal MCP POST, SSE GET, and
-  DELETE traffic still revalidates bearer authorization.
+  DELETE traffic still revalidates bearer authorization. Credential-, session-,
+  resume-, or grant-bearing MCP and router HTTP-auth requests do not follow
+  redirects: a 3xx response remains a typed failure from the configured
+  endpoint and cannot replace client session or resume state.
 
 ## MCP 2026 Implementation Direction
 

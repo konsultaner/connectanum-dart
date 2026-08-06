@@ -40,11 +40,14 @@ Fresh state:
   `package:connectanum_mcp/connectanum_mcp_io.dart` to negotiate Streamable
   HTTP sessions, send authenticated JSON-RPC requests, consume POST/SSE
   responses, poll GET/SSE events with resume cursors, delete sessions, parse
-  Bearer scope challenges, discover validated OAuth Protected Resource and
-  authorization-server metadata without forwarding credentials and under one
-  configurable total deadline, prepare and validate PKCE authorization
-  requests, and redeem codes into resource-bound bearer grants without
-  mutating active MCP session state. Public consumers
+  Bearer scope challenges, and reject redirects on credential-, session-, or
+  resume-bearing traffic with typed 3xx errors and unchanged client state.
+  Router HTTP-auth requests likewise reject redirects before request headers
+  or JSON are written. Consumers can discover validated OAuth Protected
+  Resource and authorization-server metadata without forwarding credentials
+  and under one configurable total deadline, prepare and validate PKCE
+  authorization requests, and redeem codes into resource-bound bearer grants
+  without mutating active MCP session state. Public consumers
   can also refresh and revoke those grants through discovered endpoints while
   retaining the canonical MCP resource and isolating active Streamable HTTP
   state. They can publish and reuse validated public Client ID Metadata

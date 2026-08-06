@@ -24846,7 +24846,30 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active MCP OAuth discovery-deadline plan is
+- The active MCP HTTP redirect-isolation plan is
+  `docs/exec-plans/2026-08-06-mcp-http-redirect-isolation.md`. Protected
+  Streamable HTTP POST, GET, DELETE, and request-scoped listen traffic plus
+  router HTTP authentication now disable automatic redirects before writing
+  credentials, session identifiers, resume cursors, or JSON. Four fail-first
+  cases reproduced a silently accepted Streamable POST redirect, relocated GET
+  poll and request-scoped listener traffic, and an accepted relocated auth
+  refresh grant; DELETE already stayed local under the current Dart runtime
+  and adds explicit state-preservation coverage. All five redirect cases now
+  return typed 3xx errors without contacting the target or mutating MCP state.
+  `dart analyze packages/connectanum_client` and all 178 focused Streamable
+  HTTP/router HTTP-auth tests pass. The first post-change fast run exposed the
+  same missing redirect-property forwarding in the generated public consumer
+  transport double; its isolated package smoke passes after the fixture fix.
+  A fresh uninterrupted `bin/test-fast` passes with 360 core tests, all 94 MCP
+  tests, the complete 257-case MCP/client suite, all 96 benchmark tests with
+  live-router workloads, every neutral source/global package smoke, the router
+  CLI MCP lifecycle matrix, and focused native/router regressions. Final
+  exact-code `bin/verify` passes with zero formatting changes; 113 Rust core
+  tests plus serializer integrations; 52 Rust FFI tests; 360 Dart core, 94 MCP,
+  257 MCP/client, 96 benchmark/live-router, and 387 router tests; all 13 focused
+  native-forwarding regressions; every neutral consumer package and CLI smoke;
+  and Chrome Dart2Wasm WebSocket coverage.
+- Completed most recently, the MCP OAuth discovery-deadline plan:
   `docs/exec-plans/2026-08-06-mcp-oauth-discovery-deadline.md`. Public
   Protected Resource Metadata and Authorization Server Metadata discovery is
   now credential-free, schema-validated, response-size bounded, and protected
@@ -24867,7 +24890,16 @@ at the older `47bbf9c` commit.
   52 Rust FFI tests; 360 Dart core, 94 MCP, 252 MCP/client, 96 benchmark/live-
   router, and 387 router tests; focused native/router regressions; every
   neutral consumer package and CLI smoke; and Chrome Dart2Wasm WebSocket
-  coverage. Exact-head hosted deployment-chain evidence remains.
+  coverage. Implementation commit `eea78895` is on both maintained `master`
+  branches. Exact-head GitHub CI `31075172121`, Dart Package Publish Dry Run
+  `31075172097`, WAMP Profile Benchmarks `31075172100`, and Router Image dry
+  run `31075183929` pass without a rerun. Coverage artifact `8957556217`, WAMP
+  artifact `8957335493`, Router Image preview artifact `8957201307`, and Docker
+  build records `8957267159` and `8957266808` were uploaded. The comprehensive
+  strict deployment-chain audit passes with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, and every
+  required deployment gate ready. RC tagging remains an explicit
+  release-approval action outside this checkpoint.
 - Completed immediately before that, the router-hosted MCP OAuth introspection
   response-bounds plan:
   `docs/exec-plans/2026-08-06-mcp-oauth-introspection-response-bounds.md`.

@@ -9008,6 +9008,184 @@ void main() {
       },
     );
 
+    test(
+      'rejects redirected Streamable HTTP POSTs without moving authority',
+      () async {
+        final endpoint = await _RedirectingMcpEndpoint.bind(
+          HttpStatus.seeOther,
+        );
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.withBearerToken(
+          endpoint.uri,
+          'post-token',
+        );
+        addTearDown(() => client.close(force: true));
+        client.sessionId = 'redirect-post-session';
+        client.lastEventId = 'redirect-post-cursor';
+
+        await expectLater(
+          client.notifyInitialized(),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.seeOther,
+            ),
+          ),
+        );
+
+        expect(endpoint.initialRequests, hasLength(1));
+        expect(endpoint.initialRequests.single.method, 'POST');
+        expect(
+          endpoint.initialRequests.single.authorization,
+          'Bearer post-token',
+        );
+        expect(
+          endpoint.initialRequests.single.sessionId,
+          'redirect-post-session',
+        );
+        expect(endpoint.redirectedRequests, isEmpty);
+        expect(client.sessionId, 'redirect-post-session');
+        expect(client.lastEventId, 'redirect-post-cursor');
+      },
+    );
+
+    test(
+      'rejects redirected Streamable HTTP GETs without moving resume state',
+      () async {
+        final endpoint = await _RedirectingMcpEndpoint.bind(
+          HttpStatus.temporaryRedirect,
+        );
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.withBearerToken(
+          endpoint.uri,
+          'poll-token',
+        );
+        addTearDown(() => client.close(force: true));
+        client.sessionId = 'redirect-poll-session';
+        client.lastEventId = 'redirect-poll-cursor';
+
+        await expectLater(
+          client.poll(),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.temporaryRedirect,
+            ),
+          ),
+        );
+
+        expect(endpoint.initialRequests, hasLength(1));
+        expect(endpoint.initialRequests.single.method, 'GET');
+        expect(
+          endpoint.initialRequests.single.authorization,
+          'Bearer poll-token',
+        );
+        expect(
+          endpoint.initialRequests.single.sessionId,
+          'redirect-poll-session',
+        );
+        expect(
+          endpoint.initialRequests.single.lastEventId,
+          'redirect-poll-cursor',
+        );
+        expect(endpoint.redirectedRequests, isEmpty);
+        expect(client.sessionId, 'redirect-poll-session');
+        expect(client.lastEventId, 'redirect-poll-cursor');
+      },
+    );
+
+    test(
+      'rejects redirected Streamable HTTP DELETEs without clearing state',
+      () async {
+        final endpoint = await _RedirectingMcpEndpoint.bind(
+          HttpStatus.seeOther,
+        );
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.withBearerToken(
+          endpoint.uri,
+          'delete-token',
+        );
+        addTearDown(() => client.close(force: true));
+        client.sessionId = 'redirect-delete-session';
+        client.lastEventId = 'redirect-delete-cursor';
+
+        await expectLater(
+          client.deleteSession(),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.seeOther,
+            ),
+          ),
+        );
+
+        expect(endpoint.initialRequests, hasLength(1));
+        expect(endpoint.initialRequests.single.method, 'DELETE');
+        expect(
+          endpoint.initialRequests.single.authorization,
+          'Bearer delete-token',
+        );
+        expect(
+          endpoint.initialRequests.single.sessionId,
+          'redirect-delete-session',
+        );
+        expect(endpoint.redirectedRequests, isEmpty);
+        expect(client.sessionId, 'redirect-delete-session');
+        expect(client.lastEventId, 'redirect-delete-cursor');
+      },
+    );
+
+    test(
+      'rejects redirected MCP 2026 listeners without moving authority',
+      () async {
+        final endpoint = await _RedirectingMcpEndpoint.bind(
+          HttpStatus.seeOther,
+        );
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient.statelessWithBearerToken(
+          endpoint.uri,
+          'listen-token',
+          clientInfo: const <String, Object?>{
+            'name': 'consumer-test',
+            'version': '2.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.listen(id: 'redirect-listen', toolsListChanged: true),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.seeOther,
+            ),
+          ),
+        );
+
+        expect(endpoint.initialRequests, hasLength(1));
+        expect(endpoint.initialRequests.single.method, 'POST');
+        expect(
+          endpoint.initialRequests.single.authorization,
+          'Bearer listen-token',
+        );
+        expect(
+          endpoint.initialRequests.single.mcpMethod,
+          'subscriptions/listen',
+        );
+        expect(endpoint.redirectedRequests, isEmpty);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+    );
+
     test('throws typed HTTP exceptions for non-success responses', () async {
       final endpoint = await _FakeMcpEndpoint.bind(failInitialize: true);
       addTearDown(endpoint.close);
@@ -9034,6 +9212,52 @@ void main() {
       );
     });
   });
+}
+
+final class _RedirectingMcpEndpoint {
+  _RedirectingMcpEndpoint._(this._server, this._statusCode) {
+    _subscription = _server.listen(_handle);
+  }
+
+  final HttpServer _server;
+  final int _statusCode;
+  final initialRequests = <_SeenRequest>[];
+  final redirectedRequests = <_SeenRequest>[];
+  late final StreamSubscription<HttpRequest> _subscription;
+
+  Uri get uri => Uri(
+    scheme: 'http',
+    host: _server.address.address,
+    port: _server.port,
+    path: '/mcp',
+  );
+
+  static Future<_RedirectingMcpEndpoint> bind(int statusCode) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    return _RedirectingMcpEndpoint._(server, statusCode);
+  }
+
+  Future<void> close() async {
+    await _subscription.cancel();
+    await _server.close(force: true);
+  }
+
+  Future<void> _handle(HttpRequest request) async {
+    final body = await utf8.decoder.bind(request).join();
+    final jsonBody = body.isEmpty ? null : jsonDecode(body);
+    final seenRequest = _SeenRequest.from(request, jsonBody);
+    if (request.uri.path == '/redirected') {
+      redirectedRequests.add(seenRequest);
+      request.response.statusCode = HttpStatus.accepted;
+      await request.response.close();
+      return;
+    }
+
+    initialRequests.add(seenRequest);
+    request.response.statusCode = _statusCode;
+    request.response.headers.set(HttpHeaders.locationHeader, '/redirected');
+    await request.response.close();
+  }
 }
 
 McpOAuthTokenGrant _testOAuthGrant(
@@ -11024,6 +11248,12 @@ final class _DelayedResponseRequest implements HttpClientRequest {
   set contentLength(int value) => _delegate.contentLength = value;
 
   @override
+  bool get followRedirects => _delegate.followRedirects;
+
+  @override
+  set followRedirects(bool value) => _delegate.followRedirects = value;
+
+  @override
   void add(List<int> data) => _delegate.add(data);
 
   @override
@@ -11058,6 +11288,12 @@ final class _ResponseBodyObservedRequest implements HttpClientRequest {
 
   @override
   set contentLength(int value) => _delegate.contentLength = value;
+
+  @override
+  bool get followRedirects => _delegate.followRedirects;
+
+  @override
+  set followRedirects(bool value) => _delegate.followRedirects = value;
 
   @override
   void add(List<int> data) => _delegate.add(data);
