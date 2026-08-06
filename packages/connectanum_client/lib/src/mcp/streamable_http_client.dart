@@ -1380,6 +1380,55 @@ int _validatedMcpMaxResponseBytes(int value) {
   return value;
 }
 
+Duration _validatedMcpRequestTimeout(Duration value) {
+  if (value <= Duration.zero) {
+    throw ArgumentError.value(
+      value,
+      'requestTimeout',
+      'requestTimeout must be positive',
+    );
+  }
+  return value;
+}
+
+abstract interface class _McpPendingHttpOperation {
+  void reject(Object error, StackTrace stackTrace);
+}
+
+final class _McpPendingHttpOperationHandle<T>
+    implements _McpPendingHttpOperation {
+  final Completer<T> _completer = Completer<T>();
+
+  Future<T> get future => _completer.future;
+
+  void complete(T value) {
+    if (!_completer.isCompleted) {
+      _completer.complete(value);
+    }
+  }
+
+  void completeError(Object error, StackTrace stackTrace) {
+    if (!_completer.isCompleted) {
+      _completer.completeError(error, stackTrace);
+    }
+  }
+
+  @override
+  void reject(Object error, StackTrace stackTrace) {
+    completeError(error, stackTrace);
+  }
+}
+
+final class _McpHttpOperationContext {
+  _McpHttpOperationContext({this.onAbort});
+
+  final void Function()? onAbort;
+  final Set<HttpClientRequest> requests = <HttpClientRequest>{};
+  final Set<_McpPendingHttpResponseBody> responseBodies =
+      <_McpPendingHttpResponseBody>{};
+  Object? terminalError;
+}
+
 final class _McpPendingHttpResponseBody {
   _McpPendingHttpResponseBody(
     HttpClientResponse response,
@@ -1498,6 +1547,9 @@ final class _McpPendingOAuthHttpOperation {
 /// headers and SSE cursor so consumer applications do not need to reimplement
 /// the transport details.
 final class McpStreamableHttpClient {
+  /// Default total deadline for one MCP HTTP exchange.
+  static const Duration defaultRequestTimeout = Duration(seconds: 30);
+
   /// Default maximum raw byte length for buffered responses and SSE events.
   static const int defaultMaxResponseBytes = 16 * 1024 * 1024;
 
@@ -1512,6 +1564,7 @@ final class McpStreamableHttpClient {
     McpJsonMap? clientInfo,
     this.clientCapabilities = const <String, Object?>{},
     String defaultProtocolVersion = latestSessionProtocolVersion,
+    Duration requestTimeout = defaultRequestTimeout,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : clientInfo = _validatedMcpClientInfo(clientInfo),
@@ -1519,6 +1572,7 @@ final class McpStreamableHttpClient {
          defaultProtocolVersion,
          'defaultProtocolVersion',
        ),
+       requestTimeout = _validatedMcpRequestTimeout(requestTimeout),
        maxResponseBytes = _validatedMcpMaxResponseBytes(maxResponseBytes),
        _httpClient = httpClient ?? HttpClient(),
        _subscriptionHttpClientFactory =
@@ -1540,6 +1594,7 @@ final class McpStreamableHttpClient {
     McpJsonMap? clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
     String defaultProtocolVersion = latestSessionProtocolVersion,
+    Duration requestTimeout = defaultRequestTimeout,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this(
@@ -1550,6 +1605,7 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: defaultProtocolVersion,
+         requestTimeout: requestTimeout,
          maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
@@ -1562,6 +1618,7 @@ final class McpStreamableHttpClient {
     HttpClient? httpClient,
     McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
+    Duration requestTimeout = defaultRequestTimeout,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this(
@@ -1572,6 +1629,7 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: latestProtocolVersion,
+         requestTimeout: requestTimeout,
          maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
@@ -1585,6 +1643,7 @@ final class McpStreamableHttpClient {
     HttpClient? httpClient,
     McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
+    Duration requestTimeout = defaultRequestTimeout,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this.withBearerToken(
@@ -1596,6 +1655,7 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: latestProtocolVersion,
+         requestTimeout: requestTimeout,
          maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
@@ -1609,6 +1669,7 @@ final class McpStreamableHttpClient {
     HttpClient? httpClient,
     McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
+    Duration requestTimeout = defaultRequestTimeout,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this.withAuthGrant(
@@ -1620,6 +1681,7 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: latestProtocolVersion,
+         requestTimeout: requestTimeout,
          maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
@@ -1633,6 +1695,7 @@ final class McpStreamableHttpClient {
     McpJsonMap? clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
     String defaultProtocolVersion = latestSessionProtocolVersion,
+    Duration requestTimeout = defaultRequestTimeout,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) {
@@ -1646,6 +1709,7 @@ final class McpStreamableHttpClient {
       clientInfo: clientInfo,
       clientCapabilities: clientCapabilities,
       defaultProtocolVersion: defaultProtocolVersion,
+      requestTimeout: requestTimeout,
       maxResponseBytes: maxResponseBytes,
       closeHttpClient: closeHttpClient,
     );
@@ -1661,6 +1725,7 @@ final class McpStreamableHttpClient {
     McpJsonMap? clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
     String defaultProtocolVersion = latestSessionProtocolVersion,
+    Duration requestTimeout = defaultRequestTimeout,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this(
@@ -1671,6 +1736,7 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: defaultProtocolVersion,
+         requestTimeout: requestTimeout,
          maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
@@ -1680,6 +1746,12 @@ final class McpStreamableHttpClient {
   /// Request-scoped listener streams remain incremental: this limit applies to
   /// each complete SSE event, not to the total lifetime response.
   final int maxResponseBytes;
+
+  /// Total deadline for one POST, GET, DELETE, or listener-setup exchange.
+  ///
+  /// Established `subscriptions/listen` streams are not lifetime-limited by
+  /// this value after their acknowledgment arrives.
+  final Duration requestTimeout;
 
   final Uri endpoint;
   final Map<String, String> headers;
@@ -1691,6 +1763,8 @@ final class McpStreamableHttpClient {
   final bool _ownsHttpClient;
   bool _closed = false;
   final Set<HttpClientRequest> _pendingHttpRequests = <HttpClientRequest>{};
+  final Set<_McpPendingHttpOperation> _pendingHttpOperations =
+      <_McpPendingHttpOperation>{};
   final Set<_McpPendingOAuthHttpOperation> _pendingOAuthHttpOperations =
       <_McpPendingOAuthHttpOperation>{};
   final Set<_McpPendingHttpResponseBody> _pendingHttpResponseBodies =
@@ -2159,102 +2233,139 @@ final class McpStreamableHttpClient {
       latestProtocolVersion,
     );
 
-    final requestAuthorizationState = _authorizationStateSnapshot;
-    final subscriptionStateToken = _subscriptionStateToken;
-    final subscriptionHttpClient = _subscriptionHttpClientFactory();
-    _pendingSubscriptionHttpClients.add(subscriptionHttpClient);
-    void closeSubscriptionHttpClient() {
-      _pendingSubscriptionHttpClients.remove(subscriptionHttpClient);
-      subscriptionHttpClient.close(force: true);
+    HttpClient? pendingSubscriptionHttpClient;
+    void abortSubscriptionSetup() {
+      final client = pendingSubscriptionHttpClient;
+      if (client == null) {
+        return;
+      }
+      pendingSubscriptionHttpClient = null;
+      _pendingSubscriptionHttpClients.remove(client);
+      client.close(force: true);
     }
 
-    final HttpClientRequest request;
-    try {
-      request = await subscriptionHttpClient.postUrl(endpoint);
-      request.followRedirects = false;
-    } catch (_) {
-      closeSubscriptionHttpClient();
-      rethrow;
-    }
-    final HttpClientResponse response;
-    try {
-      _applyHeaders(
-        request,
-        accept: _acceptStreamableHttp,
-        includeSession: false,
-        protocolVersion: latestProtocolVersion,
-        authorizationState: requestAuthorizationState,
-        extraHeaders: headers,
-      );
-      _applyStandardRequestHeaders(request, preparedMessage);
-      request.headers.contentType = ContentType.json;
-      request.persistentConnection = false;
-      final requestBody = utf8.encode(jsonEncode(preparedMessage));
-      request.contentLength = requestBody.length;
-      request.add(requestBody);
-      response = await request.close();
-    } catch (_) {
-      closeSubscriptionHttpClient();
-      rethrow;
-    }
-    try {
-      if (response.statusCode < HttpStatus.ok ||
-          response.statusCode >= HttpStatus.multipleChoices) {
-        final body = await _readBody(response, maxResponseBytes);
-        _throwIfHttpError(response, body);
-      }
-      if (!_isSse(response)) {
-        final body = await _readBody(response, maxResponseBytes);
-        if (_isJson(response) && body.isNotEmpty) {
-          final jsonResponse = _jsonMapFromBody(
-            body,
-            'subscriptions/listen JSON response',
-          );
-          _jsonRpcResultFrom(jsonResponse, method: 'subscriptions/listen');
+    return _runTrackedHttpOperation<McpStreamableSubscription>(
+      (operation) async {
+        final requestAuthorizationState = _authorizationStateSnapshot;
+        final subscriptionStateToken = _subscriptionStateToken;
+        final subscriptionHttpClient = _subscriptionHttpClientFactory();
+        pendingSubscriptionHttpClient = subscriptionHttpClient;
+        _pendingSubscriptionHttpClients.add(subscriptionHttpClient);
+        void closeSubscriptionHttpClient() {
+          if (identical(
+            pendingSubscriptionHttpClient,
+            subscriptionHttpClient,
+          )) {
+            pendingSubscriptionHttpClient = null;
+          }
+          _pendingSubscriptionHttpClients.remove(subscriptionHttpClient);
+          subscriptionHttpClient.close(force: true);
         }
-        throw FormatException(
-          'Expected $_acceptSse response, got '
-          '${response.headers.contentType?.mimeType ?? 'unknown'}',
+
+        final HttpClientRequest request;
+        try {
+          request = await _openTrackedHttpRequest(
+            () => subscriptionHttpClient.postUrl(endpoint),
+            operation,
+            enforceClientState: false,
+          );
+        } catch (_) {
+          closeSubscriptionHttpClient();
+          rethrow;
+        }
+        final HttpClientResponse response;
+        try {
+          _applyHeaders(
+            request,
+            accept: _acceptStreamableHttp,
+            includeSession: false,
+            protocolVersion: latestProtocolVersion,
+            authorizationState: requestAuthorizationState,
+            extraHeaders: headers,
+          );
+          _applyStandardRequestHeaders(request, preparedMessage);
+          request.headers.contentType = ContentType.json;
+          request.persistentConnection = false;
+          final requestBody = utf8.encode(jsonEncode(preparedMessage));
+          request.contentLength = requestBody.length;
+          request.add(requestBody);
+          response = await _sendTrackedHttpRequest(request, operation);
+        } catch (_) {
+          closeSubscriptionHttpClient();
+          rethrow;
+        }
+        try {
+          if (response.statusCode < HttpStatus.ok ||
+              response.statusCode >= HttpStatus.multipleChoices) {
+            final body = await _readTrackedHttpResponseBody(
+              request,
+              response,
+              operation,
+            );
+            _throwIfHttpError(response, body);
+          }
+          if (!_isSse(response)) {
+            final body = await _readTrackedHttpResponseBody(
+              request,
+              response,
+              operation,
+            );
+            if (_isJson(response) && body.isNotEmpty) {
+              final jsonResponse = _jsonMapFromBody(
+                body,
+                'subscriptions/listen JSON response',
+              );
+              _jsonRpcResultFrom(jsonResponse, method: 'subscriptions/listen');
+            }
+            throw FormatException(
+              'Expected $_acceptSse response, got '
+              '${response.headers.contentType?.mimeType ?? 'unknown'}',
+            );
+          }
+          _captureSessionHeaders(
+            response,
+            captureSessionState: false,
+            forbidSessionId: true,
+            expectedProtocolVersion: latestProtocolVersion,
+          );
+        } catch (_) {
+          closeSubscriptionHttpClient();
+          rethrow;
+        }
+
+        if (!identical(subscriptionStateToken, _subscriptionStateToken)) {
+          closeSubscriptionHttpClient();
+          throw StateError(
+            'MCP client closed while subscriptions/listen was pending.',
+          );
+        }
+
+        late final McpStreamableSubscription subscription;
+        subscription = McpStreamableSubscription._(
+          id: requestId,
+          requestedNotifications: requestedNotifications,
+          httpClient: subscriptionHttpClient,
+          request: request,
+          response: response,
+          maxEventBytes: maxResponseBytes,
+          onClosed: () => _subscriptions.remove(subscription),
         );
-      }
-      _captureSessionHeaders(
-        response,
-        captureSessionState: false,
-        forbidSessionId: true,
-        expectedProtocolVersion: latestProtocolVersion,
-      );
-    } catch (_) {
-      closeSubscriptionHttpClient();
-      rethrow;
-    }
-
-    if (!identical(subscriptionStateToken, _subscriptionStateToken)) {
-      closeSubscriptionHttpClient();
-      throw StateError(
-        'MCP client closed while subscriptions/listen was pending.',
-      );
-    }
-
-    late final McpStreamableSubscription subscription;
-    subscription = McpStreamableSubscription._(
-      id: requestId,
-      requestedNotifications: requestedNotifications,
-      httpClient: subscriptionHttpClient,
-      request: request,
-      response: response,
-      maxEventBytes: maxResponseBytes,
-      onClosed: () => _subscriptions.remove(subscription),
+        _pendingSubscriptionHttpClients.remove(subscriptionHttpClient);
+        _subscriptions.add(subscription);
+        subscription._start();
+        try {
+          await subscription._acknowledgment;
+          pendingSubscriptionHttpClient = null;
+          return subscription;
+        } catch (_) {
+          pendingSubscriptionHttpClient = null;
+          await subscription.close();
+          rethrow;
+        }
+      },
+      onAbort: abortSubscriptionSetup,
+      trackForClose: false,
     );
-    _pendingSubscriptionHttpClients.remove(subscriptionHttpClient);
-    _subscriptions.add(subscription);
-    subscription._start();
-    try {
-      await subscription._acknowledgment;
-      return subscription;
-    } catch (_) {
-      await subscription.close();
-      rethrow;
-    }
   }
 
   Future<void> notifyInitialized({
@@ -3249,83 +3360,124 @@ final class McpStreamableHttpClient {
     required String protocolVersion,
     Map<String, String> extraHeaders = const <String, String>{},
   }) async {
-    final requestSessionState = _sessionStateSnapshot;
-    final requestAuthorizationState = _authorizationStateSnapshot;
-    final requestResumeState = _resumeStateSnapshot;
-    final request = await _openTrackedHttpRequest(
-      () => _httpClient.postUrl(endpoint),
-    );
-    final acceptsSse = streamable || protocolVersion == latestProtocolVersion;
-    _applyHeaders(
-      request,
-      accept: acceptsSse ? _acceptStreamableHttp : _acceptJson,
-      includeSession: includeSession,
-      protocolVersion: protocolVersion,
-      sessionState: requestSessionState,
-      authorizationState: requestAuthorizationState,
-      extraHeaders: extraHeaders,
-    );
-    _applyStandardRequestHeaders(request, message);
-    request.headers.contentType = ContentType.json;
-    final requestBody = utf8.encode(jsonEncode(message));
-    request.contentLength = requestBody.length;
-    request.add(requestBody);
-
-    final requestMethod = _requestMethodForStandardHeaders(message);
-    final validatesResponseHeaders = streamable || includeSession;
-    final affectsSessionState =
-        includeSession || (streamable && requestMethod == 'initialize');
-    final clearsSessionOnMissing = requestMethod == 'initialize';
-    final resetsLastEventId = requestMethod == 'initialize';
-    final response = await _sendTrackedHttpRequest(request);
-    final body = await _readTrackedHttpResponseBody(request, response);
-    if (affectsSessionState) {
-      _throwIfHttpErrorForSession(
-        response,
-        body,
-        expectedSessionToken: requestSessionState.token,
-        expectedAuthorizationToken: requestAuthorizationState.token,
+    return _runTrackedHttpOperation<Object?>((operation) async {
+      final requestSessionState = _sessionStateSnapshot;
+      final requestAuthorizationState = _authorizationStateSnapshot;
+      final requestResumeState = _resumeStateSnapshot;
+      final request = await _openTrackedHttpRequest(
+        () => _httpClient.postUrl(endpoint),
+        operation,
       );
-    } else {
-      _throwIfHttpError(response, body);
-    }
+      final acceptsSse = streamable || protocolVersion == latestProtocolVersion;
+      _applyHeaders(
+        request,
+        accept: acceptsSse ? _acceptStreamableHttp : _acceptJson,
+        includeSession: includeSession,
+        protocolVersion: protocolVersion,
+        sessionState: requestSessionState,
+        authorizationState: requestAuthorizationState,
+        extraHeaders: extraHeaders,
+      );
+      _applyStandardRequestHeaders(request, message);
+      request.headers.contentType = ContentType.json;
+      final requestBody = utf8.encode(jsonEncode(message));
+      request.contentLength = requestBody.length;
+      request.add(requestBody);
 
-    if (response.statusCode == HttpStatus.accepted ||
-        response.statusCode == HttpStatus.noContent ||
-        body.isEmpty) {
+      final requestMethod = _requestMethodForStandardHeaders(message);
+      final validatesResponseHeaders = streamable || includeSession;
+      final affectsSessionState =
+          includeSession || (streamable && requestMethod == 'initialize');
+      final clearsSessionOnMissing = requestMethod == 'initialize';
+      final resetsLastEventId = requestMethod == 'initialize';
+      final response = await _sendTrackedHttpRequest(request, operation);
+      final body = await _readTrackedHttpResponseBody(
+        request,
+        response,
+        operation,
+      );
+      if (affectsSessionState) {
+        _throwIfHttpErrorForSession(
+          response,
+          body,
+          expectedSessionToken: requestSessionState.token,
+          expectedAuthorizationToken: requestAuthorizationState.token,
+        );
+      } else {
+        _throwIfHttpError(response, body);
+      }
+
+      if (response.statusCode == HttpStatus.accepted ||
+          response.statusCode == HttpStatus.noContent ||
+          body.isEmpty) {
+        _validatePostResponseShape(
+          message,
+          null,
+          protocolVersion: protocolVersion,
+        );
+        if (validatesResponseHeaders) {
+          _capturePostResponseSessionState(
+            response,
+            requestMethod: requestMethod,
+            responseValue: null,
+            requestProtocolVersion: protocolVersion,
+            requestIncludesSession: includeSession,
+            requestSessionState: requestSessionState,
+            requestAuthorizationState: requestAuthorizationState,
+            clearSessionOnMissing: clearsSessionOnMissing,
+            resetLastEventId: resetsLastEventId,
+          );
+        }
+        return null;
+      }
+
+      if (_isSse(response)) {
+        final events = parseMcpSseEvents(body);
+        final value = _jsonRpcResponseValueFromSseEvents(message, events);
+        _validatePostResponseShape(
+          message,
+          value,
+          responseBodyReturned: body.isNotEmpty,
+          protocolVersion: protocolVersion,
+        );
+        _validateMcpSseEventIds(events);
+        if (validatesResponseHeaders) {
+          final capturedSessionState = _capturePostResponseSessionState(
+            response,
+            requestMethod: requestMethod,
+            responseValue: value,
+            requestProtocolVersion: protocolVersion,
+            requestIncludesSession: includeSession,
+            requestSessionState: requestSessionState,
+            requestAuthorizationState: requestAuthorizationState,
+            clearSessionOnMissing: clearsSessionOnMissing,
+            resetLastEventId: resetsLastEventId,
+          );
+          if (capturedSessionState) {
+            _captureLastEventId(
+              events,
+              expectedResumeToken: requestResumeState.token,
+            );
+          }
+        }
+        return value;
+      }
+
+      if (!_isJson(response)) {
+        throw FormatException(
+          'Expected $_acceptJson response, got ${response.headers.contentType?.mimeType ?? 'unknown'}',
+        );
+      }
+
+      final value = _jsonValueFromBody(body);
       _validatePostResponseShape(
         message,
-        null,
+        value,
+        responseBodyReturned: true,
         protocolVersion: protocolVersion,
       );
       if (validatesResponseHeaders) {
         _capturePostResponseSessionState(
-          response,
-          requestMethod: requestMethod,
-          responseValue: null,
-          requestProtocolVersion: protocolVersion,
-          requestIncludesSession: includeSession,
-          requestSessionState: requestSessionState,
-          requestAuthorizationState: requestAuthorizationState,
-          clearSessionOnMissing: clearsSessionOnMissing,
-          resetLastEventId: resetsLastEventId,
-        );
-      }
-      return null;
-    }
-
-    if (_isSse(response)) {
-      final events = parseMcpSseEvents(body);
-      final value = _jsonRpcResponseValueFromSseEvents(message, events);
-      _validatePostResponseShape(
-        message,
-        value,
-        responseBodyReturned: body.isNotEmpty,
-        protocolVersion: protocolVersion,
-      );
-      _validateMcpSseEventIds(events);
-      if (validatesResponseHeaders) {
-        final capturedSessionState = _capturePostResponseSessionState(
           response,
           requestMethod: requestMethod,
           responseValue: value,
@@ -3336,43 +3488,9 @@ final class McpStreamableHttpClient {
           clearSessionOnMissing: clearsSessionOnMissing,
           resetLastEventId: resetsLastEventId,
         );
-        if (capturedSessionState) {
-          _captureLastEventId(
-            events,
-            expectedResumeToken: requestResumeState.token,
-          );
-        }
       }
       return value;
-    }
-
-    if (!_isJson(response)) {
-      throw FormatException(
-        'Expected $_acceptJson response, got ${response.headers.contentType?.mimeType ?? 'unknown'}',
-      );
-    }
-
-    final value = _jsonValueFromBody(body);
-    _validatePostResponseShape(
-      message,
-      value,
-      responseBodyReturned: true,
-      protocolVersion: protocolVersion,
-    );
-    if (validatesResponseHeaders) {
-      _capturePostResponseSessionState(
-        response,
-        requestMethod: requestMethod,
-        responseValue: value,
-        requestProtocolVersion: protocolVersion,
-        requestIncludesSession: includeSession,
-        requestSessionState: requestSessionState,
-        requestAuthorizationState: requestAuthorizationState,
-        clearSessionOnMissing: clearsSessionOnMissing,
-        resetLastEventId: resetsLastEventId,
-      );
-    }
-    return value;
+    });
   }
 
   void _validateResultTypeForProtocol(
@@ -3498,64 +3616,71 @@ final class McpStreamableHttpClient {
         'MCP 2026 HTTP does not support GET polling',
       );
     }
-    final requestSessionState = _sessionStateSnapshot;
-    final requestAuthorizationState = _authorizationStateSnapshot;
-    final requestResumeState = _resumeStateSnapshot;
-    final requestProtocolVersion = protocolVersion;
-    final requestLastEventId = lastEventId ?? requestResumeState.lastEventId;
-    final request = await _openTrackedHttpRequest(
-      () => _httpClient.getUrl(endpoint),
-    );
-    _applyHeaders(
-      request,
-      accept: _acceptSse,
-      lastEventId: requestLastEventId,
-      protocolVersion: requestProtocolVersion,
-      sessionState: requestSessionState,
-      authorizationState: requestAuthorizationState,
-      extraHeaders: headers,
-    );
-
-    final response = await _sendTrackedHttpRequest(request);
-    final body = await _readTrackedHttpResponseBody(request, response);
-    _throwIfHttpErrorForSession(
-      response,
-      body,
-      expectedSessionToken: requestSessionState.token,
-      expectedAuthorizationToken: requestAuthorizationState.token,
-    );
-
-    if (!_isSse(response)) {
-      throw FormatException(
-        'Expected $_acceptSse response, got ${response.headers.contentType?.mimeType ?? 'unknown'}',
+    return _runTrackedHttpOperation<List<McpSseEvent>>((operation) async {
+      final requestSessionState = _sessionStateSnapshot;
+      final requestAuthorizationState = _authorizationStateSnapshot;
+      final requestResumeState = _resumeStateSnapshot;
+      final requestProtocolVersion = protocolVersion;
+      final requestLastEventId = lastEventId ?? requestResumeState.lastEventId;
+      final request = await _openTrackedHttpRequest(
+        () => _httpClient.getUrl(endpoint),
+        operation,
       );
-    }
+      _applyHeaders(
+        request,
+        accept: _acceptSse,
+        lastEventId: requestLastEventId,
+        protocolVersion: requestProtocolVersion,
+        sessionState: requestSessionState,
+        authorizationState: requestAuthorizationState,
+        extraHeaders: headers,
+      );
 
-    final events = parseMcpSseEvents(body);
-    for (final event in events) {
-      final value = event.jsonValue;
-      if (value != null) {
-        _validateJsonRpcSseMessageValue(value);
+      final response = await _sendTrackedHttpRequest(request, operation);
+      final body = await _readTrackedHttpResponseBody(
+        request,
+        response,
+        operation,
+      );
+      _throwIfHttpErrorForSession(
+        response,
+        body,
+        expectedSessionToken: requestSessionState.token,
+        expectedAuthorizationToken: requestAuthorizationState.token,
+      );
+
+      if (!_isSse(response)) {
+        throw FormatException(
+          'Expected $_acceptSse response, got ${response.headers.contentType?.mimeType ?? 'unknown'}',
+        );
       }
-    }
-    _validateMcpSseEventIds(events);
-    final ownsSessionState = identical(
-      _sessionStateToken,
-      requestSessionState.token,
-    );
-    _captureSessionHeaders(
-      response,
-      captureSessionState: ownsSessionState,
-      expectedSessionState: requestSessionState,
-      expectedProtocolVersion: requestProtocolVersion,
-    );
-    if (ownsSessionState) {
-      _captureLastEventId(
-        events,
-        expectedResumeToken: requestResumeState.token,
+
+      final events = parseMcpSseEvents(body);
+      for (final event in events) {
+        final value = event.jsonValue;
+        if (value != null) {
+          _validateJsonRpcSseMessageValue(value);
+        }
+      }
+      _validateMcpSseEventIds(events);
+      final ownsSessionState = identical(
+        _sessionStateToken,
+        requestSessionState.token,
       );
-    }
-    return events;
+      _captureSessionHeaders(
+        response,
+        captureSessionState: ownsSessionState,
+        expectedSessionState: requestSessionState,
+        expectedProtocolVersion: requestProtocolVersion,
+      );
+      if (ownsSessionState) {
+        _captureLastEventId(
+          events,
+          expectedResumeToken: requestResumeState.token,
+        );
+      }
+      return events;
+    });
   }
 
   Future<void> deleteSession({
@@ -3573,36 +3698,43 @@ final class McpStreamableHttpClient {
       _clearSessionState();
       return;
     }
-    final activeProtocolVersion = protocolVersion;
-    final request = await _openTrackedHttpRequest(
-      () => _httpClient.deleteUrl(endpoint),
-    );
-    _applyHeaders(
-      request,
-      accept: _acceptJson,
-      protocolVersion: activeProtocolVersion,
-      sessionState: requestSessionState,
-      authorizationState: requestAuthorizationState,
-      extraHeaders: headers,
-    );
+    return _runTrackedHttpOperation<void>((operation) async {
+      final activeProtocolVersion = protocolVersion;
+      final request = await _openTrackedHttpRequest(
+        () => _httpClient.deleteUrl(endpoint),
+        operation,
+      );
+      _applyHeaders(
+        request,
+        accept: _acceptJson,
+        protocolVersion: activeProtocolVersion,
+        sessionState: requestSessionState,
+        authorizationState: requestAuthorizationState,
+        extraHeaders: headers,
+      );
 
-    final response = await _sendTrackedHttpRequest(request);
-    final body = await _readTrackedHttpResponseBody(request, response);
-    _throwIfHttpErrorForSession(
-      response,
-      body,
-      expectedSessionToken: requestSessionState.token,
-      expectedAuthorizationToken: requestAuthorizationState.token,
-    );
-    _captureSessionHeaders(
-      response,
-      captureSessionState: false,
-      expectedSessionState: requestSessionState,
-      expectedProtocolVersion: activeProtocolVersion,
-    );
-    if (identical(_sessionStateToken, requestSessionState.token)) {
-      _clearSessionState();
-    }
+      final response = await _sendTrackedHttpRequest(request, operation);
+      final body = await _readTrackedHttpResponseBody(
+        request,
+        response,
+        operation,
+      );
+      _throwIfHttpErrorForSession(
+        response,
+        body,
+        expectedSessionToken: requestSessionState.token,
+        expectedAuthorizationToken: requestAuthorizationState.token,
+      );
+      _captureSessionHeaders(
+        response,
+        captureSessionState: false,
+        expectedSessionState: requestSessionState,
+        expectedProtocolVersion: activeProtocolVersion,
+      );
+      if (identical(_sessionStateToken, requestSessionState.token)) {
+        _clearSessionState();
+      }
+    });
   }
 
   Future<T> _runTrackedOAuthHttpOperation<T>(
@@ -3649,17 +3781,93 @@ final class McpStreamableHttpClient {
     });
   }
 
+  Future<T> _runTrackedHttpOperation<T>(
+    Future<T> Function(_McpHttpOperationContext operation) work, {
+    void Function()? onAbort,
+    bool trackForClose = true,
+  }) {
+    _throwIfClosed();
+    final pending = _McpPendingHttpOperationHandle<T>();
+    final operation = _McpHttpOperationContext(onAbort: onAbort);
+    final timeoutError = TimeoutException(
+      'MCP HTTP operation exceeded ${requestTimeout.inMilliseconds} ms.',
+      requestTimeout,
+    );
+    if (trackForClose) {
+      _pendingHttpOperations.add(pending);
+    }
+
+    late final Timer timer;
+    void finishPending() {
+      timer.cancel();
+      _pendingHttpOperations.remove(pending);
+    }
+
+    timer = Timer(requestTimeout, () {
+      operation.terminalError = timeoutError;
+      final stackTrace = StackTrace.current;
+      pending.reject(timeoutError, stackTrace);
+      try {
+        operation.onAbort?.call();
+      } catch (_) {
+        // Timeout remains authoritative even if local transport cleanup fails.
+      }
+      for (final body in operation.responseBodies.toList(growable: false)) {
+        _pendingHttpResponseBodies.remove(body);
+        body.abort(timeoutError);
+      }
+      for (final request in operation.requests.toList(growable: false)) {
+        _pendingHttpRequests.remove(request);
+        request.abort(timeoutError, stackTrace);
+      }
+    });
+
+    unawaited(
+      pending.future.then<void>(
+        (_) => finishPending(),
+        onError: (Object _, StackTrace _) => finishPending(),
+      ),
+    );
+    unawaited(
+      Future<T>.sync(() => work(operation))
+          .then<void>(
+            pending.complete,
+            onError: (Object error, StackTrace stackTrace) {
+              pending.completeError(error, stackTrace);
+            },
+          )
+          .whenComplete(() {
+            for (final body in operation.responseBodies) {
+              _pendingHttpResponseBodies.remove(body);
+            }
+            for (final request in operation.requests) {
+              _pendingHttpRequests.remove(request);
+            }
+          }),
+    );
+    return pending.future;
+  }
+
   Future<HttpClientRequest> _openTrackedHttpRequest(
     Future<HttpClientRequest> Function() open,
-  ) async {
+    _McpHttpOperationContext operation, {
+    bool enforceClientState = true,
+  }) async {
     _throwIfClosed();
+    final terminalError = operation.terminalError;
+    if (terminalError != null) {
+      throw terminalError;
+    }
     final requestStateToken = _httpRequestStateToken;
     final request = await open();
-    if (!identical(_httpRequestStateToken, requestStateToken)) {
-      final error = StateError(
-        'MCP client closed while opening an HTTP request',
-      );
-      request.abort(error);
+    final lateTerminalError = operation.terminalError;
+    if ((enforceClientState &&
+            !identical(_httpRequestStateToken, requestStateToken)) ||
+        lateTerminalError != null) {
+      final error =
+          lateTerminalError ??
+          StateError('MCP client closed while opening an HTTP request');
+      request.abort(error, StackTrace.current);
       throw error;
     }
     try {
@@ -3668,16 +3876,19 @@ final class McpStreamableHttpClient {
       request.abort(error, stackTrace);
       rethrow;
     }
+    operation.requests.add(request);
     _pendingHttpRequests.add(request);
     return request;
   }
 
   Future<HttpClientResponse> _sendTrackedHttpRequest(
     HttpClientRequest request,
+    _McpHttpOperationContext operation,
   ) async {
     try {
       return await request.close();
     } catch (_) {
+      operation.requests.remove(request);
       _pendingHttpRequests.remove(request);
       rethrow;
     }
@@ -3686,16 +3897,22 @@ final class McpStreamableHttpClient {
   Future<String> _readTrackedHttpResponseBody(
     HttpClientRequest request,
     HttpClientResponse response,
+    _McpHttpOperationContext operation,
   ) async {
     late final _McpPendingHttpResponseBody pendingBody;
     try {
       pendingBody = _McpPendingHttpResponseBody(response, maxResponseBytes);
     } catch (_) {
+      operation.requests.remove(request);
       _pendingHttpRequests.remove(request);
       rethrow;
     }
+    operation.responseBodies.add(pendingBody);
     _pendingHttpResponseBodies.add(pendingBody);
-    if (!_pendingHttpRequests.contains(request)) {
+    final terminalError = operation.terminalError;
+    if (terminalError != null) {
+      pendingBody.abort(terminalError);
+    } else if (!_pendingHttpRequests.contains(request)) {
       pendingBody.abort(
         StateError(
           'MCP client closed before an HTTP response body could be read',
@@ -3705,6 +3922,8 @@ final class McpStreamableHttpClient {
     try {
       return await pendingBody.future;
     } finally {
+      operation.responseBodies.remove(pendingBody);
+      operation.requests.remove(request);
       _pendingHttpResponseBodies.remove(pendingBody);
       _pendingHttpRequests.remove(request);
     }
@@ -3724,6 +3943,10 @@ final class McpStreamableHttpClient {
     _closed = true;
     _clearSessionState();
     _httpRequestStateToken = Object();
+    final pendingHttpOperations = _pendingHttpOperations.toList(
+      growable: false,
+    );
+    _pendingHttpOperations.clear();
     final pendingHttpRequests = _pendingHttpRequests.toList(growable: false);
     _pendingHttpRequests.clear();
     final pendingOAuthHttpOperations = _pendingOAuthHttpOperations.toList(
@@ -3740,6 +3963,10 @@ final class McpStreamableHttpClient {
     final oauthCloseError = StateError(
       'MCP client closed while an OAuth HTTP request was pending',
     );
+    final closeStackTrace = StackTrace.current;
+    for (final pendingOperation in pendingHttpOperations) {
+      pendingOperation.reject(closeError, closeStackTrace);
+    }
     for (final pendingOperation in pendingOAuthHttpOperations) {
       pendingOperation.abort(oauthCloseError);
     }
@@ -4626,10 +4853,6 @@ List<McpSseEvent> parseMcpSseEvents(String body) {
   }
   commit();
   return events;
-}
-
-Future<String> _readBody(HttpClientResponse response, int maxResponseBytes) {
-  return _McpPendingHttpResponseBody(response, maxResponseBytes).future;
 }
 
 bool _isSse(HttpClientResponse response) {

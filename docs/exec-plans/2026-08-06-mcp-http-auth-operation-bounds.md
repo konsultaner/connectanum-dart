@@ -1,6 +1,6 @@
 # MCP HTTP Auth Operation Bounds
 
-Status: implementation complete; hosted evidence pending
+Status: complete; local and hosted deployment-chain evidence clean
 
 ## Goal
 
@@ -64,6 +64,19 @@ the typed error.
   95 MCP, 271 MCP/client, 96 benchmark/live-router, and 387 router tests; all
   13 focused native-forwarding regressions; every neutral consumer package and
   CLI smoke; and Chrome Dart2Wasm WebSocket coverage.
+- Implementation commit `cd75f7fa` is on both maintained `master` branches.
+  Exact-head GitHub CI `31105244742`, Dart Package Publish Dry Run
+  `31105244785`, WAMP Profile Benchmarks `31105244830`, and Router Image dry
+  run `31105300301` passed on their first attempts. CI uploaded coverage
+  artifact `8969684480`, WAMP uploaded benchmark artifact `8969414152`, and
+  Router Image uploaded preview artifact `8969251334` plus Docker build records
+  `8969361874` and `8969362440`.
+- The comprehensive strict deployment-chain audit exited zero with clean exact-
+  head CI logs, relevant package and native-release evidence, loaded-image MCP
+  runtime smoke, multi-architecture image build, visible workflows, protected
+  branch gates, and the public router image package all ready. A numeric release-
+  candidate tag remains an explicit release-approval action outside this
+  checkpoint.
 
 ## Outcome
 
@@ -75,5 +88,5 @@ callback cannot begin another auth round. Every response is limited to 64 KiB
 of raw bytes before UTF-8 or JSON decoding; overflow uses a public typed error
 that never embeds the response body. The settings and error type are available
 through the public MCP IO entrypoint. Exact-head hosted workflow and deployment
-audit evidence remains pending after the implementation is pushed to both
-maintained branches.
+audit evidence is clean, and both maintained branches contain the
+implementation.

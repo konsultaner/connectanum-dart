@@ -269,7 +269,7 @@ void main() {
     });
 
     test(
-      'validates and forwards response limits across constructors',
+      'validates and forwards operation limits across constructors',
       () async {
         final endpoint = Uri.parse('http://127.0.0.1/mcp');
         const authGrant = ConnectanumHttpAuthGrant(
@@ -286,37 +286,47 @@ void main() {
           'version': '1.0.0',
         };
         final clients = <McpStreamableHttpClient>[
-          McpStreamableHttpClient(endpoint, maxResponseBytes: 17),
+          McpStreamableHttpClient(
+            endpoint,
+            requestTimeout: const Duration(milliseconds: 17),
+            maxResponseBytes: 17,
+          ),
           McpStreamableHttpClient.withBearerToken(
             endpoint,
             'token',
+            requestTimeout: const Duration(milliseconds: 17),
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.stateless(
             endpoint,
             clientInfo: clientInfo,
+            requestTimeout: const Duration(milliseconds: 17),
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.statelessWithBearerToken(
             endpoint,
             'token',
             clientInfo: clientInfo,
+            requestTimeout: const Duration(milliseconds: 17),
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.statelessWithAuthGrant(
             endpoint,
             authGrant,
             clientInfo: clientInfo,
+            requestTimeout: const Duration(milliseconds: 17),
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.withOAuthToken(
             endpoint,
             oauthGrant,
+            requestTimeout: const Duration(milliseconds: 17),
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.withAuthGrant(
             endpoint,
             authGrant,
+            requestTimeout: const Duration(milliseconds: 17),
             maxResponseBytes: 17,
           ),
         ];
@@ -333,11 +343,24 @@ void main() {
           everyElement(17),
         );
         expect(
+          clients.map((client) => client.requestTimeout),
+          everyElement(const Duration(milliseconds: 17)),
+        );
+        expect(
           defaultClient.maxResponseBytes,
           McpStreamableHttpClient.defaultMaxResponseBytes,
         );
         expect(
+          defaultClient.requestTimeout,
+          McpStreamableHttpClient.defaultRequestTimeout,
+        );
+        expect(
           () => McpStreamableHttpClient(endpoint, maxResponseBytes: 0),
+          throwsArgumentError,
+        );
+        expect(
+          () =>
+              McpStreamableHttpClient(endpoint, requestTimeout: Duration.zero),
           throwsArgumentError,
         );
       },

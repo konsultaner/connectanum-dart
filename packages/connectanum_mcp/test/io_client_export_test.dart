@@ -1065,12 +1065,14 @@ void main() {
       final client = McpStreamableHttpClient.withBearerToken(
         endpoint.mcpUri,
         '  $_ioAccessToken  ',
+        requestTimeout: const Duration(seconds: 2),
         headers: const <String, String>{
           HttpHeaders.authorizationHeader: 'Bearer stale-default-token',
           'x-consumer-default': 'io-bearer-default',
         },
       );
       addTearDown(() => client.close(force: true));
+      expect(client.requestTimeout, const Duration(seconds: 2));
 
       final apiDescription = await client.describeWampApiDirect(
         'app.echo',

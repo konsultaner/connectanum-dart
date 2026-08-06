@@ -24846,7 +24846,28 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active most recently, the MCP HTTP-auth operation-bounds plan is
+- Active now, the MCP Streamable HTTP operation-deadline plan is
+  `docs/exec-plans/2026-08-06-mcp-streamable-operation-deadline.md`. Ordinary
+  public POST, GET, and DELETE exchanges plus `subscriptions/listen` setup now
+  share a validated 30-second default total deadline across request opening,
+  response headers, buffered response bodies, and listener acknowledgment.
+  Timeout rejects with `TimeoutException`, aborts only the affected active or
+  late-opened request and body, preserves MCP session/resume state, and leaves
+  caller-owned shared transports reusable. An established listener stops its
+  setup timer after acknowledgment and remains long lived. All seven public
+  constructors expose the setting. Both-package analysis, all six new deadline
+  cases, all 192 focused Streamable HTTP/public IO-boundary cases, the complete
+  277-case MCP/client suite, and all 95 MCP package cases pass. Pre-change and
+  post-change `bin/test-fast` pass; the latter includes 360 core, 95 MCP, 277
+  MCP/client, and 96 benchmark/live-router tests plus every neutral generated/
+  globally activated consumer and CLI smoke and the focused native/router
+  follow-ups. Final exact-code `bin/verify` passes with zero formatting changes;
+  113 Rust core tests plus serializer integrations; 52 Rust FFI tests; 360 Dart
+  core, 95 MCP, 277 MCP/client, 96 benchmark/live-router, and 387 router tests;
+  all 13 focused native-forwarding regressions; every neutral consumer package
+  and CLI smoke; and Chrome Dart2Wasm WebSocket coverage. Commit, push, and
+  exact-head hosted evidence remain.
+- Completed most recently, the MCP HTTP-auth operation-bounds plan is
   `docs/exec-plans/2026-08-06-mcp-http-auth-operation-bounds.md`. Router
   HTTP-auth issue, challenge, refresh, and revoke operations now share a
   validated 30-second total deadline across request opening, headers, bodies,
@@ -24867,9 +24888,18 @@ at the older `47bbf9c` commit.
   serializer integrations; 52 Rust FFI tests; 360 Dart core, 95 MCP, 271
   MCP/client, 96 benchmark/live-router, and 387 router tests; all 13 focused
   native-forwarding regressions; every neutral consumer package and CLI smoke;
-  and Chrome Dart2Wasm WebSocket coverage. The implementation is ready to
-  push; exact-head hosted workflows and the strict deployment-chain audit
-  remain.
+  and Chrome Dart2Wasm WebSocket coverage. Implementation commit `cd75f7fa` is
+  on both maintained `master` branches. Exact-head GitHub CI `31105244742`,
+  Dart Package Publish Dry Run `31105244785`, WAMP Profile Benchmarks
+  `31105244830`, and Router Image dry run `31105300301` passed on their first
+  attempts. Coverage artifact `8969684480`, WAMP artifact `8969414152`, Router
+  Image preview artifact `8969251334`, and Docker build records `8969361874`
+  and `8969362440` were uploaded. The comprehensive strict deployment-chain
+  audit exited zero with clean exact-head CI logs, relevant package and native-
+  release evidence, loaded-image MCP runtime smoke, multi-architecture image
+  build, visible workflows, protected branch gates, and the public router image
+  package all ready. A numeric release-candidate tag remains an explicit
+  release-approval action outside this checkpoint.
 - Completed most recently, the MCP listener-response-bounds plan is
   `docs/exec-plans/2026-08-06-mcp-listener-response-bounds.md`. Ordinary
   and listener setup bodies now share the public raw-byte response limit.
