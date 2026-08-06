@@ -1,6 +1,6 @@
 # MCP HTTP Redirect Isolation
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -62,10 +62,22 @@ session and resume state.
   94 MCP, 257 MCP/client, 96 benchmark/live-router, and 387 router tests; all 13
   focused native-forwarding regressions; every neutral consumer package and
   CLI smoke; and Chrome Dart2Wasm WebSocket coverage.
+- Implementation commit `936915a3` is on both maintained `master` branches.
+  Exact-head GitHub CI `31083579324`, Dart Package Publish Dry Run
+  `31083579469`, WAMP Profile Benchmarks `31083578385`, and Router Image dry
+  run `31083615763` passed on their first attempts.
+- CI uploaded coverage artifact `8960944934`; WAMP uploaded benchmark artifact
+  `8960619628`; Router Image uploaded preview artifact `8960488619` and Docker
+  build records `8960582083` and `8960582654`.
+- The comprehensive strict deployment-chain audit passes with clean exact-head
+  CI logs, loaded-image MCP runtime smoke, multi-architecture image build, and
+  all required branch, workflow, package, native-release, package-dry-run, and
+  benchmark gates ready. A new RC tag remains an explicit release-approval
+  action outside this checkpoint.
 
 ## Outcome
 
 Protected MCP and router HTTP-auth requests now remain bound to their configured
 endpoint, with typed redirect failures and unchanged MCP state. Local
-implementation and verification are complete; exact-head hosted deployment-
-chain evidence remains.
+implementation and verification, exact-head hosted workflows, and the
+comprehensive strict deployment-chain audit are clean.

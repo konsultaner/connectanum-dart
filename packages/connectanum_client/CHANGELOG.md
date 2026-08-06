@@ -7,6 +7,9 @@
   authentication, tool/meta APIs, resources, prompts, and pub/sub.
 - Add bounded MCP 2026 form-elicitation helpers for Streamable HTTP and direct
   JSON calls with typed request/response validation and opaque-state replay.
+- Bound buffered Streamable HTTP POST, GET, and DELETE response bodies to a
+  configurable raw-byte limit while keeping request-scoped listeners
+  incremental.
 - Add resource-bound MCP OAuth discovery, PKCE authorization-code exchange,
   refresh, revocation, validated Client ID Metadata Documents, and bounded
   RFC 7591 dynamic public-client registration for Dart IO consumers.

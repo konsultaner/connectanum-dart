@@ -179,6 +179,171 @@ void main() {
     });
 
     test(
+      'bounds buffered responses in raw bytes without clearing session state',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+
+        final client = McpStreamableHttpClient(
+          endpoint.uri,
+          maxResponseBytes: 512,
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'response-limit-initialize');
+        final activeSessionId = client.sessionId;
+        client.lastEventId = '$activeSessionId:response-limit:kept';
+
+        final oversizedResponse = throwsA(
+          isA<McpStreamableProtocolException>().having(
+            (error) => error.message,
+            'message',
+            'MCP HTTP response exceeds 512 bytes.',
+          ),
+        );
+        const oversizedHeaders = <String, String>{
+          'x-test-response-padding-count': '512',
+        };
+        void expectStatePreserved() {
+          expect(client.sessionId, activeSessionId);
+          expect(client.lastEventId, '$activeSessionId:response-limit:kept');
+        }
+
+        await expectLater(
+          client.request(
+            'ping',
+            id: 'response-limit-oversized-post',
+            streamable: false,
+            headers: oversizedHeaders,
+          ),
+          oversizedResponse,
+        );
+        expectStatePreserved();
+        await expectLater(
+          client.poll(headers: oversizedHeaders),
+          oversizedResponse,
+        );
+        expectStatePreserved();
+        await expectLater(
+          client.deleteSession(headers: oversizedHeaders),
+          oversizedResponse,
+        );
+        expectStatePreserved();
+
+        final recovered = await client.request(
+          'ping',
+          id: 'response-limit-recovered',
+          streamable: false,
+        );
+        expect(recovered['id'], 'response-limit-recovered');
+        expect(client.sessionId, activeSessionId);
+        expect(client.lastEventId, '$activeSessionId:response-limit:kept');
+      },
+    );
+
+    test('accepts a response at the exact raw UTF-8 byte limit', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      const id = 'response-limit-exact';
+      const padding = 'ééé';
+      final responseBody = jsonEncode(<String, Object?>{
+        'jsonrpc': '2.0',
+        'id': id,
+        'result': <String, Object?>{'padding': padding},
+      });
+      final client = McpStreamableHttpClient(
+        endpoint.uri,
+        maxResponseBytes: utf8.encode(responseBody).length,
+      );
+      addTearDown(() => client.close(force: true));
+
+      final response = await client.request(
+        'ping',
+        id: id,
+        streamable: false,
+        headers: const <String, String>{'x-test-response-padding-count': '3'},
+      );
+
+      expect(response['result'], <String, Object?>{'padding': padding});
+    });
+
+    test(
+      'validates and forwards response limits across constructors',
+      () async {
+        final endpoint = Uri.parse('http://127.0.0.1/mcp');
+        const authGrant = ConnectanumHttpAuthGrant(
+          accessToken: 'auth-token',
+          tokenType: 'Bearer',
+        );
+        final oauthGrant = _testOAuthGrant(
+          endpoint,
+          accessToken: 'oauth-token',
+          scopes: const <String>[],
+        );
+        const clientInfo = <String, Object?>{
+          'name': 'response-limit-test',
+          'version': '1.0.0',
+        };
+        final clients = <McpStreamableHttpClient>[
+          McpStreamableHttpClient(endpoint, maxResponseBytes: 17),
+          McpStreamableHttpClient.withBearerToken(
+            endpoint,
+            'token',
+            maxResponseBytes: 17,
+          ),
+          McpStreamableHttpClient.stateless(
+            endpoint,
+            clientInfo: clientInfo,
+            maxResponseBytes: 17,
+          ),
+          McpStreamableHttpClient.statelessWithBearerToken(
+            endpoint,
+            'token',
+            clientInfo: clientInfo,
+            maxResponseBytes: 17,
+          ),
+          McpStreamableHttpClient.statelessWithAuthGrant(
+            endpoint,
+            authGrant,
+            clientInfo: clientInfo,
+            maxResponseBytes: 17,
+          ),
+          McpStreamableHttpClient.withOAuthToken(
+            endpoint,
+            oauthGrant,
+            maxResponseBytes: 17,
+          ),
+          McpStreamableHttpClient.withAuthGrant(
+            endpoint,
+            authGrant,
+            maxResponseBytes: 17,
+          ),
+        ];
+        final defaultClient = McpStreamableHttpClient(endpoint);
+        addTearDown(() {
+          for (final client in clients) {
+            client.close(force: true);
+          }
+          defaultClient.close(force: true);
+        });
+
+        expect(
+          clients.map((client) => client.maxResponseBytes),
+          everyElement(17),
+        );
+        expect(
+          defaultClient.maxResponseBytes,
+          McpStreamableHttpClient.defaultMaxResponseBytes,
+        );
+        expect(
+          () => McpStreamableHttpClient(endpoint, maxResponseBytes: 0),
+          throwsArgumentError,
+        );
+      },
+    );
+
+    test(
       'uses MCP 2026 stateless metadata for discovery and ordinary requests',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();
@@ -9417,6 +9582,23 @@ final class _FakeMcpEndpoint {
     }
 
     final requestSessionId = request.headers.value(_headerSessionId);
+    final responsePaddingCount = int.tryParse(
+      request.headers.value('x-test-response-padding-count') ?? '',
+    );
+    if (responsePaddingCount != null) {
+      final responseId = switch (jsonBody) {
+        final Map<Object?, Object?> value => value['id'],
+        _ => null,
+      };
+      _writeJson(request, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': responseId,
+        'result': <String, Object?>{
+          'padding': List<String>.filled(responsePaddingCount, 'é').join(),
+        },
+      }, sessionId: requestSessionId);
+      return;
+    }
     if (request.headers.value('x-test-oauth-step-up') == '1' &&
         request.headers.value(HttpHeaders.authorizationHeader) ==
             'Bearer narrow-step-up-token') {

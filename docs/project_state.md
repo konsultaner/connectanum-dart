@@ -24846,7 +24846,32 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active MCP HTTP redirect-isolation plan is
+- The active MCP Streamable HTTP response-bounds plan is
+  `docs/exec-plans/2026-08-06-mcp-streamable-response-bounds.md`. OAuth helpers
+  already bound response bodies, but ordinary Streamable POST, GET, and DELETE
+  responses remain buffered without a byte cap before JSON or SSE validation.
+  This checkpoint adds one configurable raw-byte limit across every public
+  client constructor, preserves MCP session and resume state on oversized
+  responses, and leaves long-lived request-scoped listeners incremental. Pre-
+  change `bin/test-fast` passes with 360 core tests, all 94 MCP tests, the
+  complete 257-case MCP/client suite, all 96 benchmark/live-router tests,
+  every neutral package/consumer smoke, the router CLI MCP lifecycle matrix,
+  and focused native/router regressions. The implementation now applies a
+  configurable 16 MiB default raw-byte limit before UTF-8 decoding, cancels an
+  oversized body with a typed protocol error, and forwards the setting through
+  all seven public constructors. Focused regressions prove POST, GET, DELETE,
+  exact multibyte boundaries, invalid limits, transport reuse, and session/
+  resume-state preservation. Both-package analysis, all 168 focused cases, and
+  post-change `bin/test-fast` pass; the latter includes the complete 260-case
+  MCP/client suite plus every neutral package/consumer and router CLI smoke.
+  Final exact-code `bin/verify` passes with zero formatting changes; 113 Rust
+  core tests plus serializer integrations; 52 Rust FFI tests; 360 Dart core,
+  94 MCP, 260 MCP/client, 96 benchmark/live-router, and 387 router tests; all
+  13 focused native-forwarding regressions; every neutral consumer package and
+  CLI smoke; and Chrome Dart2Wasm WebSocket coverage. The implementation is
+  ready to push; exact-head hosted workflows and the strict deployment-chain
+  audit remain.
+- Completed most recently, the MCP HTTP redirect-isolation plan:
   `docs/exec-plans/2026-08-06-mcp-http-redirect-isolation.md`. Protected
   Streamable HTTP POST, GET, DELETE, and request-scoped listen traffic plus
   router HTTP authentication now disable automatic redirects before writing
@@ -24868,8 +24893,18 @@ at the older `47bbf9c` commit.
   tests plus serializer integrations; 52 Rust FFI tests; 360 Dart core, 94 MCP,
   257 MCP/client, 96 benchmark/live-router, and 387 router tests; all 13 focused
   native-forwarding regressions; every neutral consumer package and CLI smoke;
-  and Chrome Dart2Wasm WebSocket coverage.
-- Completed most recently, the MCP OAuth discovery-deadline plan:
+  and Chrome Dart2Wasm WebSocket coverage. Implementation commit `936915a3` is
+  on both maintained `master` branches. Exact-head GitHub CI `31083579324`,
+  Dart Package Publish Dry Run `31083579469`, WAMP Profile Benchmarks
+  `31083578385`, and Router Image dry run `31083615763` passed on their first
+  attempts. Coverage artifact `8960944934`, WAMP artifact `8960619628`, Router
+  Image preview artifact `8960488619`, and Docker build records `8960582083`
+  and `8960582654` were uploaded. The comprehensive strict deployment-chain
+  audit passes with clean exact-head CI logs, loaded-image MCP runtime smoke,
+  multi-architecture image build, and every required deployment gate ready. A
+  new RC tag remains an explicit release-approval action outside this
+  checkpoint.
+- Completed immediately before that, the MCP OAuth discovery-deadline plan:
   `docs/exec-plans/2026-08-06-mcp-oauth-discovery-deadline.md`. Public
   Protected Resource Metadata and Authorization Server Metadata discovery is
   now credential-free, schema-validated, response-size bounded, and protected

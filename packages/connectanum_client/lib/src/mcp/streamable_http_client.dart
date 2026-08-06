@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
     show containsMcpWhitespaceOrControl;
@@ -1295,21 +1296,40 @@ final class _McpResumeStateSnapshot {
   final String? lastEventId;
 }
 
+int _validatedMcpMaxResponseBytes(int value) {
+  if (value <= 0) {
+    throw ArgumentError.value(
+      value,
+      'maxResponseBytes',
+      'maxResponseBytes must be positive',
+    );
+  }
+  return value;
+}
+
 final class _McpPendingHttpResponseBody {
-  _McpPendingHttpResponseBody(HttpClientResponse response) {
-    _subscription = response
-        .transform(utf8.decoder)
-        .listen(
-          _buffer.write,
-          onError: _fail,
-          onDone: _finish,
-          cancelOnError: true,
-        );
+  _McpPendingHttpResponseBody(
+    HttpClientResponse response,
+    this._maxResponseBytes,
+  ) {
+    final subscription = response.listen(
+      _add,
+      onError: _fail,
+      onDone: _finish,
+      cancelOnError: true,
+    );
+    _subscription = subscription;
+    if (_cancelRequested) {
+      unawaited(_cancel(subscription));
+    }
   }
 
-  final StringBuffer _buffer = StringBuffer();
+  final int _maxResponseBytes;
+  final BytesBuilder _buffer = BytesBuilder(copy: false);
   final Completer<String> _result = Completer<String>();
-  late final StreamSubscription<String> _subscription;
+  StreamSubscription<List<int>>? _subscription;
+  int _length = 0;
+  bool _cancelRequested = false;
   bool _finished = false;
 
   Future<String> get future => _result.future;
@@ -1320,7 +1340,26 @@ final class _McpPendingHttpResponseBody {
     }
     _finished = true;
     _result.completeError(error, StackTrace.current);
-    unawaited(_cancel());
+    _requestCancel();
+  }
+
+  void _add(List<int> chunk) {
+    if (_finished) {
+      return;
+    }
+    _length += chunk.length;
+    if (_length > _maxResponseBytes) {
+      _finished = true;
+      _result.completeError(
+        McpStreamableProtocolException(
+          'MCP HTTP response exceeds $_maxResponseBytes bytes.',
+        ),
+        StackTrace.current,
+      );
+      _requestCancel();
+      return;
+    }
+    _buffer.add(chunk);
   }
 
   void _finish() {
@@ -1328,7 +1367,11 @@ final class _McpPendingHttpResponseBody {
       return;
     }
     _finished = true;
-    _result.complete(_buffer.toString());
+    try {
+      _result.complete(utf8.decode(_buffer.takeBytes()));
+    } catch (error, stackTrace) {
+      _result.completeError(error, stackTrace);
+    }
   }
 
   void _fail(Object error, StackTrace stackTrace) {
@@ -1339,11 +1382,21 @@ final class _McpPendingHttpResponseBody {
     _result.completeError(error, stackTrace);
   }
 
-  Future<void> _cancel() async {
+  void _requestCancel() {
+    final subscription = _subscription;
+    if (subscription == null) {
+      _cancelRequested = true;
+      return;
+    }
+    unawaited(_cancel(subscription));
+  }
+
+  Future<void> _cancel(StreamSubscription<List<int>> subscription) async {
     try {
-      await _subscription.cancel();
+      await subscription.cancel();
     } catch (_) {
-      // The deterministic close error has already completed the body future.
+      // The deterministic close or response-limit error already completed the
+      // body future.
     }
   }
 }
@@ -1372,6 +1425,9 @@ final class _McpPendingOAuthHttpOperation {
 /// headers and SSE cursor so consumer applications do not need to reimplement
 /// the transport details.
 final class McpStreamableHttpClient {
+  /// Default maximum raw byte length buffered for an ordinary response.
+  static const int defaultMaxResponseBytes = 16 * 1024 * 1024;
+
   static const latestProtocolVersion = _mcpLatestProtocolVersion;
   static const latestSessionProtocolVersion = _mcpLatestSessionProtocolVersion;
 
@@ -1383,12 +1439,14 @@ final class McpStreamableHttpClient {
     McpJsonMap? clientInfo,
     this.clientCapabilities = const <String, Object?>{},
     String defaultProtocolVersion = latestSessionProtocolVersion,
+    int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : clientInfo = _validatedMcpClientInfo(clientInfo),
        defaultProtocolVersion = _validatedMcpProtocolVersion(
          defaultProtocolVersion,
          'defaultProtocolVersion',
        ),
+       maxResponseBytes = _validatedMcpMaxResponseBytes(maxResponseBytes),
        _httpClient = httpClient ?? HttpClient(),
        _subscriptionHttpClientFactory =
            subscriptionHttpClientFactory ?? HttpClient.new,
@@ -1409,6 +1467,7 @@ final class McpStreamableHttpClient {
     McpJsonMap? clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
     String defaultProtocolVersion = latestSessionProtocolVersion,
+    int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this(
          endpoint,
@@ -1418,6 +1477,7 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: defaultProtocolVersion,
+         maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
 
@@ -1429,6 +1489,7 @@ final class McpStreamableHttpClient {
     HttpClient? httpClient,
     McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
+    int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this(
          endpoint,
@@ -1438,6 +1499,7 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: latestProtocolVersion,
+         maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
 
@@ -1450,6 +1512,7 @@ final class McpStreamableHttpClient {
     HttpClient? httpClient,
     McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
+    int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this.withBearerToken(
          endpoint,
@@ -1460,6 +1523,7 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: latestProtocolVersion,
+         maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
 
@@ -1472,6 +1536,7 @@ final class McpStreamableHttpClient {
     HttpClient? httpClient,
     McpHttpClientFactory? subscriptionHttpClientFactory,
     Map<String, String> headers = const <String, String>{},
+    int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this.withAuthGrant(
          endpoint,
@@ -1482,6 +1547,7 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: latestProtocolVersion,
+         maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
 
@@ -1494,6 +1560,7 @@ final class McpStreamableHttpClient {
     McpJsonMap? clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
     String defaultProtocolVersion = latestSessionProtocolVersion,
+    int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) {
     _validateOAuthTokenGrant(endpoint, grant);
@@ -1506,6 +1573,7 @@ final class McpStreamableHttpClient {
       clientInfo: clientInfo,
       clientCapabilities: clientCapabilities,
       defaultProtocolVersion: defaultProtocolVersion,
+      maxResponseBytes: maxResponseBytes,
       closeHttpClient: closeHttpClient,
     );
   }
@@ -1520,6 +1588,7 @@ final class McpStreamableHttpClient {
     McpJsonMap? clientInfo,
     McpJsonMap clientCapabilities = const <String, Object?>{},
     String defaultProtocolVersion = latestSessionProtocolVersion,
+    int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
   }) : this(
          endpoint,
@@ -1529,8 +1598,15 @@ final class McpStreamableHttpClient {
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: defaultProtocolVersion,
+         maxResponseBytes: maxResponseBytes,
          closeHttpClient: closeHttpClient,
        );
+
+  /// Maximum raw byte length buffered for each ordinary HTTP response.
+  ///
+  /// Request-scoped listener responses are consumed incrementally and do not
+  /// use this limit.
+  final int maxResponseBytes;
 
   final Uri endpoint;
   final Map<String, String> headers;
@@ -3539,7 +3615,7 @@ final class McpStreamableHttpClient {
   ) async {
     late final _McpPendingHttpResponseBody pendingBody;
     try {
-      pendingBody = _McpPendingHttpResponseBody(response);
+      pendingBody = _McpPendingHttpResponseBody(response, maxResponseBytes);
     } catch (_) {
       _pendingHttpRequests.remove(request);
       rethrow;
