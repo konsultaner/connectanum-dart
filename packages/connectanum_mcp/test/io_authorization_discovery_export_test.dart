@@ -137,10 +137,13 @@ void main() {
 
     final client = McpStreamableHttpClient(endpoint);
     addTearDown(client.close);
-    final discovery = await client.discoverProtectedResourceMetadata();
+    final discovery = await client.discoverProtectedResourceMetadata(
+      timeout: const Duration(seconds: 3),
+    );
     final authorizationServer = await client
         .discoverAuthorizationServerMetadata(
           discovery.metadata.authorizationServers.single,
+          timeout: const Duration(seconds: 3),
         );
 
     expect(discovery.metadata.resource, endpoint);

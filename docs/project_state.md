@@ -24846,7 +24846,30 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active router-hosted MCP OAuth introspection response-bounds plan is
+- The active MCP OAuth discovery-deadline plan is
+  `docs/exec-plans/2026-08-06-mcp-oauth-discovery-deadline.md`. Public
+  Protected Resource Metadata and Authorization Server Metadata discovery is
+  now credential-free, schema-validated, response-size bounded, and protected
+  by one backward-compatible configurable monotonic total deadline across the
+  initial probe, challenged/well-known metadata, all authorization-server
+  fallback attempts, headers, and bodies. Timeout failures are typed and omit
+  response or credential material; late-opened requests are aborted while
+  client close remains authoritative. Three fail-first regressions produced
+  four missing-public-parameter load errors; a fourth regression completed the
+  pre-header stall coverage, and a fifth fail-first regression preserves
+  caller-hook `TimeoutException` identity. Focused package analysis, all 18
+  discovery/client-close lifecycle cases, and the public IO package-boundary
+  smoke pass. Post-change `bin/test-fast` passes with 360 core tests, all 94 MCP
+  tests, the complete 252-case MCP/client suite, all 96 benchmark tests with
+  live-router workloads, every neutral source/global package smoke, and the
+  complete router CLI MCP lifecycle matrix. Full `bin/verify` also passes with
+  zero formatting changes; 113 Rust core tests plus serializer integrations;
+  52 Rust FFI tests; 360 Dart core, 94 MCP, 252 MCP/client, 96 benchmark/live-
+  router, and 387 router tests; focused native/router regressions; every
+  neutral consumer package and CLI smoke; and Chrome Dart2Wasm WebSocket
+  coverage. Exact-head hosted deployment-chain evidence remains.
+- Completed immediately before that, the router-hosted MCP OAuth introspection
+  response-bounds plan:
   `docs/exec-plans/2026-08-06-mcp-oauth-introspection-response-bounds.md`.
   The shipped OAuth HTTP auth provider now applies one monotonic deadline to
   connection, response headers, and complete response-body consumption; caps
@@ -24862,8 +24885,17 @@ at the older `47bbf9c` commit.
   core tests, all 94 MCP tests, the complete 247-case MCP/client suite, all 96
   benchmark tests with live-router workloads, all 387 router tests, the
   13-case native-forwarding follow-up, every isolated and globally activated
-  package smoke, and Chrome/Dart2Wasm coverage. Exact-head hosted evidence
-  remains.
+  package smoke, and Chrome/Dart2Wasm coverage. Implementation commit
+  `684f9e66` is on both maintained `master` branches. Exact-head GitHub CI
+  `31068145016`, Dart Package Publish Dry Run `31068145030`, WAMP Profile
+  Benchmarks `31068145053`, kTLS Validation `31068145041`, and Router Image dry
+  run `31068153011` pass without a rerun. Coverage artifact `8954894005`, WAMP
+  artifact `8954732251`, Router Image preview artifact `8954609506`, and Docker
+  build records `8954697029` and `8954696447` were uploaded. The comprehensive
+  strict deployment-chain audit passes with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, and every
+  required deployment gate ready. RC tagging remains an explicit
+  release-approval action outside this checkpoint.
 - Completed immediately before that, the router-hosted MCP HTTP-auth lifecycle
   plan:
   `docs/exec-plans/2026-08-06-mcp-http-auth-client-terminal-close.md`.

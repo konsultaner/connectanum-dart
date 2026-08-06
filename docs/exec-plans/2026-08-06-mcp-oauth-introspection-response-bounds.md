@@ -1,6 +1,6 @@
 # MCP OAuth Introspection Response Bounds
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -59,6 +59,20 @@ transport responses.
   benchmark tests with live-router workloads, all 387 router tests, the
   13-case native-forwarding follow-up, every isolated and globally activated
   package smoke, and Chrome/Dart2Wasm coverage.
+- Implementation commit `684f9e66` is on both maintained `master` branches.
+  Exact-head GitHub CI `31068145016`, Dart Package Publish Dry Run
+  `31068145030`, WAMP Profile Benchmarks `31068145053`, kTLS Validation
+  `31068145041`, and Router Image dry run `31068153011` passed without a
+  rerun.
+- CI uploaded coverage artifact `8954894005`; WAMP uploaded benchmark artifact
+  `8954732251`; Router Image uploaded preview artifact `8954609506` and Docker
+  build records `8954697029` and `8954696447`.
+- The comprehensive strict deployment-chain audit passed with clean exact-head
+  CI logs, package and native-release dry-run evidence, the loaded-image MCP
+  runtime smoke, the multi-architecture image build, the WAMP profile gate,
+  workflow visibility, branch protection, and the public router package all
+  ready. RC tagging remains an explicit release-approval action outside this
+  checkpoint.
 
 ## Outcome
 
@@ -67,5 +81,5 @@ connection, response headers, and complete response-body consumption. It caps
 the body at 64 KiB by default with `max_response_bytes` / `maxResponseBytes`
 overrides and returns redacted fail-closed results for timeout, oversize,
 malformed JSON, and interrupted IO. The shipped provider benchmark config
-declares both limits explicitly. Local verification is complete; exact-head
-hosted evidence remains.
+declares both limits explicitly. Local verification, exact-head hosted
+workflows, and the comprehensive strict deployment-chain audit are clean.

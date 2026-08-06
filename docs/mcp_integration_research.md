@@ -156,8 +156,10 @@ Driving use case: downstream application integrations
   authorization server. Protected router-hosted MCP routes can instead publish
   validated Protected Resource Metadata that points standards-aware clients to
   an operator-provided OAuth authorization server. Metadata retrieval is
-  public; normal MCP POST, SSE GET, and DELETE traffic still revalidates bearer
-  authorization.
+  public and credential-free; its initial probe, response headers and body,
+  challenged or well-known metadata, and authorization-server fallbacks share
+  one configurable ten-second default deadline. Normal MCP POST, SSE GET, and
+  DELETE traffic still revalidates bearer authorization.
 
 ## MCP 2026 Implementation Direction
 

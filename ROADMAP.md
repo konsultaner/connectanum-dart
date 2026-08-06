@@ -407,9 +407,11 @@
   - [x] Add Dart IO client Protected Resource Metadata discovery with parsed
     Bearer challenges, authoritative challenge scopes, ordered MCP well-known
     fallback, exact RFC 9728 resource validation, and credential-free metadata
-    requests through the public package entrypoint.
+    requests through the public package entrypoint, bounded by one configurable
+    total deadline across the probe, headers, body, and fallbacks.
   - [x] Add OAuth authorization-server metadata discovery with the MCP-required
-    RFC 8414 and OpenID Connect well-known fallback order.
+    RFC 8414 and OpenID Connect well-known fallback order under the same total
+    discovery deadline.
   - [x] Add public Dart PKCE authorization-request preparation and redirect
     validation with canonical MCP resource binding.
   - [x] Add bounded authorization-code exchange for pre-registered public

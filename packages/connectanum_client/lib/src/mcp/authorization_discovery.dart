@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -7,6 +8,7 @@ const _oauthAuthorizationServerWellKnownPath =
     '/.well-known/oauth-authorization-server';
 const _openIdConfigurationWellKnownPath = '/.well-known/openid-configuration';
 const _defaultMaxMetadataBytes = 1024 * 1024;
+const _defaultDiscoveryTimeout = Duration(seconds: 10);
 final _scopeSeparator = RegExp(' +');
 
 /// A parsed Bearer challenge from a `WWW-Authenticate` response header.
@@ -213,14 +215,17 @@ final class McpAuthorizationDiscoveryException implements Exception {
 ///
 /// Requests intentionally omit MCP session and authorization headers. Explicit
 /// [headers] are accepted for metadata-specific routing, but credential and
-/// session headers are rejected. [onRequestOpened] observes each request before
-/// it is sent so an owning client can bind it to a larger lifecycle.
+/// session headers are rejected. [timeout] is one total deadline across the
+/// endpoint probe and every metadata fallback. [onRequestOpened] observes each
+/// request before it is sent so an owning client can bind it to a larger
+/// lifecycle.
 Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
   Uri endpoint, {
   HttpClient? httpClient,
   Map<String, String> headers = const <String, String>{},
   bool closeHttpClient = false,
   int maxMetadataBytes = _defaultMaxMetadataBytes,
+  Duration timeout = _defaultDiscoveryTimeout,
   void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   _validateProtectedResourceUri(endpoint, 'endpoint');
@@ -231,16 +236,22 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
       'must be greater than zero',
     );
   }
+  if (timeout <= Duration.zero) {
+    throw ArgumentError.value(timeout, 'timeout', 'must be greater than zero');
+  }
   _validateDiscoveryHeaders(headers);
 
   final client = httpClient ?? HttpClient();
   final ownsClient = httpClient == null || closeHttpClient;
+  final stopwatch = Stopwatch()..start();
   try {
     final probe = await _getDiscoveryDocument(
       client,
       endpoint,
       headers: headers,
       maxMetadataBytes: maxMetadataBytes,
+      stopwatch: stopwatch,
+      timeout: timeout,
       onRequestOpened: onRequestOpened,
     );
     final challenges = parseMcpBearerChallenges(
@@ -274,6 +285,8 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
         endpoint,
         headers: headers,
         maxMetadataBytes: maxMetadataBytes,
+        stopwatch: stopwatch,
+        timeout: timeout,
         onRequestOpened: onRequestOpened,
       );
       return McpProtectedResourceDiscovery(
@@ -291,6 +304,8 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
         metadataUri,
         headers: headers,
         maxMetadataBytes: maxMetadataBytes,
+        stopwatch: stopwatch,
+        timeout: timeout,
         onRequestOpened: onRequestOpened,
       );
       if (response.statusCode == HttpStatus.notFound ||
@@ -317,6 +332,7 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
       uri: endpoint,
     );
   } finally {
+    stopwatch.stop();
     if (ownsClient) {
       client.close(force: true);
     }
@@ -327,14 +343,16 @@ Future<McpProtectedResourceDiscovery> discoverMcpProtectedResourceMetadata(
 ///
 /// The RFC 8414 and OpenID Connect endpoints are attempted in MCP priority
 /// order. Requests intentionally omit authorization and MCP session state.
-/// [onRequestOpened] observes each request before it is sent so an owning
-/// client can bind it to a larger lifecycle.
+/// [timeout] is one total deadline across every fallback. [onRequestOpened]
+/// observes each request before it is sent so an owning client can bind it to a
+/// larger lifecycle.
 Future<McpAuthorizationServerDiscovery> discoverMcpAuthorizationServerMetadata(
   Uri issuer, {
   HttpClient? httpClient,
   Map<String, String> headers = const <String, String>{},
   bool closeHttpClient = false,
   int maxMetadataBytes = _defaultMaxMetadataBytes,
+  Duration timeout = _defaultDiscoveryTimeout,
   void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   _validateAuthorizationServerIssuer(issuer, 'issuer');
@@ -345,11 +363,15 @@ Future<McpAuthorizationServerDiscovery> discoverMcpAuthorizationServerMetadata(
       'must be greater than zero',
     );
   }
+  if (timeout <= Duration.zero) {
+    throw ArgumentError.value(timeout, 'timeout', 'must be greater than zero');
+  }
   _validateDiscoveryHeaders(headers);
 
   final client = httpClient ?? HttpClient();
   final ownsClient = httpClient == null || closeHttpClient;
   final attempted = <Uri>[];
+  final stopwatch = Stopwatch()..start();
   McpAuthorizationDiscoveryException? lastFailure;
   try {
     for (final metadataUri in _authorizationServerMetadataUris(issuer)) {
@@ -360,6 +382,8 @@ Future<McpAuthorizationServerDiscovery> discoverMcpAuthorizationServerMetadata(
           metadataUri,
           headers: headers,
           maxMetadataBytes: maxMetadataBytes,
+          stopwatch: stopwatch,
+          timeout: timeout,
           documentLabel: 'Authorization Server Metadata',
           onRequestOpened: onRequestOpened,
         );
@@ -380,6 +404,9 @@ Future<McpAuthorizationServerDiscovery> discoverMcpAuthorizationServerMetadata(
           metadata: metadata,
         );
       } on McpAuthorizationDiscoveryException catch (error) {
+        if (stopwatch.elapsed >= timeout) {
+          rethrow;
+        }
         lastFailure = error;
       }
     }
@@ -392,6 +419,7 @@ Future<McpAuthorizationServerDiscovery> discoverMcpAuthorizationServerMetadata(
       statusCode: lastFailure?.statusCode,
     );
   } finally {
+    stopwatch.stop();
     if (ownsClient) {
       client.close(force: true);
     }
@@ -446,6 +474,8 @@ Future<McpProtectedResourceMetadata> _fetchRequiredMetadata(
   Uri expectedResource, {
   required Map<String, String> headers,
   required int maxMetadataBytes,
+  required Stopwatch stopwatch,
+  required Duration timeout,
   required void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
   final response = await _getDiscoveryDocument(
@@ -453,6 +483,8 @@ Future<McpProtectedResourceMetadata> _fetchRequiredMetadata(
     metadataUri,
     headers: headers,
     maxMetadataBytes: maxMetadataBytes,
+    stopwatch: stopwatch,
+    timeout: timeout,
     onRequestOpened: onRequestOpened,
   );
   if (response.statusCode != HttpStatus.ok) {
@@ -987,37 +1019,97 @@ Future<_DiscoveryResponse> _getDiscoveryDocument(
   Uri uri, {
   required Map<String, String> headers,
   required int maxMetadataBytes,
+  required Stopwatch stopwatch,
+  required Duration timeout,
   String documentLabel = 'Protected Resource Metadata',
   void Function(HttpClientRequest request)? onRequestOpened,
 }) async {
-  final request = await client.getUrl(uri);
+  HttpClientRequest? request;
+  var requestTimedOut = false;
   try {
-    onRequestOpened?.call(request);
-  } catch (error) {
-    request.abort(error);
-    rethrow;
+    final requestFuture = client.getUrl(uri);
+    unawaited(
+      requestFuture.then<void>((openedRequest) {
+        request = openedRequest;
+        if (requestTimedOut) {
+          openedRequest.abort(
+            TimeoutException('$documentLabel discovery timed out.'),
+          );
+        }
+      }, onError: (Object error, StackTrace stackTrace) {}),
+    );
+    final openedRequest = await _withinDiscoveryDeadline(
+      requestFuture,
+      stopwatch,
+      timeout,
+    );
+    request = openedRequest;
+    try {
+      onRequestOpened?.call(openedRequest);
+    } catch (error) {
+      openedRequest.abort(error);
+      rethrow;
+    }
+    for (final entry in headers.entries) {
+      openedRequest.headers.set(entry.key, entry.value);
+    }
+    openedRequest.headers.set(
+      HttpHeaders.acceptHeader,
+      ContentType.json.mimeType,
+    );
+    final response = await _withinDiscoveryDeadline(
+      openedRequest.close(),
+      stopwatch,
+      timeout,
+    );
+    final responseHeaders = <String, List<String>>{};
+    response.headers.forEach((name, values) {
+      responseHeaders[name.toLowerCase()] = List<String>.unmodifiable(values);
+    });
+    final body = await _withinDiscoveryDeadline(
+      _readBoundedBody(
+        response,
+        uri,
+        maxMetadataBytes,
+        documentLabel: documentLabel,
+      ),
+      stopwatch,
+      timeout,
+    );
+    return _DiscoveryResponse(
+      uri: uri,
+      statusCode: response.statusCode,
+      headers: Map<String, List<String>>.unmodifiable(responseHeaders),
+      body: body,
+    );
+  } on _DiscoveryDeadlineExceeded catch (_, stackTrace) {
+    final error = TimeoutException('$documentLabel discovery timed out.');
+    requestTimedOut = true;
+    request?.abort(error, stackTrace);
+    throw McpAuthorizationDiscoveryException(
+      '$documentLabel discovery timed out.',
+      uri: uri,
+    );
   }
-  for (final entry in headers.entries) {
-    request.headers.set(entry.key, entry.value);
+}
+
+Future<T> _withinDiscoveryDeadline<T>(
+  Future<T> operation,
+  Stopwatch stopwatch,
+  Duration timeout,
+) {
+  return operation.timeout(
+    _remainingDiscoveryTime(stopwatch, timeout),
+    onTimeout: () => throw const _DiscoveryDeadlineExceeded(),
+  );
+}
+
+Duration _remainingDiscoveryTime(Stopwatch stopwatch, Duration timeout) {
+  final remaining = timeout - stopwatch.elapsed;
+  if (remaining <= Duration.zero) {
+    throw const _DiscoveryDeadlineExceeded();
   }
-  request.headers.set(HttpHeaders.acceptHeader, ContentType.json.mimeType);
-  final response = await request.close();
-  final responseHeaders = <String, List<String>>{};
-  response.headers.forEach((name, values) {
-    responseHeaders[name.toLowerCase()] = List<String>.unmodifiable(values);
-  });
-  final body = await _readBoundedBody(
-    response,
-    uri,
-    maxMetadataBytes,
-    documentLabel: documentLabel,
-  );
-  return _DiscoveryResponse(
-    uri: uri,
-    statusCode: response.statusCode,
-    headers: Map<String, List<String>>.unmodifiable(responseHeaders),
-    body: body,
-  );
+  return remaining;
 }
 
 Future<String> _readBoundedBody(
@@ -1074,6 +1166,10 @@ final class _DiscoveryResponse {
   final int statusCode;
   final Map<String, List<String>> headers;
   final String body;
+}
+
+final class _DiscoveryDeadlineExceeded implements Exception {
+  const _DiscoveryDeadlineExceeded();
 }
 
 final class _ParsedChallenge {

@@ -41,9 +41,10 @@ Fresh state:
   HTTP sessions, send authenticated JSON-RPC requests, consume POST/SSE
   responses, poll GET/SSE events with resume cursors, delete sessions, parse
   Bearer scope challenges, discover validated OAuth Protected Resource and
-  authorization-server metadata without forwarding credentials, prepare and
-  validate PKCE authorization requests, and redeem codes into resource-bound
-  bearer grants without mutating active MCP session state. Public consumers
+  authorization-server metadata without forwarding credentials and under one
+  configurable total deadline, prepare and validate PKCE authorization
+  requests, and redeem codes into resource-bound bearer grants without
+  mutating active MCP session state. Public consumers
   can also refresh and revoke those grants through discovered endpoints while
   retaining the canonical MCP resource and isolating active Streamable HTTP
   state. They can publish and reuse validated public Client ID Metadata

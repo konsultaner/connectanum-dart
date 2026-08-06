@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -512,6 +513,188 @@ void main() {
         expect(error.bearerChallenges.single.error, 'insufficient_scope');
         expect(error.bearerChallenges.single.scopes, <String>['tools:call']);
       }
+    });
+
+    test('bounds a stalled protected-resource discovery body', () async {
+      final responseStarted = Completer<void>();
+      final releaseResponse = Completer<void>();
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async {
+        if (!releaseResponse.isCompleted) {
+          releaseResponse.complete();
+        }
+        await server.close(force: true);
+      });
+      final endpoint = Uri.parse(
+        'http://${server.address.address}:${server.port}/mcp',
+      );
+
+      server.listen((request) async {
+        await request.drain<void>();
+        request.response.headers.contentType = ContentType.json;
+        request.response.bufferOutput = false;
+        request.response.write('{"resource":');
+        await request.response.flush();
+        responseStarted.complete();
+        await releaseResponse.future;
+        await request.response.close();
+      });
+
+      final client = McpStreamableHttpClient(endpoint)
+        ..sessionId = 'active-session';
+      addTearDown(client.close);
+
+      final discovery = client.discoverProtectedResourceMetadata(
+        timeout: const Duration(milliseconds: 200),
+      );
+      await responseStarted.future.timeout(const Duration(seconds: 3));
+
+      await expectLater(
+        discovery.timeout(const Duration(seconds: 3)),
+        throwsA(
+          isA<McpAuthorizationDiscoveryException>()
+              .having(
+                (error) => error.message,
+                'message',
+                contains('timed out'),
+              )
+              .having((error) => error.uri, 'uri', endpoint),
+        ),
+      );
+      expect(client.sessionId, 'active-session');
+    });
+
+    test(
+      'bounds protected-resource discovery before response headers',
+      () async {
+        final requestReceived = Completer<void>();
+        final releaseResponse = Completer<void>();
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() async {
+          if (!releaseResponse.isCompleted) {
+            releaseResponse.complete();
+          }
+          await server.close(force: true);
+        });
+        final endpoint = Uri.parse(
+          'http://${server.address.address}:${server.port}/mcp',
+        );
+
+        server.listen((request) async {
+          await request.drain<void>();
+          requestReceived.complete();
+          await releaseResponse.future;
+        });
+
+        final discovery = discoverMcpProtectedResourceMetadata(
+          endpoint,
+          timeout: const Duration(milliseconds: 200),
+        );
+        await requestReceived.future.timeout(const Duration(seconds: 3));
+
+        await expectLater(
+          discovery.timeout(const Duration(seconds: 3)),
+          throwsA(
+            isA<McpAuthorizationDiscoveryException>()
+                .having(
+                  (error) => error.message,
+                  'message',
+                  contains('timed out'),
+                )
+                .having((error) => error.uri, 'uri', endpoint),
+          ),
+        );
+      },
+    );
+
+    test('shares one deadline across authorization-server fallbacks', () async {
+      final stalledResponseStarted = Completer<void>();
+      final releaseResponse = Completer<void>();
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async {
+        if (!releaseResponse.isCompleted) {
+          releaseResponse.complete();
+        }
+        await server.close(force: true);
+      });
+      final issuer = Uri.parse(
+        'http://${server.address.address}:${server.port}',
+      );
+
+      server.listen((request) async {
+        await request.drain<void>();
+        if (request.uri.path == '/.well-known/oauth-authorization-server') {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          request.response.statusCode = HttpStatus.notFound;
+          await request.response.close();
+          return;
+        }
+        request.response.headers.contentType = ContentType.json;
+        request.response.bufferOutput = false;
+        request.response.write('{"issuer":');
+        await request.response.flush();
+        stalledResponseStarted.complete();
+        await releaseResponse.future;
+        await request.response.close();
+      });
+
+      final stopwatch = Stopwatch()..start();
+      final discovery = discoverMcpAuthorizationServerMetadata(
+        issuer,
+        timeout: const Duration(milliseconds: 500),
+      );
+      await stalledResponseStarted.future.timeout(const Duration(seconds: 3));
+
+      await expectLater(
+        discovery.timeout(const Duration(seconds: 3)),
+        throwsA(
+          isA<McpAuthorizationDiscoveryException>()
+              .having(
+                (error) => error.message,
+                'message',
+                contains('timed out'),
+              )
+              .having(
+                (error) => error.uri?.path,
+                'uri path',
+                '/.well-known/openid-configuration',
+              ),
+        ),
+      );
+      stopwatch.stop();
+      expect(stopwatch.elapsed, lessThan(const Duration(milliseconds: 700)));
+    });
+
+    test('rejects non-positive discovery deadlines before I/O', () async {
+      await expectLater(
+        discoverMcpProtectedResourceMetadata(
+          Uri.parse('https://mcp.example'),
+          timeout: Duration.zero,
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        discoverMcpAuthorizationServerMetadata(
+          Uri.parse('https://auth.example'),
+          timeout: const Duration(milliseconds: -1),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('preserves request lifecycle hook timeout failures', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((request) => request.drain<void>());
+      final ownerError = TimeoutException('owner lifecycle timeout');
+
+      await expectLater(
+        discoverMcpProtectedResourceMetadata(
+          Uri.parse('http://${server.address.address}:${server.port}/mcp'),
+          onRequestOpened: (request) => throw ownerError,
+        ),
+        throwsA(same(ownerError)),
+      );
     });
   });
 }

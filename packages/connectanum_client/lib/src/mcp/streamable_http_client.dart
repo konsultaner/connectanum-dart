@@ -1664,9 +1664,12 @@ final class McpStreamableHttpClient {
   }
 
   /// Discovers OAuth Protected Resource Metadata without using session state.
+  ///
+  /// [timeout] is one total deadline across the probe and metadata fallbacks.
   Future<McpProtectedResourceDiscovery> discoverProtectedResourceMetadata({
     Map<String, String> headers = const <String, String>{},
     int maxMetadataBytes = 1024 * 1024,
+    Duration timeout = const Duration(seconds: 10),
   }) {
     return _runTrackedOAuthHttpOperation(
       (onRequestOpened) => discoverMcpProtectedResourceMetadata(
@@ -1674,16 +1677,20 @@ final class McpStreamableHttpClient {
         httpClient: _httpClient,
         headers: headers,
         maxMetadataBytes: maxMetadataBytes,
+        timeout: timeout,
         onRequestOpened: onRequestOpened,
       ),
     );
   }
 
   /// Discovers validated OAuth metadata for an advertised authorization server.
+  ///
+  /// [timeout] is one total deadline across every well-known fallback.
   Future<McpAuthorizationServerDiscovery> discoverAuthorizationServerMetadata(
     Uri issuer, {
     Map<String, String> headers = const <String, String>{},
     int maxMetadataBytes = 1024 * 1024,
+    Duration timeout = const Duration(seconds: 10),
   }) {
     return _runTrackedOAuthHttpOperation(
       (onRequestOpened) => discoverMcpAuthorizationServerMetadata(
@@ -1691,6 +1698,7 @@ final class McpStreamableHttpClient {
         httpClient: _httpClient,
         headers: headers,
         maxMetadataBytes: maxMetadataBytes,
+        timeout: timeout,
         onRequestOpened: onRequestOpened,
       ),
     );
