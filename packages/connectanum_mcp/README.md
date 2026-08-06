@@ -45,7 +45,10 @@ Consumer clients can use `McpStreamableHttpClient` from
 `ConnectanumHttpAuthClient` plus `McpStreamableHttpClient.withAuthGrant(...)`
 for bearer-protected routes that issue HTTP auth bridge grants. Use the
 explicit `stateless` constructors for `2026-07-28`; this keeps the modern
-request-scoped lifecycle separate from session-era initialize/poll/delete.
+request-scoped lifecycle separate from session-era initialize/poll/delete. HTTP
+auth issue, challenge, refresh, and revoke operations have one configurable
+total deadline and accept only a configurable number of raw response bytes
+before UTF-8/JSON decoding; overflow errors do not include the response body.
 Tool execution failures are returned as MCP tool results with `isError: true`;
 malformed JSON-RPC messages, unknown methods, and invalid parameters remain
 protocol errors.

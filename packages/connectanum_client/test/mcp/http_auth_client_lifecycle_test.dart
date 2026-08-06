@@ -135,6 +135,159 @@ void main() {
       replacement.close();
     });
 
+    test('validates operation bounds before opening requests', () {
+      expect(
+        () => ConnectanumHttpAuthClient(
+          endpoint.uri,
+          httpClient: sharedHttpClient,
+          requestTimeout: Duration.zero,
+        ),
+        throwsA(
+          isA<ArgumentError>()
+              .having((error) => error.name, 'name', 'requestTimeout')
+              .having(
+                (error) => error.invalidValue,
+                'invalidValue',
+                Duration.zero,
+              ),
+        ),
+      );
+      expect(
+        () => ConnectanumHttpAuthClient(
+          endpoint.uri,
+          httpClient: sharedHttpClient,
+          maxResponseBytes: 0,
+        ),
+        throwsA(
+          isA<ArgumentError>()
+              .having((error) => error.name, 'name', 'maxResponseBytes')
+              .having((error) => error.invalidValue, 'invalidValue', 0),
+        ),
+      );
+      expect(endpoint.requestBodies, isEmpty);
+    });
+
+    test('aborts a request that opens after the operation deadline', () async {
+      final delayedHttpClient = _DelayedPostHttpClient(sharedHttpClient);
+      final client = ConnectanumHttpAuthClient(
+        endpoint.uri,
+        httpClient: delayedHttpClient,
+        requestTimeout: const Duration(milliseconds: 80),
+      );
+      addTearDown(client.close);
+
+      final pending = client.refreshToken('refresh-token-1');
+      await delayedHttpClient.postStarted.future.timeout(
+        const Duration(seconds: 1),
+      );
+      await expectLater(pending, throwsA(isA<TimeoutException>()));
+
+      delayedHttpClient.releasePost();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(endpoint.requestBodies, isEmpty);
+
+      final grant = await client.refreshToken('replacement-refresh-token');
+      expect(grant.accessToken, 'refreshed-access-token');
+    });
+
+    test('times out a response before headers and reuses the client', () async {
+      endpoint.mode = _ResponseMode.holdHeaders;
+      final client = ConnectanumHttpAuthClient(
+        endpoint.uri,
+        httpClient: sharedHttpClient,
+        requestTimeout: const Duration(milliseconds: 80),
+      );
+      addTearDown(client.close);
+
+      final pending = client.refreshToken('refresh-token-1');
+      await endpoint.waitForRequestCount(1);
+      await expectLater(
+        pending,
+        throwsA(
+          isA<TimeoutException>()
+              .having(
+                (error) => error.duration,
+                'duration',
+                const Duration(milliseconds: 80),
+              )
+              .having(
+                (error) => error.message,
+                'message',
+                'Connectanum HTTP auth operation exceeded 80 ms.',
+              ),
+        ),
+      );
+
+      endpoint.mode = _ResponseMode.normal;
+      final grant = await client.refreshToken('replacement-refresh-token');
+      expect(grant.accessToken, 'refreshed-access-token');
+    });
+
+    test('times out a stalled response body and reuses the client', () async {
+      endpoint.mode = _ResponseMode.holdBody;
+      final client = ConnectanumHttpAuthClient(
+        endpoint.uri,
+        httpClient: sharedHttpClient,
+        requestTimeout: const Duration(milliseconds: 80),
+      );
+      addTearDown(client.close);
+
+      final pending = client.refreshToken('refresh-token-1');
+      await endpoint.waitForHeldBodyCount(1);
+      await expectLater(pending, throwsA(isA<TimeoutException>()));
+
+      endpoint.mode = _ResponseMode.normal;
+      final grant = await client.refreshToken('replacement-refresh-token');
+      expect(grant.accessToken, 'refreshed-access-token');
+    });
+
+    test('rejects an oversized successful auth response', () async {
+      endpoint.mode = _ResponseMode.oversizedBody;
+      final client = ConnectanumHttpAuthClient(
+        endpoint.uri,
+        httpClient: sharedHttpClient,
+      );
+      addTearDown(client.close);
+
+      await expectLater(
+        client.refreshToken('refresh-token-1'),
+        throwsA(
+          isA<ConnectanumHttpAuthProtocolException>().having(
+            (error) => error.message,
+            'message',
+            'Connectanum HTTP auth response exceeds 65536 bytes.',
+          ),
+        ),
+      );
+
+      endpoint.mode = _ResponseMode.normal;
+      final grant = await client.refreshToken('replacement-refresh-token');
+      expect(grant.accessToken, 'refreshed-access-token');
+    });
+
+    test('redacts an oversized rejected auth response', () async {
+      endpoint.mode = _ResponseMode.oversizedErrorBody;
+      final client = ConnectanumHttpAuthClient(
+        endpoint.uri,
+        httpClient: sharedHttpClient,
+      );
+      addTearDown(client.close);
+
+      late Object caught;
+      try {
+        await client.refreshToken('refresh-token-1');
+        fail('oversized rejected auth response was accepted');
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught, isA<ConnectanumHttpAuthProtocolException>());
+      expect(caught.toString(), isNot(contains('sensitive-error-detail')));
+
+      endpoint.mode = _ResponseMode.normal;
+      final grant = await client.refreshToken('replacement-refresh-token');
+      expect(grant.accessToken, 'refreshed-access-token');
+    });
+
     test(
       'close cancels authentication paused before the token request',
       () async {
@@ -175,6 +328,34 @@ void main() {
         replacement.close();
       },
     );
+
+    test('times out authentication paused before the token request', () async {
+      final authentication = _BlockingAuthentication();
+      final client = ConnectanumHttpAuthClient(
+        endpoint.uri,
+        httpClient: sharedHttpClient,
+        requestTimeout: const Duration(milliseconds: 80),
+      );
+      addTearDown(client.close);
+      final pending = client.authenticate(
+        realm: 'realm1',
+        authId: 'user-1',
+        authentication: authentication,
+        authMethod: 'ticket',
+      );
+      await authentication.challengeEntered.future.timeout(
+        const Duration(seconds: 1),
+      );
+      expect(endpoint.requestBodies, hasLength(1));
+
+      await expectLater(pending, throwsA(isA<TimeoutException>()));
+      authentication.releaseChallenge();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(endpoint.requestBodies, hasLength(1));
+
+      final grant = await client.refreshToken('replacement-refresh-token');
+      expect(grant.accessToken, 'refreshed-access-token');
+    });
   });
 }
 
@@ -184,7 +365,13 @@ final Matcher _closedStateError = isA<StateError>().having(
   'ConnectanumHttpAuthClient is closed.',
 );
 
-enum _ResponseMode { normal, holdHeaders, holdBody }
+enum _ResponseMode {
+  normal,
+  holdHeaders,
+  holdBody,
+  oversizedBody,
+  oversizedErrorBody,
+}
 
 final class _LifecycleAuthEndpoint {
   _LifecycleAuthEndpoint._(this._server) {
@@ -257,7 +444,15 @@ final class _LifecycleAuthEndpoint {
     }
 
     final responseBody = _responseBody(body);
-    request.response.statusCode = _responseStatus(body);
+    if (mode == _ResponseMode.oversizedBody) {
+      responseBody['extension'] = List<String>.filled(30000, '€').join();
+    } else if (mode == _ResponseMode.oversizedErrorBody) {
+      responseBody['error'] = 'sensitive-error-detail';
+      responseBody['extension'] = List<String>.filled(30000, '€').join();
+    }
+    request.response.statusCode = mode == _ResponseMode.oversizedErrorBody
+        ? HttpStatus.badGateway
+        : _responseStatus(body);
     request.response.headers.contentType = ContentType.json;
     if (mode == _ResponseMode.holdBody) {
       request.response.write(jsonEncode(responseBody).substring(0, 8));
@@ -338,4 +533,30 @@ final class _BlockingAuthentication extends AbstractAuthentication {
 
   @override
   String getName() => 'ticket';
+}
+
+final class _DelayedPostHttpClient implements HttpClient {
+  _DelayedPostHttpClient(this._delegate);
+
+  final HttpClient _delegate;
+  final postStarted = Completer<void>();
+  final _postRelease = Completer<void>();
+
+  void releasePost() {
+    if (!_postRelease.isCompleted) {
+      _postRelease.complete();
+    }
+  }
+
+  @override
+  Future<HttpClientRequest> postUrl(Uri url) async {
+    if (!postStarted.isCompleted) {
+      postStarted.complete();
+    }
+    await _postRelease.future;
+    return _delegate.postUrl(url);
+  }
+
+  @override
+  dynamic noSuchMethod(dynamic invocation) => super.noSuchMethod(invocation);
 }

@@ -10,6 +10,9 @@
 - Bound buffered Streamable HTTP POST, GET, DELETE, and listener setup response
   bodies to a configurable raw-byte limit. Long-lived request-scoped listeners
   remain incremental while bounding each complete SSE event separately.
+- Bound router HTTP-auth issue, challenge, refresh, and revoke operations with
+  one configurable total deadline and a raw-byte response limit before UTF-8
+  decoding, while preserving shared transport reuse and redacting overflow.
 - Add resource-bound MCP OAuth discovery, PKCE authorization-code exchange,
   refresh, revocation, validated Client ID Metadata Documents, and bounded
   RFC 7591 dynamic public-client registration for Dart IO consumers.

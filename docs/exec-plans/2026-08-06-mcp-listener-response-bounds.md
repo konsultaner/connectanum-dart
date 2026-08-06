@@ -1,6 +1,6 @@
 # MCP Listener Response Bounds
 
-Status: active
+Status: complete; local and hosted deployment-chain evidence clean
 
 ## Goal
 
@@ -63,6 +63,20 @@ the counter at each blank SSE delimiter keeps the overall stream incremental.
   94 MCP, 264 MCP/client, 96 benchmark/live-router, and 387 router tests; all 13
   focused native-forwarding regressions; every neutral consumer package and CLI
   smoke; and Chrome Dart2Wasm WebSocket coverage.
+- Implementation commit `96cfb49d` is on both maintained `master` branches.
+  Exact-head GitHub CI `31097691761`, Dart Package Publish Dry Run
+  `31097691733`, WAMP Profile Benchmarks `31097692056`, and Router Image dry
+  run `31099010946` passed on their first attempts. CI uploaded coverage
+  artifact `8966621915`, WAMP uploaded benchmark artifact `8966321562`, and
+  Router Image uploaded preview artifact `8966658087` plus Docker build records
+  `8966758876` and `8966759628`.
+- The comprehensive strict deployment-chain audit exited zero after a transient
+  GitHub DNS retry. Exact-head CI logs were clean, the package and native-
+  release dry runs were relevant, the loaded-image MCP runtime smoke and multi-
+  architecture build passed, the WAMP profile artifact was ready, and workflow
+  visibility, branch protection, and the public router package were clean. A
+  numeric release-candidate tag remains an explicit release-approval action
+  outside this checkpoint.
 
 ## Outcome
 
@@ -70,5 +84,5 @@ Listener setup bodies now use the ordinary raw-byte response bound. Successful
 long-lived listeners remain incremental while each complete SSE event is
 bounded in raw bytes before UTF-8 and JSON decoding, including complete CRLF
 framing across chunk boundaries. Full local verification and exact-head
-deployment evidence is clean locally; commit publication and exact-head hosted
-evidence remain.
+deployment evidence are clean, and both maintained branches contain the
+implementation.

@@ -1038,6 +1038,24 @@ void main() {
     );
   });
 
+  test('IO entrypoint re-exports bounded HTTP auth settings', () {
+    final transport = HttpClient();
+    final client = ConnectanumHttpAuthClient(
+      Uri.parse('http://127.0.0.1:1/auth'),
+      httpClient: transport,
+      requestTimeout: const Duration(seconds: 2),
+      maxResponseBytes: 1024,
+    );
+    expect(client.requestTimeout, const Duration(seconds: 2));
+    expect(client.maxResponseBytes, 1024);
+    expect(
+      const ConnectanumHttpAuthProtocolException('bounded').message,
+      'bounded',
+    );
+    client.close();
+    transport.close(force: true);
+  });
+
   test(
     'IO entrypoint re-exports bearer-token MCP client construction',
     () async {

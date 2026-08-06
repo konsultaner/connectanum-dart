@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
 
@@ -39,18 +40,33 @@ final class _PendingHttpAuthOperationHandle<T>
 /// The router auth bridge exposes WAMP challenge/response authenticators over a
 /// JSON HTTP endpoint. This helper keeps that handshake in the public client
 /// package so protected router-hosted MCP routes can be used without
-/// reimplementing the token flow in each consumer application.
+/// reimplementing the token flow in each consumer application. Every complete
+/// issue, challenge, refresh, or revoke operation shares [requestTimeout], and
+/// each response is limited to [maxResponseBytes] before UTF-8/JSON decoding.
 final class ConnectanumHttpAuthClient {
+  static const Duration defaultRequestTimeout = Duration(seconds: 30);
+  static const int defaultMaxResponseBytes = 64 * 1024;
+
   ConnectanumHttpAuthClient(
     this.endpoint, {
     HttpClient? httpClient,
     this.headers = const <String, String>{},
+    Duration requestTimeout = defaultRequestTimeout,
+    int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
-  }) : _httpClient = httpClient ?? HttpClient(),
+  }) : requestTimeout = _validatedHttpAuthRequestTimeout(requestTimeout),
+       maxResponseBytes = _validatedHttpAuthMaxResponseBytes(maxResponseBytes),
+       _httpClient = httpClient ?? HttpClient(),
        _ownsHttpClient = httpClient == null || closeHttpClient;
 
   final Uri endpoint;
   final Map<String, String> headers;
+
+  /// One total deadline for a complete operation, including challenge work.
+  final Duration requestTimeout;
+
+  /// Maximum raw bytes accepted for each HTTP auth response.
+  final int maxResponseBytes;
   final HttpClient _httpClient;
   final bool _ownsHttpClient;
   final Set<HttpClientRequest> _pendingRequests = <HttpClientRequest>{};
@@ -237,21 +253,57 @@ final class ConnectanumHttpAuthClient {
     }
 
     final pending = _PendingHttpAuthOperationHandle<T>();
+    final operationRequests = <HttpClientRequest>{};
+    final timeoutError = TimeoutException(
+      'Connectanum HTTP auth operation exceeded '
+      '${requestTimeout.inMilliseconds} ms.',
+      requestTimeout,
+    );
+    var timedOut = false;
     _pendingOperations.add(pending);
 
     Future<HttpClientRequest> openRequest() async {
       if (_closed) {
         throw _closedError();
       }
+      if (timedOut) {
+        throw timeoutError;
+      }
       final request = await _httpClient.postUrl(endpoint);
-      if (_closed) {
-        final error = _closedError();
+      if (_closed || timedOut) {
+        final error = _closed ? _closedError() : timeoutError;
         request.abort(error, StackTrace.current);
         throw error;
       }
+      operationRequests.add(request);
       _pendingRequests.add(request);
       return request;
     }
+
+    late final Timer timer;
+    void finishPending() {
+      timer.cancel();
+      _pendingOperations.remove(pending);
+      operationRequests.clear();
+    }
+
+    timer = Timer(requestTimeout, () {
+      timedOut = true;
+      final stackTrace = StackTrace.current;
+      for (final request in operationRequests) {
+        if (_pendingRequests.remove(request)) {
+          request.abort(timeoutError, stackTrace);
+        }
+      }
+      pending.reject(timeoutError, stackTrace);
+    });
+
+    unawaited(
+      pending.future.then<void>(
+        (_) => finishPending(),
+        onError: (Object _, StackTrace _) => finishPending(),
+      ),
+    );
 
     unawaited(
       Future<T>.sync(() => operation(openRequest))
@@ -262,7 +314,9 @@ final class ConnectanumHttpAuthClient {
             },
           )
           .whenComplete(() {
-            _pendingOperations.remove(pending);
+            for (final request in operationRequests) {
+              _pendingRequests.remove(request);
+            }
           }),
     );
     return pending.future;
@@ -300,7 +354,7 @@ final class ConnectanumHttpAuthClient {
       request.add(bodyBytes);
 
       final response = await request.close();
-      final body = await utf8.decodeStream(response);
+      final body = await _readResponseBody(response);
       Object? decoded;
       if (body.isNotEmpty) {
         try {
@@ -323,6 +377,22 @@ final class ConnectanumHttpAuthClient {
     } finally {
       _pendingRequests.remove(request);
     }
+  }
+
+  Future<String> _readResponseBody(HttpClientResponse response) async {
+    final bytes = BytesBuilder(copy: false);
+    var length = 0;
+    await for (final chunk in response) {
+      length += chunk.length;
+      if (length > maxResponseBytes) {
+        throw ConnectanumHttpAuthProtocolException(
+          'Connectanum HTTP auth response exceeds '
+          '$maxResponseBytes bytes.',
+        );
+      }
+      bytes.add(chunk);
+    }
+    return utf8.decode(bytes.takeBytes());
   }
 
   static String _httpAuthMethodName(String authMethod) {
@@ -606,6 +676,15 @@ final class ConnectanumHttpAuthGrant {
   }
 }
 
+final class ConnectanumHttpAuthProtocolException implements Exception {
+  const ConnectanumHttpAuthProtocolException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'ConnectanumHttpAuthProtocolException: $message';
+}
+
 final class ConnectanumHttpAuthException implements Exception {
   const ConnectanumHttpAuthException({
     required this.statusCode,
@@ -624,4 +703,26 @@ final class ConnectanumHttpAuthException implements Exception {
     final suffix = body.isEmpty ? '' : ': $body';
     return 'ConnectanumHttpAuthException($statusCode $reasonPhrase$suffix)';
   }
+}
+
+Duration _validatedHttpAuthRequestTimeout(Duration value) {
+  if (value <= Duration.zero) {
+    throw ArgumentError.value(
+      value,
+      'requestTimeout',
+      'requestTimeout must be positive',
+    );
+  }
+  return value;
+}
+
+int _validatedHttpAuthMaxResponseBytes(int value) {
+  if (value <= 0) {
+    throw ArgumentError.value(
+      value,
+      'maxResponseBytes',
+      'maxResponseBytes must be positive',
+    );
+  }
+  return value;
 }
