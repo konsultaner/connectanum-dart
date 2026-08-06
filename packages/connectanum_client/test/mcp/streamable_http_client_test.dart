@@ -289,18 +289,21 @@ void main() {
           McpStreamableHttpClient(
             endpoint,
             requestTimeout: const Duration(milliseconds: 17),
+            maxRequestBytes: 17,
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.withBearerToken(
             endpoint,
             'token',
             requestTimeout: const Duration(milliseconds: 17),
+            maxRequestBytes: 17,
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.stateless(
             endpoint,
             clientInfo: clientInfo,
             requestTimeout: const Duration(milliseconds: 17),
+            maxRequestBytes: 17,
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.statelessWithBearerToken(
@@ -308,6 +311,7 @@ void main() {
             'token',
             clientInfo: clientInfo,
             requestTimeout: const Duration(milliseconds: 17),
+            maxRequestBytes: 17,
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.statelessWithAuthGrant(
@@ -315,18 +319,21 @@ void main() {
             authGrant,
             clientInfo: clientInfo,
             requestTimeout: const Duration(milliseconds: 17),
+            maxRequestBytes: 17,
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.withOAuthToken(
             endpoint,
             oauthGrant,
             requestTimeout: const Duration(milliseconds: 17),
+            maxRequestBytes: 17,
             maxResponseBytes: 17,
           ),
           McpStreamableHttpClient.withAuthGrant(
             endpoint,
             authGrant,
             requestTimeout: const Duration(milliseconds: 17),
+            maxRequestBytes: 17,
             maxResponseBytes: 17,
           ),
         ];
@@ -339,6 +346,10 @@ void main() {
         });
 
         expect(
+          clients.map((client) => client.maxRequestBytes),
+          everyElement(17),
+        );
+        expect(
           clients.map((client) => client.maxResponseBytes),
           everyElement(17),
         );
@@ -347,12 +358,20 @@ void main() {
           everyElement(const Duration(milliseconds: 17)),
         );
         expect(
+          defaultClient.maxRequestBytes,
+          McpStreamableHttpClient.defaultMaxRequestBytes,
+        );
+        expect(
           defaultClient.maxResponseBytes,
           McpStreamableHttpClient.defaultMaxResponseBytes,
         );
         expect(
           defaultClient.requestTimeout,
           McpStreamableHttpClient.defaultRequestTimeout,
+        );
+        expect(
+          () => McpStreamableHttpClient(endpoint, maxRequestBytes: 0),
+          throwsArgumentError,
         );
         expect(
           () => McpStreamableHttpClient(endpoint, maxResponseBytes: 0),
@@ -1420,6 +1439,104 @@ void main() {
         );
         expect(httpClient.postUrlCalls, 1);
         expect(endpoint.requests, hasLength(1));
+      },
+    );
+
+    test(
+      'bounds direct request bodies in raw UTF-8 bytes before transport',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        const clientInfo = <String, Object?>{
+          'name': 'request-limit-test',
+          'version': '1.0.0',
+        };
+        const id = 'request-limit-raw-utf8';
+        final params = <String, Object?>{'value': 'é' * 200};
+
+        final probe = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: clientInfo,
+        );
+        await probe.requestDirect('app.echo', id: id, params: params);
+        probe.close(force: true);
+        final encodedBody = jsonEncode(endpoint.requests.single.body);
+        final characterLength = encodedBody.length;
+        expect(
+          endpoint.requests.single.contentLength,
+          utf8.encode(encodedBody).length,
+        );
+        expect(
+          endpoint.requests.single.contentLength,
+          greaterThan(characterLength),
+        );
+        endpoint.requests.clear();
+
+        final httpClient = _CountingPostHttpClient(HttpClient());
+        addTearDown(() => httpClient.close(force: true));
+        final client = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: clientInfo,
+          httpClient: httpClient,
+          maxRequestBytes: characterLength,
+        );
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.requestDirect('app.echo', id: id, params: params),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              'MCP HTTP request exceeds $characterLength bytes.',
+            ),
+          ),
+        );
+        expect(httpClient.postUrlCalls, 0);
+        expect(endpoint.requests, isEmpty);
+
+        expect(
+          await client.pingDirect(id: 'valid-after-request-limit'),
+          containsPair('resultType', 'complete'),
+        );
+        expect(httpClient.postUrlCalls, 1);
+        expect(endpoint.requests, hasLength(1));
+      },
+    );
+
+    test(
+      'bounds listener request bodies before allocating transport',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        var listenerClientAllocations = 0;
+        final client = McpStreamableHttpClient.stateless(
+          endpoint.uri,
+          clientInfo: const <String, Object?>{
+            'name': 'listener-request-limit-test',
+            'version': '1.0.0',
+          },
+          maxRequestBytes: 64,
+          subscriptionHttpClientFactory: () {
+            listenerClientAllocations += 1;
+            return HttpClient();
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.listen(id: 'oversized-listener', toolsListChanged: true),
+          throwsA(
+            isA<McpStreamableProtocolException>().having(
+              (error) => error.message,
+              'message',
+              'MCP HTTP request exceeds 64 bytes.',
+            ),
+          ),
+        );
+
+        expect(listenerClientAllocations, 0);
+        expect(endpoint.requests, isEmpty);
       },
     );
 

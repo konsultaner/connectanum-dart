@@ -1,6 +1,7 @@
 # MCP Request Serialization Preflight
 
-Status: implementation complete; local verification clean
+Status: implementation complete; local and non-WAMP hosted verification clean;
+WAMP hosted evidence blocked by a GitHub Actions major outage
 
 ## Goal
 
@@ -67,8 +68,26 @@ authorization/session headers, while keeping caller-owned transports reusable.
   95 MCP, 278 MCP/client, 96 benchmark/live-router, and 387 router tests; all 13
   focused native-forwarding regressions; every neutral consumer package and
   CLI smoke; and Chrome Dart2Wasm WebSocket coverage.
+- 2026-08-06: Implementation commit `674ffc0e` is on both maintained `master`
+  branches. Exact-head Dart Package Publish Dry Run `31119882874`, Router Image
+  dry run `31122235784`, and CI `31122235918` passed. CI uploaded coverage
+  artifact `8974267783`; Router Image uploaded preview artifact `8974187315`
+  and Docker build records `8974196215` and `8974196170`.
+- 2026-08-06: GitHub Status reported an active Actions major outage while the
+  WAMP workflow was retried. One attempt passed the cleartext and secure
+  throughput artifact gates before GitHub canceled the next suite. A fresh
+  exact-head recovery attempt, run `31125520838`, was then evicted after 17
+  minutes with its only job cancelled before executing a step. The strict
+  deployment-chain audit therefore exited one solely because the latest WAMP
+  run was not green; CI/log scan, package dry run, relevant native-release
+  evidence, Router Image/runtime smoke, branch protection, workflow visibility,
+  and public package visibility were all ready. GitHub Status still reported
+  Actions as a major outage with the incident under investigation.
 
 ## Handoff
 
-- Implementation and local verification are complete. Commit/push and exact-
-  head hosted deployment evidence remain.
+- Implementation, push, and all non-WAMP verification are complete. Retry the
+  exact-head WAMP Profile Benchmarks after the GitHub Actions incident clears,
+  then rerun the comprehensive strict deployment-chain audit. Leave this
+  hosted-evidence bookkeeping uncommitted until it can accompany the next
+  implementation/configuration commit.

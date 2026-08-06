@@ -24846,7 +24846,29 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the MCP request-serialization preflight plan is
+- Active now, the MCP request-body bounds plan is
+  `docs/exec-plans/2026-08-06-mcp-request-body-bounds.md`.
+  `McpStreamableHttpClient` now exposes a positive `maxRequestBytes` setting
+  across all seven public constructors, defaulting to 16 MiB. Ordinary
+  Streamable/direct JSON POSTs and `subscriptions/listen` setup encode and
+  bound complete raw UTF-8 request bodies before opening HTTP transport. The
+  fail-first focused suite did not compile because the setting was absent.
+  After implementation, a multibyte regression proves raw-byte rather than
+  character counting, zero ordinary transport opens on overflow, and a valid
+  follow-up through the same caller-owned client; listener coverage proves no
+  subscription transport is allocated on overflow. Both maintained packages
+  analyze cleanly, all 175 focused Streamable client cases and 14 public MCP IO
+  boundary cases pass, and pre-change `bin/test-fast` passed the complete fast
+  regression and router-hosted consumer matrix. Post-change `bin/test-fast`
+  passes 360 core, 95 MCP, 280 MCP/client, and 96 benchmark/live-router cases
+  plus every neutral consumer, global-activation, CLI, and focused
+  native/router follow-up. Final `bin/verify` passes with zero formatting
+  changes; 113 Rust core tests plus serializer integrations; 52 Rust FFI tests;
+  360 Dart core, 95 MCP, 280 MCP/client, 96 benchmark/live-router, and 387
+  router tests; all 13 focused native-forwarding regressions; every neutral
+  consumer package and CLI smoke; and Chrome Dart2Wasm WebSocket coverage.
+  Commit/push and exact-head hosted evidence remain.
+- Completed most recently, the MCP request-serialization preflight plan is
   `docs/exec-plans/2026-08-06-mcp-request-serialization-preflight.md`.
   Ordinary Streamable and direct JSON POST operations plus request-scoped
   listener setup now encode the complete JSON request body before opening HTTP
@@ -24863,7 +24885,19 @@ at the older `47bbf9c` commit.
   Rust FFI tests; 360 Dart core, 95 MCP, 278 MCP/client, 96 benchmark/live-
   router, and 387 router tests; all 13 focused native-forwarding regressions;
   every neutral consumer package and CLI smoke; and Chrome Dart2Wasm WebSocket
-  coverage. Commit/push and exact-head hosted evidence remain.
+  coverage. Implementation commit `674ffc0e` is on both maintained `master`
+  branches. Exact-head Dart Package Publish Dry Run `31119882874`, Router Image
+  dry run `31122235784`, and CI `31122235918` passed. CI uploaded coverage
+  artifact `8974267783`; Router Image uploaded preview artifact `8974187315`
+  and Docker build records `8974196215` and `8974196170`. GitHub Status reported
+  an active Actions major outage while WAMP evidence was retried. One attempt
+  passed the cleartext and secure throughput artifact gates before platform
+  cancellation. A fresh exact-head recovery attempt, run `31125520838`, was
+  evicted after 17 minutes with its only job cancelled before executing a step.
+  The strict deployment-chain audit exited one only because that latest WAMP
+  run was not green; every other required gate was ready, and GitHub Status
+  still reported Actions as a major outage under investigation. Retry WAMP and
+  the strict audit after the Actions incident clears.
 - Completed most recently, the MCP Streamable HTTP operation-deadline plan is
   `docs/exec-plans/2026-08-06-mcp-streamable-operation-deadline.md`. Ordinary
   public POST, GET, and DELETE exchanges plus `subscriptions/listen` setup now
