@@ -170,6 +170,8 @@
           "issuer": "https://issuer.example",
           "audience": ["connectanum-http"],
           "introspection_url": "http://127.0.0.1:18083/introspect",
+          "timeout_ms": 5000,
+          "max_response_bytes": 65536,
           "client_id": "bench-client",
           "client_secret": "bench-secret",
           "auth_id_claim": "sub",

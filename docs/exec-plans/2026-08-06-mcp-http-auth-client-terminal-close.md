@@ -1,6 +1,6 @@
 # MCP HTTP Auth Client Terminal Close
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -57,6 +57,22 @@ caller-provided transport or leak credentials in lifecycle errors.
   benchmark tests including live router workloads, all 384 router tests, the
   13-case native-forwarding follow-up, every isolated and globally activated
   package smoke, and Chrome/Dart2Wasm WebSocket coverage.
+- Implementation commit `8c1318d0` is on both maintained `master` branches.
+  Exact-head GitHub CI `31063345534`, Dart Package Publish Dry Run
+  `31063345537`, WAMP Profile Benchmarks `31063345560`, and Router Image dry
+  run `31064380140` passed. The WAMP run's first attempt narrowly missed two
+  unchanged 1.2 Mbps pub/sub floors; its failed-job rerun passed the canonical
+  gate without code or threshold changes.
+- CI uploaded coverage artifact `8953222227`. The successful WAMP attempt
+  uploaded benchmark artifact `8953259558`. Router Image uploaded preview
+  artifact `8953302828` and Docker build records `8953357658` and
+  `8953357382`.
+- The comprehensive strict deployment-chain audit passed with clean exact-head
+  CI logs, package and native-release dry-run evidence, the loaded-image MCP
+  runtime smoke, the multi-architecture image build, the WAMP profile gate,
+  workflow visibility, branch protection, and the public router package all
+  ready. RC tagging remains an explicit release-approval action outside this
+  checkpoint.
 
 ## Outcome
 
@@ -67,5 +83,6 @@ redacted terminal `StateError`, aborts only this helper's active requests, and
 prevents a paused authentication callback from opening its token request after
 shutdown. Repeated close is safe, and caller-owned shared transports remain
 usable by replacement auth clients. The implementation is locally verified
-and ready to push; exact-head hosted workflows and the strict deployment-chain
-audit remain.
+and shipped on both maintained branches. Exact-head CI, package, WAMP, and
+Router Image workflows plus the comprehensive strict deployment-chain audit
+are clean.

@@ -338,6 +338,25 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
     }
     final uri = Uri.parse(urlValue);
     final timeoutMs = _intOption(_options['timeout_ms']) ?? 5000;
+    if (timeoutMs <= 0) {
+      throw StateError(
+        'HTTP auth provider "$providerName" requires a positive timeout_ms.',
+      );
+    }
+    final maxResponseBytes =
+        _intOption(
+          _options['max_response_bytes'] ?? _options['maxResponseBytes'],
+        ) ??
+        _defaultOAuthIntrospectionMaxResponseBytes;
+    if (maxResponseBytes <= 0) {
+      throw StateError(
+        'HTTP auth provider "$providerName" requires a positive '
+        'max_response_bytes.',
+      );
+    }
+
+    final timeout = Duration(milliseconds: timeoutMs);
+    final stopwatch = Stopwatch()..start();
     final client = HttpClient();
     if (_boolOption(_options['allow_insecure_tls']) == true) {
       client.badCertificateCallback = (_, _, _) => true;
@@ -345,7 +364,7 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
     try {
       final httpRequest = await client
           .postUrl(uri)
-          .timeout(Duration(milliseconds: timeoutMs));
+          .timeout(_remainingOAuthIntrospectionTime(stopwatch, timeout));
       httpRequest.headers.contentType = ContentType(
         'application',
         'x-www-form-urlencoded',
@@ -385,9 +404,12 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
       }
       httpRequest.write(Uri(queryParameters: body).query);
       final response = await httpRequest.close().timeout(
-        Duration(milliseconds: timeoutMs),
+        _remainingOAuthIntrospectionTime(stopwatch, timeout),
       );
-      final responseBody = await utf8.decoder.bind(response).join();
+      final responseBody = await _readOAuthIntrospectionResponseBody(
+        response,
+        maxResponseBytes: maxResponseBytes,
+      ).timeout(_remainingOAuthIntrospectionTime(stopwatch, timeout));
       if (response.statusCode != HttpStatus.ok) {
         return HttpAuthResult.failure(
           HttpAuthFailure(
@@ -473,14 +495,68 @@ class _OAuthIntrospectionHttpAuthProvider extends HttpAuthProvider {
           message: 'OAuth introspection timed out',
         ),
       );
-    } on SocketException catch (error) {
+    } on _OAuthIntrospectionResponseTooLarge {
       return HttpAuthResult.failure(
-        HttpAuthFailure(reason: 'auth_unavailable', message: error.message),
+        const HttpAuthFailure(
+          reason: 'invalid_token_response',
+          message: 'OAuth introspection response exceeded the configured limit',
+        ),
+      );
+    } on FormatException {
+      return HttpAuthResult.failure(
+        const HttpAuthFailure(
+          reason: 'invalid_token_response',
+          message: 'OAuth introspection returned an invalid JSON response',
+        ),
+      );
+    } on IOException {
+      return HttpAuthResult.failure(
+        const HttpAuthFailure(
+          reason: 'auth_unavailable',
+          message: 'OAuth introspection endpoint was unavailable',
+        ),
       );
     } finally {
+      stopwatch.stop();
       client.close(force: true);
     }
   }
+}
+
+const int _defaultOAuthIntrospectionMaxResponseBytes = 64 * 1024;
+
+final class _OAuthIntrospectionResponseTooLarge implements Exception {
+  const _OAuthIntrospectionResponseTooLarge();
+}
+
+Duration _remainingOAuthIntrospectionTime(
+  Stopwatch stopwatch,
+  Duration timeout,
+) {
+  final remaining = timeout - stopwatch.elapsed;
+  if (remaining <= Duration.zero) {
+    throw TimeoutException('OAuth introspection timed out.');
+  }
+  return remaining;
+}
+
+Future<String> _readOAuthIntrospectionResponseBody(
+  HttpClientResponse response, {
+  required int maxResponseBytes,
+}) async {
+  final contentLength = response.contentLength;
+  if (contentLength > maxResponseBytes) {
+    throw const _OAuthIntrospectionResponseTooLarge();
+  }
+
+  final bytes = BytesBuilder(copy: false);
+  await for (final chunk in response) {
+    if (bytes.length + chunk.length > maxResponseBytes) {
+      throw const _OAuthIntrospectionResponseTooLarge();
+    }
+    bytes.add(chunk);
+  }
+  return utf8.decode(bytes.takeBytes(), allowMalformed: false);
 }
 
 HttpAuthSuccess? _mapClaimsToAuthSuccess({

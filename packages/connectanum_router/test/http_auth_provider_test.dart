@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -198,6 +199,97 @@ void main() {
 
     expect(result.success, isFalse);
     expect(result.failure!.reason, 'invalid_token');
+  });
+
+  test('oauth provider bounds stalled introspection response bodies', () async {
+    final responseStarted = Completer<void>();
+    final releaseResponse = Completer<void>();
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() async {
+      if (!releaseResponse.isCompleted) {
+        releaseResponse.complete();
+      }
+      await server.close(force: true);
+    });
+    server.listen((request) async {
+      await request.drain<void>();
+      request.response.headers.contentType = ContentType.json;
+      request.response.bufferOutput = false;
+      request.response.write('{"active":');
+      await request.response.flush();
+      responseStarted.complete();
+      await releaseResponse.future;
+      await request.response.close();
+    });
+
+    final provider = await HttpAuthProviderRegistry.factoryFor('oauth')!
+        .create({
+          'introspection_url': 'http://127.0.0.1:${server.port}/introspect',
+          'timeout_ms': 500,
+        });
+
+    final authentication = provider.authenticate(
+      _request(token: 'opaque-token'),
+    );
+    await responseStarted.future.timeout(const Duration(seconds: 3));
+    final result = await authentication.timeout(const Duration(seconds: 3));
+
+    expect(result.success, isFalse);
+    expect(result.failure!.reason, 'auth_timeout');
+    expect(result.failure!.message, isNot(contains('opaque-token')));
+  });
+
+  test('oauth provider rejects oversized introspection responses', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      await request.drain<void>();
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode(<String, Object?>{
+          'active': true,
+          'sub': 'oversized-response-subject',
+        }),
+      );
+      await request.response.close();
+    });
+
+    final provider = await HttpAuthProviderRegistry.factoryFor('oauth')!
+        .create({
+          'introspection_url': 'http://127.0.0.1:${server.port}/introspect',
+          'max_response_bytes': 32,
+        });
+
+    final result = await provider.authenticate(_request(token: 'opaque-token'));
+
+    expect(result.success, isFalse);
+    expect(result.failure!.reason, 'invalid_token_response');
+    expect(
+      result.failure!.message,
+      isNot(contains('oversized-response-subject')),
+    );
+  });
+
+  test('oauth provider maps malformed JSON to a redacted failure', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      await request.drain<void>();
+      request.response.headers.contentType = ContentType.json;
+      request.response.write('{"active":"private-response-value"');
+      await request.response.close();
+    });
+
+    final provider = await HttpAuthProviderRegistry.factoryFor('oauth')!.create(
+      {'introspection_url': 'http://127.0.0.1:${server.port}/introspect'},
+    );
+
+    final result = await provider.authenticate(_request(token: 'opaque-token'));
+
+    expect(result.success, isFalse);
+    expect(result.failure!.reason, 'invalid_token_response');
+    expect(result.failure!.message, isNot(contains('private-response-value')));
+    expect(result.failure!.message, isNot(contains('opaque-token')));
   });
 }
 
