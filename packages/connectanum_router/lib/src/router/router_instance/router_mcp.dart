@@ -45,6 +45,16 @@ final Expando<Object> _mcpProtectedResourceMetadataCache = Expando<Object>(
 
 const int _mcpDefaultSessionIdleTimeoutMs = 600000;
 
+const int _mcpDefaultMaxRequestBytes = 16 * 1024 * 1024;
+
+int _mcpMaxRequestBytesForRoute(HttpRouteSettings route) {
+  return _intOptionAny(route.action.options, const <String>[
+        'max_request_bytes',
+        'maxRequestBytes',
+      ]) ??
+      _mcpDefaultMaxRequestBytes;
+}
+
 Duration? _mcpSessionIdleTimeoutForRoute(HttpRouteSettings route) {
   final timeoutMs =
       _intOptionAny(route.action.options, const <String>[
@@ -1809,6 +1819,22 @@ Future<void> _handleMcpHttpRequestForBinding(
           'reason': error.reason,
           if (error.message != null) 'message': error.message,
         }),
+      ),
+    );
+    return;
+  }
+
+  if (httpMethod == 'POST' &&
+      request.nativeBody.length > _mcpMaxRequestBytesForRoute(route)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.requestEntityTooLarge,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP request body exceeds the configured limit',
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
       ),
     );
     return;
@@ -4518,6 +4544,8 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'resourceListPageSize',
     'resource_template_list_page_size',
     'resourceTemplateListPageSize',
+    'max_request_bytes',
+    'maxRequestBytes',
   ]) {
     _validateMcpPositiveIntRouteOption(options, key);
   }

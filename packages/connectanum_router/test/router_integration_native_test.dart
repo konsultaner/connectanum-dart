@@ -4580,6 +4580,165 @@ void main() {
     );
 
     test(
+      'bounds router-hosted MCP request bodies without poisoning auth or session state',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9139,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxRequestBytes: 1024),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final publicEndpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final secureEndpoint = publicEndpoint.replace(path: '/mcp/secure');
+        final padding = List<String>.filled(600, 'é').join();
+        final oversizedModernRequest = <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'public-modern-oversized',
+          'method': 'ping',
+          'params': <String, Object?>{'padding': padding},
+        };
+        final encodedOversizedModernRequest = jsonEncode(
+          oversizedModernRequest,
+        );
+        expect(encodedOversizedModernRequest.length, lessThan(1024));
+        expect(
+          utf8.encode(encodedOversizedModernRequest).length,
+          greaterThan(1024),
+        );
+
+        final publicClient = McpStreamableHttpClient.stateless(
+          publicEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-request-bound-test',
+            'version': '1.0.0',
+          },
+          maxRequestBytes: 4096,
+        );
+        addTearDown(() => publicClient.close(force: true));
+        await expectLater(
+          publicClient.postDirect(oversizedModernRequest),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.requestEntityTooLarge,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  contains('exceeds the configured limit'),
+                ),
+          ),
+        );
+        expect(publicClient.sessionId, isNull);
+        expect(publicClient.lastEventId, isNull);
+        expect(
+          await publicClient.pingDirect(id: 'public-modern-after-oversized'),
+          containsPair('resultType', 'complete'),
+        );
+
+        final unauthenticatedClient = McpStreamableHttpClient.stateless(
+          secureEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-request-bound-test',
+            'version': '1.0.0',
+          },
+          maxRequestBytes: 4096,
+        );
+        addTearDown(() => unauthenticatedClient.close(force: true));
+        await expectLater(
+          unauthenticatedClient.postDirect(<String, Object?>{
+            ...oversizedModernRequest,
+            'id': 'secure-missing-bearer-oversized',
+          }),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.unauthorized,
+            ),
+          ),
+        );
+
+        final authHttpClient = HttpClient();
+        addTearDown(() => authHttpClient.close(force: true));
+        final grant = await _issueTicketHttpGrant(
+          authHttpClient,
+          listener.port,
+        );
+        final protectedClient = McpStreamableHttpClient.withAuthGrant(
+          secureEndpoint,
+          grant,
+          maxRequestBytes: 4096,
+        );
+        addTearDown(() => protectedClient.close(force: true));
+
+        await protectedClient.initialize(id: 'secure-bounds-initialize');
+        await protectedClient.notifyInitialized();
+        final sessionId = protectedClient.sessionId;
+        expect(sessionId, isNotNull);
+
+        await expectLater(
+          protectedClient.post(<String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'secure-compatibility-oversized',
+            'method': 'ping',
+            'params': <String, Object?>{'padding': padding},
+          }),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.requestEntityTooLarge,
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(protectedClient.sessionId, equals(sessionId));
+
+        await expectLater(
+          protectedClient.postDirect(<String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'secure-modern-oversized',
+            'method': 'ping',
+            'params': <String, Object?>{'padding': padding},
+          }, protocolVersion: McpStreamableHttpClient.latestProtocolVersion),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.requestEntityTooLarge,
+            ),
+          ),
+        );
+        expect(protectedClient.sessionId, equals(sessionId));
+        final tools = await protectedClient.listTools(
+          id: 'secure-compatibility-after-oversized',
+        );
+        expect(
+          tools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        await protectedClient.deleteSession();
+        expect(protectedClient.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'keeps the public MCP session alive while a tool call is in flight',
       () async {
         final harness = await _RouterHarness.start(
@@ -9717,6 +9876,7 @@ final class _BlockingCatalogAuthorizationProvider
 RouterSettings _buildMcpSmokeSettings({
   bool enableHttp3 = false,
   int? sessionIdleTimeoutMs,
+  int? maxRequestBytes,
 }) {
   const protectedResourceMetadata = <String, Object?>{
     'metadata_url': 'https://mcp.example.test/mcp/secure',
@@ -9728,6 +9888,7 @@ RouterSettings _buildMcpSmokeSettings({
   final mcpOptions = <String, Object?>{
     'tool_list_page_size': 100,
     'session_idle_timeout_ms': ?sessionIdleTimeoutMs,
+    'max_request_bytes': ?maxRequestBytes,
     'procedures': [
       {
         'procedure': 'app.documented.only',

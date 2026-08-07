@@ -1,7 +1,6 @@
 # MCP Request Body Bounds
 
-Status: implementation complete; local verification clean; commit/push and
-hosted verification pending
+Status: completed; local and exact-head hosted verification clean
 
 ## Goal
 
@@ -74,8 +73,29 @@ transport is opened.
   95 MCP, 280 MCP/client, 96 benchmark/live-router, and 387 router tests; all 13
   focused native-forwarding regressions; every neutral consumer package and
   CLI smoke; and Chrome Dart2Wasm WebSocket coverage.
+- 2026-08-06: Implementation commit `7e0dab69` is on both maintained `master`
+  branches. Exact-head CI `31127477848` completed Fast Checks successfully, but
+  GitHub cancelled Full Verify and Dart VM Coverage before either executed a
+  step. Exact-head Dart Package Publish Dry Run `31127478333`, WAMP Profile
+  Benchmarks `31127478801`, and Router Image dry run `31127479113` were also
+  cancelled with zero steps. Every cancelled job has GitHub's hosted-runner
+  annotation that it was not acquired after multiple attempts while GitHub
+  Status reported Actions in a major outage.
+- 2026-08-06: The comprehensive strict deployment-chain audit exited one only
+  because exact-head CI, package, WAMP, and Router Image runs were not complete
+  green signals. It confirmed the successful exact-head Fast Checks job,
+  relevant clean Native Artifacts evidence, protected-branch gates, checked-in
+  workflow visibility, and the public router package. No hosted job reported a
+  repository test, build, packaging, image, or benchmark failure.
+- 2026-08-07: GitHub Actions recovered. Attempt two of exact-head CI
+  `31127477848`, Dart Package Publish Dry Run `31127478333`, WAMP Profile
+  Benchmarks `31127478801`, and Router Image dry run `31127479113` passed every
+  job. The comprehensive strict deployment-chain audit then exited zero with
+  clean exact-head CI/log, package, benchmark-artifact, Router Image runtime
+  smoke/multi-architecture, protected-branch, workflow-visibility, and public
+  router-package gates.
 
 ## Handoff
 
-- Commit and push the implementation with state, then inspect the exact-head
-  hosted chain and run the strict deployment audit when the platform permits.
+- Completed. The router-side request-body boundary continues in
+  `docs/exec-plans/2026-08-07-mcp-router-request-body-bounds.md`.

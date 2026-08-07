@@ -9,6 +9,8 @@
   isolation, pub/sub, Streamable HTTP compatibility, and operational metrics.
 - Preserve router-hosted MCP sessions across HTTP-auth access and refresh-token
   rotation while continuing to reject the rotated credentials.
+- Bound router-hosted MCP POST bodies before UTF-8 and JSON decoding with a
+  configurable raw-byte limit and authenticated-route precedence.
 
 ## 0.1.0
 

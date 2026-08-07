@@ -24846,8 +24846,29 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the MCP request-body bounds plan is
-  `docs/exec-plans/2026-08-06-mcp-request-body-bounds.md`.
+- Active now, the router-hosted MCP request-body bounds plan is
+  `docs/exec-plans/2026-08-07-mcp-router-request-body-bounds.md`.
+  MCP routes accept positive `max_request_bytes` and `maxRequestBytes` values,
+  defaulting to 16 MiB. POST handling compares that limit with the native raw
+  request-body descriptor after bearer/session authorization but before Dart
+  materializes, decodes, or parses the body. Oversized requests receive HTTP
+  `413` without reflecting a compatibility session identifier. A focused
+  native regression proves raw UTF-8 byte counting, missing-bearer `401`
+  precedence, sessionless modern recovery, compatibility session retention,
+  direct modern rejection, a successful tool call after rejection, and DELETE
+  cleanup. Route option validation, router analysis, `git diff --check`, and
+  the focused native test pass. Post-change `bin/test-fast` passes 360 core, 95
+  MCP, 280 MCP/client, and 96 benchmark/live-router tests plus neutral isolated
+  and global consumers, every maintained router-hosted MCP live variant, Router
+  CLI consumer coverage, and focused native-router regressions. Final
+  `bin/verify` passes with zero formatting changes; 113 Rust core tests plus
+  serializer integrations; 52 Rust FFI tests; 360 Dart core, 95 MCP, 280
+  MCP/client, 96 benchmark/live-router, and 388 router tests; all 13 focused
+  native-forwarding regressions; every neutral consumer package and CLI smoke;
+  and Chrome Dart2Wasm WebSocket coverage. Commit/push and exact-head hosted
+  evidence remain.
+- Completed immediately before this checkpoint, the client MCP request-body
+  bounds plan is `docs/exec-plans/2026-08-06-mcp-request-body-bounds.md`.
   `McpStreamableHttpClient` now exposes a positive `maxRequestBytes` setting
   across all seven public constructors, defaulting to 16 MiB. Ordinary
   Streamable/direct JSON POSTs and `subscriptions/listen` setup encode and
@@ -24867,8 +24888,15 @@ at the older `47bbf9c` commit.
   360 Dart core, 95 MCP, 280 MCP/client, 96 benchmark/live-router, and 387
   router tests; all 13 focused native-forwarding regressions; every neutral
   consumer package and CLI smoke; and Chrome Dart2Wasm WebSocket coverage.
-  Commit/push and exact-head hosted evidence remain.
-- Completed most recently, the MCP request-serialization preflight plan is
+  Implementation commit `7e0dab69` is on both maintained `master` branches.
+  After GitHub Actions recovered, attempt two of exact-head CI `31127477848`,
+  Dart Package Publish Dry Run `31127478333`, WAMP Profile Benchmarks
+  `31127478801`, and Router Image dry run `31127479113` passed every job. The
+  comprehensive strict deployment-chain audit exited zero with clean exact-head
+  CI/log, package, benchmark-artifact, Router Image runtime smoke/multi-
+  architecture, protected-branch, workflow-visibility, and public router-
+  package gates.
+- Completed previously, the MCP request-serialization preflight plan is
   `docs/exec-plans/2026-08-06-mcp-request-serialization-preflight.md`.
   Ordinary Streamable and direct JSON POST operations plus request-scoped
   listener setup now encode the complete JSON request body before opening HTTP

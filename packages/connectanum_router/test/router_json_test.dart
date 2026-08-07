@@ -841,6 +841,24 @@ void main() {
         'toolListPageSize': 0,
       }, 'MCP toolListPageSize must be a positive integer');
       _expectInvalidMcpOptions({
+        'max_request_bytes': 0,
+      }, 'MCP max_request_bytes must be a positive integer');
+      _expectInvalidMcpOptions({
+        'maxRequestBytes': '1024',
+      }, 'MCP maxRequestBytes must be a positive integer');
+      expect(
+        _routerWithMcpOptions(const {
+          'max_request_bytes': 1,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      expect(
+        _routerWithMcpOptions(const {
+          'maxRequestBytes': 16 * 1024 * 1024,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      _expectInvalidMcpOptions({
         'session_idle_timeout_ms': -1,
       }, 'MCP route.session_idle_timeout_ms must be a non-negative integer');
       _expectInvalidMcpOptions({

@@ -156,6 +156,7 @@ const HttpRouteSettings(
     type: HttpRouteActionType.mcp,
     realm: 'realm1',
     options: {
+      'max_request_bytes': 16 * 1024 * 1024,
       'session_idle_timeout_ms': 600000,
       'resources': [
         {
@@ -204,6 +205,12 @@ budget; `0` disables idle expiry. Expiry disposes the session's endpoint state
 and subscriptions, and later requests carrying that stale session identifier
 receive `404` so a conforming client can initialize a replacement session.
 Modern `2026-07-28` and direct JSON requests remain sessionless.
+
+MCP POST bodies are limited to 16 MiB by default and rejected with HTTP `413`
+before UTF-8 or JSON decoding. Set the positive `max_request_bytes` (or
+`maxRequestBytes`) route option to choose another raw-byte limit. Bearer
+authentication still runs first on protected routes, so an oversized request
+without valid credentials receives the normal authentication challenge.
 
 Procedure-backed resources call the configured WAMP procedure with the
 resource URI as the first positional argument and return its final result as
