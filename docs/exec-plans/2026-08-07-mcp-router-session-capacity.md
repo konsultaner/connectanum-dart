@@ -1,6 +1,6 @@
 # MCP Router Session Capacity
 
-Status: active; implementation and local verification clean, commit and hosted verification pending
+Status: completed; local and exact-head hosted verification clean
 
 ## Goal
 
@@ -73,9 +73,19 @@ configured idle window while modern stateless requests remain sessionless.
   `bin/verify` both exited zero; full verification included Rust core/FFI,
   all Dart packages, router native integrations, neutral consumer and CLI
   smokes, router-hosted MCP live variants, and Chrome Dart2Wasm coverage.
+- 2026-08-07: Implementation commit `47ad042e` is on both maintained `master`
+  branches. Exact-head CI `31182962466` passed Fast Checks, Full Verify, Dart
+  VM Coverage, Codecov upload, and coverage artifact `8996093272`. Dart Package
+  Publish Dry Run `31182961084` and WAMP Profile Benchmarks `31182962239` with
+  artifact `8995725429` passed. Router Image dry run `31183001953` passed with
+  preview artifact `8995557413`, the local image build, router-hosted MCP
+  smoke, skipped GHCR login, and the non-publishing multi-architecture build.
+- 2026-08-07: The comprehensive strict deployment-chain audit exited zero. It
+  confirmed exact-head CI and clean logs, package/archive readiness, relevant
+  native-release evidence, WAMP and Router Image artifacts, protected-branch
+  checks, workflow visibility, and the public router package.
 
 ## Handoff
 
-- Commit and push bounded session admission together with the deferred exact-
-  head evidence from the preceding checkpoint, then audit the new exact-head
-  hosted deployment chain.
+- Completed. Leave this hosted-evidence bookkeeping uncommitted until it can be
+  bundled with the next implementation/configuration commit.

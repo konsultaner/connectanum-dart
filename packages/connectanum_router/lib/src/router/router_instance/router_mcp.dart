@@ -51,6 +51,8 @@ const int _mcpDefaultMaxResponseBytes = 16 * 1024 * 1024;
 
 const int _mcpDefaultMaxSessionCount = 1024;
 
+const int _mcpDefaultMaxRequestScopedListenerCount = 1024;
+
 const int _mcpDefaultWampCallTimeoutMs = 30000;
 
 int _mcpMaxRequestBytesForRoute(HttpRouteSettings route) {
@@ -75,6 +77,14 @@ int _mcpMaxSessionCountForRoute(HttpRouteSettings route) {
         'maxSessionCount',
       ]) ??
       _mcpDefaultMaxSessionCount;
+}
+
+int _mcpMaxRequestScopedListenerCountForRoute(HttpRouteSettings route) {
+  return _intOptionAny(route.action.options, const <String>[
+        'max_request_scoped_listener_count',
+        'maxRequestScopedListenerCount',
+      ]) ??
+      _mcpDefaultMaxRequestScopedListenerCount;
 }
 
 Duration? _mcpSessionIdleTimeoutForRoute(HttpRouteSettings route) {
@@ -2240,6 +2250,20 @@ Future<void> _handleMcpHttpRequestForBinding(
       final _RouterMcpModernSubscriptionPreparation preparation;
       try {
         preparation = await endpoint.prepareModernSubscription(rawMessage);
+      } on _McpRequestScopedListenerCapacityExceeded {
+        await binding._sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: _mcpJsonRpcHttpError(
+            status: HttpStatus.serviceUnavailable,
+            code: mcp.McpErrorCodes.internalError,
+            message: 'MCP request-scoped listener capacity is exhausted',
+            id: _recoverDirectJsonRequestId(rawMessage),
+            protocolVersion: effectiveResponseMcpProtocolVersion,
+            extraHeaders: corsHeaders,
+          ),
+        );
+        return;
       } on mcp.McpException catch (error) {
         final response = endpoint.modernizeResponse(
           mcp.JsonRpcResponse.error(
@@ -2503,6 +2527,27 @@ extension _RouterBindingMcp on RouterBinding {
     return endpoint;
   }
 
+  void _reserveMcpRequestScopedListener(_RouterMcpEndpoint target) {
+    final admittedListenerCount = _mcpEndpoints.values
+        .where(
+          (endpoint) =>
+              endpoint.listenerId == target.listenerId &&
+              identical(endpoint.route, target.route),
+        )
+        .fold<int>(
+          0,
+          (count, endpoint) =>
+              count +
+              endpoint._modernSubscriptionPreparationCount +
+              endpoint._modernSubscriptions.length,
+        );
+    if (admittedListenerCount >=
+        _mcpMaxRequestScopedListenerCountForRoute(target.route)) {
+      throw const _McpRequestScopedListenerCapacityExceeded();
+    }
+    target._modernSubscriptionPreparationCount++;
+  }
+
   Future<_RouterMcpEndpoint?> _removeMcpEndpointForRoute({
     required RouterHttpRequest request,
     required HttpRouteSettings route,
@@ -2553,6 +2598,10 @@ final class _RouterMcpSsePollBatch {
 
 final class _McpSessionCapacityExceeded implements Exception {
   const _McpSessionCapacityExceeded();
+}
+
+final class _McpRequestScopedListenerCapacityExceeded implements Exception {
+  const _McpRequestScopedListenerCapacityExceeded();
 }
 
 final class _UnknownMcpSseEventId implements Exception {
@@ -2607,7 +2656,7 @@ class _RouterMcpModernSubscriptionPreparation {
 
   final Object requestId;
   final _RouterMcpSubscriptionFilter notifications;
-  bool resourceReservationsReleased = false;
+  bool released = false;
 }
 
 class _RouterMcpModernSubscription {
@@ -2701,6 +2750,7 @@ class _RouterMcpEndpoint {
 
   final Map<int, _RouterMcpModernSubscription> _modernSubscriptions =
       <int, _RouterMcpModernSubscription>{};
+  int _modernSubscriptionPreparationCount = 0;
   final Map<String, Future<mcp.McpWampSubscription>>
   _sharedResourceUpdateSubscriptions =
       <String, Future<mcp.McpWampSubscription>>{};
@@ -3106,6 +3156,7 @@ class _RouterMcpEndpoint {
       request.params['notifications'],
     );
     final grantedResources = <String>[];
+    binding._reserveMcpRequestScopedListener(this);
     try {
       for (final uri in requested.resourceSubscriptions) {
         final config = _configuredResourceForUri(route.action.options, uri);
@@ -3126,6 +3177,7 @@ class _RouterMcpEndpoint {
         grantedResources.add(uri);
       }
     } catch (_) {
+      _releaseModernSubscriptionCapacity();
       for (final uri in grantedResources) {
         final count = _modernResourcePreparationCounts[uri];
         if (count == null || count <= 1) {
@@ -3281,6 +3333,13 @@ class _RouterMcpEndpoint {
     return true;
   }
 
+  void _releaseModernSubscriptionCapacity() {
+    assert(_modernSubscriptionPreparationCount > 0);
+    if (_modernSubscriptionPreparationCount > 0) {
+      _modernSubscriptionPreparationCount--;
+    }
+  }
+
   Future<void> releaseModernSubscriptionPreparation(
     _RouterMcpModernSubscriptionPreparation preparation,
   ) async {
@@ -3290,10 +3349,11 @@ class _RouterMcpEndpoint {
   Future<void> _releaseModernSubscriptionPreparation(
     _RouterMcpModernSubscriptionPreparation preparation,
   ) async {
-    if (preparation.resourceReservationsReleased) {
+    if (preparation.released) {
       return;
     }
-    preparation.resourceReservationsReleased = true;
+    preparation.released = true;
+    _releaseModernSubscriptionCapacity();
     for (final uri in preparation.notifications.resourceSubscriptions) {
       final count = _modernResourcePreparationCounts[uri];
       if (count == null || count <= 1) {
@@ -4655,6 +4715,8 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'maxResponseBytes',
     'max_session_count',
     'maxSessionCount',
+    'max_request_scoped_listener_count',
+    'maxRequestScopedListenerCount',
     'call_timeout_ms',
     'callTimeoutMs',
   ]) {

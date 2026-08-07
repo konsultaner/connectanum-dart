@@ -4728,6 +4728,355 @@ void main() {
     );
 
     test(
+      'bounds request-scoped MCP listeners without blocking auth or other protocols',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9144,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxRequestScopedListenerCount: 1),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-listener-capacity-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final publicEndpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final secureEndpoint = publicEndpoint.replace(path: '/mcp/secure');
+        final publicPrimary = McpStreamableHttpClient.stateless(
+          publicEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-listener-capacity-primary',
+            'version': '1.0.0',
+          },
+        );
+        final publicContender = McpStreamableHttpClient.stateless(
+          publicEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-listener-capacity-contender',
+            'version': '1.0.0',
+          },
+        );
+        final compatibilityClient = McpStreamableHttpClient(publicEndpoint);
+        addTearDown(() => publicPrimary.close(force: true));
+        addTearDown(() => publicContender.close(force: true));
+        addTearDown(() => compatibilityClient.close(force: true));
+
+        final publicSubscription = await publicPrimary.listen(
+          id: 'public-listener-capacity-primary',
+          toolsListChanged: true,
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+        expect(
+          publicSubscription.acknowledgedNotifications.toolsListChanged,
+          isTrue,
+        );
+        expect(
+          publicSubscription.acknowledgedNotifications.resourceSubscriptions,
+          equals(const <String>['app://mcp/live-context']),
+        );
+        addTearDown(publicSubscription.close);
+        final publicNotifications = StreamIterator<Map<String, Object?>>(
+          publicSubscription.notifications,
+        );
+        addTearDown(publicNotifications.cancel);
+
+        await expectLater(
+          publicContender.listen(id: 'public-listener-capacity-contender'),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.serviceUnavailable,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  contains('request-scoped listener capacity is exhausted'),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(publicContender.sessionId, isNull);
+        expect(publicContender.lastEventId, isNull);
+
+        final rawClient = HttpClient();
+        addTearDown(() => rawClient.close(force: true));
+        final malformedListener = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp/public',
+          {
+            'jsonrpc': '2.0',
+            'id': 'public-listener-capacity-malformed',
+            'method': 'subscriptions/listen',
+            'params': {
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+              'notifications': <String, Object?>{'toolsListChanged': 'yes'},
+            },
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2026-07-28',
+            'Mcp-Method': 'subscriptions/listen',
+          },
+        );
+        expect(malformedListener.statusCode, equals(HttpStatus.badRequest));
+        expect(
+          (malformedListener.json?['error'] as Map)['code'],
+          equals(McpErrorCodes.invalidParams),
+        );
+
+        expect(
+          await publicContender.pingDirect(
+            id: 'public-listener-capacity-direct',
+          ),
+          containsPair('resultType', 'complete'),
+        );
+        await compatibilityClient.initialize(
+          id: 'public-listener-capacity-streamable-initialize',
+        );
+        await compatibilityClient.notifyInitialized();
+        expect(
+          (await compatibilityClient.listTools(
+            id: 'public-listener-capacity-streamable-tools',
+          )).tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        await compatibilityClient.deleteSession();
+
+        final unauthenticatedSecure = McpStreamableHttpClient.stateless(
+          secureEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-listener-capacity-unauthenticated',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => unauthenticatedSecure.close(force: true));
+        final primaryGrant = await _issueTicketHttpGrant(
+          rawClient,
+          listener.port,
+        );
+        final contenderGrant = await _issueTicketHttpGrant(
+          rawClient,
+          listener.port,
+        );
+        final securePrimary = McpStreamableHttpClient.statelessWithAuthGrant(
+          secureEndpoint,
+          primaryGrant,
+          clientInfo: const <String, Object?>{
+            'name': 'router-listener-capacity-secure-primary',
+            'version': '1.0.0',
+          },
+        );
+        final secureContender = McpStreamableHttpClient.statelessWithAuthGrant(
+          secureEndpoint,
+          contenderGrant,
+          clientInfo: const <String, Object?>{
+            'name': 'router-listener-capacity-secure-contender',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => securePrimary.close(force: true));
+        addTearDown(() => secureContender.close(force: true));
+        final secureSubscription = await securePrimary.listen(
+          id: 'secure-listener-capacity-primary',
+        );
+        addTearDown(secureSubscription.close);
+
+        await expectLater(
+          unauthenticatedSecure.listen(
+            id: 'secure-listener-capacity-unauthenticated',
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.unauthorized,
+            ),
+          ),
+        );
+        await expectLater(
+          secureContender.listen(id: 'secure-listener-capacity-contender'),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.serviceUnavailable,
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+
+        final publicUpdate = publicNotifications.moveNext().timeout(
+          const Duration(seconds: 5),
+        );
+        final continuityRegistration = await serviceSession.register(
+          'app.safe.listener_capacity_continuity',
+        );
+        addTearDown(
+          () =>
+              serviceSession.unregister(continuityRegistration.registrationId),
+        );
+        continuityRegistration.onInvoke((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: const <String, Object?>{'status': 'ready'},
+          );
+        });
+        await publicContender.listToolsDirect(
+          id: 'public-listener-capacity-continuity-refresh',
+        );
+        expect(await publicUpdate, isTrue);
+        expect(
+          publicNotifications.current['method'],
+          equals('notifications/tools/list_changed'),
+        );
+        expect(publicPrimary.sessionId, isNull);
+        expect(publicPrimary.lastEventId, isNull);
+
+        await publicNotifications.cancel();
+        await publicSubscription.close();
+        McpStreamableSubscription? recoveredSubscription;
+        addTearDown(() async {
+          await recoveredSubscription?.close();
+        });
+        final recoveryRegistration = await serviceSession.register(
+          'app.safe.listener_capacity_recovery',
+        );
+        addTearDown(
+          () => serviceSession.unregister(recoveryRegistration.registrationId),
+        );
+        recoveryRegistration.onInvoke((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: const <String, Object?>{'status': 'ready'},
+          );
+        });
+        for (var attempt = 0; attempt < 50; attempt++) {
+          await serviceSession.publish(
+            'app.events.resource.context',
+            argumentsKeywords: <String, Object?>{'attempt': attempt},
+            options: core.PublishOptions(acknowledge: true),
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          try {
+            recoveredSubscription = await publicContender.listen(
+              id: 'public-listener-capacity-recovered-$attempt',
+            );
+            break;
+          } on McpStreamableHttpException catch (error) {
+            expect(error.statusCode, equals(HttpStatus.serviceUnavailable));
+          }
+        }
+        expect(recoveredSubscription, isNotNull);
+        expect(publicContender.sessionId, isNull);
+        expect(publicContender.lastEventId, isNull);
+        await recoveredSubscription!.close();
+        await secureSubscription.close();
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'reserves request-scoped listener capacity during resource authorization',
+      () async {
+        final preparationEntered = Completer<void>();
+        final releasePreparation = Completer<void>();
+        AuthorizationProviderRegistry.registerProvider(
+          _BlockingCatalogAuthorizationProvider(
+            action: AuthorizationAction.subscribe,
+            uri: 'app.events.resource.context',
+            entered: preparationEntered,
+            release: releasePreparation,
+          ),
+        );
+        addTearDown(AuthorizationProviderRegistry.clear);
+        addTearDown(() {
+          if (!releasePreparation.isCompleted) {
+            releasePreparation.complete();
+          }
+        });
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9145,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxRequestScopedListenerCount: 1),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final primary = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-listener-capacity-pending-primary',
+            'version': '1.0.0',
+          },
+        );
+        final contender = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-listener-capacity-pending-contender',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => primary.close(force: true));
+        addTearDown(() => contender.close(force: true));
+
+        final pendingPrimary = primary.listen(
+          id: 'listener-capacity-pending-primary',
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+        await preparationEntered.future.timeout(const Duration(seconds: 2));
+        await expectLater(
+          contender.listen(id: 'listener-capacity-pending-contender'),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.serviceUnavailable,
+            ),
+          ),
+        );
+        releasePreparation.complete();
+        final primarySubscription = await pendingPrimary.timeout(
+          const Duration(seconds: 3),
+        );
+        expect(primary.sessionId, isNull);
+        expect(primary.lastEventId, isNull);
+        await primarySubscription.close();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP request bodies without poisoning auth or session state',
       () async {
         final harness = await _RouterHarness.start(
@@ -10390,6 +10739,7 @@ RouterSettings _buildMcpSmokeSettings({
   bool enableHttp3 = false,
   int? sessionIdleTimeoutMs,
   int? maxSessionCount,
+  int? maxRequestScopedListenerCount,
   int? maxRequestBytes,
   int? maxResponseBytes,
   int? callTimeoutMs,
@@ -10405,6 +10755,7 @@ RouterSettings _buildMcpSmokeSettings({
     'tool_list_page_size': 100,
     'session_idle_timeout_ms': ?sessionIdleTimeoutMs,
     'max_session_count': ?maxSessionCount,
+    'max_request_scoped_listener_count': ?maxRequestScopedListenerCount,
     'max_request_bytes': ?maxRequestBytes,
     'max_response_bytes': ?maxResponseBytes,
     'call_timeout_ms': ?callTimeoutMs,

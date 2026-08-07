@@ -24846,7 +24846,34 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the router-hosted MCP session-capacity plan is
+- The active implementation plan is
+  `docs/exec-plans/2026-08-07-mcp-router-listener-capacity.md`. Router-hosted
+  MCP `2026-07-28` request-scoped listeners retain long-lived native SSE
+  streams and filters, and resource-filtered listeners may retain shared WAMP
+  subscription ownership, but admission is currently unbounded. This
+  checkpoint adds a positive per-listener/per-route capacity across in-flight
+  preparation and active stream lifetimes, authorization and validation
+  precedence, overload behavior without MCP session state, existing-listener
+  continuity, direct JSON and compatibility-session independence, and recovery
+  after setup failure or listener close. The pre-change fast gate passed;
+  fail-first validation accepted zero and a native concurrency regression
+  admitted a second listener while the first awaited authorization. Routes now
+  accept positive snake/camel options with a default of 1024 and synchronously
+  reserve capacity across preparations and active streams on the same listener
+  and route. Focused analysis, option validation, and native public/protected,
+  cross-endpoint, route-isolation, protocol-independence, notification, close-
+  recovery, and concurrent-preparation coverage pass. Post-change
+  `bin/test-fast` and `bin/verify` are clean across formatting and analysis,
+  113 Rust core tests, 52 Rust FFI tests, 360 Dart core tests, all 95 MCP tests,
+  the complete 280-case MCP/client suite, all 96 benchmark tests and live WAMP
+  workloads, every generated and globally activated consumer smoke, the
+  complete 387-case router suite, the 6-case remote-auth process, the 13-case
+  native follow-up, and Chrome/Dart2Wasm. Commit, push, and exact-head hosted
+  evidence remain pending. The preceding session-capacity checkpoint's hosted-
+  evidence bookkeeping remains intentionally uncommitted and will accompany
+  this implementation.
+- Completed most recently, the router-
+  hosted MCP session-capacity plan is
   `docs/exec-plans/2026-08-07-mcp-router-session-capacity.md`. Source audit
   found that compatibility MCP sessions have per-route idle expiry but no
   admission bound, so client churn can retain arbitrarily many MCP server
@@ -24865,7 +24892,19 @@ at the older `47bbf9c` commit.
   and DELETE/idle-expiry recovery. Focused analysis/tests, post-change
   `bin/test-fast`, and `bin/verify` are clean across Rust, Dart, native router
   integrations, neutral consumer/CLI smokes, router-hosted MCP live variants,
-  and Chrome Dart2Wasm. Commit, push, and exact-head hosted verification remain.
+  and Chrome Dart2Wasm. Implementation commit `47ad042e` is on both maintained
+  `master` branches. Exact-head CI `31182962466` passed Fast Checks, Full
+  Verify, Dart VM Coverage, Codecov upload, and coverage artifact `8996093272`.
+  Dart Package Publish Dry Run `31182961084` and WAMP Profile Benchmarks
+  `31182962239` with artifact `8995725429` passed. Router Image dry run
+  `31183001953` passed preview artifact `8995557413`, the local image build,
+  router-hosted MCP smoke, skipped GHCR login, and the non-publishing multi-
+  architecture build. The comprehensive strict deployment-chain audit exited
+  zero with exact-head CI/log, package, relevant native-release, WAMP artifact,
+  Router Image, protected-branch, workflow-visibility, and public router-
+  package gates ready. Leave this docs-only hosted-evidence bookkeeping
+  uncommitted until it can accompany the next implementation/configuration
+  commit.
 - Completed most recently, the router-hosted MCP response-body bounds plan is
   `docs/exec-plans/2026-08-07-mcp-router-response-body-bounds.md`. Source audit
   found that the public MCP client caps buffered responses and SSE events at
