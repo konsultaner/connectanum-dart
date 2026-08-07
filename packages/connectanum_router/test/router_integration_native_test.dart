@@ -5077,6 +5077,280 @@ void main() {
     );
 
     test(
+      'bounds router-hosted MCP WAMP subscriptions and event queues per route',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9146,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(
+            maxWampSubscriptionCount: 1,
+            maxWampSubscriptionQueueLimit: 2,
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-wamp-capacity-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final publicEndpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final secureEndpoint = publicEndpoint.replace(path: '/mcp/secure');
+        final primary = McpStreamableHttpClient.stateless(
+          publicEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-wamp-capacity-primary',
+            'version': '1.0.0',
+          },
+        );
+        final contender = McpStreamableHttpClient.stateless(
+          publicEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-wamp-capacity-contender',
+            'version': '1.0.0',
+          },
+        );
+        final compatibility = McpStreamableHttpClient(publicEndpoint);
+        final unauthenticatedSecure = McpStreamableHttpClient.stateless(
+          secureEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-wamp-capacity-unauthenticated',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => primary.close(force: true));
+        addTearDown(() => contender.close(force: true));
+        addTearDown(() => compatibility.close(force: true));
+        addTearDown(() => unauthenticatedSecure.close(force: true));
+
+        await expectLater(
+          primary.subscribeWampTopicDirect(
+            'app.events.audit',
+            id: 'wamp-capacity-oversized-queue',
+            queueLimit: 3,
+          ),
+          throwsA(
+            isA<McpStreamableWampToolException>().having(
+              (error) => error.message,
+              'message',
+              contains('queue limit exceeds configured maximum'),
+            ),
+          ),
+        );
+
+        final primarySubscription = await primary.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'wamp-capacity-primary',
+          queueLimit: 2,
+        );
+        expect(primarySubscription.queueLimit, equals(2));
+        expect(primary.sessionId, isNull);
+
+        await expectLater(
+          contender.subscribeWampTopicDirect(
+            'app.events.audit',
+            id: 'wamp-capacity-contender',
+            queueLimit: 1,
+          ),
+          throwsA(
+            isA<McpStreamableWampToolException>().having(
+              (error) => error.message,
+              'message',
+              contains('WAMP subscription capacity is exhausted'),
+            ),
+          ),
+        );
+
+        await serviceSession.publish(
+          'app.events.audit',
+          argumentsKeywords: const <String, Object?>{
+            'via': 'capacity-continuity',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        final primaryEvents = await primary.pollWampEventsDirect(
+          primarySubscription.handle,
+          id: 'wamp-capacity-primary-poll',
+        );
+        expect(primaryEvents.events, isNotEmpty);
+
+        final authHttpClient = HttpClient();
+        addTearDown(() => authHttpClient.close(force: true));
+        final primaryGrant = await _issueTicketHttpGrant(
+          authHttpClient,
+          listener.port,
+        );
+        final contenderGrant = await _issueTicketHttpGrant(
+          authHttpClient,
+          listener.port,
+        );
+        final securePrimary = McpStreamableHttpClient.statelessWithAuthGrant(
+          secureEndpoint,
+          primaryGrant,
+          clientInfo: const <String, Object?>{
+            'name': 'router-wamp-capacity-secure-primary',
+            'version': '1.0.0',
+          },
+        );
+        final secureContender = McpStreamableHttpClient.statelessWithAuthGrant(
+          secureEndpoint,
+          contenderGrant,
+          clientInfo: const <String, Object?>{
+            'name': 'router-wamp-capacity-secure-contender',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => securePrimary.close(force: true));
+        addTearDown(() => secureContender.close(force: true));
+
+        final secureSubscription = await securePrimary.subscribeWampTopicDirect(
+          'app.secure.audit',
+          id: 'wamp-capacity-secure-primary',
+          queueLimit: 2,
+        );
+        await expectLater(
+          unauthenticatedSecure.subscribeWampTopicDirect(
+            'app.secure.audit',
+            id: 'wamp-capacity-secure-unauthenticated',
+            queueLimit: 1,
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.unauthorized,
+            ),
+          ),
+        );
+        await expectLater(
+          secureContender.subscribeWampTopicDirect(
+            'app.secure.audit',
+            id: 'wamp-capacity-secure-contender',
+            queueLimit: 1,
+          ),
+          throwsA(
+            isA<McpStreamableWampToolException>().having(
+              (error) => error.message,
+              'message',
+              contains('WAMP subscription capacity is exhausted'),
+            ),
+          ),
+        );
+        await securePrimary.unsubscribeWampTopicDirect(
+          secureSubscription.handle,
+          id: 'wamp-capacity-secure-release',
+        );
+        final recoveredSecure = await secureContender.subscribeWampTopicDirect(
+          'app.secure.audit',
+          id: 'wamp-capacity-secure-recovered',
+          queueLimit: 1,
+        );
+        await secureContender.unsubscribeWampTopicDirect(
+          recoveredSecure.handle,
+          id: 'wamp-capacity-secure-recovered-release',
+        );
+
+        await primary.unsubscribeWampTopicDirect(
+          primarySubscription.handle,
+          id: 'wamp-capacity-primary-release',
+        );
+
+        final concurrentOutcomes = await Future.wait<Object>(<Future<Object>>[
+          primary
+              .subscribeWampTopicDirect(
+                'app.events.audit',
+                id: 'wamp-capacity-concurrent-primary',
+                queueLimit: 1,
+              )
+              .then<Object>(
+                (subscription) => subscription,
+                onError: (error) => error,
+              ),
+          contender
+              .subscribeWampTopicDirect(
+                'app.events.audit',
+                id: 'wamp-capacity-concurrent-contender',
+                queueLimit: 1,
+              )
+              .then<Object>(
+                (subscription) => subscription,
+                onError: (error) => error,
+              ),
+        ]);
+        expect(
+          concurrentOutcomes.whereType<McpStreamableWampSubscriptionResult>(),
+          hasLength(1),
+        );
+        expect(
+          concurrentOutcomes.whereType<McpStreamableWampToolException>(),
+          hasLength(1),
+        );
+        final concurrentWinner = concurrentOutcomes.indexWhere(
+          (outcome) => outcome is McpStreamableWampSubscriptionResult,
+        );
+        final concurrentSubscription =
+            concurrentOutcomes[concurrentWinner]
+                as McpStreamableWampSubscriptionResult;
+        final concurrentWinnerClient = concurrentWinner == 0
+            ? primary
+            : contender;
+        final concurrentLoserClient = concurrentWinner == 0
+            ? contender
+            : primary;
+        await concurrentWinnerClient.unsubscribeWampTopicDirect(
+          concurrentSubscription.handle,
+          id: 'wamp-capacity-concurrent-winner-release',
+        );
+        final concurrentRecovery = await concurrentLoserClient
+            .subscribeWampTopicDirect(
+              'app.events.audit',
+              id: 'wamp-capacity-concurrent-loser-recovered',
+              queueLimit: 1,
+            );
+        await concurrentLoserClient.unsubscribeWampTopicDirect(
+          concurrentRecovery.handle,
+          id: 'wamp-capacity-concurrent-loser-release',
+        );
+
+        await compatibility.initialize(id: 'wamp-capacity-compat-initialize');
+        await compatibility.notifyInitialized();
+        await compatibility.subscribeWampTopic(
+          'app.events.audit',
+          id: 'wamp-capacity-compat-subscribe',
+          queueLimit: 1,
+        );
+        await expectLater(
+          contender.subscribeWampTopicDirect(
+            'app.events.audit',
+            id: 'wamp-capacity-compat-blocks-direct',
+            queueLimit: 1,
+          ),
+          throwsA(isA<McpStreamableWampToolException>()),
+        );
+        await compatibility.deleteSession();
+
+        final recoveredPublic = await contender.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'wamp-capacity-after-session-delete',
+          queueLimit: 1,
+        );
+        await contender.unsubscribeWampTopicDirect(
+          recoveredPublic.handle,
+          id: 'wamp-capacity-after-session-delete-release',
+        );
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP request bodies without poisoning auth or session state',
       () async {
         final harness = await _RouterHarness.start(
@@ -10740,6 +11014,8 @@ RouterSettings _buildMcpSmokeSettings({
   int? sessionIdleTimeoutMs,
   int? maxSessionCount,
   int? maxRequestScopedListenerCount,
+  int? maxWampSubscriptionCount,
+  int? maxWampSubscriptionQueueLimit,
   int? maxRequestBytes,
   int? maxResponseBytes,
   int? callTimeoutMs,
@@ -10756,6 +11032,8 @@ RouterSettings _buildMcpSmokeSettings({
     'session_idle_timeout_ms': ?sessionIdleTimeoutMs,
     'max_session_count': ?maxSessionCount,
     'max_request_scoped_listener_count': ?maxRequestScopedListenerCount,
+    'max_wamp_subscription_count': ?maxWampSubscriptionCount,
+    'max_wamp_subscription_queue_limit': ?maxWampSubscriptionQueueLimit,
     'max_request_bytes': ?maxRequestBytes,
     'max_response_bytes': ?maxResponseBytes,
     'call_timeout_ms': ?callTimeoutMs,

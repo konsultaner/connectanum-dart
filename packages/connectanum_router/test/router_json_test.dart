@@ -710,6 +710,31 @@ void main() {
       );
     });
 
+    test('validates MCP WAMP subscription capacity options while building '
+        'native config', () {
+      for (final key in const <String>[
+        'max_wamp_subscription_count',
+        'maxWampSubscriptionCount',
+        'max_wamp_subscription_queue_limit',
+        'maxWampSubscriptionQueueLimit',
+      ]) {
+        _expectInvalidMcpOptions({
+          key: 0,
+        }, 'MCP $key must be a positive integer');
+        _expectInvalidMcpOptions({
+          key: '1',
+        }, 'MCP $key must be a positive integer');
+      }
+
+      expect(
+        () => _routerWithMcpOptions(const <String, Object?>{
+          'max_wamp_subscription_count': 2,
+          'maxWampSubscriptionQueueLimit': 4,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+    });
+
     test('validates MCP prompt options while building native config', () {
       final router = _routerWithMcpOptions({
         'prompts': [

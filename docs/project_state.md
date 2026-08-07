@@ -24847,6 +24847,31 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-07-mcp-router-wamp-subscription-capacity.md`.
+  Router-hosted MCP WAMP pub/sub previously bounded each event queue only by a
+  caller-selected positive `queueLimit`, while direct JSON and compatibility-
+  era endpoints could retain an unbounded number of logical subscription
+  owners. Routes now accept positive snake/camel aggregate-count and queue-
+  ceiling options with defaults of 1024 owners and 100 events. Admission runs
+  after WAMP authorization and counts preparations plus active owners on the
+  same listener and route across endpoint instances. Focused analysis, route
+  JSON tests, and native public/protected coverage pass for queue rejection,
+  admitted-event continuity, bearer and route isolation, distinct-principal
+  aggregation, concurrent admission, explicit-unsubscribe recovery, and
+  compatibility DELETE cleanup. Pre-change and post-change `bin/test-fast`
+  passed; the latter covered 360 core tests, 95 MCP tests, the complete
+  280-case MCP/client suite, all 96 benchmark tests including 36 live WAMP
+  workloads, generated and globally activated consumer smokes, Router CLI
+  coverage, and the focused native/auth/session follow-ups. Full `bin/verify`
+  also passed formatting, 113 Rust core tests, 52 Rust FFI tests plus the
+  focused metrics check, 360 Dart core tests, all 95 MCP tests, the complete
+  280-case MCP/client suite, all 96 benchmark tests including 36 live WAMP
+  workloads, every generated and globally activated consumer smoke, the
+  complete 389-case router suite, the 6-case remote-auth process, the 13-case
+  native follow-up, and Chrome/Dart2Wasm WebSocket coverage. The preceding
+  listener-capacity checkpoint's hosted-evidence bookkeeping remains
+  intentionally uncommitted and will accompany this implementation.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-07-mcp-router-listener-capacity.md`. Router-hosted
   MCP `2026-07-28` request-scoped listeners retain long-lived native SSE
   streams and filters, and resource-filtered listeners may retain shared WAMP
@@ -24868,10 +24893,18 @@ at the older `47bbf9c` commit.
   the complete 280-case MCP/client suite, all 96 benchmark tests and live WAMP
   workloads, every generated and globally activated consumer smoke, the
   complete 387-case router suite, the 6-case remote-auth process, the 13-case
-  native follow-up, and Chrome/Dart2Wasm. Commit, push, and exact-head hosted
-  evidence remain pending. The preceding session-capacity checkpoint's hosted-
-  evidence bookkeeping remains intentionally uncommitted and will accompany
-  this implementation.
+  native follow-up, and Chrome/Dart2Wasm. Implementation commit `425b9b6d` is
+  on both maintained `master` branches. Exact-head CI `31191654356` passed Fast
+  Checks, Full Verify, Dart VM Coverage, Codecov upload, and coverage artifact
+  `8999596681`. Dart Package Publish Dry Run `31191653038`, WAMP Profile
+  Benchmarks `31191657288` with artifact `8999301927`, and Router Image dry run
+  `31191671857` with preview artifact `8999068769` all passed. The comprehensive
+  strict deployment-chain audit exited zero with clean exact-head logs,
+  package/archive, relevant native-release, WAMP, loaded-image MCP, multi-
+  architecture image, protected-branch, workflow-visibility, and public
+  router-package gates ready. Leave this docs-only hosted-evidence bookkeeping
+  uncommitted until it can accompany the next implementation/configuration
+  commit.
 - Completed most recently, the router-
   hosted MCP session-capacity plan is
   `docs/exec-plans/2026-08-07-mcp-router-session-capacity.md`. Source audit

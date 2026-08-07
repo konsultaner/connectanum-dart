@@ -1,6 +1,6 @@
 # MCP Router Request-Scoped Listener Capacity
 
-Status: implementation complete; local verification clean, hosted verification pending
+Status: completed; local and exact-head hosted verification clean
 
 ## Goal
 
@@ -92,8 +92,21 @@ streams, notification filters, and shared WAMP resource-subscription owners.
   generated and globally activated consumer smoke, the complete 387-case
   router suite, the 6-case remote-auth process, the 13-case native follow-up,
   and Chrome/Dart2Wasm WebSocket coverage.
+- 2026-08-07: Implementation commit `425b9b6d` is on both maintained `master`
+  branches. Exact-head CI `31191654356` passed Fast Checks, Full Verify, Dart
+  VM Coverage, Codecov upload, and coverage artifact `8999596681`. Dart Package
+  Publish Dry Run `31191653038` passed. WAMP Profile Benchmarks `31191657288`
+  passed with artifact `8999301927`. Router Image dry run `31191671857` passed
+  with preview artifact `8999068769`, the loaded-image router-hosted MCP smoke,
+  skipped GHCR login, clean annotations, and the non-publishing multi-
+  architecture build.
+- 2026-08-07: The comprehensive strict deployment-chain audit exited zero. It
+  confirmed exact-head CI and clean logs, package/archive readiness, relevant
+  native-release evidence, WAMP and Router Image artifacts, protected-branch
+  checks, workflow visibility, and the public router package. The displayed RC
+  tag gap remains an expected non-gating release-approval decision.
 
 ## Handoff
 
-- Implementation and local verification are complete. Commit and push both
-  maintained branches, then audit exact-head hosted evidence.
+- Completed. Leave this hosted-evidence bookkeeping uncommitted until it can be
+  bundled with the next implementation/configuration commit.

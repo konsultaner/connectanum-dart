@@ -205,6 +205,8 @@ RouterSettings _buildSettings() {
     'max_response_bytes': 16 * 1024 * 1024,
     'max_session_count': 1024,
     'max_request_scoped_listener_count': 1024,
+    'max_wamp_subscription_count': 1024,
+    'max_wamp_subscription_queue_limit': 100,
     'call_timeout_ms': 30000,
     'procedures': [
       {

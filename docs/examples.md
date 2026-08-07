@@ -159,6 +159,9 @@ const HttpRouteSettings(
       'max_request_bytes': 16 * 1024 * 1024,
       'max_response_bytes': 16 * 1024 * 1024,
       'max_session_count': 1024,
+      'max_request_scoped_listener_count': 1024,
+      'max_wamp_subscription_count': 1024,
+      'max_wamp_subscription_queue_limit': 100,
       'call_timeout_ms': 30000,
       'session_idle_timeout_ms': 600000,
       'resources': [
@@ -215,6 +218,25 @@ another bound. When the route is full, a new initialize request receives HTTP
 `503` without an MCP session identifier; authenticated existing sessions and
 sessionless direct JSON requests remain usable. DELETE and idle expiry release
 capacity.
+
+Modern `2026-07-28` request-scoped listeners are independently limited to 1024
+per listener and route by default. Set the positive
+`max_request_scoped_listener_count` (or
+`maxRequestScopedListenerCount`) option to choose another bound. A request
+above the limit receives HTTP `503`; closing a listener releases capacity,
+while direct JSON and compatibility Streamable HTTP requests remain usable.
+
+Each route also admits up to 1024 router-hosted WAMP subscription owners by
+default, aggregated across direct JSON, compatibility Streamable HTTP, and
+configured dynamic-resource subscriptions on the same listener and route. Set
+the positive `max_wamp_subscription_count` (or
+`maxWampSubscriptionCount`) option to choose another bound. Each logical
+subscription holds at most 100 queued events by default; set the positive
+`max_wamp_subscription_queue_limit` (or
+`maxWampSubscriptionQueueLimit`) option to permit another caller-selected
+ceiling. An over-limit request returns an MCP tool error without disturbing an
+admitted subscription. Explicit unsubscribe, session deletion or expiry, and
+endpoint shutdown release capacity.
 
 MCP POST bodies are limited to 16 MiB by default and rejected with HTTP `413`
 before UTF-8 or JSON decoding. Set the positive `max_request_bytes` (or

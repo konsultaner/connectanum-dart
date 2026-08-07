@@ -53,6 +53,10 @@ const int _mcpDefaultMaxSessionCount = 1024;
 
 const int _mcpDefaultMaxRequestScopedListenerCount = 1024;
 
+const int _mcpDefaultMaxWampSubscriptionCount = 1024;
+
+const int _mcpDefaultMaxWampSubscriptionQueueLimit = 100;
+
 const int _mcpDefaultWampCallTimeoutMs = 30000;
 
 int _mcpMaxRequestBytesForRoute(HttpRouteSettings route) {
@@ -85,6 +89,22 @@ int _mcpMaxRequestScopedListenerCountForRoute(HttpRouteSettings route) {
         'maxRequestScopedListenerCount',
       ]) ??
       _mcpDefaultMaxRequestScopedListenerCount;
+}
+
+int _mcpMaxWampSubscriptionCountForRoute(HttpRouteSettings route) {
+  return _intOptionAny(route.action.options, const <String>[
+        'max_wamp_subscription_count',
+        'maxWampSubscriptionCount',
+      ]) ??
+      _mcpDefaultMaxWampSubscriptionCount;
+}
+
+int _mcpMaxWampSubscriptionQueueLimitForRoute(HttpRouteSettings route) {
+  return _intOptionAny(route.action.options, const <String>[
+        'max_wamp_subscription_queue_limit',
+        'maxWampSubscriptionQueueLimit',
+      ]) ??
+      _mcpDefaultMaxWampSubscriptionQueueLimit;
 }
 
 Duration? _mcpSessionIdleTimeoutForRoute(HttpRouteSettings route) {
@@ -2548,6 +2568,27 @@ extension _RouterBindingMcp on RouterBinding {
     target._modernSubscriptionPreparationCount++;
   }
 
+  void _reserveMcpWampSubscription(_RouterMcpEndpoint target) {
+    final admittedSubscriptionCount = _mcpEndpoints.values
+        .where(
+          (endpoint) =>
+              endpoint.listenerId == target.listenerId &&
+              identical(endpoint.route, target.route),
+        )
+        .fold<int>(
+          0,
+          (count, endpoint) =>
+              count +
+              endpoint._wampSubscriptionPreparationCount +
+              endpoint._wampSubscriptions.length,
+        );
+    if (admittedSubscriptionCount >=
+        _mcpMaxWampSubscriptionCountForRoute(target.route)) {
+      throw const _McpWampSubscriptionCapacityExceeded();
+    }
+    target._wampSubscriptionPreparationCount++;
+  }
+
   Future<_RouterMcpEndpoint?> _removeMcpEndpointForRoute({
     required RouterHttpRequest request,
     required HttpRouteSettings route,
@@ -2602,6 +2643,21 @@ final class _McpSessionCapacityExceeded implements Exception {
 
 final class _McpRequestScopedListenerCapacityExceeded implements Exception {
   const _McpRequestScopedListenerCapacityExceeded();
+}
+
+final class _McpWampSubscriptionCapacityExceeded implements Exception {
+  const _McpWampSubscriptionCapacityExceeded();
+
+  @override
+  String toString() => 'MCP WAMP subscription capacity is exhausted';
+}
+
+final class _McpWampSubscriptionQueueLimitExceeded implements Exception {
+  const _McpWampSubscriptionQueueLimitExceeded();
+
+  @override
+  String toString() =>
+      'MCP WAMP subscription queue limit exceeds configured maximum';
 }
 
 final class _UnknownMcpSseEventId implements Exception {
@@ -2745,6 +2801,7 @@ class _RouterMcpEndpoint {
   final Map<String, int> _sseStreamSequences = <String, int>{};
   final Set<mcp.McpWampSubscription> _wampSubscriptions =
       <mcp.McpWampSubscription>{};
+  int _wampSubscriptionPreparationCount = 0;
   int _nextSseStream = 0;
   int _nextModernSubscription = 0;
 
@@ -4157,20 +4214,39 @@ class _RouterMcpEndpoint {
     if (!await _isAuthorized(AuthorizationAction.subscribe, request.topic)) {
       throw StateError('Not authorized to subscribe ${request.topic}');
     }
-    final subscribed = await session.subscribe(
-      request.topic,
-      options: request.options,
-    );
-    subscribed.onEventPayload(
-      (event) => onEvent(mcp.McpWampEvent.fromPayload(event)),
-    );
-    final subscription = mcp.McpWampSubscription(
-      topic: request.topic,
-      subscriptionId: subscribed.subscriptionId,
-      sessionSubscription: subscribed,
-    );
-    _wampSubscriptions.add(subscription);
-    return subscription;
+    if (request.queueLimit > _mcpMaxWampSubscriptionQueueLimitForRoute(route)) {
+      throw const _McpWampSubscriptionQueueLimitExceeded();
+    }
+
+    binding._reserveMcpWampSubscription(this);
+    try {
+      final subscribed = await session.subscribe(
+        request.topic,
+        options: request.options,
+      );
+      try {
+        subscribed.onEventPayload(
+          (event) => onEvent(mcp.McpWampEvent.fromPayload(event)),
+        );
+        final subscription = mcp.McpWampSubscription(
+          topic: request.topic,
+          subscriptionId: subscribed.subscriptionId,
+          sessionSubscription: subscribed,
+        );
+        _wampSubscriptions.add(subscription);
+        return subscription;
+      } catch (_) {
+        try {
+          await session.releaseSubscription(subscribed);
+        } catch (_) {
+          // Preserve the original setup failure.
+        }
+        rethrow;
+      }
+    } finally {
+      assert(_wampSubscriptionPreparationCount > 0);
+      _wampSubscriptionPreparationCount--;
+    }
   }
 
   Future<void> _unsubscribe(mcp.McpWampSubscription subscription) async {
@@ -4717,6 +4793,10 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'maxSessionCount',
     'max_request_scoped_listener_count',
     'maxRequestScopedListenerCount',
+    'max_wamp_subscription_count',
+    'maxWampSubscriptionCount',
+    'max_wamp_subscription_queue_limit',
+    'maxWampSubscriptionQueueLimit',
     'call_timeout_ms',
     'callTimeoutMs',
   ]) {
