@@ -859,6 +859,24 @@ void main() {
         returnsNormally,
       );
       _expectInvalidMcpOptions({
+        'max_response_bytes': 0,
+      }, 'MCP max_response_bytes must be a positive integer');
+      _expectInvalidMcpOptions({
+        'maxResponseBytes': '1024',
+      }, 'MCP maxResponseBytes must be a positive integer');
+      expect(
+        _routerWithMcpOptions(const {
+          'max_response_bytes': 1,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      expect(
+        _routerWithMcpOptions(const {
+          'maxResponseBytes': 16 * 1024 * 1024,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      _expectInvalidMcpOptions({
         'call_timeout_ms': 0,
       }, 'MCP call_timeout_ms must be a positive integer');
       _expectInvalidMcpOptions({

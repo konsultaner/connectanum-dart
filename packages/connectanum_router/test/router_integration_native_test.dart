@@ -4867,6 +4867,220 @@ void main() {
     );
 
     test(
+      'bounds router-hosted MCP responses without poisoning auth or session state',
+      () async {
+        const responseLimit = 4096;
+        final harness = await _RouterHarness.start(
+          connectionId: 9143,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxResponseBytes: responseLimit),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-response-bound-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        var invocationCount = 0;
+        final padding = List<String>.filled(1100, 'é').join();
+        final registration = await serviceSession.register(
+          'app.safe.response_bound_lookup',
+          options: core.RegisterOptions(
+            custom: const <String, Object?>{
+              '_ai_meta_data': <String, Object?>{
+                'short_description': 'Return bounded response content',
+                'read_only_hint': true,
+                'destructive_hint': false,
+                'idempotent_hint': true,
+                'open_world_hint': false,
+              },
+            },
+          ),
+        );
+        registration.onInvoke((invocation) {
+          invocationCount++;
+          invocation.respondWith(
+            argumentsKeywords: <String, Object?>{
+              'status': 'complete',
+              if (invocation.argumentsKeywords?['small'] != true)
+                'padding': padding,
+            },
+          );
+        });
+
+        final structuredContent = <String, Object?>{
+          'argumentsKeywords': <String, Object?>{
+            'status': 'complete',
+            'padding': padding,
+          },
+        };
+        final representativeCompatibilityResponse = jsonEncode(
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'bounded-response-shape',
+            'result': <String, Object?>{
+              'content': <Object?>[
+                <String, Object?>{
+                  'type': 'text',
+                  'text': jsonEncode(structuredContent),
+                },
+              ],
+              'isError': false,
+              'structuredContent': structuredContent,
+            },
+          },
+        );
+        expect(
+          representativeCompatibilityResponse.length,
+          lessThan(responseLimit),
+        );
+        expect(
+          utf8.encode(representativeCompatibilityResponse).length,
+          greaterThan(responseLimit),
+        );
+
+        final listener = harness.binding.listeners.single;
+        final publicEndpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final secureEndpoint = publicEndpoint.replace(path: '/mcp/secure');
+        final publicClient = McpStreamableHttpClient.stateless(
+          publicEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-response-bound-test',
+            'version': '1.0.0',
+          },
+          maxResponseBytes: 8192,
+        );
+        addTearDown(() => publicClient.close(force: true));
+
+        await expectLater(
+          publicClient.callToolDirect(
+            'app.safe.response_bound_lookup',
+            id: 'public-modern-oversized-response',
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.internalServerError,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  contains('response body exceeds the configured limit'),
+                ),
+          ),
+        );
+        expect(publicClient.sessionId, isNull);
+        expect(publicClient.lastEventId, isNull);
+        final publicRecovery = await publicClient.callToolDirect(
+          'app.safe.response_bound_lookup',
+          id: 'public-modern-response-recovery',
+          arguments: const <String, Object?>{'small': true},
+        );
+        expect(publicRecovery['isError'], isFalse);
+
+        final unauthenticatedClient = McpStreamableHttpClient.stateless(
+          secureEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-response-bound-test',
+            'version': '1.0.0',
+          },
+          maxResponseBytes: 8192,
+        );
+        addTearDown(() => unauthenticatedClient.close(force: true));
+        await expectLater(
+          unauthenticatedClient.callToolDirect(
+            'app.safe.response_bound_lookup',
+            id: 'secure-missing-bearer-oversized-response',
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.unauthorized,
+            ),
+          ),
+        );
+        expect(invocationCount, 2);
+
+        final authHttpClient = HttpClient();
+        addTearDown(() => authHttpClient.close(force: true));
+        final grant = await _issueTicketHttpGrant(
+          authHttpClient,
+          listener.port,
+        );
+        final protectedClient = McpStreamableHttpClient.withAuthGrant(
+          secureEndpoint,
+          grant,
+          maxResponseBytes: 8192,
+        );
+        addTearDown(() => protectedClient.close(force: true));
+
+        await protectedClient.initialize(id: 'secure-response-initialize');
+        await protectedClient.notifyInitialized();
+        final sessionId = protectedClient.sessionId;
+        expect(sessionId, isNotNull);
+
+        await expectLater(
+          protectedClient.callTool(
+            'app.safe.response_bound_lookup',
+            id: 'secure-compatibility-oversized-response',
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.internalServerError,
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(protectedClient.sessionId, equals(sessionId));
+
+        await expectLater(
+          protectedClient.callToolDirect(
+            'app.safe.response_bound_lookup',
+            id: 'secure-modern-oversized-response',
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.internalServerError,
+            ),
+          ),
+        );
+        expect(protectedClient.sessionId, equals(sessionId));
+        expect(protectedClient.lastEventId, isNull);
+
+        final recovered = await protectedClient.callTool(
+          'app.safe.response_bound_lookup',
+          id: 'secure-response-recovery',
+          arguments: const <String, Object?>{'small': true},
+        );
+        expect(recovered['isError'], isFalse);
+        expect(protectedClient.sessionId, equals(sessionId));
+        await protectedClient.deleteSession();
+        expect(protectedClient.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP WAMP calls and keeps the session reusable',
       () async {
         final harness = await _RouterHarness.start(
@@ -10008,6 +10222,7 @@ RouterSettings _buildMcpSmokeSettings({
   bool enableHttp3 = false,
   int? sessionIdleTimeoutMs,
   int? maxRequestBytes,
+  int? maxResponseBytes,
   int? callTimeoutMs,
 }) {
   const protectedResourceMetadata = <String, Object?>{
@@ -10021,6 +10236,7 @@ RouterSettings _buildMcpSmokeSettings({
     'tool_list_page_size': 100,
     'session_idle_timeout_ms': ?sessionIdleTimeoutMs,
     'max_request_bytes': ?maxRequestBytes,
+    'max_response_bytes': ?maxResponseBytes,
     'call_timeout_ms': ?callTimeoutMs,
     'procedures': [
       {

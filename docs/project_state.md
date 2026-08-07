@@ -24846,7 +24846,32 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the router-hosted MCP WAMP call-deadline plan is
+- Active now, the router-hosted MCP response-body bounds plan is
+  `docs/exec-plans/2026-08-07-mcp-router-response-body-bounds.md`. Source audit
+  found that the public MCP client caps buffered responses and SSE events at
+  16 MiB while router-hosted operation responses are serialized and emitted
+  without a route-side size policy. The checkpoint adds a matching positive
+  route option/default, raw UTF-8 response-byte accounting, direct JSON and
+  maintained Streamable coverage, auth precedence, active-session retention,
+  recovery, and DELETE cleanup. Pre-change `bin/test-fast` passed the complete
+  fast regression, benchmark, public consumer, global activation, and Router
+  CLI smoke matrix. Fail-first validation accepted a zero response limit, and
+  the native router emitted an oversized multibyte result. The implementation
+  now accepts positive snake/camel aliases with a 16 MiB default, serializes
+  each non-null operation response once, rejects oversized results before JSON
+  or POST/SSE delivery with a bounded HTTP 500 JSON-RPC error, and reuses the
+  serialized payload on success. Focused validation and native-router coverage
+  pass for public stateless rejection and recovery, missing-bearer precedence,
+  protected compatibility and direct JSON rejection without a response session
+  header, unchanged active session and resume state, a smaller successful
+  follow-up, and DELETE cleanup. Post-change `bin/test-fast` passed the complete
+  fast suite. Final `bin/verify` passed with zero formatting changes; 113 Rust
+  core tests plus three serializer integrations, 52 Rust FFI tests, 360 Dart
+  core, 95 MCP, 280 MCP/client, 96 benchmark/live-router, and 390 total router
+  tests; every neutral package and CLI consumer smoke; all maintained router-
+  hosted MCP live variants; and Chrome Dart2Wasm WebSocket coverage. Commit,
+  push, and exact-head hosted verification remain.
+- Completed most recently, the router-hosted MCP WAMP call-deadline plan is
   `docs/exec-plans/2026-08-07-mcp-router-wamp-call-deadline.md`. Source audit
   found that MCP tool calls and WAMP-backed dynamic resource reads did not
   attach the router's existing protocol CALL timeout, allowing a stalled
@@ -24870,8 +24895,21 @@ at the older `47bbf9c` commit.
   52 Rust FFI tests; 360 Dart core, 95 MCP, 280 MCP/client, 96 benchmark/live-
   router, and 389 total router tests; every neutral consumer package and CLI
   smoke; all maintained router-hosted MCP live variants; and Chrome Dart2Wasm
-  WebSocket coverage. Commit/push and exact-head hosted evidence remain.
-- Completed most recently, the router-hosted MCP request-body bounds plan is
+  WebSocket coverage. Implementation commit `70dc5f83` is on both maintained
+  `master` branches. Exact-head CI `31169370199` passed Fast Checks, Full
+  Verify, Dart VM Coverage, Codecov upload, and the coverage artifact. Dart
+  Package Publish Dry Run `31169370330`, WAMP Profile Benchmarks `31169370200`
+  with its hosted artifact, and Router Image dry run `31170678231` with its
+  preview artifact, local image build, router-hosted MCP smoke, and non-
+  publishing multi-architecture build all passed. The comprehensive strict
+  deployment-chain audit exited zero with exact-head CI/log, package, relevant
+  native-release, WAMP artifact, Router Image, protected-branch, workflow-
+  visibility, and public router-package gates ready. A follow-up RC tag remains
+  the expected approval-gated, non-blocking release decision. Leave this docs-
+  only hosted-evidence bookkeeping uncommitted until it can accompany the next
+  implementation/configuration commit.
+- Completed immediately before this checkpoint, the router-hosted MCP request-
+  body bounds plan is
   `docs/exec-plans/2026-08-07-mcp-router-request-body-bounds.md`.
   MCP routes accept positive `max_request_bytes` and `maxRequestBytes` values,
   defaulting to 16 MiB. POST handling compares that limit with the native raw

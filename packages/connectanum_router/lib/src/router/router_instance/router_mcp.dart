@@ -47,6 +47,8 @@ const int _mcpDefaultSessionIdleTimeoutMs = 600000;
 
 const int _mcpDefaultMaxRequestBytes = 16 * 1024 * 1024;
 
+const int _mcpDefaultMaxResponseBytes = 16 * 1024 * 1024;
+
 const int _mcpDefaultWampCallTimeoutMs = 30000;
 
 int _mcpMaxRequestBytesForRoute(HttpRouteSettings route) {
@@ -55,6 +57,14 @@ int _mcpMaxRequestBytesForRoute(HttpRouteSettings route) {
         'maxRequestBytes',
       ]) ??
       _mcpDefaultMaxRequestBytes;
+}
+
+int _mcpMaxResponseBytesForRoute(HttpRouteSettings route) {
+  return _intOptionAny(route.action.options, const <String>[
+        'max_response_bytes',
+        'maxResponseBytes',
+      ]) ??
+      _mcpDefaultMaxResponseBytes;
 }
 
 Duration? _mcpSessionIdleTimeoutForRoute(HttpRouteSettings route) {
@@ -2259,6 +2269,26 @@ Future<void> _handleMcpHttpRequestForBinding(
     final response = statelessHttpRequest
         ? endpoint.modernizeResponse(rawResponse)
         : rawResponse;
+    final responseJson = response == null ? null : jsonEncode(response);
+    final responseBytes = responseJson == null
+        ? null
+        : Uint8List.fromList(utf8.encode(responseJson));
+    if (responseBytes != null &&
+        responseBytes.length > _mcpMaxResponseBytesForRoute(route)) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.internalServerError,
+          code: mcp.McpErrorCodes.internalError,
+          message: 'MCP response body exceeds the configured limit',
+          id: _recoverDirectJsonRequestId(rawMessage),
+          protocolVersion: effectiveResponseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        ),
+      );
+      return;
+    }
     final rejectedNewInitialize =
         tentativeInitializeSessionId != null &&
         response is Map &&
@@ -2276,7 +2306,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         )) {
       final responseBatch = endpoint.ssePostResponseEvents(
         sessionId: effectiveMcpSessionId!,
-        response: response,
+        responseJson: responseJson!,
       );
       final sent = await _mcpSendSseResponse(
         binding,
@@ -2324,7 +2354,7 @@ Future<void> _handleMcpHttpRequestForBinding(
                 protocolVersion: effectiveResponseMcpProtocolVersion,
                 extra: corsHeaders,
               ),
-              body: NativeHttpResponseJson(response),
+              body: NativeHttpResponseBytes(responseBytes!),
             ),
     );
     if (tentativeInitializeSessionId != null) {
@@ -2931,7 +2961,7 @@ class _RouterMcpEndpoint {
 
   _RouterMcpSsePollBatch ssePostResponseEvents({
     required String sessionId,
-    required Object? response,
+    required String responseJson,
   }) {
     final streamId = 's${++_nextSseStream}';
     final primer = _nextSseEvent(
@@ -2942,7 +2972,7 @@ class _RouterMcpEndpoint {
     final responseEvent = _nextSseEvent(
       sessionId: sessionId,
       streamId: streamId,
-      data: jsonEncode(response),
+      data: responseJson,
     );
     return _RouterMcpSsePollBatch(
       events: <_RouterMcpSseEvent>[primer, responseEvent],
@@ -4574,6 +4604,8 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'resourceTemplateListPageSize',
     'max_request_bytes',
     'maxRequestBytes',
+    'max_response_bytes',
+    'maxResponseBytes',
     'call_timeout_ms',
     'callTimeoutMs',
   ]) {

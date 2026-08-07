@@ -1,7 +1,6 @@
 # MCP Router WAMP Call Deadline
 
-Status: active; implementation and local verification clean; commit, push, and
-exact-head hosted evidence pending
+Status: completed; local and exact-head hosted verification clean
 
 ## Goal
 
@@ -80,8 +79,20 @@ hold an HTTP request and compatibility-session idle lease indefinitely.
   core, 95 MCP, 280 MCP/client, 96 benchmark/live-router, and 389 total router
   tests; every neutral package and CLI consumer smoke; all maintained
   router-hosted MCP live variants; and Chrome Dart2Wasm WebSocket coverage.
+- 2026-08-07: Implementation commit `70dc5f83` is on both maintained `master`
+  branches. Exact-head CI `31169370199` passed Fast Checks, Full Verify, Dart
+  VM Coverage, Codecov upload, and the coverage artifact. Dart Package Publish
+  Dry Run `31169370330`, WAMP Profile Benchmarks `31169370200` with its hosted
+  artifact, and Router Image dry run `31170678231` with its preview artifact,
+  local image build, router-hosted MCP smoke, and non-publishing multi-
+  architecture build all passed.
+- 2026-08-07: The comprehensive strict deployment-chain audit exited zero. It
+  confirmed exact-head CI and clean logs, package/archive readiness, relevant
+  native-release evidence, WAMP and Router Image artifacts, protected-branch
+  checks, workflow visibility, and the public router package. A follow-up RC
+  tag remains the expected approval-gated, non-blocking release decision.
 
 ## Handoff
 
-- Commit and push the implementation with its checkpoint state, then audit the
-  exact-head hosted deployment chain.
+- Completed. Leave this hosted-evidence bookkeeping uncommitted until it can be
+  bundled with the next implementation/configuration commit.
