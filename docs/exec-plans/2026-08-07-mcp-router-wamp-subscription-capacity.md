@@ -1,6 +1,6 @@
 # MCP Router WAMP Subscription Capacity
 
-Status: active; local verification clean
+Status: completed; local and hosted verification clean
 
 ## Goal
 
@@ -94,8 +94,21 @@ unbounded number of subscription owners or client-selected event queues.
   activated consumer smoke, the complete 389-case router suite, the 6-case
   remote-auth process, the 13-case native follow-up, and Chrome/Dart2Wasm
   WebSocket coverage.
+- 2026-08-07: Implementation commit `c344b5c4` is on both maintained `master`
+  branches. Exact-head GitHub CI `31199355333` passed Fast Checks, Full Verify,
+  Dart VM Coverage, Codecov upload, clean hosted-log inspection, and coverage
+  artifact `9002605026`. Dart Package Publish Dry Run `31199355388` and WAMP
+  Profile Benchmarks `31199355228` with artifact `9002352086` passed on their
+  first attempts. Router Image dry run `31200891491` passed the loaded-image
+  MCP smoke, skipped GHCR login, completed the non-publishing multi-
+  architecture build, and uploaded preview artifact `9002765139` plus Docker
+  build records `9002910559` and `9002909609`. The comprehensive strict
+  deployment-chain audit exited zero with exact-head CI/log, package, relevant
+  native-release, Router Image, WAMP artifact, protected-branch, workflow-
+  visibility, and public router-package gates ready.
 
 ## Handoff
 
-- Implementation and all local verification are clean. Commit/push and exact-
-  head hosted evidence remain.
+- Complete. Implementation, local verification, both maintained `master`
+  branches, exact-head hosted workflows, and the comprehensive strict
+  deployment-chain audit are clean.

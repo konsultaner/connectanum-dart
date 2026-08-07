@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-07
-Current branch: `master`
+Current branch: `codex/mcp-router-sse-poll-response-bounds`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24846,7 +24846,26 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active implementation plan is
+- Active implementation plan:
+  `docs/exec-plans/2026-08-07-mcp-router-sse-poll-response-bounds.md`.
+  Compatibility-era Streamable GET polling previously bypassed the MCP route's
+  `max_response_bytes` ceiling and materialized every replay and queued
+  notification in one buffer. A fail-first native-router regression reproduced
+  a 5,427-byte response against a 4,096-byte ceiling. Poll assembly now accounts
+  for complete raw SSE frames, emits only the fitting replay and pending prefix,
+  retains the remainder for later Last-Event-ID polls, and keeps existing
+  send-failure restoration ordering. An individually oversized event produces
+  one bounded HTTP 500 and is discarded so the same authenticated session can
+  poll and delete normally afterward. Focused analysis/tests, pre-change and
+  post-change `bin/test-fast`, and full `bin/verify` pass. The full gate includes
+  113 Rust core tests, 52 Rust FFI tests plus the focused metrics check, 360 Dart
+  core tests, all 95 MCP tests, the complete 280-case MCP/client suite, all 96
+  benchmark tests including 36 live WAMP workloads, every generated and
+  globally activated consumer smoke, the complete 390-case router suite, the
+  6-case remote-auth process, the 13-case native follow-up, and
+  Chrome/Dart2Wasm. Commit, dual-remote publication, exact-head hosted evidence,
+  and the comprehensive strict audit remain.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-07-mcp-router-wamp-subscription-capacity.md`.
   Router-hosted MCP WAMP pub/sub previously bounded each event queue only by a
   caller-selected positive `queueLimit`, while direct JSON and compatibility-
@@ -24868,9 +24887,21 @@ at the older `47bbf9c` commit.
   280-case MCP/client suite, all 96 benchmark tests including 36 live WAMP
   workloads, every generated and globally activated consumer smoke, the
   complete 389-case router suite, the 6-case remote-auth process, the 13-case
-  native follow-up, and Chrome/Dart2Wasm WebSocket coverage. The preceding
-  listener-capacity checkpoint's hosted-evidence bookkeeping remains
-  intentionally uncommitted and will accompany this implementation.
+  native follow-up, and Chrome/Dart2Wasm WebSocket coverage. Implementation
+  commit `c344b5c4` is on both maintained `master` branches. Exact-head CI
+  `31199355333` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov
+  upload, clean hosted-log inspection, and coverage artifact `9002605026`.
+  Dart Package Publish Dry Run `31199355388` and WAMP Profile Benchmarks
+  `31199355228` with artifact `9002352086` passed on their first attempts.
+  Router Image dry run `31200891491` passed the loaded-image MCP runtime smoke,
+  skipped GHCR login, completed the non-publishing multi-architecture build,
+  and uploaded preview artifact `9002765139` plus Docker build records
+  `9002910559` and `9002909609`. The comprehensive strict deployment-chain
+  audit exited zero with exact-head CI/log, package, relevant native-release,
+  Router Image, WAMP artifact, protected-branch, workflow-visibility, and
+  public router-package gates ready. Leave this docs-only hosted-evidence
+  bookkeeping uncommitted until it can accompany the next implementation or
+  configuration commit.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-07-mcp-router-listener-capacity.md`. Router-hosted
   MCP `2026-07-28` request-scoped listeners retain long-lived native SSE

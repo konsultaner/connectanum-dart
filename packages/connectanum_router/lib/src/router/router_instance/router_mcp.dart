@@ -1973,6 +1973,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       try {
         pollBatch = endpoint.ssePollEvents(
           sessionId: mcpSessionId,
+          maxResponseBytes: _mcpMaxResponseBytesForRoute(route),
           lastEventId: lastEventId,
         );
       } on _UnknownMcpSseEventId {
@@ -1984,6 +1985,19 @@ Future<void> _handleMcpHttpRequestForBinding(
             code: mcp.McpErrorCodes.invalidRequest,
             message: 'Unknown MCP SSE Last-Event-ID',
             sessionId: mcpSessionId,
+            protocolVersion: responseMcpProtocolVersion,
+            extraHeaders: corsHeaders,
+          ),
+        );
+        return;
+      } on _McpSsePollEventResponseLimitExceeded {
+        await binding._sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: _mcpJsonRpcHttpError(
+            status: HttpStatus.internalServerError,
+            code: mcp.McpErrorCodes.internalError,
+            message: 'MCP SSE event exceeds the configured response limit',
             protocolVersion: responseMcpProtocolVersion,
             extraHeaders: corsHeaders,
           ),
@@ -2660,6 +2674,16 @@ final class _McpWampSubscriptionQueueLimitExceeded implements Exception {
       'MCP WAMP subscription queue limit exceeds configured maximum';
 }
 
+final class _McpSsePollEventResponseLimitExceeded implements Exception {
+  const _McpSsePollEventResponseLimitExceeded({
+    required this.requiredBytes,
+    required this.limit,
+  });
+
+  final int requiredBytes;
+  final int limit;
+}
+
 final class _UnknownMcpSseEventId implements Exception {
   const _UnknownMcpSseEventId(this.eventId);
 
@@ -3047,6 +3071,7 @@ class _RouterMcpEndpoint {
 
   _RouterMcpSsePollBatch ssePollEvents({
     required String sessionId,
+    required int maxResponseBytes,
     String? lastEventId,
   }) {
     var streamId = 's${++_nextSseStream}';
@@ -3067,43 +3092,88 @@ class _RouterMcpEndpoint {
       );
     }
 
-    final events = <_RouterMcpSseEvent>[...replay];
+    int eventByteLength(_RouterMcpSseEvent event) {
+      return _mcpSseEventBytes(
+        id: event.id,
+        data: event.data,
+        retryMs: event.retryMs,
+      ).length;
+    }
+
+    final events = <_RouterMcpSseEvent>[];
     final newEvents = <_RouterMcpSseEvent>[];
-    final pendingMessages = List<mcp.JsonMap>.of(_pendingSseMessages);
-    _pendingSseMessages.clear();
-    for (final message in pendingMessages) {
-      final event = _nextSseEvent(
-        sessionId: sessionId,
-        streamId: streamId,
-        data: jsonEncode(message),
-      );
+    final pendingMessages = <mcp.JsonMap>[];
+    var responseByteLength = 0;
+    var replayTruncated = false;
+    for (final event in replay) {
+      final candidateByteLength = eventByteLength(event);
+      if (responseByteLength + candidateByteLength > maxResponseBytes) {
+        if (events.isEmpty) {
+          throw _McpSsePollEventResponseLimitExceeded(
+            requiredBytes: candidateByteLength,
+            limit: maxResponseBytes,
+          );
+        }
+        replayTruncated = true;
+        break;
+      }
       events.add(event);
-      newEvents.add(event);
+      responseByteLength += candidateByteLength;
+    }
+    var responseHasRetry = events.any((event) => event.retryMs != null);
+
+    if (!replayTruncated) {
+      for (final message in _pendingSseMessages) {
+        final sequence = (_sseStreamSequences[streamId] ?? 0) + 1;
+        final event = _RouterMcpSseEvent(
+          id: '$sessionId:$streamId:$sequence',
+          streamId: streamId,
+          sequence: sequence,
+          data: jsonEncode(message),
+          retryMs: responseHasRetry ? null : 1000,
+        );
+        final candidateByteLength = eventByteLength(event);
+        if (responseByteLength + candidateByteLength > maxResponseBytes) {
+          if (events.isEmpty) {
+            _pendingSseMessages.removeAt(0);
+            throw _McpSsePollEventResponseLimitExceeded(
+              requiredBytes: candidateByteLength,
+              limit: maxResponseBytes,
+            );
+          }
+          break;
+        }
+        _sseStreamSequences[streamId] = sequence;
+        events.add(event);
+        newEvents.add(event);
+        pendingMessages.add(message);
+        responseByteLength += candidateByteLength;
+        responseHasRetry = responseHasRetry || event.retryMs != null;
+      }
+      if (pendingMessages.isNotEmpty) {
+        _pendingSseMessages.removeRange(0, pendingMessages.length);
+      }
     }
 
     if (events.isEmpty) {
-      final event = _nextSseEvent(
-        sessionId: sessionId,
+      final sequence = (_sseStreamSequences[streamId] ?? 0) + 1;
+      final event = _RouterMcpSseEvent(
+        id: '$sessionId:$streamId:$sequence',
         streamId: streamId,
+        sequence: sequence,
+        data: '',
         retryMs: 1000,
       );
+      final candidateByteLength = eventByteLength(event);
+      if (candidateByteLength > maxResponseBytes) {
+        throw _McpSsePollEventResponseLimitExceeded(
+          requiredBytes: candidateByteLength,
+          limit: maxResponseBytes,
+        );
+      }
+      _sseStreamSequences[streamId] = sequence;
       events.add(event);
       newEvents.add(event);
-    } else if (newEvents.isNotEmpty &&
-        !events.any((event) => event.retryMs != null)) {
-      final last = newEvents.removeLast();
-      final replacement = _RouterMcpSseEvent(
-        id: last.id,
-        streamId: last.streamId,
-        sequence: last.sequence,
-        data: last.data,
-        retryMs: 1000,
-      );
-      final index = events.lastIndexWhere((event) => event.id == last.id);
-      if (index >= 0) {
-        events[index] = replacement;
-      }
-      newEvents.add(replacement);
     }
 
     return _RouterMcpSsePollBatch(

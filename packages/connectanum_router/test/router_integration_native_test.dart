@@ -5853,6 +5853,186 @@ void main() {
     );
 
     test(
+      'bounds router-hosted MCP Streamable poll responses and keeps queued events recoverable',
+      () async {
+        const responseLimit = 4096;
+        final oversizedResourceUri =
+            'app://mcp/live/${List<String>.filled(responseLimit, 'x').join()}';
+        final harness = await _RouterHarness.start(
+          connectionId: 9144,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(
+            maxResponseBytes: responseLimit,
+            liveResourceUri: oversizedResourceUri,
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-poll-response-bound-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/secure',
+        );
+        final authHttpClient = HttpClient();
+        addTearDown(() => authHttpClient.close(force: true));
+        final grant = await _issueTicketHttpGrant(
+          authHttpClient,
+          listener.port,
+        );
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint,
+          grant,
+          maxResponseBytes: 8192,
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'poll-response-bound-initialize');
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        expect(sessionId, isNotNull);
+        final activeSessionId = sessionId!;
+
+        const notificationCount = 48;
+        for (var index = 0; index < notificationCount ~/ 2; index++) {
+          final registration = await serviceSession.register(
+            'app.safe.poll_response_bound_transient',
+            options: core.RegisterOptions(
+              custom: const <String, Object?>{
+                '_ai_meta_data': <String, Object?>{
+                  'short_description': 'Transient poll response tool',
+                  'read_only_hint': true,
+                  'destructive_hint': false,
+                  'idempotent_hint': true,
+                  'open_world_hint': false,
+                },
+              },
+            ),
+          );
+          await client.ping(id: 'poll-response-bound-register-$index');
+          await serviceSession.unregister(registration.registrationId);
+          await client.ping(id: 'poll-response-bound-unregister-$index');
+        }
+
+        final rawClient = HttpClient();
+        addTearDown(() => rawClient.close(force: true));
+        String? lastEventId;
+        var deliveredNotifications = 0;
+        var pollCount = 0;
+        while (deliveredNotifications < notificationCount) {
+          final response = await _getHttp(
+            rawClient,
+            listener.port,
+            '/mcp/secure',
+            headers: <String, String>{
+              HttpHeaders.acceptHeader: 'text/event-stream',
+              HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+              'MCP-Session-Id': activeSessionId,
+              'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+              'Last-Event-ID': ?lastEventId,
+            },
+          );
+          expect(response.statusCode, equals(HttpStatus.ok));
+          expect(
+            utf8.encode(response.body).length,
+            lessThanOrEqualTo(responseLimit),
+          );
+          final delivered = RegExp(
+            'notifications/tools/list_changed',
+          ).allMatches(response.body).length;
+          expect(delivered, greaterThan(0));
+          deliveredNotifications += delivered;
+          lastEventId = RegExp(
+            r'^id: (.+)$',
+            multiLine: true,
+          ).allMatches(response.body).last.group(1);
+          pollCount++;
+          expect(pollCount, lessThan(10));
+        }
+        expect(deliveredNotifications, equals(notificationCount));
+        expect(pollCount, greaterThan(1));
+
+        await client.subscribeResource(
+          oversizedResourceUri,
+          id: 'poll-response-bound-resource-subscribe',
+        );
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{'version': 2},
+          options: core.PublishOptions(acknowledge: true),
+        );
+
+        late ({
+          int statusCode,
+          Map<String, Object?>? json,
+          String body,
+          Map<String, String> headers,
+        })
+        oversizedPoll;
+        for (var attempt = 0; attempt < 20; attempt++) {
+          oversizedPoll = await _getHttp(
+            rawClient,
+            listener.port,
+            '/mcp/secure',
+            headers: <String, String>{
+              HttpHeaders.acceptHeader: 'text/event-stream',
+              HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+              'MCP-Session-Id': activeSessionId,
+              'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+              'Last-Event-ID': ?lastEventId,
+            },
+          );
+          if (oversizedPoll.statusCode == HttpStatus.internalServerError) {
+            break;
+          }
+          expect(oversizedPoll.statusCode, equals(HttpStatus.ok));
+          lastEventId = RegExp(
+            r'^id: (.+)$',
+            multiLine: true,
+          ).allMatches(oversizedPoll.body).last.group(1);
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(
+          oversizedPoll.statusCode,
+          equals(HttpStatus.internalServerError),
+        );
+        expect(
+          oversizedPoll.body,
+          contains('SSE event exceeds the configured response limit'),
+        );
+        expect(oversizedPoll.headers, isNot(contains('mcp-session-id')));
+
+        final recoveredPoll = await _getHttp(
+          rawClient,
+          listener.port,
+          '/mcp/secure',
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+            'MCP-Session-Id': activeSessionId,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+            'Last-Event-ID': ?lastEventId,
+          },
+        );
+        expect(recoveredPoll.statusCode, equals(HttpStatus.ok));
+        expect(utf8.encode(recoveredPoll.body).length, lessThan(responseLimit));
+        expect(recoveredPoll.body, contains('retry: 1000'));
+        expect(client.sessionId, equals(activeSessionId));
+        await client.deleteSession();
+        expect(client.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP WAMP calls and keeps the session reusable',
       () async {
         final harness = await _RouterHarness.start(
@@ -11019,6 +11199,7 @@ RouterSettings _buildMcpSmokeSettings({
   int? maxRequestBytes,
   int? maxResponseBytes,
   int? callTimeoutMs,
+  String? liveResourceUri,
 }) {
   const protectedResourceMetadata = <String, Object?>{
     'metadata_url': 'https://mcp.example.test/mcp/secure',
@@ -11115,7 +11296,7 @@ RouterSettings _buildMcpSmokeSettings({
         'text': 'This context is served by the router-hosted MCP route.',
       },
       {
-        'uri': 'app://mcp/live-context',
+        'uri': liveResourceUri ?? 'app://mcp/live-context',
         'name': 'mcp-live-context',
         'title': 'MCP live route context',
         'description':
