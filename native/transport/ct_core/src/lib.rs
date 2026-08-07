@@ -4934,7 +4934,9 @@ pub fn spawn_http_response(
             if let Err(err) =
                 protocol::write_http_response(stream, version, status, headers, body).await
             {
-                eprintln!("failed to send http response: {}", err);
+                if should_log_http_response_send_error(err.kind()) {
+                    eprintln!("failed to send http response: {}", err);
+                }
             }
         });
         Ok(())
@@ -5248,10 +5250,12 @@ async fn serve_http_connection(
                         }
                     };
                     if let Err(err) = response {
-                        eprintln!(
-                            "failed to send transport-auth rejection for listener {:?}: {}",
-                            listener_id, err
-                        );
+                        if should_log_http_response_send_error(err.kind()) {
+                            eprintln!(
+                                "failed to send transport-auth rejection for listener {:?}: {}",
+                                listener_id, err
+                            );
+                        }
                         break;
                     }
                     continue;
@@ -5296,10 +5300,12 @@ async fn serve_http_connection(
                             send_http_dispatch(&mut write_half, version, keep_alive, &mut dispatch)
                                 .await
                         {
-                            eprintln!(
-                                "failed to send http response for listener {:?}: {}",
-                                listener_id, err
-                            );
+                            if should_log_http_response_send_error(err.kind()) {
+                                eprintln!(
+                                    "failed to send http response for listener {:?}: {}",
+                                    listener_id, err
+                                );
+                            }
                             break;
                         }
                     }
@@ -5329,10 +5335,12 @@ async fn serve_http_connection(
                 )
                 .await
                 {
-                    eprintln!(
-                        "failed to send 405 response for listener {:?}: {}",
-                        listener_id, err
-                    );
+                    if should_log_http_response_send_error(err.kind()) {
+                        eprintln!(
+                            "failed to send 405 response for listener {:?}: {}",
+                            listener_id, err
+                        );
+                    }
                     break;
                 }
             }
@@ -5348,10 +5356,12 @@ async fn serve_http_connection(
                 )
                 .await
                 {
-                    eprintln!(
-                        "failed to send 426 response for listener {:?}: {}",
-                        listener_id, err
-                    );
+                    if should_log_http_response_send_error(err.kind()) {
+                        eprintln!(
+                            "failed to send 426 response for listener {:?}: {}",
+                            listener_id, err
+                        );
+                    }
                     break;
                 }
             }
@@ -5366,10 +5376,12 @@ async fn serve_http_connection(
                 )
                 .await
                 {
-                    eprintln!(
-                        "failed to send 404 response for listener {:?}: {}",
-                        listener_id, err
-                    );
+                    if should_log_http_response_send_error(err.kind()) {
+                        eprintln!(
+                            "failed to send 404 response for listener {:?}: {}",
+                            listener_id, err
+                        );
+                    }
                     break;
                 }
             }
@@ -5399,18 +5411,19 @@ async fn send_http_dispatch(
     version: u8,
     keep_alive: bool,
     dispatch: &mut HttpResponseDispatch,
-) -> Result<(), String> {
+) -> io::Result<()> {
     ensure_connection_header(&mut dispatch.headers, keep_alive, version);
     match &mut dispatch.body {
-        HttpResponseBody::Buffered(body) => protocol::write_http_response_shared(
-            writer,
-            version,
-            dispatch.status,
-            &dispatch.headers,
-            body,
-        )
-        .await
-        .map_err(|err| err.to_string()),
+        HttpResponseBody::Buffered(body) => {
+            protocol::write_http_response_shared(
+                writer,
+                version,
+                dispatch.status,
+                &dispatch.headers,
+                body,
+            )
+            .await
+        }
         HttpResponseBody::Streaming(reader) => {
             strip_content_length(&mut dispatch.headers);
             ensure_chunked_transfer_encoding(&mut dispatch.headers);
@@ -5433,7 +5446,7 @@ async fn send_http_simple_response(
     keep_alive: bool,
     body: &[u8],
     extra_headers: &[(&str, &str)],
-) -> Result<(), String> {
+) -> io::Result<()> {
     let mut headers: Vec<(String, String)> = extra_headers
         .iter()
         .map(|(name, value)| (name.to_string(), value.to_string()))
@@ -5441,7 +5454,6 @@ async fn send_http_simple_response(
     ensure_connection_header(&mut headers, keep_alive, version);
     protocol::write_http_response_shared(writer, version, status.as_u16() as i32, &headers, body)
         .await
-        .map_err(|err| err.to_string())
 }
 
 fn ensure_connection_header(headers: &mut Vec<(String, String)>, keep_alive: bool, version: u8) {
@@ -5473,7 +5485,7 @@ async fn write_http1_chunked_response(
     status: i32,
     headers: &[(String, String)],
     reader: &mut ResponseStreamReader,
-) -> Result<(), String> {
+) -> io::Result<()> {
     let clamped = status.clamp(100, 599) as u16;
     let status_code = StatusCode::from_u16(clamped).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     let reason = status_code.canonical_reason().unwrap_or("");
@@ -5484,15 +5496,14 @@ async fn write_http1_chunked_response(
         version,
         status_code.as_u16(),
         reason
-    )
-    .map_err(|err| err.to_string())?;
+    )?;
     for (name, value) in headers {
-        write!(&mut response, "{}: {}\r\n", name, value).map_err(|err| err.to_string())?;
+        write!(&mut response, "{}: {}\r\n", name, value)?;
     }
     response.extend_from_slice(b"\r\n");
     if let Err(err) = writer.write_all(&response).await {
         reader.close();
-        return Err(err.to_string());
+        return Err(err);
     }
 
     loop {
@@ -5504,27 +5515,30 @@ async fn write_http1_chunked_response(
                 let header = format!("{:X}\r\n", bytes.len());
                 if let Err(err) = writer.write_all(header.as_bytes()).await {
                     reader.close();
-                    return Err(err.to_string());
+                    return Err(err);
                 }
                 if let Err(err) = writer.write_all(&bytes).await {
                     reader.close();
-                    return Err(err.to_string());
+                    return Err(err);
                 }
                 if let Err(err) = writer.write_all(b"\r\n").await {
                     reader.close();
-                    return Err(err.to_string());
+                    return Err(err);
                 }
             }
             Ok(ResponseStreamFrame::Finished { .. }) => {
                 if let Err(err) = writer.write_all(b"0\r\n\r\n").await {
                     reader.close();
-                    return Err(err.to_string());
+                    return Err(err);
                 }
                 return Ok(());
             }
             Err(err) => {
                 reader.close();
-                return Err(format!("http/1.x streaming response failed: {}", err));
+                return Err(io::Error::other(format!(
+                    "http/1.x streaming response failed: {}",
+                    err
+                )));
             }
         }
     }
@@ -5880,6 +5894,10 @@ fn is_benign_socket_shutdown(kind: io::ErrorKind) -> bool {
             | io::ErrorKind::ConnectionReset
             | io::ErrorKind::ConnectionAborted
     )
+}
+
+fn should_log_http_response_send_error(kind: io::ErrorKind) -> bool {
+    !is_benign_socket_shutdown(kind)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -8894,6 +8912,25 @@ mod tests {
             classify_http2_accept_error_parts(false, Some(io::ErrorKind::InvalidData)),
             Http2AcceptErrorClass::ProtocolError
         );
+    }
+
+    #[test]
+    fn http1_response_peer_disconnects_do_not_emit_error_diagnostics() {
+        assert!(!should_log_http_response_send_error(
+            io::ErrorKind::BrokenPipe
+        ));
+        assert!(!should_log_http_response_send_error(
+            io::ErrorKind::ConnectionReset
+        ));
+        assert!(!should_log_http_response_send_error(
+            io::ErrorKind::ConnectionAborted
+        ));
+        assert!(!should_log_http_response_send_error(
+            io::ErrorKind::UnexpectedEof
+        ));
+        assert!(should_log_http_response_send_error(
+            io::ErrorKind::InvalidData
+        ));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

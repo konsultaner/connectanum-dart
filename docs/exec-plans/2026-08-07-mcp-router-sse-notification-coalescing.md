@@ -1,7 +1,7 @@
 # MCP Router Streamable Notification Coalescing
 
-Status: active; implementation and local verification complete, exact-head
-hosted verification pending
+Status: active; notification implementation published, clean-log follow-up
+locally verified, exact-head hosted rerun pending
 
 ## Goal
 
@@ -87,9 +87,36 @@ existing response-byte ceiling.
   globally activated consumer smoke, the complete 391-case router suite, the
   6-case remote-auth process, the 13-case native follow-up, and
   Chrome/Dart2Wasm.
+- 2026-08-07: Notification implementation commit `31da899b` was pushed to both
+  maintained `master` branches. Exact-head CI `31214730397`, Dart Package
+  Publish Dry Run `31214730720`, WAMP Profile Benchmarks `31214730854`, and
+  Router Image dry run `31214737283` all passed on their first attempts. CI
+  uploaded coverage artifact `9008529743`, WAMP uploaded artifact
+  `9008232165`, and Router Image uploaded preview artifact `9008047321` plus
+  Docker build records `9008154623` and `9008154114`.
+- 2026-08-07: The comprehensive strict audit then rejected one hosted Full
+  Verify line: an MCP consumer probe closed a completed HTTP response early and
+  the native HTTP/1 writer logged the resulting `Connection reset by peer` as
+  a send failure. The local consumer smoke reproduced the equivalent
+  `Broken pipe` output. This was a log-cleanliness failure, not a workflow or
+  request-lifecycle failure.
+- 2026-08-07: A fail-first Rust regression now requires HTTP/1 response writes
+  to reuse the existing benign peer-shutdown classification. Buffered,
+  streaming, simple, and spawned response paths preserve `io::ErrorKind` and
+  end quietly for `UnexpectedEof`, `BrokenPipe`, `ConnectionReset`, and
+  `ConnectionAborted`, while other errors remain reportable. The focused Rust
+  test and the exact isolated MCP consumer smoke pass without the prior output.
+  Post-fix `bin/test-fast` passes the complete fast gate with quiet consumer
+  output. Final `bin/verify` passes formatting, 114 Rust core tests, 52 Rust FFI
+  tests plus the focused metrics check, 360 Dart core tests, all 95 MCP tests,
+  the complete 280-case MCP/client suite, all 96 benchmark tests including 36
+  live WAMP workloads, every generated and globally activated consumer smoke,
+  the complete 391-case router suite, the 6-case remote-auth process, the
+  13-case native follow-up, and Chrome/Dart2Wasm without the strict scanner's
+  peer-reset signatures.
 
 ## Handoff
 
-- Implementation and local verification are complete. Commit, dual-remote
-  publication, exact-head hosted workflows, and the strict deployment-chain
-  audit remain.
+- Notification coalescing is published and its exact-head workflows are green.
+  Commit and publish the clean-log follow-up, then rerun exact-head hosted
+  workflows and the comprehensive strict deployment-chain audit.

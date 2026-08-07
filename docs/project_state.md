@@ -24863,9 +24863,31 @@ at the older `47bbf9c` commit.
   tests, the complete 280-case MCP/client suite, all 96 benchmark tests
   including 36 live WAMP workloads, every generated and globally activated
   consumer smoke, the complete 391-case router suite, the 6-case remote-auth
-  process, the 13-case native follow-up, and Chrome/Dart2Wasm. Commit,
-  dual-remote publication, exact-head hosted workflows, and the comprehensive
-  strict deployment-chain audit remain.
+  process, the 13-case native follow-up, and Chrome/Dart2Wasm. Notification
+  implementation commit `31da899b` is on both maintained `master` branches.
+  Exact-head CI `31214730397`, Dart Package Publish Dry Run `31214730720`, WAMP
+  Profile Benchmarks `31214730854`, and Router Image dry run `31214737283` all
+  passed on their first attempts. CI uploaded coverage artifact `9008529743`,
+  WAMP uploaded artifact `9008232165`, and Router Image uploaded preview
+  artifact `9008047321` plus Docker build records `9008154623` and
+  `9008154114`.
+
+  The comprehensive strict audit rejected one otherwise successful hosted Full
+  Verify line because an MCP consumer probe closed a completed HTTP response
+  early and the native HTTP/1 writer logged `Connection reset by peer`. The
+  equivalent local path emitted `Broken pipe`. A fail-first Rust regression now
+  requires buffered, streaming, simple, and spawned HTTP/1 response paths to
+  preserve `io::ErrorKind`, end quietly for the established benign peer-
+  shutdown kinds, and retain diagnostics for other failures. The focused test
+  and exact isolated consumer smoke pass without the prior output. Post-fix
+  `bin/test-fast` and final `bin/verify` pass; the latter includes 114 Rust core
+  tests, 52 Rust FFI tests plus the focused metrics check, 360 Dart core tests,
+  all 95 MCP tests, the complete 280-case MCP/client suite, all 96 benchmark
+  tests including 36 live WAMP workloads, every generated and globally
+  activated consumer smoke, the complete 391-case router suite, the 6-case
+  remote-auth process, the 13-case native follow-up, and Chrome/Dart2Wasm with
+  quiet transport output. Clean-log follow-up commit, dual-remote publication,
+  exact-head hosted reruns, and the comprehensive strict audit remain.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-07-mcp-router-sse-poll-response-bounds.md`.
   Compatibility-era Streamable GET polling previously bypassed the MCP route's
