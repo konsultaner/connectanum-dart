@@ -877,6 +877,24 @@ void main() {
         returnsNormally,
       );
       _expectInvalidMcpOptions({
+        'max_session_count': 0,
+      }, 'MCP max_session_count must be a positive integer');
+      _expectInvalidMcpOptions({
+        'maxSessionCount': '1',
+      }, 'MCP maxSessionCount must be a positive integer');
+      expect(
+        _routerWithMcpOptions(const {
+          'max_session_count': 1,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      expect(
+        _routerWithMcpOptions(const {
+          'maxSessionCount': 1024,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      _expectInvalidMcpOptions({
         'call_timeout_ms': 0,
       }, 'MCP call_timeout_ms must be a positive integer');
       _expectInvalidMcpOptions({

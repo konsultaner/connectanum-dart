@@ -203,6 +203,7 @@ RouterSettings _buildSettings() {
     'include_pubsub_tools': true,
     'max_request_bytes': 16 * 1024 * 1024,
     'max_response_bytes': 16 * 1024 * 1024,
+    'max_session_count': 1024,
     'call_timeout_ms': 30000,
     'procedures': [
       {

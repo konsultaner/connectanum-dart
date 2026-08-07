@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-06
+Last updated: 2026-08-07
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -24846,7 +24846,27 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the router-hosted MCP response-body bounds plan is
+- Active now, the router-hosted MCP session-capacity plan is
+  `docs/exec-plans/2026-08-07-mcp-router-session-capacity.md`. Source audit
+  found that compatibility MCP sessions have per-route idle expiry but no
+  admission bound, so client churn can retain arbitrarily many MCP server
+  endpoints and associated WAMP state during the idle window. The checkpoint
+  adds a positive route limit/default, atomic route-scoped admission, bounded
+  overload behavior without session-header leakage, auth precedence, active-
+  session reuse, modern direct JSON independence, and DELETE/idle-expiry
+  capacity recovery. The pre-change fast gate passed; fail-first coverage
+  proved that zero was accepted and a configured capacity was ignored. Routes
+  now accept positive snake/camel options with a default of 1024, sweep expired
+  sessions before admission, and count only compatibility endpoints on the
+  same listener and route. Excess initialize requests receive HTTP `503` with
+  a JSON-RPC internal error and no session header. Native coverage proves
+  public/protected limits, missing-bearer precedence while full, rejected-
+  client isolation, active-session reuse, sessionless direct JSON operation,
+  and DELETE/idle-expiry recovery. Focused analysis/tests, post-change
+  `bin/test-fast`, and `bin/verify` are clean across Rust, Dart, native router
+  integrations, neutral consumer/CLI smokes, router-hosted MCP live variants,
+  and Chrome Dart2Wasm. Commit, push, and exact-head hosted verification remain.
+- Completed most recently, the router-hosted MCP response-body bounds plan is
   `docs/exec-plans/2026-08-07-mcp-router-response-body-bounds.md`. Source audit
   found that the public MCP client caps buffered responses and SSE events at
   16 MiB while router-hosted operation responses are serialized and emitted
@@ -24869,8 +24889,21 @@ at the older `47bbf9c` commit.
   core tests plus three serializer integrations, 52 Rust FFI tests, 360 Dart
   core, 95 MCP, 280 MCP/client, 96 benchmark/live-router, and 390 total router
   tests; every neutral package and CLI consumer smoke; all maintained router-
-  hosted MCP live variants; and Chrome Dart2Wasm WebSocket coverage. Commit,
-  push, and exact-head hosted verification remain.
+  hosted MCP live variants; and Chrome Dart2Wasm WebSocket coverage.
+  Implementation commit `5e3c2391` is on both maintained `master` branches.
+  Exact-head CI `31175973440` passed Fast Checks, Full Verify, Dart VM Coverage,
+  Codecov upload, and coverage artifact `8993213873`. Dart Package Publish Dry
+  Run `31175973400` and WAMP Profile Benchmarks `31175973516` with artifact
+  `8993006909` passed on their first attempts. Router Image dry run
+  `31177226809` passed preview artifact `8993286686`, the local image build,
+  router-hosted MCP smoke, skipped GHCR login, and the non-publishing multi-
+  architecture build. The comprehensive strict deployment-chain audit exited
+  zero with exact-head CI/log, package, relevant native-release, WAMP artifact,
+  Router Image, protected-branch, workflow-visibility, and public router-package
+  gates ready. A follow-up RC tag remains the expected approval-gated, non-
+  blocking release decision. Leave this docs-only hosted-evidence bookkeeping
+  uncommitted until it can accompany the next implementation/configuration
+  commit.
 - Completed most recently, the router-hosted MCP WAMP call-deadline plan is
   `docs/exec-plans/2026-08-07-mcp-router-wamp-call-deadline.md`. Source audit
   found that MCP tool calls and WAMP-backed dynamic resource reads did not

@@ -4579,6 +4579,155 @@ void main() {
     );
 
     test(
+      'bounds compatibility MCP sessions per route without blocking auth or direct JSON',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9143,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxSessionCount: 1),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final publicEndpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final secureEndpoint = publicEndpoint.replace(path: '/mcp/secure');
+        final publicPrimary = McpStreamableHttpClient(publicEndpoint);
+        final publicContender = McpStreamableHttpClient(publicEndpoint);
+        final publicDirect = McpStreamableHttpClient.stateless(
+          publicEndpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-session-capacity-test',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => publicPrimary.close(force: true));
+        addTearDown(() => publicContender.close(force: true));
+        addTearDown(() => publicDirect.close(force: true));
+
+        await publicPrimary.initialize(id: 'public-capacity-primary');
+        await publicPrimary.notifyInitialized();
+        final publicSessionId = publicPrimary.sessionId;
+        expect(publicSessionId, isNotNull);
+
+        await expectLater(
+          publicContender.initialize(id: 'public-capacity-contender'),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.serviceUnavailable,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  contains('session capacity is exhausted'),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(publicContender.sessionId, isNull);
+        expect(publicContender.lastEventId, isNull);
+        expect(
+          await publicDirect.pingDirect(id: 'public-capacity-direct'),
+          containsPair('resultType', 'complete'),
+        );
+        expect(publicDirect.sessionId, isNull);
+        expect(publicDirect.lastEventId, isNull);
+        final publicTools = await publicPrimary.listTools(
+          id: 'public-capacity-primary-tools',
+        );
+        expect(
+          publicTools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        expect(publicPrimary.sessionId, equals(publicSessionId));
+
+        final unauthenticatedSecure = McpStreamableHttpClient(secureEndpoint);
+        addTearDown(() => unauthenticatedSecure.close(force: true));
+        final authHttpClient = HttpClient();
+        addTearDown(() => authHttpClient.close(force: true));
+        final grant = await _issueTicketHttpGrant(
+          authHttpClient,
+          listener.port,
+        );
+        final securePrimary = McpStreamableHttpClient.withAuthGrant(
+          secureEndpoint,
+          grant,
+        );
+        final secureContender = McpStreamableHttpClient.withAuthGrant(
+          secureEndpoint,
+          grant,
+        );
+        addTearDown(() => securePrimary.close(force: true));
+        addTearDown(() => secureContender.close(force: true));
+
+        await securePrimary.initialize(id: 'secure-capacity-primary');
+        await securePrimary.notifyInitialized();
+        final secureSessionId = securePrimary.sessionId;
+        expect(secureSessionId, isNotNull);
+        await expectLater(
+          unauthenticatedSecure.initialize(
+            id: 'secure-capacity-unauthenticated',
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.unauthorized,
+            ),
+          ),
+        );
+        expect(unauthenticatedSecure.sessionId, isNull);
+        await expectLater(
+          secureContender.initialize(id: 'secure-capacity-contender'),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.serviceUnavailable,
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(secureContender.sessionId, isNull);
+        final secureTools = await securePrimary.listTools(
+          id: 'secure-capacity-primary-tools',
+        );
+        expect(
+          secureTools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        expect(securePrimary.sessionId, equals(secureSessionId));
+
+        await publicPrimary.deleteSession();
+        await publicContender.initialize(id: 'public-capacity-after-delete');
+        expect(publicContender.sessionId, isNotNull);
+        await publicContender.deleteSession();
+
+        await securePrimary.deleteSession();
+        await secureContender.initialize(id: 'secure-capacity-after-delete');
+        expect(secureContender.sessionId, isNotNull);
+        await secureContender.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP request bodies without poisoning auth or session state',
       () async {
         final harness = await _RouterHarness.start(
@@ -5284,7 +5433,10 @@ void main() {
         final harness = await _RouterHarness.start(
           connectionId: 9117,
           nativeLib: nativeLib,
-          settings: _buildMcpSmokeSettings(sessionIdleTimeoutMs: 1000),
+          settings: _buildMcpSmokeSettings(
+            sessionIdleTimeoutMs: 1000,
+            maxSessionCount: 1,
+          ),
         );
         addTearDown(harness.dispose);
 
@@ -5296,7 +5448,9 @@ void main() {
           path: '/mcp/public',
         );
         final client = McpStreamableHttpClient(endpoint);
+        final replacementClient = McpStreamableHttpClient(endpoint);
         addTearDown(() => client.close(force: true));
+        addTearDown(() => replacementClient.close(force: true));
 
         await client.initialize(id: 'idle-expiry-initialize');
         await client.notifyInitialized();
@@ -5320,6 +5474,18 @@ void main() {
         }
 
         expect(await subscriberCount(), equals(1));
+
+        await expectLater(
+          replacementClient.initialize(id: 'idle-expiry-capacity-blocked'),
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.serviceUnavailable,
+            ),
+          ),
+        );
+        expect(replacementClient.sessionId, isNull);
 
         await Future<void>.delayed(const Duration(milliseconds: 1500));
 
@@ -5346,19 +5512,21 @@ void main() {
         expect(client.sessionId, isNull);
         expect(client.lastEventId, isNull);
 
-        await client.initialize(id: 'idle-expiry-replacement-initialize');
-        expect(client.sessionId, isNotNull);
-        expect(client.sessionId, isNot(equals(expiredSessionId)));
-        await client.notifyInitialized();
-        final replacementTools = await client.listTools(
+        await replacementClient.initialize(
+          id: 'idle-expiry-replacement-initialize',
+        );
+        expect(replacementClient.sessionId, isNotNull);
+        expect(replacementClient.sessionId, isNot(equals(expiredSessionId)));
+        await replacementClient.notifyInitialized();
+        final replacementTools = await replacementClient.listTools(
           id: 'idle-expiry-replacement-tools',
         );
         expect(
           replacementTools.tools.map((tool) => tool['name']),
           contains('connectanum.api.list'),
         );
-        await client.deleteSession();
-        expect(client.sessionId, isNull);
+        await replacementClient.deleteSession();
+        expect(replacementClient.sessionId, isNull);
       },
       skip: skipReason,
     );
@@ -10221,6 +10389,7 @@ final class _BlockingCatalogAuthorizationProvider
 RouterSettings _buildMcpSmokeSettings({
   bool enableHttp3 = false,
   int? sessionIdleTimeoutMs,
+  int? maxSessionCount,
   int? maxRequestBytes,
   int? maxResponseBytes,
   int? callTimeoutMs,
@@ -10235,6 +10404,7 @@ RouterSettings _buildMcpSmokeSettings({
   final mcpOptions = <String, Object?>{
     'tool_list_page_size': 100,
     'session_idle_timeout_ms': ?sessionIdleTimeoutMs,
+    'max_session_count': ?maxSessionCount,
     'max_request_bytes': ?maxRequestBytes,
     'max_response_bytes': ?maxResponseBytes,
     'call_timeout_ms': ?callTimeoutMs,

@@ -1,6 +1,6 @@
 # MCP Router Response Body Bounds
 
-Status: active; implementation and local verification clean, commit and hosted verification pending
+Status: completed; local and exact-head hosted verification clean
 
 ## Goal
 
@@ -76,9 +76,21 @@ budget without a route-level policy.
   core, 95 MCP, 280 MCP/client, 96 benchmark/live-router, and 390 total router
   tests; every neutral package and CLI consumer smoke; all maintained router-
   hosted MCP live variants; and Chrome Dart2Wasm WebSocket coverage.
+- 2026-08-07: Implementation commit `5e3c2391` is on both maintained `master`
+  branches. Exact-head CI `31175973440` passed Fast Checks, Full Verify, Dart
+  VM Coverage, Codecov upload, and coverage artifact `8993213873`. Dart Package
+  Publish Dry Run `31175973400` and WAMP Profile Benchmarks `31175973516` with
+  artifact `8993006909` passed on their first attempts. Router Image dry run
+  `31177226809` passed preview artifact `8993286686`, the local image build,
+  router-hosted MCP smoke, skipped GHCR login, and the non-publishing multi-
+  architecture build.
+- 2026-08-07: The comprehensive strict deployment-chain audit exited zero. It
+  confirmed exact-head CI and clean logs, package/archive readiness, relevant
+  native-release evidence, WAMP and Router Image artifacts, protected-branch
+  checks, workflow visibility, and the public router package. A follow-up RC
+  tag remains the expected approval-gated, non-blocking release decision.
 
 ## Handoff
 
-- Commit and push the bounded response path together with the deferred exact-
-  head evidence from the preceding checkpoint, then audit the new exact-head
-  hosted deployment chain.
+- Completed. Leave this hosted-evidence bookkeeping uncommitted until it can be
+  bundled with the next implementation/configuration commit.

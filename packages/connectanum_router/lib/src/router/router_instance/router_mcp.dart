@@ -49,6 +49,8 @@ const int _mcpDefaultMaxRequestBytes = 16 * 1024 * 1024;
 
 const int _mcpDefaultMaxResponseBytes = 16 * 1024 * 1024;
 
+const int _mcpDefaultMaxSessionCount = 1024;
+
 const int _mcpDefaultWampCallTimeoutMs = 30000;
 
 int _mcpMaxRequestBytesForRoute(HttpRouteSettings route) {
@@ -65,6 +67,14 @@ int _mcpMaxResponseBytesForRoute(HttpRouteSettings route) {
         'maxResponseBytes',
       ]) ??
       _mcpDefaultMaxResponseBytes;
+}
+
+int _mcpMaxSessionCountForRoute(HttpRouteSettings route) {
+  return _intOptionAny(route.action.options, const <String>[
+        'max_session_count',
+        'maxSessionCount',
+      ]) ??
+      _mcpDefaultMaxSessionCount;
 }
 
 Duration? _mcpSessionIdleTimeoutForRoute(HttpRouteSettings route) {
@@ -2156,13 +2166,30 @@ Future<void> _handleMcpHttpRequestForBinding(
             create: false,
           ) !=
           null;
-  final endpoint = binding._mcpEndpointForRoute(
-    request: request,
-    route: route,
-    session: session,
-    mcpSessionId: effectiveMcpSessionId,
-    create: isInitialize || requestMcpSessionId == null,
-  );
+  final _RouterMcpEndpoint? endpoint;
+  try {
+    endpoint = binding._mcpEndpointForRoute(
+      request: request,
+      route: route,
+      session: session,
+      mcpSessionId: effectiveMcpSessionId,
+      create: isInitialize || requestMcpSessionId == null,
+    );
+  } on _McpSessionCapacityExceeded {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.serviceUnavailable,
+        code: mcp.McpErrorCodes.internalError,
+        message: 'MCP HTTP session capacity is exhausted',
+        id: _recoverDirectJsonRequestId(rawMessage),
+        protocolVersion: effectiveResponseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      ),
+    );
+    return;
+  }
   if (endpoint == null) {
     await binding._sendImmediateHttpResponse(
       request: request,
@@ -2450,9 +2477,23 @@ extension _RouterBindingMcp on RouterBinding {
     if (!create) {
       return null;
     }
+    if (mcpSessionId != null) {
+      final activeSessionCount = _mcpEndpoints.values
+          .where(
+            (endpoint) =>
+                endpoint.mcpSessionId != null &&
+                endpoint.listenerId == request.listenerId &&
+                identical(endpoint.route, route),
+          )
+          .length;
+      if (activeSessionCount >= _mcpMaxSessionCountForRoute(route)) {
+        throw const _McpSessionCapacityExceeded();
+      }
+    }
     final endpoint = _RouterMcpEndpoint(
       binding: this,
       endpointKey: key,
+      listenerId: request.listenerId,
       route: route,
       session: session,
       mcpSessionId: mcpSessionId,
@@ -2508,6 +2549,10 @@ final class _RouterMcpSsePollBatch {
   final List<_RouterMcpSseEvent> events;
   final List<_RouterMcpSseEvent> newEvents;
   final List<mcp.JsonMap> pendingMessages;
+}
+
+final class _McpSessionCapacityExceeded implements Exception {
+  const _McpSessionCapacityExceeded();
 }
 
 final class _UnknownMcpSseEventId implements Exception {
@@ -2584,6 +2629,7 @@ class _RouterMcpEndpoint {
   _RouterMcpEndpoint({
     required this.binding,
     required this.endpointKey,
+    required this.listenerId,
     required this.route,
     required this.session,
     required this.mcpSessionId,
@@ -2631,6 +2677,7 @@ class _RouterMcpEndpoint {
 
   final RouterBinding binding;
   final String endpointKey;
+  final int listenerId;
   final HttpRouteSettings route;
   final RouterSession session;
   final String? mcpSessionId;
@@ -4606,6 +4653,8 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'maxRequestBytes',
     'max_response_bytes',
     'maxResponseBytes',
+    'max_session_count',
+    'maxSessionCount',
     'call_timeout_ms',
     'callTimeoutMs',
   ]) {

@@ -157,6 +157,8 @@ const HttpRouteSettings(
     realm: 'realm1',
     options: {
       'max_request_bytes': 16 * 1024 * 1024,
+      'max_response_bytes': 16 * 1024 * 1024,
+      'max_session_count': 1024,
       'call_timeout_ms': 30000,
       'session_idle_timeout_ms': 600000,
       'resources': [
@@ -207,11 +209,23 @@ and subscriptions, and later requests carrying that stale session identifier
 receive `404` so a conforming client can initialize a replacement session.
 Modern `2026-07-28` and direct JSON requests remain sessionless.
 
+Each route admits up to 1024 active compatibility sessions by default. Set
+the positive `max_session_count` (or `maxSessionCount`) route option to choose
+another bound. When the route is full, a new initialize request receives HTTP
+`503` without an MCP session identifier; authenticated existing sessions and
+sessionless direct JSON requests remain usable. DELETE and idle expiry release
+capacity.
+
 MCP POST bodies are limited to 16 MiB by default and rejected with HTTP `413`
 before UTF-8 or JSON decoding. Set the positive `max_request_bytes` (or
 `maxRequestBytes`) route option to choose another raw-byte limit. Bearer
 authentication still runs first on protected routes, so an oversized request
 without valid credentials receives the normal authentication challenge.
+
+Encoded MCP JSON-RPC responses are also limited to 16 MiB by default. Set the
+positive `max_response_bytes` (or `maxResponseBytes`) route option to choose
+another bound. Oversized responses fail with HTTP `500` without an MCP session
+identifier, while an established compatibility session remains reusable.
 
 Router-hosted MCP tool calls and WAMP-backed dynamic resource reads carry a
 protocol-level 30-second CALL timeout by default. Set the positive
