@@ -1,7 +1,7 @@
 # Project State
 
-Last updated: 2026-08-07
-Current branch: `codex/mcp-router-sse-notification-coalescing`
+Last updated: 2026-08-08
+Current branch: `codex/mcp-router-sse-sequence-rollback`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24847,6 +24847,23 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-08-mcp-router-sse-sequence-rollback.md`.
+  Compatibility-era GET/SSE and POST/SSE response assembly previously mutated
+  `_sseStreamSequences` before delivery commits. Committed history eventually
+  removes old stream entries, but failed responses never enter that history:
+  GET failure only restores queued notifications, and POST failure falls back
+  to JSON without restoration. Repeated failed sends could therefore retain
+  one fresh stream key per attempt for the lifetime of a valid session. Batches
+  now carry their previous and final reservations, conditionally roll back only
+  reservations they still own, and route POST fallback through the same
+  restoration path. The fail-first regression covers fresh and existing
+  streams, stale overlapping failures, and reverse-order unwind. Pre- and
+  post-change `bin/test-fast`, focused native integration regressions, router
+  analysis, and `bin/verify` pass on 2026-08-08. Full verification includes 392
+  router tests, 36 live WAMP workloads, all generated and globally activated
+  consumer smokes, remote-auth isolation, native follow-ups, and
+  Chrome/Dart2Wasm. Publication and exact-head hosted evidence remain.
+- Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-07-mcp-router-sse-notification-coalescing.md`.
   Compatibility-era Streamable endpoints now retain at most one pending or
   in-flight copy of an identical logical SSE notification. Exact JSON keys
@@ -24886,9 +24903,21 @@ at the older `47bbf9c` commit.
   tests including 36 live WAMP workloads, every generated and globally
   activated consumer smoke, the complete 391-case router suite, the 6-case
   remote-auth process, the 13-case native follow-up, and Chrome/Dart2Wasm with
-  quiet transport output. Clean-log follow-up commit, dual-remote publication,
-  exact-head hosted reruns, and the comprehensive strict audit remain.
-- Completed most recently, the implementation plan is
+  quiet transport output. Clean-log follow-up commit `d4f42076` is on both
+  maintained `master` branches. Exact-head CI `31219689987`, kTLS Validation
+  `31219689141`, WAMP Profile Benchmarks `31219691562`, Router Image dry run
+  `31219708768`, and accepted Native Artifacts validation dry run
+  `31221315902` all passed. CI uploaded coverage artifact `9010280942`; WAMP
+  uploaded artifact `9010052133`; Router Image uploaded preview artifact
+  `9009894056` plus Docker build records `9010417285` and `9010416733`; the
+  native run uploaded release preview `9010534426` plus all five platform
+  bundles and avoided GitHub Release mutation. The package dry run at
+  `31da899b` remains relevant because the native follow-up changed no
+  publish-sensitive paths. The comprehensive strict deployment-chain audit
+  passes with a clean exact-head CI log scan and all required package, native,
+  Router Image, WAMP, workflow, branch-protection, and package-visibility gates
+  green.
+- Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-07-mcp-router-sse-poll-response-bounds.md`.
   Compatibility-era Streamable GET polling previously bypassed the MCP route's
   `max_response_bytes` ceiling and materialized every replay and queued

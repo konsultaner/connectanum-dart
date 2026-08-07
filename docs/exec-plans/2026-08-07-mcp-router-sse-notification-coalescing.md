@@ -1,7 +1,7 @@
 # MCP Router Streamable Notification Coalescing
 
-Status: active; notification implementation published, clean-log follow-up
-locally verified, exact-head hosted rerun pending
+Status: completed; implementation and clean-log follow-up published, exact-head
+hosted evidence and strict deployment-chain audit green
 
 ## Goal
 
@@ -114,9 +114,30 @@ existing response-byte ceiling.
   the complete 391-case router suite, the 6-case remote-auth process, the
   13-case native follow-up, and Chrome/Dart2Wasm without the strict scanner's
   peer-reset signatures.
+- 2026-08-07: Clean-log follow-up commit `d4f42076` was pushed to both
+  maintained `master` branches. Exact-head CI `31219689987`, kTLS Validation
+  `31219689141`, WAMP Profile Benchmarks `31219691562`, Router Image dry run
+  `31219708768`, and accepted Native Artifacts validation dry run
+  `31221315902` all passed. CI uploaded coverage artifact `9010280942`; WAMP
+  uploaded artifact `9010052133`; Router Image uploaded preview artifact
+  `9009894056` plus Docker build records `9010417285` and `9010416733`; the
+  native run uploaded release preview `9010534426` and all five platform
+  bundles. The native dry run accepted
+  `v0.1.0-rc.2-validation.d4f4207`, avoided GitHub Release mutation, and
+  superseded an initial dispatch that omitted the validation tag. The package
+  dry run at implementation commit `31da899b` remains relevant because the
+  follow-up changed no publish-sensitive paths.
+- 2026-08-07: The comprehensive strict deployment-chain audit passes. It
+  reports a clean exact-head CI job set and log scan with no warning,
+  deprecation, skipped, reset, or connection-noise signatures; clean relevant
+  Dart package, native release, Router Image, and WAMP evidence; successful
+  loaded-image router-hosted MCP smoke and multi-architecture build; and intact
+  branch protection, workflow visibility, and public container visibility.
 
 ## Handoff
 
-- Notification coalescing is published and its exact-head workflows are green.
-  Commit and publish the clean-log follow-up, then rerun exact-head hosted
-  workflows and the comprehensive strict deployment-chain audit.
+- Notification coalescing and benign HTTP peer-shutdown handling are published
+  at `31da899b` and `d4f42076` on both maintained `master` branches. Local full
+  verification, exact-head hosted workflows, and the comprehensive strict
+  deployment-chain audit are green. Select the next router-hosted MCP or
+  downstream-readiness implementation gap from the roadmaps.

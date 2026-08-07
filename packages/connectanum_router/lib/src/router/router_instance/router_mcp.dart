@@ -499,6 +499,37 @@ bool mcpLastEventIdHeaderValueValidForTest(String value) {
   return true;
 }
 
+void _restoreMcpSseSequenceReservations({
+  required Map<String, int> streamSequences,
+  required Map<String, int?> previousSequences,
+  required Map<String, int> reservedSequences,
+}) {
+  for (final reservation in reservedSequences.entries) {
+    if (streamSequences[reservation.key] != reservation.value) {
+      continue;
+    }
+    final previousSequence = previousSequences[reservation.key];
+    if (previousSequence == null) {
+      streamSequences.remove(reservation.key);
+    } else {
+      streamSequences[reservation.key] = previousSequence;
+    }
+  }
+}
+
+@visibleForTesting
+void restoreMcpSseSequenceReservationsForTest({
+  required Map<String, int> streamSequences,
+  required Map<String, int?> previousSequences,
+  required Map<String, int> reservedSequences,
+}) {
+  _restoreMcpSseSequenceReservations(
+    streamSequences: streamSequences,
+    previousSequences: previousSequences,
+    reservedSequences: reservedSequences,
+  );
+}
+
 String? _mcpHeaderValueRaw(
   RouterBinding binding,
   RouterHttpRequest request,
@@ -2406,6 +2437,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         endpoint.commitSsePollBatch(responseBatch);
         return;
       }
+      endpoint.restoreSsePollBatch(responseBatch);
     }
     final responseErrorCode = response is Map && response['error'] is Map
         ? (response['error'] as Map)['code']
@@ -2644,11 +2676,15 @@ final class _RouterMcpSsePollBatch {
     required this.events,
     required this.newEvents,
     required this.pendingMessages,
+    required this.previousStreamSequences,
+    required this.reservedStreamSequences,
   });
 
   final List<_RouterMcpSseEvent> events;
   final List<_RouterMcpSseEvent> newEvents;
   final List<mcp.JsonMap> pendingMessages;
+  final Map<String, int?> previousStreamSequences;
+  final Map<String, int> reservedStreamSequences;
 }
 
 final class _McpSessionCapacityExceeded implements Exception {
@@ -3092,6 +3128,7 @@ class _RouterMcpEndpoint {
         ),
       );
     }
+    final previousStreamSequence = _sseStreamSequences[streamId];
 
     int eventByteLength(_RouterMcpSseEvent event) {
       return _mcpSseEventBytes(
@@ -3184,6 +3221,12 @@ class _RouterMcpEndpoint {
       events: events,
       newEvents: newEvents,
       pendingMessages: pendingMessages,
+      previousStreamSequences: newEvents.isEmpty
+          ? const <String, int?>{}
+          : <String, int?>{streamId: previousStreamSequence},
+      reservedStreamSequences: newEvents.isEmpty
+          ? const <String, int>{}
+          : <String, int>{streamId: _sseStreamSequences[streamId]!},
     );
   }
 
@@ -3192,6 +3235,7 @@ class _RouterMcpEndpoint {
     required String responseJson,
   }) {
     final streamId = 's${++_nextSseStream}';
+    final previousStreamSequence = _sseStreamSequences[streamId];
     final primer = _nextSseEvent(
       sessionId: sessionId,
       streamId: streamId,
@@ -3206,6 +3250,10 @@ class _RouterMcpEndpoint {
       events: <_RouterMcpSseEvent>[primer, responseEvent],
       newEvents: <_RouterMcpSseEvent>[primer, responseEvent],
       pendingMessages: const <mcp.JsonMap>[],
+      previousStreamSequences: <String, int?>{streamId: previousStreamSequence},
+      reservedStreamSequences: <String, int>{
+        streamId: _sseStreamSequences[streamId]!,
+      },
     );
   }
 
@@ -3219,6 +3267,11 @@ class _RouterMcpEndpoint {
   }
 
   void restoreSsePollBatch(_RouterMcpSsePollBatch batch) {
+    _restoreMcpSseSequenceReservations(
+      streamSequences: _sseStreamSequences,
+      previousSequences: batch.previousStreamSequences,
+      reservedSequences: batch.reservedStreamSequences,
+    );
     if (batch.pendingMessages.isNotEmpty) {
       _pendingSseMessages.insertAll(0, batch.pendingMessages);
     }
