@@ -11,6 +11,8 @@
   rotation while continuing to reject the rotated credentials.
 - Bound router-hosted MCP POST bodies before UTF-8 and JSON decoding with a
   configurable raw-byte limit and authenticated-route precedence.
+- Bound router-hosted MCP tool and dynamic-resource WAMP calls with a
+  configurable protocol-level deadline and router-driven cancellation.
 
 ## 0.1.0
 

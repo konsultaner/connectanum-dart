@@ -1,7 +1,6 @@
 # MCP Router Request Body Bounds
 
-Status: active; implementation and local verification clean; push and exact-head
-hosted evidence pending
+Status: completed; local and exact-head hosted verification clean
 
 ## Goal
 
@@ -83,8 +82,20 @@ without weakening bearer precedence or compatibility-session state.
   MCP, 280 MCP/client, 96 benchmark/live-router, and 388 router tests; all 13
   focused native-forwarding regressions; every neutral consumer package and CLI
   smoke; and Chrome Dart2Wasm WebSocket coverage.
+- 2026-08-07: Implementation commit `acfebd21` is on both maintained `master`
+  branches. Exact-head CI `31157728571` passed Fast Checks, Full Verify, Dart VM
+  Coverage, Codecov upload, and coverage artifact upload. Dart Package Publish
+  Dry Run `31157728584`, WAMP Profile Benchmarks `31157728595` with its hosted
+  artifact, and Router Image dry run `31157765193` with local image build,
+  router-hosted MCP runtime smoke, preview artifact, and non-publishing multi-
+  architecture build all passed.
+- 2026-08-07: The comprehensive strict deployment-chain audit exited zero. It
+  confirmed exact-head CI and log hygiene, package/archive readiness, relevant
+  native-release evidence, WAMP and Router Image artifacts, branch protection,
+  checked-in workflow visibility, and the public router container package. RC
+  tagging remains the expected approval-gated, non-blocking release decision.
 
 ## Handoff
 
-- Commit and push the implementation with its checkpoint state, then audit the
-  exact-head hosted deployment chain.
+- Completed. Leave this hosted-evidence bookkeeping uncommitted until it can be
+  bundled with the next implementation/configuration commit.

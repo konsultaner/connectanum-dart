@@ -878,7 +878,6 @@ void main() {
             headers: const {'x-router': 'native'},
           );
         });
-
         final listener = binding.listeners.single;
         final socket = await Socket.connect('127.0.0.1', listener.port);
         addTearDown(socket.destroy);
@@ -4863,6 +4862,138 @@ void main() {
           ),
         );
         expect(client.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'bounds router-hosted MCP WAMP calls and keeps the session reusable',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9142,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(callTimeoutMs: 80),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-bounded-call-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final stalledInvocations = <core.Invocation>[];
+        final registration = await serviceSession.register(
+          'app.safe.bounded_lookup',
+          options: core.RegisterOptions(
+            custom: const <String, Object?>{
+              '_ai_meta_data': <String, Object?>{
+                'short_description': 'Complete or stall a lookup',
+                'read_only_hint': true,
+                'destructive_hint': false,
+                'idempotent_hint': true,
+                'open_world_hint': false,
+              },
+            },
+          ),
+        );
+        registration.onInvoke((invocation) {
+          if (invocation.argumentsKeywords?['stall'] == true) {
+            stalledInvocations.add(invocation);
+            return;
+          }
+          invocation.respondWith(
+            argumentsKeywords: const <String, Object?>{'status': 'complete'},
+          );
+        });
+        final resourceRegistration = await serviceSession.register(
+          'app.safe.resource.read',
+        );
+        resourceRegistration.onInvoke((_) {});
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        addTearDown(() => client.close(force: true));
+
+        final directResult = await client
+            .callToolDirect(
+              'app.safe.bounded_lookup',
+              id: 'bounded-direct-call',
+              arguments: const <String, Object?>{'stall': true},
+            )
+            .timeout(const Duration(seconds: 2));
+        expect(directResult['isError'], isTrue);
+        expect(client.sessionId, isNull);
+        final directTimeout = await harness
+            .nextEvent('invocation_timeout')
+            .timeout(const Duration(seconds: 2));
+
+        await client.initialize(id: 'bounded-call-initialize');
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        expect(sessionId, isNotNull);
+
+        final streamableResult = await client
+            .callTool(
+              'app.safe.bounded_lookup',
+              id: 'bounded-streamable-call',
+              arguments: const <String, Object?>{'stall': true},
+            )
+            .timeout(const Duration(seconds: 2));
+        expect(streamableResult['isError'], isTrue);
+        expect(client.sessionId, equals(sessionId));
+        final streamableTimeout = await harness
+            .nextEvent('invocation_timeout')
+            .timeout(const Duration(seconds: 2));
+        expect(stalledInvocations, hasLength(2));
+        expect(directTimeout['invocationId'], isPositive);
+        expect(streamableTimeout['invocationId'], isPositive);
+        expect(
+          streamableTimeout['invocationId'],
+          isNot(directTimeout['invocationId']),
+        );
+
+        await expectLater(
+          client
+              .readResourceDirect(
+                'app://mcp/live-context',
+                id: 'bounded-direct-resource-read',
+              )
+              .timeout(const Duration(seconds: 2)),
+          throwsA(
+            isA<McpJsonRpcException>()
+                .having((error) => error.method, 'method', 'resources/read')
+                .having(
+                  (error) => error.error['code'],
+                  'code',
+                  McpErrorCodes.internalError,
+                ),
+          ),
+        );
+        final resourceTimeout = await harness
+            .nextEvent('invocation_timeout')
+            .timeout(const Duration(seconds: 2));
+        expect(resourceTimeout['invocationId'], isPositive);
+        expect(client.sessionId, equals(sessionId));
+
+        final recovered = await client.callTool(
+          'app.safe.bounded_lookup',
+          id: 'bounded-call-recovery',
+        );
+        expect(recovered['isError'], isFalse);
+        expect(
+          recovered['structuredContent'],
+          containsPair('argumentsKeywords', containsPair('status', 'complete')),
+        );
+        expect(client.sessionId, equals(sessionId));
+        await client.deleteSession();
       },
       skip: skipReason,
     );
@@ -9877,6 +10008,7 @@ RouterSettings _buildMcpSmokeSettings({
   bool enableHttp3 = false,
   int? sessionIdleTimeoutMs,
   int? maxRequestBytes,
+  int? callTimeoutMs,
 }) {
   const protectedResourceMetadata = <String, Object?>{
     'metadata_url': 'https://mcp.example.test/mcp/secure',
@@ -9889,6 +10021,7 @@ RouterSettings _buildMcpSmokeSettings({
     'tool_list_page_size': 100,
     'session_idle_timeout_ms': ?sessionIdleTimeoutMs,
     'max_request_bytes': ?maxRequestBytes,
+    'call_timeout_ms': ?callTimeoutMs,
     'procedures': [
       {
         'procedure': 'app.documented.only',

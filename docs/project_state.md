@@ -24846,7 +24846,32 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the router-hosted MCP request-body bounds plan is
+- Active now, the router-hosted MCP WAMP call-deadline plan is
+  `docs/exec-plans/2026-08-07-mcp-router-wamp-call-deadline.md`. Source audit
+  found that MCP tool calls and WAMP-backed dynamic resource reads did not
+  attach the router's existing protocol CALL timeout, allowing a stalled
+  application callee to retain an HTTP request and compatibility-session idle
+  lease. Fail-first route validation accepted an invalid zero timeout, and a
+  focused native regression exceeded its two-second budget. The implementation
+  now accepts positive `call_timeout_ms` and `callTimeoutMs` route options,
+  falls back through a positive realm call timeout to 30 seconds, preserves a
+  stricter existing CALL timeout, and clamps missing, disabled, or longer
+  values. Focused validation and native-router coverage pass for direct JSON
+  and maintained Streamable tool calls, protocol timeout events, a dynamic
+  resource read, compatibility-session retention, successful recovery, and
+  DELETE cleanup. Pre-change and post-change `bin/test-fast` passed the complete
+  fast suite. Full verification then reproduced process-lifetime interference
+  between the remote-auth integration file and later native HTTP/3 helpers;
+  each file passed independently, while their shared Dart process produced a
+  30-second handshake timeout. `bin/test-all` now keeps the six remote-auth
+  cases in a dedicated native-runtime process, after which the clean main
+  process passes its other 383 router cases. Final `bin/verify` passes with
+  zero formatting changes; 113 Rust core tests plus serializer integrations;
+  52 Rust FFI tests; 360 Dart core, 95 MCP, 280 MCP/client, 96 benchmark/live-
+  router, and 389 total router tests; every neutral consumer package and CLI
+  smoke; all maintained router-hosted MCP live variants; and Chrome Dart2Wasm
+  WebSocket coverage. Commit/push and exact-head hosted evidence remain.
+- Completed most recently, the router-hosted MCP request-body bounds plan is
   `docs/exec-plans/2026-08-07-mcp-router-request-body-bounds.md`.
   MCP routes accept positive `max_request_bytes` and `maxRequestBytes` values,
   defaulting to 16 MiB. POST handling compares that limit with the native raw
@@ -24865,8 +24890,19 @@ at the older `47bbf9c` commit.
   serializer integrations; 52 Rust FFI tests; 360 Dart core, 95 MCP, 280
   MCP/client, 96 benchmark/live-router, and 388 router tests; all 13 focused
   native-forwarding regressions; every neutral consumer package and CLI smoke;
-  and Chrome Dart2Wasm WebSocket coverage. Commit/push and exact-head hosted
-  evidence remain.
+  and Chrome Dart2Wasm WebSocket coverage. Implementation commit `acfebd21` is
+  on both maintained `master` branches. Exact-head CI `31157728571` passed Fast
+  Checks, Full Verify, Dart VM Coverage, Codecov upload, and coverage artifact
+  upload. Dart Package Publish Dry Run `31157728584`, WAMP Profile Benchmarks
+  `31157728595` with its hosted artifact, and Router Image dry run `31157765193`
+  with local image build, router-hosted MCP runtime smoke, preview artifact, and
+  non-publishing multi-architecture build all passed. The comprehensive strict
+  deployment-chain audit exited zero with exact-head CI/log, package, relevant
+  native-release, WAMP artifact, Router Image, protected-branch, workflow-
+  visibility, and public router-package gates ready. RC tagging remains the
+  expected approval-gated, non-blocking release decision. Leave this docs-only
+  hosted-evidence bookkeeping uncommitted until it can accompany the next
+  implementation/configuration commit.
 - Completed immediately before this checkpoint, the client MCP request-body
   bounds plan is `docs/exec-plans/2026-08-06-mcp-request-body-bounds.md`.
   `McpStreamableHttpClient` now exposes a positive `maxRequestBytes` setting

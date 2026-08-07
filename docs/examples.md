@@ -157,6 +157,7 @@ const HttpRouteSettings(
     realm: 'realm1',
     options: {
       'max_request_bytes': 16 * 1024 * 1024,
+      'call_timeout_ms': 30000,
       'session_idle_timeout_ms': 600000,
       'resources': [
         {
@@ -211,6 +212,15 @@ before UTF-8 or JSON decoding. Set the positive `max_request_bytes` (or
 `maxRequestBytes`) route option to choose another raw-byte limit. Bearer
 authentication still runs first on protected routes, so an oversized request
 without valid credentials receives the normal authentication challenge.
+
+Router-hosted MCP tool calls and WAMP-backed dynamic resource reads carry a
+protocol-level 30-second CALL timeout by default. Set the positive
+`call_timeout_ms` (or `callTimeoutMs`) route option to choose another bound.
+When the route omits the option, a positive realm `call_timeout_ms` value is
+used before the 30-second fallback. The router preserves a stricter timeout
+already attached to the call and clamps longer or disabled timeouts to the
+route bound; established request-scoped SSE streams are not timed out by this
+setting.
 
 Procedure-backed resources call the configured WAMP procedure with the
 resource URI as the first positional argument and return its final result as

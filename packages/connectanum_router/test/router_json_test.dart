@@ -859,6 +859,24 @@ void main() {
         returnsNormally,
       );
       _expectInvalidMcpOptions({
+        'call_timeout_ms': 0,
+      }, 'MCP call_timeout_ms must be a positive integer');
+      _expectInvalidMcpOptions({
+        'callTimeoutMs': '30000',
+      }, 'MCP callTimeoutMs must be a positive integer');
+      expect(
+        _routerWithMcpOptions(const {
+          'call_timeout_ms': 1,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      expect(
+        _routerWithMcpOptions(const {
+          'callTimeoutMs': 30000,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      _expectInvalidMcpOptions({
         'session_idle_timeout_ms': -1,
       }, 'MCP route.session_idle_timeout_ms must be a non-negative integer');
       _expectInvalidMcpOptions({

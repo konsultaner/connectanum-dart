@@ -201,6 +201,7 @@ RouterSettings _buildSettings() {
     'include_registered_procedures': true,
     'include_standard_meta_api': true,
     'include_pubsub_tools': true,
+    'call_timeout_ms': 30000,
     'procedures': [
       {
         'procedure': 'example.task.configured.lookup',

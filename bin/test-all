@@ -30,7 +30,9 @@ run_router_vm_tests() {
   printf 'Running router suite from package root so package-local test config applies on %s.\n' "$(uname -s)"
   (
     cd packages/connectanum_router
-    dart test test --exclude-tags zero_copy_publish
+    dart test test --exclude-tags 'zero_copy_publish || remote_auth_integration'
+    printf 'Running remote-auth integration in an isolated native-runtime process.\n'
+    dart test test/remote_auth_integration_test.dart --chain-stack-traces
   )
 }
 

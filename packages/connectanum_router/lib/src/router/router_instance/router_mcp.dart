@@ -47,6 +47,8 @@ const int _mcpDefaultSessionIdleTimeoutMs = 600000;
 
 const int _mcpDefaultMaxRequestBytes = 16 * 1024 * 1024;
 
+const int _mcpDefaultWampCallTimeoutMs = 30000;
+
 int _mcpMaxRequestBytesForRoute(HttpRouteSettings route) {
   return _intOptionAny(route.action.options, const <String>[
         'max_request_bytes',
@@ -3948,6 +3950,32 @@ class _RouterMcpEndpoint {
     return null;
   }
 
+  int get _wampCallTimeoutMs {
+    final routeTimeout = _intOptionAny(route.action.options, const <String>[
+      'call_timeout_ms',
+      'callTimeoutMs',
+    ]);
+    if (routeTimeout != null && routeTimeout > 0) {
+      return routeTimeout;
+    }
+    final realmTimeout = _realmSettings()?.limits.callTimeoutMs;
+    return realmTimeout != null && realmTimeout > 0
+        ? realmTimeout
+        : _mcpDefaultWampCallTimeoutMs;
+  }
+
+  call_msg.CallOptions _boundedCallOptions(call_msg.CallOptions? options) {
+    final bounded = options ?? call_msg.CallOptions();
+    final requestedTimeout = bounded.timeout;
+    final timeoutMs = _wampCallTimeoutMs;
+    if (requestedTimeout == null ||
+        requestedTimeout <= 0 ||
+        requestedTimeout > timeoutMs) {
+      bounded.timeout = timeoutMs;
+    }
+    return bounded;
+  }
+
   Future<ResultPayload> _call(mcp.McpWampToolCall call) async {
     final metaResult = await _handleMetaCall(call);
     if (metaResult != null) {
@@ -3961,7 +3989,7 @@ class _RouterMcpEndpoint {
           call.procedure,
           arguments: call.payload.arguments,
           argumentsKeywords: call.payload.argumentsKeywords,
-          options: call.payload.options,
+          options: _boundedCallOptions(call.payload.options),
         )
         .firstWhere((result) => !result.isProgressive());
     return result.toPayload();
@@ -4546,6 +4574,8 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'resourceTemplateListPageSize',
     'max_request_bytes',
     'maxRequestBytes',
+    'call_timeout_ms',
+    'callTimeoutMs',
   ]) {
     _validateMcpPositiveIntRouteOption(options, key);
   }

@@ -1,4 +1,5 @@
 @TestOn('vm')
+@Tags(['remote_auth_integration'])
 library;
 
 import 'dart:async';
