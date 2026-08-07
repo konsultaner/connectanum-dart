@@ -5853,9 +5853,120 @@ void main() {
     );
 
     test(
+      'coalesces repeated router-hosted MCP compatibility notifications',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9145,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-notification-coalescing-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/secure',
+        );
+        final authHttpClient = HttpClient();
+        addTearDown(() => authHttpClient.close(force: true));
+        final grant = await _issueTicketHttpGrant(
+          authHttpClient,
+          listener.port,
+        );
+        final client = McpStreamableHttpClient.withAuthGrant(endpoint, grant);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'notification-coalescing-initialize');
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        expect(sessionId, isNotNull);
+
+        for (var index = 0; index < 8; index++) {
+          final registration = await serviceSession.register(
+            'app.safe.notification_coalescing_transient',
+            options: core.RegisterOptions(
+              custom: const <String, Object?>{
+                '_ai_meta_data': <String, Object?>{
+                  'short_description': 'Transient coalescing tool',
+                  'read_only_hint': true,
+                  'destructive_hint': false,
+                  'idempotent_hint': true,
+                  'open_world_hint': false,
+                },
+              },
+            ),
+          );
+          await client.ping(id: 'notification-coalescing-register-$index');
+          await serviceSession.unregister(registration.registrationId);
+          await client.ping(id: 'notification-coalescing-unregister-$index');
+        }
+
+        final rawClient = HttpClient();
+        addTearDown(() => rawClient.close(force: true));
+        final firstPoll = await _getHttp(
+          rawClient,
+          listener.port,
+          '/mcp/secure',
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+            'MCP-Session-Id': sessionId!,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+          },
+        );
+        expect(firstPoll.statusCode, equals(HttpStatus.ok));
+        expect(
+          RegExp(
+            'notifications/tools/list_changed',
+          ).allMatches(firstPoll.body).length,
+          equals(1),
+        );
+        final lastEventId = RegExp(
+          r'^id: (.+)$',
+          multiLine: true,
+        ).allMatches(firstPoll.body).last.group(1);
+
+        final nextPoll = await _getHttp(
+          rawClient,
+          listener.port,
+          '/mcp/secure',
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+            'MCP-Session-Id': sessionId,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+            'Last-Event-ID': ?lastEventId,
+          },
+        );
+        expect(nextPoll.statusCode, equals(HttpStatus.ok));
+        expect(
+          nextPoll.body,
+          isNot(contains('notifications/tools/list_changed')),
+        );
+        await client.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP Streamable poll responses and keeps queued events recoverable',
       () async {
         const responseLimit = 4096;
+        const notificationCount = 48;
+        final batchedResourceUris = List<String>.generate(
+          notificationCount,
+          (index) => 'app://mcp/poll-response-batch-$index',
+          growable: false,
+        );
         final oversizedResourceUri =
             'app://mcp/live/${List<String>.filled(responseLimit, 'x').join()}';
         final harness = await _RouterHarness.start(
@@ -5864,6 +5975,7 @@ void main() {
           settings: _buildMcpSmokeSettings(
             maxResponseBytes: responseLimit,
             liveResourceUri: oversizedResourceUri,
+            additionalLiveResourceUris: batchedResourceUris,
           ),
         );
         addTearDown(harness.dispose);
@@ -5901,26 +6013,17 @@ void main() {
         expect(sessionId, isNotNull);
         final activeSessionId = sessionId!;
 
-        const notificationCount = 48;
-        for (var index = 0; index < notificationCount ~/ 2; index++) {
-          final registration = await serviceSession.register(
-            'app.safe.poll_response_bound_transient',
-            options: core.RegisterOptions(
-              custom: const <String, Object?>{
-                '_ai_meta_data': <String, Object?>{
-                  'short_description': 'Transient poll response tool',
-                  'read_only_hint': true,
-                  'destructive_hint': false,
-                  'idempotent_hint': true,
-                  'open_world_hint': false,
-                },
-              },
-            ),
+        for (var index = 0; index < batchedResourceUris.length; index++) {
+          await client.subscribeResource(
+            batchedResourceUris[index],
+            id: 'poll-response-bound-resource-subscribe-$index',
           );
-          await client.ping(id: 'poll-response-bound-register-$index');
-          await serviceSession.unregister(registration.registrationId);
-          await client.ping(id: 'poll-response-bound-unregister-$index');
         }
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{'version': 1},
+          options: core.PublishOptions(acknowledge: true),
+        );
 
         final rawClient = HttpClient();
         addTearDown(() => rawClient.close(force: true));
@@ -5946,7 +6049,7 @@ void main() {
             lessThanOrEqualTo(responseLimit),
           );
           final delivered = RegExp(
-            'notifications/tools/list_changed',
+            'notifications/resources/updated',
           ).allMatches(response.body).length;
           expect(delivered, greaterThan(0));
           deliveredNotifications += delivered;
@@ -11200,6 +11303,7 @@ RouterSettings _buildMcpSmokeSettings({
   int? maxResponseBytes,
   int? callTimeoutMs,
   String? liveResourceUri,
+  List<String> additionalLiveResourceUris = const <String>[],
 }) {
   const protectedResourceMetadata = <String, Object?>{
     'metadata_url': 'https://mcp.example.test/mcp/secure',
@@ -11305,6 +11409,17 @@ RouterSettings _buildMcpSmokeSettings({
         'read_procedure': 'app.safe.resource.read',
         'update_topic': 'app.events.resource.context',
       },
+      for (var index = 0; index < additionalLiveResourceUris.length; index++)
+        {
+          'uri': additionalLiveResourceUris[index],
+          'name': 'mcp-live-context-$index',
+          'title': 'MCP live route context $index',
+          'description':
+              'Dynamic context read through an explicitly configured procedure.',
+          'mime_type': 'application/json',
+          'read_procedure': 'app.safe.resource.read',
+          'update_topic': 'app.events.resource.context',
+        },
       {
         'uri': 'app://mcp/member-context',
         'name': 'mcp-member-context',

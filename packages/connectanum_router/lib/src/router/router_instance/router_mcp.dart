@@ -2822,6 +2822,7 @@ class _RouterMcpEndpoint {
   String? _toolSignature;
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
   final List<mcp.JsonMap> _pendingSseMessages = <mcp.JsonMap>[];
+  final Set<String> _pendingOrInFlightSseNotificationKeys = <String>{};
   final Map<String, int> _sseStreamSequences = <String, int>{};
   final Set<mcp.McpWampSubscription> _wampSubscriptions =
       <mcp.McpWampSubscription>{};
@@ -3135,7 +3136,10 @@ class _RouterMcpEndpoint {
         final candidateByteLength = eventByteLength(event);
         if (responseByteLength + candidateByteLength > maxResponseBytes) {
           if (events.isEmpty) {
-            _pendingSseMessages.removeAt(0);
+            final oversizedMessage = _pendingSseMessages.removeAt(0);
+            _pendingOrInFlightSseNotificationKeys.remove(
+              jsonEncode(oversizedMessage),
+            );
             throw _McpSsePollEventResponseLimitExceeded(
               requiredBytes: candidateByteLength,
               limit: maxResponseBytes,
@@ -3206,6 +3210,9 @@ class _RouterMcpEndpoint {
   }
 
   void commitSsePollBatch(_RouterMcpSsePollBatch batch) {
+    for (final message in batch.pendingMessages) {
+      _pendingOrInFlightSseNotificationKeys.remove(jsonEncode(message));
+    }
     for (final event in batch.newEvents) {
       _rememberSseEvent(event);
     }
@@ -3245,23 +3252,19 @@ class _RouterMcpEndpoint {
   }
 
   void _enqueueServerNotification(String method, {mcp.JsonMap? params}) {
-    _pendingSseMessages.add(<String, Object?>{
+    final message = <String, Object?>{
       'jsonrpc': '2.0',
       'method': method,
       if (params != null && params.isNotEmpty) 'params': params,
-    });
+    };
+    final notificationKey = jsonEncode(message);
+    if (!_pendingOrInFlightSseNotificationKeys.add(notificationKey)) {
+      return;
+    }
+    _pendingSseMessages.add(message);
   }
 
   void _enqueueResourceUpdatedNotification(String uri) {
-    for (final message in _pendingSseMessages) {
-      if (message['method'] != 'notifications/resources/updated') {
-        continue;
-      }
-      final params = message['params'];
-      if (params is Map && params['uri'] == uri) {
-        return;
-      }
-    }
     _enqueueServerNotification(
       'notifications/resources/updated',
       params: <String, Object?>{'uri': uri},

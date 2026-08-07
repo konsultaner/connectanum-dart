@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-07
-Current branch: `codex/mcp-router-sse-poll-response-bounds`
+Current branch: `codex/mcp-router-sse-notification-coalescing`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24847,6 +24847,26 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-07-mcp-router-sse-notification-coalescing.md`.
+  Compatibility-era Streamable endpoints now retain at most one pending or
+  in-flight copy of an identical logical SSE notification. Exact JSON keys
+  suppress redundant tool-list and resource-update messages until successful
+  delivery commits or an individually oversized event is discarded, while
+  send-failure restoration retains ownership of the key. A fail-first
+  native-router regression observed 16 redundant tool-list notifications from
+  eight register/unregister cycles before the fix and one after it. The
+  response-bound regression now queues 48 distinct configured resource-update
+  URIs, proving distinct updates still span bounded resumable polls without
+  loss. Focused analysis/tests, pre-change and post-change `bin/test-fast`, and
+  full `bin/verify` pass. The full gate includes 113 Rust core tests, 52 Rust
+  FFI tests plus the focused metrics check, 360 Dart core tests, all 95 MCP
+  tests, the complete 280-case MCP/client suite, all 96 benchmark tests
+  including 36 live WAMP workloads, every generated and globally activated
+  consumer smoke, the complete 391-case router suite, the 6-case remote-auth
+  process, the 13-case native follow-up, and Chrome/Dart2Wasm. Commit,
+  dual-remote publication, exact-head hosted workflows, and the comprehensive
+  strict deployment-chain audit remain.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-07-mcp-router-sse-poll-response-bounds.md`.
   Compatibility-era Streamable GET polling previously bypassed the MCP route's
   `max_response_bytes` ceiling and materialized every replay and queued
@@ -24863,8 +24883,19 @@ at the older `47bbf9c` commit.
   benchmark tests including 36 live WAMP workloads, every generated and
   globally activated consumer smoke, the complete 390-case router suite, the
   6-case remote-auth process, the 13-case native follow-up, and
-  Chrome/Dart2Wasm. Commit, dual-remote publication, exact-head hosted evidence,
-  and the comprehensive strict audit remain.
+  Chrome/Dart2Wasm. Implementation commit `86072d20` is on both maintained
+  `master` branches. Exact-head CI `31207861522` passed Fast Checks, Full
+  Verify, Dart VM Coverage, Codecov upload, clean hosted-log inspection, and
+  coverage artifact `9005986494`. Dart Package Publish Dry Run `31207860748`
+  and WAMP Profile Benchmarks `31207859941` with artifact `9005669905` passed.
+  Router Image dry run `31207874756` passed loaded-image MCP smoke and the
+  non-publishing multi-architecture build, uploading preview artifact
+  `9005476114` plus Docker build records `9005585269` and `9005584774`. The
+  comprehensive strict deployment-chain audit exited zero with all required
+  exact-head, clean-log, package, relevant native-release, Router Image, WAMP,
+  protected-branch, workflow-visibility, and public router-package gates ready.
+  Leave this docs-only hosted-evidence bookkeeping uncommitted until it can
+  accompany the next implementation or configuration commit.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-07-mcp-router-wamp-subscription-capacity.md`.
   Router-hosted MCP WAMP pub/sub previously bounded each event queue only by a

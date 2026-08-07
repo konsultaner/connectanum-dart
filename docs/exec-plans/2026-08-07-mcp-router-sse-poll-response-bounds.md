@@ -1,6 +1,6 @@
 # MCP Router Streamable Poll Response Bounds
 
-Status: active; local verification clean, exact-head hosted verification pending
+Status: completed
 
 ## Goal
 
@@ -78,9 +78,20 @@ materialized into an oversized buffered response.
   tests including 36 live WAMP workloads, every generated and globally
   activated consumer smoke, the complete 390-case router suite, the 6-case
   remote-auth process, the 13-case native follow-up, and Chrome/Dart2Wasm.
+- 2026-08-07: Implementation commit `86072d20` was pushed to both maintained
+  `master` branches. Exact-head CI `31207861522`, Dart Package Publish Dry Run
+  `31207860748`, WAMP Profile Benchmarks `31207859941`, and Router Image dry
+  run `31207874756` all passed. CI uploaded coverage artifact `9005986494`,
+  WAMP uploaded artifact `9005669905`, and Router Image uploaded preview
+  artifact `9005476114` plus Docker build records `9005585269` and
+  `9005584774`.
+- 2026-08-07: The comprehensive strict deployment-chain audit exited zero with
+  exact-head CI and clean-log inspection, package dry run, relevant native
+  release evidence, Router Image dry run and loaded-image MCP smoke, WAMP
+  artifact, branch protection, workflow visibility, and public router-package
+  gates ready.
 
 ## Handoff
 
-- Implementation and local verification are complete. Commit, dual-remote
-  publication, exact-head hosted workflows, and the strict deployment-chain
-  audit remain.
+- Complete. Leave this hosted-evidence bookkeeping uncommitted until it can
+  accompany the next implementation or configuration commit.
