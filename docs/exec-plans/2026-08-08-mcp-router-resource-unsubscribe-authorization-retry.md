@@ -1,7 +1,7 @@
 # MCP Router Resource Unsubscribe Authorization Retry
 
-Status: active; implementation and local verification are green, hosted
-evidence remains
+Status: complete; implementation, local verification, and hosted deployment
+evidence are green
 
 ## Goal
 
@@ -59,7 +59,20 @@ physical subscription unavailable to same-session retry.
   96 benchmark, and 403 Router tests; the 6-case remote-auth and 13-case native
   follow-ups; every generated and globally activated consumer smoke; and
   Chrome/Dart2Wasm.
+- 2026-08-08: Commit `f808355f` is pushed to both maintained `master`
+  branches. Exact-head GitHub CI `31275668744`, Dart Package Publish Dry Run
+  `31275668900`, WAMP Profile Benchmarks `31275668728`, and Router Image dry
+  run `31276435877` all pass on their first attempts. Retained artifacts are
+  Dart VM coverage `9027121268`, WAMP profile evidence `9026998907`, router
+  image preview `9027134340`, and Docker build records `9027184630` and
+  `9027184340`. The comprehensive strict deployment-chain audit exits zero
+  with clean exact-head CI jobs and logs plus every required package, relevant
+  native release, router-image MCP smoke, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gate ready. Only the deliberately
+  unapproved next RC tag remains outside the milestone.
 
 ## Handoff
 
-- Active. Commit, push both maintained remotes, and audit hosted evidence.
+- Complete. Continue from `ROADMAP_NEXT.md` and `ROADMAP.md` with the next
+  production-readiness slice; do not create or move an RC tag without explicit
+  approval.

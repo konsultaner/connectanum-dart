@@ -3620,7 +3620,7 @@ class _RouterMcpEndpoint {
       await existing;
       return;
     }
-    final subscriptionFuture = _subscribe(
+    final subscriptionFuture = _subscribeAuthorized(
       mcp.McpWampSubscribeRequest(topic: topic, queueLimit: 1),
       (_) {
         _sendModernNotification(
@@ -4591,6 +4591,13 @@ class _RouterMcpEndpoint {
     if (!await _isAuthorized(AuthorizationAction.subscribe, request.topic)) {
       throw StateError('Not authorized to subscribe ${request.topic}');
     }
+    return _subscribeAuthorized(request, onEvent);
+  }
+
+  Future<mcp.McpWampSubscription> _subscribeAuthorized(
+    mcp.McpWampSubscribeRequest request,
+    void Function(mcp.McpWampEvent event) onEvent,
+  ) async {
     if (request.queueLimit > _mcpMaxWampSubscriptionQueueLimitForRoute(route)) {
       throw const _McpWampSubscriptionQueueLimitExceeded();
     }

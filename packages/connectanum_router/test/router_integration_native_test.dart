@@ -5599,6 +5599,141 @@ void main() {
     );
 
     test(
+      'authorizes each router-hosted MCP resource subscribe owner once',
+      () async {
+        final provider = _FailDeferredAuthorizationProvider(
+          action: AuthorizationAction.subscribe,
+          uri: 'app.events.resource.context',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9160,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-resource-single-authorization-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final compatibilityClient = McpStreamableHttpClient(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-single-authorization-compatibility',
+            'version': '1.0.0',
+          },
+        );
+        final modernClient = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-single-authorization-modern',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => compatibilityClient.close(force: true));
+        addTearDown(() => modernClient.close(force: true));
+
+        await compatibilityClient.initialize(
+          id: 'resource-single-authorization-initialize',
+        );
+        await compatibilityClient.notifyInitialized();
+        final compatibilitySessionId = compatibilityClient.sessionId;
+        expect(compatibilitySessionId, isNotNull);
+
+        provider.failOnMatchingRequest(2);
+        await compatibilityClient.subscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-single-authorization-compatibility-subscribe',
+        );
+        expect(provider.matchingRequestCount, equals(1));
+        provider.clearPendingFailure();
+        expect(compatibilityClient.sessionId, equals(compatibilitySessionId));
+
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{
+            'via': 'resource-single-authorization-compatibility',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        final compatibilityUpdate = await _pollStreamableMcpUntilResourceUpdate(
+          compatibilityClient,
+          'app://mcp/live-context',
+        );
+        expect(
+          compatibilityUpdate['method'],
+          equals('notifications/resources/updated'),
+        );
+        expect(compatibilityClient.sessionId, equals(compatibilitySessionId));
+
+        await compatibilityClient.unsubscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-single-authorization-compatibility-unsubscribe',
+        );
+
+        final requestsBeforeModern = provider.matchingRequestCount;
+        provider.failOnMatchingRequest(2);
+        final modernSubscription = await modernClient.listen(
+          id: 'resource-single-authorization-modern-listen',
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+        addTearDown(modernSubscription.close);
+        provider.clearPendingFailure();
+        expect(
+          modernSubscription.acknowledgedNotifications.resourceSubscriptions,
+          equals(const <String>['app://mcp/live-context']),
+        );
+        expect(provider.matchingRequestCount, equals(requestsBeforeModern + 1));
+        expect(modernClient.sessionId, isNull);
+        expect(modernClient.lastEventId, isNull);
+
+        final modernNotifications = StreamIterator<Map<String, Object?>>(
+          modernSubscription.notifications,
+        );
+        addTearDown(modernNotifications.cancel);
+        final modernUpdateFuture = modernNotifications.moveNext().timeout(
+          const Duration(seconds: 5),
+        );
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{
+            'via': 'resource-single-authorization-modern',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        expect(await modernUpdateFuture, isTrue);
+        expect(
+          modernNotifications.current['method'],
+          equals('notifications/resources/updated'),
+        );
+        expect(
+          (modernNotifications.current['params']
+              as Map<String, Object?>)['uri'],
+          equals('app://mcp/live-context'),
+        );
+        expect(modernClient.sessionId, isNull);
+        expect(modernClient.lastEventId, isNull);
+
+        await compatibilityClient.deleteSession();
+        expect(compatibilityClient.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'redacts router-hosted MCP WAMP unsubscribe failures and preserves retry state',
       () async {
         final provider = _FailDeferredAuthorizationProvider(
@@ -12794,10 +12929,15 @@ final class _FailDeferredAuthorizationProvider
   final AuthorizationAction action;
   final String uri;
   int? _matchingRequestsUntilFailure;
+  int matchingRequestCount = 0;
 
   void failOnMatchingRequest(int requestNumber) {
     assert(requestNumber > 0);
     _matchingRequestsUntilFailure = requestNumber;
+  }
+
+  void clearPendingFailure() {
+    _matchingRequestsUntilFailure = null;
   }
 
   @override
@@ -12805,6 +12945,7 @@ final class _FailDeferredAuthorizationProvider
     if (request.action != action || request.uri != uri) {
       return null;
     }
+    matchingRequestCount++;
     final remaining = _matchingRequestsUntilFailure;
     if (remaining == null) {
       return null;
