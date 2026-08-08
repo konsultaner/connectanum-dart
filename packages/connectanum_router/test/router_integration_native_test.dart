@@ -5712,6 +5712,8 @@ void main() {
 
         var invocationCount = 0;
         final padding = List<String>.filled(1100, 'é').join();
+        const wireBoundRequestId = 'secure-compatibility-sse-wire-bound';
+        final wireBoundPadding = List<String>.filled(1914, 'x').join();
         final registration = await serviceSession.register(
           'app.safe.response_bound_lookup',
           options: core.RegisterOptions(
@@ -5728,11 +5730,13 @@ void main() {
         );
         registration.onInvoke((invocation) {
           invocationCount++;
+          final useWireBoundPadding =
+              invocation.argumentsKeywords?['wireBound'] == true;
           invocation.respondWith(
             argumentsKeywords: <String, Object?>{
               'status': 'complete',
               if (invocation.argumentsKeywords?['small'] != true)
-                'padding': padding,
+                'padding': useWireBoundPadding ? wireBoundPadding : padding,
             },
           );
         });
@@ -5766,6 +5770,30 @@ void main() {
         expect(
           utf8.encode(representativeCompatibilityResponse).length,
           greaterThan(responseLimit),
+        );
+        final wireBoundStructuredContent = <String, Object?>{
+          'argumentsKeywords': <String, Object?>{
+            'status': 'complete',
+            'padding': wireBoundPadding,
+          },
+        };
+        final representativeWireBoundResponse = jsonEncode(<String, Object?>{
+          'jsonrpc': '2.0',
+          'id': wireBoundRequestId,
+          'result': <String, Object?>{
+            'content': <Object?>[
+              <String, Object?>{
+                'type': 'text',
+                'text': jsonEncode(wireBoundStructuredContent),
+              },
+            ],
+            'isError': false,
+            'structuredContent': wireBoundStructuredContent,
+          },
+        });
+        expect(
+          utf8.encode(representativeWireBoundResponse).length,
+          equals(responseLimit),
         );
 
         final listener = harness.binding.listeners.single;
@@ -5855,6 +5883,94 @@ void main() {
         await protectedClient.notifyInitialized();
         final sessionId = protectedClient.sessionId;
         expect(sessionId, isNotNull);
+
+        await expectLater(
+          protectedClient.callTool(
+            'app.safe.response_bound_lookup',
+            id: wireBoundRequestId,
+            arguments: const <String, Object?>{'wireBound': true},
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.internalServerError,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  contains('response body exceeds the configured limit'),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(protectedClient.sessionId, equals(sessionId));
+        expect(protectedClient.lastEventId, isNull);
+
+        final rawClient = HttpClient();
+        addTearDown(() => rawClient.close(force: true));
+        final wireBoundRecovery = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp/secure',
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'secure-compatibility-wire-recovery',
+            'method': 'tools/call',
+            'params': <String, Object?>{
+              'name': 'app.safe.response_bound_lookup',
+              'arguments': const <String, Object?>{'small': true},
+            },
+          },
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+            'MCP-Session-Id': sessionId!,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+          },
+        );
+        expect(wireBoundRecovery.statusCode, equals(HttpStatus.ok));
+        expect(
+          utf8.encode(wireBoundRecovery.body).length,
+          lessThanOrEqualTo(responseLimit),
+        );
+        final wireBoundRecoveryEventIds = _sseEventIds(wireBoundRecovery.body);
+        expect(wireBoundRecoveryEventIds, hasLength(2));
+
+        final wireBoundReplay = await _getHttp(
+          rawClient,
+          listener.port,
+          '/mcp/secure',
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+            'MCP-Session-Id': sessionId,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+            'Last-Event-ID': wireBoundRecoveryEventIds.first,
+          },
+        );
+        expect(wireBoundReplay.statusCode, equals(HttpStatus.ok));
+        expect(wireBoundReplay.body, contains(wireBoundRecoveryEventIds.last));
+        expect(
+          wireBoundReplay.body,
+          contains('secure-compatibility-wire-recovery'),
+        );
+        expect(protectedClient.sessionId, equals(sessionId));
+        expect(protectedClient.lastEventId, isNull);
+
+        final wireBoundDirectRecovery = await protectedClient.callToolDirect(
+          'app.safe.response_bound_lookup',
+          id: 'secure-wire-bound-direct-recovery',
+          arguments: const <String, Object?>{'small': true},
+        );
+        expect(wireBoundDirectRecovery['isError'], isFalse);
+        expect(protectedClient.sessionId, equals(sessionId));
+        expect(protectedClient.lastEventId, isNull);
 
         await expectLater(
           protectedClient.callTool(

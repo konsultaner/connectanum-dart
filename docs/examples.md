@@ -254,10 +254,13 @@ before UTF-8 or JSON decoding. Set the positive `max_request_bytes` (or
 authentication still runs first on protected routes, so an oversized request
 without valid credentials receives the normal authentication challenge.
 
-Encoded MCP JSON-RPC responses are also limited to 16 MiB by default. Set the
-positive `max_response_bytes` (or `maxResponseBytes`) route option to choose
-another bound. Oversized responses fail with HTTP `500` without an MCP session
-identifier, while an established compatibility session remains reusable.
+Complete MCP HTTP response bodies are also limited to 16 MiB by default. The
+router counts raw UTF-8 JSON bytes for JSON responses and exact primer, event,
+and data framing bytes for compatibility POST/SSE and GET/SSE responses. Set
+the positive `max_response_bytes` (or `maxResponseBytes`) route option to
+choose another bound. Oversized responses fail with HTTP `500` without an MCP
+session identifier, while an established compatibility session remains
+reusable.
 
 Compatibility Streamable HTTP replay history is limited to 128 events and, by
 default, the route's response-byte ceiling. Set the positive

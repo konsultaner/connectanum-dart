@@ -1,7 +1,7 @@
 # MCP Router SSE History Byte Bounds
 
-Status: active; implementation and full local verification green, publication
-and hosted evidence pending
+Status: completed; implementation published, full local verification,
+exact-head hosted evidence, and strict deployment-chain audit green
 
 ## Goal
 
@@ -81,10 +81,25 @@ JSON access for consumer applications.
   representation, evicts oldest events, rejects an evicted cursor, replays the
   newest retained response, and preserves compatibility session plus direct
   JSON reuse.
+- 2026-08-08: Implementation commit `db50a3f7` was pushed to both maintained
+  `master` branches. Exact-head CI `31234999618`, Dart Package Publish Dry Run
+  `31234999638`, WAMP Profile Benchmarks `31234999624`, and Router Image dry
+  run `31235013230` all passed without a retry. CI uploaded coverage artifact
+  `9015292310`; WAMP uploaded artifact `9015148217`; Router Image uploaded
+  preview artifact `9015070572` plus Docker build records `9015126948` and
+  `9015126567`.
+- 2026-08-08: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs, clean package, WAMP, and loaded-image
+  Router Image evidence, and relevant Native Artifacts dry-run evidence from
+  `d4f42076` because no native-release-sensitive paths changed afterward. Its
+  non-gating RC summary remains intentionally not ready because no approved RC
+  tag points at this implementation commit.
 
 ## Handoff
 
-- Implementation, focused checks, `bin/test-fast`, and `bin/verify` are green.
-  Review and publish the implementation with the previous hosted-evidence
-  notes, then collect exact-head hosted deployment-chain evidence and run the
-  comprehensive strict audit.
+- Compatibility Streamable replay history is now count- and byte-bounded with
+  validated configuration, exact encoded-byte accounting, oldest-first
+  eviction, and consumer recovery evidence. Implementation, complete local
+  verification, dual-remote publication, exact-head hosted workflows, and the
+  comprehensive strict audit are green. Select the next router-hosted MCP or
+  downstream-readiness implementation gap from the roadmaps.

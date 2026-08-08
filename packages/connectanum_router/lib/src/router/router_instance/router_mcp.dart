@@ -1551,7 +1551,7 @@ Future<bool> _mcpSendSseResponse(
   required RouterHttpRequest request,
   required NativeHttpHandshake? handshake,
   required String sessionId,
-  required List<_RouterMcpSseEvent> events,
+  required Uint8List body,
   String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
   Map<String, String> extraHeaders = const <String, String>{},
 }) async {
@@ -1567,7 +1567,7 @@ Future<bool> _mcpSendSseResponse(
     return false;
   }
   try {
-    stream.close(_mcpSseEventsBytes(events));
+    stream.close(body);
   } catch (error, stackTrace) {
     binding.onEvent?.call({
       'source': 'binding',
@@ -2058,7 +2058,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         request: request,
         handshake: handshake,
         sessionId: mcpSessionId,
-        events: pollBatch.events,
+        body: _mcpSseEventsBytes(pollBatch.events),
         protocolVersion: responseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       );
@@ -2442,12 +2442,29 @@ Future<void> _handleMcpHttpRequestForBinding(
         sessionId: effectiveMcpSessionId!,
         responseJson: responseJson!,
       );
+      final responseBody = _mcpSseEventsBytes(responseBatch.events);
+      if (responseBody.length > _mcpMaxResponseBytesForRoute(route)) {
+        endpoint.restoreSsePollBatch(responseBatch);
+        await binding._sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: _mcpJsonRpcHttpError(
+            status: HttpStatus.internalServerError,
+            code: mcp.McpErrorCodes.internalError,
+            message: 'MCP response body exceeds the configured limit',
+            id: _recoverDirectJsonRequestId(rawMessage),
+            protocolVersion: effectiveResponseMcpProtocolVersion,
+            extraHeaders: corsHeaders,
+          ),
+        );
+        return;
+      }
       final sent = await _mcpSendSseResponse(
         binding,
         request: request,
         handshake: handshake,
         sessionId: effectiveMcpSessionId,
-        events: responseBatch.events,
+        body: responseBody,
         protocolVersion: effectiveResponseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       );
