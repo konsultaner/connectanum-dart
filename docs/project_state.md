@@ -24847,6 +24847,23 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is
+  `docs/exec-plans/2026-08-08-mcp-router-catalog-refresh-ordering.md`.
+  Router-hosted MCP endpoints are shared by concurrent stateless requests for
+  one route and principal, while the native boss dispatches HTTP handlers
+  without awaiting earlier requests. A fail-first native regression reproduced
+  two overlapping catalog authorization passes on separate HTTP connections.
+  The endpoint now queues snapshot, authorization, and handler rebinding in
+  request arrival order without serializing downstream WAMP tool execution or
+  HTTP response delivery. All five catalog-focused native-router tests, router
+  analysis, and post-change `bin/test-fast` pass. Final exact-code `bin/verify`
+  passes with zero formatting changes, 114 Rust core tests plus serializer
+  integrations, 52 Rust FFI tests plus the focused metrics check, 360 Dart core
+  tests, all 97 MCP tests, the complete 280-case MCP/client suite, all 96
+  benchmark tests including 36 live WAMP workloads, all 399 router tests, the
+  6-case remote-auth process, the 13-case native follow-up, every generated and
+  globally activated consumer smoke, and Chrome/Dart2Wasm. Hosted verification
+  remains.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-single-catalog-snapshot.md`.
   Router-hosted MCP POST handling refreshed and authorized the route-visible
   catalog before `Mcp-Param-*` validation, then repeated the refresh inside
@@ -24862,7 +24879,18 @@ at the older `47bbf9c` commit.
   suite, all 96 benchmark tests including 36 live WAMP workloads, all 398
   router tests, the 6-case remote-auth process, the 13-case native follow-up,
   every generated and globally activated consumer smoke, and Chrome/Dart2Wasm.
-  Hosted verification remains.
+  Commit `55d521e8` is published on both maintained `master` branches.
+  Exact-head GitHub CI `31253070397`, Dart Package Publish Dry Run
+  `31253070381`, WAMP Profile Benchmarks `31253070382`, and Router Image dry
+  run `31253101003` passed on their first attempts. Coverage artifact
+  `9020790460`, WAMP artifact `9020671585`, Router Image preview artifact
+  `9020605359`, and Docker build records `9020648283` and `9020648026` were
+  uploaded. The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs, package and native-release evidence,
+  loaded-image MCP runtime smoke, multi-architecture image build, WAMP profile
+  gates, branch protection, workflow visibility, and public router-package
+  visibility all ready. RC tagging remains a separate release approval
+  decision and was not changed.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-topic-catalog-refresh.md`.
   Router-hosted MCP builds fresh WAMP API metadata handlers before every

@@ -1,7 +1,8 @@
 # MCP Router Single Catalog Snapshot
 
-Status: active; implementation and complete local verification green, hosted
-verification pending
+Status: complete; implementation commit `55d521e8` is published on both
+maintained `master` branches, and local plus exact-head hosted verification is
+green
 
 ## Goal
 
@@ -46,8 +47,22 @@ handlers after the request headers had been validated.
   WAMP workloads, all 398 router tests, the 6-case remote-auth process, the
   13-case native follow-up, every generated and globally activated consumer
   smoke, and Chrome/Dart2Wasm.
+- 2026-08-08: Commit `55d521e8` is published on both maintained `master`
+  branches. Exact-head GitHub CI `31253070397`, Dart Package Publish Dry Run
+  `31253070381`, WAMP Profile Benchmarks `31253070382`, and Router Image dry
+  run `31253101003` passed on their first attempts. Coverage artifact
+  `9020790460`, WAMP artifact `9020671585`, Router Image preview artifact
+  `9020605359`, and Docker build records `9020648283` and `9020648026` were
+  uploaded.
+- 2026-08-08: The comprehensive strict deployment-chain audit exited zero
+  with clean exact-head CI jobs and logs, package and native-release evidence,
+  loaded-image MCP runtime smoke, multi-architecture image build, WAMP profile
+  gates, branch protection, workflow visibility, and public router-package
+  visibility all ready. RC tagging remains a separate release approval
+  decision and was not changed.
 
 ## Handoff
 
-- Commit and publish the code plus accumulated hosted bookkeeping, then watch
-  the exact-head GitHub deployment chain.
+- Milestone complete. Select the next router-hosted MCP or downstream
+  application readiness gap from the roadmaps and current implementation
+  evidence.

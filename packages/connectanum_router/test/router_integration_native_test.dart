@@ -7033,6 +7033,66 @@ void main() {
     );
 
     test(
+      'serializes overlapping router-hosted MCP catalog refreshes',
+      () async {
+        final firstRefreshEntered = Completer<void>();
+        final secondRefreshEntered = Completer<void>();
+        final releaseFirstRefresh = Completer<void>();
+        final provider = _ConcurrentCatalogAuthorizationProvider(
+          action: AuthorizationAction.publish,
+          uri: 'app.events.audit',
+          firstEntered: firstRefreshEntered,
+          secondEntered: secondRefreshEntered,
+          releaseFirst: releaseFirstRefresh,
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+        addTearDown(() {
+          if (!releaseFirstRefresh.isCompleted) {
+            releaseFirstRefresh.complete();
+          }
+        });
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9149,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final firstClient = McpStreamableHttpClient(endpoint);
+        final secondClient = McpStreamableHttpClient(endpoint);
+        addTearDown(() => firstClient.close(force: true));
+        addTearDown(() => secondClient.close(force: true));
+
+        final firstRefresh = firstClient.listWampApiDirect(
+          id: 'overlapping-catalog-refresh-first',
+        );
+        await firstRefreshEntered.future.timeout(const Duration(seconds: 2));
+        final secondRefresh = secondClient.listWampApiDirect(
+          id: 'overlapping-catalog-refresh-second',
+        );
+        final secondEnteredBeforeRelease = await Future.any(<Future<bool>>[
+          secondRefreshEntered.future.then((_) => true),
+          Future<bool>.delayed(const Duration(milliseconds: 500), () => false),
+        ]);
+        releaseFirstRefresh.complete();
+
+        await Future.wait(<Future<Object?>>[firstRefresh, secondRefresh]);
+        expect(secondEnteredBeforeRelease, isFalse);
+        expect(provider.maxConcurrentMatchingRequests, equals(1));
+      },
+      skip: skipReason,
+    );
+
+    test(
       'keeps a new MCP session alive while its tool catalog refreshes',
       () async {
         final refreshEntered = Completer<void>();
@@ -12072,6 +12132,49 @@ final class _BlockingCatalogAuthorizationProvider
         entered.complete();
       }
       await release.future;
+    }
+    return null;
+  }
+}
+
+final class _ConcurrentCatalogAuthorizationProvider
+    implements AuthorizationProvider {
+  _ConcurrentCatalogAuthorizationProvider({
+    required this.action,
+    required this.uri,
+    required this.firstEntered,
+    required this.secondEntered,
+    required this.releaseFirst,
+  });
+
+  final AuthorizationAction action;
+  final String uri;
+  final Completer<void> firstEntered;
+  final Completer<void> secondEntered;
+  final Completer<void> releaseFirst;
+  int _matchingRequestCount = 0;
+  int _activeMatchingRequests = 0;
+  int maxConcurrentMatchingRequests = 0;
+
+  @override
+  Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
+    if (request.action != action || request.uri != uri) {
+      return null;
+    }
+    _matchingRequestCount += 1;
+    _activeMatchingRequests += 1;
+    if (_activeMatchingRequests > maxConcurrentMatchingRequests) {
+      maxConcurrentMatchingRequests = _activeMatchingRequests;
+    }
+    try {
+      if (_matchingRequestCount == 1) {
+        firstEntered.complete();
+        await releaseFirst.future;
+      } else if (_matchingRequestCount == 2 && !secondEntered.isCompleted) {
+        secondEntered.complete();
+      }
+    } finally {
+      _activeMatchingRequests -= 1;
     }
     return null;
   }

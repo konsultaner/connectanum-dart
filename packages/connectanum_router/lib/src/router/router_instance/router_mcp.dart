@@ -2931,6 +2931,7 @@ class _RouterMcpEndpoint {
   String? _toolSignature;
   String? _wampApiSignature;
   final mcp.McpWampPubSubState _wampPubSubState = mcp.McpWampPubSubState();
+  Future<void> _catalogRefreshTail = Future<void>.value();
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
   int _sseHistoryBytes = 0;
   final List<mcp.JsonMap> _pendingSseMessages = <mcp.JsonMap>[];
@@ -4188,7 +4189,7 @@ class _RouterMcpEndpoint {
     }
   }
 
-  Future<void> _refreshTools() async {
+  Future<void> _performCatalogRefresh() async {
     final api = await _buildApi();
     final tools = api.toTools(
       call: _call,
@@ -4226,6 +4227,15 @@ class _RouterMcpEndpoint {
     }
     _toolSignature = toolSignature;
     _wampApiSignature = apiSignature;
+  }
+
+  Future<void> _refreshTools() {
+    final refresh = _catalogRefreshTail.then<void>(
+      (_) => _performCatalogRefresh(),
+      onError: (Object _, StackTrace _) => _performCatalogRefresh(),
+    );
+    _catalogRefreshTail = refresh;
+    return refresh;
   }
 
   Future<mcp.McpWampApi> _buildApi() async {
