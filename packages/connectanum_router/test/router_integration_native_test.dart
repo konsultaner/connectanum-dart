@@ -6997,6 +6997,42 @@ void main() {
     );
 
     test(
+      'refreshes the MCP catalog once before validating and dispatching',
+      () async {
+        final provider = _CountingCatalogAuthorizationProvider(
+          action: AuthorizationAction.publish,
+          uri: 'app.events.audit',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9139,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = McpStreamableHttpClient(
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: listener.port,
+            path: '/mcp/public',
+          ),
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'single-catalog-refresh-initialize');
+
+        expect(provider.matchingRequestCount, equals(1));
+        await client.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'keeps a new MCP session alive while its tool catalog refreshes',
       () async {
         final refreshEntered = Completer<void>();
@@ -11991,6 +12027,26 @@ RouterSettings _buildMcpAnonymousIsolationSettings() {
           const AuthenticatorDefinition(type: 'anonymous'),
         ))
       .build();
+}
+
+final class _CountingCatalogAuthorizationProvider
+    implements AuthorizationProvider {
+  _CountingCatalogAuthorizationProvider({
+    required this.action,
+    required this.uri,
+  });
+
+  final AuthorizationAction action;
+  final String uri;
+  int matchingRequestCount = 0;
+
+  @override
+  Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
+    if (request.action == action && request.uri == uri) {
+      matchingRequestCount += 1;
+    }
+    return null;
+  }
 }
 
 final class _BlockingCatalogAuthorizationProvider

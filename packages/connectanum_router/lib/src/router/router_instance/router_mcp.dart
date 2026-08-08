@@ -2412,7 +2412,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       return;
     }
 
-    final rawResponse = await endpoint.handleMessage(
+    final rawResponse = await endpoint._handleMessageAfterRefresh(
       rawMessage,
       resourceSubscriptionsAllowed:
           streamableHttpRequest && effectiveMcpSessionId != null,
@@ -3054,11 +3054,10 @@ class _RouterMcpEndpoint {
     }
   }
 
-  Future<Object?> handleMessage(
+  Future<Object?> _handleMessageAfterRefresh(
     Object? rawMessage, {
     required bool resourceSubscriptionsAllowed,
   }) async {
-    await _refreshTools();
     if (rawMessage is List) {
       return _handleBatchMessage(
         rawMessage,
