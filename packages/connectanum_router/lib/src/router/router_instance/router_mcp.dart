@@ -485,6 +485,39 @@ NativeHttpResponse _mcpJsonRpcHttpError({
   );
 }
 
+Future<void> _sendMcpCatalogRefreshHttpError(
+  RouterBinding binding, {
+  required RouterHttpRequest request,
+  required NativeHttpHandshake? handshake,
+  required Object error,
+  Object? id,
+  String? sessionId,
+  required String protocolVersion,
+  required Map<String, String> extraHeaders,
+}) async {
+  binding.onEvent?.call({
+    'source': 'binding',
+    'type': 'mcp_catalog_refresh_error',
+    'listenerId': request.listenerId,
+    'connectionId': request.connectionId,
+    'endpoint': request.endpoint,
+    'errorType': error.runtimeType.toString(),
+  });
+  await binding._sendImmediateHttpResponse(
+    request: request,
+    handshake: handshake,
+    response: _mcpJsonRpcHttpError(
+      status: HttpStatus.internalServerError,
+      code: mcp.McpErrorCodes.internalError,
+      message: 'MCP catalog could not be refreshed',
+      id: id,
+      sessionId: sessionId,
+      protocolVersion: protocolVersion,
+      extraHeaders: extraHeaders,
+    ),
+  );
+}
+
 String? _mcpHeaderValue(
   RouterBinding binding,
   RouterHttpRequest request,
@@ -2017,7 +2050,20 @@ Future<void> _handleMcpHttpRequestForBinding(
     }
     final sessionRequestAcquired = endpoint._beginSessionRequest();
     try {
-      await endpoint._refreshTools();
+      try {
+        await endpoint._refreshTools();
+      } catch (error) {
+        await _sendMcpCatalogRefreshHttpError(
+          binding,
+          request: request,
+          handshake: handshake,
+          error: error,
+          sessionId: mcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        );
+        return;
+      }
       final _RouterMcpSsePollBatch pollBatch;
       try {
         pollBatch = endpoint.ssePollEvents(
@@ -2306,7 +2352,23 @@ Future<void> _handleMcpHttpRequestForBinding(
   final sessionRequestAcquired = endpoint._beginSessionRequest();
   var refreshIdleDeadline = false;
   try {
-    await endpoint._refreshTools();
+    try {
+      await endpoint._refreshTools();
+    } catch (error) {
+      await _sendMcpCatalogRefreshHttpError(
+        binding,
+        request: request,
+        handshake: handshake,
+        error: error,
+        id: _recoverDirectJsonRequestId(rawMessage),
+        sessionId: tentativeInitializeSessionId == null
+            ? effectiveMcpSessionId
+            : null,
+        protocolVersion: effectiveResponseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      );
+      return;
+    }
     final toolParameterHeaderError = _mcpToolParameterHeaderValidationError(
       binding,
       request: request,

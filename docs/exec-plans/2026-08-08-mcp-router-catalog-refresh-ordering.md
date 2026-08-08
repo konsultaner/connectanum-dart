@@ -1,7 +1,8 @@
 # MCP Router Catalog Refresh Ordering
 
-Status: active; implementation and complete local verification green, hosted
-verification pending
+Status: complete; implementation commit `9841711e` is published on both
+maintained `master` branches, and local plus exact-head hosted verification is
+green
 
 ## Goal
 
@@ -50,8 +51,24 @@ the newer catalog and emit stale list-change notifications.
   WAMP workloads, all 399 router tests, the 6-case remote-auth process, the
   13-case native follow-up, every generated and globally activated consumer
   smoke, and Chrome/Dart2Wasm.
+- 2026-08-08: Commit `9841711e` is published on both maintained `master`
+  branches. Exact-head GitHub CI `31256464937`, Dart Package Publish Dry Run
+  `31256464936`, WAMP Profile Benchmarks `31256464944` attempt 2, and Router
+  Image dry run `31256554182` passed. The first WAMP attempt recorded two
+  transient 64 KiB Dart AES pub/sub throughput samples below the 1.200 Mbps
+  floor; the unchanged exact-head retry passed. Coverage artifact `9021712010`,
+  successful WAMP artifact `9021684344`, Router Image preview artifact
+  `9021545729`, and Docker build records `9021593115` and `9021592792` were
+  uploaded.
+- 2026-08-08: The comprehensive strict deployment-chain audit exited zero
+  with clean exact-head CI jobs and logs, package and native-release evidence,
+  loaded-image MCP runtime smoke, multi-architecture image build, WAMP profile
+  gates, branch protection, workflow visibility, and public router-package
+  visibility all ready. RC tagging remains a separate release approval
+  decision and was not changed.
 
 ## Handoff
 
-- Commit and publish with the accumulated hosted-evidence bookkeeping, then
-  watch the exact-head GitHub deployment chain.
+- Milestone complete. Select the next router-hosted MCP or downstream
+  application readiness gap from the roadmaps and current implementation
+  evidence.

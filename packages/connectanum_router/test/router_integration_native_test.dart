@@ -7093,6 +7093,200 @@ void main() {
     );
 
     test(
+      'returns bounded errors and recovers after MCP catalog authorization failures',
+      () async {
+        final provider = _FailNextCatalogAuthorizationProvider(
+          action: AuthorizationAction.publish,
+          uri: 'app.events.audit',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9150,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final statelessClient = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'catalog-refresh-failure-test',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => statelessClient.close(force: true));
+
+        provider.failNext();
+        await expectLater(
+          statelessClient
+              .listWampApiDirect(id: 'catalog-refresh-direct-failure')
+              .timeout(const Duration(seconds: 2)),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.internalServerError,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  allOf(
+                    contains('catalog-refresh-direct-failure'),
+                    contains('MCP catalog could not be refreshed'),
+                    isNot(contains('authorization backend detail')),
+                  ),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        final refreshError = await harness
+            .nextEvent('mcp_catalog_refresh_error')
+            .timeout(const Duration(seconds: 2));
+        expect(refreshError['errorType'], equals('StateError'));
+        expect(refreshError, isNot(contains('error')));
+        expect(refreshError, isNot(contains('stackTrace')));
+        expect(statelessClient.sessionId, isNull);
+        expect(statelessClient.lastEventId, isNull);
+        expect(
+          jsonEncode(
+            await statelessClient.listWampApiDirect(
+              id: 'catalog-refresh-direct-recovery',
+            ),
+          ),
+          contains('app.documented.only'),
+        );
+
+        final streamableClient = McpStreamableHttpClient(endpoint);
+        addTearDown(() => streamableClient.close(force: true));
+
+        provider.failNext();
+        await expectLater(
+          streamableClient
+              .initialize(id: 'catalog-refresh-initialize-failure')
+              .timeout(const Duration(seconds: 2)),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.internalServerError,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  allOf(
+                    contains('catalog-refresh-initialize-failure'),
+                    contains('MCP catalog could not be refreshed'),
+                    isNot(contains('authorization backend detail')),
+                  ),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(streamableClient.sessionId, isNull);
+        expect(streamableClient.lastEventId, isNull);
+
+        await streamableClient.initialize(
+          id: 'catalog-refresh-initialize-recovery',
+        );
+        await streamableClient.notifyInitialized();
+        final sessionId = streamableClient.sessionId;
+        expect(sessionId, isNotNull);
+
+        provider.failNext();
+        await expectLater(
+          streamableClient
+              .listWampApi(id: 'catalog-refresh-streamable-failure')
+              .timeout(const Duration(seconds: 2)),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.internalServerError,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  allOf(
+                    contains('catalog-refresh-streamable-failure'),
+                    contains('MCP catalog could not be refreshed'),
+                    isNot(contains('authorization backend detail')),
+                  ),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  containsPair('mcp-session-id', <String>[sessionId!]),
+                ),
+          ),
+        );
+        expect(streamableClient.sessionId, equals(sessionId));
+        expect(streamableClient.lastEventId, isNull);
+        expect(
+          jsonEncode(
+            await streamableClient.listWampApi(
+              id: 'catalog-refresh-streamable-recovery',
+            ),
+          ),
+          contains('app.documented.only'),
+        );
+        expect(streamableClient.sessionId, equals(sessionId));
+
+        final resumeCursor = streamableClient.lastEventId;
+        provider.failNext();
+        await expectLater(
+          streamableClient.poll().timeout(const Duration(seconds: 2)),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.internalServerError,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  allOf(
+                    contains('MCP catalog could not be refreshed'),
+                    isNot(contains('authorization backend detail')),
+                  ),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  containsPair('mcp-session-id', <String>[sessionId]),
+                ),
+          ),
+        );
+        expect(streamableClient.sessionId, equals(sessionId));
+        expect(streamableClient.lastEventId, equals(resumeCursor));
+        await streamableClient.poll().timeout(const Duration(seconds: 2));
+        expect(streamableClient.sessionId, equals(sessionId));
+        await streamableClient.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'keeps a new MCP session alive while its tool catalog refreshes',
       () async {
         final refreshEntered = Completer<void>();
@@ -12104,6 +12298,31 @@ final class _CountingCatalogAuthorizationProvider
   Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
     if (request.action == action && request.uri == uri) {
       matchingRequestCount += 1;
+    }
+    return null;
+  }
+}
+
+final class _FailNextCatalogAuthorizationProvider
+    implements AuthorizationProvider {
+  _FailNextCatalogAuthorizationProvider({
+    required this.action,
+    required this.uri,
+  });
+
+  final AuthorizationAction action;
+  final String uri;
+  bool _failNext = false;
+
+  void failNext() {
+    _failNext = true;
+  }
+
+  @override
+  Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
+    if (_failNext && request.action == action && request.uri == uri) {
+      _failNext = false;
+      throw StateError('catalog authorization backend detail');
     }
     return null;
   }
