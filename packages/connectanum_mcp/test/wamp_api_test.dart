@@ -523,6 +523,92 @@ void main() {
       expect(unsubscribed.subscriptionId, 7);
     });
 
+    test('keeps pubsub handles usable when unsubscribe fails', () async {
+      late void Function(McpWampEvent event) onEvent;
+      var unsubscribeAttempts = 0;
+      final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);
+      final server = _server(
+        api.toTools(
+          subscribe: (request, handler) {
+            onEvent = handler;
+            return McpWampSubscription(topic: request.topic, subscriptionId: 7);
+          },
+          unsubscribe: (_) async {
+            unsubscribeAttempts++;
+            if (unsubscribeAttempts == 1) {
+              throw StateError('temporary unsubscribe failure');
+            }
+          },
+        ),
+      );
+      await _initializeAndStart(server);
+
+      final subscribeResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 44,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'app.events'},
+        },
+      });
+      final subscription =
+          (subscribeResponse?['result']
+                  as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      final handle = subscription['handle'] as String;
+
+      final firstUnsubscribeResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 45,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': {'handle': handle},
+        },
+      });
+      expect(
+        jsonEncode(firstUnsubscribeResponse),
+        contains('temporary unsubscribe failure'),
+      );
+      expect(unsubscribeAttempts, 1);
+
+      onEvent(
+        const McpWampEvent(
+          subscriptionId: 7,
+          publicationId: 102,
+          topic: 'app.events',
+          argumentsKeywords: {'message': 'after-failed-unsubscribe'},
+        ),
+      );
+      final pollResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 46,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.poll',
+          'arguments': {'handle': handle},
+        },
+      });
+      expect(jsonEncode(pollResponse), contains('after-failed-unsubscribe'));
+
+      final retryResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 47,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': {'handle': handle},
+        },
+      });
+      final retryResult =
+          (retryResponse?['result']
+                  as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      expect(retryResult['unsubscribed'], isTrue);
+      expect(unsubscribeAttempts, 2);
+    });
+
     test('bounds buffered WAMP events by their UTF-8 JSON size', () async {
       late void Function(McpWampEvent event) onEvent;
       final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);

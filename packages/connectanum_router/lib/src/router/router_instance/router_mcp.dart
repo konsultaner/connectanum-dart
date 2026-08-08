@@ -4599,19 +4599,16 @@ class _RouterMcpEndpoint {
   }
 
   Future<void> _unsubscribe(mcp.McpWampSubscription subscription) async {
-    try {
-      final sessionSubscription = subscription.sessionSubscription;
-      if (sessionSubscription != null) {
-        await session.releaseSubscription(sessionSubscription);
-        return;
-      }
+    final sessionSubscription = subscription.sessionSubscription;
+    if (sessionSubscription != null) {
+      await session.releaseSubscription(sessionSubscription);
+    } else {
       final subscriptionId = subscription.subscriptionId;
       if (subscriptionId != null) {
         await session.unsubscribe(subscriptionId);
       }
-    } finally {
-      _wampSubscriptions.remove(subscription);
     }
+    _wampSubscriptions.remove(subscription);
   }
 
   List<SessionInfo> _visibleMetaSessions(Iterable<SessionInfo> sessions) {

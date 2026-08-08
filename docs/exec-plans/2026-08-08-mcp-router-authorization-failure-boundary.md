@@ -1,7 +1,7 @@
 # MCP Router Authorization Failure Boundary
 
-Status: complete; implementation and complete local verification are green,
-hosted deployment evidence pending
+Status: complete; implementation, local verification, and hosted deployment
+evidence are green
 
 ## Goal
 
@@ -58,9 +58,20 @@ refresh failures are already bounded and redacted at the HTTP boundary.
   96 benchmark, and 401 Router tests; the 6-case remote-auth and 13-case native
   follow-ups; every generated and globally activated consumer smoke; and
   Chrome/Dart2Wasm.
+- 2026-08-08: Commit `81eee6c8` is pushed to both GitHub and GitLab `master`.
+  Exact-head GitHub CI `31263722732`, Dart Package Publish Dry Run
+  `31263722742`, WAMP Profile Benchmarks `31263722725`, and Router Image dry
+  run `31263820310` all pass. Their retained evidence includes Dart VM coverage
+  artifact `9023719549`, WAMP profile artifact `9023600336`, router image
+  preview `9023538413`, and Docker build records `9023587566` and `9023587772`.
+  The comprehensive strict deployment-chain audit exits successfully with
+  clean exact-head CI jobs and logs, relevant native-release evidence, package,
+  router-image runtime smoke, WAMP, workflow-visibility, branch-protection, and
+  public GHCR gates all ready. Creating the next RC tag remains an explicit
+  release-approval decision outside this implementation plan.
 
 ## Handoff
 
-- Publish with the accumulated hosted-evidence bookkeeping, watch the exact-head
-  GitHub deployment chain, and run the strict deployment audit if that evidence
-  is needed for handoff.
+- Complete. Continue from `ROADMAP_NEXT.md` and `ROADMAP.md` with the next
+  production-readiness slice; do not create or move an RC tag without explicit
+  release approval.

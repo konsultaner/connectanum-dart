@@ -24846,6 +24846,24 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
+- Completed most recently, with hosted evidence pending, the implementation
+  plan is
+  `docs/exec-plans/2026-08-08-mcp-pubsub-unsubscribe-retry.md`. Shared MCP WAMP
+  pub/sub state removed a logical handle before awaiting unsubscribe, so a
+  temporary cleanup failure permanently hid a still-live subscription from
+  polling and retry. Router-hosted MCP also dropped the subscription from
+  capacity and endpoint-disposal tracking even when WAMP release failed. A
+  fail-first MCP regression reproduced the lost handle after a delegated
+  failure. The fix restores the handle before rethrowing and retains router
+  ownership until release succeeds. Focused MCP tests and package analysis
+  pass. Pre-change and post-change `bin/test-fast` pass, with the post-change
+  gate covering all 98 MCP and 280 MCP/client cases, all 96 benchmark tests
+  including 36 live WAMP workloads, and the complete package/consumer plus
+  Router CLI smoke matrix. Full `bin/verify` passes formatting and analysis,
+  114 Rust core tests plus serializer integrations, 52 Rust FFI tests plus the
+  focused metrics check, 360 Dart core, 98 MCP, 280 MCP/client, 96 benchmark,
+  and 401 Router tests; the 6-case remote-auth and 13-case native follow-ups;
+  every generated and globally activated consumer smoke; and Chrome/Dart2Wasm.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-authorization-failure-boundary.md`.
   Router-hosted MCP now redacts authorization-provider exceptions at the shared
@@ -24864,7 +24882,17 @@ at the older `47bbf9c` commit.
   focused metrics check; 360 Dart core, 97 MCP, 280 MCP/client, 96 benchmark,
   and 401 Router tests; the 6-case remote-auth and 13-case native follow-ups;
   every generated and globally activated consumer smoke; and Chrome/Dart2Wasm.
-  Hosted deployment evidence remains.
+  Commit `81eee6c8` is pushed to both GitHub and GitLab `master`. Exact-head
+  GitHub CI `31263722732`, Dart Package Publish Dry Run `31263722742`, WAMP
+  Profile Benchmarks `31263722725`, and Router Image dry run `31263820310` all
+  pass. Retained artifacts are Dart VM coverage `9023719549`, WAMP profile
+  evidence `9023600336`, router image preview `9023538413`, and Docker build
+  records `9023587566` and `9023587772`. The comprehensive strict
+  deployment-chain audit exits successfully with clean exact-head CI jobs and
+  logs plus all required package, relevant native release, router-image MCP
+  smoke, WAMP, workflow-visibility, branch-protection, and public GHCR gates
+  ready. Only the deliberately unapproved next RC tag remains outside the
+  implementation milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-catalog-refresh-failure-recovery.md`.
   Dynamic authorization-provider exceptions during router-hosted catalog

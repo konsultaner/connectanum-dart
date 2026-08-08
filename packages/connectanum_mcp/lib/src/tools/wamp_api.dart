@@ -991,7 +991,12 @@ class _McpWampPubSubTools {
     if (subscription == null) {
       return McpToolResult.error('Unknown WAMP subscription handle: $handle');
     }
-    await unsubscribe(subscription.subscription);
+    try {
+      await unsubscribe(subscription.subscription);
+    } catch (_) {
+      _subscriptions.putIfAbsent(handle, () => subscription);
+      rethrow;
+    }
     return _jsonToolResult(<String, Object?>{
       'handle': handle,
       'topic': subscription.topic,
