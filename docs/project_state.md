@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-08
-Current branch: `codex/mcp-router-pubsub-byte-bounds`
+Current branch: `codex/mcp-router-sse-history-byte-bounds`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24847,6 +24847,23 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is
+  `docs/exec-plans/2026-08-08-mcp-router-sse-history-byte-bounds.md`.
+  Compatibility-era replay history already caps retained event count at 128,
+  but repeated near-limit POST/SSE responses can still retain roughly 128
+  times the route response ceiling per endpoint. The implementation adds
+  encoded SSE wire-byte accounting, a validated snake/camel route ceiling
+  defaulting to one maximum response, oldest-event eviction, and focused
+  old/new cursor plus compatibility-session/direct-JSON recovery evidence.
+  Pre-change `bin/test-fast` passed. Fail-first validation and native coverage
+  demonstrated that an invalid zero ceiling was accepted and that eight large
+  replay events retained the oldest cursor below the count limit. The router
+  now validates both option spellings, accounts encoded SSE bytes, and evicts
+  oldest events until both byte and count ceilings hold. Focused checks,
+  post-change `bin/test-fast`, and full `bin/verify` pass, including all 393
+  router cases, 96 benchmark cases with 36 live WAMP workloads, generated and
+  activated consumer smokes, remote-auth/native follow-ups, and
+  Chrome/Dart2Wasm. Publication and exact-head hosted evidence remain pending.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-pubsub-byte-bounds.md`.
   Router-hosted MCP WAMP queues already cap caller-selected event counts, but
   retained bytes still scale with event payload size. The implementation adds
@@ -24862,8 +24879,16 @@ at the older `47bbf9c` commit.
   complete 280-case MCP/client suite, all 96 benchmark tests including 36 live
   WAMP workloads, every generated and globally activated consumer smoke, the
   complete 392-case router suite, the 6-case remote-auth process, the 13-case
-  native follow-up, and Chrome/Dart2Wasm. Publication and exact-head hosted
-  evidence remain pending.
+  native follow-up, and Chrome/Dart2Wasm. Implementation commit `d0fbbfd3` is
+  on both maintained `master` branches. Exact-head CI `31231232145`, Dart
+  Package Publish Dry Run `31231232183`, WAMP Profile Benchmarks `31231232162`,
+  and Router Image dry run `31231255230` all passed. CI uploaded coverage
+  artifact `9014104674`; WAMP uploaded artifact `9013973350`; Router Image
+  uploaded preview artifact `9013878359` plus Docker build records `9013937490`
+  and `9013937188`. The comprehensive strict deployment-chain audit exits zero
+  with clean exact-head CI logs and clean, relevant package, native, loaded-
+  image Router Image, WAMP, workflow, branch-protection, and package-visibility
+  gates.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-sse-sequence-rollback.md`.
   Compatibility-era GET/SSE and POST/SSE response assembly previously mutated

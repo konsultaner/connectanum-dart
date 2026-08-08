@@ -13,6 +13,9 @@
   configurable raw-byte limit and authenticated-route precedence.
 - Bound router-hosted MCP tool and dynamic-resource WAMP calls with a
   configurable protocol-level deadline and router-driven cancellation.
+- Bound compatibility Streamable HTTP replay history by encoded SSE bytes as
+  well as event count, with a configurable route ceiling and oldest-first
+  eviction.
 
 ## 0.1.0
 

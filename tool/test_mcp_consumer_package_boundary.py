@@ -678,6 +678,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         script = COMMON_SH.read_text(encoding="utf-8")
         body = _function_body(script, "run_router_cli_consumer_package_smoke")
 
+        self.assertIn("max_sse_history_bytes: 16777216", body)
         self.assertIn("resource_templates = post_json(", body)
         self.assertIn('"method": "resources/templates/list"', body)
         self.assertIn(

@@ -1,7 +1,7 @@
 # MCP Router Pub/Sub Byte Bounds
 
-Status: active; implementation and full local verification green, publication
-and hosted evidence pending
+Status: completed; implementation published, full local verification,
+exact-head hosted evidence, and strict deployment-chain audit green
 
 ## Goal
 
@@ -81,9 +81,24 @@ compatibility-era Streamable HTTP operation for consumer applications.
   WAMP workloads, every generated and globally activated consumer smoke, the
   complete 392-case router suite, the 6-case remote-auth process, the 13-case
   native follow-up, and Chrome/Dart2Wasm.
+- 2026-08-08: Implementation commit `d0fbbfd3` was pushed to both maintained
+  `master` branches. Exact-head CI `31231232145`, Dart Package Publish Dry Run
+  `31231232183`, WAMP Profile Benchmarks `31231232162`, and Router Image dry
+  run `31231255230` all passed. CI uploaded coverage artifact `9014104674`;
+  WAMP uploaded artifact `9013973350`; Router Image uploaded preview artifact
+  `9013878359` plus Docker build records `9013937490` and `9013937188`.
+- 2026-08-08: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs, clean package, WAMP, and loaded-image
+  Router Image evidence, and relevant Native Artifacts dry-run evidence from
+  `d4f42076` because no native-release-sensitive paths changed afterward. Its
+  non-gating RC summary remains intentionally not ready because no approved RC
+  tag points at this implementation commit.
 
 ## Handoff
 
-- Implementation and the complete local gate are green. Review and publish the
-  implementation, then collect exact-head hosted deployment-chain evidence and
-  run the comprehensive strict audit.
+- Every router-hosted logical WAMP subscription is now count- and byte-bounded,
+  exposes its effective byte policy, and recovers after oversized input.
+  Implementation, complete local verification, dual-remote publication,
+  exact-head hosted workflows, and the comprehensive strict audit are green.
+  Select the next router-hosted MCP or downstream-readiness implementation gap
+  from the roadmaps.

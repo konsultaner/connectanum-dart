@@ -203,6 +203,7 @@ RouterSettings _buildSettings() {
     'include_pubsub_tools': true,
     'max_request_bytes': 16 * 1024 * 1024,
     'max_response_bytes': 16 * 1024 * 1024,
+    'max_sse_history_bytes': 16 * 1024 * 1024,
     'max_session_count': 1024,
     'max_request_scoped_listener_count': 1024,
     'max_wamp_subscription_count': 1024,

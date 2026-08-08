@@ -77,6 +77,14 @@ int _mcpMaxResponseBytesForRoute(HttpRouteSettings route) {
       _mcpDefaultMaxResponseBytes;
 }
 
+int _mcpMaxSseHistoryBytesForRoute(HttpRouteSettings route) {
+  return _intOptionAny(route.action.options, const <String>[
+        'max_sse_history_bytes',
+        'maxSseHistoryBytes',
+      ]) ??
+      _mcpMaxResponseBytesForRoute(route);
+}
+
 int _mcpMaxSessionCountForRoute(HttpRouteSettings route) {
   return _intOptionAny(route.action.options, const <String>[
         'max_session_count',
@@ -2679,6 +2687,9 @@ final class _RouterMcpSseEvent {
   final int sequence;
   final String data;
   final int? retryMs;
+
+  int get encodedByteLength =>
+      _mcpSseEventBytes(id: id, data: data, retryMs: retryMs).length;
 }
 
 final class _RouterMcpSsePollBatch {
@@ -2867,6 +2878,7 @@ class _RouterMcpEndpoint {
       RealmAuthorizationProviderCache(binding.settings);
   String? _toolSignature;
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
+  int _sseHistoryBytes = 0;
   final List<mcp.JsonMap> _pendingSseMessages = <mcp.JsonMap>[];
   final Set<String> _pendingOrInFlightSseNotificationKeys = <String>{};
   final Map<String, int> _sseStreamSequences = <String, int>{};
@@ -3306,8 +3318,12 @@ class _RouterMcpEndpoint {
 
   void _rememberSseEvent(_RouterMcpSseEvent event) {
     _sseHistory.add(event);
-    while (_sseHistory.length > _mcpSseEventHistoryLimit) {
+    _sseHistoryBytes += event.encodedByteLength;
+    final maxHistoryBytes = _mcpMaxSseHistoryBytesForRoute(route);
+    while (_sseHistory.length > _mcpSseEventHistoryLimit ||
+        _sseHistoryBytes > maxHistoryBytes) {
       final removed = _sseHistory.removeAt(0);
+      _sseHistoryBytes -= removed.encodedByteLength;
       if (!_sseHistory.any((event) => event.streamId == removed.streamId)) {
         _sseStreamSequences.remove(removed.streamId);
       }
@@ -4877,6 +4893,7 @@ void _validateMcpRouteOptions(Map<String, Object?> options) {
     _mcpProtectedResourceMetadataFromOptions(options);
     _validateMcpPostResponseOptions(options);
     _validateMcpRouteOptionShapes(options);
+    _validateMcpSseHistoryByteOptions(options);
     _configuredProcedures(options);
     _configuredTopics(options);
     _configuredResources(options);
@@ -4926,6 +4943,8 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'maxRequestBytes',
     'max_response_bytes',
     'maxResponseBytes',
+    'max_sse_history_bytes',
+    'maxSseHistoryBytes',
     'max_session_count',
     'maxSessionCount',
     'max_request_scoped_listener_count',
@@ -4962,6 +4981,26 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
 
   _validateMcpAllowedOriginsRouteOption(options);
   _validateMcpConfiguredRouteOptionShapes(options);
+}
+
+void _validateMcpSseHistoryByteOptions(Map<String, Object?> options) {
+  final maxResponseBytes =
+      _intOptionAny(options, const <String>[
+        'max_response_bytes',
+        'maxResponseBytes',
+      ]) ??
+      _mcpDefaultMaxResponseBytes;
+  final maxHistoryBytes =
+      _intOptionAny(options, const <String>[
+        'max_sse_history_bytes',
+        'maxSseHistoryBytes',
+      ]) ??
+      maxResponseBytes;
+  if (maxHistoryBytes < maxResponseBytes) {
+    throw const FormatException(
+      'MCP max_sse_history_bytes must be at least max_response_bytes',
+    );
+  }
 }
 
 void _validateMcpBoolRouteOption(Map<String, Object?> options, String key) {

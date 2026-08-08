@@ -905,6 +905,23 @@ void main() {
         returnsNormally,
       );
       _expectInvalidMcpOptions({
+        'max_sse_history_bytes': 0,
+      }, 'MCP max_sse_history_bytes must be a positive integer');
+      _expectInvalidMcpOptions({
+        'maxSseHistoryBytes': '1024',
+      }, 'MCP maxSseHistoryBytes must be a positive integer');
+      _expectInvalidMcpOptions({
+        'max_response_bytes': 2048,
+        'max_sse_history_bytes': 1024,
+      }, 'MCP max_sse_history_bytes must be at least max_response_bytes');
+      expect(
+        _routerWithMcpOptions(const {
+          'maxResponseBytes': 2048,
+          'maxSseHistoryBytes': 2048,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      _expectInvalidMcpOptions({
         'max_session_count': 0,
       }, 'MCP max_session_count must be a positive integer');
       _expectInvalidMcpOptions({

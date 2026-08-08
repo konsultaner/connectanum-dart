@@ -5907,6 +5907,159 @@ void main() {
     );
 
     test(
+      'bounds router-hosted MCP SSE replay history bytes and keeps the endpoint reusable',
+      () async {
+        const responseLimit = 4096;
+        final harness = await _RouterHarness.start(
+          connectionId: 9146,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(
+            maxResponseBytes: responseLimit,
+            maxSseHistoryBytes: responseLimit,
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-sse-history-bound-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final padding = List<String>.filled(1200, 'x').join();
+        final registration = await serviceSession.register(
+          'app.safe.sse_history_bound_lookup',
+          options: core.RegisterOptions(
+            custom: const <String, Object?>{
+              '_ai_meta_data': <String, Object?>{
+                'short_description': 'Return replay-history test content',
+                'read_only_hint': true,
+                'destructive_hint': false,
+                'idempotent_hint': true,
+                'open_world_hint': false,
+              },
+            },
+          ),
+        );
+        registration.onInvoke((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: <String, Object?>{
+              'status': 'complete',
+              'padding': padding,
+            },
+          );
+        });
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/secure',
+        );
+        final authHttpClient = HttpClient();
+        addTearDown(() => authHttpClient.close(force: true));
+        final grant = await _issueTicketHttpGrant(
+          authHttpClient,
+          listener.port,
+        );
+        final client = McpStreamableHttpClient.withAuthGrant(
+          endpoint,
+          grant,
+          maxResponseBytes: 8192,
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'sse-history-bound-initialize');
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        expect(sessionId, isNotNull);
+        final activeSessionId = sessionId!;
+
+        final rawClient = HttpClient();
+        addTearDown(() => rawClient.close(force: true));
+        final responseEventIds = <List<String>>[];
+        var retainedCandidateBytes = 0;
+        for (var index = 0; index < 4; index++) {
+          final response = await _postJson(
+            rawClient,
+            listener.port,
+            '/mcp/secure',
+            <String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 'sse-history-bound-call-$index',
+              'method': 'tools/call',
+              'params': <String, Object?>{
+                'name': 'app.safe.sse_history_bound_lookup',
+                'arguments': const <String, Object?>{},
+              },
+            },
+            headers: <String, String>{
+              HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+              HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+              'MCP-Session-Id': activeSessionId,
+              'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+            },
+          );
+          expect(response.statusCode, equals(HttpStatus.ok));
+          expect(
+            utf8.encode(response.body).length,
+            lessThanOrEqualTo(responseLimit),
+          );
+          final eventIds = _sseEventIds(response.body);
+          expect(eventIds, hasLength(2));
+          responseEventIds.add(eventIds);
+          retainedCandidateBytes += utf8.encode(response.body).length;
+        }
+        expect(responseEventIds.length * 2, lessThan(128));
+        expect(retainedCandidateBytes, greaterThan(responseLimit));
+
+        final evictedCursor = await _getHttp(
+          rawClient,
+          listener.port,
+          '/mcp/secure',
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+            'MCP-Session-Id': activeSessionId,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+            'Last-Event-ID': responseEventIds.first.first,
+          },
+        );
+        expect(evictedCursor.statusCode, equals(HttpStatus.badRequest));
+        expect(evictedCursor.body, contains('Last-Event-ID'));
+
+        final newestReplay = await _getHttp(
+          rawClient,
+          listener.port,
+          '/mcp/secure',
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+            'MCP-Session-Id': activeSessionId,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+            'Last-Event-ID': responseEventIds.last.first,
+          },
+        );
+        expect(newestReplay.statusCode, equals(HttpStatus.ok));
+        expect(newestReplay.body, contains(responseEventIds.last.last));
+        expect(newestReplay.body, contains('sse-history-bound-call-3'));
+        expect(client.sessionId, equals(activeSessionId));
+
+        final directRecovery = await client.callToolDirect(
+          'app.safe.sse_history_bound_lookup',
+          id: 'sse-history-bound-direct-recovery',
+        );
+        expect(directRecovery['isError'], isFalse);
+        expect(client.sessionId, equals(activeSessionId));
+        await client.deleteSession();
+        expect(client.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'coalesces repeated router-hosted MCP compatibility notifications',
       () async {
         final harness = await _RouterHarness.start(
@@ -11356,6 +11509,7 @@ RouterSettings _buildMcpSmokeSettings({
   int? maxWampSubscriptionQueueBytes,
   int? maxRequestBytes,
   int? maxResponseBytes,
+  int? maxSseHistoryBytes,
   int? callTimeoutMs,
   String? liveResourceUri,
   List<String> additionalLiveResourceUris = const <String>[],
@@ -11377,6 +11531,7 @@ RouterSettings _buildMcpSmokeSettings({
     'max_wamp_subscription_queue_bytes': ?maxWampSubscriptionQueueBytes,
     'max_request_bytes': ?maxRequestBytes,
     'max_response_bytes': ?maxResponseBytes,
+    'max_sse_history_bytes': ?maxSseHistoryBytes,
     'call_timeout_ms': ?callTimeoutMs,
     'procedures': [
       {

@@ -158,6 +158,7 @@ const HttpRouteSettings(
     options: {
       'max_request_bytes': 16 * 1024 * 1024,
       'max_response_bytes': 16 * 1024 * 1024,
+      'max_sse_history_bytes': 16 * 1024 * 1024,
       'max_session_count': 1024,
       'max_request_scoped_listener_count': 1024,
       'max_wamp_subscription_count': 1024,
@@ -257,6 +258,14 @@ Encoded MCP JSON-RPC responses are also limited to 16 MiB by default. Set the
 positive `max_response_bytes` (or `maxResponseBytes`) route option to choose
 another bound. Oversized responses fail with HTTP `500` without an MCP session
 identifier, while an established compatibility session remains reusable.
+
+Compatibility Streamable HTTP replay history is limited to 128 events and, by
+default, the route's response-byte ceiling. Set the positive
+`max_sse_history_bytes` (or `maxSseHistoryBytes`) route option to choose a
+larger encoded-SSE byte budget; it must be at least `max_response_bytes` so the
+latest complete response can remain replayable. The router evicts oldest
+events first. A cursor for an evicted event receives HTTP `400`, while the
+compatibility session and sessionless direct JSON access remain usable.
 
 Router-hosted MCP tool calls and WAMP-backed dynamic resource reads carry a
 protocol-level 30-second CALL timeout by default. Set the positive

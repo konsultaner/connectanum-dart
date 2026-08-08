@@ -27117,6 +27117,7 @@ router:
                 instructions: Router CLI MCP smoke endpoint.
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                max_sse_history_bytes: 16777216
                 resources:
                   - uri: cli://mcp/context
                     name: cli-context
