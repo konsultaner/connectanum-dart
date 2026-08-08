@@ -24846,8 +24846,27 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Completed most recently, with hosted evidence pending, the implementation
-  plan is
+- Active implementation plan:
+  `docs/exec-plans/2026-08-08-mcp-router-unsubscribe-authorization-retry.md`.
+  Router-hosted MCP authorized WAMP subscribe by topic but delegated
+  unsubscribe through an internal router command carrying only the broker
+  subscription identifier, so dynamic providers could neither deny nor fail
+  that operation. A fail-first native-router regression reproduced the missing
+  provider request. The endpoint now authorizes unsubscribe with the retained
+  topic before release and uses the existing bounded authorization-error
+  contract. Focused proof passes: a provider exception exposes no backend
+  detail, direct JSON stays sessionless, the original handle continues polling,
+  route capacity remains reserved, same-handle retry succeeds, and capacity is
+  available afterward. Pre-change and post-change `bin/test-fast` are green;
+  the post-change gate covers 360 core, 98 MCP, and 280 MCP/client cases, all
+  96 benchmark tests including 36 live WAMP workloads, and the complete
+  package/consumer plus Router CLI smoke matrix. Full `bin/verify` also passes
+  formatting and analysis, 114 Rust core tests plus serializer integrations,
+  52 Rust FFI tests plus the focused metrics check, 360 Dart core, 98 MCP, 280
+  MCP/client, 96 benchmark, and 402 Router tests; the 6-case remote-auth and
+  13-case native follow-ups; every generated and globally activated consumer
+  smoke; and Chrome/Dart2Wasm. Publication and hosted evidence remain.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-pubsub-unsubscribe-retry.md`. Shared MCP WAMP
   pub/sub state removed a logical handle before awaiting unsubscribe, so a
   temporary cleanup failure permanently hid a still-live subscription from
@@ -24864,6 +24883,19 @@ at the older `47bbf9c` commit.
   focused metrics check, 360 Dart core, 98 MCP, 280 MCP/client, 96 benchmark,
   and 401 Router tests; the 6-case remote-auth and 13-case native follow-ups;
   every generated and globally activated consumer smoke; and Chrome/Dart2Wasm.
+  Commit `b0471a86` is pushed to both GitHub and GitLab `master`. Exact-head
+  GitHub CI `31267655668`, Dart Package Publish Dry Run `31267655654`, WAMP
+  Profile Benchmarks `31267655659`, and Router Image dry run `31267660648` all
+  pass. The WAMP run passed unchanged on attempt 2 after its first attempt
+  narrowly missed two unrelated AES pub/sub throughput minima; no gate or
+  implementation was weakened. Retained artifacts are Dart VM coverage
+  `9024850388`, passing WAMP profile evidence `9024819441`, router image preview
+  `9024639968`, and Docker build records `9024685091` and `9024685308`. The
+  comprehensive strict deployment-chain audit exits successfully with clean
+  exact-head CI jobs and logs plus all required package, relevant native
+  release, router-image MCP smoke, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gates ready. Only the deliberately
+  unapproved next RC tag remains outside the implementation milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-authorization-failure-boundary.md`.
   Router-hosted MCP now redacts authorization-provider exceptions at the shared

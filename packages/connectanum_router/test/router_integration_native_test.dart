@@ -5599,6 +5599,151 @@ void main() {
     );
 
     test(
+      'redacts router-hosted MCP WAMP unsubscribe failures and preserves retry state',
+      () async {
+        final provider = _FailDeferredAuthorizationProvider(
+          action: AuthorizationAction.unsubscribe,
+          uri: 'app.events.audit',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9158,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxWampSubscriptionCount: 1),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-wamp-unsubscribe-failure-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final primary = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-wamp-unsubscribe-failure-primary',
+            'version': '1.0.0',
+          },
+        );
+        final contender = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-wamp-unsubscribe-failure-contender',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => primary.close(force: true));
+        addTearDown(() => contender.close(force: true));
+
+        final subscription = await primary.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'wamp-unsubscribe-failure-subscribe',
+          queueLimit: 2,
+        );
+        provider.failOnMatchingRequest(1);
+
+        await expectLater(
+          primary.unsubscribeWampTopicDirect(
+            subscription.handle,
+            id: 'wamp-unsubscribe-failure-first-attempt',
+          ),
+          throwsA(
+            isA<McpStreamableWampToolException>().having(
+              (error) => error.message,
+              'message',
+              allOf(
+                contains('MCP authorization check failed'),
+                isNot(contains('authorization backend detail')),
+              ),
+            ),
+          ),
+        );
+
+        final failureEvent = await harness
+            .nextEvent('mcp_authorization_error')
+            .timeout(const Duration(seconds: 2));
+        expect(failureEvent['realm'], equals('realm1'));
+        expect(failureEvent['action'], equals('unsubscribe'));
+        expect(failureEvent['errorType'], equals('StateError'));
+        expect(failureEvent, isNot(contains('error')));
+        expect(failureEvent, isNot(contains('stackTrace')));
+        expect(
+          jsonEncode(failureEvent),
+          isNot(contains('authorization backend detail')),
+        );
+        expect(primary.sessionId, isNull);
+        expect(primary.lastEventId, isNull);
+
+        await serviceSession.publish(
+          'app.events.audit',
+          argumentsKeywords: const <String, Object?>{
+            'via': 'unsubscribe-retry-continuity',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        final retainedEvents = await primary.pollWampEventsDirect(
+          subscription.handle,
+          id: 'wamp-unsubscribe-failure-poll',
+        );
+        expect(
+          retainedEvents.events,
+          contains(
+            isA<Map<String, Object?>>().having(
+              (event) => event['argumentsKeywords'],
+              'argumentsKeywords',
+              containsPair('via', 'unsubscribe-retry-continuity'),
+            ),
+          ),
+        );
+
+        await expectLater(
+          contender.subscribeWampTopicDirect(
+            'app.events.audit',
+            id: 'wamp-unsubscribe-failure-capacity-retained',
+            queueLimit: 1,
+          ),
+          throwsA(
+            isA<McpStreamableWampToolException>().having(
+              (error) => error.message,
+              'message',
+              contains('WAMP subscription capacity is exhausted'),
+            ),
+          ),
+        );
+
+        final retriedUnsubscribe = await primary.unsubscribeWampTopicDirect(
+          subscription.handle,
+          id: 'wamp-unsubscribe-failure-retry',
+        );
+        expect(retriedUnsubscribe.unsubscribed, isTrue);
+
+        final recovered = await contender.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'wamp-unsubscribe-failure-recovered',
+          queueLimit: 1,
+        );
+        await contender.unsubscribeWampTopicDirect(
+          recovered.handle,
+          id: 'wamp-unsubscribe-failure-recovered-release',
+        );
+        expect(contender.sessionId, isNull);
+        expect(contender.lastEventId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP request bodies without poisoning auth or session state',
       () async {
         final harness = await _RouterHarness.start(

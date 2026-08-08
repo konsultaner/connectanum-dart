@@ -3111,7 +3111,7 @@ class _RouterMcpEndpoint {
     _modernResourcePreparationCounts.clear();
     for (final subscriptionFuture in resourceSubscriptions) {
       try {
-        await _unsubscribe(await subscriptionFuture);
+        await _releaseWampSubscription(await subscriptionFuture);
       } catch (_) {
         // Best-effort cleanup during endpoint disposal.
       }
@@ -3121,7 +3121,7 @@ class _RouterMcpEndpoint {
     _wampSubscriptions.clear();
     for (final subscription in subscriptions) {
       try {
-        await _unsubscribe(subscription);
+        await _releaseWampSubscription(subscription);
       } catch (_) {
         // Best-effort cleanup during endpoint disposal.
       }
@@ -3856,7 +3856,7 @@ class _RouterMcpEndpoint {
         continue;
       }
       try {
-        await _unsubscribe(await subscriptionFuture);
+        await _releaseWampSubscription(await subscriptionFuture);
       } catch (_) {
         if (!bestEffort) {
           rethrow;
@@ -4599,6 +4599,18 @@ class _RouterMcpEndpoint {
   }
 
   Future<void> _unsubscribe(mcp.McpWampSubscription subscription) async {
+    if (!await _isAuthorized(
+      AuthorizationAction.unsubscribe,
+      subscription.topic,
+    )) {
+      throw StateError('Not authorized to unsubscribe ${subscription.topic}');
+    }
+    await _releaseWampSubscription(subscription);
+  }
+
+  Future<void> _releaseWampSubscription(
+    mcp.McpWampSubscription subscription,
+  ) async {
     final sessionSubscription = subscription.sessionSubscription;
     if (sessionSubscription != null) {
       await session.releaseSubscription(sessionSubscription);
