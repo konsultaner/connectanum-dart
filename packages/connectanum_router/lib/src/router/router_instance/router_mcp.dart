@@ -2929,6 +2929,7 @@ class _RouterMcpEndpoint {
   late final RealmAuthorizationProviderCache _authorizationProviderCache =
       RealmAuthorizationProviderCache(binding.settings);
   String? _toolSignature;
+  String? _wampApiSignature;
   final mcp.McpWampPubSubState _wampPubSubState = mcp.McpWampPubSubState();
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
   int _sseHistoryBytes = 0;
@@ -4202,18 +4203,30 @@ class _RouterMcpEndpoint {
       maxBufferedEventBytes: _mcpMaxWampSubscriptionQueueBytesForRoute(route),
       pubSubState: _wampPubSubState,
     );
-    final signature = jsonEncode([for (final tool in tools) tool.toJson()]);
-    if (signature == _toolSignature) {
+    final toolSignature = jsonEncode([for (final tool in tools) tool.toJson()]);
+    final procedures = [...api.procedures]
+      ..sort((left, right) => left.procedure.compareTo(right.procedure));
+    final topics = [...api.topics]
+      ..sort((left, right) => left.topic.compareTo(right.topic));
+    final apiSignature = jsonEncode({
+      'tools': toolSignature,
+      if (api.name != null) 'name': api.name,
+      if (api.metadata.isNotEmpty) 'metadata': api.metadata,
+      'procedures': [for (final procedure in procedures) procedure.toJson()],
+      'topics': [for (final topic in topics) topic.toJson()],
+    });
+    if (apiSignature == _wampApiSignature) {
       return;
     }
     server.tools.replaceAll(tools);
-    if (_toolSignature != null) {
+    if (_toolSignature != null && toolSignature != _toolSignature) {
       if (server.state == mcp.McpServerState.initialized) {
         _enqueueServerNotification('notifications/tools/list_changed');
       }
       _sendModernNotification('notifications/tools/list_changed');
     }
-    _toolSignature = signature;
+    _toolSignature = toolSignature;
+    _wampApiSignature = apiSignature;
   }
 
   Future<mcp.McpWampApi> _buildApi() async {

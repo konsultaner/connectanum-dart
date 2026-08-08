@@ -24847,6 +24847,34 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is
+  `docs/exec-plans/2026-08-08-mcp-router-topic-catalog-refresh.md`.
+  Router-hosted MCP builds fresh WAMP API metadata handlers before every
+  request but currently compares only serialized MCP tool definitions before
+  installing them. A live topic can appear without changing any tool shape,
+  leaving direct JSON and compatibility-era Streamable clients bound to stale
+  `connectanum.api.list` and `connectanum.api.describe` handlers. The active
+  checkpoint adds a fail-first native-router regression for that topic-only
+  change, makes refresh identity include normalized WAMP procedure and topic
+  catalogs, and proves both transports observe the current API snapshot.
+  Complete pre-change `bin/test-fast` passes with 360 Dart core tests, all 97
+  MCP tests, the complete 280-case MCP/client suite, all 96 benchmark cases
+  including 36 live WAMP workloads, every generated and globally activated
+  consumer smoke, the Router CLI lifecycle matrix, and focused native/router
+  follow-ups. The fail-first native-router regression reproduced the stale
+  direct JSON catalog after an authorized live topic appeared. Router MCP now
+  keeps separate tool-list and normalized WAMP API signatures, rebinding direct
+  JSON and Streamable metadata handlers for catalog-only changes without
+  emitting a misleading tool-list notification. Both focused refresh and
+  existing pub/sub continuity regressions pass, as does router analysis.
+  Post-change `bin/test-fast` passes. Final exact-code `bin/verify` passes with
+  zero formatting changes, 114 Rust core tests plus serializer integrations,
+  52 Rust FFI tests plus the focused metrics check, 360 Dart core tests, all 97
+  MCP tests, the complete 280-case MCP/client suite, all 96 benchmark tests
+  including 36 live WAMP workloads, all 397 router tests, the 6-case
+  remote-auth process, the 13-case native follow-up, every generated and
+  globally activated consumer smoke, and Chrome/Dart2Wasm. Hosted verification
+  remains.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-pubsub-catalog-refresh-continuity.md`.
   Router MCP tool refresh previously created a fresh WAMP pub/sub bridge. When
   a dynamic registration changed the tool signature, the replacement handlers
@@ -24880,8 +24908,18 @@ at the older `47bbf9c` commit.
   MCP tests, the complete 280-case MCP/client suite, all 96 benchmark tests
   including 36 live WAMP workloads, all 396 router tests, the 6-case
   remote-auth process, the 13-case native follow-up, every generated and
-  globally activated consumer smoke, and Chrome/Dart2Wasm. Hosted verification
-  remains.
+  globally activated consumer smoke, and Chrome/Dart2Wasm. Commit `d1972248`
+  is published on both maintained `master` branches. Exact-head GitHub CI
+  `31246343084`, Dart Package Publish Dry Run `31246343087`, WAMP Profile
+  Benchmarks `31246343109`, and Router Image dry run `31246347780` passed on
+  their first attempts. Coverage artifact `9018808448`, WAMP artifact
+  `9018689498`, Router Image preview artifact `9018611984`, and Docker build
+  records `9018660894` and `9018660596` were uploaded. The comprehensive strict
+  deployment-chain audit passes with clean exact-head CI jobs and logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, all required
+  deployment gates, branch protection, workflow visibility, and public router
+  package visibility ready. RC tagging remains a separate release approval
+  decision and was not changed.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-modern-sse-event-bounds.md`.
   Modern `2026-07-28` request-scoped SSE previously opened its native stream

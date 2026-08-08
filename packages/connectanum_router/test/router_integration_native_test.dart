@@ -6795,6 +6795,76 @@ void main() {
     );
 
     test(
+      'refreshes router-hosted MCP topic catalogs without tool shape changes',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9148,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-topic-catalog-refresh-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        addTearDown(() => client.close(force: true));
+
+        const dynamicTopic = 'app.events.catalog_refresh';
+        expect(
+          jsonEncode(
+            await client.listWampApiDirect(
+              id: 'topic-catalog-refresh-direct-before',
+            ),
+          ),
+          isNot(contains(dynamicTopic)),
+        );
+        await client.initialize(id: 'topic-catalog-refresh-initialize');
+        await client.notifyInitialized();
+        expect(
+          jsonEncode(
+            await client.listWampApi(
+              id: 'topic-catalog-refresh-streamable-before',
+            ),
+          ),
+          isNot(contains(dynamicTopic)),
+        );
+
+        await serviceSession.subscribe(dynamicTopic);
+
+        expect(
+          jsonEncode(
+            await client.listWampApiDirect(
+              id: 'topic-catalog-refresh-direct-after',
+            ),
+          ),
+          contains(dynamicTopic),
+        );
+        expect(
+          jsonEncode(
+            await client.listWampApi(
+              id: 'topic-catalog-refresh-streamable-after',
+            ),
+          ),
+          contains(dynamicTopic),
+        );
+        await client.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP WAMP calls and keeps the session reusable',
       () async {
         final harness = await _RouterHarness.start(

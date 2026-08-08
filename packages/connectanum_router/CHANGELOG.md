@@ -23,6 +23,8 @@
   eviction.
 - Preserve direct JSON and Streamable WAMP pub/sub handles while dynamic WAMP
   registrations refresh the router-hosted MCP tool catalog.
+- Refresh router-hosted MCP WAMP procedure and topic metadata even when the
+  live catalog changes without changing any MCP tool definition.
 
 ## 0.1.0
 
