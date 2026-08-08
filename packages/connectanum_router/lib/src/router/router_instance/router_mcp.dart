@@ -2929,6 +2929,7 @@ class _RouterMcpEndpoint {
   late final RealmAuthorizationProviderCache _authorizationProviderCache =
       RealmAuthorizationProviderCache(binding.settings);
   String? _toolSignature;
+  final mcp.McpWampPubSubState _wampPubSubState = mcp.McpWampPubSubState();
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
   int _sseHistoryBytes = 0;
   final List<mcp.JsonMap> _pendingSseMessages = <mcp.JsonMap>[];
@@ -4199,6 +4200,7 @@ class _RouterMcpEndpoint {
         'includePubsubTools',
       ], defaultValue: true),
       maxBufferedEventBytes: _mcpMaxWampSubscriptionQueueBytesForRoute(route),
+      pubSubState: _wampPubSubState,
     );
     final signature = jsonEncode([for (final tool in tools) tool.toJson()]);
     if (signature == _toolSignature) {

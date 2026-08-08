@@ -20,6 +20,8 @@
 - Let the public router-hosted client executable run either the session-era
   Streamable HTTP lifecycle or the `2026-07-28` stateless discovery lifecycle,
   including direct JSON tools, WAMP metadata, and pub/sub coverage.
+- Add reusable `McpWampPubSubState` so applications can regenerate a declared
+  WAMP API catalog without orphaning buffered subscription handles.
 
 ## 0.1.0
 

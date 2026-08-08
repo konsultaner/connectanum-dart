@@ -6653,6 +6653,148 @@ void main() {
     );
 
     test(
+      'keeps router-hosted MCP pubsub handles across tool catalog refreshes',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9147,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-pubsub-refresh-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        addTearDown(() => client.close(force: true));
+
+        final directSubscription = await client.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'pubsub-refresh-direct-subscribe',
+          queueLimit: 4,
+        );
+        await client.initialize(id: 'pubsub-refresh-initialize');
+        await client.notifyInitialized();
+        final streamableSubscription = await client.subscribeWampTopic(
+          'app.events.audit',
+          id: 'pubsub-refresh-streamable-subscribe',
+          queueLimit: 4,
+        );
+
+        final dynamicRegistration = await serviceSession.register(
+          'app.safe.catalog_refresh',
+          options: core.RegisterOptions(
+            custom: const <String, Object?>{
+              '_ai_meta_data': <String, Object?>{
+                'short_description': 'Catalog refresh marker',
+                'read_only_hint': true,
+                'destructive_hint': false,
+                'idempotent_hint': true,
+                'open_world_hint': false,
+              },
+            },
+          ),
+        );
+        addTearDown(
+          () => serviceSession.unregister(dynamicRegistration.registrationId),
+        );
+
+        expect(
+          jsonEncode(
+            await client.listWampApiDirect(id: 'pubsub-refresh-direct-catalog'),
+          ),
+          contains('app.safe.catalog_refresh'),
+        );
+        expect(
+          jsonEncode(
+            await client.listWampApi(id: 'pubsub-refresh-streamable-catalog'),
+          ),
+          contains('app.safe.catalog_refresh'),
+        );
+
+        await serviceSession.publish(
+          'app.events.audit',
+          argumentsKeywords: const <String, Object?>{'via': 'catalog-refresh'},
+          options: core.PublishOptions(acknowledge: true),
+        );
+
+        Future<McpStreamableWampEventBatch> pollUntilEvent({
+          required String handle,
+          required bool directJson,
+        }) async {
+          var batch = directJson
+              ? await client.pollWampEventsDirect(
+                  handle,
+                  id: 'pubsub-refresh-direct-poll-0',
+                )
+              : await client.pollWampEvents(
+                  handle,
+                  id: 'pubsub-refresh-streamable-poll-0',
+                );
+          for (
+            var attempt = 1;
+            batch.events.isEmpty && attempt < 50;
+            attempt++
+          ) {
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+            batch = directJson
+                ? await client.pollWampEventsDirect(
+                    handle,
+                    id: 'pubsub-refresh-direct-poll-$attempt',
+                  )
+                : await client.pollWampEvents(
+                    handle,
+                    id: 'pubsub-refresh-streamable-poll-$attempt',
+                  );
+          }
+          return batch;
+        }
+
+        final directEvents = await pollUntilEvent(
+          handle: directSubscription.handle,
+          directJson: true,
+        );
+        final streamableEvents = await pollUntilEvent(
+          handle: streamableSubscription.handle,
+          directJson: false,
+        );
+        expect(jsonEncode(directEvents.events), contains('catalog-refresh'));
+        expect(
+          jsonEncode(streamableEvents.events),
+          contains('catalog-refresh'),
+        );
+
+        expect(
+          (await client.unsubscribeWampTopicDirect(
+            directSubscription.handle,
+            id: 'pubsub-refresh-direct-unsubscribe',
+          )).unsubscribed,
+          isTrue,
+        );
+        expect(
+          (await client.unsubscribeWampTopic(
+            streamableSubscription.handle,
+            id: 'pubsub-refresh-streamable-unsubscribe',
+          )).unsubscribed,
+          isTrue,
+        );
+        await client.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP WAMP calls and keeps the session reusable',
       () async {
         final harness = await _RouterHarness.start(

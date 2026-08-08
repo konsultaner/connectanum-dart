@@ -425,6 +425,104 @@ void main() {
       expect(unsubscribed.subscriptionId, 7);
     });
 
+    test('reuses pubsub state across refreshed WAMP API catalogs', () async {
+      late void Function(McpWampEvent event) onEvent;
+      late McpWampSubscription unsubscribed;
+      final state = McpWampPubSubState();
+
+      McpWampSubscription subscribe(
+        McpWampSubscribeRequest request,
+        void Function(McpWampEvent event) handler,
+      ) {
+        onEvent = handler;
+        return McpWampSubscription(topic: request.topic, subscriptionId: 7);
+      }
+
+      void unsubscribe(McpWampSubscription subscription) {
+        unsubscribed = subscription;
+      }
+
+      final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);
+      final server = _server(
+        api.toTools(
+          subscribe: subscribe,
+          unsubscribe: unsubscribe,
+          pubSubState: state,
+        ),
+      );
+      await _initializeAndStart(server);
+
+      final subscribeResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 40,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'app.events'},
+        },
+      });
+      final subscription =
+          (subscribeResponse?['result']
+                  as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      final handle = subscription['handle'] as String;
+
+      final refreshedApi = McpWampApi(
+        topics: [
+          McpWampTopic(topic: 'app.events'),
+          McpWampTopic(topic: 'app.events.refreshed'),
+        ],
+      );
+      server.tools.replaceAll(
+        refreshedApi.toTools(
+          subscribe: subscribe,
+          unsubscribe: unsubscribe,
+          pubSubState: state,
+        ),
+      );
+
+      final catalogResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 41,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.api.list',
+          'arguments': {'kind': 'topic'},
+        },
+      });
+      expect(jsonEncode(catalogResponse), contains('app.events.refreshed'));
+
+      onEvent(
+        const McpWampEvent(
+          subscriptionId: 7,
+          publicationId: 101,
+          topic: 'app.events',
+          argumentsKeywords: {'message': 'after-refresh'},
+        ),
+      );
+      final pollResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 42,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.poll',
+          'arguments': {'handle': handle},
+        },
+      });
+      expect(jsonEncode(pollResponse), contains('after-refresh'));
+
+      await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 43,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.unsubscribe',
+          'arguments': {'handle': handle},
+        },
+      });
+      expect(unsubscribed.subscriptionId, 7);
+    });
+
     test('bounds buffered WAMP events by their UTF-8 JSON size', () async {
       late void Function(McpWampEvent event) onEvent;
       final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);

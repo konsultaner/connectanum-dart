@@ -486,6 +486,13 @@ channel in this package yet, so topic events are buffered per subscription and
 read through `connectanum.pubsub.poll`. Use `queueLimit` on subscribe requests
 to bound memory for local agents.
 
+If an application regenerates its declared API when WAMP registrations or
+topics change, pass the same endpoint-owned `McpWampPubSubState` to successive
+`toTools` or `toSessionTools` calls. This keeps existing poll/unsubscribe
+handles and buffered events while metadata and invokers rebind to the refreshed
+catalog. Do not share one state object across endpoints, sessions, or
+authorization principals.
+
 ## Router-Hosted MCP Endpoint
 
 `connectanum_router` can host an MCP endpoint directly. Add an HTTP route with

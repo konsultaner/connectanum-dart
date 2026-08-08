@@ -1,7 +1,8 @@
 # MCP Router Modern SSE Event Bounds
 
-Status: active; implementation and complete local verification green,
-publication and hosted evidence pending
+Status: complete; implementation commit `7717b912` is published on both
+maintained `master` branches, and local plus exact-head hosted verification is
+green
 
 ## Goal
 
@@ -91,8 +92,22 @@ preserving listener-capacity accounting and endpoint reuse on rejection.
   including 36 live WAMP workloads, all 395 router tests, the 6-case
   remote-auth process, the 13-case native follow-up, every generated and
   globally activated consumer smoke, and Chrome/Dart2Wasm.
+- 2026-08-08: Commit `7717b912` is published on both maintained `master`
+  branches. Exact-head GitHub CI `31242559321`, Dart Package Publish Dry Run
+  `31242559336`, WAMP Profile Benchmarks `31242559281`, and Router Image dry
+  run `31242565431` passed on their first attempts. Coverage artifact
+  `9017654808`, WAMP artifact `9017558983`, Router Image preview artifact
+  `9017485207`, and Docker build records `9017524690` and `9017524494` were
+  uploaded.
+- 2026-08-08: The comprehensive strict deployment-chain audit passed with
+  exact-head branch alignment, clean CI jobs and logs, package and router-image
+  dry runs, loaded-image MCP runtime smoke, multi-architecture image build,
+  WAMP profile gates, branch protection, workflow visibility, and public
+  router-package visibility all ready. RC tagging remains a separate release
+  approval decision and was not changed.
 
 ## Handoff
 
-- Publish the verified implementation and collect exact-head hosted deployment
+- Milestone complete. Select the next router-hosted MCP or downstream
+  application readiness gap from the roadmaps and current implementation
   evidence.

@@ -19,6 +19,42 @@ typedef McpWampSubscribeInvoker =
 typedef McpWampUnsubscribeInvoker =
     FutureOr<void> Function(McpWampSubscription subscription);
 
+/// Retains WAMP pub/sub handles across regenerated MCP tool catalogs.
+///
+/// Reuse one state object only for successive [McpWampApi.toTools] or
+/// [McpWampApi.toSessionTools] calls that belong to the same logical endpoint,
+/// session, and authorization principal.
+final class McpWampPubSubState {
+  _McpWampPubSubTools? _bridge;
+
+  _McpWampPubSubTools _bind({
+    required McpWampApi api,
+    required McpWampPublishInvoker? publish,
+    required McpWampSubscribeInvoker? subscribe,
+    required McpWampUnsubscribeInvoker? unsubscribe,
+    required int? maxBufferedEventBytes,
+  }) {
+    final bridge = _bridge;
+    if (bridge == null) {
+      return _bridge = _McpWampPubSubTools(
+        api,
+        publish,
+        subscribe,
+        unsubscribe,
+        maxBufferedEventBytes,
+      );
+    }
+    bridge._rebind(
+      api: api,
+      publish: publish,
+      subscribe: subscribe,
+      unsubscribe: unsubscribe,
+      maxBufferedEventBytes: maxBufferedEventBytes,
+    );
+    return bridge;
+  }
+}
+
 class McpWampApi {
   McpWampApi({
     this.name,
@@ -54,6 +90,7 @@ class McpWampApi {
     bool includePubSubTools = true,
     Duration? timeout,
     int? maxBufferedEventBytes,
+    McpWampPubSubState? pubSubState,
   }) {
     if (maxBufferedEventBytes != null && maxBufferedEventBytes <= 0) {
       throw ArgumentError.value(
@@ -110,6 +147,7 @@ class McpWampApi {
           subscribe: subscribe,
           unsubscribe: unsubscribe,
           maxBufferedEventBytes: maxBufferedEventBytes,
+          pubSubState: pubSubState,
         ),
       );
     }
@@ -122,6 +160,7 @@ class McpWampApi {
     bool includePubSubTools = true,
     Duration? timeout,
     int? maxBufferedEventBytes,
+    McpWampPubSubState? pubSubState,
   }) {
     return toTools(
       call: (call) => session.callSinglePayload(
@@ -169,6 +208,7 @@ class McpWampApi {
       includePubSubTools: includePubSubTools,
       timeout: timeout,
       maxBufferedEventBytes: maxBufferedEventBytes,
+      pubSubState: pubSubState,
     );
   }
 
@@ -233,14 +273,23 @@ class McpWampApi {
     required McpWampSubscribeInvoker? subscribe,
     required McpWampUnsubscribeInvoker? unsubscribe,
     required int? maxBufferedEventBytes,
+    required McpWampPubSubState? pubSubState,
   }) {
-    final bridge = _McpWampPubSubTools(
-      this,
-      publish,
-      subscribe,
-      unsubscribe,
-      maxBufferedEventBytes,
-    );
+    final bridge =
+        pubSubState?._bind(
+          api: this,
+          publish: publish,
+          subscribe: subscribe,
+          unsubscribe: unsubscribe,
+          maxBufferedEventBytes: maxBufferedEventBytes,
+        ) ??
+        _McpWampPubSubTools(
+          this,
+          publish,
+          subscribe,
+          unsubscribe,
+          maxBufferedEventBytes,
+        );
     return [
       McpTool(
         name: 'connectanum.pubsub.publish',
@@ -815,11 +864,25 @@ class _McpWampPubSubTools {
     this.maxBufferedEventBytes,
   );
 
-  final McpWampApi api;
-  final McpWampPublishInvoker? _publish;
-  final McpWampSubscribeInvoker? _subscribe;
-  final McpWampUnsubscribeInvoker? _unsubscribe;
-  final int? maxBufferedEventBytes;
+  void _rebind({
+    required McpWampApi api,
+    required McpWampPublishInvoker? publish,
+    required McpWampSubscribeInvoker? subscribe,
+    required McpWampUnsubscribeInvoker? unsubscribe,
+    required int? maxBufferedEventBytes,
+  }) {
+    this.api = api;
+    _publish = publish;
+    _subscribe = subscribe;
+    _unsubscribe = unsubscribe;
+    this.maxBufferedEventBytes = maxBufferedEventBytes;
+  }
+
+  McpWampApi api;
+  McpWampPublishInvoker? _publish;
+  McpWampSubscribeInvoker? _subscribe;
+  McpWampUnsubscribeInvoker? _unsubscribe;
+  int? maxBufferedEventBytes;
   final Map<String, _BufferedSubscription> _subscriptions =
       <String, _BufferedSubscription>{};
   int _nextHandle = 1;

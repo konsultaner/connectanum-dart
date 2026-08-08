@@ -24847,9 +24847,45 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is
+  `docs/exec-plans/2026-08-08-mcp-router-pubsub-catalog-refresh-continuity.md`.
+  Router MCP tool refresh previously created a fresh WAMP pub/sub bridge. When
+  a dynamic registration changed the tool signature, the replacement handlers
+  had no knowledge of existing subscription handles even though their native
+  WAMP subscriptions remained live. The slice adds a fail-first direct JSON
+  regression, retains endpoint-owned pub/sub state while rebinding it to the
+  latest catalog, proves refreshed metadata plus direct JSON and Streamable
+  poll/unsubscribe continuity, and runs complete local and hosted verification.
+  Pre-change `bin/test-fast` passed on 2026-08-08 with 360 Dart core tests, all
+  96 MCP tests, the complete 280-case MCP/client suite, all 96 benchmark tests
+  including 36 live WAMP workloads, every generated and globally activated
+  consumer smoke, the Router CLI lifecycle matrix, and focused native/router
+  follow-ups. The preceding checkpoint's hosted-evidence bookkeeping remains
+  intentionally uncommitted for bundling with this implementation. The
+  fail-first native regression then created direct JSON and Streamable
+  subscriptions, changed the live registration catalog, and reproduced the
+  loss as `Unknown WAMP subscription handle: wamp-sub-1`. The public MCP API
+  now offers endpoint-owned `McpWampPubSubState`; successive tool generations
+  rebind that state to the latest catalog and invokers while retaining handles
+  and buffered events. The router gives each MCP endpoint one state object.
+  Focused MCP coverage proves refreshed metadata plus poll/unsubscribe
+  continuity, the native regression proves both HTTP modes receive and clean
+  up after a live procedure registration, and MCP/router analysis passes.
+  Post-change `bin/test-fast` passes with 360 Dart core tests, all 97 MCP
+  tests, the complete 280-case MCP/client suite, all 96 benchmark tests
+  including 36 live WAMP workloads, every generated and globally activated
+  consumer smoke, the Router CLI lifecycle matrix, and the focused
+  native/router follow-ups. Final exact-code `bin/verify` also passes with zero
+  formatting changes, 114 Rust core tests plus serializer integrations, 52
+  Rust FFI tests plus the focused metrics check, 360 Dart core tests, all 97
+  MCP tests, the complete 280-case MCP/client suite, all 96 benchmark tests
+  including 36 live WAMP workloads, all 396 router tests, the 6-case
+  remote-auth process, the 13-case native follow-up, every generated and
+  globally activated consumer smoke, and Chrome/Dart2Wasm. Hosted verification
+  remains.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-modern-sse-event-bounds.md`.
-  Modern `2026-07-28` request-scoped SSE currently opens its native stream
-  before encoding the subscription acknowledgment and does not apply the
+  Modern `2026-07-28` request-scoped SSE previously opened its native stream
+  before encoding the subscription acknowledgment and did not apply the
   route's `max_response_bytes` ceiling to that or later complete events. The
   slice will add a fail-first exact-wire regression, preflight the
   acknowledgment before stream open, bound later events individually, release
@@ -24878,8 +24914,18 @@ at the older `47bbf9c` commit.
   core tests, all 96 MCP tests, the complete 280-case MCP/client suite, all 96
   benchmark tests including 36 live WAMP workloads, all 395 router tests, the
   6-case remote-auth process, the 13-case native follow-up, every generated
-  and globally activated consumer smoke, and Chrome/Dart2Wasm. Publication
-  and exact-head hosted evidence remain.
+  and globally activated consumer smoke, and Chrome/Dart2Wasm. Commit
+  `7717b912` is published on both maintained `master` branches. Exact-head
+  GitHub CI `31242559321`, Dart Package Publish Dry Run `31242559336`, WAMP
+  Profile Benchmarks `31242559281`, and Router Image dry run `31242565431`
+  passed on their first attempts. Coverage artifact `9017654808`, WAMP
+  artifact `9017558983`, Router Image preview artifact `9017485207`, and Docker
+  build records `9017524690` and `9017524494` were uploaded. The comprehensive
+  strict deployment-chain audit passes with clean exact-head CI jobs and logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, all required
+  deployment gates, branch protection, workflow visibility, and public router
+  package visibility ready. RC tagging remains a separate release approval
+  decision and was not changed.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-post-sse-wire-bounds.md`.
   Compatibility POST/SSE operation responses previously checked only raw

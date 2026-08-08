@@ -21,6 +21,8 @@
 - Bound compatibility Streamable HTTP replay history by encoded SSE bytes as
   well as event count, with a configurable route ceiling and oldest-first
   eviction.
+- Preserve direct JSON and Streamable WAMP pub/sub handles while dynamic WAMP
+  registrations refresh the router-hosted MCP tool catalog.
 
 ## 0.1.0
 
