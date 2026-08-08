@@ -501,7 +501,9 @@ Future<void> _sendMcpCatalogRefreshHttpError(
     'listenerId': request.listenerId,
     'connectionId': request.connectionId,
     'endpoint': request.endpoint,
-    'errorType': error.runtimeType.toString(),
+    'errorType': error is _McpAuthorizationCheckFailed
+        ? error.errorType
+        : error.runtimeType.toString(),
   });
   await binding._sendImmediateHttpResponse(
     request: request,
@@ -2925,6 +2927,15 @@ class _RouterMcpModernSubscription {
   Timer? heartbeat;
 }
 
+final class _McpAuthorizationCheckFailed implements Exception {
+  const _McpAuthorizationCheckFailed(this.errorType);
+
+  final String errorType;
+
+  @override
+  String toString() => 'MCP authorization check failed';
+}
+
 class _RouterMcpEndpoint {
   _RouterMcpEndpoint({
     required this.binding,
@@ -4439,26 +4450,38 @@ class _RouterMcpEndpoint {
     if (realmSettings == null) {
       return false;
     }
-    final provider = await _authorizationProviderCache.providerFor(
-      realmSettings,
-    );
-    final decision = await RealmAuthorizer.authorize(
-      realmSettings: realmSettings,
-      provider: provider,
-      request: AuthorizationRequest(
-        realmUri: session.realmUri,
-        action: action,
-        uri: uri,
-        sessionId: session.sessionId,
-        connectionId: null,
-        authId: session.authId,
-        authRole: session.authRole,
-        authMethod: session.authMethod,
-        authProvider: session.authProvider,
-        isInternal: session.authorizationIsInternal,
-      ),
-    );
-    return decision.allowed;
+    try {
+      final provider = await _authorizationProviderCache.providerFor(
+        realmSettings,
+      );
+      final decision = await RealmAuthorizer.authorize(
+        realmSettings: realmSettings,
+        provider: provider,
+        request: AuthorizationRequest(
+          realmUri: session.realmUri,
+          action: action,
+          uri: uri,
+          sessionId: session.sessionId,
+          connectionId: null,
+          authId: session.authId,
+          authRole: session.authRole,
+          authMethod: session.authMethod,
+          authProvider: session.authProvider,
+          isInternal: session.authorizationIsInternal,
+        ),
+      );
+      return decision.allowed;
+    } catch (error) {
+      final errorType = error.runtimeType.toString();
+      binding.onEvent?.call({
+        'source': 'binding',
+        'type': 'mcp_authorization_error',
+        'realm': session.realmUri,
+        'action': action.name,
+        'errorType': errorType,
+      });
+      throw _McpAuthorizationCheckFailed(errorType);
+    }
   }
 
   RealmSettings? _realmSettings() {

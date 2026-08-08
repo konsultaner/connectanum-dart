@@ -1,7 +1,8 @@
 # MCP Router Catalog Refresh Failure Recovery
 
-Status: active; implementation and complete local verification green, hosted
-deployment evidence pending
+Status: complete; implementation commit `a38a4f36` is published on both
+maintained `master` branches, and local plus exact-head hosted verification is
+green
 
 ## Goal
 
@@ -56,8 +57,21 @@ Streamable HTTP.
   focused metrics check; 360 Dart core, 97 MCP, 280 MCP/client, 96 benchmark,
   and 400 Router tests; the 6-case remote-auth and 13-case native follow-ups;
   every generated and globally activated consumer smoke; and Chrome/Dart2Wasm.
+- 2026-08-08: Commit `a38a4f36` is published on both maintained `master`
+  branches. Exact-head GitHub CI `31260151107`, Dart Package Publish Dry Run
+  `31260151102`, WAMP Profile Benchmarks `31260151103`, and Router Image dry run
+  `31260156806` passed. Coverage artifact `9022736910`, WAMP artifact
+  `9022620487`, Router Image preview artifact `9022546345`, and Docker build
+  records `9022594537` and `9022594246` were uploaded.
+- 2026-08-08: The comprehensive strict deployment-chain audit exited zero with
+  clean exact-head CI jobs and logs, package and native-release evidence,
+  loaded-image MCP runtime smoke, multi-architecture image build, WAMP profile
+  gates, branch protection, workflow visibility, and public router-package
+  visibility all ready. RC tagging remains a separate release approval decision
+  and was not changed.
 
 ## Handoff
 
-- Publish with the accumulated hosted-evidence bookkeeping, watch the exact-head
-  deployment chain, and run the strict GitHub deployment audit.
+- Milestone complete. Select the next router-hosted MCP or downstream
+  application readiness gap from the roadmaps and current implementation
+  evidence.

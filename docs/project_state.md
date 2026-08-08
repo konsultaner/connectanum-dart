@@ -24846,7 +24846,26 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the implementation plan is
+- Completed most recently, the implementation plan is
+  `docs/exec-plans/2026-08-08-mcp-router-authorization-failure-boundary.md`.
+  Router-hosted MCP now redacts authorization-provider exceptions at the shared
+  action boundary before standard or direct JSON tool adapters can serialize
+  backend text. The generic tool failure remains fail-closed, the bounded
+  operational event exposes only realm, action, and original exception type,
+  and ordinary authorization denials retain their existing behavior. A
+  fail-first native regression proves no WAMP invocation, direct JSON
+  statelessness, established Streamable session and replay-cursor continuity,
+  and successful next calls. Both focused authorization-failure tests and
+  router analysis pass. Exact-tree post-change `bin/test-fast` passes all 97
+  MCP and 280 MCP/client cases, all 96 benchmark tests including 36 live WAMP
+  workloads, and the complete package/consumer plus Router CLI smoke matrix.
+  Final exact-code `bin/verify` passes with 397 Dart files already formatted;
+  114 Rust core tests plus serializer integrations; 52 Rust FFI tests plus the
+  focused metrics check; 360 Dart core, 97 MCP, 280 MCP/client, 96 benchmark,
+  and 401 Router tests; the 6-case remote-auth and 13-case native follow-ups;
+  every generated and globally activated consumer smoke; and Chrome/Dart2Wasm.
+  Hosted deployment evidence remains.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-catalog-refresh-failure-recovery.md`.
   Dynamic authorization-provider exceptions during router-hosted catalog
   refresh escaped into the boss's unawaited HTTP callback and surfaced only as
@@ -24867,7 +24886,17 @@ at the older `47bbf9c` commit.
   280-case MCP/client suite, all 96 benchmark tests including 36 live WAMP
   workloads, all 400 Router tests, the 6-case remote-auth and 13-case native
   follow-ups, every generated and globally activated consumer smoke, and
-  Chrome/Dart2Wasm. Hosted deployment evidence remains.
+  Chrome/Dart2Wasm. Commit `a38a4f36` is published on both maintained `master`
+  branches. Exact-head GitHub CI `31260151107`, Dart Package Publish Dry Run
+  `31260151102`, WAMP Profile Benchmarks `31260151103`, and Router Image dry run
+  `31260156806` passed. Coverage artifact `9022736910`, WAMP artifact
+  `9022620487`, Router Image preview artifact `9022546345`, and Docker build
+  records `9022594537` and `9022594246` were uploaded. The comprehensive strict
+  deployment-chain audit exited zero with clean exact-head CI jobs and logs,
+  package and native-release evidence, loaded-image MCP runtime smoke,
+  multi-architecture image build, WAMP profile gates, branch protection,
+  workflow visibility, and public router-package visibility all ready. RC
+  tagging remains a separate release approval decision and was not changed.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-catalog-refresh-ordering.md`.
   Router-hosted MCP endpoints are shared by concurrent stateless requests for

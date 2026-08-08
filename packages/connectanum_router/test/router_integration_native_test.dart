@@ -7287,6 +7287,165 @@ void main() {
     );
 
     test(
+      'redacts MCP action authorization failures and preserves session recovery',
+      () async {
+        final provider = _FailDeferredAuthorizationProvider(
+          action: AuthorizationAction.call,
+          uri: 'app.safe.authorization_lookup',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9151,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-authorization-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+        final registration = await serviceSession.register(
+          'app.safe.authorization_lookup',
+        );
+        final observedRequests = <Object?>[];
+        registration.onInvoke((invocation) {
+          observedRequests.add(invocation.argumentsKeywords?['request']);
+          invocation.respondWith(
+            argumentsKeywords: <String, Object?>{
+              'request': invocation.argumentsKeywords,
+              'status': 'complete',
+            },
+          );
+        });
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final statelessClient = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'action-authorization-failure-test',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => statelessClient.close(force: true));
+
+        Future<void> expectBoundedAuthorizationErrorEvent() async {
+          final event = await harness
+              .nextEvent('mcp_authorization_error')
+              .timeout(const Duration(seconds: 2));
+          expect(event['realm'], equals('realm1'));
+          expect(event['action'], equals('call'));
+          expect(event['errorType'], equals('StateError'));
+          expect(event, isNot(contains('error')));
+          expect(event, isNot(contains('stackTrace')));
+          expect(
+            jsonEncode(event),
+            isNot(contains('authorization backend detail')),
+          );
+        }
+
+        provider.failOnMatchingRequest(2);
+        final directFailure = await statelessClient
+            .callToolDirect(
+              'app.safe.authorization_lookup',
+              id: 'action-authorization-direct-failure',
+              arguments: const <String, Object?>{'request': 'direct-failure'},
+            )
+            .timeout(const Duration(seconds: 2));
+        expect(directFailure['isError'], isTrue);
+        expect(
+          jsonEncode(directFailure),
+          allOf(
+            contains('MCP authorization check failed'),
+            isNot(contains('authorization backend detail')),
+          ),
+        );
+        expect(statelessClient.sessionId, isNull);
+        expect(statelessClient.lastEventId, isNull);
+        expect(observedRequests, isEmpty);
+        await expectBoundedAuthorizationErrorEvent();
+
+        final directRecovery = await statelessClient
+            .callToolDirect(
+              'app.safe.authorization_lookup',
+              id: 'action-authorization-direct-recovery',
+              arguments: const <String, Object?>{'request': 'direct-recovery'},
+            )
+            .timeout(const Duration(seconds: 2));
+        expect(directRecovery['isError'], isNot(true));
+        expect(jsonEncode(directRecovery), contains('direct-recovery'));
+        expect(statelessClient.sessionId, isNull);
+        expect(observedRequests, equals(<Object?>['direct-recovery']));
+
+        final streamableClient = McpStreamableHttpClient(endpoint);
+        addTearDown(() => streamableClient.close(force: true));
+        await streamableClient.initialize(
+          id: 'action-authorization-initialize',
+        );
+        await streamableClient.notifyInitialized();
+        final sessionId = streamableClient.sessionId;
+        expect(sessionId, isNotNull);
+        final cursorBeforeFailure = streamableClient.lastEventId;
+
+        provider.failOnMatchingRequest(2);
+        final streamableFailure = await streamableClient
+            .callTool(
+              'app.safe.authorization_lookup',
+              id: 'action-authorization-streamable-failure',
+              arguments: const <String, Object?>{
+                'request': 'streamable-failure',
+              },
+            )
+            .timeout(const Duration(seconds: 2));
+        expect(streamableFailure['isError'], isTrue);
+        expect(
+          jsonEncode(streamableFailure),
+          allOf(
+            contains('MCP authorization check failed'),
+            isNot(contains('authorization backend detail')),
+          ),
+        );
+        expect(streamableClient.sessionId, equals(sessionId));
+        expect(observedRequests, equals(<Object?>['direct-recovery']));
+        final failureCursor = streamableClient.lastEventId;
+        expect(failureCursor, startsWith('$sessionId:'));
+        expect(failureCursor, isNot(equals(cursorBeforeFailure)));
+        await expectBoundedAuthorizationErrorEvent();
+
+        final streamableRecovery = await streamableClient
+            .callTool(
+              'app.safe.authorization_lookup',
+              id: 'action-authorization-streamable-recovery',
+              arguments: const <String, Object?>{
+                'request': 'streamable-recovery',
+              },
+            )
+            .timeout(const Duration(seconds: 2));
+        expect(streamableRecovery['isError'], isNot(true));
+        expect(jsonEncode(streamableRecovery), contains('streamable-recovery'));
+        expect(streamableClient.sessionId, equals(sessionId));
+        expect(
+          observedRequests,
+          equals(<Object?>['direct-recovery', 'streamable-recovery']),
+        );
+        expect(streamableClient.lastEventId, startsWith('$sessionId:'));
+        expect(streamableClient.lastEventId, isNot(equals(failureCursor)));
+        await streamableClient.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'keeps a new MCP session alive while its tool catalog refreshes',
       () async {
         final refreshEntered = Completer<void>();
@@ -12324,6 +12483,37 @@ final class _FailNextCatalogAuthorizationProvider
       _failNext = false;
       throw StateError('catalog authorization backend detail');
     }
+    return null;
+  }
+}
+
+final class _FailDeferredAuthorizationProvider
+    implements AuthorizationProvider {
+  _FailDeferredAuthorizationProvider({required this.action, required this.uri});
+
+  final AuthorizationAction action;
+  final String uri;
+  int? _matchingRequestsUntilFailure;
+
+  void failOnMatchingRequest(int requestNumber) {
+    assert(requestNumber > 0);
+    _matchingRequestsUntilFailure = requestNumber;
+  }
+
+  @override
+  Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
+    if (request.action != action || request.uri != uri) {
+      return null;
+    }
+    final remaining = _matchingRequestsUntilFailure;
+    if (remaining == null) {
+      return null;
+    }
+    if (remaining == 1) {
+      _matchingRequestsUntilFailure = null;
+      throw StateError('action authorization backend detail');
+    }
+    _matchingRequestsUntilFailure = remaining - 1;
     return null;
   }
 }
