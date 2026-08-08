@@ -5744,6 +5744,161 @@ void main() {
     );
 
     test(
+      'redacts router-hosted MCP resource unsubscribe failures and preserves retry state',
+      () async {
+        final provider = _FailDeferredAuthorizationProvider(
+          action: AuthorizationAction.unsubscribe,
+          uri: 'app.events.resource.context',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9159,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxWampSubscriptionCount: 1),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-resource-unsubscribe-failure-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final primary = McpStreamableHttpClient(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-unsubscribe-failure-primary',
+            'version': '1.0.0',
+          },
+        );
+        final contender = McpStreamableHttpClient(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-unsubscribe-failure-contender',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => primary.close(force: true));
+        addTearDown(() => contender.close(force: true));
+
+        await primary.initialize(id: 'resource-unsubscribe-failure-initialize');
+        await primary.notifyInitialized();
+        await contender.initialize(
+          id: 'resource-unsubscribe-failure-contender-initialize',
+        );
+        await contender.notifyInitialized();
+        await primary.subscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-unsubscribe-failure-subscribe',
+        );
+        final sessionId = primary.sessionId;
+        final cursorBeforeFailure = primary.lastEventId;
+        expect(sessionId, isNotNull);
+        expect(cursorBeforeFailure, isNotNull);
+        provider.failOnMatchingRequest(1);
+
+        await expectLater(
+          primary.unsubscribeResource(
+            'app://mcp/live-context',
+            id: 'resource-unsubscribe-failure-first-attempt',
+          ),
+          throwsA(
+            isA<McpJsonRpcException>()
+                .having(
+                  (error) => error.method,
+                  'method',
+                  'resources/unsubscribe',
+                )
+                .having(
+                  (error) => error.error['message'],
+                  'message',
+                  allOf(
+                    contains('MCP authorization check failed'),
+                    isNot(contains('authorization backend detail')),
+                  ),
+                ),
+          ),
+        );
+
+        final failureEvent = await harness
+            .nextEvent('mcp_authorization_error')
+            .timeout(const Duration(seconds: 2));
+        expect(failureEvent['realm'], equals('realm1'));
+        expect(failureEvent['action'], equals('unsubscribe'));
+        expect(failureEvent['errorType'], equals('StateError'));
+        expect(failureEvent, isNot(contains('error')));
+        expect(failureEvent, isNot(contains('stackTrace')));
+        expect(
+          jsonEncode(failureEvent),
+          isNot(contains('authorization backend detail')),
+        );
+        expect(primary.sessionId, equals(sessionId));
+        final cursorAfterFailure = primary.lastEventId;
+        expect(cursorAfterFailure, startsWith('$sessionId:'));
+        expect(cursorAfterFailure, isNot(equals(cursorBeforeFailure)));
+
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{
+            'via': 'resource-unsubscribe-retry-continuity',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        final retainedUpdate = await _pollStreamableMcpUntilResourceUpdate(
+          primary,
+          'app://mcp/live-context',
+        );
+        expect(
+          retainedUpdate['method'],
+          equals('notifications/resources/updated'),
+        );
+        expect(primary.sessionId, equals(sessionId));
+
+        await expectLater(
+          contender.subscribeResource(
+            'app://mcp/live-context',
+            id: 'resource-unsubscribe-failure-capacity-retained',
+          ),
+          throwsA(
+            isA<McpJsonRpcException>().having(
+              (error) => error.error['message'],
+              'message',
+              contains('WAMP subscription capacity is exhausted'),
+            ),
+          ),
+        );
+
+        await primary.unsubscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-unsubscribe-failure-retry',
+        );
+        await contender.subscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-unsubscribe-failure-recovered',
+        );
+        await contender.unsubscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-unsubscribe-failure-recovered-release',
+        );
+        await primary.deleteSession();
+        await contender.deleteSession();
+        expect(primary.sessionId, isNull);
+        expect(contender.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds router-hosted MCP request bodies without poisoning auth or session state',
       () async {
         final harness = await _RouterHarness.start(

@@ -3858,6 +3858,10 @@ class _RouterMcpEndpoint {
       try {
         await _releaseWampSubscription(await subscriptionFuture);
       } catch (_) {
+        _sharedResourceUpdateSubscriptions.putIfAbsent(
+          uri,
+          () => subscriptionFuture,
+        );
         if (!bestEffort) {
           rethrow;
         }
@@ -3958,10 +3962,34 @@ class _RouterMcpEndpoint {
   }
 
   Future<void> _unsubscribeResource(mcp.McpResourceRequest request) async {
+    if (!_streamableResourceSubscriptions.contains(request.uri)) {
+      return;
+    }
+    final config = _configuredResourceForUri(route.action.options, request.uri);
+    final updateTopic = config == null
+        ? null
+        : _configuredResourceUpdateTopic(config);
+    if (updateTopic == null) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        'MCP resource ${request.uri} does not support subscriptions',
+      );
+    }
+    if (!await _isAuthorized(AuthorizationAction.unsubscribe, updateTopic)) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidRequest,
+        'Not authorized to unsubscribe from MCP resource ${request.uri}',
+      );
+    }
     if (!_streamableResourceSubscriptions.remove(request.uri)) {
       return;
     }
-    await _cleanupUnusedResourceSubscriptions(bestEffort: false);
+    try {
+      await _cleanupUnusedResourceSubscriptions(bestEffort: false);
+    } catch (_) {
+      _streamableResourceSubscriptions.add(request.uri);
+      rethrow;
+    }
   }
 
   Future<_DirectJsonMessageResponse?> _handleDirectJsonMessage(

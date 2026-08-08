@@ -24846,7 +24846,31 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active implementation plan:
+- Active, the implementation plan is
+  `docs/exec-plans/2026-08-08-mcp-router-resource-unsubscribe-authorization-retry.md`.
+  Compatibility-era router-hosted dynamic resources authorize their configured
+  WAMP update topic while subscribing, but explicit `resources/unsubscribe`
+  currently removes logical ownership and runs internal physical cleanup
+  without an unsubscribe authorization decision. The cleanup helper also drops
+  its shared subscription future before an awaited release can fail. Pre-change
+  `bin/test-fast` is green. A fail-first native-router regression reproduces the
+  missing boundary: an armed provider receives no matching unsubscribe request,
+  so the operation incorrectly succeeds. The endpoint now authorizes before
+  ownership changes and restores logical plus shared ownership across physical
+  cleanup failures. Router analysis and the focused regression plus adjacent
+  direct-WAMP retry and cross-era session-delete/resource-owner regressions
+  pass, proving redaction, Streamable session/cursor continuity, update
+  delivery, capacity retention, same-session retry, and capacity recovery.
+  Post-change `bin/test-fast` passes all 360 core, 98 MCP, and 280 MCP/client
+  cases, all 96 benchmark tests including 36 live WAMP workloads, and the
+  complete generated/global consumer plus Router CLI smoke matrix. Full
+  `bin/verify` passes with all 397 Dart files already formatted; 114 Rust core
+  tests plus serializer integrations; 52 Rust FFI tests plus the focused
+  metrics check; 360 Dart core, 98 MCP, 280 MCP/client, 96 benchmark, and 403
+  Router tests; the remote-auth and native follow-ups; every generated and
+  globally activated consumer smoke; and Chrome/Dart2Wasm. Commit and hosted
+  evidence remain.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-unsubscribe-authorization-retry.md`.
   Router-hosted MCP authorized WAMP subscribe by topic but delegated
   unsubscribe through an internal router command carrying only the broker
@@ -24865,7 +24889,17 @@ at the older `47bbf9c` commit.
   52 Rust FFI tests plus the focused metrics check, 360 Dart core, 98 MCP, 280
   MCP/client, 96 benchmark, and 402 Router tests; the 6-case remote-auth and
   13-case native follow-ups; every generated and globally activated consumer
-  smoke; and Chrome/Dart2Wasm. Publication and hosted evidence remain.
+  smoke; and Chrome/Dart2Wasm. Commit `c674fa10` is pushed to both GitHub and
+  GitLab `master`. Exact-head GitHub CI `31271796386`, Dart Package Publish Dry
+  Run `31271796404`, WAMP Profile Benchmarks `31271796426`, and Router Image
+  dry run `31271806074` all pass on their first attempts. Retained artifacts
+  are Dart VM coverage `9026036986`, WAMP profile evidence `9025894357`, router
+  image preview `9025832714`, and Docker build records `9025886327` and
+  `9025886031`. The comprehensive strict deployment-chain audit exits
+  successfully with clean exact-head CI jobs and logs plus all required
+  package, relevant native release, router-image MCP smoke, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gates ready. Only
+  the deliberately unapproved next RC tag remains outside the milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-pubsub-unsubscribe-retry.md`. Shared MCP WAMP
   pub/sub state removed a logical handle before awaiting unsubscribe, so a
