@@ -2368,6 +2368,23 @@ Future<void> _handleMcpHttpRequestForBinding(
         );
         return;
       }
+      if (preparation.acknowledgmentBytes.length >
+          _mcpMaxResponseBytesForRoute(route)) {
+        await endpoint.releaseModernSubscriptionPreparation(preparation);
+        await binding._sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: _mcpJsonRpcHttpError(
+            status: HttpStatus.internalServerError,
+            code: mcp.McpErrorCodes.internalError,
+            message: 'MCP response body exceeds the configured limit',
+            id: _recoverDirectJsonRequestId(rawMessage),
+            protocolVersion: effectiveResponseMcpProtocolVersion,
+            extraHeaders: corsHeaders,
+          ),
+        );
+        return;
+      }
       final stream = _mcpOpenSseResponse(
         binding,
         request: request,
@@ -2758,6 +2775,22 @@ final class _McpSsePollEventResponseLimitExceeded implements Exception {
   final int limit;
 }
 
+final class _McpRequestScopedSseEventResponseLimitExceeded
+    implements Exception {
+  const _McpRequestScopedSseEventResponseLimitExceeded({
+    required this.requiredBytes,
+    required this.limit,
+  });
+
+  final int requiredBytes;
+  final int limit;
+
+  @override
+  String toString() =>
+      'MCP request-scoped SSE event requires $requiredBytes bytes, '
+      'exceeding the configured $limit-byte response limit';
+}
+
 final class _UnknownMcpSseEventId implements Exception {
   const _UnknownMcpSseEventId(this.eventId);
 
@@ -2806,10 +2839,12 @@ class _RouterMcpModernSubscriptionPreparation {
   _RouterMcpModernSubscriptionPreparation({
     required this.requestId,
     required this.notifications,
+    required this.acknowledgmentBytes,
   });
 
   final Object requestId;
   final _RouterMcpSubscriptionFilter notifications;
+  final Uint8List acknowledgmentBytes;
   bool released = false;
 }
 
@@ -3415,12 +3450,23 @@ class _RouterMcpEndpoint {
       await _cleanupUnusedResourceSubscriptions();
       rethrow;
     }
+    final notifications = _RouterMcpSubscriptionFilter(
+      toolsListChanged: requested.toolsListChanged,
+      resourceSubscriptions: grantedResources,
+    );
     return _RouterMcpModernSubscriptionPreparation(
       requestId: requestId,
-      notifications: _RouterMcpSubscriptionFilter(
-        toolsListChanged: requested.toolsListChanged,
-        resourceSubscriptions: grantedResources,
-      ),
+      notifications: notifications,
+      acknowledgmentBytes: _mcpRequestScopedSseMessageBytes(<String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/subscriptions/acknowledged',
+        'params': <String, Object?>{
+          '_meta': <String, Object?>{
+            'io.modelcontextprotocol/subscriptionId': requestId,
+          },
+          'notifications': notifications.toJson(),
+        },
+      }),
     );
   }
 
@@ -3538,17 +3584,10 @@ class _RouterMcpEndpoint {
     );
     _modernSubscriptions[token] = subscription;
     await _releaseModernSubscriptionPreparation(preparation);
-    final acknowledged = <String, Object?>{
-      'jsonrpc': '2.0',
-      'method': 'notifications/subscriptions/acknowledged',
-      'params': <String, Object?>{
-        '_meta': <String, Object?>{
-          'io.modelcontextprotocol/subscriptionId': preparation.requestId,
-        },
-        'notifications': preparation.notifications.toJson(),
-      },
-    };
-    if (!_writeModernSubscriptionMessage(subscription, acknowledged)) {
+    if (!_writeModernSubscriptionBytes(
+      subscription,
+      preparation.acknowledgmentBytes,
+    )) {
       await _closeModernSubscription(token);
       return false;
     }
@@ -3637,7 +3676,29 @@ class _RouterMcpEndpoint {
     Object? message,
   ) {
     try {
-      subscription.stream.add(_mcpRequestScopedSseMessageBytes(message));
+      return _writeModernSubscriptionBytes(
+        subscription,
+        _mcpRequestScopedSseMessageBytes(message),
+      );
+    } catch (error, stackTrace) {
+      _reportModernSubscriptionWriteError(error, stackTrace);
+      return false;
+    }
+  }
+
+  bool _writeModernSubscriptionBytes(
+    _RouterMcpModernSubscription subscription,
+    Uint8List body,
+  ) {
+    try {
+      final limit = _mcpMaxResponseBytesForRoute(route);
+      if (body.length > limit) {
+        throw _McpRequestScopedSseEventResponseLimitExceeded(
+          requiredBytes: body.length,
+          limit: limit,
+        );
+      }
+      subscription.stream.add(body);
       return true;
     } catch (error, stackTrace) {
       _reportModernSubscriptionWriteError(error, stackTrace);
@@ -3668,21 +3729,30 @@ class _RouterMcpEndpoint {
     subscription.heartbeat?.cancel();
     try {
       if (graceful && !subscription.stream.isClosed) {
-        subscription.stream.close(
-          _mcpRequestScopedSseMessageBytes(<String, Object?>{
-            'jsonrpc': '2.0',
-            'id': subscription.requestId,
-            'result': <String, Object?>{
-              'resultType': 'complete',
-              '_meta': <String, Object?>{
-                'io.modelcontextprotocol/serverInfo': server.serverInfo
-                    .toJson(),
-                'io.modelcontextprotocol/subscriptionId':
-                    subscription.requestId,
-              },
+        final body = _mcpRequestScopedSseMessageBytes(<String, Object?>{
+          'jsonrpc': '2.0',
+          'id': subscription.requestId,
+          'result': <String, Object?>{
+            'resultType': 'complete',
+            '_meta': <String, Object?>{
+              'io.modelcontextprotocol/serverInfo': server.serverInfo.toJson(),
+              'io.modelcontextprotocol/subscriptionId': subscription.requestId,
             },
-          }),
-        );
+          },
+        });
+        final limit = _mcpMaxResponseBytesForRoute(route);
+        if (body.length > limit) {
+          _reportModernSubscriptionWriteError(
+            _McpRequestScopedSseEventResponseLimitExceeded(
+              requiredBytes: body.length,
+              limit: limit,
+            ),
+            StackTrace.current,
+          );
+          subscription.stream.close();
+        } else {
+          subscription.stream.close(body);
+        }
       } else {
         subscription.stream.close();
       }

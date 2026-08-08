@@ -1,7 +1,7 @@
 # MCP Router POST/SSE Wire Bounds
 
-Status: active; implementation and full local verification green, publication
-and hosted evidence pending
+Status: completed; implementation published, full local verification,
+exact-head hosted evidence, and strict deployment-chain audit green
 
 ## Goal
 
@@ -84,9 +84,25 @@ transactional on rejection.
   including 36 live WAMP workloads, every generated and globally activated
   consumer smoke, all 393 router tests, the 6-case remote-auth process, the
   13-case native follow-up, and Chrome/Dart2Wasm.
+- 2026-08-08: Implementation commit `d90c5d14` was pushed to both maintained
+  `master` branches. Exact-head CI `31238572419`, Dart Package Publish Dry Run
+  `31238572437`, WAMP Profile Benchmarks `31238572405`, and Router Image dry
+  run `31238581603` all passed without a retry. CI uploaded coverage artifact
+  `9016459233`; WAMP uploaded artifact `9016335178`; Router Image uploaded
+  preview artifact `9016258807` plus Docker build records `9016305623` and
+  `9016305401`.
+- 2026-08-08: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs, clean package, WAMP, and loaded-image
+  Router Image evidence, and relevant Native Artifacts dry-run evidence from
+  `d4f42076` because no native-release-sensitive paths changed afterward. Its
+  non-gating RC summary remains intentionally not ready because no approved RC
+  tag points at this implementation commit.
 
 ## Handoff
 
-- Implementation and full local verification are green. Review, commit, and
-  publish the code plus durable state to both maintained branches, then collect
-  exact-head workflow and strict deployment-chain evidence.
+- Complete encoded compatibility POST/SSE responses are now route-bounded
+  before stream open with transactional replay restoration and consumer
+  recovery evidence. Implementation, complete local verification, dual-remote
+  publication, exact-head hosted workflows, and the comprehensive strict audit
+  are green. Select the next router-hosted MCP or downstream-readiness
+  implementation gap from the roadmaps.

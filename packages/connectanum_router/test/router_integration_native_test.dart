@@ -4728,6 +4728,200 @@ void main() {
     );
 
     test(
+      'bounds modern request-scoped MCP SSE acknowledgment events and releases capacity',
+      () async {
+        const responseLimit = 4096;
+        const requestId = 'modern-listener-response-wire-bound';
+        const resourcePrefix = 'app://mcp/modern-listener-wire-bound/';
+
+        Map<String, Object?> acknowledgmentFor(String resourceUri) =>
+            <String, Object?>{
+              'jsonrpc': '2.0',
+              'method': 'notifications/subscriptions/acknowledged',
+              'params': <String, Object?>{
+                '_meta': <String, Object?>{
+                  'io.modelcontextprotocol/subscriptionId': requestId,
+                },
+                'notifications': <String, Object?>{
+                  'resourceSubscriptions': <String>[resourceUri],
+                },
+              },
+            };
+
+        final unpaddedJson = jsonEncode(acknowledgmentFor(resourcePrefix));
+        final paddingLength = responseLimit - utf8.encode(unpaddedJson).length;
+        expect(paddingLength, greaterThan(0));
+        final resourceUri =
+            '$resourcePrefix${List<String>.filled(paddingLength, 'x').join()}';
+        final acknowledgmentJson = jsonEncode(acknowledgmentFor(resourceUri));
+        expect(utf8.encode(acknowledgmentJson).length, equals(responseLimit));
+        expect(
+          utf8.encode('data: $acknowledgmentJson\n\n').length,
+          greaterThan(responseLimit),
+        );
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9144,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(
+            maxRequestScopedListenerCount: 1,
+            maxResponseBytes: responseLimit,
+            additionalLiveResourceUris: <String>[resourceUri],
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-modern-listener-response-bound',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.listen(
+            id: requestId,
+            resourceSubscriptions: <String>[resourceUri],
+          ),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.internalServerError,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  contains('response body exceeds the configured limit'),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+
+        final recovered = await client.listen(
+          id: 'modern-listener-response-bound-recovered',
+          toolsListChanged: true,
+        );
+        addTearDown(recovered.close);
+        expect(recovered.acknowledgedNotifications.toolsListChanged, isTrue);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        await recovered.close();
+        expect(
+          await client.pingDirect(
+            id: 'modern-listener-response-bound-direct-recovery',
+          ),
+          containsPair('resultType', 'complete'),
+        );
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'bounds modern request-scoped MCP SSE graceful completion events',
+      () async {
+        const responseLimit = 4096;
+        const requestId = 'modern-listener-final-wire-bound';
+        final serverDescription = List<String>.filled(
+          responseLimit,
+          'x',
+        ).join();
+        final acknowledgmentBytes = utf8
+            .encode(
+              'data: ${jsonEncode(<String, Object?>{
+                'jsonrpc': '2.0',
+                'method': 'notifications/subscriptions/acknowledged',
+                'params': <String, Object?>{
+                  '_meta': <String, Object?>{'io.modelcontextprotocol/subscriptionId': requestId},
+                  'notifications': <String, Object?>{},
+                },
+              })}\n\n',
+            )
+            .length;
+        final finalEventBytes = utf8
+            .encode(
+              'data: ${jsonEncode(<String, Object?>{
+                'jsonrpc': '2.0',
+                'id': requestId,
+                'result': <String, Object?>{
+                  'resultType': 'complete',
+                  '_meta': <String, Object?>{
+                    'io.modelcontextprotocol/serverInfo': <String, Object?>{'name': 'connectanum-router', 'version': '3.0.0-beta', 'description': serverDescription},
+                    'io.modelcontextprotocol/subscriptionId': requestId,
+                  },
+                },
+              })}\n\n',
+            )
+            .length;
+        expect(acknowledgmentBytes, lessThanOrEqualTo(responseLimit));
+        expect(finalEventBytes, greaterThan(responseLimit));
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9144,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(
+            maxResponseBytes: responseLimit,
+            serverDescription: serverDescription,
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final client = McpStreamableHttpClient.stateless(
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: listener.port,
+            path: '/mcp/public',
+          ),
+          clientInfo: const <String, Object?>{
+            'name': 'router-modern-listener-final-bound',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final subscription = await client.listen(id: requestId);
+        final writeError = harness
+            .nextEvent('mcp_request_scoped_sse_write_error')
+            .timeout(const Duration(seconds: 5));
+        await harness.dispose();
+
+        expect(
+          await subscription.closed.timeout(const Duration(seconds: 5)),
+          equals(McpSubscriptionCloseReason.remote),
+        );
+        final event = await writeError;
+        expect(
+          event['error'],
+          allOf(
+            contains('$finalEventBytes bytes'),
+            contains('configured $responseLimit-byte response limit'),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds request-scoped MCP listeners without blocking auth or other protocols',
       () async {
         final harness = await _RouterHarness.start(
@@ -11627,6 +11821,7 @@ RouterSettings _buildMcpSmokeSettings({
   int? maxResponseBytes,
   int? maxSseHistoryBytes,
   int? callTimeoutMs,
+  String? serverDescription,
   String? liveResourceUri,
   List<String> additionalLiveResourceUris = const <String>[],
 }) {
@@ -11638,6 +11833,7 @@ RouterSettings _buildMcpSmokeSettings({
     'resource_name': 'Connectanum MCP',
   };
   final mcpOptions = <String, Object?>{
+    'description': ?serverDescription,
     'tool_list_page_size': 100,
     'session_idle_timeout_ms': ?sessionIdleTimeoutMs,
     'max_session_count': ?maxSessionCount,

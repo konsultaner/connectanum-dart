@@ -256,11 +256,14 @@ without valid credentials receives the normal authentication challenge.
 
 Complete MCP HTTP response bodies are also limited to 16 MiB by default. The
 router counts raw UTF-8 JSON bytes for JSON responses and exact primer, event,
-and data framing bytes for compatibility POST/SSE and GET/SSE responses. Set
-the positive `max_response_bytes` (or `maxResponseBytes`) route option to
-choose another bound. Oversized responses fail with HTTP `500` without an MCP
-session identifier, while an established compatibility session remains
-reusable.
+and data framing bytes for compatibility POST/SSE and GET/SSE responses.
+Modern `2026-07-28` request-scoped listeners apply the same ceiling to every
+complete encoded SSE event rather than to the lifetime stream: an oversized
+acknowledgment fails with HTTP `500` before the stream opens, while an
+oversized later event closes only that listener. Set the positive
+`max_response_bytes` (or `maxResponseBytes`) route option to choose another
+bound. Oversized buffered responses fail without an MCP session identifier,
+while an established compatibility session remains reusable.
 
 Compatibility Streamable HTTP replay history is limited to 128 events and, by
 default, the route's response-byte ceiling. Set the positive

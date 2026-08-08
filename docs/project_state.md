@@ -24847,14 +24847,49 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is
+  `docs/exec-plans/2026-08-08-mcp-router-modern-sse-event-bounds.md`.
+  Modern `2026-07-28` request-scoped SSE currently opens its native stream
+  before encoding the subscription acknowledgment and does not apply the
+  route's `max_response_bytes` ceiling to that or later complete events. The
+  slice will add a fail-first exact-wire regression, preflight the
+  acknowledgment before stream open, bound later events individually, release
+  listener/resource preparation on rejection, and prove smaller-listener
+  recovery. The preceding checkpoint's hosted-evidence bookkeeping remains
+  intentionally uncommitted for bundling with this implementation. Complete
+  pre-change `bin/test-fast` passed on 2026-08-08, covering the 360-case Dart
+  core suite, all 96 MCP tests, the complete 280-case MCP/client suite, all 96
+  benchmark tests including 36 live WAMP workloads, every generated and
+  globally activated consumer smoke, and the focused native/router follow-ups.
+  The fail-first native regression then proved that an exactly 4096-byte
+  acknowledgment grew to 4104 bytes after SSE framing and was still admitted.
+  The router now checks that complete encoding before stream open, releases
+  rejected listener/resource ownership, reuses the accepted encoding, and
+  applies the same per-event ceiling to established notifications and graceful
+  completion without imposing a lifetime stream limit. Focused native
+  regressions prove HTTP `500`, smaller-listener capacity recovery, direct
+  JSON reuse, bounded graceful-close containment, and absent session/cursor
+  state; router analysis passes. Post-change `bin/test-fast` passes with 360
+  Dart core tests, all 96 MCP tests, the complete 280-case MCP/client suite,
+  all 96 benchmark cases including 36 live WAMP workloads, every generated
+  and globally activated consumer smoke, the router CLI lifecycle matrix, and
+  the focused native/router follow-ups. Final exact-code `bin/verify` also
+  passes with zero formatting changes, 114 Rust core tests plus serializer
+  integrations, 52 Rust FFI tests plus the focused metrics check, 360 Dart
+  core tests, all 96 MCP tests, the complete 280-case MCP/client suite, all 96
+  benchmark tests including 36 live WAMP workloads, all 395 router tests, the
+  6-case remote-auth process, the 13-case native follow-up, every generated
+  and globally activated consumer smoke, and Chrome/Dart2Wasm. Publication
+  and exact-head hosted evidence remain.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-post-sse-wire-bounds.md`.
-  Compatibility POST/SSE operation responses currently check only raw UTF-8
-  JSON against `max_response_bytes`; primer and response event framing is added
-  afterward without checking the complete encoded HTTP body. The new slice
-  will add a fail-first near-boundary native regression, enforce the existing
-  route ceiling before opening the stream, restore tentative sequence state on
-  rejection, and prove compatibility-session, replay, direct-JSON, and DELETE
-  recovery. Complete pre-change `bin/test-fast` passed on 2026-08-08. The
+  Compatibility POST/SSE operation responses previously checked only raw
+  UTF-8 JSON against `max_response_bytes`; primer and response event framing
+  was added afterward without checking the complete encoded HTTP body. The
+  completed slice adds a fail-first near-boundary native regression, enforces
+  the existing route ceiling before opening the stream, restores tentative
+  sequence state on rejection, and proves compatibility-session, replay,
+  direct-JSON, and DELETE recovery. Complete pre-change `bin/test-fast` passed
+  on 2026-08-08. The
   fail-first native regression demonstrated that an exactly 4096-byte JSON-RPC
   response was emitted successfully after SSE framing exceeded the route
   ceiling. The router now serializes the complete POST/SSE body once, checks it
@@ -24867,8 +24902,16 @@ at the older `47bbf9c` commit.
   tests, the complete 280-case MCP/client suite, all 96 benchmark tests
   including 36 live WAMP workloads, every generated and globally activated
   consumer smoke, all 393 router tests, the 6-case remote-auth process, the
-  13-case native follow-up, and Chrome/Dart2Wasm. Publication and hosted
-  evidence remain pending.
+  13-case native follow-up, and Chrome/Dart2Wasm. Implementation commit
+  `d90c5d14` is on both maintained `master` branches. Exact-head CI
+  `31238572419`, Dart Package Publish Dry Run `31238572437`, WAMP Profile
+  Benchmarks `31238572405`, and Router Image dry run `31238581603` all passed
+  without a retry. CI uploaded coverage artifact `9016459233`; WAMP uploaded
+  artifact `9016335178`; Router Image uploaded preview artifact `9016258807`
+  plus Docker build records `9016305623` and `9016305401`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs and
+  clean, relevant package, native, loaded-image Router Image, WAMP, workflow,
+  branch-protection, and package-visibility gates.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-sse-history-byte-bounds.md`.
   Compatibility-era replay history already caps retained event count at 128,

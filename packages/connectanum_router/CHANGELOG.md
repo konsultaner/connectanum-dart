@@ -15,6 +15,9 @@
   configurable protocol-level deadline and router-driven cancellation.
 - Bound complete router-hosted MCP JSON and compatibility SSE response bodies
   by exact emitted bytes before opening the HTTP response stream.
+- Bound each complete modern request-scoped MCP SSE event, rejecting an
+  oversized acknowledgment before stream open and isolating later overflow to
+  the affected listener.
 - Bound compatibility Streamable HTTP replay history by encoded SSE bytes as
   well as event count, with a configurable route ceiling and oldest-first
   eviction.
