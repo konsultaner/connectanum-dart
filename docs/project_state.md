@@ -24847,6 +24847,30 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-09-mcp-router-resource-read-single-authorization.md`.
+  Configured dynamic-resource reads authorize their WAMP read procedure, then
+  delegate to the ordinary MCP WAMP call callback and authorize the same
+  execution again. With the independent catalog visibility check, one direct
+  JSON or compatibility Streamable read therefore makes three matching dynamic
+  provider decisions instead of two. Add fail-first native coverage, split
+  already-authorized execution from the explicit MCP WAMP call operation, and
+  preserve catalog filtering, per-read authorization, result delivery, direct
+  JSON sessionlessness, Streamable session continuity, and normal resume-cursor
+  advancement. The fail-first regression reproduces the third-decision failure
+  before any WAMP invocation. `_readConfiguredResource` now owns one execution
+  decision and uses an already-authorized call path; explicit MCP WAMP/tool
+  calls retain their authorization, router-provided meta handling is unchanged,
+  and both paths share ordinary session dispatch. Router analysis and the new
+  plus four adjacent native regressions pass. Pre- and post-change
+  `bin/test-fast` pass all 360 core, 98 MCP, and 280 MCP/client cases, all 96
+  benchmark tests including 36 live WAMP workloads, and the complete
+  generated/global consumer plus Router CLI smoke matrix. Full `bin/verify`
+  passes formatting; all 114 Rust core and 52 Rust FFI tests plus focused
+  metrics; 360 Dart core, 98 MCP, 280 MCP/client, 96 benchmark, and 405 Router
+  tests; the 6-case remote-auth and 13-case native follow-ups; every generated
+  and globally activated consumer smoke; and Chrome/Dart2Wasm. Commit and
+  hosted evidence remain.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-resource-subscribe-single-authorization.md`.
   Compatibility `resources/subscribe` and modern `subscriptions/listen`
   authorize each dynamic-resource owner against the configured update topic,
@@ -24865,8 +24889,17 @@ at the older `47bbf9c` commit.
   integrations; 52 Rust FFI tests plus the focused metrics check; 360 Dart
   core, 98 MCP, 280 MCP/client, 96 benchmark, and 404 Router tests; the 6-case
   remote-auth and 13-case native follow-ups; every generated and globally
-  activated consumer smoke; and Chrome/Dart2Wasm. Commit and hosted evidence
-  remain.
+  activated consumer smoke; and Chrome/Dart2Wasm. Commit `92628524` is pushed
+  to both maintained `master` branches. Exact-head GitHub CI `31279606644`,
+  Dart Package Publish Dry Run `31279606633`, WAMP Profile Benchmarks
+  `31279606632`, and Router Image dry run `31279611435` all pass on their first
+  attempts. Retained artifacts are Dart VM coverage `9028209746`, WAMP profile
+  evidence `9028104665`, router image preview `9028027068`, and Docker build
+  records `9028071345` and `9028071167`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head CI jobs and logs plus
+  every required package, relevant native release, router-image MCP smoke,
+  WAMP, workflow-visibility, branch-protection, and public GHCR gate ready.
+  Only the deliberately unapproved next RC tag remains outside the milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-resource-unsubscribe-authorization-retry.md`.
   Compatibility-era router-hosted dynamic resources authorize their configured

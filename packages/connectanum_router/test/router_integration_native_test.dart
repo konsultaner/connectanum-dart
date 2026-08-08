@@ -5599,6 +5599,107 @@ void main() {
     );
 
     test(
+      'authorizes each router-hosted MCP dynamic resource read once',
+      () async {
+        final provider = _FailDeferredAuthorizationProvider(
+          action: AuthorizationAction.call,
+          uri: 'app.safe.resource.read',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9161,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-resource-read-single-authorization-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        var invocationCount = 0;
+        final registration = await serviceSession.register(
+          'app.safe.resource.read',
+        );
+        registration.onInvoke((invocation) {
+          invocationCount++;
+          invocation.respondWith(
+            argumentsKeywords: <String, Object?>{
+              'uri': invocation.arguments?.single,
+              'invocation': invocationCount,
+            },
+          );
+        });
+
+        final listener = harness.binding.listeners.single;
+        final client = McpStreamableHttpClient(
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: listener.port,
+            path: '/mcp/public',
+          ),
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-read-single-authorization',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final requestsBeforeDirect = provider.matchingRequestCount;
+        provider.failOnMatchingRequest(3);
+        final directContents = await client.readResourceDirect(
+          'app://mcp/live-context',
+          id: 'resource-read-single-authorization-direct',
+        );
+        provider.clearPendingFailure();
+        expect(provider.matchingRequestCount, equals(requestsBeforeDirect + 2));
+        expect(invocationCount, equals(1));
+        expect(
+          jsonDecode(directContents.single['text'] as String),
+          containsPair('argumentsKeywords', containsPair('invocation', 1)),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+
+        await client.initialize(id: 'resource-read-single-authorization-init');
+        await client.notifyInitialized();
+        final sessionId = client.sessionId;
+        final lastEventId = client.lastEventId;
+        expect(sessionId, isNotNull);
+
+        final requestsBeforeStreamable = provider.matchingRequestCount;
+        provider.failOnMatchingRequest(3);
+        final streamableContents = await client.readResource(
+          'app://mcp/live-context',
+          id: 'resource-read-single-authorization-streamable',
+        );
+        provider.clearPendingFailure();
+        expect(
+          provider.matchingRequestCount,
+          equals(requestsBeforeStreamable + 2),
+        );
+        expect(invocationCount, equals(2));
+        expect(
+          jsonDecode(streamableContents.single['text'] as String),
+          containsPair('argumentsKeywords', containsPair('invocation', 2)),
+        );
+        expect(client.sessionId, equals(sessionId));
+        expect(client.lastEventId, isNotNull);
+        expect(client.lastEventId, isNot(equals(lastEventId)));
+
+        await client.deleteSession();
+        expect(client.sessionId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'authorizes each router-hosted MCP resource subscribe owner once',
       () async {
         final provider = _FailDeferredAuthorizationProvider(

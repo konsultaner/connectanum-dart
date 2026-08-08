@@ -3888,16 +3888,15 @@ class _RouterMcpEndpoint {
         'Not authorized to read MCP resource ${request.uri}',
       );
     }
-    final payload = await _call(
-      mcp.McpWampToolCall(
-        procedure: procedure,
-        request: mcp.McpToolRequest(
-          name: 'resources/read',
-          arguments: <String, Object?>{'uri': request.uri},
-        ),
-        payload: mcp.McpWampCallPayload(arguments: <Object?>[request.uri]),
+    final call = mcp.McpWampToolCall(
+      procedure: procedure,
+      request: mcp.McpToolRequest(
+        name: 'resources/read',
+        arguments: <String, Object?>{'uri': request.uri},
       ),
+      payload: mcp.McpWampCallPayload(arguments: <Object?>[request.uri]),
     );
+    final payload = await _callAuthorized(call);
     final body = <String, Object?>{};
     final arguments = payload.arguments;
     if (arguments != null) {
@@ -4555,6 +4554,18 @@ class _RouterMcpEndpoint {
     if (!await _isAuthorized(AuthorizationAction.call, call.procedure)) {
       throw StateError('Not authorized to call ${call.procedure}');
     }
+    return _callSessionAuthorized(call);
+  }
+
+  Future<ResultPayload> _callAuthorized(mcp.McpWampToolCall call) async {
+    final metaResult = await _handleMetaCall(call);
+    if (metaResult != null) {
+      return metaResult;
+    }
+    return _callSessionAuthorized(call);
+  }
+
+  Future<ResultPayload> _callSessionAuthorized(mcp.McpWampToolCall call) async {
     final result = await session
         .call(
           call.procedure,
