@@ -717,6 +717,8 @@ void main() {
         'maxWampSubscriptionCount',
         'max_wamp_subscription_queue_limit',
         'maxWampSubscriptionQueueLimit',
+        'max_wamp_subscription_queue_bytes',
+        'maxWampSubscriptionQueueBytes',
       ]) {
         _expectInvalidMcpOptions({
           key: 0,
@@ -730,6 +732,7 @@ void main() {
         () => _routerWithMcpOptions(const <String, Object?>{
           'max_wamp_subscription_count': 2,
           'maxWampSubscriptionQueueLimit': 4,
+          'max_wamp_subscription_queue_bytes': 256 * 1024,
         }).buildNativeConfigJson,
         returnsNormally,
       );

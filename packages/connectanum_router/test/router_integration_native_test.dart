@@ -5085,6 +5085,7 @@ void main() {
           settings: _buildMcpSmokeSettings(
             maxWampSubscriptionCount: 1,
             maxWampSubscriptionQueueLimit: 2,
+            maxWampSubscriptionQueueBytes: 2048,
           ),
         );
         addTearDown(harness.dispose);
@@ -5152,6 +5153,7 @@ void main() {
           queueLimit: 2,
         );
         expect(primarySubscription.queueLimit, equals(2));
+        expect(primarySubscription.queueByteLimit, equals(2048));
         expect(primary.sessionId, isNull);
 
         await expectLater(
@@ -5181,6 +5183,56 @@ void main() {
           id: 'wamp-capacity-primary-poll',
         );
         expect(primaryEvents.events, isNotEmpty);
+        expect(primaryEvents.remainingBytes, 0);
+
+        final byteBoundPadding = List<String>.filled(1200, 'x').join();
+        for (var sequence = 1; sequence <= 2; sequence++) {
+          await serviceSession.publish(
+            'app.events.audit',
+            argumentsKeywords: <String, Object?>{
+              'sequence': sequence,
+              'padding': byteBoundPadding,
+            },
+            options: core.PublishOptions(acknowledge: true),
+          );
+        }
+        final byteBoundEvents = await primary.pollWampEventsDirect(
+          primarySubscription.handle,
+          id: 'wamp-capacity-byte-bound-poll',
+        );
+        expect(byteBoundEvents.events, hasLength(1));
+        expect(
+          byteBoundEvents.events.single['argumentsKeywords'],
+          containsPair('sequence', 2),
+        );
+        expect(byteBoundEvents.dropped, 1);
+        expect(byteBoundEvents.remaining, 0);
+        expect(byteBoundEvents.remainingBytes, 0);
+
+        await serviceSession.publish(
+          'app.events.audit',
+          argumentsKeywords: <String, Object?>{
+            'sequence': 3,
+            'padding': List<String>.filled(2200, 'x').join(),
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        await serviceSession.publish(
+          'app.events.audit',
+          argumentsKeywords: const <String, Object?>{'sequence': 4},
+          options: core.PublishOptions(acknowledge: true),
+        );
+        final recoveredByteBoundEvents = await primary.pollWampEventsDirect(
+          primarySubscription.handle,
+          id: 'wamp-capacity-byte-bound-recovery-poll',
+        );
+        expect(recoveredByteBoundEvents.events, hasLength(1));
+        expect(
+          recoveredByteBoundEvents.events.single['argumentsKeywords'],
+          containsPair('sequence', 4),
+        );
+        expect(recoveredByteBoundEvents.dropped, 2);
+        expect(recoveredByteBoundEvents.remainingBytes, 0);
 
         final authHttpClient = HttpClient();
         addTearDown(() => authHttpClient.close(force: true));
@@ -5322,11 +5374,13 @@ void main() {
 
         await compatibility.initialize(id: 'wamp-capacity-compat-initialize');
         await compatibility.notifyInitialized();
-        await compatibility.subscribeWampTopic(
-          'app.events.audit',
-          id: 'wamp-capacity-compat-subscribe',
-          queueLimit: 1,
-        );
+        final compatibilitySubscription = await compatibility
+            .subscribeWampTopic(
+              'app.events.audit',
+              id: 'wamp-capacity-compat-subscribe',
+              queueLimit: 1,
+            );
+        expect(compatibilitySubscription.queueByteLimit, equals(2048));
         await expectLater(
           contender.subscribeWampTopicDirect(
             'app.events.audit',
@@ -11299,6 +11353,7 @@ RouterSettings _buildMcpSmokeSettings({
   int? maxRequestScopedListenerCount,
   int? maxWampSubscriptionCount,
   int? maxWampSubscriptionQueueLimit,
+  int? maxWampSubscriptionQueueBytes,
   int? maxRequestBytes,
   int? maxResponseBytes,
   int? callTimeoutMs,
@@ -11319,6 +11374,7 @@ RouterSettings _buildMcpSmokeSettings({
     'max_request_scoped_listener_count': ?maxRequestScopedListenerCount,
     'max_wamp_subscription_count': ?maxWampSubscriptionCount,
     'max_wamp_subscription_queue_limit': ?maxWampSubscriptionQueueLimit,
+    'max_wamp_subscription_queue_bytes': ?maxWampSubscriptionQueueBytes,
     'max_request_bytes': ?maxRequestBytes,
     'max_response_bytes': ?maxResponseBytes,
     'call_timeout_ms': ?callTimeoutMs,

@@ -53,7 +53,15 @@ class McpWampApi {
     bool includeApiMetaTools = true,
     bool includePubSubTools = true,
     Duration? timeout,
+    int? maxBufferedEventBytes,
   }) {
+    if (maxBufferedEventBytes != null && maxBufferedEventBytes <= 0) {
+      throw ArgumentError.value(
+        maxBufferedEventBytes,
+        'maxBufferedEventBytes',
+        'must be a positive integer',
+      );
+    }
     if (procedures.any((procedure) => procedure.allowCall) && call == null) {
       throw ArgumentError(
         'A WAMP call invoker is required when procedures are declared.',
@@ -101,6 +109,7 @@ class McpWampApi {
           publish: publish,
           subscribe: subscribe,
           unsubscribe: unsubscribe,
+          maxBufferedEventBytes: maxBufferedEventBytes,
         ),
       );
     }
@@ -112,6 +121,7 @@ class McpWampApi {
     bool includeApiMetaTools = true,
     bool includePubSubTools = true,
     Duration? timeout,
+    int? maxBufferedEventBytes,
   }) {
     return toTools(
       call: (call) => session.callSinglePayload(
@@ -158,6 +168,7 @@ class McpWampApi {
       includeApiMetaTools: includeApiMetaTools,
       includePubSubTools: includePubSubTools,
       timeout: timeout,
+      maxBufferedEventBytes: maxBufferedEventBytes,
     );
   }
 
@@ -221,8 +232,15 @@ class McpWampApi {
     required McpWampPublishInvoker? publish,
     required McpWampSubscribeInvoker? subscribe,
     required McpWampUnsubscribeInvoker? unsubscribe,
+    required int? maxBufferedEventBytes,
   }) {
-    final bridge = _McpWampPubSubTools(this, publish, subscribe, unsubscribe);
+    final bridge = _McpWampPubSubTools(
+      this,
+      publish,
+      subscribe,
+      unsubscribe,
+      maxBufferedEventBytes,
+    );
     return [
       McpTool(
         name: 'connectanum.pubsub.publish',
@@ -794,12 +812,14 @@ class _McpWampPubSubTools {
     this._publish,
     this._subscribe,
     this._unsubscribe,
+    this.maxBufferedEventBytes,
   );
 
   final McpWampApi api;
   final McpWampPublishInvoker? _publish;
   final McpWampSubscribeInvoker? _subscribe;
   final McpWampUnsubscribeInvoker? _unsubscribe;
+  final int? maxBufferedEventBytes;
   final Map<String, _BufferedSubscription> _subscriptions =
       <String, _BufferedSubscription>{};
   int _nextHandle = 1;
@@ -857,6 +877,7 @@ class _McpWampPubSubTools {
       handle: handle,
       topic: topic.topic,
       queueLimit: queueLimit,
+      maxBufferedEventBytes: maxBufferedEventBytes,
     );
     final subscription = await subscribe(
       McpWampSubscribeRequest(
@@ -874,6 +895,8 @@ class _McpWampPubSubTools {
       if (subscription.subscriptionId != null)
         'subscriptionId': subscription.subscriptionId,
       'queueLimit': queueLimit,
+      if (maxBufferedEventBytes != null)
+        'queueByteLimit': maxBufferedEventBytes,
     });
   }
 
@@ -891,6 +914,7 @@ class _McpWampPubSubTools {
       'events': [for (final event in events) event.toJson()],
       'dropped': subscription.dropped,
       'remaining': subscription.length,
+      'remainingBytes': subscription.bufferedEventBytes,
     });
   }
 
@@ -938,17 +962,23 @@ class _BufferedSubscription {
     required this.handle,
     required this.topic,
     required this.queueLimit,
+    required this.maxBufferedEventBytes,
     McpWampSubscription? subscription,
   }) : _subscription = subscription ?? McpWampSubscription(topic: topic);
 
   final String handle;
   final String topic;
   final int queueLimit;
+  final int? maxBufferedEventBytes;
   McpWampSubscription _subscription;
-  final List<McpWampEvent> _events = <McpWampEvent>[];
+  final List<({McpWampEvent event, int encodedByteLength})> _events =
+      <({McpWampEvent event, int encodedByteLength})>[];
+  int _bufferedEventBytes = 0;
   int dropped = 0;
 
   int get length => _events.length;
+
+  int get bufferedEventBytes => _bufferedEventBytes;
 
   McpWampSubscription get subscription => _subscription;
 
@@ -957,20 +987,39 @@ class _BufferedSubscription {
   }
 
   void add(McpWampEvent event) {
-    while (_events.length >= queueLimit) {
-      _events.removeAt(0);
+    final encodedByteLength = utf8.encode(jsonEncode(event.toJson())).length;
+    final byteLimit = maxBufferedEventBytes;
+    if (byteLimit != null && encodedByteLength > byteLimit) {
       dropped += 1;
+      return;
     }
-    _events.add(event);
+    while (_events.length >= queueLimit ||
+        (byteLimit != null &&
+            _bufferedEventBytes + encodedByteLength > byteLimit)) {
+      _dropOldest();
+    }
+    _events.add((event: event, encodedByteLength: encodedByteLength));
+    _bufferedEventBytes += encodedByteLength;
   }
 
   List<McpWampEvent> drain({int? limit}) {
     final take = limit == null || limit > _events.length
         ? _events.length
         : limit;
-    final drained = List<McpWampEvent>.unmodifiable(_events.take(take));
+    final drained = List<McpWampEvent>.unmodifiable(
+      _events.take(take).map((buffered) => buffered.event),
+    );
+    for (var index = 0; index < take; index++) {
+      _bufferedEventBytes -= _events[index].encodedByteLength;
+    }
     _events.removeRange(0, take);
     return drained;
+  }
+
+  void _dropOldest() {
+    final removed = _events.removeAt(0);
+    _bufferedEventBytes -= removed.encodedByteLength;
+    dropped += 1;
   }
 }
 

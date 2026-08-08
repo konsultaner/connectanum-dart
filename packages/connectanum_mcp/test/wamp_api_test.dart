@@ -425,6 +425,151 @@ void main() {
       expect(unsubscribed.subscriptionId, 7);
     });
 
+    test('bounds buffered WAMP events by their UTF-8 JSON size', () async {
+      late void Function(McpWampEvent event) onEvent;
+      final api = McpWampApi(topics: [McpWampTopic(topic: 'app.events')]);
+      const first = McpWampEvent(
+        subscriptionId: 7,
+        publicationId: 100,
+        topic: 'app.events',
+        argumentsKeywords: {'sequence': 1, 'message': 'événement'},
+      );
+      const second = McpWampEvent(
+        subscriptionId: 7,
+        publicationId: 101,
+        topic: 'app.events',
+        argumentsKeywords: {'sequence': 2, 'message': 'événement'},
+      );
+      const third = McpWampEvent(
+        subscriptionId: 7,
+        publicationId: 102,
+        topic: 'app.events',
+        argumentsKeywords: {'sequence': 3, 'message': 'événement'},
+      );
+      final eventByteLength = utf8.encode(jsonEncode(first.toJson())).length;
+      expect(
+        [
+          second,
+          third,
+        ].map((event) => utf8.encode(jsonEncode(event.toJson())).length),
+        everyElement(eventByteLength),
+      );
+      final queueByteLimit = eventByteLength * 2;
+      final server = _server(
+        api.toTools(
+          subscribe: (request, handler) {
+            onEvent = handler;
+            return const McpWampSubscription(
+              topic: 'app.events',
+              subscriptionId: 7,
+            );
+          },
+          unsubscribe: (_) {},
+          maxBufferedEventBytes: queueByteLimit,
+        ),
+      );
+      await _initializeAndStart(server);
+
+      final subscribeResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 40,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.subscribe',
+          'arguments': {'topic': 'app.events', 'queueLimit': 10},
+        },
+      });
+      final subscription =
+          (subscribeResponse?['result']
+                  as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      expect(subscription['queueByteLimit'], queueByteLimit);
+
+      onEvent(first);
+      onEvent(second);
+      onEvent(third);
+      final pollResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 41,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.poll',
+          'arguments': {'handle': subscription['handle'], 'limit': 1},
+        },
+      });
+      final batch =
+          (pollResponse?['result'] as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      final events = batch['events'] as List<Object?>;
+      expect(events, hasLength(1));
+      expect(
+        events.single,
+        containsPair('argumentsKeywords', {
+          'sequence': 2,
+          'message': 'événement',
+        }),
+      );
+      expect(batch['dropped'], 1);
+      expect(batch['remaining'], 1);
+      expect(batch['remainingBytes'], eventByteLength);
+
+      final remainingResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 42,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.poll',
+          'arguments': {'handle': subscription['handle']},
+        },
+      });
+      final remaining =
+          (remainingResponse?['result']
+                  as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      expect(remaining['events'], hasLength(1));
+      expect(jsonEncode(remaining['events']), contains('"sequence":3'));
+      expect(remaining['remaining'], 0);
+      expect(remaining['remainingBytes'], 0);
+
+      onEvent(
+        McpWampEvent(
+          subscriptionId: 7,
+          publicationId: 103,
+          topic: 'app.events',
+          argumentsKeywords: {
+            'message': List<String>.filled(queueByteLimit, 'x').join(),
+          },
+        ),
+      );
+      onEvent(
+        const McpWampEvent(
+          subscriptionId: 7,
+          publicationId: 104,
+          topic: 'app.events',
+          argumentsKeywords: {'message': 'recovered'},
+        ),
+      );
+      final recoveryResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 43,
+        'method': 'tools/call',
+        'params': {
+          'name': 'connectanum.pubsub.poll',
+          'arguments': {'handle': subscription['handle']},
+        },
+      });
+      final recovered =
+          (recoveryResponse?['result']
+                  as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      expect(recovered['events'], hasLength(1));
+      expect(jsonEncode(recovered['events']), contains('recovered'));
+      expect(recovered['dropped'], 2);
+      expect(recovered['remainingBytes'], 0);
+
+      expect(() => api.toTools(maxBufferedEventBytes: 0), throwsArgumentError);
+    });
+
     test('derives pubsub topics from procedure metadata', () async {
       final api = McpWampApi(
         procedures: [

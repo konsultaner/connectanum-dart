@@ -207,6 +207,7 @@ RouterSettings _buildSettings() {
     'max_request_scoped_listener_count': 1024,
     'max_wamp_subscription_count': 1024,
     'max_wamp_subscription_queue_limit': 100,
+    'max_wamp_subscription_queue_bytes': 256 * 1024,
     'call_timeout_ms': 30000,
     'procedures': [
       {
@@ -5172,6 +5173,10 @@ Future<void> _smokeMcpPubSubQueueOverflow(
           headers: subscribeHeaders,
         );
   try {
+    if (subscription.queueByteLimit == null ||
+        subscription.queueByteLimit! <= 0) {
+      throw StateError('$mode pub/sub did not report its queue byte limit.');
+    }
     final taskIds = [
       'T-$label-$suffix-overflow-first',
       'T-$label-$suffix-overflow-second',
@@ -5200,6 +5205,7 @@ Future<void> _smokeMcpPubSubQueueOverflow(
         overflowEvents.events.length != 1 ||
         overflowEvents.dropped < 2 ||
         overflowEvents.remaining != 0 ||
+        overflowEvents.remainingBytes != 0 ||
         !encodedEvents.contains(taskIds.last) ||
         encodedEvents.contains(taskIds.first) ||
         encodedEvents.contains(taskIds[1])) {

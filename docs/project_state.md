@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-08
-Current branch: `codex/mcp-router-sse-sequence-rollback`
+Current branch: `codex/mcp-router-pubsub-byte-bounds`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24846,7 +24846,25 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active implementation plan:
+- Active now, the implementation plan is
+  `docs/exec-plans/2026-08-08-mcp-router-pubsub-byte-bounds.md`.
+  Router-hosted MCP WAMP queues already cap caller-selected event counts, but
+  retained bytes still scale with event payload size. The implementation adds
+  UTF-8 JSON byte accounting, a validated 256 KiB per-subscription router
+  default with snake/camel route options, oldest-event eviction, immediate
+  oversized-event drops, and typed `queueByteLimit` / `remainingBytes`
+  observability. Focused fail-first MCP and route-option regressions reproduced
+  the gap; MCP buffering, client parsing, route validation, and native direct
+  JSON overflow/recovery plus Streamable policy coverage now pass. Pre-change
+  and post-change `bin/test-fast` passed on 2026-08-08. Full `bin/verify`
+  passes formatting and analysis, 114 Rust core tests, 52 Rust FFI tests plus
+  the focused metrics check, 360 Dart core tests, all 96 MCP tests, the
+  complete 280-case MCP/client suite, all 96 benchmark tests including 36 live
+  WAMP workloads, every generated and globally activated consumer smoke, the
+  complete 392-case router suite, the 6-case remote-auth process, the 13-case
+  native follow-up, and Chrome/Dart2Wasm. Publication and exact-head hosted
+  evidence remain pending.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-sse-sequence-rollback.md`.
   Compatibility-era GET/SSE and POST/SSE response assembly previously mutated
   `_sseStreamSequences` before delivery commits. Committed history eventually
@@ -24862,7 +24880,15 @@ at the older `47bbf9c` commit.
   analysis, and `bin/verify` pass on 2026-08-08. Full verification includes 392
   router tests, 36 live WAMP workloads, all generated and globally activated
   consumer smokes, remote-auth isolation, native follow-ups, and
-  Chrome/Dart2Wasm. Publication and exact-head hosted evidence remain.
+  Chrome/Dart2Wasm. Commit `435eb5a9` is on both maintained `master` branches.
+  Exact-head CI `31226447158`, Dart Package Publish Dry Run `31226447111`, WAMP
+  Profile Benchmarks `31226447125`, and Router Image dry run `31226466999` all
+  passed. CI uploaded coverage artifact `9012574232`; WAMP uploaded artifact
+  `9012389165`; Router Image uploaded preview artifact `9012261197` plus Docker
+  build records `9012358200` and `9012357649`. The comprehensive strict
+  deployment-chain audit passes with clean exact-head CI logs and clean,
+  relevant package, native, Router Image, WAMP, workflow, branch-protection,
+  and package-visibility gates.
 - Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-07-mcp-router-sse-notification-coalescing.md`.
   Compatibility-era Streamable endpoints now retain at most one pending or

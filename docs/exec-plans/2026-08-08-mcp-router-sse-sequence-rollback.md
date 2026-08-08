@@ -1,7 +1,7 @@
 # MCP Router Failed SSE Sequence Rollback
 
-Status: active; implementation and full local verification complete,
-publication and exact-head hosted evidence pending
+Status: completed; implementation published, full local verification,
+exact-head hosted evidence, and strict deployment-chain audit green
 
 ## Goal
 
@@ -78,9 +78,22 @@ event identifiers during overlapping attempts.
   full verification includes 392 router tests, 36 live WAMP workloads, all
   generated and globally activated consumer smokes, remote-auth isolation,
   native follow-ups, and Chrome/Dart2Wasm.
+- 2026-08-08: Commit `435eb5a9` was pushed to both maintained `master`
+  branches. Exact-head CI `31226447158`, Dart Package Publish Dry Run
+  `31226447111`, WAMP Profile Benchmarks `31226447125`, and Router Image dry
+  run `31226466999` all passed. CI uploaded coverage artifact `9012574232`;
+  WAMP uploaded artifact `9012389165`; Router Image uploaded preview artifact
+  `9012261197` plus Docker build records `9012358200` and `9012357649`.
+- 2026-08-08: The comprehensive strict deployment-chain audit passes with a
+  clean exact-head CI job set and log scan, clean exact-head package, Router
+  Image, and WAMP evidence, and relevant native dry-run evidence from
+  `d4f42076` because this commit changed no native-release-sensitive paths.
 
 ## Handoff
 
-- Implementation and full local verification are complete. Commit the code,
-  regression, and milestone state together, push both maintained `master`
-  branches, then collect exact-head hosted workflow and strict audit evidence.
+- Failed compatibility SSE deliveries no longer retain uncommitted stream
+  sequence state, and overlapping failures preserve newer reservations.
+  Implementation, local verification, dual-remote publication, exact-head
+  hosted workflows, and the comprehensive strict audit are green. Select the
+  next router-hosted MCP or downstream-readiness implementation gap from the
+  roadmaps.

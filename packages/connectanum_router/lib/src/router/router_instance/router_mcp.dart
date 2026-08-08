@@ -57,6 +57,8 @@ const int _mcpDefaultMaxWampSubscriptionCount = 1024;
 
 const int _mcpDefaultMaxWampSubscriptionQueueLimit = 100;
 
+const int _mcpDefaultMaxWampSubscriptionQueueBytes = 256 * 1024;
+
 const int _mcpDefaultWampCallTimeoutMs = 30000;
 
 int _mcpMaxRequestBytesForRoute(HttpRouteSettings route) {
@@ -105,6 +107,14 @@ int _mcpMaxWampSubscriptionQueueLimitForRoute(HttpRouteSettings route) {
         'maxWampSubscriptionQueueLimit',
       ]) ??
       _mcpDefaultMaxWampSubscriptionQueueLimit;
+}
+
+int _mcpMaxWampSubscriptionQueueBytesForRoute(HttpRouteSettings route) {
+  return _intOptionAny(route.action.options, const <String>[
+        'max_wamp_subscription_queue_bytes',
+        'maxWampSubscriptionQueueBytes',
+      ]) ??
+      _mcpDefaultMaxWampSubscriptionQueueBytes;
 }
 
 Duration? _mcpSessionIdleTimeoutForRoute(HttpRouteSettings route) {
@@ -4085,6 +4095,7 @@ class _RouterMcpEndpoint {
         'include_pubsub_tools',
         'includePubsubTools',
       ], defaultValue: true),
+      maxBufferedEventBytes: _mcpMaxWampSubscriptionQueueBytesForRoute(route),
     );
     final signature = jsonEncode([for (final tool in tools) tool.toJson()]);
     if (signature == _toolSignature) {
@@ -4923,6 +4934,8 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'maxWampSubscriptionCount',
     'max_wamp_subscription_queue_limit',
     'maxWampSubscriptionQueueLimit',
+    'max_wamp_subscription_queue_bytes',
+    'maxWampSubscriptionQueueBytes',
     'call_timeout_ms',
     'callTimeoutMs',
   ]) {

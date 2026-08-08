@@ -162,6 +162,7 @@ const HttpRouteSettings(
       'max_request_scoped_listener_count': 1024,
       'max_wamp_subscription_count': 1024,
       'max_wamp_subscription_queue_limit': 100,
+      'max_wamp_subscription_queue_bytes': 256 * 1024,
       'call_timeout_ms': 30000,
       'session_idle_timeout_ms': 600000,
       'resources': [
@@ -234,9 +235,17 @@ the positive `max_wamp_subscription_count` (or
 subscription holds at most 100 queued events by default; set the positive
 `max_wamp_subscription_queue_limit` (or
 `maxWampSubscriptionQueueLimit`) option to permit another caller-selected
-ceiling. An over-limit request returns an MCP tool error without disturbing an
-admitted subscription. Explicit unsubscribe, session deletion or expiry, and
-endpoint shutdown release capacity.
+ceiling. Each logical subscription also retains at most 256 KiB of UTF-8
+JSON-encoded events by default; set the positive
+`max_wamp_subscription_queue_bytes` (or
+`maxWampSubscriptionQueueBytes`) option to choose another byte ceiling. The
+subscribe result exposes the effective `queueByteLimit`; poll results expose
+`remainingBytes`. Count or byte overflow drops the oldest buffered events,
+while a single event larger than the byte ceiling is dropped immediately, and
+the cumulative `dropped` count remains observable. An over-limit subscription
+request returns an MCP tool error without disturbing an admitted subscription.
+Explicit unsubscribe, session deletion or expiry, and endpoint shutdown
+release capacity.
 
 MCP POST bodies are limited to 16 MiB by default and rejected with HTTP `413`
 before UTF-8 or JSON decoding. Set the positive `max_request_bytes` (or

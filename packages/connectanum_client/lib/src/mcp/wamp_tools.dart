@@ -1087,6 +1087,7 @@ final class McpStreamableWampSubscriptionResult {
     required this.handle,
     required this.topic,
     required this.queueLimit,
+    this.queueByteLimit,
     this.subscriptionId,
     required this.structuredContent,
   });
@@ -1098,6 +1099,7 @@ final class McpStreamableWampSubscriptionResult {
       handle: _requiredString(structuredContent, 'handle'),
       topic: _requiredString(structuredContent, 'topic'),
       queueLimit: _optionalPositiveInt(structuredContent, 'queueLimit') ?? 100,
+      queueByteLimit: _optionalPositiveInt(structuredContent, 'queueByteLimit'),
       subscriptionId: _optionalPositiveInt(structuredContent, 'subscriptionId'),
       structuredContent: structuredContent,
     );
@@ -1106,6 +1108,7 @@ final class McpStreamableWampSubscriptionResult {
   final String handle;
   final String topic;
   final int queueLimit;
+  final int? queueByteLimit;
   final int? subscriptionId;
   final McpJsonMap structuredContent;
 }
@@ -1117,6 +1120,7 @@ final class McpStreamableWampEventBatch {
     required this.events,
     required this.dropped,
     required this.remaining,
+    this.remainingBytes = 0,
     required this.structuredContent,
   });
 
@@ -1127,6 +1131,8 @@ final class McpStreamableWampEventBatch {
       events: _wampEventsFrom(structuredContent, 'events'),
       dropped: _optionalNonNegativeInt(structuredContent, 'dropped') ?? 0,
       remaining: _optionalNonNegativeInt(structuredContent, 'remaining') ?? 0,
+      remainingBytes:
+          _optionalNonNegativeInt(structuredContent, 'remainingBytes') ?? 0,
       structuredContent: structuredContent,
     );
   }
@@ -1136,6 +1142,7 @@ final class McpStreamableWampEventBatch {
   final List<McpJsonMap> events;
   final int dropped;
   final int remaining;
+  final int remainingBytes;
   final McpJsonMap structuredContent;
 }
 

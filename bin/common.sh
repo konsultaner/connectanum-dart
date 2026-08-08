@@ -25653,6 +25653,10 @@ Future<void> _smokeMcpPubSubQueueOverflow(
           },
         );
   try {
+    if (subscription.queueByteLimit == null ||
+        subscription.queueByteLimit! <= 0) {
+      throw StateError('$mode pub/sub did not report its queue byte limit.');
+    }
     final taskIds = [
       'T-$label-$suffix-overflow-first',
       'T-$label-$suffix-overflow-second',
@@ -25680,6 +25684,7 @@ Future<void> _smokeMcpPubSubQueueOverflow(
         overflowEvents.events.length != 1 ||
         overflowEvents.dropped < 2 ||
         overflowEvents.remaining != 0 ||
+        overflowEvents.remainingBytes != 0 ||
         !encodedEvents.contains(taskIds.last) ||
         encodedEvents.contains(taskIds.first) ||
         encodedEvents.contains(taskIds[1])) {

@@ -8053,6 +8053,7 @@ void main() {
       expect(subscription.topic, 'app.events.audit');
       expect(subscription.subscriptionId, 7);
       expect(subscription.queueLimit, 3);
+      expect(subscription.queueByteLimit, 256 * 1024);
 
       final publication = await client.publishWampEvent(
         'app.events.audit',
@@ -8095,6 +8096,7 @@ void main() {
       expect(batch.topic, 'app.events.audit');
       expect(batch.dropped, 0);
       expect(batch.remaining, 0);
+      expect(batch.remainingBytes, 0);
       expect(batch.events, hasLength(1));
       expect(batch.events.single['argumentsKeywords'], {'message': 'hello'});
 
@@ -8233,10 +8235,29 @@ void main() {
         throwsA(isA<FormatException>()),
       );
       expect(
+        () => McpStreamableWampSubscriptionResult.fromJson(
+          const <String, Object?>{
+            'handle': 'wamp-sub-1',
+            'topic': 'app.events.audit',
+            'queueByteLimit': 0,
+          },
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
         () => McpStreamableWampEventBatch.fromJson(const <String, Object?>{
           'handle': 'wamp-sub-1',
           'topic': 'bad topic',
           'events': <Object?>[],
+        }),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => McpStreamableWampEventBatch.fromJson(const <String, Object?>{
+          'handle': 'wamp-sub-1',
+          'topic': 'app.events.audit',
+          'events': <Object?>[],
+          'remainingBytes': -1,
         }),
         throwsA(isA<FormatException>()),
       );
@@ -10640,6 +10661,7 @@ final class _FakeMcpEndpoint {
           'topic': arguments['topic'],
           'subscriptionId': 7,
           'queueLimit': arguments['queueLimit'],
+          'queueByteLimit': 256 * 1024,
         });
         return;
       }
@@ -10665,6 +10687,7 @@ final class _FakeMcpEndpoint {
           ],
           'dropped': 0,
           'remaining': 0,
+          'remainingBytes': 0,
         });
         return;
       }
@@ -10853,6 +10876,7 @@ final class _FakeMcpEndpoint {
           'topic': arguments['topic'],
           'subscriptionId': 7,
           'queueLimit': arguments['queueLimit'],
+          'queueByteLimit': 256 * 1024,
         });
         return;
       }
@@ -10886,6 +10910,7 @@ final class _FakeMcpEndpoint {
           ],
           'dropped': 0,
           'remaining': 0,
+          'remainingBytes': 0,
         });
         return;
       }
