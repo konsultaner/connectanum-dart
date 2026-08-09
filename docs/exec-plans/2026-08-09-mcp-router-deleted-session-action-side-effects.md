@@ -66,3 +66,15 @@ the irreversible downstream action.
   MCP/client suite, 96 benchmark tests with all 36 live WAMP workloads, 413
   router tests, isolated consumer and globally activated CLI smokes,
   remote-auth isolation, native follow-ups, and Chrome/Dart2Wasm.
+- 2026-08-09: Implementation commit `d7ff3a65` is pushed to both maintained
+  `master` branches. Exact-head GitHub CI `31315264838`, Dart Package Publish
+  Dry Run `31315264842`, WAMP Profile Benchmarks `31315264843`, and Router
+  Image dry run `31316171350` all pass. Retained artifacts are Dart VM
+  coverage `9038769717`, WAMP profile evidence `9038629257`, Router Image
+  preview `9038804560`, and Docker build records `9038852475` and
+  `9038852251`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, loaded-image MCP smoke, multi-architecture image build,
+  WAMP, workflow-visibility, branch-protection, and public GHCR gate ready.
+  Only the deliberately unapproved next RC tag remains outside this milestone.

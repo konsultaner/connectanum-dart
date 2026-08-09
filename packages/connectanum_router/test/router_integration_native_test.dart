@@ -9362,6 +9362,113 @@ void main() {
     );
 
     test(
+      'rejects pending MCP GET after its Streamable session is deleted',
+      () async {
+        final provider = _BlockingSnapshotAuthorizationProvider(
+          action: AuthorizationAction.subscribe,
+          uri: 'app.events.audit',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9168,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-pending-get-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        final rawClient = HttpClient();
+        addTearDown(() => client.close(force: true));
+        addTearDown(() => rawClient.close(force: true));
+
+        await client.initialize(id: 'pending-get-initialize');
+        await client.notifyInitialized();
+        final deletedSessionId = client.sessionId;
+        expect(deletedSessionId, isNotNull);
+        await client.subscribeResource(
+          'app://mcp/live-context',
+          id: 'pending-get-resource-subscribe',
+        );
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{
+            'via': 'pending-get-stale-notification',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+
+        final authorizationEntered = Completer<void>();
+        final releaseAuthorization = Completer<void>();
+        addTearDown(() {
+          if (!releaseAuthorization.isCompleted) {
+            releaseAuthorization.complete();
+          }
+        });
+        provider.blockNextDecision(
+          entered: authorizationEntered,
+          release: releaseAuthorization,
+        );
+        final matchingRequestsBeforePoll = provider.matchingRequestCount;
+        final stalePoll = _getHttp(
+          rawClient,
+          listener.port,
+          '/mcp/public',
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            'MCP-Session-Id': deletedSessionId!,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+          },
+        );
+        await authorizationEntered.future.timeout(const Duration(seconds: 5));
+        expect(
+          provider.matchingRequestCount,
+          equals(matchingRequestsBeforePoll + 1),
+          reason: 'the GET must be blocked in its catalog refresh',
+        );
+
+        await client.deleteSession().timeout(const Duration(seconds: 5));
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        releaseAuthorization.complete();
+
+        final staleResponse = await stalePoll.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(
+          staleResponse.body,
+          isNot(contains('notifications/resources/updated')),
+        );
+        expect(staleResponse.statusCode, equals(HttpStatus.notFound));
+        expect(staleResponse.headers, isNot(contains('mcp-session-id')));
+
+        await client.initialize(id: 'pending-get-replacement-initialize');
+        await client.notifyInitialized();
+        expect(client.sessionId, isNotNull);
+        expect(client.sessionId, isNot(equals(deletedSessionId)));
+        final replacementEvents = await client.poll();
+        expect(replacementEvents, isNotEmpty);
+        await client.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'prevents MCP WAMP actions from completing after their Streamable session is deleted',
       () async {
         final provider = _BlockingSnapshotAuthorizationProvider(

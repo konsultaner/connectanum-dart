@@ -34,6 +34,8 @@
   keep replacement sessions free of leaked broker subscribers.
 - Prevent an allowed WAMP action authorization from resuming a router-hosted
   MCP publish, call, or subscription after its Streamable session is deleted.
+- Reject a compatibility GET/SSE poll when its router-hosted MCP session is
+  deleted during catalog refresh, before queued notifications can be replayed.
 
 ## 0.1.0
 

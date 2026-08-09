@@ -2066,6 +2066,20 @@ Future<void> _handleMcpHttpRequestForBinding(
         );
         return;
       }
+      if (endpoint.isDisposed) {
+        await binding._sendImmediateHttpResponse(
+          request: request,
+          handshake: handshake,
+          response: _mcpJsonRpcHttpError(
+            status: HttpStatus.notFound,
+            code: mcp.McpErrorCodes.invalidRequest,
+            message: 'Unknown MCP HTTP session',
+            protocolVersion: responseMcpProtocolVersion,
+            extraHeaders: corsHeaders,
+          ),
+        );
+        return;
+      }
       final _RouterMcpSsePollBatch pollBatch;
       try {
         pollBatch = endpoint.ssePollEvents(

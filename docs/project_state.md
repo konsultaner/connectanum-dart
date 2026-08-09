@@ -24846,6 +24846,13 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
+- Active implementation plan:
+  `docs/exec-plans/2026-08-09-mcp-router-pending-get-session-delete.md`.
+  The fail-first regression reproduced HTTP 200 plus queued resource-update
+  replay from a GET whose compatibility session was deleted during catalog
+  refresh. The GET path now fails closed before SSE replay selection; focused
+  coverage, post-change `bin/test-fast`, and full `bin/verify` are green, with
+  exact-head hosted deployment evidence pending the implementation push.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-deleted-session-action-side-effects.md`.
   Compatibility endpoint guards reject stale Streamable work before dispatch
@@ -24861,6 +24868,17 @@ at the older `47bbf9c` commit.
   280-case MCP/client suite, 96 benchmark tests with all 36 live WAMP
   workloads, 413 router tests, isolated consumer and globally activated CLI
   smokes, remote-auth isolation, native follow-ups, and Chrome/Dart2Wasm.
+  Implementation commit `d7ff3a65` is pushed to both maintained `master`
+  branches. Exact-head GitHub CI `31315264838`, Dart Package Publish Dry Run
+  `31315264842`, WAMP Profile Benchmarks `31315264843`, and Router Image dry
+  run `31316171350` all pass. Retained artifacts are Dart VM coverage
+  `9038769717`, WAMP profile evidence `9038629257`, Router Image preview
+  `9038804560`, and Docker build records `9038852475` and `9038852251`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs plus every required package, relevant native release,
+  loaded-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-pending-pubsub-session-delete.md`.
   Compatibility endpoint disposal releases established WAMP subscriptions,
