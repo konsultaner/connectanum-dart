@@ -129,6 +129,40 @@ def _post_json_response(
     return response_headers, parsed
 
 
+def _expect_initialize_notification_sessionless(
+    endpoint: str,
+    *,
+    label: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    status, response_headers, body = _request(
+        endpoint,
+        "POST",
+        {
+            "jsonrpc": "2.0",
+            "method": "initialize",
+            "params": {
+                "protocolVersion": COMPATIBILITY_PROTOCOL,
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "router-image-runtime-smoke",
+                    "version": "0.0.0",
+                },
+            },
+        },
+        headers={
+            **(authorization_headers or {}),
+            "MCP-Protocol-Version": COMPATIBILITY_PROTOCOL,
+        },
+    )
+    if status != 202 or body.strip():
+        raise AssertionError(
+            f"{label} initialize notification returned {status} with body {body!r}"
+        )
+    if response_headers.get("mcp-session-id") is not None:
+        raise AssertionError(f"{label} initialize notification created a session")
+
+
 def _modern_params(arguments: dict[str, Any] | None = None) -> dict[str, Any]:
     return {
         **(arguments or {}),
@@ -1022,6 +1056,11 @@ def _run_compatibility_pubsub(
         **(authorization_headers or {}),
         "MCP-Protocol-Version": COMPATIBILITY_PROTOCOL,
     }
+    _expect_initialize_notification_sessionless(
+        endpoint,
+        label=label,
+        authorization_headers=authorization_headers,
+    )
     initialize_headers, initialize = _post_json(
         endpoint,
         {
@@ -1620,6 +1659,7 @@ def run_smoke(
         "sessionless_direct=true distinct_streamable_session=true "
         "streamable_pubsub=true owner_preserved=true "
         "compatibility_session_preserved=true "
+        "initialize_notification_sessionless=true "
         "session_header_echoed=false public=true protected=true."
     )
 

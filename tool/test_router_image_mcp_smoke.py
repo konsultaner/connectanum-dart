@@ -82,6 +82,42 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                             },
                         )
 
+    def test_initialize_notifications_cannot_create_compatibility_sessions(
+        self,
+    ) -> None:
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            return_value=(
+                202,
+                {"mcp-protocol-version": "2025-11-25"},
+                "",
+            ),
+        ) as request:
+            CLIENT_MODULE._expect_initialize_notification_sessionless(
+                "http://router/mcp",
+                label="Public",
+            )
+
+        payload = request.call_args.args[2]
+        self.assertEqual(payload["method"], "initialize")
+        self.assertNotIn("id", payload)
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_request",
+            return_value=(
+                202,
+                {"mcp-session-id": "unexpected-session"},
+                "",
+            ),
+        ):
+            with self.assertRaisesRegex(AssertionError, "created a session"):
+                CLIENT_MODULE._expect_initialize_notification_sessionless(
+                    "http://router/mcp",
+                    label="Public",
+                )
+
     def test_shell_runner_is_syntax_clean_and_requires_one_image(self) -> None:
         syntax = subprocess.run(
             ["bash", "-n", str(RUNNER)],
@@ -334,6 +370,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "_expect_compatibility_session_isolated_from_other_principal(",
             "other_principal_authorization_headers=other_authorization_headers",
             "_run_independent_principal_lifecycle(",
+            "_expect_initialize_notification_sessionless(",
             'label=f"{label}Peer"',
             "disallowed_session_id=owner_session_id",
             '"MCP-Session-Id": session_id',
@@ -349,6 +386,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"sessionless_direct=true distinct_streamable_session=true "',
             '"streamable_pubsub=true owner_preserved=true "',
             '"compatibility_session_preserved=true "',
+            '"initialize_notification_sessionless=true "',
             '"session_header_echoed=false public=true protected=true."',
         ]:
             with self.subTest(expected=expected):
@@ -1322,6 +1360,11 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             ),
         ]
         request_responses = [
+            (
+                202,
+                {"mcp-protocol-version": CLIENT_MODULE.COMPATIBILITY_PROTOCOL},
+                "",
+            ),
             (202, {}, ""),
             (
                 405,

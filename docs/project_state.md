@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-09
-Current branch: `codex/mcp-router-unknown-session-validation`
+Current branch: `codex/mcp-router-initialize-notification-session`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24846,7 +24846,23 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active implementation plan:
+- Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-09-mcp-router-initialize-notification-session.md`.
+  Router-hosted compatibility Streamable HTTP currently retains a tentative
+  session when `initialize` is sent as an ID-free JSON-RPC notification, even
+  though no `InitializeResult` can be returned. The active checkpoint adds a
+  fail-first native-router regression, makes notification-shaped initialize
+  responses sessionless, and proves the route capacity remains available for
+  a valid request-based initialization. The regression reproduced HTTP 202
+  with a leaked `MCP-Session-Id` on a one-session route. Tentative endpoints are
+  now retained only after an initialization result, and public/protected Router
+  Image smoke coverage enforces the same boundary. Focused native-router and
+  image-smoke suites plus the complete pre- and post-change `bin/test-fast`
+  pass. Full `bin/verify` also passes with zero formatting changes and the
+  complete Rust, Dart, native, consumer, router, benchmark, remote-auth, and
+  Chrome/Dart2Wasm matrix. Commit publication and exact-head hosted evidence
+  remain.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-09-mcp-router-unknown-session-validation.md`.
   The maintained MCP `2025-11-25` Streamable HTTP contract makes session
   termination authoritative with HTTP 404, but router-hosted POST currently
@@ -24872,9 +24888,15 @@ at the older `47bbf9c` commit.
   complete `bin/test-fast` passes again. The repeated full `bin/verify` also
   passes with zero formatting changes and the complete Rust, Dart, native,
   consumer, router, benchmark, remote-auth, and Chrome/Dart2Wasm matrix. The
-  follow-up implementation commit and replacement exact-head hosted evidence
-  remain.
-- Completed most recently, the implementation plan is
+  follow-up implementation commit `1287056` is published to both maintained
+  remotes. Exact-head CI `31331482359` passed Fast Checks, Full Verify, Dart VM
+  Coverage, and a clean log scan. Router Image dry run `31331497684` passed the
+  loaded-image MCP smoke, multi-architecture build, clean annotations, and
+  preview artifact. The comprehensive strict deployment-chain audit passed;
+  the implementation-head package dry run and WAMP benchmark runs remain
+  relevant because the follow-up changed no publish- or benchmark-sensitive
+  path.
+- Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-deleted-session-catalog-failure.md`.
   The fail-first regression reproduced a stale HTTP 500 after concurrent DELETE
   and blocked-then-failing catalog authorization. Compatibility GET and POST

@@ -1,6 +1,6 @@
 # MCP Router Unknown Session Validation
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -76,4 +76,11 @@ The governing transport requirement is the maintained MCP specification:
   All 27 image-smoke contracts and the restarted complete `bin/test-fast` pass.
   The repeated full `bin/verify` also passes the complete Rust, Dart, native,
   consumer, router, benchmark, remote-auth, and Chrome/Dart2Wasm matrix.
-  Replacement exact-head hosted evidence remains.
+- 2026-08-09: Follow-up smoke commit `1287056` was pushed to both maintained
+  remotes. Exact-head CI `31331482359` passed Fast Checks, Full Verify, Dart VM
+  Coverage, and a clean log scan. Router Image dry run `31331497684` passed
+  the fresh-image MCP runtime smoke, multi-architecture build, clean
+  annotations, and preview artifact. The strict deployment-chain audit passed
+  with the package dry run and WAMP profile evidence from implementation commit
+  `dd02be9` still relevant because no publish- or benchmark-sensitive path
+  changed in the smoke-only follow-up.

@@ -4659,6 +4659,64 @@ void main() {
     );
 
     test(
+      'does not retain compatibility MCP sessions for initialize notifications',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9170,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(maxSessionCount: 1),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final httpClient = HttpClient();
+        addTearDown(() => httpClient.close(force: true));
+
+        final notification = await _postJson(
+          httpClient,
+          listener.port,
+          endpoint.path,
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'initialize',
+            'params': <String, Object?>{
+              'protocolVersion': '2025-11-25',
+              'capabilities': <String, Object?>{},
+              'clientInfo': <String, Object?>{
+                'name': 'router-initialize-notification-test',
+                'version': '1.0.0',
+              },
+            },
+          },
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'Origin': 'http://127.0.0.1:${listener.port}',
+            'MCP-Protocol-Version': '2025-11-25',
+          },
+        );
+        expect(notification.statusCode, equals(HttpStatus.accepted));
+        expect(notification.body, isEmpty);
+        expect(notification.headers, isNot(contains('mcp-session-id')));
+
+        final validClient = McpStreamableHttpClient(endpoint);
+        addTearDown(() => validClient.close(force: true));
+        final initialized = await validClient.initialize(
+          id: 'initialize-after-notification',
+        );
+        expect(initialized['id'], equals('initialize-after-notification'));
+        expect(validClient.sessionId, isNotNull);
+        await validClient.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds compatibility MCP sessions per route without blocking auth or direct JSON',
       () async {
         final harness = await _RouterHarness.start(

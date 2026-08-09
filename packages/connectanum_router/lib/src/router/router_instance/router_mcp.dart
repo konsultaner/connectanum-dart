@@ -2591,11 +2591,12 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
-    final rejectedNewInitialize =
+    final successfulNewInitialize =
         tentativeInitializeSessionId != null &&
         response is Map &&
-        response['error'] is Map;
-    final responseSessionId = rejectedNewInitialize
+        response['result'] is Map;
+    final responseSessionId =
+        tentativeInitializeSessionId != null && !successfulNewInitialize
         ? null
         : effectiveMcpSessionId;
     if (response != null &&
@@ -2678,7 +2679,7 @@ Future<void> _handleMcpHttpRequestForBinding(
             ),
     );
     if (tentativeInitializeSessionId != null) {
-      retainTentativeInitializeEndpoint = !rejectedNewInitialize;
+      retainTentativeInitializeEndpoint = successfulNewInitialize;
     }
   } finally {
     try {
