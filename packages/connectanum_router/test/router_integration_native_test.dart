@@ -9202,6 +9202,166 @@ void main() {
     );
 
     test(
+      'revokes pending and pre-dispatch MCP WAMP pubsub when a Streamable session is deleted',
+      () async {
+        final provider = _BlockingSnapshotAuthorizationProvider(
+          action: AuthorizationAction.subscribe,
+          uri: 'app.events.audit',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9166,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'pending-delete-initialize');
+        await client.notifyInitialized();
+        final deletedSessionId = client.sessionId;
+        expect(deletedSessionId, isNotNull);
+
+        Future<int> subscriberCount() async {
+          final snapshot = await _fetchSnapshot(harness._statePort);
+          for (final subscription in snapshot.subscriptions) {
+            if (subscription.topic == 'app.events.audit') {
+              return subscription.subscribers.length;
+            }
+          }
+          return 0;
+        }
+
+        final authorizationEntered = Completer<void>();
+        final releaseAuthorization = Completer<void>();
+        final matchingRequestsBeforePendingSubscribe =
+            provider.matchingRequestCount;
+        addTearDown(() {
+          if (!releaseAuthorization.isCompleted) {
+            releaseAuthorization.complete();
+          }
+        });
+        provider.blockNextDecision(
+          entered: authorizationEntered,
+          release: releaseAuthorization,
+          skipMatchingDecisions: 1,
+        );
+        final staleSubscribe = client.subscribeWampTopic(
+          'app.events.audit',
+          id: 'pending-delete-stale-subscribe',
+          queueLimit: 4,
+        );
+        await authorizationEntered.future.timeout(const Duration(seconds: 5));
+        expect(
+          provider.matchingRequestCount,
+          equals(matchingRequestsBeforePendingSubscribe + 2),
+          reason:
+              'the request catalog check must complete before the action '
+              'authorization is blocked',
+        );
+
+        await client.deleteSession().timeout(const Duration(seconds: 5));
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(await subscriberCount(), isZero);
+
+        releaseAuthorization.complete();
+        await expectLater(
+          staleSubscribe,
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.notFound,
+            ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(await subscriberCount(), isZero);
+
+        await client.initialize(id: 'predispatch-delete-initialize');
+        await client.notifyInitialized();
+        final predispatchDeletedSessionId = client.sessionId;
+        expect(predispatchDeletedSessionId, isNotNull);
+        expect(predispatchDeletedSessionId, isNot(equals(deletedSessionId)));
+
+        final catalogAuthorizationEntered = Completer<void>();
+        final releaseCatalogAuthorization = Completer<void>();
+        final matchingRequestsBeforePredispatchSubscribe =
+            provider.matchingRequestCount;
+        addTearDown(() {
+          if (!releaseCatalogAuthorization.isCompleted) {
+            releaseCatalogAuthorization.complete();
+          }
+        });
+        provider.blockNextDecision(
+          entered: catalogAuthorizationEntered,
+          release: releaseCatalogAuthorization,
+        );
+        final stalePredispatchSubscribe = client.subscribeWampTopic(
+          'app.events.audit',
+          id: 'predispatch-delete-stale-subscribe',
+          queueLimit: 4,
+        );
+        await catalogAuthorizationEntered.future.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(matchingRequestsBeforePredispatchSubscribe + 1),
+          reason: 'the request must still be blocked in its catalog refresh',
+        );
+
+        await client.deleteSession().timeout(const Duration(seconds: 5));
+        releaseCatalogAuthorization.complete();
+        await expectLater(
+          stalePredispatchSubscribe,
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.notFound,
+            ),
+          ),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        expect(await subscriberCount(), isZero);
+
+        await client.initialize(id: 'pending-delete-replacement-initialize');
+        await client.notifyInitialized();
+        expect(client.sessionId, isNotNull);
+        expect(client.sessionId, isNot(equals(deletedSessionId)));
+        expect(client.sessionId, isNot(equals(predispatchDeletedSessionId)));
+        final replacement = await client.subscribeWampTopic(
+          'app.events.audit',
+          id: 'pending-delete-replacement-subscribe',
+          queueLimit: 4,
+        );
+        expect(await subscriberCount(), equals(1));
+        await client.unsubscribeWampTopic(
+          replacement.handle,
+          id: 'pending-delete-replacement-unsubscribe',
+        );
+        expect(await subscriberCount(), isZero);
+        await client.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'deletes MCP Streamable HTTP sessions without interrupting shared direct JSON pubsub or modern resource owners',
       () async {
         final harness = await _RouterHarness.start(
@@ -14063,16 +14223,26 @@ final class _BlockingSnapshotAuthorizationProvider
   int matchingRequestCount = 0;
   Completer<void>? _nextEntered;
   Completer<void>? _nextRelease;
+  int _matchingDecisionsBeforeBlock = 0;
 
   void blockNextDecision({
     required Completer<void> entered,
     required Completer<void> release,
+    int skipMatchingDecisions = 0,
   }) {
     if (_nextEntered != null || _nextRelease != null) {
       throw StateError('An authorization decision is already blocked');
     }
+    if (skipMatchingDecisions < 0) {
+      throw ArgumentError.value(
+        skipMatchingDecisions,
+        'skipMatchingDecisions',
+        'must not be negative',
+      );
+    }
     _nextEntered = entered;
     _nextRelease = release;
+    _matchingDecisionsBeforeBlock = skipMatchingDecisions;
   }
 
   @override
@@ -14085,10 +14255,14 @@ final class _BlockingSnapshotAuthorizationProvider
     final entered = _nextEntered;
     final release = _nextRelease;
     if (entered != null && release != null) {
-      _nextEntered = null;
-      _nextRelease = null;
-      entered.complete();
-      await release.future;
+      if (_matchingDecisionsBeforeBlock > 0) {
+        _matchingDecisionsBeforeBlock--;
+      } else {
+        _nextEntered = null;
+        _nextRelease = null;
+        entered.complete();
+        await release.future;
+      }
     }
     return decisionAllowed
         ? null

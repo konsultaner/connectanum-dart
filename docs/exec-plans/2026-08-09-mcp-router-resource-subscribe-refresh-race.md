@@ -1,6 +1,6 @@
 # MCP Router In-Flight Resource Subscribe Authorization Refresh
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -68,5 +68,15 @@ resource subscription that the refreshed endpoint no longer authorizes.
   280 client/MCP tests, 96 benchmark tests with 36 live WAMP workloads,
   isolated consumer and globally activated CLI smokes, remote-auth isolation,
   and the Dart2Wasm Chrome transport test.
-- 2026-08-09: The implementation is ready to commit and push. Exact-head
-  GitHub deployment-chain evidence and the strict audit remain pending.
+- 2026-08-09: Implementation commit `7b4761f4` is pushed to both maintained
+  `master` branches. Exact-head GitHub CI `31306282930`, Dart Package Publish
+  Dry Run `31306282907`, WAMP Profile Benchmarks `31306282934`, and Router
+  Image dry run `31307036491` all pass. Retained artifacts are Dart VM coverage
+  `9036251336`, WAMP profile evidence `9036125832`, router image preview
+  `9036264400`, and Docker build records `9036308503` and `9036308703`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, loaded-image MCP smoke, multi-architecture image build,
+  WAMP, workflow-visibility, branch-protection, and public GHCR gate ready.
+  Release-candidate readiness remains intentionally non-gating because no
+  approved numeric RC tag points at this implementation commit.

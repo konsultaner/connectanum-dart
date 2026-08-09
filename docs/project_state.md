@@ -24847,6 +24847,31 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-09-mcp-router-pending-pubsub-session-delete.md`.
+  Compatibility endpoint disposal releases established WAMP subscriptions,
+  but a generic pub/sub subscribe awaiting its physical broker acknowledgment
+  has not yet entered that disposal snapshot. A concurrent Streamable DELETE
+  can therefore remove the session before stale subscribe completion retains a
+  broker subscriber for an unreachable endpoint. The fail-first regression
+  reproduced a usable handle escaping after deletion and also covered a stale
+  request blocked before dispatch. Endpoint disposal now reconciles reusable
+  pub/sub state to an empty catalog through non-authorizing cleanup, while
+  disposed-endpoint guards reject pre-dispatch, batch, and pre-response stale
+  work with a sessionless 404. The final regression proves zero leaked
+  subscribers, unchanged deleted-session state, and clean replacement-session
+  recovery. Pre-change `bin/test-fast`, router analysis, the complete MCP WAMP
+  API test file, and four focused native-router regressions pass. Post-change
+  `bin/test-fast` also passes the complete core, MCP, client/auth, benchmark
+  and 36-case live-WAMP, generated consumer, globally activated, Router CLI,
+  native runtime, and router worker follow-up matrix. Full `bin/verify` also
+  passes formatting, 114 Rust core tests, 52 Rust FFI tests, 360 Dart core
+  tests, 101 MCP tests, the complete 280-case MCP/client suite, 96 benchmark
+  tests with all 36 live WAMP workloads, 411 router tests, isolated consumer
+  and globally activated CLI smokes, remote-auth isolation, native follow-ups,
+  and Chrome/Dart2Wasm. A local-model advisory review found no high-severity
+  correctness or security issue. Final diff review, commit, push, and hosted
+  evidence are next.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-resource-subscribe-refresh-race.md`.
   Established router-hosted resource-update owners are refresh-aware, but a
   compatibility request or modern listener preparation previously entered no
@@ -24866,8 +24891,17 @@ at the older `47bbf9c` commit.
   router tests, 360 core tests, 101 MCP tests, 280 client/MCP tests, 96
   benchmark tests with 36 live WAMP workloads, isolated consumer and globally
   activated CLI smokes, remote-auth isolation, and the Dart2Wasm Chrome
-  transport test. Commit, dual-remote push, and exact-head hosted evidence are
-  next.
+  transport test. Implementation commit `7b4761f4` is pushed to both maintained
+  `master` branches. Exact-head GitHub CI `31306282930`, Dart Package Publish
+  Dry Run `31306282907`, WAMP Profile Benchmarks `31306282934`, and Router
+  Image dry run `31307036491` all pass. Retained artifacts are Dart VM coverage
+  `9036251336`, WAMP profile evidence `9036125832`, router image preview
+  `9036264400`, and Docker build records `9036308503` and `9036308703`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs plus every required package, relevant native release,
+  loaded-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-pubsub-subscribe-refresh-race.md`.
   Router-hosted MCP catalog refresh now revokes established generic pub/sub

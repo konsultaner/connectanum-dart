@@ -2371,6 +2371,21 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
+    if (endpoint.isDisposed) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.notFound,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'Unknown MCP HTTP session',
+          id: _recoverDirectJsonRequestId(rawMessage),
+          protocolVersion: effectiveResponseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        ),
+      );
+      return;
+    }
     final toolParameterHeaderError = _mcpToolParameterHeaderValidationError(
       binding,
       request: request,
@@ -2482,6 +2497,21 @@ Future<void> _handleMcpHttpRequestForBinding(
       resourceSubscriptionsAllowed:
           streamableHttpRequest && effectiveMcpSessionId != null,
     );
+    if (endpoint.isDisposed) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.notFound,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'Unknown MCP HTTP session',
+          id: _recoverDirectJsonRequestId(rawMessage),
+          protocolVersion: effectiveResponseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        ),
+      );
+      return;
+    }
     final response = statelessHttpRequest
         ? endpoint.modernizeResponse(rawResponse)
         : rawResponse;
@@ -3138,11 +3168,22 @@ class _RouterMcpEndpoint {
 
   Future<void> dispose() => _disposeFuture ??= _dispose();
 
+  bool get isDisposed => _disposeFuture != null;
+
   Future<void> _dispose() async {
     _sessionIdleTimer?.cancel();
     _sessionIdleTimer = null;
     _sessionIdleStopwatch.stop();
     server.shutdown();
+
+    try {
+      await _wampPubSubState.reconcileSubscribedTopics(
+        const <String>{},
+        release: _releaseWampSubscription,
+      );
+    } catch (_) {
+      // Best-effort cleanup during endpoint disposal.
+    }
 
     final modernSubscriptionTokens = _modernSubscriptions.keys.toList(
       growable: false,
@@ -3265,6 +3306,18 @@ class _RouterMcpEndpoint {
     Object? rawMessage, {
     required bool resourceSubscriptionsAllowed,
   }) async {
+    if (isDisposed) {
+      if (rawMessage is Map && !rawMessage.containsKey('id')) {
+        return null;
+      }
+      return mcp.JsonRpcResponse.error(
+        _recoverDirectJsonRequestId(rawMessage),
+        mcp.McpException(
+          mcp.McpErrorCodes.invalidRequest,
+          'MCP HTTP session has been deleted',
+        ),
+      ).toJson();
+    }
     if (rawMessage is List) {
       return mcp.JsonRpcResponse.error(
         null,

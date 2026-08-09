@@ -29,6 +29,9 @@
   newer catalog refresh removes resource visibility or update-topic subscribe
   access, so compatibility requests cannot report stale success and modern
   listeners cannot acknowledge stale resource filters.
+- Revoke pending router-hosted MCP WAMP pub/sub ownership when a compatibility
+  Streamable HTTP session is deleted, reject pre-dispatch stale requests, and
+  keep replacement sessions free of leaked broker subscribers.
 
 ## 0.1.0
 
