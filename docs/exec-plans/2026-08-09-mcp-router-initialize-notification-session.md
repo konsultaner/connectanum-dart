@@ -1,6 +1,6 @@
 # MCP Router Initialize Notification Sessions
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -67,5 +67,15 @@ The governing compatibility transport and lifecycle requirements are:
   tests, 101 MCP tests, the complete 280-case client MCP matrix, all 96
   benchmark tests and 36 live WAMP workloads, all 416 router tests, isolated
   and globally activated consumer/CLI smokes, remote-auth isolation, 13 native
-  follow-ups, and Chrome/Dart2Wasm coverage. Commit publication and exact-head
-  hosted evidence remain.
+  follow-ups, and Chrome/Dart2Wasm coverage.
+- 2026-08-09: Implementation commit `03df7895` is published to both maintained
+  `master` branches. Exact-head CI `31335702160`, Dart Package Publish Dry Run
+  `31335702103`, WAMP Profile Benchmarks `31335702131`, and Router Image dry
+  run `31335722319` all pass. Retained artifacts are Dart VM coverage
+  `9044431833`, WAMP profile evidence `9044323873`, Router Image preview
+  `9044260057`, and Docker build records `9044319407` and `9044319026`. The
+  comprehensive strict deployment-chain audit exits zero with clean CI jobs
+  and logs plus every required package, still-relevant native release,
+  fresh-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.

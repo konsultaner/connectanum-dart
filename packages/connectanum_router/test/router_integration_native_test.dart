@@ -2459,6 +2459,57 @@ void main() {
       expect(unknownSession.statusCode, equals(HttpStatus.notFound));
       expect(unknownSession.headers, isNot(contains('mcp-session-id')));
 
+      final unknownSessionWithInvalidContentType = await _postBody(
+        client,
+        listener.port,
+        '/mcp',
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 'unknown-session-invalid-content-type',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        }),
+        contentType: ContentType.text,
+        headers: {
+          ...streamableHeaders('tools/list'),
+          'MCP-Session-Id': 'unknown-session',
+        },
+      );
+      expect(
+        unknownSessionWithInvalidContentType.statusCode,
+        equals(HttpStatus.notFound),
+      );
+      expect(
+        unknownSessionWithInvalidContentType.json?['id'],
+        equals('unknown-session-invalid-content-type'),
+      );
+      expect(
+        unknownSessionWithInvalidContentType.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
+      final liveSessionWithInvalidContentType = await _postBody(
+        client,
+        listener.port,
+        '/mcp',
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': 'live-session-invalid-content-type',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        }),
+        contentType: ContentType.text,
+        headers: streamableHeaders('tools/list'),
+      );
+      expect(
+        liveSessionWithInvalidContentType.statusCode,
+        equals(HttpStatus.unsupportedMediaType),
+      );
+      expect(
+        liveSessionWithInvalidContentType.headers['mcp-session-id'],
+        equals(mcpSessionId),
+      );
+
       final directUnknownSession = await _postJson(
         client,
         listener.port,

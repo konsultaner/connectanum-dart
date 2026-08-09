@@ -1850,7 +1850,10 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
+  final deferPostContentTypeValidation =
+      httpMethod == 'POST' && streamableHttpRequest && mcpSessionId != null;
   if (httpMethod == 'POST' &&
+      !deferPostContentTypeValidation &&
       !_mcpContentTypeAllowsJsonBody(binding, request)) {
     await binding._sendImmediateHttpResponse(
       request: request,
@@ -2011,6 +2014,23 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
+  }
+
+  if (deferPostContentTypeValidation &&
+      !_mcpContentTypeAllowsJsonBody(binding, request)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.unsupportedMediaType,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP POST requests must use a JSON content type',
+        sessionId: responseMcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      ),
+    );
+    return;
   }
 
   if (httpMethod == 'POST' &&

@@ -40,8 +40,9 @@
   catalog refresh failure for both GET and POST, returning a sessionless 404
   instead of a stale backend error that advertises the removed session.
 - Reject unknown, terminated, cross-route, and cross-principal Streamable HTTP
-  sessions before body and standard-header validation, returning a sessionless
-  404 without changing direct JSON request behavior.
+  sessions before content-type, body-size, JSON, and standard-header
+  validation, returning a sessionless 404 without changing direct JSON request
+  behavior.
 
 ## 0.1.0
 

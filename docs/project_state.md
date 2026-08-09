@@ -1,7 +1,7 @@
 # Project State
 
-Last updated: 2026-08-09
-Current branch: `codex/mcp-router-initialize-notification-session`
+Last updated: 2026-08-10
+Current branch: `codex/mcp-router-unknown-session-content-type`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24374,6 +24374,19 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-10: A fail-first native-router regression reproduced an unknown or
+  terminated Streamable HTTP session returning HTTP 415 when its operation
+  used a non-JSON content type. Claimed compatibility sessions now authenticate
+  and resolve before content-type validation, making the required sessionless
+  HTTP 404 authoritative while live sessions retain 415 and direct JSON keeps
+  its existing ingress behavior. Focused formatting, analysis, the native
+  ingress/session regression, pre-change and post-change `bin/test-fast`,
+  `git diff --check`, and full `bin/verify` pass. Full verification covered 114
+  Rust core tests plus serializer integrations, 52 Rust FFI tests plus the
+  metrics follow-up, 360 Dart core tests, 101 MCP tests, the complete 280-case
+  client MCP matrix, all 96 benchmark tests including 36 live WAMP workloads,
+  the complete router and native follow-up suites, every isolated and globally
+  activated consumer/CLI smoke, remote-auth isolation, and Chrome/Dart2Wasm.
 - 2026-08-05: Three fail-first Streamable HTTP client regressions reproduced a
   closed client sending a new direct request, allocating and establishing a new
   MCP 2026 listener, and performing OAuth protected-resource discovery. Close
@@ -24846,13 +24859,29 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the implementation plan is:
+- Completed most recently, the implementation plan is:
+  `docs/exec-plans/2026-08-09-mcp-router-unknown-session-content-type.md`.
+  Router-hosted compatibility Streamable POST already makes unknown sessions
+  authoritative before request-size, JSON, and standard-header validation,
+  but a non-JSON content type still returned HTTP 415 before route-principal
+  authentication and session resolution. The official maintained transport
+  contract requires HTTP 404 after session termination. Pre-change
+  `bin/test-fast` passed, and the focused native regression reproduced the
+  stale precedence as 415. Content-type validation is now deferred only for a
+  POST that claims Streamable session semantics, so unknown sessions return a
+  sessionless 404 with the readable request ID while live sessions retain 415
+  and direct JSON retains its earlier ingress behavior. Focused formatting,
+  analysis, native-router coverage, post-change `bin/test-fast`, and full
+  `bin/verify` pass across the Rust, Dart, native, router, benchmark,
+  consumer/CLI, remote-auth, and Chrome/Dart2Wasm matrix. Publication and
+  exact-head hosted evidence remain.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-09-mcp-router-initialize-notification-session.md`.
-  Router-hosted compatibility Streamable HTTP currently retains a tentative
-  session when `initialize` is sent as an ID-free JSON-RPC notification, even
-  though no `InitializeResult` can be returned. The active checkpoint adds a
-  fail-first native-router regression, makes notification-shaped initialize
-  responses sessionless, and proves the route capacity remains available for
+  Router-hosted compatibility Streamable HTTP previously retained a tentative
+  session when `initialize` was sent as an ID-free JSON-RPC notification, even
+  though no `InitializeResult` could be returned. The checkpoint added a
+  fail-first native-router regression, made notification-shaped initialize
+  responses sessionless, and proved the route capacity remains available for
   a valid request-based initialization. The regression reproduced HTTP 202
   with a leaked `MCP-Session-Id` on a one-session route. Tentative endpoints are
   now retained only after an initialization result, and public/protected Router
@@ -24860,9 +24889,18 @@ at the older `47bbf9c` commit.
   image-smoke suites plus the complete pre- and post-change `bin/test-fast`
   pass. Full `bin/verify` also passes with zero formatting changes and the
   complete Rust, Dart, native, consumer, router, benchmark, remote-auth, and
-  Chrome/Dart2Wasm matrix. Commit publication and exact-head hosted evidence
-  remain.
-- Completed most recently, the implementation plan is:
+  Chrome/Dart2Wasm matrix. Implementation commit `03df7895` is on both
+  maintained `master` branches. Exact-head CI `31335702160`, Dart Package
+  Publish Dry Run `31335702103`, WAMP Profile Benchmarks `31335702131`, and
+  Router Image dry run `31335722319` all pass. Coverage artifact `9044431833`,
+  WAMP artifact `9044323873`, Router Image preview `9044260057`, and Docker
+  build records `9044319407` and `9044319026` were uploaded. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI jobs and
+  logs plus every required package, still-relevant native release,
+  fresh-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-09-mcp-router-unknown-session-validation.md`.
   The maintained MCP `2025-11-25` Streamable HTTP contract makes session
   termination authoritative with HTTP 404, but router-hosted POST currently
@@ -24896,7 +24934,7 @@ at the older `47bbf9c` commit.
   the implementation-head package dry run and WAMP benchmark runs remain
   relevant because the follow-up changed no publish- or benchmark-sensitive
   path.
-- Completed immediately before that, the implementation plan is
+- Completed before that, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-deleted-session-catalog-failure.md`.
   The fail-first regression reproduced a stale HTTP 500 after concurrent DELETE
   and blocked-then-failing catalog authorization. Compatibility GET and POST
