@@ -3003,6 +3003,7 @@ class _RouterMcpEndpoint {
       RealmAuthorizationProviderCache(binding.settings);
   String? _toolSignature;
   String? _wampApiSignature;
+  String? _resourceSignature;
   final mcp.McpWampPubSubState _wampPubSubState = mcp.McpWampPubSubState();
   Future<void> _catalogRefreshTail = Future<void>.value();
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
@@ -3495,6 +3496,9 @@ class _RouterMcpEndpoint {
     binding._reserveMcpRequestScopedListener(this);
     try {
       for (final uri in requested.resourceSubscriptions) {
+        if (server.resources[uri] == null) {
+          continue;
+        }
         final config = _configuredResourceForUri(route.action.options, uri);
         if (config == null) {
           continue;
@@ -3527,6 +3531,9 @@ class _RouterMcpEndpoint {
     }
     final notifications = _RouterMcpSubscriptionFilter(
       toolsListChanged: requested.toolsListChanged,
+      resourcesListChanged:
+          requested.resourcesListChanged &&
+          _hasConfiguredDynamicResources(route.action.options),
       resourceSubscriptions: grantedResources,
     );
     return _RouterMcpModernSubscriptionPreparation(
@@ -3925,7 +3932,7 @@ class _RouterMcpEndpoint {
 
   Future<void> _subscribeResource(mcp.McpResourceRequest request) async {
     final config = _configuredResourceForUri(route.action.options, request.uri);
-    if (config == null) {
+    if (config == null || server.resources[request.uri] == null) {
       throw mcp.McpException(
         mcp.McpErrorCodes.resourceNotFound,
         'Resource not found',
@@ -4290,7 +4297,9 @@ class _RouterMcpEndpoint {
   }
 
   Future<void> _performCatalogRefresh() async {
-    final api = await _buildApi();
+    final authorizationDecisions = <String, Future<bool>>{};
+    final api = await _buildApi(authorizationDecisions);
+    final resources = await _visibleConfiguredResources(authorizationDecisions);
     final tools = api.toTools(
       call: _call,
       publish: _publish,
@@ -4304,6 +4313,9 @@ class _RouterMcpEndpoint {
       pubSubState: _wampPubSubState,
     );
     final toolSignature = jsonEncode([for (final tool in tools) tool.toJson()]);
+    final resourceSignature = jsonEncode([
+      for (final resource in resources) resource.toJson(),
+    ]);
     final procedures = [...api.procedures]
       ..sort((left, right) => left.procedure.compareTo(right.procedure));
     final topics = [...api.topics]
@@ -4315,18 +4327,70 @@ class _RouterMcpEndpoint {
       'procedures': [for (final procedure in procedures) procedure.toJson()],
       'topics': [for (final topic in topics) topic.toJson()],
     });
-    if (apiSignature == _wampApiSignature) {
+    final apiChanged = apiSignature != _wampApiSignature;
+    final resourcesChanged = resourceSignature != _resourceSignature;
+    if (!apiChanged && !resourcesChanged) {
       return;
     }
-    server.tools.replaceAll(tools);
-    if (_toolSignature != null && toolSignature != _toolSignature) {
-      if (server.state == mcp.McpServerState.initialized) {
-        _enqueueServerNotification('notifications/tools/list_changed');
+    if (apiChanged) {
+      server.tools.replaceAll(tools);
+      if (_toolSignature != null && toolSignature != _toolSignature) {
+        if (server.state == mcp.McpServerState.initialized) {
+          _enqueueServerNotification('notifications/tools/list_changed');
+        }
+        _sendModernNotification('notifications/tools/list_changed');
       }
-      _sendModernNotification('notifications/tools/list_changed');
+      _toolSignature = toolSignature;
+      _wampApiSignature = apiSignature;
     }
-    _toolSignature = toolSignature;
-    _wampApiSignature = apiSignature;
+    if (resourcesChanged) {
+      server.resources.replaceAll(resources);
+      if (_resourceSignature != null) {
+        if (server.state == mcp.McpServerState.initialized) {
+          _enqueueServerNotification('notifications/resources/list_changed');
+        }
+        _sendModernNotification('notifications/resources/list_changed');
+      }
+      _resourceSignature = resourceSignature;
+    }
+  }
+
+  Future<List<mcp.McpResource>> _visibleConfiguredResources(
+    Map<String, Future<bool>> authorizationDecisions,
+  ) async {
+    final options = route.action.options;
+    final visible = <mcp.McpResource>[];
+    for (final resource in _configuredResources(
+      options,
+      procedureReader: _readConfiguredResource,
+    )) {
+      final config = _configuredResourceForUri(options, resource.uri);
+      final readProcedure = config == null
+          ? null
+          : _stringFrom(config['read_procedure']) ??
+                _stringFrom(config['readProcedure']);
+      if (readProcedure == null ||
+          await _isCatalogAuthorized(
+            authorizationDecisions,
+            AuthorizationAction.call,
+            readProcedure,
+          )) {
+        visible.add(resource);
+      }
+    }
+    return visible;
+  }
+
+  Future<bool> _isCatalogAuthorized(
+    Map<String, Future<bool>> authorizationDecisions,
+    AuthorizationAction action,
+    String uri,
+  ) {
+    final key = '${action.name}\u0000$uri';
+    return authorizationDecisions.putIfAbsent(
+      key,
+      () => _isAuthorized(action, uri),
+    );
   }
 
   Future<void> _refreshTools() {
@@ -4338,7 +4402,9 @@ class _RouterMcpEndpoint {
     return refresh;
   }
 
-  Future<mcp.McpWampApi> _buildApi() async {
+  Future<mcp.McpWampApi> _buildApi(
+    Map<String, Future<bool>> authorizationDecisions,
+  ) async {
     final options = route.action.options;
     final procedures = <String, mcp.McpWampProcedure>{
       for (final procedure in _configuredProcedures(options))
@@ -4431,7 +4497,11 @@ class _RouterMcpEndpoint {
           _isStandardMetaProcedure(procedure.procedure);
       if (exposeStandardMetaProcedure ||
           !procedure.allowCall ||
-          await _isAuthorized(AuthorizationAction.call, procedure.procedure)) {
+          await _isCatalogAuthorized(
+            authorizationDecisions,
+            AuthorizationAction.call,
+            procedure.procedure,
+          )) {
         filteredProcedures.add(procedure);
       }
     }
@@ -4440,10 +4510,18 @@ class _RouterMcpEndpoint {
     for (final topic in topics.values) {
       final allowPublish =
           topic.allowPublish &&
-          await _isAuthorized(AuthorizationAction.publish, topic.topic);
+          await _isCatalogAuthorized(
+            authorizationDecisions,
+            AuthorizationAction.publish,
+            topic.topic,
+          );
       final allowSubscribe =
           topic.allowSubscribe &&
-          await _isAuthorized(AuthorizationAction.subscribe, topic.topic);
+          await _isCatalogAuthorized(
+            authorizationDecisions,
+            AuthorizationAction.subscribe,
+            topic.topic,
+          );
       if (!allowPublish && !allowSubscribe) {
         continue;
       }
@@ -5844,6 +5922,18 @@ bool _hasConfiguredResourceSubscriptions(Map<String, Object?> options) {
   );
 }
 
+bool _hasConfiguredDynamicResources(Map<String, Object?> options) {
+  final entries = options['resources'];
+  if (entries is! List) {
+    return false;
+  }
+  return entries.whereType<Map>().any((entry) {
+    final config = entry.cast<String, Object?>();
+    return _stringFrom(config['read_procedure']) != null ||
+        _stringFrom(config['readProcedure']) != null;
+  });
+}
+
 mcp.McpServerCapabilities _mcpServerCapabilitiesForOptions(
   Map<String, Object?> options,
 ) {
@@ -5858,6 +5948,7 @@ mcp.McpServerCapabilities _mcpServerCapabilitiesForOptions(
     resources: hasResources
         ? mcp.McpResourceCapabilities(
             subscribe: _hasConfiguredResourceSubscriptions(options),
+            listChanged: _hasConfiguredDynamicResources(options),
           )
         : null,
   );

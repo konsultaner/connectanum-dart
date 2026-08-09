@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-08
+Last updated: 2026-08-09
 Current branch: `codex/mcp-router-sse-history-byte-bounds`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -24847,6 +24847,31 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-09-mcp-router-resource-catalog-authorization.md`.
+  Router-hosted WAMP procedure discovery filters live registrations through
+  the route principal's call permission, but a configured dynamic resource
+  backed by that procedure remains visible in `resources/list` even when its
+  tool is hidden and reads will be denied. Add fail-first direct JSON and
+  compatibility Streamable coverage, build resource visibility from the same
+  per-refresh authorization snapshot with one decision per action/URI, and
+  preserve public static resources, direct JSON sessionlessness, Streamable
+  session/cursor continuity, and modern resource list-change delivery.
+  The fail-first regression reproduces catalog disclosure before the change.
+  Catalog refresh now shares one decision future per action/URI across WAMP
+  procedure and dynamic-resource projections, preserves static resources and
+  opaque pagination cursors, hides denied reads and subscription setup behind
+  `resourceNotFound`, and emits advertised modern plus compatibility resource
+  list-change notifications. Router analysis and the new plus six adjacent
+  native regressions pass. Pre- and post-change `bin/test-fast` pass all 360
+  core, 98 MCP, and 280 MCP/client cases, all 96 benchmark tests including 36
+  live WAMP workloads, and the complete generated/global consumer plus Router
+  CLI smoke matrix. Full `bin/verify` passes formatting; all 114 Rust core and
+  52 Rust FFI tests plus focused metrics; 360 Dart core, 98 MCP, 280 MCP/client,
+  96 benchmark, and 406 Router tests; the 6-case remote-auth and 13-case native
+  follow-ups; every generated and globally activated consumer smoke; and
+  Chrome/Dart2Wasm. Exact-head hosted evidence remains green at `458d3059`;
+  the implementation is ready to push and audit.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-resource-read-single-authorization.md`.
   Configured dynamic-resource reads authorize their WAMP read procedure, then
   delegate to the ordinary MCP WAMP call callback and authorize the same
@@ -24868,8 +24893,17 @@ at the older `47bbf9c` commit.
   passes formatting; all 114 Rust core and 52 Rust FFI tests plus focused
   metrics; 360 Dart core, 98 MCP, 280 MCP/client, 96 benchmark, and 405 Router
   tests; the 6-case remote-auth and 13-case native follow-ups; every generated
-  and globally activated consumer smoke; and Chrome/Dart2Wasm. Commit and
-  hosted evidence remain.
+  and globally activated consumer smoke; and Chrome/Dart2Wasm. Commit
+  `458d3059` is pushed to both maintained `master` branches. Exact-head GitHub
+  CI `31283241489`, Dart Package Publish Dry Run `31283241433`, WAMP Profile
+  Benchmarks `31283241435`, and Router Image dry run `31283246021` all pass on
+  their first attempts. Retained artifacts are Dart VM coverage `9029207828`,
+  WAMP profile evidence `9029122311`, router image preview `9029043794`, and
+  Docker build records `9029095827` and `9029095547`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head CI jobs and logs plus
+  every required package, relevant native release, router-image MCP smoke,
+  WAMP, workflow-visibility, branch-protection, and public GHCR gate ready.
+  Only the deliberately unapproved next RC tag remains outside the milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-08-mcp-router-resource-subscribe-single-authorization.md`.
   Compatibility `resources/subscribe` and modern `subscriptions/listen`

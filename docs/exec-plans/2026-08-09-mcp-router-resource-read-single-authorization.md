@@ -1,7 +1,7 @@
 # MCP Router Resource Read Single Authorization
 
-Status: active; implementation and local verification are green, hosted
-evidence remains
+Status: complete; implementation, local verification, and exact-head hosted
+deployment evidence are green
 
 ## Goal
 
@@ -57,8 +57,21 @@ only because it crossed this redundant internal boundary.
   96 benchmark, and 405 Router tests; the 6-case remote-auth and 13-case native
   follow-ups; every generated and globally activated consumer smoke; and
   Chrome/Dart2Wasm.
+- 2026-08-09: Commit `458d3059` is pushed to both maintained `master`
+  branches. Exact-head GitHub CI `31283241489`, Dart Package Publish Dry Run
+  `31283241433`, WAMP Profile Benchmarks `31283241435`, and Router Image dry
+  run `31283246021` all pass on their first attempts. Retained artifacts are
+  Dart VM coverage `9029207828`, WAMP profile evidence `9029122311`, router
+  image preview `9029043794`, and Docker build records `9029095827` and
+  `9029095547`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, router-image MCP smoke, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gate ready. Only the deliberately
+  unapproved next RC tag remains outside the milestone.
 
 ## Handoff
 
-- Active. Commit, push both maintained remotes, and audit exact-head hosted
-  evidence.
+- Complete. Continue from `ROADMAP_NEXT.md` and `ROADMAP.md` with the next
+  production-readiness slice; do not create or move an RC tag without explicit
+  approval.

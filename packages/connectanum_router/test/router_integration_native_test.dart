@@ -5700,6 +5700,260 @@ void main() {
     );
 
     test(
+      'filters router-hosted MCP dynamic resource catalogs by call authorization',
+      () async {
+        final provider = _ToggleAuthorizationProvider(
+          action: AuthorizationAction.call,
+          uri: 'app.safe.resource.read',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9162,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-resource-catalog-authorization-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        var invocationCount = 0;
+        final registration = await serviceSession.register(
+          'app.safe.resource.read',
+        );
+        registration.onInvoke((invocation) {
+          invocationCount++;
+          invocation.respondWith(
+            argumentsKeywords: <String, Object?>{
+              'uri': invocation.arguments?.single,
+              'invocation': invocationCount,
+            },
+          );
+        });
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final directClient = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-catalog-authorization-direct',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => directClient.close(force: true));
+
+        final deniedDirectRequests = provider.matchingRequestCount;
+        final deniedDirectResources = await directClient.listResources(
+          id: 'resource-catalog-authorization-direct-denied-list',
+          directJson: true,
+        );
+        expect(provider.matchingRequestCount, equals(deniedDirectRequests + 1));
+        expect(
+          deniedDirectResources.resources.map((resource) => resource['uri']),
+          contains('app://mcp/context'),
+        );
+        expect(
+          deniedDirectResources.resources.map((resource) => resource['uri']),
+          isNot(contains('app://mcp/live-context')),
+        );
+
+        final deniedDirectReadRequests = provider.matchingRequestCount;
+        await expectLater(
+          directClient.readResource(
+            'app://mcp/live-context',
+            id: 'resource-catalog-authorization-direct-denied-read',
+            directJson: true,
+          ),
+          throwsA(
+            isA<McpJsonRpcException>().having(
+              (error) => error.error['code'],
+              'code',
+              McpErrorCodes.resourceNotFound,
+            ),
+          ),
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(deniedDirectReadRequests + 1),
+        );
+        expect(invocationCount, isZero);
+
+        final discovery = await directClient.discover(
+          id: 'resource-catalog-authorization-discover',
+        );
+        expect(
+          discovery.capabilities['resources'],
+          containsPair('listChanged', true),
+        );
+        final modernSubscription = await directClient.listen(
+          id: 'resource-catalog-authorization-listen',
+          resourcesListChanged: true,
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+        addTearDown(modernSubscription.close);
+        expect(
+          modernSubscription.acknowledgedNotifications.resourcesListChanged,
+          isTrue,
+        );
+        expect(
+          modernSubscription.acknowledgedNotifications.resourceSubscriptions,
+          isEmpty,
+        );
+        final modernNotifications = StreamIterator<Map<String, Object?>>(
+          modernSubscription.notifications,
+        );
+        final listChanged = modernNotifications.moveNext().timeout(
+          const Duration(seconds: 5),
+        );
+
+        provider.allowed = true;
+        final allowedDirectRequests = provider.matchingRequestCount;
+        final allowedDirectResources = await directClient.listResources(
+          id: 'resource-catalog-authorization-direct-allowed-list',
+          directJson: true,
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(allowedDirectRequests + 1),
+        );
+        expect(
+          allowedDirectResources.resources.map((resource) => resource['uri']),
+          contains('app://mcp/live-context'),
+        );
+        expect(await listChanged, isTrue);
+        expect(
+          modernNotifications.current['method'],
+          equals('notifications/resources/list_changed'),
+        );
+
+        final allowedDirectReadRequests = provider.matchingRequestCount;
+        final directContents = await directClient.readResource(
+          'app://mcp/live-context',
+          id: 'resource-catalog-authorization-direct-allowed-read',
+          directJson: true,
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(allowedDirectReadRequests + 2),
+        );
+        expect(
+          jsonDecode(directContents.single['text'] as String),
+          containsPair('argumentsKeywords', containsPair('invocation', 1)),
+        );
+        expect(directClient.sessionId, isNull);
+        expect(directClient.lastEventId, isNull);
+        await modernNotifications.cancel();
+        await modernSubscription.close();
+
+        provider.allowed = false;
+        final streamableClient = McpStreamableHttpClient(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-catalog-authorization-streamable',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => streamableClient.close(force: true));
+        final initialize = await streamableClient.initialize(
+          id: 'resource-catalog-authorization-initialize',
+        );
+        final capabilities =
+            ((initialize['result'] as Map)['capabilities'] as Map)
+                .cast<String, Object?>();
+        expect(capabilities['resources'], containsPair('listChanged', true));
+        await streamableClient.notifyInitialized();
+        final sessionId = streamableClient.sessionId;
+        expect(sessionId, isNotNull);
+
+        final deniedStreamableRequests = provider.matchingRequestCount;
+        final deniedStreamableResources = await streamableClient.listResources(
+          id: 'resource-catalog-authorization-streamable-denied-list',
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(deniedStreamableRequests + 1),
+        );
+        expect(
+          deniedStreamableResources.resources.map(
+            (resource) => resource['uri'],
+          ),
+          isNot(contains('app://mcp/live-context')),
+        );
+        await expectLater(
+          streamableClient.subscribeResource(
+            'app://mcp/live-context',
+            id: 'resource-catalog-authorization-streamable-denied-subscribe',
+          ),
+          throwsA(
+            isA<McpJsonRpcException>()
+                .having(
+                  (error) => error.method,
+                  'method',
+                  'resources/subscribe',
+                )
+                .having(
+                  (error) => error.error['code'],
+                  'code',
+                  McpErrorCodes.resourceNotFound,
+                ),
+          ),
+        );
+        expect(streamableClient.sessionId, equals(sessionId));
+        final cursorBeforeVisibilityChange = streamableClient.lastEventId;
+
+        provider.allowed = true;
+        final allowedStreamableRequests = provider.matchingRequestCount;
+        final allowedStreamableResources = await streamableClient.listResources(
+          id: 'resource-catalog-authorization-streamable-allowed-list',
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(allowedStreamableRequests + 1),
+        );
+        expect(
+          allowedStreamableResources.resources.map(
+            (resource) => resource['uri'],
+          ),
+          contains('app://mcp/live-context'),
+        );
+        expect(streamableClient.sessionId, equals(sessionId));
+        expect(streamableClient.lastEventId, startsWith('$sessionId:'));
+        expect(
+          streamableClient.lastEventId,
+          isNot(equals(cursorBeforeVisibilityChange)),
+        );
+
+        final allowedStreamableReadRequests = provider.matchingRequestCount;
+        final streamableContents = await streamableClient.readResource(
+          'app://mcp/live-context',
+          id: 'resource-catalog-authorization-streamable-allowed-read',
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(allowedStreamableReadRequests + 2),
+        );
+        expect(
+          jsonDecode(streamableContents.single['text'] as String),
+          containsPair('argumentsKeywords', containsPair('invocation', 2)),
+        );
+        expect(streamableClient.sessionId, equals(sessionId));
+        await streamableClient.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'authorizes each router-hosted MCP resource subscribe owner once',
       () async {
         final provider = _FailDeferredAuthorizationProvider(
@@ -8771,11 +9025,11 @@ void main() {
           );
       expect(
         (deniedDirectResourceRead['error'] as Map)['code'],
-        equals(McpErrorCodes.invalidRequest),
+        equals(McpErrorCodes.resourceNotFound),
       );
       expect(
         jsonEncode(deniedDirectResourceRead['error']),
-        contains('Not authorized to read'),
+        contains('Resource not found'),
       );
 
       final directCatalogContent = await directPublicMcpClient.listWampApi(
@@ -8998,7 +9252,7 @@ void main() {
       );
       expect(
         statelessSubscription.acknowledgedNotifications.resourcesListChanged,
-        isFalse,
+        isTrue,
       );
       expect(
         statelessSubscription.acknowledgedNotifications.resourceSubscriptions,
@@ -9379,12 +9633,12 @@ void main() {
               .having(
                 (error) => error.error['code'],
                 'code',
-                McpErrorCodes.invalidRequest,
+                McpErrorCodes.resourceNotFound,
               )
               .having(
                 (error) => error.error['message'],
                 'message',
-                contains('Not authorized to subscribe'),
+                contains('Resource not found'),
               ),
         ),
       );
@@ -12976,6 +13230,28 @@ RouterSettings _buildMcpAnonymousIsolationSettings() {
           const AuthenticatorDefinition(type: 'anonymous'),
         ))
       .build();
+}
+
+final class _ToggleAuthorizationProvider implements AuthorizationProvider {
+  _ToggleAuthorizationProvider({required this.action, required this.uri});
+
+  final AuthorizationAction action;
+  final String uri;
+  bool allowed = false;
+  int matchingRequestCount = 0;
+
+  @override
+  Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
+    if (request.action != action || request.uri != uri) {
+      return null;
+    }
+    matchingRequestCount++;
+    return allowed
+        ? null
+        : const AuthorizationDecision.deny(
+            message: 'blocked by dynamic resource policy',
+          );
+  }
 }
 
 final class _CountingCatalogAuthorizationProvider
