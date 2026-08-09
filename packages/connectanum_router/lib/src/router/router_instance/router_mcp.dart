@@ -4362,6 +4362,10 @@ class _RouterMcpEndpoint {
       maxBufferedEventBytes: _mcpMaxWampSubscriptionQueueBytesForRoute(route),
       pubSubState: _wampPubSubState,
     );
+    await _wampPubSubState.reconcileSubscribedTopics(<String>{
+      for (final topic in api.topics)
+        if (topic.allowSubscribe) topic.topic,
+    }, release: _releaseWampSubscription);
     final toolSignature = jsonEncode([for (final tool in tools) tool.toJson()]);
     final resourceSignature = jsonEncode([
       for (final resource in resources) resource.toJson(),

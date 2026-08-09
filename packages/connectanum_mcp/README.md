@@ -493,6 +493,13 @@ handles and buffered events while metadata and invokers rebind to the refreshed
 catalog. Do not share one state object across endpoints, sessions, or
 authorization principals.
 
+When a refreshed catalog makes topics unsubscribable, call
+`reconcileSubscribedTopics` on the retained state with the new subscribable
+topic set. It releases only handles for removed permissions and keeps a handle
+available for retry if cleanup fails. Hosts performing mandatory security
+cleanup can supply a `release` callback that bypasses ordinary user-facing
+unsubscribe authorization.
+
 ## Router-Hosted MCP Endpoint
 
 `connectanum_router` can host an MCP endpoint directly. Add an HTTP route with
@@ -638,7 +645,10 @@ only when the principal may `call` them; topics are listed only for the allowed
 `publish` and/or `subscribe` operations. Procedures declared with
 `allowCall: false` can still appear in `connectanum.api.list` and
 `connectanum.api.describe` as documentation-only metadata, but they are not
-registered as callable MCP tools.
+registered as callable MCP tools. Each endpoint also releases existing generic
+pub/sub handles when its next catalog refresh finds that their topic is no
+longer subscribe-authorized. Restoring permission does not revive those
+handles; the consumer must subscribe again.
 
 The same HTTP `POST` endpoint also accepts direct JSON-RPC tool calls for
 frontend clients. These calls use the same catalog and authorization path as MCP

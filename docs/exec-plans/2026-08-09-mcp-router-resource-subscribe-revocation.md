@@ -1,7 +1,6 @@
 # MCP Router Resource Subscribe Authorization Revocation
 
-Status: implementation and local verification complete; hosted verification
-is pending
+Status: complete; local and exact-head hosted verification are green
 
 ## Goal
 
@@ -58,9 +57,21 @@ request-scoped update owners after `subscribe` permission is revoked while
   core, 98 MCP, 280 MCP/client, 96 benchmark, and 408 Router tests; the 6-case
   remote-auth and 13-case native follow-ups; every neutral consumer smoke; and
   Chrome Dart2Wasm WebSocket coverage.
+- 2026-08-09: Implementation commit `6f6d61a9` is on both maintained
+  `master` branches. Exact-head GitHub CI `31293600456`, Dart Package Publish
+  Dry Run `31293600458`, WAMP Profile Benchmarks `31293600490`, and Router
+  Image dry run `31294264633` all pass on their first attempts. Retained
+  artifacts are Dart VM coverage `9032407211`, WAMP profile evidence
+  `9032283962`, router image preview `9032417074`, and Docker build records
+  `9032463142` and `9032462917`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, loaded-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
 
 ## Handoff
 
-- Implementation and local verification are complete. Publish both maintained
-  remotes and collect exact-head hosted deployment evidence next. Do not create
-  or move an RC tag without explicit approval.
+- Implementation, both maintained pushes, local verification, exact-head
+  hosted verification, and the strict deployment-chain audit are complete. Do
+  not create or move an RC tag without explicit approval.

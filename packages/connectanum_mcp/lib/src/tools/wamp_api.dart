@@ -27,6 +27,26 @@ typedef McpWampUnsubscribeInvoker =
 final class McpWampPubSubState {
   _McpWampPubSubTools? _bridge;
 
+  /// Releases retained handles whose topics are no longer subscribable.
+  ///
+  /// [release] overrides the latest unsubscriber bound by [McpWampApi.toTools]
+  /// or [McpWampApi.toSessionTools]. Hosts can use it for mandatory cleanup
+  /// that must not depend on user-facing unsubscribe authorization. A handle
+  /// remains available for retry when releasing its subscription fails.
+  Future<void> reconcileSubscribedTopics(
+    Iterable<String> subscribableTopics, {
+    McpWampUnsubscribeInvoker? release,
+  }) async {
+    final bridge = _bridge;
+    if (bridge == null) {
+      return;
+    }
+    await bridge._reconcileSubscribedTopics(
+      Set<String>.of(subscribableTopics),
+      release: release,
+    );
+  }
+
   _McpWampPubSubTools _bind({
     required McpWampApi api,
     required McpWampPublishInvoker? publish,
@@ -886,6 +906,35 @@ class _McpWampPubSubTools {
   final Map<String, _BufferedSubscription> _subscriptions =
       <String, _BufferedSubscription>{};
   int _nextHandle = 1;
+
+  Future<void> _reconcileSubscribedTopics(
+    Set<String> subscribableTopics, {
+    McpWampUnsubscribeInvoker? release,
+  }) async {
+    final revokedHandles = <String>[
+      for (final entry in _subscriptions.entries)
+        if (!subscribableTopics.contains(entry.value.topic)) entry.key,
+    ];
+    if (revokedHandles.isEmpty) {
+      return;
+    }
+    final releaseSubscription = release ?? _unsubscribe;
+    if (releaseSubscription == null) {
+      throw StateError('WAMP unsubscribe support is not configured.');
+    }
+    for (final handle in revokedHandles) {
+      final subscription = _subscriptions.remove(handle);
+      if (subscription == null) {
+        continue;
+      }
+      try {
+        await releaseSubscription(subscription.subscription);
+      } catch (_) {
+        _subscriptions.putIfAbsent(handle, () => subscription);
+        rethrow;
+      }
+    }
+  }
 
   Future<McpToolResult> publish(McpToolRequest request) async {
     final publish = _publish;

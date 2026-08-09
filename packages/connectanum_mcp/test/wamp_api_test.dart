@@ -523,6 +523,146 @@ void main() {
       expect(unsubscribed.subscriptionId, 7);
     });
 
+    test(
+      'reconciles retained pubsub handles by subscribable topic with retry',
+      () async {
+        final handlers = <String, void Function(McpWampEvent event)>{};
+        final explicitlyUnsubscribed = <McpWampSubscription>[];
+        final released = <McpWampSubscription>[];
+        var releaseAttempts = 0;
+        final state = McpWampPubSubState();
+        final api = McpWampApi(
+          topics: [
+            McpWampTopic(topic: 'app.events.revoked'),
+            McpWampTopic(topic: 'app.events.retained'),
+          ],
+        );
+        final server = _server(
+          api.toTools(
+            subscribe: (request, handler) {
+              handlers[request.topic] = handler;
+              return McpWampSubscription(
+                topic: request.topic,
+                subscriptionId: request.topic.endsWith('revoked') ? 7 : 8,
+              );
+            },
+            unsubscribe: explicitlyUnsubscribed.add,
+            pubSubState: state,
+          ),
+        );
+        await _initializeAndStart(server);
+
+        Future<String> subscribe(String topic, int id) async {
+          final response = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': id,
+            'method': 'tools/call',
+            'params': {
+              'name': 'connectanum.pubsub.subscribe',
+              'arguments': {'topic': topic},
+            },
+          });
+          final result =
+              (response?['result'] as Map<String, Object?>)['structuredContent']
+                  as Map<String, Object?>;
+          return result['handle'] as String;
+        }
+
+        final revokedHandle = await subscribe('app.events.revoked', 48);
+        final retainedHandle = await subscribe('app.events.retained', 49);
+
+        await expectLater(
+          state.reconcileSubscribedTopics(
+            const <String>{'app.events.retained'},
+            release: (subscription) {
+              releaseAttempts++;
+              if (releaseAttempts == 1) {
+                throw StateError('temporary reconciliation failure');
+              }
+              released.add(subscription);
+            },
+          ),
+          throwsA(isA<StateError>()),
+        );
+        handlers['app.events.revoked']!(
+          const McpWampEvent(
+            subscriptionId: 7,
+            publicationId: 103,
+            topic: 'app.events.revoked',
+            argumentsKeywords: {'message': 'after-failed-reconciliation'},
+          ),
+        );
+        final retainedAfterFailure = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 50,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.poll',
+            'arguments': {'handle': revokedHandle},
+          },
+        });
+        expect(
+          jsonEncode(retainedAfterFailure),
+          contains('after-failed-reconciliation'),
+        );
+
+        await state.reconcileSubscribedTopics(
+          const <String>{'app.events.retained'},
+          release: (subscription) {
+            releaseAttempts++;
+            released.add(subscription);
+          },
+        );
+        expect(releaseAttempts, 2);
+        expect(released.single.topic, 'app.events.revoked');
+        expect(explicitlyUnsubscribed, isEmpty);
+
+        final revokedPoll = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 51,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.poll',
+            'arguments': {'handle': revokedHandle},
+          },
+        });
+        expect(
+          jsonEncode(revokedPoll),
+          contains('Unknown WAMP subscription handle'),
+        );
+
+        handlers['app.events.retained']!(
+          const McpWampEvent(
+            subscriptionId: 8,
+            publicationId: 104,
+            topic: 'app.events.retained',
+            argumentsKeywords: {'message': 'still-authorized'},
+          ),
+        );
+        final retainedPoll = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 52,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.poll',
+            'arguments': {'handle': retainedHandle},
+          },
+        });
+        expect(jsonEncode(retainedPoll), contains('still-authorized'));
+
+        await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 53,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.unsubscribe',
+            'arguments': {'handle': retainedHandle},
+          },
+        });
+        expect(explicitlyUnsubscribed.single.topic, 'app.events.retained');
+      },
+    );
+
     test('keeps pubsub handles usable when unsubscribe fails', () async {
       late void Function(McpWampEvent event) onEvent;
       var unsubscribeAttempts = 0;

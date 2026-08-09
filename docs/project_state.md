@@ -24847,6 +24847,30 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-09-mcp-router-pubsub-subscription-revocation.md`.
+  Router-hosted catalog refresh rebinds one reusable pub/sub state so harmless
+  catalog changes preserve handles, but previously retained direct JSON and
+  compatibility Streamable handles after their topic subscribe permission was
+  revoked. The fail-first native-router regression reproduced one shared
+  broker subscriber surviving after both affected endpoint catalogs lost
+  subscribe access. `McpWampPubSubState` now reconciles retained handles
+  against a subscribable-topic snapshot with retry-safe cleanup and an
+  explicit host cleanup override. Every successful router endpoint refresh
+  uses the authorized topic snapshot and the non-authorizing physical release
+  path, so revoked handles disappear without weakening explicit unsubscribe
+  authorization. Focused MCP and router analysis, the complete WAMP API test
+  file, and four adjacent native-router continuity/revocation/retry regressions
+  pass. The unrelated authorized topic stays live, restored permission does
+  not revive old handles, and an explicit replacement subscribe succeeds.
+  Post-change `bin/test-fast` passes all 360 core, 99 MCP, and 280 MCP/client
+  cases, all 96 benchmark tests including 36 live WAMP workloads, and the
+  complete generated/global consumer plus Router CLI smoke matrix. Full
+  `bin/verify` passes with all 397 Dart files already formatted; 114 Rust core
+  and 52 Rust FFI tests plus focused metrics; 360 Dart core, 99 MCP, 280
+  MCP/client, 96 benchmark, and 409 Router tests; the 6-case remote-auth and
+  13-case native follow-ups; every neutral consumer smoke; and Chrome
+  Dart2Wasm WebSocket coverage. Commit, dual push, and hosted evidence remain.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-resource-subscribe-revocation.md`.
   Router-hosted catalog refresh reevaluates update-topic permissions, but
   previously pruned resource-update ownership only when read visibility
@@ -24864,7 +24888,18 @@ at the older `47bbf9c` commit.
   smoke. Full `bin/verify` passes with zero formatting changes; 114 Rust core,
   52 Rust FFI, 360 Dart core, 98 MCP, 280 MCP/client, 96 benchmark, and 408
   Router tests; the remote-auth and native follow-ups; every neutral consumer
-  smoke; and Chrome Dart2Wasm. Hosted exact-head verification is pending.
+  smoke; and Chrome Dart2Wasm. Implementation commit `6f6d61a9` is pushed to
+  both maintained `master` branches. Exact-head GitHub CI `31293600456`, Dart
+  Package Publish Dry Run `31293600458`, WAMP Profile Benchmarks `31293600490`,
+  and Router Image dry run `31294264633` all pass on their first attempts.
+  Retained artifacts are Dart VM coverage `9032407211`, WAMP profile evidence
+  `9032283962`, router image preview `9032417074`, and Docker build records
+  `9032463142` and `9032462917`. The comprehensive strict deployment-chain
+  audit exits zero with clean exact-head CI jobs and logs plus every required
+  package, relevant native release, loaded-image MCP smoke, multi-architecture
+  image build, WAMP, workflow-visibility, branch-protection, and public GHCR
+  gate ready. Only the deliberately unapproved next RC tag remains outside this
+  milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-resource-visibility-revocation.md`.
   Router-hosted catalog refresh hides a configured dynamic resource after its

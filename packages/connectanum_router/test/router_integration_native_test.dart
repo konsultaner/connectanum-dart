@@ -7977,6 +7977,205 @@ void main() {
     );
 
     test(
+      'revokes router-hosted MCP pubsub handles when subscribe access is lost',
+      () async {
+        final provider = _ToggleAuthorizationProvider(
+          action: AuthorizationAction.subscribe,
+          uri: 'app.events.audit',
+        )..allowed = true;
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9165,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-pubsub-subscribe-revocation-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        addTearDown(() => client.close(force: true));
+
+        final directSubscription = await client.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'pubsub-subscribe-revocation-direct-subscribe',
+          queueLimit: 4,
+        );
+        final retainedSubscription = await client.subscribeWampTopicDirect(
+          'app.events.readonly',
+          id: 'pubsub-subscribe-revocation-retained-subscribe',
+          queueLimit: 4,
+        );
+        await client.initialize(id: 'pubsub-subscribe-revocation-initialize');
+        await client.notifyInitialized();
+        final compatibilitySessionId = client.sessionId;
+        expect(compatibilitySessionId, isNotNull);
+        final streamableSubscription = await client.subscribeWampTopic(
+          'app.events.audit',
+          id: 'pubsub-subscribe-revocation-streamable-subscribe',
+          queueLimit: 4,
+        );
+        expect(
+          streamableSubscription.subscriptionId,
+          equals(directSubscription.subscriptionId),
+        );
+
+        Future<int> subscriberCount(int subscriptionId, String label) async {
+          final result = await client.countWampSubscriptionSubscribersDirect(
+            subscriptionId,
+            id: 'pubsub-subscribe-revocation-$label-count',
+          );
+          return (result.arguments.single as num).toInt();
+        }
+
+        expect(
+          await subscriberCount(
+            directSubscription.subscriptionId!,
+            'revoked-before',
+          ),
+          equals(1),
+        );
+        expect(
+          await subscriberCount(
+            retainedSubscription.subscriptionId!,
+            'retained-before',
+          ),
+          equals(1),
+        );
+
+        provider.allowed = false;
+        final deniedCatalog = await client.listWampApiDirect(
+          id: 'pubsub-subscribe-revocation-denied-catalog',
+        );
+        final deniedCompatibilityCatalog = await client.listWampApi(
+          id: 'pubsub-subscribe-revocation-denied-compatibility-catalog',
+        );
+        expect(
+          jsonEncode(deniedCatalog),
+          allOf(
+            contains('app.events.audit'),
+            contains('"allowSubscribe":false'),
+          ),
+        );
+        expect(
+          jsonEncode(deniedCompatibilityCatalog),
+          allOf(
+            contains('app.events.audit'),
+            contains('"allowSubscribe":false'),
+          ),
+        );
+        expect(
+          await subscriberCount(
+            directSubscription.subscriptionId!,
+            'revoked-after',
+          ),
+          isZero,
+        );
+        expect(
+          await subscriberCount(
+            retainedSubscription.subscriptionId!,
+            'retained-after',
+          ),
+          equals(1),
+        );
+
+        await expectLater(
+          client.pollWampEventsDirect(
+            directSubscription.handle,
+            id: 'pubsub-subscribe-revocation-direct-poll',
+          ),
+          throwsA(isA<McpStreamableWampToolException>()),
+        );
+        await expectLater(
+          client.pollWampEvents(
+            streamableSubscription.handle,
+            id: 'pubsub-subscribe-revocation-streamable-poll',
+          ),
+          throwsA(isA<McpStreamableWampToolException>()),
+        );
+        expect(client.sessionId, equals(compatibilitySessionId));
+
+        await serviceSession.publish(
+          'app.events.readonly',
+          argumentsKeywords: const <String, Object?>{
+            'via': 'pubsub-subscribe-revocation-retained',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        var retainedEvents = await client.pollWampEventsDirect(
+          retainedSubscription.handle,
+          id: 'pubsub-subscribe-revocation-retained-poll-0',
+        );
+        for (
+          var attempt = 1;
+          retainedEvents.events.isEmpty && attempt < 50;
+          attempt++
+        ) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          retainedEvents = await client.pollWampEventsDirect(
+            retainedSubscription.handle,
+            id: 'pubsub-subscribe-revocation-retained-poll-$attempt',
+          );
+        }
+        expect(
+          jsonEncode(retainedEvents.events),
+          contains('pubsub-subscribe-revocation-retained'),
+        );
+
+        provider.allowed = true;
+        final restoredCatalog = await client.listWampApiDirect(
+          id: 'pubsub-subscribe-revocation-restored-catalog',
+        );
+        expect(jsonEncode(restoredCatalog), contains('app.events.audit'));
+        expect(
+          await subscriberCount(
+            directSubscription.subscriptionId!,
+            'revoked-restored',
+          ),
+          isZero,
+        );
+
+        final replacement = await client.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'pubsub-subscribe-revocation-replacement-subscribe',
+          queueLimit: 4,
+        );
+        expect(
+          await subscriberCount(
+            replacement.subscriptionId!,
+            'replacement-active',
+          ),
+          equals(1),
+        );
+        await client.unsubscribeWampTopicDirect(
+          replacement.handle,
+          id: 'pubsub-subscribe-revocation-replacement-unsubscribe',
+        );
+        await client.unsubscribeWampTopicDirect(
+          retainedSubscription.handle,
+          id: 'pubsub-subscribe-revocation-retained-unsubscribe',
+        );
+        expect(client.sessionId, equals(compatibilitySessionId));
+        await client.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'refreshes router-hosted MCP topic catalogs without tool shape changes',
       () async {
         final harness = await _RouterHarness.start(
