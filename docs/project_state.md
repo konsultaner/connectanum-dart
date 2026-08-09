@@ -24847,6 +24847,26 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-09-mcp-router-pubsub-subscribe-refresh-race.md`.
+  Router-hosted MCP catalog refresh now revokes established generic pub/sub
+  handles, but a subscribe still awaiting its physical WAMP acknowledgment is
+  not yet visible to reconciliation. A newer refresh can remove subscribe
+  authorization while that request is pending, after which the stale request
+  could expose a fresh logical handle. The fail-first public MCP regression
+  reproduced that leak. Pending subscriptions now enter endpoint-owned state
+  before their delegate is awaited, become irrevocably revoked when a newer
+  catalog removes authorization, discard buffered and later events, and use the
+  host cleanup override when the physical subscription eventually materializes.
+  Failed mandatory cleanup remains tracked for a later reconciliation retry;
+  restored permission cannot revive the old request. Focused MCP and adjacent
+  native-router catalog continuity, authorization revocation, and cleanup-retry
+  tests pass. Post-change `bin/test-fast` passed. The first `bin/verify` attempt
+  encountered one unrelated protected HTTP/3 handshake timeout in the final
+  router suite; that exact test passed immediately in isolation, and a complete
+  `bin/verify` rerun passed with all 409 router tests plus remote-auth,
+  zero-copy, browser, consumer-package, and live WAMP coverage green. Hosted
+  exact-head evidence remains.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-pubsub-subscription-revocation.md`.
   Router-hosted catalog refresh rebinds one reusable pub/sub state so harmless
   catalog changes preserve handles, but previously retained direct JSON and
@@ -24869,7 +24889,17 @@ at the older `47bbf9c` commit.
   and 52 Rust FFI tests plus focused metrics; 360 Dart core, 99 MCP, 280
   MCP/client, 96 benchmark, and 409 Router tests; the 6-case remote-auth and
   13-case native follow-ups; every neutral consumer smoke; and Chrome
-  Dart2Wasm WebSocket coverage. Commit, dual push, and hosted evidence remain.
+  Dart2Wasm WebSocket coverage. Implementation commit `56390bbb` is pushed to
+  both maintained `master` branches. Exact-head GitHub CI `31297029106`, Dart
+  Package Publish Dry Run `31297029094`, WAMP Profile Benchmarks `31297029109`,
+  and Router Image dry run `31297049099` all pass. Retained artifacts are Dart
+  VM coverage `9033484283`, WAMP profile evidence `9033362381`, router image
+  preview `9033286053`, and Docker build records `9033340079` and `9033339705`.
+  The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI jobs and logs plus every required package, relevant native
+  release, loaded-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-resource-subscribe-revocation.md`.
   Router-hosted catalog refresh reevaluates update-topic permissions, but

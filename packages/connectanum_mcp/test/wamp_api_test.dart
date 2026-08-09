@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:connectanum_mcp/connectanum_mcp.dart';
@@ -660,6 +661,233 @@ void main() {
           },
         });
         expect(explicitlyUnsubscribed.single.topic, 'app.events.retained');
+      },
+    );
+
+    test(
+      'revokes a pending pubsub subscribe before exposing its handle',
+      () async {
+        final subscribeStarted = Completer<void>();
+        final subscriptionReady = Completer<McpWampSubscription>();
+        final released = <McpWampSubscription>[];
+        final explicitlyUnsubscribed = <McpWampSubscription>[];
+        late void Function(McpWampEvent event) onEvent;
+        final state = McpWampPubSubState();
+        final api = McpWampApi(
+          topics: [McpWampTopic(topic: 'app.events.revoked')],
+        );
+        final server = _server(
+          api.toTools(
+            subscribe: (request, handler) {
+              onEvent = handler;
+              subscribeStarted.complete();
+              return subscriptionReady.future;
+            },
+            unsubscribe: explicitlyUnsubscribed.add,
+            pubSubState: state,
+          ),
+        );
+        await _initializeAndStart(server);
+
+        final responseFuture = server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 54,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.subscribe',
+            'arguments': {'topic': 'app.events.revoked'},
+          },
+        });
+        await subscribeStarted.future;
+
+        await state.reconcileSubscribedTopics(
+          const <String>{},
+          release: released.add,
+        );
+        onEvent(
+          const McpWampEvent(
+            subscriptionId: 9,
+            publicationId: 105,
+            topic: 'app.events.revoked',
+            argumentsKeywords: {'message': 'must-not-be-retained'},
+          ),
+        );
+        subscriptionReady.complete(
+          const McpWampSubscription(
+            topic: 'app.events.revoked',
+            subscriptionId: 9,
+          ),
+        );
+
+        final response = await responseFuture;
+        expect(
+          jsonEncode(response),
+          contains('no longer subscribable while its subscription was pending'),
+        );
+        expect(jsonEncode(response), isNot(contains('wamp-sub-')));
+        expect(released.single.subscriptionId, 9);
+        expect(explicitlyUnsubscribed, isEmpty);
+      },
+    );
+
+    test(
+      'retries revoked pending pubsub cleanup without reviving its handle',
+      () async {
+        final subscribeStarted = Completer<void>();
+        final subscriptionReady = Completer<McpWampSubscription>();
+        final handlers = <void Function(McpWampEvent event)>[];
+        final released = <McpWampSubscription>[];
+        final explicitlyUnsubscribed = <McpWampSubscription>[];
+        var subscribeCalls = 0;
+        var releaseAttempts = 0;
+        final state = McpWampPubSubState();
+        final api = McpWampApi(
+          topics: [McpWampTopic(topic: 'app.events.revoked')],
+        );
+
+        FutureOr<McpWampSubscription> subscribe(
+          McpWampSubscribeRequest request,
+          void Function(McpWampEvent event) handler,
+        ) {
+          handlers.add(handler);
+          subscribeCalls++;
+          if (subscribeCalls == 1) {
+            subscribeStarted.complete();
+            return subscriptionReady.future;
+          }
+          return McpWampSubscription(topic: request.topic, subscriptionId: 10);
+        }
+
+        final server = _server(
+          api.toTools(
+            subscribe: subscribe,
+            unsubscribe: explicitlyUnsubscribed.add,
+            pubSubState: state,
+          ),
+        );
+        await _initializeAndStart(server);
+
+        final responseFuture = server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 55,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.subscribe',
+            'arguments': {'topic': 'app.events.revoked'},
+          },
+        });
+        await subscribeStarted.future;
+        await state.reconcileSubscribedTopics(
+          const <String>{},
+          release: (subscription) {
+            releaseAttempts++;
+            if (releaseAttempts == 1) {
+              throw StateError('temporary mandatory release failure');
+            }
+            released.add(subscription);
+          },
+        );
+        handlers.single(
+          const McpWampEvent(
+            subscriptionId: 9,
+            publicationId: 106,
+            topic: 'app.events.revoked',
+            argumentsKeywords: {'message': 'discarded-before-completion'},
+          ),
+        );
+        subscriptionReady.complete(
+          const McpWampSubscription(
+            topic: 'app.events.revoked',
+            subscriptionId: 9,
+          ),
+        );
+
+        final failedResponse = await responseFuture;
+        expect(
+          jsonEncode(failedResponse),
+          contains('temporary mandatory release failure'),
+        );
+        expect(jsonEncode(failedResponse), isNot(contains('wamp-sub-')));
+        expect(releaseAttempts, 1);
+        expect(released, isEmpty);
+
+        await state.reconcileSubscribedTopics(
+          const <String>{},
+          release: (subscription) {
+            releaseAttempts++;
+            released.add(subscription);
+          },
+        );
+        expect(releaseAttempts, 2);
+        expect(released.single.subscriptionId, 9);
+
+        server.tools.replaceAll(
+          api.toTools(
+            subscribe: subscribe,
+            unsubscribe: explicitlyUnsubscribed.add,
+            pubSubState: state,
+          ),
+        );
+        await state.reconcileSubscribedTopics(const <String>{
+          'app.events.revoked',
+        }, release: released.add);
+        final replacementResponse = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 56,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.subscribe',
+            'arguments': {'topic': 'app.events.revoked'},
+          },
+        });
+        final replacement =
+            (replacementResponse?['result']
+                    as Map<String, Object?>)['structuredContent']
+                as Map<String, Object?>;
+        final replacementHandle = replacement['handle'] as String;
+        expect(replacement['subscriptionId'], 10);
+
+        handlers.first(
+          const McpWampEvent(
+            subscriptionId: 9,
+            publicationId: 107,
+            topic: 'app.events.revoked',
+            argumentsKeywords: {'message': 'discarded-after-restoration'},
+          ),
+        );
+        handlers.last(
+          const McpWampEvent(
+            subscriptionId: 10,
+            publicationId: 108,
+            topic: 'app.events.revoked',
+            argumentsKeywords: {'message': 'replacement-event'},
+          ),
+        );
+        final pollResponse = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 57,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.poll',
+            'arguments': {'handle': replacementHandle},
+          },
+        });
+        expect(jsonEncode(pollResponse), contains('replacement-event'));
+        expect(
+          jsonEncode(pollResponse),
+          isNot(contains('discarded-after-restoration')),
+        );
+
+        await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 58,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.pubsub.unsubscribe',
+            'arguments': {'handle': replacementHandle},
+          },
+        });
+        expect(explicitlyUnsubscribed.single.subscriptionId, 10);
       },
     );
 

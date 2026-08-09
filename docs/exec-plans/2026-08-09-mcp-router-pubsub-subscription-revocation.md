@@ -1,6 +1,6 @@
 # MCP Router Pub/Sub Subscribe Authorization Revocation
 
-Status: active; local verification is green and hosted evidence is pending
+Status: complete
 
 ## Goal
 
@@ -66,3 +66,15 @@ WAMP subscription and continue receiving events after authorization is lost.
   core, 99 MCP, 280 MCP/client, 96 benchmark, and 409 Router tests; the 6-case
   remote-auth and 13-case native follow-ups; every neutral consumer smoke; and
   Chrome Dart2Wasm WebSocket coverage.
+- 2026-08-09: Implementation commit `56390bbb` is pushed to both maintained
+  `master` branches. Exact-head GitHub CI `31297029106`, Dart Package Publish
+  Dry Run `31297029094`, WAMP Profile Benchmarks `31297029109`, and Router
+  Image dry run `31297049099` all pass. Retained artifacts are Dart VM coverage
+  `9033484283`, WAMP profile evidence `9033362381`, router image preview
+  `9033286053`, and Docker build records `9033340079` and `9033339705`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, loaded-image MCP smoke, multi-architecture image build,
+  WAMP, workflow-visibility, branch-protection, and public GHCR gate ready.
+  Release-candidate readiness remains intentionally non-gating because no
+  approved numeric RC tag points at this implementation commit.

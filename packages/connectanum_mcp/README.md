@@ -498,7 +498,11 @@ When a refreshed catalog makes topics unsubscribable, call
 topic set. It releases only handles for removed permissions and keeps a handle
 available for retry if cleanup fails. Hosts performing mandatory security
 cleanup can supply a `release` callback that bypasses ordinary user-facing
-unsubscribe authorization.
+unsubscribe authorization. A subscribe that is still awaiting its physical
+WAMP acknowledgment is revoked irrevocably by the same reconciliation: its
+buffered and later events are discarded, its eventual physical subscription
+is released with the mandatory callback, and no logical handle is exposed.
+Failed mandatory cleanup remains tracked for a later reconciliation retry.
 
 ## Router-Hosted MCP Endpoint
 
@@ -648,7 +652,8 @@ only when the principal may `call` them; topics are listed only for the allowed
 registered as callable MCP tools. Each endpoint also releases existing generic
 pub/sub handles when its next catalog refresh finds that their topic is no
 longer subscribe-authorized. Restoring permission does not revive those
-handles; the consumer must subscribe again.
+handles or allow an older pending subscribe to publish a new handle; the
+consumer must subscribe again.
 
 The same HTTP `POST` endpoint also accepts direct JSON-RPC tool calls for
 frontend clients. These calls use the same catalog and authorization path as MCP

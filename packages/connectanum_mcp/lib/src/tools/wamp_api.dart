@@ -905,22 +905,39 @@ class _McpWampPubSubTools {
   int? maxBufferedEventBytes;
   final Map<String, _BufferedSubscription> _subscriptions =
       <String, _BufferedSubscription>{};
+  final Map<String, _PendingBufferedSubscription> _pendingSubscriptions =
+      <String, _PendingBufferedSubscription>{};
   int _nextHandle = 1;
 
   Future<void> _reconcileSubscribedTopics(
     Set<String> subscribableTopics, {
     McpWampUnsubscribeInvoker? release,
   }) async {
+    final revokedPending = <MapEntry<String, _PendingBufferedSubscription>>[
+      for (final entry in _pendingSubscriptions.entries)
+        if (entry.value.revoked ||
+            !subscribableTopics.contains(entry.value.buffer.topic))
+          entry,
+    ];
     final revokedHandles = <String>[
       for (final entry in _subscriptions.entries)
         if (!subscribableTopics.contains(entry.value.topic)) entry.key,
     ];
-    if (revokedHandles.isEmpty) {
+    if (revokedPending.isEmpty && revokedHandles.isEmpty) {
       return;
     }
     final releaseSubscription = release ?? _unsubscribe;
     if (releaseSubscription == null) {
       throw StateError('WAMP unsubscribe support is not configured.');
+    }
+
+    for (final entry in revokedPending) {
+      entry.value.revoke(releaseSubscription);
+    }
+    for (final entry in revokedPending) {
+      if (await entry.value.releaseIfReady()) {
+        _pendingSubscriptions.remove(entry.key);
+      }
     }
     for (final handle in revokedHandles) {
       final subscription = _subscriptions.remove(handle);
@@ -991,25 +1008,43 @@ class _McpWampPubSubTools {
       queueLimit: queueLimit,
       maxBufferedEventBytes: maxBufferedEventBytes,
     );
-    final subscription = await subscribe(
-      McpWampSubscribeRequest(
-        topic: topic.topic,
-        queueLimit: queueLimit,
-        options: _subscribeOptionsFrom(customOptions),
-      ),
-      buffer.add,
-    );
-    buffer.attachSubscription(subscription);
-    _subscriptions[handle] = buffer;
-    return _jsonToolResult(<String, Object?>{
-      'handle': handle,
-      'topic': subscription.topic,
-      if (subscription.subscriptionId != null)
-        'subscriptionId': subscription.subscriptionId,
-      'queueLimit': queueLimit,
-      if (maxBufferedEventBytes != null)
-        'queueByteLimit': maxBufferedEventBytes,
-    });
+    final pending = _PendingBufferedSubscription(buffer);
+    _pendingSubscriptions[handle] = pending;
+    try {
+      final subscription = await subscribe(
+        McpWampSubscribeRequest(
+          topic: topic.topic,
+          queueLimit: queueLimit,
+          options: _subscribeOptionsFrom(customOptions),
+        ),
+        pending.add,
+      );
+      pending.attachSubscription(subscription);
+      if (pending.revoked) {
+        await pending.releaseIfReady();
+        _pendingSubscriptions.remove(handle);
+        return McpToolResult.error(
+          'WAMP topic is no longer subscribable while its subscription was '
+          'pending: ${topic.topic}',
+        );
+      }
+      _pendingSubscriptions.remove(handle);
+      _subscriptions[handle] = buffer;
+      return _jsonToolResult(<String, Object?>{
+        'handle': handle,
+        'topic': subscription.topic,
+        if (subscription.subscriptionId != null)
+          'subscriptionId': subscription.subscriptionId,
+        'queueLimit': queueLimit,
+        if (maxBufferedEventBytes != null)
+          'queueByteLimit': maxBufferedEventBytes,
+      });
+    } catch (_) {
+      if (!pending.hasSubscription || pending.released) {
+        _pendingSubscriptions.remove(handle);
+      }
+      rethrow;
+    }
   }
 
   Future<McpToolResult> poll(McpToolRequest request) async {
@@ -1071,6 +1106,60 @@ class _McpWampPubSubTools {
       throw ArgumentError('WAMP topic is not subscribable through MCP: $topic');
     }
     return declared;
+  }
+}
+
+class _PendingBufferedSubscription {
+  _PendingBufferedSubscription(this.buffer);
+
+  final _BufferedSubscription buffer;
+  bool revoked = false;
+  bool hasSubscription = false;
+  bool released = false;
+  McpWampUnsubscribeInvoker? _release;
+  Future<void>? _releaseFuture;
+
+  void add(McpWampEvent event) {
+    if (!revoked) {
+      buffer.add(event);
+    }
+  }
+
+  void attachSubscription(McpWampSubscription subscription) {
+    buffer.attachSubscription(subscription);
+    hasSubscription = true;
+  }
+
+  void revoke(McpWampUnsubscribeInvoker release) {
+    revoked = true;
+    _release = release;
+    buffer.drain();
+  }
+
+  Future<bool> releaseIfReady() async {
+    if (!revoked || !hasSubscription) {
+      return false;
+    }
+    if (released) {
+      return true;
+    }
+    final release = _release;
+    if (release == null) {
+      throw StateError('WAMP unsubscribe support is not configured.');
+    }
+    final operation = _releaseFuture ??= Future<void>.sync(
+      () => release(buffer.subscription),
+    );
+    try {
+      await operation;
+      released = true;
+      return true;
+    } catch (_) {
+      if (identical(_releaseFuture, operation)) {
+        _releaseFuture = null;
+      }
+      rethrow;
+    }
   }
 }
 

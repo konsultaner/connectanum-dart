@@ -23,7 +23,8 @@
 - Add reusable `McpWampPubSubState` so applications can regenerate a declared
   WAMP API catalog without orphaning buffered subscription handles.
 - Add topic reconciliation for retained WAMP pub/sub state so hosts can revoke
-  no-longer-authorized handles with retry-safe mandatory cleanup.
+  no-longer-authorized handles and in-flight subscribes with retry-safe
+  mandatory cleanup.
 
 ## 0.1.0
 
