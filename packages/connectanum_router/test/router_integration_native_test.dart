@@ -2457,6 +2457,7 @@ void main() {
         },
       );
       expect(unknownSession.statusCode, equals(HttpStatus.notFound));
+      expect(unknownSession.headers, isNot(contains('mcp-session-id')));
 
       final directUnknownSession = await _postJson(
         client,
@@ -2527,6 +2528,23 @@ void main() {
         isNot(contains('mcp-session-id')),
       );
 
+      final liveMalformedStreamable = await _postBody(
+        client,
+        listener.port,
+        '/mcp',
+        '{"jsonrpc":"2.0","id":"live-malformed-streamable",',
+        headers: streamableHeaders('tools/list'),
+      );
+      expect(liveMalformedStreamable.statusCode, equals(HttpStatus.badRequest));
+      expect(
+        liveMalformedStreamable.headers['mcp-session-id'],
+        equals(mcpSessionId),
+      );
+      expect(
+        jsonEncode(liveMalformedStreamable.json?['error']),
+        contains('Invalid JSON-RPC message'),
+      );
+
       final delete = await _deleteHttp(
         client,
         listener.port,
@@ -2542,6 +2560,59 @@ void main() {
         'params': {},
       }, headers: streamableHeaders('tools/list'));
       expect(afterDelete.statusCode, equals(HttpStatus.notFound));
+      expect(afterDelete.headers, isNot(contains('mcp-session-id')));
+
+      final malformedAfterDelete = await _postBody(
+        client,
+        listener.port,
+        '/mcp',
+        '{"jsonrpc":"2.0","id":"malformed-after-delete",',
+        headers: streamableHeaders('tools/list'),
+      );
+      expect(malformedAfterDelete.statusCode, equals(HttpStatus.notFound));
+      expect(malformedAfterDelete.headers, isNot(contains('mcp-session-id')));
+      expect(malformedAfterDelete.body, contains('Unknown MCP HTTP session'));
+      expect(
+        malformedAfterDelete.body,
+        isNot(contains('Invalid JSON-RPC message')),
+      );
+
+      final mismatchedHeadersAfterDelete =
+          await _postJson(client, listener.port, '/mcp', {
+            'jsonrpc': '2.0',
+            'id': 'mismatched-headers-after-delete',
+            'method': 'tools/list',
+            'params': {},
+          }, headers: streamableHeaders('resources/list'));
+      expect(
+        mismatchedHeadersAfterDelete.statusCode,
+        equals(HttpStatus.notFound),
+      );
+      expect(
+        mismatchedHeadersAfterDelete.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
+      final getAfterDelete = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: <String, String>{
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'text/event-stream',
+        },
+      );
+      expect(getAfterDelete.statusCode, equals(HttpStatus.notFound));
+      expect(getAfterDelete.headers, isNot(contains('mcp-session-id')));
+
+      final deleteAfterDelete = await _deleteHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: sessionHeaders,
+      );
+      expect(deleteAfterDelete.statusCode, equals(HttpStatus.notFound));
+      expect(deleteAfterDelete.headers, isNot(contains('mcp-session-id')));
     }, skip: skipReason);
 
     test(
@@ -3519,6 +3590,10 @@ void main() {
         );
         expect(reuseWithOtherPrincipal.statusCode, equals(HttpStatus.notFound));
         expect(
+          reuseWithOtherPrincipal.headers,
+          isNot(contains('mcp-session-id')),
+        );
+        expect(
           reuseWithOtherPrincipal.body,
           contains('Unknown MCP HTTP session'),
         );
@@ -4350,6 +4425,10 @@ void main() {
         );
         expect(reuseWithOtherPrincipal.statusCode, equals(HttpStatus.notFound));
         expect(
+          reuseWithOtherPrincipal.headers,
+          isNot(contains('mcp-session-id')),
+        );
+        expect(
           jsonEncode(reuseWithOtherPrincipal.json?['error']),
           contains('Unknown MCP HTTP session'),
         );
@@ -4502,6 +4581,7 @@ void main() {
               'params': {},
             }, headers: toolsHeaders);
         expect(publicRouteReuse.statusCode, equals(HttpStatus.notFound));
+        expect(publicRouteReuse.headers, isNot(contains('mcp-session-id')));
         expect(
           jsonEncode(publicRouteReuse.json?['error']),
           contains('Unknown MCP HTTP session'),
@@ -7140,6 +7220,27 @@ void main() {
         );
         await protectedClient.deleteSession();
         expect(protectedClient.sessionId, isNull);
+
+        final oversizedAfterDelete = await _postBody(
+          authHttpClient,
+          listener.port,
+          '/mcp/secure',
+          encodedOversizedModernRequest,
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+            'MCP-Session-Id': sessionId!,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+            'Mcp-Method': 'ping',
+          },
+        );
+        expect(oversizedAfterDelete.statusCode, equals(HttpStatus.notFound));
+        expect(oversizedAfterDelete.headers, isNot(contains('mcp-session-id')));
+        expect(oversizedAfterDelete.body, contains('Unknown MCP HTTP session'));
+        expect(
+          oversizedAfterDelete.body,
+          isNot(contains('exceeds the configured limit')),
+        );
       },
       skip: skipReason,
     );
@@ -12733,6 +12834,10 @@ void main() {
       expect(
         activeOtherPrincipalJsonPost.statusCode,
         equals(HttpStatus.notFound),
+      );
+      expect(
+        activeOtherPrincipalJsonPost.headers,
+        isNot(contains('mcp-session-id')),
       );
       expect(
         jsonEncode(activeOtherPrincipalJsonPost.json?['error']),

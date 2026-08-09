@@ -485,6 +485,21 @@ NativeHttpResponse _mcpJsonRpcHttpError({
   );
 }
 
+NativeHttpResponse _mcpUnknownSessionHttpError({
+  Object? id,
+  String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
+  Map<String, String> extraHeaders = const <String, String>{},
+}) {
+  return _mcpJsonRpcHttpError(
+    status: HttpStatus.notFound,
+    code: mcp.McpErrorCodes.invalidRequest,
+    message: 'Unknown MCP HTTP session',
+    id: id,
+    protocolVersion: protocolVersion,
+    extraHeaders: extraHeaders,
+  );
+}
+
 Future<void> _sendMcpCatalogRefreshHttpError(
   RouterBinding binding, {
   required RouterHttpRequest request,
@@ -1960,6 +1975,44 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
+  Object? predecodedPostMessage;
+  var hasPredecodedPostMessage = false;
+  if (httpMethod == 'POST' &&
+      streamableHttpRequest &&
+      mcpSessionId != null &&
+      binding._mcpEndpointForRoute(
+            request: request,
+            route: route,
+            session: session,
+            mcpSessionId: mcpSessionId,
+            create: false,
+          ) ==
+          null) {
+    if (request.nativeBody.length <= _mcpMaxRequestBytesForRoute(route)) {
+      try {
+        predecodedPostMessage = jsonDecode(utf8.decode(request.body));
+        hasPredecodedPostMessage = true;
+      } on FormatException {
+        // Session termination takes precedence over malformed request JSON.
+      }
+    }
+    if (!hasPredecodedPostMessage ||
+        _mcpRequestMethod(predecodedPostMessage) != 'initialize') {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpUnknownSessionHttpError(
+          id: hasPredecodedPostMessage
+              ? _recoverDirectJsonRequestId(predecodedPostMessage)
+              : null,
+          protocolVersion: responseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        ),
+      );
+      return;
+    }
+  }
+
   if (httpMethod == 'POST' &&
       request.nativeBody.length > _mcpMaxRequestBytesForRoute(route)) {
     await binding._sendImmediateHttpResponse(
@@ -2002,11 +2055,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       await binding._sendImmediateHttpResponse(
         request: request,
         handshake: handshake,
-        response: _mcpJsonRpcHttpError(
-          status: HttpStatus.notFound,
-          code: mcp.McpErrorCodes.invalidRequest,
-          message: 'Unknown MCP HTTP session',
-          sessionId: mcpSessionId,
+        response: _mcpUnknownSessionHttpError(
           protocolVersion: responseMcpProtocolVersion,
           extraHeaders: corsHeaders,
         ),
@@ -2072,10 +2121,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         await binding._sendImmediateHttpResponse(
           request: request,
           handshake: handshake,
-          response: _mcpJsonRpcHttpError(
-            status: HttpStatus.notFound,
-            code: mcp.McpErrorCodes.invalidRequest,
-            message: 'Unknown MCP HTTP session',
+          response: _mcpUnknownSessionHttpError(
             protocolVersion: responseMcpProtocolVersion,
             extraHeaders: corsHeaders,
           ),
@@ -2174,11 +2220,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       request: request,
       handshake: handshake,
       response: removed == null
-          ? _mcpJsonRpcHttpError(
-              status: HttpStatus.notFound,
-              code: mcp.McpErrorCodes.invalidRequest,
-              message: 'Unknown MCP HTTP session',
-              sessionId: mcpSessionId,
+          ? _mcpUnknownSessionHttpError(
               protocolVersion: responseMcpProtocolVersion,
               extraHeaders: corsHeaders,
             )
@@ -2196,32 +2238,34 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  final Object? rawMessage;
-  try {
-    rawMessage = jsonDecode(utf8.decode(request.body));
-  } on FormatException {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: NativeHttpResponse(
-        status: HttpStatus.badRequest,
-        headers: _mcpHttpResponseHeaders(
-          sessionId: responseMcpSessionId,
-          protocolVersion: responseMcpProtocolVersion,
-          extra: corsHeaders,
+  Object? rawMessage = predecodedPostMessage;
+  if (!hasPredecodedPostMessage) {
+    try {
+      rawMessage = jsonDecode(utf8.decode(request.body));
+    } on FormatException {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          headers: _mcpHttpResponseHeaders(
+            sessionId: responseMcpSessionId,
+            protocolVersion: responseMcpProtocolVersion,
+            extra: corsHeaders,
+          ),
+          body: NativeHttpResponseJson(
+            mcp.JsonRpcResponse.error(
+              null,
+              mcp.McpException(
+                mcp.McpErrorCodes.parseError,
+                'Invalid JSON-RPC message',
+              ),
+            ).toJson(),
+          ),
         ),
-        body: NativeHttpResponseJson(
-          mcp.JsonRpcResponse.error(
-            null,
-            mcp.McpException(
-              mcp.McpErrorCodes.parseError,
-              'Invalid JSON-RPC message',
-            ),
-          ).toJson(),
-        ),
-      ),
-    );
-    return;
+      );
+      return;
+    }
   }
 
   final requestMethod = _mcpRequestMethod(rawMessage);
@@ -2351,11 +2395,8 @@ Future<void> _handleMcpHttpRequestForBinding(
     await binding._sendImmediateHttpResponse(
       request: request,
       handshake: handshake,
-      response: _mcpJsonRpcHttpError(
-        status: HttpStatus.notFound,
-        code: mcp.McpErrorCodes.invalidRequest,
-        message: 'Unknown MCP HTTP session',
-        sessionId: effectiveMcpSessionId,
+      response: _mcpUnknownSessionHttpError(
+        id: _recoverDirectJsonRequestId(rawMessage),
         protocolVersion: effectiveResponseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
@@ -2393,10 +2434,7 @@ Future<void> _handleMcpHttpRequestForBinding(
       await binding._sendImmediateHttpResponse(
         request: request,
         handshake: handshake,
-        response: _mcpJsonRpcHttpError(
-          status: HttpStatus.notFound,
-          code: mcp.McpErrorCodes.invalidRequest,
-          message: 'Unknown MCP HTTP session',
+        response: _mcpUnknownSessionHttpError(
           id: _recoverDirectJsonRequestId(rawMessage),
           protocolVersion: effectiveResponseMcpProtocolVersion,
           extraHeaders: corsHeaders,

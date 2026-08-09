@@ -14811,7 +14811,7 @@ Future<void> _assertMcpStreamableCorsLifecycle(
     stalePoll,
     expectedStatus: HttpStatus.notFound,
     label: '$label Streamable stale-session poll',
-    sessionId: sessionId,
+    expectNoSession: true,
     bodyContains: 'Unknown MCP HTTP session',
   );
 
@@ -14826,7 +14826,7 @@ Future<void> _assertMcpStreamableCorsLifecycle(
     staleDelete,
     expectedStatus: HttpStatus.notFound,
     label: '$label Streamable stale-session delete',
-    sessionId: sessionId,
+    expectNoSession: true,
     bodyContains: 'Unknown MCP HTTP session',
   );
 }

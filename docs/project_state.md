@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-09
-Current branch: `codex/mcp-router-deleted-session-catalog-failure`
+Current branch: `codex/mcp-router-unknown-session-validation`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24847,6 +24847,25 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-09-mcp-router-unknown-session-validation.md`.
+  The maintained MCP `2025-11-25` Streamable HTTP contract makes session
+  termination authoritative with HTTP 404, but router-hosted POST currently
+  checks request size, JSON, and standard request headers before looking up an
+  authenticated compatibility session. Unknown-session GET, POST, and DELETE
+  responses also echo the rejected session ID. The active checkpoint adds
+  fail-first native-router coverage, moves Streamable POST session resolution
+  ahead of body validation, and makes every unknown-session response
+  sessionless while preserving direct JSON and live-session behavior. The
+  fail-first regression, package analysis, five focused native-router paths,
+  the corrected isolated consumer smoke, and the restarted post-change
+  `bin/test-fast` pass. Full `bin/verify` also passes with zero formatting
+  changes, 114 Rust core tests plus serializer integrations, 52 Rust FFI
+  tests, 360 Dart core tests, 101 MCP tests, the complete 280-case client MCP
+  matrix, all 96 benchmark tests and 36 live WAMP workloads, all 415 router
+  tests, isolated consumer/CLI and remote-auth checks, 13 native follow-ups,
+  and Chrome/Dart2Wasm coverage. Implementation publication and exact-head
+  hosted evidence remain.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-deleted-session-catalog-failure.md`.
   The fail-first regression reproduced a stale HTTP 500 after concurrent DELETE
   and blocked-then-failing catalog authorization. Compatibility GET and POST
@@ -24858,8 +24877,18 @@ at the older `47bbf9c` commit.
   tests, 101 MCP tests, the complete 280-case client MCP matrix, all 96
   benchmark tests with 36 live WAMP workloads, all 415 router tests, isolated
   consumer/CLI smokes, remote-auth isolation, native follow-ups, and
-  Chrome/Dart2Wasm. Exact-head hosted deployment evidence is pending the
-  implementation push.
+  Chrome/Dart2Wasm. Implementation commit `1a18bfb3` is pushed to both
+  maintained `master` branches. Exact-head GitHub CI `31324200297`, Dart
+  Package Publish Dry Run `31324200279`, WAMP Profile Benchmarks
+  `31324200308`, and Router Image dry run `31324933290` all pass. Retained
+  artifacts are Dart VM coverage `9041243070`, WAMP profile evidence
+  `9041134316`, Router Image preview `9041251723`, and Docker build records
+  `9041307233` and `9041306910`. The comprehensive strict deployment-chain
+  audit exits zero with clean exact-head CI jobs and logs plus every required
+  package, relevant native release, loaded-image MCP smoke,
+  multi-architecture image build, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gate ready. Only the deliberately
+  unapproved next RC tag remains outside this milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-pending-get-session-delete.md`.
   The fail-first regression reproduced HTTP 200 plus queued resource-update

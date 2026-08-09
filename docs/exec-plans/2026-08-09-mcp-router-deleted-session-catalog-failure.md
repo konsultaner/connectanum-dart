@@ -1,6 +1,6 @@
 # MCP Router Deleted Session Catalog Failure
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -52,3 +52,15 @@ closed with the same sessionless 404 used after successful stale refreshes.
   all 96 benchmark tests and 36 live WAMP workloads, all 415 router tests,
   isolated consumer/CLI and remote-auth checks, native follow-ups, and
   Chrome/Dart2Wasm.
+- 2026-08-09: Implementation commit `1a18bfb3` was pushed to both maintained
+  `master` branches. Exact-head GitHub CI `31324200297`, Dart Package Publish
+  Dry Run `31324200279`, WAMP Profile Benchmarks `31324200308`, and Router
+  Image dry run `31324933290` all passed. Retained artifacts are Dart VM
+  coverage `9041243070`, WAMP profile evidence `9041134316`, Router Image
+  preview `9041251723`, and Docker build records `9041307233` and
+  `9041306910`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exited zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, loaded-image MCP smoke, multi-architecture image build,
+  WAMP, workflow-visibility, branch-protection, and public GHCR gate ready.
+  Only the deliberately unapproved next RC tag remains outside this milestone.
