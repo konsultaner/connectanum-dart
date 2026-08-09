@@ -2432,6 +2432,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         );
         return;
       }
+      preparation.retainAuthorizedResourceSubscriptions();
       if (preparation.acknowledgmentBytes.length >
           _mcpMaxResponseBytesForRoute(route)) {
         await endpoint.releaseModernSubscriptionPreparation(preparation);
@@ -2910,17 +2911,49 @@ class _RouterMcpSubscriptionFilter {
   }
 }
 
+class _RouterMcpResourceSubscriptionPreparation {
+  _RouterMcpResourceSubscriptionPreparation({
+    required this.uri,
+    required this.topic,
+  });
+
+  final String uri;
+  final String topic;
+  bool revoked = false;
+  bool released = false;
+}
+
 class _RouterMcpModernSubscriptionPreparation {
   _RouterMcpModernSubscriptionPreparation({
     required this.requestId,
     required this.notifications,
-    required this.acknowledgmentBytes,
-  });
+    required Iterable<_RouterMcpResourceSubscriptionPreparation>
+    resourcePreparations,
+  }) : resourcePreparations = List.unmodifiable(resourcePreparations);
 
   final Object requestId;
   final _RouterMcpSubscriptionFilter notifications;
-  final Uint8List acknowledgmentBytes;
+  final List<_RouterMcpResourceSubscriptionPreparation> resourcePreparations;
   bool released = false;
+
+  void retainAuthorizedResourceSubscriptions() {
+    notifications.retainResourceSubscriptions(<String>{
+      for (final preparation in resourcePreparations)
+        if (!preparation.revoked) preparation.uri,
+    });
+  }
+
+  Uint8List get acknowledgmentBytes =>
+      _mcpRequestScopedSseMessageBytes(<String, Object?>{
+        'jsonrpc': '2.0',
+        'method': 'notifications/subscriptions/acknowledged',
+        'params': <String, Object?>{
+          '_meta': <String, Object?>{
+            'io.modelcontextprotocol/subscriptionId': requestId,
+          },
+          'notifications': notifications.toJson(),
+        },
+      });
 }
 
 class _RouterMcpModernSubscription {
@@ -3034,7 +3067,9 @@ class _RouterMcpEndpoint {
   final Map<String, Future<mcp.McpWampSubscription>>
   _sharedResourceUpdateSubscriptions =
       <String, Future<mcp.McpWampSubscription>>{};
-  final Map<String, int> _modernResourcePreparationCounts = <String, int>{};
+  final Set<_RouterMcpResourceSubscriptionPreparation>
+  _resourceSubscriptionPreparations =
+      <_RouterMcpResourceSubscriptionPreparation>{};
 
   final Set<String> _streamableResourceSubscriptions = <String>{};
 
@@ -3116,11 +3151,15 @@ class _RouterMcpEndpoint {
       await _closeModernSubscription(token, graceful: true);
     }
 
+    for (final preparation in _resourceSubscriptionPreparations) {
+      preparation.revoked = true;
+      preparation.released = true;
+    }
+    _resourceSubscriptionPreparations.clear();
     final resourceSubscriptions = _sharedResourceUpdateSubscriptions.values
         .toList(growable: false);
     _sharedResourceUpdateSubscriptions.clear();
     _streamableResourceSubscriptions.clear();
-    _modernResourcePreparationCounts.clear();
     for (final subscriptionFuture in resourceSubscriptions) {
       try {
         await _releaseWampSubscription(await subscriptionFuture);
@@ -3504,6 +3543,7 @@ class _RouterMcpEndpoint {
       request.params['notifications'],
     );
     final grantedResources = <String>[];
+    final resourcePreparations = <_RouterMcpResourceSubscriptionPreparation>[];
     binding._reserveMcpRequestScopedListener(this);
     try {
       for (final uri in requested.resourceSubscriptions) {
@@ -3515,27 +3555,40 @@ class _RouterMcpEndpoint {
           continue;
         }
         final updateTopic = _configuredResourceUpdateTopic(config);
-        if (updateTopic == null ||
-            !await _isAuthorized(AuthorizationAction.subscribe, updateTopic)) {
+        if (updateTopic == null) {
           continue;
         }
-        await _ensureResourceUpdateSubscription(uri, updateTopic);
-        _modernResourcePreparationCounts.update(
+        final resourcePreparation = _beginResourceSubscriptionPreparation(
           uri,
-          (count) => count + 1,
-          ifAbsent: () => 1,
+          updateTopic,
         );
-        grantedResources.add(uri);
+        var retained = false;
+        try {
+          if (!await _isAuthorized(
+                AuthorizationAction.subscribe,
+                updateTopic,
+              ) ||
+              resourcePreparation.revoked) {
+            continue;
+          }
+          await _ensureResourceUpdateSubscription(uri, updateTopic);
+          if (resourcePreparation.revoked) {
+            continue;
+          }
+          grantedResources.add(uri);
+          resourcePreparations.add(resourcePreparation);
+          retained = true;
+        } finally {
+          if (!retained) {
+            _releaseResourceSubscriptionPreparation(resourcePreparation);
+            await _cleanupUnusedResourceSubscriptions();
+          }
+        }
       }
     } catch (_) {
       _releaseModernSubscriptionCapacity();
-      for (final uri in grantedResources) {
-        final count = _modernResourcePreparationCounts[uri];
-        if (count == null || count <= 1) {
-          _modernResourcePreparationCounts.remove(uri);
-        } else {
-          _modernResourcePreparationCounts[uri] = count - 1;
-        }
+      for (final preparation in resourcePreparations) {
+        _releaseResourceSubscriptionPreparation(preparation);
       }
       await _cleanupUnusedResourceSubscriptions();
       rethrow;
@@ -3550,16 +3603,7 @@ class _RouterMcpEndpoint {
     return _RouterMcpModernSubscriptionPreparation(
       requestId: requestId,
       notifications: notifications,
-      acknowledgmentBytes: _mcpRequestScopedSseMessageBytes(<String, Object?>{
-        'jsonrpc': '2.0',
-        'method': 'notifications/subscriptions/acknowledged',
-        'params': <String, Object?>{
-          '_meta': <String, Object?>{
-            'io.modelcontextprotocol/subscriptionId': requestId,
-          },
-          'notifications': notifications.toJson(),
-        },
-      }),
+      resourcePreparations: resourcePreparations,
     );
   }
 
@@ -3629,6 +3673,26 @@ class _RouterMcpEndpoint {
     );
   }
 
+  _RouterMcpResourceSubscriptionPreparation
+  _beginResourceSubscriptionPreparation(String uri, String topic) {
+    final preparation = _RouterMcpResourceSubscriptionPreparation(
+      uri: uri,
+      topic: topic,
+    );
+    _resourceSubscriptionPreparations.add(preparation);
+    return preparation;
+  }
+
+  void _releaseResourceSubscriptionPreparation(
+    _RouterMcpResourceSubscriptionPreparation preparation,
+  ) {
+    if (preparation.released) {
+      return;
+    }
+    preparation.released = true;
+    _resourceSubscriptionPreparations.remove(preparation);
+  }
+
   Future<void> _ensureResourceUpdateSubscription(
     String uri,
     String topic,
@@ -3668,6 +3732,7 @@ class _RouterMcpEndpoint {
     _RouterMcpModernSubscriptionPreparation preparation,
     NativeHttpResponseStream stream,
   ) async {
+    preparation.retainAuthorizedResourceSubscriptions();
     final token = ++_nextModernSubscription;
     final subscription = _RouterMcpModernSubscription(
       token: token,
@@ -3712,13 +3777,8 @@ class _RouterMcpEndpoint {
     }
     preparation.released = true;
     _releaseModernSubscriptionCapacity();
-    for (final uri in preparation.notifications.resourceSubscriptions) {
-      final count = _modernResourcePreparationCounts[uri];
-      if (count == null || count <= 1) {
-        _modernResourcePreparationCounts.remove(uri);
-      } else {
-        _modernResourcePreparationCounts[uri] = count - 1;
-      }
+    for (final resourcePreparation in preparation.resourcePreparations) {
+      _releaseResourceSubscriptionPreparation(resourcePreparation);
     }
     await _cleanupUnusedResourceSubscriptions();
   }
@@ -3859,6 +3919,22 @@ class _RouterMcpEndpoint {
     Map<String, Future<bool>> authorizationDecisions,
     Set<String> visibleResourceUris,
   ) async {
+    for (final preparation in _resourceSubscriptionPreparations.toList(
+      growable: false,
+    )) {
+      if (preparation.released || preparation.revoked) {
+        continue;
+      }
+      if (!visibleResourceUris.contains(preparation.uri) ||
+          !await _isCatalogAuthorized(
+            authorizationDecisions,
+            AuthorizationAction.subscribe,
+            preparation.topic,
+          )) {
+        preparation.revoked = true;
+      }
+    }
+
     final ownedResourceUris = <String>{
       ..._streamableResourceSubscriptions,
       for (final subscription in _modernSubscriptions.values)
@@ -3901,8 +3977,8 @@ class _RouterMcpEndpoint {
       ..._streamableResourceSubscriptions,
       for (final subscription in _modernSubscriptions.values)
         ...subscription.notifications.resourceSubscriptions,
-      for (final entry in _modernResourcePreparationCounts.entries)
-        if (entry.value > 0) entry.key,
+      for (final preparation in _resourceSubscriptionPreparations)
+        if (!preparation.released && !preparation.revoked) preparation.uri,
     };
     final unusedResources = _sharedResourceUpdateSubscriptions.keys
         .where((uri) => !usedResources.contains(uri))
@@ -3996,24 +4072,30 @@ class _RouterMcpEndpoint {
         'MCP resource ${request.uri} does not support subscriptions',
       );
     }
-    if (!await _isAuthorized(AuthorizationAction.subscribe, updateTopic)) {
-      throw mcp.McpException(
-        mcp.McpErrorCodes.invalidRequest,
-        'Not authorized to subscribe to MCP resource ${request.uri}',
-      );
-    }
-    if (_streamableResourceSubscriptions.contains(request.uri)) {
-      await _ensureResourceUpdateSubscription(request.uri, updateTopic);
-      return;
-    }
 
-    _streamableResourceSubscriptions.add(request.uri);
+    final preparation = _beginResourceSubscriptionPreparation(
+      request.uri,
+      updateTopic,
+    );
     try {
+      if (!await _isAuthorized(AuthorizationAction.subscribe, updateTopic) ||
+          preparation.revoked) {
+        throw mcp.McpException(
+          mcp.McpErrorCodes.invalidRequest,
+          'Not authorized to subscribe to MCP resource ${request.uri}',
+        );
+      }
       await _ensureResourceUpdateSubscription(request.uri, updateTopic);
-    } catch (_) {
-      _streamableResourceSubscriptions.remove(request.uri);
+      if (preparation.revoked) {
+        throw mcp.McpException(
+          mcp.McpErrorCodes.invalidRequest,
+          'Not authorized to subscribe to MCP resource ${request.uri}',
+        );
+      }
+      _streamableResourceSubscriptions.add(request.uri);
+    } finally {
+      _releaseResourceSubscriptionPreparation(preparation);
       await _cleanupUnusedResourceSubscriptions();
-      rethrow;
     }
   }
 

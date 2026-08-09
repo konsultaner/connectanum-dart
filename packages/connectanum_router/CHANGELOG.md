@@ -25,6 +25,10 @@
   registrations refresh the router-hosted MCP tool catalog.
 - Refresh router-hosted MCP WAMP procedure and topic metadata even when the
   live catalog changes without changing any MCP tool definition.
+- Revoke in-flight router-hosted MCP resource-subscription ownership when a
+  newer catalog refresh removes resource visibility or update-topic subscribe
+  access, so compatibility requests cannot report stale success and modern
+  listeners cannot acknowledge stale resource filters.
 
 ## 0.1.0
 

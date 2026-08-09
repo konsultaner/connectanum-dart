@@ -24847,6 +24847,28 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-09-mcp-router-resource-subscribe-refresh-race.md`.
+  Established router-hosted resource-update owners are refresh-aware, but a
+  compatibility request or modern listener preparation previously entered no
+  logical ownership state until an asynchronous authorization decision or
+  physical WAMP subscribe completed. A newer denied catalog refresh could
+  therefore finish first, after which the stale request reported success or
+  acknowledged the revoked resource. The fail-first native-router regression
+  reproduced that modern stale acknowledgment. Pending resource owners now
+  enter endpoint preparation state before the first await, are irrevocably
+  revoked from a snapshot-safe reconciliation pass, no longer retain shared
+  physical WAMP state, and cannot reassert ownership after access is restored.
+  The final regression covers modern and compatibility behavior, absent
+  subscription leakage, preserved session/sessionless invariants, and explicit
+  replacement subscriptions. Pre-change and post-change `bin/test-fast`,
+  router analysis, ten focused resource/listener regressions, and full
+  `bin/verify` pass. Full verification covered native Rust core/FFI tests, 410
+  router tests, 360 core tests, 101 MCP tests, 280 client/MCP tests, 96
+  benchmark tests with 36 live WAMP workloads, isolated consumer and globally
+  activated CLI smokes, remote-auth isolation, and the Dart2Wasm Chrome
+  transport test. Commit, dual-remote push, and exact-head hosted evidence are
+  next.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-pubsub-subscribe-refresh-race.md`.
   Router-hosted MCP catalog refresh now revokes established generic pub/sub
   handles, but a subscribe still awaiting its physical WAMP acknowledgment is
@@ -24864,8 +24886,18 @@ at the older `47bbf9c` commit.
   encountered one unrelated protected HTTP/3 handshake timeout in the final
   router suite; that exact test passed immediately in isolation, and a complete
   `bin/verify` rerun passed with all 409 router tests plus remote-auth,
-  zero-copy, browser, consumer-package, and live WAMP coverage green. Hosted
-  exact-head evidence remains.
+  zero-copy, browser, consumer-package, and live WAMP coverage green.
+  Implementation commit `2205cb5c` is pushed to both maintained `master`
+  branches. Exact-head GitHub CI `31301538949`, Dart Package Publish Dry Run
+  `31301538929`, WAMP Profile Benchmarks `31301573248`, and Router Image dry
+  run `31301559030` all pass. Retained artifacts are Dart VM coverage
+  `9034832546`, WAMP profile evidence `9034713468`, router image preview
+  `9034642849`, and Docker build records `9034695039` and `9034694728`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs plus every required package, relevant native release,
+  loaded-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-pubsub-subscription-revocation.md`.
   Router-hosted catalog refresh rebinds one reusable pub/sub state so harmless

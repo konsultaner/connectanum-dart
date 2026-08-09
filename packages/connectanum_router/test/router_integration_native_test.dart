@@ -6147,6 +6147,211 @@ void main() {
     );
 
     test(
+      'revokes pending MCP resource owners before stale authorization completes',
+      () async {
+        final provider = _BlockingSnapshotAuthorizationProvider(
+          action: AuthorizationAction.subscribe,
+          uri: 'app.events.resource.context',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9165,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-resource-pending-revocation-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final modernClient = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-pending-revocation-modern',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => modernClient.close(force: true));
+
+        await modernClient.listWampApiDirect(
+          id: 'resource-pending-revocation-prime-catalog',
+        );
+        Future<List<int>> subscriptionIds() async {
+          final result = await modernClient.lookupWampSubscriptionDirect(
+            'app.events.resource.context',
+            id: 'resource-pending-revocation-subscription-lookup',
+          );
+          return <int>[for (final id in result.arguments) (id as num).toInt()];
+        }
+
+        expect(await subscriptionIds(), isEmpty);
+        final authorizationEntered = Completer<void>();
+        final releaseAuthorization = Completer<void>();
+        provider.blockNextDecision(
+          entered: authorizationEntered,
+          release: releaseAuthorization,
+        );
+        final staleListen = modernClient.listen(
+          id: 'resource-pending-revocation-stale-listen',
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+        await authorizationEntered.future.timeout(const Duration(seconds: 5));
+
+        provider.allowed = false;
+        final markerRegistration = await serviceSession.register(
+          'app.safe.resource_pending_revocation_marker',
+        );
+        addTearDown(
+          () => serviceSession.unregister(markerRegistration.registrationId),
+        );
+        expect(
+          jsonEncode(
+            await modernClient
+                .listWampApiDirect(
+                  id: 'resource-pending-revocation-refresh-catalog',
+                )
+                .timeout(const Duration(seconds: 5)),
+          ),
+          contains('app.safe.resource_pending_revocation_marker'),
+        );
+        releaseAuthorization.complete();
+
+        final staleSubscription = await staleListen;
+        addTearDown(staleSubscription.close);
+        expect(
+          staleSubscription.acknowledgedNotifications.resourceSubscriptions,
+          isEmpty,
+        );
+        expect(await subscriptionIds(), isEmpty);
+        expect(modernClient.sessionId, isNull);
+        expect(modernClient.lastEventId, isNull);
+
+        provider.allowed = true;
+        final compatibilityClient = McpStreamableHttpClient(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-pending-revocation-compatibility',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => compatibilityClient.close(force: true));
+        await compatibilityClient.initialize(
+          id: 'resource-pending-revocation-compatibility-initialize',
+        );
+        await compatibilityClient.notifyInitialized();
+        final compatibilitySessionId = compatibilityClient.sessionId;
+        expect(compatibilitySessionId, isNotNull);
+
+        Future<List<int>> compatibilitySubscriptionIds() async {
+          final result = await compatibilityClient.lookupWampSubscription(
+            'app.events.resource.context',
+            id: 'resource-pending-revocation-compatibility-lookup',
+          );
+          return <int>[for (final id in result.arguments) (id as num).toInt()];
+        }
+
+        final compatibilityAuthorizationEntered = Completer<void>();
+        final releaseCompatibilityAuthorization = Completer<void>();
+        provider.blockNextDecision(
+          entered: compatibilityAuthorizationEntered,
+          release: releaseCompatibilityAuthorization,
+        );
+        final staleCompatibilitySubscribe = compatibilityClient
+            .subscribeResource(
+              'app://mcp/live-context',
+              id: 'resource-pending-revocation-stale-compatibility-subscribe',
+            );
+        await compatibilityAuthorizationEntered.future.timeout(
+          const Duration(seconds: 5),
+        );
+
+        provider.allowed = false;
+        final compatibilityMarkerRegistration = await serviceSession.register(
+          'app.safe.resource_pending_compatibility_revocation_marker',
+        );
+        addTearDown(
+          () => serviceSession.unregister(
+            compatibilityMarkerRegistration.registrationId,
+          ),
+        );
+        expect(
+          jsonEncode(
+            await compatibilityClient.listWampApi(
+              id: 'resource-pending-revocation-compatibility-refresh',
+            ),
+          ),
+          contains('app.safe.resource_pending_compatibility_revocation_marker'),
+        );
+        releaseCompatibilityAuthorization.complete();
+        await expectLater(
+          staleCompatibilitySubscribe,
+          throwsA(
+            isA<McpJsonRpcException>()
+                .having(
+                  (error) => error.method,
+                  'method',
+                  'resources/subscribe',
+                )
+                .having(
+                  (error) => error.error['code'],
+                  'code',
+                  McpErrorCodes.invalidRequest,
+                ),
+          ),
+        );
+        expect(await compatibilitySubscriptionIds(), isEmpty);
+        expect(compatibilityClient.sessionId, equals(compatibilitySessionId));
+
+        provider.allowed = true;
+        await compatibilityClient.subscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-pending-revocation-compatibility-replacement',
+        );
+        expect(await compatibilitySubscriptionIds(), hasLength(1));
+        await compatibilityClient.unsubscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-pending-revocation-compatibility-unsubscribe',
+        );
+        expect(await compatibilitySubscriptionIds(), isEmpty);
+
+        final replacementSubscription = await modernClient.listen(
+          id: 'resource-pending-revocation-replacement-listen',
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+        addTearDown(replacementSubscription.close);
+        expect(
+          replacementSubscription
+              .acknowledgedNotifications
+              .resourceSubscriptions,
+          equals(const <String>['app://mcp/live-context']),
+        );
+        final replacementSubscriptionIds = await subscriptionIds();
+        expect(replacementSubscriptionIds, hasLength(1));
+        final replacementSubscriberCount = await modernClient
+            .countWampSubscriptionSubscribersDirect(
+              replacementSubscriptionIds.single,
+              id: 'resource-pending-revocation-replacement-count',
+            );
+        expect(replacementSubscriberCount.arguments.single, equals(1));
+        await replacementSubscription.close();
+        await staleSubscription.close();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'revokes router-hosted MCP resource owners when subscribe access is lost',
       () async {
         final provider = _ToggleAuthorizationProvider(
@@ -13841,6 +14046,54 @@ final class _ToggleAuthorizationProvider implements AuthorizationProvider {
         ? null
         : const AuthorizationDecision.deny(
             message: 'blocked by dynamic resource policy',
+          );
+  }
+}
+
+final class _BlockingSnapshotAuthorizationProvider
+    implements AuthorizationProvider {
+  _BlockingSnapshotAuthorizationProvider({
+    required this.action,
+    required this.uri,
+  });
+
+  final AuthorizationAction action;
+  final String uri;
+  bool allowed = true;
+  int matchingRequestCount = 0;
+  Completer<void>? _nextEntered;
+  Completer<void>? _nextRelease;
+
+  void blockNextDecision({
+    required Completer<void> entered,
+    required Completer<void> release,
+  }) {
+    if (_nextEntered != null || _nextRelease != null) {
+      throw StateError('An authorization decision is already blocked');
+    }
+    _nextEntered = entered;
+    _nextRelease = release;
+  }
+
+  @override
+  Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
+    if (request.action != action || request.uri != uri) {
+      return null;
+    }
+    matchingRequestCount++;
+    final decisionAllowed = allowed;
+    final entered = _nextEntered;
+    final release = _nextRelease;
+    if (entered != null && release != null) {
+      _nextEntered = null;
+      _nextRelease = null;
+      entered.complete();
+      await release.future;
+    }
+    return decisionAllowed
+        ? null
+        : const AuthorizationDecision.deny(
+            message: 'blocked by resource subscription policy',
           );
   }
 }

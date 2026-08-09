@@ -1,7 +1,6 @@
 # MCP Router In-Flight Pub/Sub Subscribe Authorization Refresh
 
-Status: active; implementation and local verification complete, hosted
-exact-head evidence pending
+Status: complete
 
 ## Goal
 
@@ -61,3 +60,15 @@ subscription that the refreshed endpoint no longer authorizes.
   protected HTTP/3 MCP handshake timed out; the exact test then passed in
   isolation, and a complete `bin/verify` rerun passed with all 409 router tests,
   remote-auth, zero-copy, and browser coverage green.
+- 2026-08-09: Implementation commit `2205cb5c` is pushed to both maintained
+  `master` branches. Exact-head GitHub CI `31301538949`, Dart Package Publish
+  Dry Run `31301538929`, WAMP Profile Benchmarks `31301573248`, and Router
+  Image dry run `31301559030` all pass. Retained artifacts are Dart VM coverage
+  `9034832546`, WAMP profile evidence `9034713468`, router image preview
+  `9034642849`, and Docker build records `9034695039` and `9034694728`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, loaded-image MCP smoke, multi-architecture image build,
+  WAMP, workflow-visibility, branch-protection, and public GHCR gate ready.
+  Release-candidate readiness remains intentionally non-gating because no
+  approved numeric RC tag points at this implementation commit.
