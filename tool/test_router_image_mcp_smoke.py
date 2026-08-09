@@ -344,7 +344,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"unknown_bearer=true compatibility_get=true compatibility_delete=true "',
             '"compatibility_principal_isolated=true valid_other_principal=true "',
             '"principal_post=true principal_get=true principal_delete=true "',
-            '"authenticated_404=true requested_session_echoed=true "',
+            '"authenticated_404=true requested_session_omitted=true "',
             '"independent_principal_ready=true direct_meta=true direct_pubsub=true "',
             '"sessionless_direct=true distinct_streamable_session=true "',
             '"streamable_pubsub=true owner_preserved=true "',
@@ -603,7 +603,6 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         authorization_headers = {"Authorization": "Bearer other-principal-token"}
         response_headers = {
             "mcp-protocol-version": CLIENT_MODULE.COMPATIBILITY_PROTOCOL,
-            "mcp-session-id": session_id,
         }
         response_body = json.dumps(
             {

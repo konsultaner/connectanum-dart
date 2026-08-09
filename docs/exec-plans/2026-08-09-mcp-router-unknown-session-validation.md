@@ -67,3 +67,13 @@ The governing transport requirement is the maintained MCP specification:
   benchmark tests and 36 live WAMP workloads, all 415 router tests, isolated
   consumer/CLI and remote-auth checks, 13 native follow-ups, and
   Chrome/Dart2Wasm coverage.
+- 2026-08-09: Implementation commit `dd02be9` was pushed to both maintained
+  remotes. Exact-head Router Image dry run `31329571529` then reproduced a
+  second stale smoke contract: the loaded-image cross-principal 404 check still
+  required the rejected session ID to be echoed. A focused Python fixture
+  reproduced the mismatch before the image smoke was corrected to require a
+  sessionless response and publish `requested_session_omitted=true` evidence.
+  All 27 image-smoke contracts and the restarted complete `bin/test-fast` pass.
+  The repeated full `bin/verify` also passes the complete Rust, Dart, native,
+  consumer, router, benchmark, remote-auth, and Chrome/Dart2Wasm matrix.
+  Replacement exact-head hosted evidence remains.

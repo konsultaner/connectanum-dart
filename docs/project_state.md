@@ -24863,8 +24863,17 @@ at the older `47bbf9c` commit.
   tests, 360 Dart core tests, 101 MCP tests, the complete 280-case client MCP
   matrix, all 96 benchmark tests and 36 live WAMP workloads, all 415 router
   tests, isolated consumer/CLI and remote-auth checks, 13 native follow-ups,
-  and Chrome/Dart2Wasm coverage. Implementation publication and exact-head
-  hosted evidence remain.
+  and Chrome/Dart2Wasm coverage. Implementation commit `dd02be9` is published
+  to both maintained remotes. Exact-head Router Image dry run `31329571529`
+  found one remaining loaded-image smoke assertion that expected a
+  cross-principal 404 to echo the rejected session ID. Its focused fail-first
+  fixture now requires a sessionless response, the smoke emits
+  `requested_session_omitted=true`, all 27 image-smoke contracts pass, and the
+  complete `bin/test-fast` passes again. The repeated full `bin/verify` also
+  passes with zero formatting changes and the complete Rust, Dart, native,
+  consumer, router, benchmark, remote-auth, and Chrome/Dart2Wasm matrix. The
+  follow-up implementation commit and replacement exact-head hosted evidence
+  remain.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-deleted-session-catalog-failure.md`.
   The fail-first regression reproduced a stale HTTP 500 after concurrent DELETE
