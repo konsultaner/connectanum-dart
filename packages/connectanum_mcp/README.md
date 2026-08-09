@@ -616,13 +616,15 @@ auto-discovery remains intentionally separate so applications keep explicit
 control over context and prompt surface area.
 
 Dynamic-resource catalog visibility follows the principal's current permission
-to call `read_procedure`. If a catalog refresh hides a previously visible
-resource, the router revokes existing Streamable and modern update grants for
-that URI and releases the shared WAMP update-topic subscription when it is no
-longer used. Resource-list listeners remain open and receive
-`notifications/resources/list_changed`. If a later refresh makes the resource
-visible again, the consumer must explicitly subscribe again or open a new
-modern listener; an earlier update grant is not restored automatically.
+to call `read_procedure`, while update ownership follows current permission to
+subscribe to `update_topic`. Each successful catalog refresh revokes existing
+Streamable and modern update grants when either permission is lost and releases
+the shared WAMP update-topic subscription when it is no longer used. Losing
+only update-topic access leaves the resource listed and readable.
+Resource-list listeners remain open and receive
+`notifications/resources/list_changed` when visibility changes. If a later
+refresh restores access, the consumer must explicitly subscribe again or open
+a new modern listener; an earlier update grant is not restored automatically.
 
 Malformed MCP route options are rejected while the router native config is
 built or the router starts. That includes invalid configured procedures,

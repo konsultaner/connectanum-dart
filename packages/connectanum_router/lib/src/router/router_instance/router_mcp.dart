@@ -2882,10 +2882,10 @@ class _RouterMcpSubscriptionFilter {
       'resourceSubscriptions': <String>[...resourceSubscriptions],
   };
 
-  void retainVisibleResourceSubscriptions(Set<String> visibleResourceUris) {
+  void retainResourceSubscriptions(Set<String> retainedResourceUris) {
     final retained = <String>[
       for (final uri in resourceSubscriptions)
-        if (visibleResourceUris.contains(uri)) uri,
+        if (retainedResourceUris.contains(uri)) uri,
     ];
     if (retained.length == resourceSubscriptions.length) {
       return;
@@ -3855,15 +3855,40 @@ class _RouterMcpEndpoint {
     await _cleanupUnusedResourceSubscriptions();
   }
 
-  Future<void> _reconcileResourceSubscriptionVisibility(
+  Future<void> _reconcileResourceSubscriptionAuthorization(
+    Map<String, Future<bool>> authorizationDecisions,
     Set<String> visibleResourceUris,
   ) async {
+    final ownedResourceUris = <String>{
+      ..._streamableResourceSubscriptions,
+      for (final subscription in _modernSubscriptions.values)
+        ...subscription.notifications.resourceSubscriptions,
+    };
+    final authorizedResourceUris = <String>{};
+    for (final uri in ownedResourceUris) {
+      if (!visibleResourceUris.contains(uri)) {
+        continue;
+      }
+      final config = _configuredResourceForUri(route.action.options, uri);
+      final updateTopic = config == null
+          ? null
+          : _configuredResourceUpdateTopic(config);
+      if (updateTopic != null &&
+          await _isCatalogAuthorized(
+            authorizationDecisions,
+            AuthorizationAction.subscribe,
+            updateTopic,
+          )) {
+        authorizedResourceUris.add(uri);
+      }
+    }
+
     _streamableResourceSubscriptions.removeWhere(
-      (uri) => !visibleResourceUris.contains(uri),
+      (uri) => !authorizedResourceUris.contains(uri),
     );
     for (final subscription in _modernSubscriptions.values) {
-      subscription.notifications.retainVisibleResourceSubscriptions(
-        visibleResourceUris,
+      subscription.notifications.retainResourceSubscriptions(
+        authorizedResourceUris,
       );
     }
     await _cleanupUnusedResourceSubscriptions();
@@ -4354,6 +4379,9 @@ class _RouterMcpEndpoint {
     });
     final apiChanged = apiSignature != _wampApiSignature;
     final resourcesChanged = resourceSignature != _resourceSignature;
+    await _reconcileResourceSubscriptionAuthorization(authorizationDecisions, {
+      for (final resource in resources) resource.uri,
+    });
     if (!apiChanged && !resourcesChanged) {
       return;
     }
@@ -4370,9 +4398,6 @@ class _RouterMcpEndpoint {
     }
     if (resourcesChanged) {
       server.resources.replaceAll(resources);
-      await _reconcileResourceSubscriptionVisibility({
-        for (final resource in resources) resource.uri,
-      });
       if (_resourceSignature != null) {
         if (server.state == mcp.McpServerState.initialized) {
           _enqueueServerNotification('notifications/resources/list_changed');

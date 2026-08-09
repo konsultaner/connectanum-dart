@@ -1,7 +1,6 @@
 # MCP Router Resource Visibility Revocation
 
-Status: implementation complete; local verification is green; exact-head
-hosted evidence is pending
+Status: complete; local and exact-head hosted verification are green
 
 ## Goal
 
@@ -55,9 +54,21 @@ can continue emitting update notifications for the hidden resource.
   280 MCP/client, 96 benchmark, and 407 Router tests; the 6-case remote-auth
   and 13-case native follow-ups; every neutral consumer smoke; and Chrome
   Dart2Wasm WebSocket coverage.
+- 2026-08-09: Implementation commit `9361074d` is on both maintained
+  `master` branches. Exact-head GitHub CI `31289997583`, Dart Package Publish
+  Dry Run `31289997584`, WAMP Profile Benchmarks `31289997585`, and Router
+  Image dry run `31290692710` all pass on their first attempts. Retained
+  artifacts are Dart VM coverage `9031243471`, WAMP profile evidence
+  `9031131142`, router image preview `9031262008`, and Docker build records
+  `9031313007` and `9031312650`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, loaded-image MCP smoke, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gate ready. Only the deliberately
+  unapproved next RC tag remains outside this milestone.
 
 ## Handoff
 
-- Implementation and local verification are complete. Commit and push both
-  maintained remotes, then collect exact-head hosted deployment evidence. Do
+- Implementation, both maintained pushes, local verification, exact-head
+  hosted verification, and the strict deployment-chain audit are complete. Do
   not create or move an RC tag without explicit approval.
