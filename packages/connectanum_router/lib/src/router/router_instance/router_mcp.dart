@@ -2872,7 +2872,7 @@ class _RouterMcpSubscriptionFilter {
   final bool toolsListChanged;
   final bool promptsListChanged;
   final bool resourcesListChanged;
-  final List<String> resourceSubscriptions;
+  List<String> resourceSubscriptions;
 
   mcp.JsonMap toJson() => <String, Object?>{
     if (toolsListChanged) 'toolsListChanged': true,
@@ -2881,6 +2881,17 @@ class _RouterMcpSubscriptionFilter {
     if (resourceSubscriptions.isNotEmpty)
       'resourceSubscriptions': <String>[...resourceSubscriptions],
   };
+
+  void retainVisibleResourceSubscriptions(Set<String> visibleResourceUris) {
+    final retained = <String>[
+      for (final uri in resourceSubscriptions)
+        if (visibleResourceUris.contains(uri)) uri,
+    ];
+    if (retained.length == resourceSubscriptions.length) {
+      return;
+    }
+    resourceSubscriptions = List<String>.unmodifiable(retained);
+  }
 
   bool allows(String method, mcp.JsonMap params) {
     switch (method) {
@@ -3844,6 +3855,20 @@ class _RouterMcpEndpoint {
     await _cleanupUnusedResourceSubscriptions();
   }
 
+  Future<void> _reconcileResourceSubscriptionVisibility(
+    Set<String> visibleResourceUris,
+  ) async {
+    _streamableResourceSubscriptions.removeWhere(
+      (uri) => !visibleResourceUris.contains(uri),
+    );
+    for (final subscription in _modernSubscriptions.values) {
+      subscription.notifications.retainVisibleResourceSubscriptions(
+        visibleResourceUris,
+      );
+    }
+    await _cleanupUnusedResourceSubscriptions();
+  }
+
   Future<void> _cleanupUnusedResourceSubscriptions({
     bool bestEffort = true,
   }) async {
@@ -4345,6 +4370,9 @@ class _RouterMcpEndpoint {
     }
     if (resourcesChanged) {
       server.resources.replaceAll(resources);
+      await _reconcileResourceSubscriptionVisibility({
+        for (final resource in resources) resource.uri,
+      });
       if (_resourceSignature != null) {
         if (server.state == mcp.McpServerState.initialized) {
           _enqueueServerNotification('notifications/resources/list_changed');

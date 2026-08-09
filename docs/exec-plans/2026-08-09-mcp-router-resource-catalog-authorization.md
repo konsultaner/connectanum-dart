@@ -1,7 +1,7 @@
 # MCP Router Resource Catalog Authorization
 
-Status: active; implementation and local verification are green, exact-head
-hosted deployment evidence remains
+Status: complete; implementation, local verification, and exact-head hosted
+deployment evidence are green
 
 ## Goal
 
@@ -60,11 +60,21 @@ execution authorization.
   96 benchmark, and 406 Router tests; the 6-case remote-auth and 13-case native
   follow-ups; every generated and globally activated consumer smoke; and
   Chrome/Dart2Wasm.
+- 2026-08-09: Commit `d28e4980` is pushed to both maintained `master`
+  branches. Exact-head GitHub CI `31286849810`, Dart Package Publish Dry Run
+  `31286849793`, WAMP Profile Benchmarks `31286849794`, and Router Image dry
+  run `31286855793` all pass on their first attempts. Retained artifacts are
+  Dart VM coverage `9030301398`, WAMP profile evidence `9030184770`, router
+  image preview `9030107427`, and Docker build records `9030153763` and
+  `9030153551`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, router-image MCP smoke, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gate ready. Only the deliberately
+  unapproved next RC tag remains outside the milestone.
 
 ## Handoff
 
-- Implementation and local verification are complete. Push both maintained
-  `master` branches, run the Router Image dry run, require clean exact-head CI,
-  package, WAMP, and image evidence, then run the comprehensive strict
-  deployment-chain audit. Do not create or move an RC tag without explicit
+- Complete. Continue from `ROADMAP_NEXT.md` and `ROADMAP.md` with the next
+  production-readiness slice; do not create or move an RC tag without explicit
   approval.

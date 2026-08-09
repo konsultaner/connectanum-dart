@@ -5954,6 +5954,199 @@ void main() {
     );
 
     test(
+      'revokes router-hosted MCP resource update owners when visibility is lost',
+      () async {
+        final provider = _ToggleAuthorizationProvider(
+          action: AuthorizationAction.call,
+          uri: 'app.safe.resource.read',
+        )..allowed = true;
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9163,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-resource-visibility-revocation-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final compatibilityClient = McpStreamableHttpClient(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-visibility-revocation-compatibility',
+            'version': '1.0.0',
+          },
+        );
+        final modernClient = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-resource-visibility-revocation-modern',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => compatibilityClient.close(force: true));
+        addTearDown(() => modernClient.close(force: true));
+
+        await compatibilityClient.initialize(
+          id: 'resource-visibility-revocation-initialize',
+        );
+        await compatibilityClient.notifyInitialized();
+        final compatibilitySessionId = compatibilityClient.sessionId;
+        expect(compatibilitySessionId, isNotNull);
+        await compatibilityClient.subscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-visibility-revocation-compatibility-subscribe',
+        );
+
+        final modernSubscription = await modernClient.listen(
+          id: 'resource-visibility-revocation-modern-listen',
+          resourcesListChanged: true,
+          resourceSubscriptions: const <String>['app://mcp/live-context'],
+        );
+        addTearDown(modernSubscription.close);
+        expect(
+          modernSubscription.acknowledgedNotifications.resourceSubscriptions,
+          equals(const <String>['app://mcp/live-context']),
+        );
+        final modernNotifications = StreamIterator<Map<String, Object?>>(
+          modernSubscription.notifications,
+        );
+        addTearDown(modernNotifications.cancel);
+
+        final subscriptionLookup = await modernClient
+            .lookupWampSubscriptionDirect(
+              'app.events.resource.context',
+              id: 'resource-visibility-revocation-subscription-lookup',
+            );
+        final subscriptionId = (subscriptionLookup.arguments.single as num)
+            .toInt();
+        Future<int> subscriberCount() async {
+          final result = await modernClient
+              .countWampSubscriptionSubscribersDirect(
+                subscriptionId,
+                id: 'resource-visibility-revocation-subscriber-count',
+              );
+          return (result.arguments.single as num).toInt();
+        }
+
+        expect(await subscriberCount(), equals(1));
+        final revokedListChanged = modernNotifications.moveNext().timeout(
+          const Duration(seconds: 5),
+        );
+        provider.allowed = false;
+        final deniedModernResources = await modernClient.listResources(
+          id: 'resource-visibility-revocation-modern-denied-list',
+          directJson: true,
+        );
+        final deniedCompatibilityResources = await compatibilityClient
+            .listResources(
+              id: 'resource-visibility-revocation-compatibility-denied-list',
+            );
+        expect(
+          deniedModernResources.resources.map((resource) => resource['uri']),
+          isNot(contains('app://mcp/live-context')),
+        );
+        expect(
+          deniedCompatibilityResources.resources.map(
+            (resource) => resource['uri'],
+          ),
+          isNot(contains('app://mcp/live-context')),
+        );
+        expect(await revokedListChanged, isTrue);
+        expect(
+          modernNotifications.current['method'],
+          equals('notifications/resources/list_changed'),
+        );
+
+        var subscribersAfterRevocation = 1;
+        for (var attempt = 0; attempt < 50; attempt++) {
+          subscribersAfterRevocation = await subscriberCount();
+          if (subscribersAfterRevocation == 0) {
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(subscribersAfterRevocation, isZero);
+
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{
+            'via': 'resource-visibility-revocation',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        final restoredListChanged = modernNotifications.moveNext().timeout(
+          const Duration(seconds: 5),
+        );
+        provider.allowed = true;
+        final restoredModernResources = await modernClient.listResources(
+          id: 'resource-visibility-revocation-modern-restored-list',
+          directJson: true,
+        );
+        expect(
+          restoredModernResources.resources.map((resource) => resource['uri']),
+          contains('app://mcp/live-context'),
+        );
+        expect(await restoredListChanged, isTrue);
+        expect(
+          modernNotifications.current['method'],
+          equals('notifications/resources/list_changed'),
+        );
+        expect(await subscriberCount(), isZero);
+        expect(compatibilityClient.sessionId, equals(compatibilitySessionId));
+
+        await compatibilityClient.subscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-visibility-revocation-restored-subscribe',
+        );
+        final restoredSubscriptionLookup = await modernClient
+            .lookupWampSubscriptionDirect(
+              'app.events.resource.context',
+              id: 'resource-visibility-revocation-restored-lookup',
+            );
+        final restoredSubscriptionId =
+            (restoredSubscriptionLookup.arguments.single as num).toInt();
+        final restoredSubscriberCount = await modernClient
+            .countWampSubscriptionSubscribersDirect(
+              restoredSubscriptionId,
+              id: 'resource-visibility-revocation-restored-count',
+            );
+        expect(restoredSubscriberCount.arguments.single, equals(1));
+        await compatibilityClient.unsubscribeResource(
+          'app://mcp/live-context',
+          id: 'resource-visibility-revocation-restored-unsubscribe',
+        );
+        final subscribersAfterExplicitUnsubscribe = await modernClient
+            .countWampSubscriptionSubscribersDirect(
+              restoredSubscriptionId,
+              id: 'resource-visibility-revocation-final-count',
+            );
+        expect(subscribersAfterExplicitUnsubscribe.arguments.single, isZero);
+        expect(modernClient.sessionId, isNull);
+        expect(modernClient.lastEventId, isNull);
+
+        await modernNotifications.cancel();
+        await modernSubscription.close();
+        await compatibilityClient.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'authorizes each router-hosted MCP resource subscribe owner once',
       () async {
         final provider = _FailDeferredAuthorizationProvider(
