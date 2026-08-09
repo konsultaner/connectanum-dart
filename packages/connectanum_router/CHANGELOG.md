@@ -36,6 +36,9 @@
   MCP publish, call, or subscription after its Streamable session is deleted.
 - Reject a compatibility GET/SSE poll when its router-hosted MCP session is
   deleted during catalog refresh, before queued notifications can be replayed.
+- Prefer compatibility session deletion over a concurrent router-hosted MCP
+  catalog refresh failure for both GET and POST, returning a sessionless 404
+  instead of a stale backend error that advertises the removed session.
 
 ## 0.1.0
 

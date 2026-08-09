@@ -9469,6 +9469,148 @@ void main() {
     );
 
     test(
+      'prefers deleted MCP sessions over pending catalog failures',
+      () async {
+        final provider = _BlockingFailNextCatalogAuthorizationProvider(
+          action: AuthorizationAction.subscribe,
+          uri: 'app.events.audit',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9169,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final client = McpStreamableHttpClient(endpoint);
+        final rawClient = HttpClient();
+        addTearDown(() => client.close(force: true));
+        addTearDown(() => rawClient.close(force: true));
+
+        await client.initialize(id: 'deleted-catalog-get-initialize');
+        await client.notifyInitialized();
+        final deletedGetSessionId = client.sessionId;
+        expect(deletedGetSessionId, isNotNull);
+
+        final getAuthorizationEntered = Completer<void>();
+        final releaseGetAuthorization = Completer<void>();
+        addTearDown(() {
+          if (!releaseGetAuthorization.isCompleted) {
+            releaseGetAuthorization.complete();
+          }
+        });
+        provider.blockNextFailure(
+          entered: getAuthorizationEntered,
+          release: releaseGetAuthorization,
+        );
+        final staleGet = _getHttp(
+          rawClient,
+          listener.port,
+          '/mcp/public',
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'text/event-stream',
+            'MCP-Session-Id': deletedGetSessionId!,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+          },
+        );
+        await getAuthorizationEntered.future.timeout(
+          const Duration(seconds: 5),
+        );
+        await client.deleteSession().timeout(const Duration(seconds: 5));
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        releaseGetAuthorization.complete();
+
+        final staleGetResponse = await staleGet.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(staleGetResponse.statusCode, equals(HttpStatus.notFound));
+        expect(staleGetResponse.headers, isNot(contains('mcp-session-id')));
+        expect(staleGetResponse.body, contains('Unknown MCP HTTP session'));
+        expect(
+          staleGetResponse.body,
+          isNot(contains('MCP catalog could not be refreshed')),
+        );
+
+        await client.initialize(id: 'deleted-catalog-post-initialize');
+        await client.notifyInitialized();
+        final deletedPostSessionId = client.sessionId;
+        expect(deletedPostSessionId, isNotNull);
+        expect(deletedPostSessionId, isNot(equals(deletedGetSessionId)));
+
+        final postAuthorizationEntered = Completer<void>();
+        final releasePostAuthorization = Completer<void>();
+        addTearDown(() {
+          if (!releasePostAuthorization.isCompleted) {
+            releasePostAuthorization.complete();
+          }
+        });
+        provider.blockNextFailure(
+          entered: postAuthorizationEntered,
+          release: releasePostAuthorization,
+        );
+        final stalePost = _postJson(
+          rawClient,
+          listener.port,
+          '/mcp/public',
+          const <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'deleted-catalog-post-request',
+            'method': 'tools/list',
+          },
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Session-Id': deletedPostSessionId!,
+            'MCP-Protocol-Version': mcpLatestSessionProtocolVersion,
+          },
+        );
+        await postAuthorizationEntered.future.timeout(
+          const Duration(seconds: 5),
+        );
+        await client.deleteSession().timeout(const Duration(seconds: 5));
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+        releasePostAuthorization.complete();
+
+        final stalePostResponse = await stalePost.timeout(
+          const Duration(seconds: 5),
+        );
+        expect(stalePostResponse.statusCode, equals(HttpStatus.notFound));
+        expect(stalePostResponse.headers, isNot(contains('mcp-session-id')));
+        expect(
+          stalePostResponse.json,
+          containsPair('id', 'deleted-catalog-post-request'),
+        );
+        expect(stalePostResponse.body, contains('Unknown MCP HTTP session'));
+        expect(
+          stalePostResponse.body,
+          isNot(contains('MCP catalog could not be refreshed')),
+        );
+
+        await client.initialize(id: 'deleted-catalog-replacement-initialize');
+        await client.notifyInitialized();
+        expect(client.sessionId, isNotNull);
+        expect(client.sessionId, isNot(equals(deletedPostSessionId)));
+        final replacementTools = await client.listTools(
+          id: 'deleted-catalog-replacement-tools',
+        );
+        expect(replacementTools.tools, isNotEmpty);
+        await client.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'prevents MCP WAMP actions from completing after their Streamable session is deleted',
       () async {
         final provider = _BlockingSnapshotAuthorizationProvider(
@@ -14701,6 +14843,47 @@ final class _FailNextCatalogAuthorizationProvider
       throw StateError('catalog authorization backend detail');
     }
     return null;
+  }
+}
+
+final class _BlockingFailNextCatalogAuthorizationProvider
+    implements AuthorizationProvider {
+  _BlockingFailNextCatalogAuthorizationProvider({
+    required this.action,
+    required this.uri,
+  });
+
+  final AuthorizationAction action;
+  final String uri;
+  Completer<void>? _nextEntered;
+  Completer<void>? _nextRelease;
+
+  void blockNextFailure({
+    required Completer<void> entered,
+    required Completer<void> release,
+  }) {
+    if (_nextEntered != null || _nextRelease != null) {
+      throw StateError('An authorization failure is already blocked');
+    }
+    _nextEntered = entered;
+    _nextRelease = release;
+  }
+
+  @override
+  Future<AuthorizationDecision?> authorize(AuthorizationRequest request) async {
+    if (request.action != action || request.uri != uri) {
+      return null;
+    }
+    final entered = _nextEntered;
+    final release = _nextRelease;
+    if (entered == null || release == null) {
+      return null;
+    }
+    _nextEntered = null;
+    _nextRelease = null;
+    entered.complete();
+    await release.future;
+    throw StateError('catalog authorization backend detail');
   }
 }
 

@@ -2055,16 +2055,18 @@ Future<void> _handleMcpHttpRequestForBinding(
       try {
         await endpoint._refreshTools();
       } catch (error) {
-        await _sendMcpCatalogRefreshHttpError(
-          binding,
-          request: request,
-          handshake: handshake,
-          error: error,
-          sessionId: mcpSessionId,
-          protocolVersion: responseMcpProtocolVersion,
-          extraHeaders: corsHeaders,
-        );
-        return;
+        if (!endpoint.isDisposed) {
+          await _sendMcpCatalogRefreshHttpError(
+            binding,
+            request: request,
+            handshake: handshake,
+            error: error,
+            sessionId: mcpSessionId,
+            protocolVersion: responseMcpProtocolVersion,
+            extraHeaders: corsHeaders,
+          );
+          return;
+        }
       }
       if (endpoint.isDisposed) {
         await binding._sendImmediateHttpResponse(
@@ -2371,19 +2373,21 @@ Future<void> _handleMcpHttpRequestForBinding(
     try {
       await endpoint._refreshTools();
     } catch (error) {
-      await _sendMcpCatalogRefreshHttpError(
-        binding,
-        request: request,
-        handshake: handshake,
-        error: error,
-        id: _recoverDirectJsonRequestId(rawMessage),
-        sessionId: tentativeInitializeSessionId == null
-            ? effectiveMcpSessionId
-            : null,
-        protocolVersion: effectiveResponseMcpProtocolVersion,
-        extraHeaders: corsHeaders,
-      );
-      return;
+      if (!endpoint.isDisposed) {
+        await _sendMcpCatalogRefreshHttpError(
+          binding,
+          request: request,
+          handshake: handshake,
+          error: error,
+          id: _recoverDirectJsonRequestId(rawMessage),
+          sessionId: tentativeInitializeSessionId == null
+              ? effectiveMcpSessionId
+              : null,
+          protocolVersion: effectiveResponseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        );
+        return;
+      }
     }
     if (endpoint.isDisposed) {
       await binding._sendImmediateHttpResponse(

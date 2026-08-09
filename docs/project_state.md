@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-09
-Current branch: `codex/mcp-router-sse-history-byte-bounds`
+Current branch: `codex/mcp-router-deleted-session-catalog-failure`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24847,12 +24847,36 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-09-mcp-router-deleted-session-catalog-failure.md`.
+  The fail-first regression reproduced a stale HTTP 500 after concurrent DELETE
+  and blocked-then-failing catalog authorization. Compatibility GET and POST
+  catalog-error catches now give endpoint disposal precedence over the backend
+  failure, returning a sessionless 404 with the POST request ID preserved.
+  Focused deletion and live-session error-recovery coverage, pre- and
+  post-change `bin/test-fast`, and full `bin/verify` pass. Full verification
+  covered formatting, 114 Rust core tests, 52 Rust FFI tests, 360 Dart core
+  tests, 101 MCP tests, the complete 280-case client MCP matrix, all 96
+  benchmark tests with 36 live WAMP workloads, all 415 router tests, isolated
+  consumer/CLI smokes, remote-auth isolation, native follow-ups, and
+  Chrome/Dart2Wasm. Exact-head hosted deployment evidence is pending the
+  implementation push.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-pending-get-session-delete.md`.
   The fail-first regression reproduced HTTP 200 plus queued resource-update
   replay from a GET whose compatibility session was deleted during catalog
   refresh. The GET path now fails closed before SSE replay selection; focused
-  coverage, post-change `bin/test-fast`, and full `bin/verify` are green, with
-  exact-head hosted deployment evidence pending the implementation push.
+  coverage, post-change `bin/test-fast`, and full `bin/verify` are green.
+  Implementation commit `63684bf6` is pushed to both maintained `master`
+  branches. Exact-head GitHub CI `31319758445`, Dart Package Publish Dry Run
+  `31319758499`, WAMP Profile Benchmarks `31319758470`, and Router Image dry
+  run `31320583037` all pass. Retained artifacts are Dart VM coverage
+  `9040032766`, WAMP profile evidence `9039902161`, Router Image preview
+  `9040044309`, and Docker build records `9040110416` and `9040110025`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs plus every required package, relevant native release,
+  loaded-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-deleted-session-action-side-effects.md`.
   Compatibility endpoint guards reject stale Streamable work before dispatch
