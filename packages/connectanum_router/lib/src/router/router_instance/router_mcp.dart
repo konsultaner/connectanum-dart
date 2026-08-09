@@ -4068,7 +4068,8 @@ class _RouterMcpEndpoint {
         'MCP dynamic resource ${request.uri} has no read procedure',
       );
     }
-    if (!await _isAuthorized(AuthorizationAction.call, procedure)) {
+    if (!await _isAuthorized(AuthorizationAction.call, procedure) ||
+        isDisposed) {
       throw mcp.McpException(
         mcp.McpErrorCodes.invalidRequest,
         'Not authorized to read MCP resource ${request.uri}',
@@ -4166,7 +4167,8 @@ class _RouterMcpEndpoint {
         'MCP resource ${request.uri} does not support subscriptions',
       );
     }
-    if (!await _isAuthorized(AuthorizationAction.unsubscribe, updateTopic)) {
+    if (!await _isAuthorized(AuthorizationAction.unsubscribe, updateTopic) ||
+        isDisposed) {
       throw mcp.McpException(
         mcp.McpErrorCodes.invalidRequest,
         'Not authorized to unsubscribe from MCP resource ${request.uri}',
@@ -4743,6 +4745,9 @@ class _RouterMcpEndpoint {
   }
 
   Future<bool> _isAuthorized(AuthorizationAction action, String uri) async {
+    if (isDisposed) {
+      return false;
+    }
     final realmSettings = _realmSettings();
     if (realmSettings == null) {
       return false;
@@ -4751,6 +4756,9 @@ class _RouterMcpEndpoint {
       final provider = await _authorizationProviderCache.providerFor(
         realmSettings,
       );
+      if (isDisposed) {
+        return false;
+      }
       final decision = await RealmAuthorizer.authorize(
         realmSettings: realmSettings,
         provider: provider,
@@ -4767,7 +4775,7 @@ class _RouterMcpEndpoint {
           isInternal: session.authorizationIsInternal,
         ),
       );
-      return decision.allowed;
+      return !isDisposed && decision.allowed;
     } catch (error) {
       final errorType = error.runtimeType.toString();
       binding.onEvent?.call({
@@ -4821,7 +4829,8 @@ class _RouterMcpEndpoint {
     if (metaResult != null) {
       return metaResult;
     }
-    if (!await _isAuthorized(AuthorizationAction.call, call.procedure)) {
+    if (!await _isAuthorized(AuthorizationAction.call, call.procedure) ||
+        isDisposed) {
       throw StateError('Not authorized to call ${call.procedure}');
     }
     return _callSessionAuthorized(call);
@@ -4832,10 +4841,20 @@ class _RouterMcpEndpoint {
     if (metaResult != null) {
       return metaResult;
     }
+    if (isDisposed) {
+      throw StateError(
+        'Cannot call ${call.procedure} on a disposed MCP endpoint',
+      );
+    }
     return _callSessionAuthorized(call);
   }
 
   Future<ResultPayload> _callSessionAuthorized(mcp.McpWampToolCall call) async {
+    if (isDisposed) {
+      throw StateError(
+        'Cannot call ${call.procedure} on a disposed MCP endpoint',
+      );
+    }
     final result = await session
         .call(
           call.procedure,
@@ -4850,7 +4869,8 @@ class _RouterMcpEndpoint {
   Future<mcp.McpWampPublication?> _publish(
     mcp.McpWampPublishRequest request,
   ) async {
-    if (!await _isAuthorized(AuthorizationAction.publish, request.topic)) {
+    if (!await _isAuthorized(AuthorizationAction.publish, request.topic) ||
+        isDisposed) {
       throw StateError('Not authorized to publish ${request.topic}');
     }
     final published = await session.publish(
@@ -4869,7 +4889,8 @@ class _RouterMcpEndpoint {
     mcp.McpWampSubscribeRequest request,
     void Function(mcp.McpWampEvent event) onEvent,
   ) async {
-    if (!await _isAuthorized(AuthorizationAction.subscribe, request.topic)) {
+    if (!await _isAuthorized(AuthorizationAction.subscribe, request.topic) ||
+        isDisposed) {
       throw StateError('Not authorized to subscribe ${request.topic}');
     }
     return _subscribeAuthorized(request, onEvent);
@@ -4879,6 +4900,11 @@ class _RouterMcpEndpoint {
     mcp.McpWampSubscribeRequest request,
     void Function(mcp.McpWampEvent event) onEvent,
   ) async {
+    if (isDisposed) {
+      throw StateError(
+        'Cannot subscribe to ${request.topic} on a disposed MCP endpoint',
+      );
+    }
     if (request.queueLimit > _mcpMaxWampSubscriptionQueueLimitForRoute(route)) {
       throw const _McpWampSubscriptionQueueLimitExceeded();
     }
@@ -4916,9 +4942,10 @@ class _RouterMcpEndpoint {
 
   Future<void> _unsubscribe(mcp.McpWampSubscription subscription) async {
     if (!await _isAuthorized(
-      AuthorizationAction.unsubscribe,
-      subscription.topic,
-    )) {
+          AuthorizationAction.unsubscribe,
+          subscription.topic,
+        ) ||
+        isDisposed) {
       throw StateError('Not authorized to unsubscribe ${subscription.topic}');
     }
     await _releaseWampSubscription(subscription);

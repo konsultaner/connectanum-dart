@@ -1,6 +1,6 @@
 # MCP Router Pending Pub/Sub Session Delete Cleanup
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -69,3 +69,15 @@ exists.
   isolated consumer and globally activated CLI smokes, remote-auth isolation,
   native follow-ups, and Chrome/Dart2Wasm. A local-model advisory review found
   no high-severity correctness or security issue.
+- 2026-08-09: Implementation commit `ab0a651b` is pushed to both maintained
+  `master` branches. Exact-head GitHub CI `31310624836`, Dart Package Publish
+  Dry Run `31310624871`, WAMP Profile Benchmarks `31310624898`, and Router
+  Image dry run `31311448656` all pass. Retained artifacts are Dart VM coverage
+  `9037480263`, WAMP profile evidence `9037355014`, router image preview
+  `9037495033`, and Docker build records `9037541099` and `9037541300`.
+- 2026-08-09: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs plus every required package, relevant
+  native release, loaded-image MCP smoke, multi-architecture image build,
+  WAMP, workflow-visibility, branch-protection, and public GHCR gate ready.
+  Release-candidate readiness remains intentionally non-gating because no
+  approved numeric RC tag points at this implementation commit.

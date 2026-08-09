@@ -9362,6 +9362,286 @@ void main() {
     );
 
     test(
+      'prevents MCP WAMP actions from completing after their Streamable session is deleted',
+      () async {
+        final provider = _BlockingSnapshotAuthorizationProvider(
+          action: AuthorizationAction.publish,
+          uri: 'app.events.audit',
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9167,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/public',
+        );
+        final directClient = McpStreamableHttpClient(endpoint);
+        final streamableClient = McpStreamableHttpClient(endpoint);
+        addTearDown(() => directClient.close(force: true));
+        addTearDown(() => streamableClient.close(force: true));
+
+        final directSubscription = await directClient.subscribeWampTopicDirect(
+          'app.events.audit',
+          id: 'deleted-action-direct-subscribe',
+          queueLimit: 4,
+        );
+        expect(directClient.sessionId, isNull);
+        expect(directClient.lastEventId, isNull);
+
+        Future<McpStreamableWampEventBatch> pollDirectUntilEvent(
+          String id,
+        ) async {
+          var batch = await directClient.pollWampEventsDirect(
+            directSubscription.handle,
+            id: '$id-0',
+          );
+          for (
+            var attempt = 1;
+            batch.events.isEmpty && attempt < 50;
+            attempt++
+          ) {
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+            batch = await directClient.pollWampEventsDirect(
+              directSubscription.handle,
+              id: '$id-$attempt',
+            );
+          }
+          return batch;
+        }
+
+        await streamableClient.initialize(id: 'deleted-action-initialize');
+        await streamableClient.notifyInitialized();
+        final deletedSessionId = streamableClient.sessionId;
+        expect(deletedSessionId, isNotNull);
+
+        final authorizationEntered = Completer<void>();
+        final releaseAuthorization = Completer<void>();
+        final matchingRequestsBeforePublish = provider.matchingRequestCount;
+        addTearDown(() {
+          if (!releaseAuthorization.isCompleted) {
+            releaseAuthorization.complete();
+          }
+        });
+        provider.blockNextDecision(
+          entered: authorizationEntered,
+          release: releaseAuthorization,
+          skipMatchingDecisions: 1,
+        );
+        final stalePublish = streamableClient.publishWampEvent(
+          'app.events.audit',
+          id: 'deleted-action-stale-publish',
+          argumentsKeywords: const <String, Object?>{
+            'marker': 'deleted-action-stale',
+          },
+          acknowledge: true,
+          options: const <String, Object?>{'exclude_me': false},
+        );
+        await authorizationEntered.future.timeout(const Duration(seconds: 5));
+        expect(
+          provider.matchingRequestCount,
+          equals(matchingRequestsBeforePublish + 2),
+          reason:
+              'the request catalog check must complete before the action '
+              'authorization is blocked',
+        );
+
+        await streamableClient.deleteSession().timeout(
+          const Duration(seconds: 5),
+        );
+        expect(streamableClient.sessionId, isNull);
+        expect(streamableClient.lastEventId, isNull);
+
+        releaseAuthorization.complete();
+        await expectLater(
+          stalePublish,
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.notFound,
+            ),
+          ),
+        );
+        final eventsAfterDelete = await pollDirectUntilEvent(
+          'deleted-action-stale-poll',
+        );
+        expect(
+          eventsAfterDelete.events,
+          isEmpty,
+          reason: 'a deleted MCP session must not complete its WAMP publish',
+        );
+        expect(streamableClient.sessionId, isNull);
+        expect(streamableClient.lastEventId, isNull);
+
+        await streamableClient.initialize(
+          id: 'deleted-action-replacement-initialize',
+        );
+        await streamableClient.notifyInitialized();
+        expect(streamableClient.sessionId, isNotNull);
+        expect(streamableClient.sessionId, isNot(equals(deletedSessionId)));
+        final replacementPublication = await streamableClient.publishWampEvent(
+          'app.events.audit',
+          id: 'deleted-action-replacement-publish',
+          argumentsKeywords: const <String, Object?>{
+            'marker': 'deleted-action-replacement',
+          },
+          acknowledge: true,
+          options: const <String, Object?>{'exclude_me': false},
+        );
+        expect(replacementPublication.acknowledged, isTrue);
+        final replacementEvents = await pollDirectUntilEvent(
+          'deleted-action-replacement-poll',
+        );
+        expect(replacementEvents.events, hasLength(1));
+        expect(
+          replacementEvents.events.single['argumentsKeywords'],
+          containsPair('marker', 'deleted-action-replacement'),
+        );
+        await streamableClient.deleteSession();
+
+        final directUnsubscribe = await directClient.unsubscribeWampTopicDirect(
+          directSubscription.handle,
+          id: 'deleted-action-direct-unsubscribe',
+        );
+        expect(directUnsubscribe.unsubscribed, isTrue);
+        expect(directClient.sessionId, isNull);
+        expect(directClient.lastEventId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'prevents MCP WAMP calls from completing after their Streamable session is deleted',
+      () async {
+        const procedure = 'app.safe.deleted_action_lookup';
+        final provider = _BlockingSnapshotAuthorizationProvider(
+          action: AuthorizationAction.call,
+          uri: procedure,
+        );
+        AuthorizationProviderRegistry.registerProvider(provider);
+        addTearDown(AuthorizationProviderRegistry.clear);
+
+        final harness = await _RouterHarness.start(
+          connectionId: 9168,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-deleted-action-call-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+        var invocationCount = 0;
+        final registration = await serviceSession.register(procedure);
+        addTearDown(
+          () => serviceSession.unregister(registration.registrationId),
+        );
+        registration.onInvoke((invocation) {
+          invocationCount++;
+          invocation.respondWith(
+            argumentsKeywords: <String, Object?>{
+              'invocation': invocationCount,
+              'request': invocation.argumentsKeywords,
+            },
+          );
+        });
+
+        final listener = harness.binding.listeners.single;
+        final client = McpStreamableHttpClient(
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: listener.port,
+            path: '/mcp/public',
+          ),
+        );
+        addTearDown(() => client.close(force: true));
+
+        await client.initialize(id: 'deleted-call-initialize');
+        await client.notifyInitialized();
+        final deletedSessionId = client.sessionId;
+        expect(deletedSessionId, isNotNull);
+
+        final authorizationEntered = Completer<void>();
+        final releaseAuthorization = Completer<void>();
+        final matchingRequestsBeforeCall = provider.matchingRequestCount;
+        addTearDown(() {
+          if (!releaseAuthorization.isCompleted) {
+            releaseAuthorization.complete();
+          }
+        });
+        provider.blockNextDecision(
+          entered: authorizationEntered,
+          release: releaseAuthorization,
+          skipMatchingDecisions: 1,
+        );
+        final staleCall = client.callTool(
+          procedure,
+          id: 'deleted-call-stale',
+          arguments: const <String, Object?>{'marker': 'stale'},
+        );
+        await authorizationEntered.future.timeout(const Duration(seconds: 5));
+        expect(
+          provider.matchingRequestCount,
+          equals(matchingRequestsBeforeCall + 2),
+          reason:
+              'the request catalog check must complete before the action '
+              'authorization is blocked',
+        );
+
+        await client.deleteSession().timeout(const Duration(seconds: 5));
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+
+        releaseAuthorization.complete();
+        await expectLater(
+          staleCall,
+          throwsA(
+            isA<McpStreamableHttpException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              HttpStatus.notFound,
+            ),
+          ),
+        );
+        expect(invocationCount, isZero);
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+
+        await client.initialize(id: 'deleted-call-replacement-initialize');
+        await client.notifyInitialized();
+        expect(client.sessionId, isNotNull);
+        expect(client.sessionId, isNot(equals(deletedSessionId)));
+        final replacementResult = await client.callTool(
+          procedure,
+          id: 'deleted-call-replacement',
+          arguments: const <String, Object?>{'marker': 'replacement'},
+        );
+        expect(replacementResult['isError'], isFalse);
+        expect(invocationCount, equals(1));
+        expect(
+          replacementResult['structuredContent'],
+          containsPair('argumentsKeywords', containsPair('invocation', 1)),
+        );
+        await client.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'deletes MCP Streamable HTTP sessions without interrupting shared direct JSON pubsub or modern resource owners',
       () async {
         final harness = await _RouterHarness.start(

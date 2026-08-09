@@ -24846,7 +24846,22 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active implementation plan:
+- Completed most recently, the implementation plan is
+  `docs/exec-plans/2026-08-09-mcp-router-deleted-session-action-side-effects.md`.
+  Compatibility endpoint guards reject stale Streamable work before dispatch
+  and before its HTTP response, but a WAMP action can be awaiting asynchronous
+  authorization between those checks. The fail-first regression reproduced a
+  deleted caller returning 404 after its stale publication had already reached
+  an independent direct JSON subscriber. Authorization and physical WAMP
+  helpers now fail closed across endpoint disposal. Focused regressions prove
+  no stale publication or procedure invocation, unchanged sessionless direct
+  JSON ownership, and clean replacement-session recovery. Pre- and post-change
+  `bin/test-fast` pass, and full `bin/verify` passes formatting, 114 Rust core
+  tests, 52 Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete
+  280-case MCP/client suite, 96 benchmark tests with all 36 live WAMP
+  workloads, 413 router tests, isolated consumer and globally activated CLI
+  smokes, remote-auth isolation, native follow-ups, and Chrome/Dart2Wasm.
+- Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-pending-pubsub-session-delete.md`.
   Compatibility endpoint disposal releases established WAMP subscriptions,
   but a generic pub/sub subscribe awaiting its physical broker acknowledgment
@@ -24869,8 +24884,18 @@ at the older `47bbf9c` commit.
   tests with all 36 live WAMP workloads, 411 router tests, isolated consumer
   and globally activated CLI smokes, remote-auth isolation, native follow-ups,
   and Chrome/Dart2Wasm. A local-model advisory review found no high-severity
-  correctness or security issue. Final diff review, commit, push, and hosted
-  evidence are next.
+  correctness or security issue. Implementation commit `ab0a651b` is pushed
+  to both maintained `master` branches. Exact-head GitHub CI `31310624836`,
+  Dart Package Publish Dry Run `31310624871`, WAMP Profile Benchmarks
+  `31310624898`, and Router Image dry run `31311448656` all pass. Retained
+  artifacts are Dart VM coverage `9037480263`, WAMP profile evidence
+  `9037355014`, router image preview `9037495033`, and Docker build records
+  `9037541099` and `9037541300`. The comprehensive strict deployment-chain
+  audit exits zero with clean exact-head CI jobs and logs plus every required
+  package, relevant native release, loaded-image MCP smoke,
+  multi-architecture image build, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gate ready. Only the deliberately
+  unapproved next RC tag remains outside this milestone.
 - Completed most recently, the implementation plan is
   `docs/exec-plans/2026-08-09-mcp-router-resource-subscribe-refresh-race.md`.
   Established router-hosted resource-update owners are refresh-aware, but a

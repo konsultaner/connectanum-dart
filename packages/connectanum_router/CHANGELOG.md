@@ -32,6 +32,8 @@
 - Revoke pending router-hosted MCP WAMP pub/sub ownership when a compatibility
   Streamable HTTP session is deleted, reject pre-dispatch stale requests, and
   keep replacement sessions free of leaked broker subscribers.
+- Prevent an allowed WAMP action authorization from resuming a router-hosted
+  MCP publish, call, or subscription after its Streamable session is deleted.
 
 ## 0.1.0
 
