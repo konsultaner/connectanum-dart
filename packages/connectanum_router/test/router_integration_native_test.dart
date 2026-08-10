@@ -12775,45 +12775,90 @@ void main() {
         isNot(contains('mcp-session-id')),
       );
 
-      Future<void> expectMalformedSessionAuthChallenge({
-        required String id,
+      Future<void> expectMalformedSessionRejected({
+        required String idPrefix,
         String? authorization,
+        required int statusCode,
+        required bool expectAuthChallenge,
       }) async {
-        final response = await _postJson(
-          client,
-          listener.port,
-          '/mcp/secure',
-          <String, Object?>{
-            'jsonrpc': '2.0',
-            'id': id,
-            'method': 'tools/list',
-            'params': <String, Object?>{},
-          },
-          headers: <String, String>{
-            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        for (final method in const <String>['POST', 'GET', 'DELETE']) {
+          final headers = <String, String>{
+            HttpHeaders.acceptHeader: method == 'GET'
+                ? 'text/event-stream'
+                : 'application/json, text/event-stream',
             HttpHeaders.authorizationHeader: ?authorization,
             'MCP-Session-Id': 'malformed session',
             'MCP-Protocol-Version': '2025-11-25',
             'Mcp-Method': 'tools/list',
-          },
-        );
-        expect(response.statusCode, equals(HttpStatus.unauthorized));
-        expect(
-          response.headers['www-authenticate'],
-          allOf(
-            contains('scope="mcp:read mcp:write"'),
-            contains('resource_metadata="https://mcp.example.test/mcp/secure"'),
-          ),
-        );
-        expect(response.headers, isNot(contains('mcp-session-id')));
+          };
+          final response = switch (method) {
+            'POST' => await _postJson(
+              client,
+              listener.port,
+              '/mcp/secure',
+              <String, Object?>{
+                'jsonrpc': '2.0',
+                'id': '$idPrefix-post',
+                'method': 'tools/list',
+                'params': <String, Object?>{},
+              },
+              headers: headers,
+            ),
+            'GET' => await _getHttp(
+              client,
+              listener.port,
+              '/mcp/secure',
+              headers: headers,
+            ),
+            'DELETE' => await _deleteHttp(
+              client,
+              listener.port,
+              '/mcp/secure',
+              headers: headers,
+            ),
+            _ => throw StateError('Unexpected HTTP method $method'),
+          };
+          expect(
+            response.statusCode,
+            equals(statusCode),
+            reason: '$method malformed session response',
+          );
+          if (expectAuthChallenge) {
+            expect(
+              response.headers['www-authenticate'],
+              allOf(
+                contains('scope="mcp:read mcp:write"'),
+                contains(
+                  'resource_metadata="https://mcp.example.test/mcp/secure"',
+                ),
+              ),
+              reason: '$method malformed session auth challenge',
+            );
+          } else {
+            expect(
+              response.body,
+              contains('Invalid MCP-Session-Id header'),
+              reason: '$method malformed session rejection body',
+            );
+          }
+          expect(
+            response.headers,
+            isNot(contains('mcp-session-id')),
+            reason: '$method malformed session response headers',
+          );
+        }
       }
 
-      await expectMalformedSessionAuthChallenge(
-        id: 'secure-malformed-session-missing-bearer',
+      await expectMalformedSessionRejected(
+        idPrefix: 'secure-malformed-session-missing-bearer',
+        statusCode: HttpStatus.unauthorized,
+        expectAuthChallenge: true,
       );
-      await expectMalformedSessionAuthChallenge(
-        id: 'secure-malformed-session-unknown-bearer',
+      await expectMalformedSessionRejected(
+        idPrefix: 'secure-malformed-session-unknown-bearer',
         authorization: 'Bearer unknown-access-token',
+        statusCode: HttpStatus.unauthorized,
+        expectAuthChallenge: true,
       );
 
       final unauthorizedJsonPost = await _postJson(
@@ -12862,35 +12907,11 @@ void main() {
       final otherAuthHeaders = {
         'authorization': 'Bearer ${otherGrant.accessToken}',
       };
-      final authenticatedMalformedSession = await _postJson(
-        client,
-        listener.port,
-        '/mcp/secure',
-        const <String, Object?>{
-          'jsonrpc': '2.0',
-          'id': 'secure-malformed-session-authenticated',
-          'method': 'tools/list',
-          'params': <String, Object?>{},
-        },
-        headers: <String, String>{
-          ...authHeaders,
-          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
-          'MCP-Session-Id': 'malformed session',
-          'MCP-Protocol-Version': '2025-11-25',
-          'Mcp-Method': 'tools/list',
-        },
-      );
-      expect(
-        authenticatedMalformedSession.statusCode,
-        equals(HttpStatus.badRequest),
-      );
-      expect(
-        authenticatedMalformedSession.body,
-        contains('Invalid MCP-Session-Id header'),
-      );
-      expect(
-        authenticatedMalformedSession.headers,
-        isNot(contains('mcp-session-id')),
+      await expectMalformedSessionRejected(
+        idPrefix: 'secure-malformed-session-authenticated',
+        authorization: authHeaders[HttpHeaders.authorizationHeader],
+        statusCode: HttpStatus.badRequest,
+        expectAuthChallenge: false,
       );
       final directSecureMcpClient = McpStreamableHttpClient.withAuthGrant(
         Uri(

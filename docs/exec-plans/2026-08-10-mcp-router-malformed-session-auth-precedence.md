@@ -71,3 +71,14 @@ and
   activated package/CLI consumer smokes, isolated remote authentication, and
   Chrome/Dart2Wasm coverage. The checkpoint is ready to publish together with
   the preceding hosted-evidence notes.
+- 2026-08-10: Implementation commit `a500dea3` is published to both maintained
+  `master` branches. Exact-head CI `31363059405`, Dart Package Publish Dry Run
+  `31363059386`, WAMP Profile Benchmarks `31363059376`, and Router Image dry
+  run `31364292503` all pass. Retained artifacts are Dart VM coverage
+  `9053514083`, WAMP profile evidence `9053258018`, Router Image preview
+  `9053537751`, and Docker build records `9053629802` and `9053629401`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs plus every required package, still-relevant native release,
+  fresh-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.

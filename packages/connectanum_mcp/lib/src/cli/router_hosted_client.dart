@@ -725,34 +725,51 @@ Future<void> _expectMalformedSessionIdRejected(
 }) async {
   final httpClient = _shortLivedHttpClient();
   try {
-    final request = await httpClient.postUrl(client.endpoint);
-    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-    request.headers.set('MCP-Protocol-Version', client.protocolVersion);
-    request.headers.set('MCP-Session-Id', 'malformed session');
-    request.headers.set('x-consumer-trace', trace);
-    if (authorizationHeader != null) {
-      request.headers.set(HttpHeaders.authorizationHeader, authorizationHeader);
-    }
-    request.headers.contentType = ContentType.json;
-    request.contentLength = 0;
+    for (final method in const <String>['POST', 'GET', 'DELETE']) {
+      final request = switch (method) {
+        'POST' => await httpClient.postUrl(client.endpoint),
+        'GET' => await httpClient.getUrl(client.endpoint),
+        'DELETE' => await httpClient.deleteUrl(client.endpoint),
+        _ => throw StateError('Unexpected HTTP method $method'),
+      };
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        method == 'GET' ? 'text/event-stream' : 'application/json',
+      );
+      request.headers.set('MCP-Protocol-Version', client.protocolVersion);
+      request.headers.set('MCP-Session-Id', 'malformed session');
+      request.headers.set('x-consumer-trace', '$trace-${method.toLowerCase()}');
+      if (authorizationHeader != null) {
+        request.headers.set(
+          HttpHeaders.authorizationHeader,
+          authorizationHeader,
+        );
+      }
+      if (method == 'POST') {
+        request.headers.contentType = ContentType.json;
+        request.contentLength = 0;
+      }
 
-    final response = await request.close();
-    final body = await utf8.decodeStream(response);
-    if (response.statusCode != HttpStatus.badRequest) {
-      throw StateError(
-        'Streamable malformed MCP-Session-Id returned '
-        '${response.statusCode}, expected ${HttpStatus.badRequest}.',
-      );
-    }
-    if (response.headers.value('MCP-Session-Id') != null) {
-      throw StateError(
-        'Streamable malformed MCP-Session-Id rejection echoed a session id.',
-      );
-    }
-    if (!body.contains('MCP-Session-Id')) {
-      throw StateError(
-        'Streamable malformed MCP-Session-Id rejection did not name the header.',
-      );
+      final response = await request.close();
+      final responseBody = await utf8.decodeStream(response);
+      if (response.statusCode != HttpStatus.badRequest) {
+        throw StateError(
+          'Streamable $method malformed MCP-Session-Id returned '
+          '${response.statusCode}, expected ${HttpStatus.badRequest}.',
+        );
+      }
+      if (response.headers.value('MCP-Session-Id') != null) {
+        throw StateError(
+          'Streamable $method malformed MCP-Session-Id rejection echoed a '
+          'session id.',
+        );
+      }
+      if (!responseBody.contains('MCP-Session-Id')) {
+        throw StateError(
+          'Streamable $method malformed MCP-Session-Id rejection did not name '
+          'the header.',
+        );
+      }
     }
   } finally {
     httpClient.close(force: true);
@@ -762,7 +779,7 @@ Future<void> _expectMalformedSessionIdRejected(
     client,
     sessionId: sessionId,
     lastEventId: lastEventId,
-    label: 'Streamable malformed MCP-Session-Id',
+    label: 'Streamable malformed MCP-Session-Id method matrix',
   );
 }
 
