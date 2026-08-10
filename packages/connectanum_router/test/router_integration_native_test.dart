@@ -2386,6 +2386,26 @@ void main() {
         isNot(contains('mcp-session-id')),
       );
 
+      final unknownSessionWithResumeCursor = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          ...sessionHeaders,
+          'MCP-Session-Id': 'unknown-session',
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          'Last-Event-ID': sseEventId,
+        },
+      );
+      expect(
+        unknownSessionWithResumeCursor.statusCode,
+        equals(HttpStatus.notFound),
+      );
+      expect(
+        unknownSessionWithResumeCursor.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
       final resumedSse = await _getHttp(
         client,
         listener.port,

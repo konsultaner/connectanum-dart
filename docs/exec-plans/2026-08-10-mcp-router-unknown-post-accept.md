@@ -1,6 +1,6 @@
 # MCP Router Unknown-Session POST Accept Precedence
 
-Status: implementation complete; local verification passed; hosted evidence pending
+Status: completed
 
 ## Goal
 
@@ -73,3 +73,14 @@ The governing transport requirement is:
   Chrome/Dart2Wasm. Valid JSON-only direct calls remain lifecycle-free with a
   stale session header, and protected routes still authenticate before
   session lookup or negotiation errors.
+- 2026-08-10: Implementation commit `6a4170e7` is published to both maintained
+  `master` branches. Exact-head CI `31348094641`, Dart Package Publish Dry Run
+  `31348094632`, WAMP Profile Benchmarks `31348094633`, and Router Image dry
+  run `31348990958` all pass. Retained artifacts are Dart VM coverage
+  `9048275865`, WAMP profile evidence `9048122237`, Router Image preview
+  `9048304330`, and Docker build records `9048391076` and `9048390660`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs plus every required package, still-relevant native release,
+  fresh-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
