@@ -3503,6 +3503,82 @@ void main() {
       skip: skipReason,
     );
 
+    test(
+      'enforces MCP route transport auth before method and protocol rejections',
+      () async {
+        Future<void> expectTransportRejection({
+          required int connectionId,
+          required String label,
+          required HttpRouteMatch routeMatch,
+          required Map<String, Object?> routeOptions,
+          required String reason,
+        }) async {
+          final harness = await _RouterHarness.start(
+            connectionId: connectionId,
+            nativeLib: nativeLib,
+            settings: _buildRouterSettings(
+              enableHttp3: false,
+              enableMcp: true,
+              mcpRouteMatch: routeMatch,
+              mcpRouteAction: HttpRouteAction(
+                type: HttpRouteActionType.mcp,
+                realm: 'realm1',
+                options: routeOptions,
+              ),
+            ),
+          );
+          addTearDown(harness.dispose);
+
+          final listener = harness.binding.listeners.single;
+          final client = HttpClient();
+          addTearDown(() => client.close(force: true));
+          final rejected = await _postJson(
+            client,
+            listener.port,
+            '/mcp',
+            <String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 'route-$label-transport-auth',
+              'method': 'initialize',
+              'params': <String, Object?>{'protocolVersion': '2025-11-25'},
+            },
+            headers: const <String, String>{
+              HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+              'MCP-Protocol-Version': '2025-11-25',
+              'MCP-Session-Id': 'caller-route-transport-session',
+              'Mcp-Method': 'initialize',
+            },
+          );
+
+          expect(
+            rejected.statusCode,
+            equals(HttpStatus.forbidden),
+            reason: '$label route rejection must enforce transport auth first',
+          );
+          expect(rejected.json, containsPair('reason', reason));
+          expect(rejected.headers, isNot(contains('mcp-session-id')));
+          client.close(force: true);
+          await harness.dispose();
+        }
+
+        await expectTransportRejection(
+          connectionId: 91253,
+          label: 'method',
+          routeMatch: const HttpRouteMatch(path: '/mcp', methods: ['DELETE']),
+          routeOptions: const <String, Object?>{'require_tls': true},
+          reason: 'tls_required',
+        );
+        await expectTransportRejection(
+          connectionId: 91254,
+          label: 'protocol',
+          routeMatch: const HttpRouteMatch(path: '/mcp', protocols: ['h2']),
+          routeOptions: const <String, Object?>{'require_mtls': true},
+          reason: 'mutual_tls_required',
+        );
+      },
+      skip: skipReason,
+    );
+
     test('serves router-hosted MCP over native HTTP/2', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9126,

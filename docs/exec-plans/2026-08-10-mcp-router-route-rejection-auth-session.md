@@ -1,7 +1,6 @@
 # MCP Router Route-Rejection Auth and Session Isolation
 
-Status: complete; implementation and local verification green; hosted evidence
-pending
+Status: complete; implementation, local verification, and hosted evidence green
 
 ## Goal
 
@@ -69,3 +68,14 @@ must remain unchanged.
   native follow-ups, every isolated/global consumer and CLI smoke, and
   Chrome/Dart2Wasm. The implementation checkpoint is ready to publish and
   audit.
+- 2026-08-10: Implementation commit `9743126d` is published to both maintained
+  `master` branches. Exact-head CI `31403959090`, Dart Package Publish Dry Run
+  `31403959057`, WAMP Profile Benchmarks `31403959178`, and Router Image dry
+  run `31403986169` all pass. Retained artifacts are Dart VM coverage
+  `9069461068`, WAMP profile evidence `9069104331`, Router Image preview
+  `9068828414`, and Docker build records `9069006882` and `9069005806`. The
+  comprehensive strict deployment-chain audit exits zero with every required
+  exact-head CI/log, package, still-relevant native release, fresh-image MCP
+  smoke, multi-architecture image build, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gate ready. Only the deliberately
+  unapproved next RC tag remains outside this milestone.
