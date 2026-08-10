@@ -1,6 +1,6 @@
 # MCP Router Malformed-Session Auth Method Matrix
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -60,3 +60,14 @@ The governing transport requirements are:
   workloads, all 416 router tests, isolated consumer/CLI and remote-auth
   checks, 13 native follow-ups, and Chrome/Dart2Wasm coverage. The
   implementation is ready to publish and collect exact-head hosted evidence.
+- 2026-08-10: Implementation commit `c619f963` is published to both maintained
+  `master` branches. Exact-head CI `31369862820`, Dart Package Publish Dry Run
+  `31369862832`, WAMP Profile Benchmarks `31369862817`, and Router Image dry
+  run `31369906080` all pass. Retained artifacts are Dart VM coverage
+  `9056042920`, WAMP profile evidence `9055805230`, Router Image preview
+  `9055629775`, and Docker build records `9055721870` and `9055721217`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs plus every required package, still-relevant native release,
+  fresh-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.

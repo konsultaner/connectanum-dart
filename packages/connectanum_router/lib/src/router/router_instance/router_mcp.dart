@@ -1681,7 +1681,6 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.forbidden,
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'Invalid Origin for MCP endpoint',
-        sessionId: responseMcpSessionId,
         protocolVersion: responseMcpProtocolVersion,
       ),
     );

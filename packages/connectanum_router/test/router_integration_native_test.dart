@@ -2116,6 +2116,46 @@ void main() {
         };
       }
 
+      final rejectedOriginPost = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'rejected-origin-tools',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: {
+          ...streamableHeaders('tools/list'),
+          'origin': 'https://attacker.example',
+        },
+      );
+      expect(rejectedOriginPost.statusCode, equals(HttpStatus.forbidden));
+      expect(rejectedOriginPost.headers, isNot(contains('mcp-session-id')));
+
+      final rejectedOriginGet = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          ...sessionHeaders,
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          'origin': 'https://attacker.example',
+        },
+      );
+      expect(rejectedOriginGet.statusCode, equals(HttpStatus.forbidden));
+      expect(rejectedOriginGet.headers, isNot(contains('mcp-session-id')));
+
+      final rejectedOriginDelete = await _deleteHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {...sessionHeaders, 'origin': 'https://attacker.example'},
+      );
+      expect(rejectedOriginDelete.statusCode, equals(HttpStatus.forbidden));
+      expect(rejectedOriginDelete.headers, isNot(contains('mcp-session-id')));
+
       final initialized = await _postJson(
         client,
         listener.port,

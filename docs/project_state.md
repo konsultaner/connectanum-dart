@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-10
-Current branch: `codex/mcp-router-malformed-session-auth-methods`
+Current branch: `codex/mcp-router-origin-session-isolation`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24899,6 +24899,23 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-10-mcp-router-origin-session-isolation.md`.
+  Router-hosted MCP currently validates `Origin` before authentication and
+  endpoint ownership, but its 403 response reflects a syntactically valid
+  caller-supplied compatibility session identifier on POST, GET, and DELETE.
+  The fail-first native regression reproduces the leak with an active session.
+  This checkpoint makes every invalid-Origin response sessionless and adds an
+  opt-in public package-client method matrix suitable for neutral public and
+  protected consumer smokes. Focused formatting, analysis, shell syntax,
+  native ingress/session coverage, executable dry-run and source/global live
+  smokes, and pre-change plus post-change `bin/test-fast` pass. Full
+  `bin/verify` also passes with zero formatting changes, 114 Rust core tests,
+  52 Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete 280-case
+  client MCP matrix, all 96 benchmark tests and 36 live WAMP workloads, all
+  416 router tests, remote-auth isolation, 13 native follow-ups, every
+  consumer/CLI smoke, and Chrome/Dart2Wasm. The implementation checkpoint is
+  ready to publish and audit.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-malformed-session-auth-methods.md`.
   The native protected-route regression and public consumer executable now
   cover malformed compatibility session identifiers across POST, GET, and
@@ -24913,9 +24930,18 @@ at the older `47bbf9c` commit.
   360 Dart core tests, 101 MCP tests, the complete 280-case client MCP matrix,
   all 96 benchmark tests and 36 live WAMP workloads, all 416 router tests,
   isolated consumer/CLI and remote-auth checks, 13 native follow-ups, and
-  Chrome/Dart2Wasm coverage. The implementation is ready to publish and
-  collect exact-head hosted evidence.
-- Completed most recently, the implementation plan is:
+  Chrome/Dart2Wasm coverage. Implementation commit `c619f963` is on both
+  maintained `master` branches. Exact-head CI `31369862820`, Dart Package
+  Publish Dry Run `31369862832`, WAMP Profile Benchmarks `31369862817`, and
+  Router Image dry run `31369906080` all pass. Coverage artifact `9056042920`,
+  WAMP artifact `9055805230`, Router Image preview artifact `9055629775`, and
+  Docker build records `9055721870` and `9055721217` were uploaded. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs plus every required package, still-relevant native release,
+  fresh-image MCP smoke, multi-architecture image build, WAMP, workflow
+  visibility, branch protection, and public GHCR gates ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-malformed-session-auth-precedence.md`.
   Router-hosted MCP now resolves a protected route principal before validating
   malformed compatibility session identifiers. Missing and unknown bearers

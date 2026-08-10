@@ -374,6 +374,8 @@ void _printDryRunSummary(IOSink sink, _Options options) {
       if (options.authRealm != null) 'realm': options.authRealm,
       if (options.authId != null) 'authId': options.authId,
       if (options.authLifecycleSmoke) 'authLifecycleSmoke': true,
+      if (options.rejectedOrigin != null)
+        'rejectedOrigin': options.rejectedOrigin.toString(),
       if (options.toolName != null)
         'tool': {'name': options.toolName, 'arguments': options.toolArguments},
       if (options.resourceUri != null) ...{
@@ -780,6 +782,76 @@ Future<void> _expectMalformedSessionIdRejected(
     sessionId: sessionId,
     lastEventId: lastEventId,
     label: 'Streamable malformed MCP-Session-Id method matrix',
+  );
+}
+
+Future<void> _expectRejectedOriginSessionless(
+  McpStreamableHttpClient client,
+  Uri rejectedOrigin,
+  String? authorizationHeader, {
+  required String sessionId,
+  required String? lastEventId,
+  String trace = 'router-hosted-client-streamable-rejected-origin',
+}) async {
+  final httpClient = _shortLivedHttpClient();
+  try {
+    for (final method in const <String>['POST', 'GET', 'DELETE']) {
+      final request = switch (method) {
+        'POST' => await httpClient.postUrl(client.endpoint),
+        'GET' => await httpClient.getUrl(client.endpoint),
+        'DELETE' => await httpClient.deleteUrl(client.endpoint),
+        _ => throw StateError('Unexpected HTTP method $method'),
+      };
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        method == 'GET'
+            ? 'text/event-stream'
+            : 'application/json, text/event-stream',
+      );
+      request.headers.set('Origin', rejectedOrigin.toString());
+      request.headers.set('MCP-Protocol-Version', client.protocolVersion);
+      request.headers.set('MCP-Session-Id', sessionId);
+      request.headers.set('x-consumer-trace', '$trace-$method');
+      if (authorizationHeader != null) {
+        request.headers.set(
+          HttpHeaders.authorizationHeader,
+          authorizationHeader,
+        );
+      }
+      if (method == 'POST') {
+        request.headers.contentType = ContentType.json;
+        request.contentLength = 0;
+      }
+
+      final response = await request.close();
+      final responseBody = await utf8.decodeStream(response);
+      if (response.statusCode != HttpStatus.forbidden) {
+        throw StateError(
+          'Streamable $method rejected-Origin request returned '
+          '${response.statusCode}, expected ${HttpStatus.forbidden}.',
+        );
+      }
+      if (response.headers.value('MCP-Session-Id') != null) {
+        throw StateError(
+          'Streamable $method rejected-Origin response echoed a session id.',
+        );
+      }
+      if (!responseBody.contains('Invalid Origin')) {
+        throw StateError(
+          'Streamable $method rejected-Origin response did not name the '
+          'Origin failure.',
+        );
+      }
+    }
+  } finally {
+    httpClient.close(force: true);
+  }
+
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'Streamable rejected-Origin method matrix',
   );
 }
 
@@ -4520,6 +4592,17 @@ Future<void> _runStreamableSessionExample(
     sessionId: streamableSessionId,
     lastEventId: eventIdBeforeMalformedSession,
   );
+  final rejectedOrigin = options.rejectedOrigin;
+  if (rejectedOrigin != null) {
+    final eventIdBeforeRejectedOrigin = client.lastEventId;
+    await _expectRejectedOriginSessionless(
+      client,
+      rejectedOrigin,
+      authorizationHeader,
+      sessionId: streamableSessionId,
+      lastEventId: eventIdBeforeRejectedOrigin,
+    );
+  }
   final eventIdBeforeDirectStaleSession = client.lastEventId;
   await _expectDirectJsonStaleSessionIdIgnored(
     client,
@@ -4538,6 +4621,13 @@ Future<void> _runStreamableSessionExample(
     'invalidLastEventId': {'rejected': true, 'sessionUnchanged': true},
     'emptyLastEventId': {'accepted': true, 'sessionUnchanged': true},
     'malformedSessionId': {'rejected': true, 'sessionUnchanged': true},
+    if (rejectedOrigin != null)
+      'originRejection': {
+        'origin': rejectedOrigin.toString(),
+        'rejected': true,
+        'sessionUnchanged': true,
+        'methods': const ['POST', 'GET', 'DELETE'],
+      },
     'directJsonStaleSessionId': {'ignored': true, 'sessionUnchanged': true},
     'tools': [for (final tool in tools.tools) tool['name']],
   };
@@ -5219,6 +5309,7 @@ final class _Options {
     this.authRealm,
     this.authId,
     this.ticket,
+    this.rejectedOrigin,
     this.toolName,
     this.resourceUri,
     this.resourceUpdateTopic,
@@ -5235,6 +5326,7 @@ final class _Options {
   final String? authRealm;
   final String? authId;
   final String? ticket;
+  final Uri? rejectedOrigin;
   final String? toolName;
   final McpJsonMap toolArguments;
   final String? resourceUri;
@@ -5258,6 +5350,7 @@ final class _Options {
     final authRealm = _mcpSelectorOption(values, '--realm');
     final authId = _mcpSelectorOption(values, '--auth-id');
     final ticket = _nonEmptyStringOption(values, '--ticket');
+    final rejectedOrigin = _optionalUri(values, '--rejected-origin');
     final authLifecycleSmoke = values.containsKey('--auth-lifecycle-smoke');
 
     if (bearerToken != null && authEndpoint != null) {
@@ -5276,6 +5369,12 @@ final class _Options {
     if (authLifecycleSmoke && authEndpoint == null) {
       throw const FormatException(
         'Use --auth-lifecycle-smoke together with --auth-url.',
+      );
+    }
+    if (rejectedOrigin != null &&
+        _isStatelessProtocolVersion(protocolVersion)) {
+      throw const FormatException(
+        'Use --rejected-origin only with compatibility Streamable HTTP.',
       );
     }
     if (values.containsKey('--tool-arguments') &&
@@ -5315,6 +5414,7 @@ final class _Options {
       authRealm: authRealm,
       authId: authId,
       ticket: ticket,
+      rejectedOrigin: rejectedOrigin,
       toolName: _mcpToolNameOption(values, '--tool'),
       toolArguments: _jsonObjectOption(
         values,
@@ -5470,6 +5570,7 @@ Map<String, String> _parseOptions(List<String> args) {
     '--realm',
     '--auth-id',
     '--ticket',
+    '--rejected-origin',
     '--tool',
     '--tool-arguments',
     '--resource-uri',
@@ -5611,6 +5712,7 @@ Options:
   --auth-id AUTHID                  Auth id for --auth-url ticket grants.
   --ticket TICKET                   Ticket secret for --auth-url grants.
   --auth-lifecycle-smoke            Refresh/revoke ticket auth grant lifecycle (requires --auth-url).
+  --rejected-origin URL             Require this Origin to receive sessionless 403 on Streamable POST/GET/DELETE.
   --tool NAME                       Call this direct JSON tool.
   --tool-arguments JSON_OBJECT      Arguments for --tool.
   --resource-uri URI                Read this resource and list templates through direct JSON and compatibility Streamable HTTP.

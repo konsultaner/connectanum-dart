@@ -573,6 +573,20 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local stateless_rejected_origin_output
+  if stateless_rejected_origin_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --protocol-version 2026-07-28 \
+    --rejected-origin https://rejected.example \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client modern dry-run accepted a Streamable-only rejected-Origin smoke.\n'
+    return 1
+  fi
+  if [[ "$stateless_rejected_origin_output" != *'Use --rejected-origin only with compatibility Streamable HTTP.'* ]]; then
+    printf 'Public router-hosted MCP client modern dry-run did not explain the rejected-Origin protocol boundary.\n'
+    return 1
+  fi
+
   local stateless_auth_lifecycle_summary
   stateless_auth_lifecycle_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp/secure \
@@ -738,6 +752,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     --auth-id mcp-user \
     --ticket dry-run-ticket-secret \
     --auth-lifecycle-smoke \
+    --rejected-origin https://rejected.example \
     --dry-run)"
   if [[ "$dry_run_summary" == *dry-run-ticket-secret* ]]; then
     printf 'Public router-hosted MCP client ticket dry-run leaked ticket secret material.\n'
@@ -749,6 +764,10 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
   if [[ "$dry_run_summary" != *'"authLifecycleSmoke":true'* ]]; then
     printf 'Public router-hosted MCP client ticket dry-run did not report auth lifecycle smoke mode.\n'
+    return 1
+  fi
+  if [[ "$dry_run_summary" != *'"rejectedOrigin":"https://rejected.example"'* ]]; then
+    printf 'Public router-hosted MCP client ticket dry-run did not report rejected-Origin smoke mode.\n'
     return 1
   fi
 
@@ -1396,6 +1415,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
   live_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$endpoint" \
     --protocol-version 2025-06-18 \
+    --rejected-origin https://rejected.example \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-public-example-live"}' \
     --resource-uri app://example/context/live \
@@ -1417,6 +1437,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"originRejection":{"origin":"https://rejected.example","rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
     '"batchErrorIsolation":{"responseIds"' \
@@ -1491,6 +1512,7 @@ EOF
     PUB_CACHE="$global_pub_cache" router_hosted_client \
     --endpoint "$endpoint" \
     --protocol-version 2025-06-18 \
+    --rejected-origin https://rejected.example \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-global-example-live"}' \
     --resource-uri app://example/context/live \
@@ -1512,6 +1534,7 @@ EOF
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"originRejection":{"origin":"https://rejected.example","rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
     '"batchErrorIsolation":{"responseIds"' \
@@ -1627,6 +1650,7 @@ PY
     --auth-id mcp-user \
     --ticket mcp-demo-ticket \
     --auth-lifecycle-smoke \
+    --rejected-origin https://rejected.example \
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-authenticated-example-live"}' \
     --resource-uri app://example/context/live \
@@ -1648,6 +1672,7 @@ PY
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"originRejection":{"origin":"https://rejected.example","rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
     '"batchErrorIsolation":{"responseIds"' \
@@ -9376,6 +9401,7 @@ DART
     executable_help="$(PUB_CACHE="$pub_cache" dart run connectanum_mcp:router_hosted_client --help)"
     if [[ "$executable_help" != *"--endpoint"* ||
       "$executable_help" != *"--protocol-version"* ||
+      "$executable_help" != *"--rejected-origin"* ||
       "$executable_help" != *"--pubsub-topic"* ]]; then
       printf 'MCP client package executable help output missed expected options.\n'
       return 1
@@ -9384,11 +9410,13 @@ DART
     executable_dry_run="$(PUB_CACHE="$pub_cache" dart run connectanum_mcp:router_hosted_client \
       --endpoint http://127.0.0.1:8080/mcp \
       --protocol-version 2025-06-18 \
+      --rejected-origin https://rejected.example \
       --pubsub-topic agent.events \
       --pubsub-event '{"text":"ready"}' \
       --dry-run)"
     if [[ "$executable_dry_run" != *'"dryRun":true'* ||
       "$executable_dry_run" != *'"endpoint":"http://127.0.0.1:8080/mcp"'* ||
+      "$executable_dry_run" != *'"rejectedOrigin":"https://rejected.example"'* ||
       "$executable_dry_run" != *'"pubsub":{"topic":"agent.events"'* ||
       "$executable_dry_run" != *'"subscriptionMetadata":true'* ]]; then
       printf 'MCP client package executable dry-run summary was unexpected.\n'
@@ -9449,6 +9477,7 @@ EOF
   global_executable_help="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_hosted_client --help)"
   if [[ "$global_executable_help" != *"--endpoint"* ||
     "$global_executable_help" != *"--protocol-version"* ||
+    "$global_executable_help" != *"--rejected-origin"* ||
     "$global_executable_help" != *"--pubsub-topic"* ]]; then
     printf 'MCP client global executable help output missed expected options.\n'
     return 1
@@ -9457,11 +9486,13 @@ EOF
   global_executable_dry_run="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" router_hosted_client \
     --endpoint http://127.0.0.1:8080/mcp \
     --protocol-version 2025-06-18 \
+    --rejected-origin https://rejected.example \
     --pubsub-topic agent.events \
     --pubsub-event '{"text":"ready"}' \
     --dry-run)"
   if [[ "$global_executable_dry_run" != *'"dryRun":true'* ||
     "$global_executable_dry_run" != *'"endpoint":"http://127.0.0.1:8080/mcp"'* ||
+    "$global_executable_dry_run" != *'"rejectedOrigin":"https://rejected.example"'* ||
     "$global_executable_dry_run" != *'"pubsub":{"topic":"agent.events"'* ||
     "$global_executable_dry_run" != *'"subscriptionMetadata":true'* ]]; then
     printf 'MCP client global executable dry-run summary was unexpected.\n'
