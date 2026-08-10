@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-10
-Current branch: `codex/mcp-router-origin-session-isolation`
+Current branch: `codex/mcp-router-protocol-version-auth-precedence`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24374,6 +24374,47 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-10: Router-hosted MCP now authenticates bearer-protected actual
+  requests before rejecting an unsupported `MCP-Protocol-Version`. A
+  fail-first native POST reproduced HTTP 400 without the required Bearer
+  challenge for missing credentials; the corrected POST/GET/DELETE matrix
+  proves missing and unknown bearers receive HTTP 401 plus the endpoint
+  challenge, while authenticated requests retain the reserved sessionless HTTP
+  400 error. The neutral public package executable exercises the same method
+  matrix against an active compatibility session across source, globally
+  activated, public, ticket-authenticated, bearer-token, and protected
+  JSON-response routes, validating the reserved payload and unchanged session
+  id/resume cursor. Focused tests, package analysis, diff hygiene, the
+  seven-variant live smoke, and post-change `bin/test-fast` pass. Full
+  `bin/verify` also passes with zero formatting changes, 114 Rust core tests,
+  52 Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete 280-case
+  client MCP matrix, all 96 benchmark tests including 36 live WAMP workloads,
+  all 416 router tests, remote-auth isolation, 13 native follow-ups, every
+  isolated/global consumer and CLI smoke, and Chrome/Dart2Wasm. The
+  implementation checkpoint is ready to publish and audit.
+- 2026-08-10: Router-hosted MCP invalid-Origin responses are now sessionless
+  across compatibility Streamable HTTP POST, GET, and DELETE. A fail-first
+  native regression reproduced the active session identifier in the HTTP 403
+  response; the corrected method matrix proves rejected requests expose no
+  session header and a rejected DELETE does not terminate the active session.
+  The public package executable adds an opt-in `--rejected-origin` consumer
+  smoke for public and protected routes, forwards configured authorization,
+  preserves session and resume-cursor state, and rejects the option in modern
+  stateless mode before network access. Focused checks, pre-change and
+  post-change `bin/test-fast`, the public-artifact guard, and full `bin/verify`
+  pass. Full verification covered 114 Rust core tests, 52 Rust FFI tests, 360
+  Dart core tests, 101 MCP tests, the complete 280-case client MCP matrix, all
+  96 benchmark tests including 36 live WAMP workloads, all 416 router tests,
+  remote-auth isolation, 13 native follow-ups, every isolated/global
+  consumer/CLI smoke, and Chrome/Dart2Wasm. Implementation commit `44d219bc`
+  is on both maintained `master` branches. Exact-head CI `31377387924`, Dart
+  Package Publish Dry Run `31377387913`, WAMP Profile Benchmarks `31377387873`,
+  and Router Image dry run `31378874691` all pass. Coverage artifact
+  `9058963089`, WAMP artifact `9058676908`, Router Image preview artifact
+  `9059042159`, and Docker build records `9059164850` and `9059164085` were
+  uploaded. The comprehensive strict deployment-chain audit exits zero with
+  every required deployment gate ready. Only the deliberately unapproved next
+  RC tag remains outside this milestone.
 - 2026-08-10: A fail-first native-router regression reproduced an unknown or
   terminated compatibility Streamable HTTP session returning HTTP 406 when a
   POST accepted only SSE and therefore could not be a valid direct JSON call.
@@ -24899,6 +24940,16 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-10-mcp-router-protocol-version-auth-precedence.md`.
+  Router-hosted MCP now resolves the protected route principal before rejecting
+  an unsupported protocol version: missing and unknown bearer credentials
+  receive HTTP 401 plus the endpoint challenge, while public and authenticated
+  requests retain the reserved sessionless HTTP 400 error. Native and neutral
+  package-client POST/GET/DELETE matrices preserve the active compatibility
+  session and resume cursor across every maintained live variant. Pre-change
+  and post-change `bin/test-fast`, focused checks, and full `bin/verify` pass;
+  the implementation checkpoint is ready to publish and audit.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-origin-session-isolation.md`.
   Router-hosted MCP currently validates `Origin` before authentication and
   endpoint ownership, but its 403 response reflects a syntactically valid
@@ -24913,9 +24964,18 @@ at the older `47bbf9c` commit.
   52 Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete 280-case
   client MCP matrix, all 96 benchmark tests and 36 live WAMP workloads, all
   416 router tests, remote-auth isolation, 13 native follow-ups, every
-  consumer/CLI smoke, and Chrome/Dart2Wasm. The implementation checkpoint is
-  ready to publish and audit.
-- Completed most recently, the implementation plan is:
+  consumer/CLI smoke, and Chrome/Dart2Wasm. Implementation commit `44d219bc`
+  is on both maintained `master` branches. Exact-head CI `31377387924`, Dart
+  Package Publish Dry Run `31377387913`, WAMP Profile Benchmarks `31377387873`,
+  and Router Image dry run `31378874691` all pass. Coverage artifact
+  `9058963089`, WAMP artifact `9058676908`, Router Image preview artifact
+  `9059042159`, and Docker build records `9059164850` and `9059164085` were
+  uploaded. The comprehensive strict deployment-chain audit exits zero with
+  every required CI/log, package, native-release, fresh-image MCP smoke,
+  multi-architecture image build, WAMP, workflow visibility, branch
+  protection, and public GHCR gate ready. Only the deliberately unapproved
+  next RC tag remains outside this milestone.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-malformed-session-auth-methods.md`.
   The native protected-route regression and public consumer executable now
   cover malformed compatibility session identifiers across POST, GET, and

@@ -2004,6 +2004,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "_expectInvalidLastEventIdRejected",
             "_expectEmptyLastEventIdStartsFreshPoll",
             "_expectMalformedSessionIdRejected",
+            "_expectUnsupportedProtocolVersionRejected",
             "_expectDirectJsonStaleSessionIdIgnored",
             "_ClientContext",
             "authorizationHeader: 'Bearer ${grant.accessToken}'",
@@ -2024,11 +2025,17 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "Streamable empty Last-Event-ID reused the previous SSE cursor.",
             "emptyLastEventId",
             "router-hosted-client-streamable-malformed-session-id",
-            "Streamable malformed MCP-Session-Id returned",
-            "Streamable malformed MCP-Session-Id rejection echoed a session id.",
-            "Streamable malformed MCP-Session-Id rejection did not name the header.",
-            "label: 'Streamable malformed MCP-Session-Id'",
+            "Streamable $method malformed MCP-Session-Id returned ",
+            "Streamable $method malformed MCP-Session-Id rejection echoed a ",
+            "Streamable $method malformed MCP-Session-Id rejection did not name ",
+            "label: 'Streamable malformed MCP-Session-Id method matrix'",
             "malformedSessionId",
+            "router-hosted-client-streamable-unsupported-protocol-version",
+            "Streamable $method unsupported MCP protocol version returned",
+            "Streamable $method unsupported MCP protocol-version rejection ",
+            "did not include the negotiated-version error.",
+            "label: 'Streamable unsupported MCP protocol-version method matrix'",
+            "unsupportedProtocolVersion",
             "router-hosted-client-streamable-active-direct-malformed-session-id",
             "router-hosted-client-direct-json-stale-session-id",
             "Direct JSON stale MCP-Session-Id returned",
@@ -2907,6 +2914,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}',
+            script,
+        )
+        self.assertIn(
+            '"unsupportedProtocolVersion":{"rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}',
             script,
         )
         self.assertIn('"directPing"', script)

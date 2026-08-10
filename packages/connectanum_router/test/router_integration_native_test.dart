@@ -12889,6 +12889,81 @@ void main() {
         }
       }
 
+      Future<void> expectUnsupportedProtocolVersionRejected({
+        required String idPrefix,
+        String? authorization,
+        String sessionId = 'unknown-session',
+        required int statusCode,
+        required bool expectAuthChallenge,
+      }) async {
+        for (final method in const <String>['POST', 'GET', 'DELETE']) {
+          final headers = <String, String>{
+            HttpHeaders.acceptHeader: method == 'GET'
+                ? 'text/event-stream'
+                : 'application/json, text/event-stream',
+            HttpHeaders.authorizationHeader: ?authorization,
+            'MCP-Session-Id': sessionId,
+            'MCP-Protocol-Version': '2099-01-01',
+            'Mcp-Method': 'tools/list',
+          };
+          final response = switch (method) {
+            'POST' => await _postJson(
+              client,
+              listener.port,
+              '/mcp/secure',
+              <String, Object?>{
+                'jsonrpc': '2.0',
+                'id': '$idPrefix-post',
+                'method': 'tools/list',
+                'params': <String, Object?>{},
+              },
+              headers: headers,
+            ),
+            'GET' => await _getHttp(
+              client,
+              listener.port,
+              '/mcp/secure',
+              headers: headers,
+            ),
+            'DELETE' => await _deleteHttp(
+              client,
+              listener.port,
+              '/mcp/secure',
+              headers: headers,
+            ),
+            _ => throw StateError('Unexpected HTTP method $method'),
+          };
+          expect(
+            response.statusCode,
+            equals(statusCode),
+            reason: '$method unsupported protocol-version response',
+          );
+          if (expectAuthChallenge) {
+            expect(
+              response.headers['www-authenticate'],
+              allOf(
+                contains('scope="mcp:read mcp:write"'),
+                contains(
+                  'resource_metadata="https://mcp.example.test/mcp/secure"',
+                ),
+              ),
+              reason: '$method unsupported protocol-version auth challenge',
+            );
+          } else {
+            expect(
+              response.body,
+              contains('Unsupported MCP protocol version'),
+              reason: '$method unsupported protocol-version rejection body',
+            );
+          }
+          expect(
+            response.headers,
+            isNot(contains('mcp-session-id')),
+            reason: '$method unsupported protocol-version response headers',
+          );
+        }
+      }
+
       await expectMalformedSessionRejected(
         idPrefix: 'secure-malformed-session-missing-bearer',
         statusCode: HttpStatus.unauthorized,
@@ -12896,6 +12971,17 @@ void main() {
       );
       await expectMalformedSessionRejected(
         idPrefix: 'secure-malformed-session-unknown-bearer',
+        authorization: 'Bearer unknown-access-token',
+        statusCode: HttpStatus.unauthorized,
+        expectAuthChallenge: true,
+      );
+      await expectUnsupportedProtocolVersionRejected(
+        idPrefix: 'secure-unsupported-version-missing-bearer',
+        statusCode: HttpStatus.unauthorized,
+        expectAuthChallenge: true,
+      );
+      await expectUnsupportedProtocolVersionRejected(
+        idPrefix: 'secure-unsupported-version-unknown-bearer',
         authorization: 'Bearer unknown-access-token',
         statusCode: HttpStatus.unauthorized,
         expectAuthChallenge: true,
@@ -12949,6 +13035,12 @@ void main() {
       };
       await expectMalformedSessionRejected(
         idPrefix: 'secure-malformed-session-authenticated',
+        authorization: authHeaders[HttpHeaders.authorizationHeader],
+        statusCode: HttpStatus.badRequest,
+        expectAuthChallenge: false,
+      );
+      await expectUnsupportedProtocolVersionRejected(
+        idPrefix: 'secure-unsupported-version-authenticated',
         authorization: authHeaders[HttpHeaders.authorizationHeader],
         statusCode: HttpStatus.badRequest,
         expectAuthChallenge: false,

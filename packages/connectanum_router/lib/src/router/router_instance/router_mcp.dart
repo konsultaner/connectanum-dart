@@ -1732,25 +1732,6 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  if (!_mcpProtocolVersionHeaderSupported(binding, request)) {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: _mcpJsonRpcHttpError(
-        status: HttpStatus.badRequest,
-        code: mcp.McpErrorCodes.unsupportedProtocolVersion,
-        message: 'Unsupported MCP protocol version',
-        data: <String, Object?>{
-          'supportedVersions': _mcpSupportedHttpProtocolVersions.toList()
-            ..sort(),
-        },
-        protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
-        extraHeaders: corsHeaders,
-      ),
-    );
-    return;
-  }
-
   if (statelessHttpRequest && httpMethod != 'POST') {
     await binding._sendImmediateHttpResponse(
       request: request,
@@ -1965,6 +1946,25 @@ Future<void> _handleMcpHttpRequestForBinding(
           'reason': error.reason,
           if (error.message != null) 'message': error.message,
         }),
+      ),
+    );
+    return;
+  }
+
+  if (!_mcpProtocolVersionHeaderSupported(binding, request)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.unsupportedProtocolVersion,
+        message: 'Unsupported MCP protocol version',
+        data: <String, Object?>{
+          'supportedVersions': _mcpSupportedHttpProtocolVersions.toList()
+            ..sort(),
+        },
+        protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
+        extraHeaders: corsHeaders,
       ),
     );
     return;

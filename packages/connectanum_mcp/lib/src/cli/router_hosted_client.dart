@@ -785,6 +785,77 @@ Future<void> _expectMalformedSessionIdRejected(
   );
 }
 
+Future<void> _expectUnsupportedProtocolVersionRejected(
+  McpStreamableHttpClient client,
+  String? authorizationHeader, {
+  required String sessionId,
+  required String? lastEventId,
+  String trace = 'router-hosted-client-streamable-unsupported-protocol-version',
+}) async {
+  const unsupportedProtocolVersion = '2099-01-01';
+  final httpClient = _shortLivedHttpClient();
+  try {
+    for (final method in const <String>['POST', 'GET', 'DELETE']) {
+      final request = switch (method) {
+        'POST' => await httpClient.postUrl(client.endpoint),
+        'GET' => await httpClient.getUrl(client.endpoint),
+        'DELETE' => await httpClient.deleteUrl(client.endpoint),
+        _ => throw StateError('Unexpected HTTP method $method'),
+      };
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        method == 'GET'
+            ? 'text/event-stream'
+            : 'application/json, text/event-stream',
+      );
+      request.headers.set('MCP-Protocol-Version', unsupportedProtocolVersion);
+      request.headers.set('MCP-Session-Id', sessionId);
+      request.headers.set('x-consumer-trace', '$trace-${method.toLowerCase()}');
+      if (authorizationHeader != null) {
+        request.headers.set(
+          HttpHeaders.authorizationHeader,
+          authorizationHeader,
+        );
+      }
+      if (method == 'POST') {
+        request.headers.contentType = ContentType.json;
+        request.contentLength = 0;
+      }
+
+      final response = await request.close();
+      final responseBody = await utf8.decodeStream(response);
+      if (response.statusCode != HttpStatus.badRequest) {
+        throw StateError(
+          'Streamable $method unsupported MCP protocol version returned '
+          '${response.statusCode}, expected ${HttpStatus.badRequest}.',
+        );
+      }
+      if (response.headers.value('MCP-Session-Id') != null) {
+        throw StateError(
+          'Streamable $method unsupported MCP protocol-version rejection '
+          'echoed a session id.',
+        );
+      }
+      if (!responseBody.contains('Unsupported MCP protocol version') ||
+          !responseBody.contains('supportedVersions')) {
+        throw StateError(
+          'Streamable $method unsupported MCP protocol-version rejection '
+          'did not include the negotiated-version error.',
+        );
+      }
+    }
+  } finally {
+    httpClient.close(force: true);
+  }
+
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'Streamable unsupported MCP protocol-version method matrix',
+  );
+}
+
 Future<void> _expectRejectedOriginSessionless(
   McpStreamableHttpClient client,
   Uri rejectedOrigin,
@@ -4592,6 +4663,13 @@ Future<void> _runStreamableSessionExample(
     sessionId: streamableSessionId,
     lastEventId: eventIdBeforeMalformedSession,
   );
+  final eventIdBeforeUnsupportedProtocolVersion = client.lastEventId;
+  await _expectUnsupportedProtocolVersionRejected(
+    client,
+    authorizationHeader,
+    sessionId: streamableSessionId,
+    lastEventId: eventIdBeforeUnsupportedProtocolVersion,
+  );
   final rejectedOrigin = options.rejectedOrigin;
   if (rejectedOrigin != null) {
     final eventIdBeforeRejectedOrigin = client.lastEventId;
@@ -4621,6 +4699,11 @@ Future<void> _runStreamableSessionExample(
     'invalidLastEventId': {'rejected': true, 'sessionUnchanged': true},
     'emptyLastEventId': {'accepted': true, 'sessionUnchanged': true},
     'malformedSessionId': {'rejected': true, 'sessionUnchanged': true},
+    'unsupportedProtocolVersion': {
+      'rejected': true,
+      'sessionUnchanged': true,
+      'methods': const ['POST', 'GET', 'DELETE'],
+    },
     if (rejectedOrigin != null)
       'originRejection': {
         'origin': rejectedOrigin.toString(),
