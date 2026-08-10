@@ -43,6 +43,9 @@
   sessions before content-type, body-size, JSON, and standard-header
   validation, returning a sessionless 404 without changing direct JSON request
   behavior.
+- Resolve a claimed compatibility session before GET SSE response negotiation,
+  so unknown sessions return a sessionless 404 while live sessions retain the
+  normal 406 response for an incompatible `Accept` header.
 
 ## 0.1.0
 

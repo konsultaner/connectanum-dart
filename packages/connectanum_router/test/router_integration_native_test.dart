@@ -1473,6 +1473,21 @@ void main() {
       expect(get.statusCode, equals(HttpStatus.badRequest));
       expect(jsonEncode(get.json?['error']), contains('MCP-Session-Id'));
 
+      final getWithoutSessionInvalidAccept = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(
+        getWithoutSessionInvalidAccept.statusCode,
+        equals(HttpStatus.notAcceptable),
+      );
+      expect(
+        getWithoutSessionInvalidAccept.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
       final payload = <String, Object?>{
         'jsonrpc': '2.0',
         'id': 'init',
@@ -2346,6 +2361,29 @@ void main() {
       expect(
         sseQZeroWildcardAccept.statusCode,
         equals(HttpStatus.notAcceptable),
+      );
+      expect(
+        sseQZeroWildcardAccept.headers['mcp-session-id'],
+        equals(mcpSessionId),
+      );
+
+      final unknownSessionWithInvalidSseAccept = await _getHttp(
+        client,
+        listener.port,
+        '/mcp',
+        headers: {
+          ...sessionHeaders,
+          'MCP-Session-Id': 'unknown-session',
+          HttpHeaders.acceptHeader: 'application/json',
+        },
+      );
+      expect(
+        unknownSessionWithInvalidSseAccept.statusCode,
+        equals(HttpStatus.notFound),
+      );
+      expect(
+        unknownSessionWithInvalidSseAccept.headers,
+        isNot(contains('mcp-session-id')),
       );
 
       final resumedSse = await _getHttp(

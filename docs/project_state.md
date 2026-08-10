@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-10
-Current branch: `codex/mcp-router-unknown-session-content-type`
+Current branch: `codex/mcp-router-unknown-get-accept`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24387,6 +24387,17 @@ at the older `47bbf9c` commit.
   client MCP matrix, all 96 benchmark tests including 36 live WAMP workloads,
   the complete router and native follow-up suites, every isolated and globally
   activated consumer/CLI smoke, remote-auth isolation, and Chrome/Dart2Wasm.
+  Implementation commit `543dde76` is on both maintained `master` branches.
+  Exact-head CI `31339910807`, Dart Package Publish Dry Run `31339910826`, WAMP
+  Profile Benchmarks `31339910808`, and Router Image dry run `31340711773` all
+  pass. Coverage artifact `9045716468`, WAMP artifact `9045584755`, Router
+  Image preview artifact `9045731235`, and Docker build records `9045775958`
+  and `9045776152` were uploaded. The comprehensive strict deployment-chain
+  audit exits zero with clean exact-head CI jobs and logs plus every required
+  package, still-relevant native release, fresh-image MCP smoke,
+  multi-architecture image build, WAMP, workflow visibility, branch
+  protection, and public GHCR gates ready. Only the deliberately unapproved
+  next RC tag remains outside this milestone.
 - 2026-08-05: Three fail-first Streamable HTTP client regressions reproduced a
   closed client sending a new direct request, allocating and establishing a new
   MCP 2026 listener, and performing OAuth protected-resource discovery. Close
@@ -24860,6 +24871,31 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Completed most recently, the implementation plan is:
+  `docs/exec-plans/2026-08-10-mcp-router-unknown-get-accept.md`.
+  Router-hosted compatibility GET previously validated SSE response negotiation
+  before resolving an authenticated claimed session, so an unknown or
+  terminated session with an incompatible `Accept` header returned HTTP 406
+  instead of the maintained transport contract's sessionless HTTP 404. This
+  checkpoint adds fail-first native-router coverage and defers that negotiation
+  only for claimed compatibility sessions, preserving live-session 406 and
+  sessionless/direct JSON ingress behavior. The required pre-change
+  fast gate reached the final generated consumer smoke before one transient
+  closed `/auth` connection; the exact isolated smoke passed immediately when
+  rerun. The fail-first reproduced HTTP 406 for an unknown claimed session.
+  GET negotiation now runs after authenticated endpoint lookup only when a
+  session ID is present; focused formatting, analysis, and native-router
+  coverage pass with unknown-session 404, live-session 406, and sessionless 406
+  behavior pinned.
+  Post-change `bin/test-fast` passes the complete core, MCP, client,
+  benchmark/live-WAMP, generated consumer/CLI, and native router follow-up
+  matrix; the earlier isolated `/auth` connection close did not recur.
+  Full `bin/verify` also passes with zero formatting changes, 114 Rust core
+  tests plus serializer integrations, 52 Rust FFI tests plus the metrics
+  follow-up, 360 Dart core tests, 101 MCP tests, the complete 280-case client
+  MCP matrix, all 96 benchmark tests and 36 live WAMP workloads, all 416 router
+  tests, remote-auth isolation, 13 native follow-ups, every generated and
+  globally activated consumer/CLI smoke, and Chrome/Dart2Wasm coverage.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-09-mcp-router-unknown-session-content-type.md`.
   Router-hosted compatibility Streamable POST already makes unknown sessions
   authoritative before request-size, JSON, and standard-header validation,
@@ -24873,8 +24909,12 @@ at the older `47bbf9c` commit.
   and direct JSON retains its earlier ingress behavior. Focused formatting,
   analysis, native-router coverage, post-change `bin/test-fast`, and full
   `bin/verify` pass across the Rust, Dart, native, router, benchmark,
-  consumer/CLI, remote-auth, and Chrome/Dart2Wasm matrix. Publication and
-  exact-head hosted evidence remain.
+  consumer/CLI, remote-auth, and Chrome/Dart2Wasm matrix. Implementation commit
+  `543dde76` is on both maintained `master` branches. Exact-head CI
+  `31339910807`, Dart Package Publish Dry Run `31339910826`, WAMP Profile
+  Benchmarks `31339910808`, and Router Image dry run `31340711773` all pass,
+  and the comprehensive strict deployment-chain audit exits zero. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
 - Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-09-mcp-router-initialize-notification-session.md`.
   Router-hosted compatibility Streamable HTTP previously retained a tentative

@@ -1780,8 +1780,10 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
+  final deferGetAcceptValidation = httpMethod == 'GET' && mcpSessionId != null;
   if (httpMethod == 'GET') {
-    if (!_mcpAcceptAllowsSseResponse(binding, request)) {
+    if (!deferGetAcceptValidation &&
+        !_mcpAcceptAllowsSseResponse(binding, request)) {
       await binding._sendImmediateHttpResponse(
         request: request,
         handshake: handshake,
@@ -2076,6 +2078,22 @@ Future<void> _handleMcpHttpRequestForBinding(
         request: request,
         handshake: handshake,
         response: _mcpUnknownSessionHttpError(
+          protocolVersion: responseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        ),
+      );
+      return;
+    }
+    if (deferGetAcceptValidation &&
+        !_mcpAcceptAllowsSseResponse(binding, request)) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.notAcceptable,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'MCP GET responses require an Accept header allowing SSE',
+          sessionId: mcpSessionId,
           protocolVersion: responseMcpProtocolVersion,
           extraHeaders: corsHeaders,
         ),

@@ -61,3 +61,14 @@ The governing transport requirement is:
   all 96 benchmark tests and 36 live WAMP workloads, the complete router and
   native follow-up suites, every isolated and globally activated consumer/CLI
   smoke, remote-auth isolation, and Chrome/Dart2Wasm coverage.
+- 2026-08-10: Implementation commit `543dde76` is published to both maintained
+  `master` branches. Exact-head CI `31339910807`, Dart Package Publish Dry Run
+  `31339910826`, WAMP Profile Benchmarks `31339910808`, and Router Image dry
+  run `31340711773` all pass. Retained artifacts are Dart VM coverage
+  `9045716468`, WAMP profile evidence `9045584755`, Router Image preview
+  `9045731235`, and Docker build records `9045775958` and `9045776152`. The
+  comprehensive strict deployment-chain audit exits zero with clean CI jobs
+  and logs plus every required package, still-relevant native release,
+  fresh-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
