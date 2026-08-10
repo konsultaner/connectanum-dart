@@ -1733,23 +1733,6 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  if (!statelessHttpRequest &&
-      mcpSessionId != null &&
-      !_mcpSessionIdHeaderValueValid(mcpSessionId)) {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: _mcpJsonRpcHttpError(
-        status: HttpStatus.badRequest,
-        code: mcp.McpErrorCodes.invalidRequest,
-        message: 'Invalid MCP-Session-Id header',
-        protocolVersion: responseMcpProtocolVersion,
-        extraHeaders: corsHeaders,
-      ),
-    );
-    return;
-  }
-
   if (!_mcpProtocolVersionHeaderSupported(binding, request)) {
     await binding._sendImmediateHttpResponse(
       request: request,
@@ -1983,6 +1966,23 @@ Future<void> _handleMcpHttpRequestForBinding(
           'reason': error.reason,
           if (error.message != null) 'message': error.message,
         }),
+      ),
+    );
+    return;
+  }
+
+  if (!statelessHttpRequest &&
+      mcpSessionId != null &&
+      !_mcpSessionIdHeaderValueValid(mcpSessionId)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.badRequest,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'Invalid MCP-Session-Id header',
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
       ),
     );
     return;

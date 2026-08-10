@@ -12775,6 +12775,47 @@ void main() {
         isNot(contains('mcp-session-id')),
       );
 
+      Future<void> expectMalformedSessionAuthChallenge({
+        required String id,
+        String? authorization,
+      }) async {
+        final response = await _postJson(
+          client,
+          listener.port,
+          '/mcp/secure',
+          <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': id,
+            'method': 'tools/list',
+            'params': <String, Object?>{},
+          },
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            HttpHeaders.authorizationHeader: ?authorization,
+            'MCP-Session-Id': 'malformed session',
+            'MCP-Protocol-Version': '2025-11-25',
+            'Mcp-Method': 'tools/list',
+          },
+        );
+        expect(response.statusCode, equals(HttpStatus.unauthorized));
+        expect(
+          response.headers['www-authenticate'],
+          allOf(
+            contains('scope="mcp:read mcp:write"'),
+            contains('resource_metadata="https://mcp.example.test/mcp/secure"'),
+          ),
+        );
+        expect(response.headers, isNot(contains('mcp-session-id')));
+      }
+
+      await expectMalformedSessionAuthChallenge(
+        id: 'secure-malformed-session-missing-bearer',
+      );
+      await expectMalformedSessionAuthChallenge(
+        id: 'secure-malformed-session-unknown-bearer',
+        authorization: 'Bearer unknown-access-token',
+      );
+
       final unauthorizedJsonPost = await _postJson(
         client,
         listener.port,
@@ -12821,6 +12862,36 @@ void main() {
       final otherAuthHeaders = {
         'authorization': 'Bearer ${otherGrant.accessToken}',
       };
+      final authenticatedMalformedSession = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure',
+        const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'secure-malformed-session-authenticated',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: <String, String>{
+          ...authHeaders,
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'MCP-Session-Id': 'malformed session',
+          'MCP-Protocol-Version': '2025-11-25',
+          'Mcp-Method': 'tools/list',
+        },
+      );
+      expect(
+        authenticatedMalformedSession.statusCode,
+        equals(HttpStatus.badRequest),
+      );
+      expect(
+        authenticatedMalformedSession.body,
+        contains('Invalid MCP-Session-Id header'),
+      );
+      expect(
+        authenticatedMalformedSession.headers,
+        isNot(contains('mcp-session-id')),
+      );
       final directSecureMcpClient = McpStreamableHttpClient.withAuthGrant(
         Uri(
           scheme: 'http',

@@ -58,3 +58,14 @@ version precedence is outside this focused session/cursor regression.
   live WAMP workloads, all 416 router tests, isolated remote authentication,
   native follow-ups, every generated and globally activated consumer/CLI
   smoke, and Chrome/Dart2Wasm.
+- 2026-08-10: Implementation commit `5da8fd76` is published to both maintained
+  `master` branches. Exact-head CI `31357410453`, Dart Package Publish Dry Run
+  `31357410459`, WAMP Profile Benchmarks `31357410431`, and Router Image dry
+  run `31358396109` all pass. Retained artifacts are Dart VM coverage
+  `9051430005`, WAMP profile evidence `9051243524`, Router Image preview
+  `9051442946`, and Docker build records `9051512167` and `9051511659`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs plus every required package, still-relevant native release,
+  fresh-image MCP smoke, multi-architecture image build, WAMP,
+  workflow-visibility, branch-protection, and public GHCR gate ready. Only the
+  deliberately unapproved next RC tag remains outside this milestone.
