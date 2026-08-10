@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-10
-Current branch: `codex/mcp-router-negotiation-auth-precedence`
+Current branch: `codex/mcp-router-route-rejection-auth-session`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24374,6 +24374,24 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-10: Active router-hosted MCP hardening now routes configured
+  `HttpRouteMatch.methods` and `HttpRouteMatch.protocols` mismatches through
+  the MCP ingress boundary. Fail-first native coverage reproduced public
+  405/426 responses reflecting an unowned caller session header and a
+  protected method rejection bypassing the Bearer challenge. The focused fix
+  preserves earlier invalid-Origin and public Protected Resource Metadata
+  handling, authenticates missing, unknown, and valid protected credentials,
+  and returns configured JSON-RPC 405/426 responses without session state.
+  Pre-change and post-change `bin/test-fast`, focused formatting, router
+  analysis, diff hygiene, the native public/protected regression matrix, all
+  36 live WAMP workloads, and the complete neutral consumer smoke set pass.
+  Full `bin/verify` also passes with zero formatting changes, 114 Rust core
+  tests, 52 Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete
+  280-case client MCP matrix, all 96 benchmark tests including 36 live WAMP
+  workloads, all 417 router tests, six remote-auth integrations, 13 native
+  follow-ups, every isolated/global consumer and CLI smoke, and
+  Chrome/Dart2Wasm. The implementation checkpoint is ready to publish and
+  audit.
 - 2026-08-10: Router-hosted MCP now authenticates protected actual-request
   traffic before returning HTTP method, Accept, or content-type negotiation
   failures. A fail-first native regression reproduced missing bearer
@@ -24390,8 +24408,15 @@ at the older `47bbf9c` commit.
   52 Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete 280-case
   client MCP matrix, all 96 benchmark tests including 36 live WAMP workloads,
   all 416 router tests, remote-auth isolation, native follow-ups, every
-  isolated/global consumer and CLI smoke, and Chrome/Dart2Wasm. The
-  implementation checkpoint is ready to publish and audit.
+  isolated/global consumer and CLI smoke, and Chrome/Dart2Wasm. Implementation
+  commit `b5e2e471` is on both maintained `master` branches. Exact-head CI
+  `31393780986`, Dart Package Publish Dry Run `31393780985`, WAMP Profile
+  Benchmarks `31393780984`, and Router Image dry run `31393868252` all pass.
+  Coverage artifact `9065391113`, WAMP artifact `9064982656`, Router Image
+  preview artifact `9064790988`, and Docker build records `9064941354` and
+  `9064940506` were uploaded. The comprehensive strict deployment-chain audit
+  exits zero with every required deployment gate ready; only the deliberately
+  unapproved next RC tag remains outside this milestone.
 - 2026-08-10: Router-hosted MCP now authenticates bearer-protected actual
   requests before rejecting an unsupported `MCP-Protocol-Version`. A
   fail-first native POST reproduced HTTP 400 without the required Bearer
@@ -24967,6 +24992,17 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-10-mcp-router-route-rejection-auth-session.md`.
+  Configured MCP route-level method and protocol mismatches now reach the MCP
+  ingress boundary before their 405/426 responses. The fail-first native
+  matrix reproduced protected requests bypassing Bearer authentication and
+  public errors reflecting unowned session headers; focused public/protected
+  coverage now passes with invalid Origin and public metadata precedence
+  preserved. Pre-change and post-change `bin/test-fast` plus focused checks
+  pass. Full `bin/verify` passes the complete Rust, Dart, benchmark/live-WAMP,
+  router, remote-auth, native, neutral consumer/CLI, and Chrome/Dart2Wasm
+  matrix. The implementation checkpoint is ready to publish and audit.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-negotiation-auth-precedence.md`.
   Protected actual MCP traffic now resolves its route principal before method,
   Accept, and content-type negotiation, so missing and unknown bearer
@@ -24976,9 +25012,13 @@ at the older `47bbf9c` commit.
   survive the complete neutral package-client matrix. Invalid Origin, OPTIONS,
   and public metadata discovery remain earlier boundaries. Pre-change and
   post-change `bin/test-fast`, focused native and live package checks, and full
-  `bin/verify` pass; the implementation checkpoint is ready to publish and
-  audit.
-- Completed most recently, the implementation plan is:
+  `bin/verify` pass. Implementation commit `b5e2e471` is on both maintained
+  `master` branches. Exact-head CI `31393780986`, Dart Package Publish Dry Run
+  `31393780985`, WAMP Profile Benchmarks `31393780984`, and Router Image dry
+  run `31393868252` all pass with retained coverage, benchmark, preview, and
+  Docker-build artifacts. The comprehensive strict deployment-chain audit
+  exits zero; only the unapproved next RC tag remains outside this milestone.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-protocol-version-auth-precedence.md`.
   Router-hosted MCP now resolves the protected route principal before rejecting
   an unsupported protocol version: missing and unknown bearer credentials
@@ -24994,7 +25034,7 @@ at the older `47bbf9c` commit.
   The comprehensive strict deployment-chain audit exits zero after the initial
   transient preview-artifact download race cleared; only the unapproved next RC
   tag remains outside this milestone.
-- Completed immediately before that, the implementation plan is:
+- Completed before that, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-origin-session-isolation.md`.
   Router-hosted MCP currently validates `Origin` before authentication and
   endpoint ownership, but its 403 response reflects a syntactically valid

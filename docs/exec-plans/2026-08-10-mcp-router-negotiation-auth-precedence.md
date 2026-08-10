@@ -74,3 +74,14 @@ must not terminate or mutate the active client session or resume cursor.
   workloads, all 416 router tests, remote-auth isolation, native follow-ups,
   every isolated/global consumer and CLI smoke, and Chrome/Dart2Wasm. The
   implementation checkpoint is ready to publish and audit.
+- 2026-08-10: Implementation commit `b5e2e471` is published to both maintained
+  `master` branches. Exact-head CI `31393780986`, Dart Package Publish Dry Run
+  `31393780985`, WAMP Profile Benchmarks `31393780984`, and Router Image dry
+  run `31393868252` all pass. Retained artifacts are Dart VM coverage
+  `9065391113`, WAMP profile evidence `9064982656`, Router Image preview
+  `9064790988`, and Docker build records `9064941354` and `9064940506`. The
+  comprehensive strict deployment-chain audit exits zero with every required
+  exact-head CI/log, package, still-relevant native release, fresh-image MCP
+  smoke, multi-architecture image build, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gate ready. Only the deliberately
+  unapproved next RC tag remains outside this milestone.

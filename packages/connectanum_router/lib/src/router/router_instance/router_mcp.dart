@@ -1639,6 +1639,8 @@ Future<void> _handleMcpHttpRequestForBinding(
   required ListenerSettings? listenerSettings,
   required HttpRouteSettings route,
   required SessionProfileSettings? sessionProfile,
+  List<String>? routeAllowedMethods,
+  List<String>? routeAllowedProtocols,
 }) async {
   final httpMethod = request.method.trim().toUpperCase();
   final mcpSessionId = _mcpHeaderValue(binding, request, _mcpSessionIdHeader);
@@ -1871,6 +1873,42 @@ Future<void> _handleMcpHttpRequestForBinding(
         message: 'Invalid MCP-Session-Id header',
         protocolVersion: responseMcpProtocolVersion,
         extraHeaders: corsHeaders,
+      ),
+    );
+    return;
+  }
+
+  if (routeAllowedMethods != null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.methodNotAllowed,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'HTTP method is not allowed for this MCP route',
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: <String, String>{
+          ...corsHeaders,
+          HttpHeaders.allowHeader: routeAllowedMethods.join(', '),
+        },
+      ),
+    );
+    return;
+  }
+
+  if (routeAllowedProtocols != null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.upgradeRequired,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'HTTP protocol is not allowed for this MCP route',
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: <String, String>{
+          ...corsHeaders,
+          HttpHeaders.upgradeHeader: routeAllowedProtocols.join(', '),
+        },
       ),
     );
     return;

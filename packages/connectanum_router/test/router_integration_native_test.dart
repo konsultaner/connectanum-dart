@@ -3259,7 +3259,7 @@ void main() {
             enableMcp: true,
             mcpRouteMatch: const HttpRouteMatch(
               path: '/mcp',
-              methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+              methods: ['GET', 'DELETE', 'OPTIONS'],
             ),
           ),
         );
@@ -3269,7 +3269,8 @@ void main() {
         final client = HttpClient();
         addTearDown(() => client.close(force: true));
 
-        final rejected = await _putJson(
+        const callerSessionId = 'caller-route-method-session';
+        final rejected = await _postJson(
           client,
           listener.port,
           '/mcp',
@@ -3279,11 +3280,16 @@ void main() {
             'method': 'initialize',
             'params': {'protocolVersion': '2025-11-25'},
           },
-          headers: {HttpHeaders.acceptHeader: 'application/json'},
+          headers: const {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2025-11-25',
+            'MCP-Session-Id': callerSessionId,
+            'Mcp-Method': 'initialize',
+          },
         );
 
         expect(rejected.statusCode, equals(HttpStatus.methodNotAllowed));
-        expect(rejected.headers['allow'], contains('POST'));
+        expect(rejected.headers['allow'], contains('GET'));
         expect(rejected.headers['mcp-protocol-version'], equals('2025-11-25'));
         expect(rejected.json?['jsonrpc'], equals('2.0'));
         expect(rejected.json?['id'], isNull);
@@ -3327,8 +3333,10 @@ void main() {
             'params': {'protocolVersion': '2025-11-25'},
           },
           headers: {
-            HttpHeaders.acceptHeader: 'application/json',
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
             'MCP-Protocol-Version': '2025-11-25',
+            'MCP-Session-Id': 'caller-route-protocol-session',
+            'Mcp-Method': 'initialize',
           },
         );
 
@@ -3341,6 +3349,156 @@ void main() {
         expect(error['code'], equals(McpErrorCodes.invalidRequest));
         expect(error['message'], contains('HTTP protocol is not allowed'));
         expect(rejected.headers, isNot(contains('mcp-session-id')));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'authenticates protected MCP route-level method and protocol rejections',
+      () async {
+        Future<void> expectRouteRejection({
+          required int connectionId,
+          required String label,
+          required HttpRouteMatch routeMatch,
+          required int statusCode,
+          required String responseHeader,
+          required String responseHeaderValue,
+        }) async {
+          final harness = await _RouterHarness.start(
+            connectionId: connectionId,
+            nativeLib: nativeLib,
+            settings: _buildMcpSmokeSettings(secureMcpRouteMatch: routeMatch),
+          );
+          addTearDown(harness.dispose);
+
+          final listener = harness.binding.listeners.single;
+          final client = HttpClient();
+          addTearDown(() => client.close(force: true));
+          final grant = await _issueTicketHttpGrant(client, listener.port);
+
+          final metadata = await _getHttp(
+            client,
+            listener.port,
+            '/mcp/secure',
+            headers: {HttpHeaders.acceptHeader: ContentType.json.mimeType},
+          );
+          expect(metadata.statusCode, equals(HttpStatus.ok));
+          expect(
+            metadata.json,
+            containsPair('resource', 'https://mcp.example.test/mcp/secure'),
+          );
+          expect(metadata.headers, isNot(contains('mcp-session-id')));
+
+          final invalidOrigin = await _postJson(
+            client,
+            listener.port,
+            '/mcp/secure',
+            <String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 'route-$label-invalid-origin',
+              'method': 'tools/list',
+              'params': <String, Object?>{},
+            },
+            headers: const <String, String>{
+              'origin': 'https://attacker.example',
+              HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+              'MCP-Protocol-Version': '2025-11-25',
+              'MCP-Session-Id': 'caller-invalid-origin-session',
+              'Mcp-Method': 'tools/list',
+            },
+          );
+          expect(invalidOrigin.statusCode, equals(HttpStatus.forbidden));
+          expect(invalidOrigin.headers, isNot(contains('www-authenticate')));
+          expect(invalidOrigin.headers, isNot(contains('mcp-session-id')));
+
+          Future<
+            ({
+              int statusCode,
+              Map<String, Object?>? json,
+              String body,
+              Map<String, String> headers,
+            })
+          >
+          reject(String? authorization) {
+            return _postJson(
+              client,
+              listener.port,
+              '/mcp/secure',
+              <String, Object?>{
+                'jsonrpc': '2.0',
+                'id': 'route-$label',
+                'method': 'tools/list',
+                'params': <String, Object?>{},
+              },
+              headers: <String, String>{
+                HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+                'MCP-Protocol-Version': '2025-11-25',
+                'MCP-Session-Id': 'caller-route-$label-session',
+                'Mcp-Method': 'tools/list',
+                HttpHeaders.authorizationHeader: ?authorization,
+              },
+            );
+          }
+
+          for (final authorization in <String?>[
+            null,
+            'Bearer unknown-access-token',
+          ]) {
+            final rejected = await reject(authorization);
+            expect(
+              rejected.statusCode,
+              equals(HttpStatus.unauthorized),
+              reason: '$label route rejection must authenticate first',
+            );
+            expect(
+              rejected.headers['www-authenticate'],
+              allOf(
+                contains('scope="mcp:read mcp:write"'),
+                contains(
+                  'resource_metadata="https://mcp.example.test/mcp/secure"',
+                ),
+              ),
+            );
+            expect(rejected.headers, isNot(contains('mcp-session-id')));
+          }
+
+          final authenticated = await reject('Bearer ${grant.accessToken}');
+          expect(authenticated.statusCode, equals(statusCode));
+          expect(
+            authenticated.headers[responseHeader],
+            contains(responseHeaderValue),
+          );
+          expect(
+            authenticated.json?['error'],
+            containsPair('code', McpErrorCodes.invalidRequest),
+          );
+          expect(authenticated.headers, isNot(contains('mcp-session-id')));
+          client.close(force: true);
+          await harness.dispose();
+        }
+
+        await expectRouteRejection(
+          connectionId: 91251,
+          label: 'method',
+          routeMatch: const HttpRouteMatch(
+            path: '/mcp/secure',
+            methods: ['DELETE'],
+          ),
+          statusCode: HttpStatus.methodNotAllowed,
+          responseHeader: HttpHeaders.allowHeader,
+          responseHeaderValue: 'DELETE',
+        );
+        await expectRouteRejection(
+          connectionId: 91252,
+          label: 'protocol',
+          routeMatch: const HttpRouteMatch(
+            path: '/mcp/secure',
+            protocols: ['h2'],
+          ),
+          statusCode: HttpStatus.upgradeRequired,
+          responseHeader: HttpHeaders.upgradeHeader,
+          responseHeaderValue: 'http2',
+        );
       },
       skip: skipReason,
     );
@@ -15733,6 +15891,7 @@ final class _ConcurrentCatalogAuthorizationProvider
 
 RouterSettings _buildMcpSmokeSettings({
   bool enableHttp3 = false,
+  HttpRouteMatch? secureMcpRouteMatch,
   int? sessionIdleTimeoutMs,
   int? maxSessionCount,
   int? maxRequestScopedListenerCount,
@@ -15988,7 +16147,9 @@ RouterSettings _buildMcpSmokeSettings({
             ),
           ),
           HttpRouteSettings(
-            match: HttpRouteMatch(path: '/mcp/secure'),
+            match:
+                secureMcpRouteMatch ??
+                const HttpRouteMatch(path: '/mcp/secure'),
             action: HttpRouteAction(
               type: HttpRouteActionType.mcp,
               realm: 'realm1',
@@ -16495,30 +16656,6 @@ Map<String, String> _parseHttpTestHeaderBlock(Uint8List bytes) {
     );
   }
   return headers;
-}
-
-Future<
-  ({
-    int statusCode,
-    Map<String, Object?>? json,
-    String body,
-    Map<String, String> headers,
-  })
->
-_putJson(
-  HttpClient client,
-  int port,
-  String path,
-  Map<String, Object?> payload, {
-  Map<String, String> headers = const <String, String>{},
-}) async {
-  final request = await client.put('127.0.0.1', port, path);
-  request.headers.contentType = ContentType.json;
-  headers.forEach(request.headers.set);
-  final bodyBytes = utf8.encode(jsonEncode(payload));
-  request.contentLength = bodyBytes.length;
-  request.add(bodyBytes);
-  return _readJsonHttpResponse(await request.close());
 }
 
 Future<

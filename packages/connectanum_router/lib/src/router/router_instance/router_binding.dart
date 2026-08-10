@@ -1827,16 +1827,6 @@ class RouterBinding {
     final mcpRoute = responseRoute?.action.type == HttpRouteActionType.mcp
         ? responseRoute
         : null;
-    final requestMcpProtocolVersion = mcpRoute == null
-        ? null
-        : _mcpHeaderValue(this, request, _mcpProtocolVersionHeader);
-    final responseMcpProtocolVersion =
-        requestMcpProtocolVersion != null &&
-            _mcpSupportedHttpProtocolVersions.contains(
-              requestMcpProtocolVersion,
-            )
-        ? requestMcpProtocolVersion
-        : mcp.mcpLatestSessionProtocolVersion;
     final mcpResponseSessionId = mcpRoute == null
         ? null
         : _mcpResponseSessionIdForRequest(
@@ -1847,75 +1837,73 @@ class RouterBinding {
             sessionId: _mcpHeaderValue(this, request, _mcpSessionIdHeader),
           );
     if (routeMatch.isMethodNotAllowed) {
+      if (mcpRoute != null) {
+        try {
+          await _handleMcpHttpRequestForBinding(
+            this,
+            request: request,
+            handshake: retainedHandshake,
+            listenerSettings: listenerSettings,
+            route: mcpRoute,
+            sessionProfile: sessionProfile,
+            routeAllowedMethods: routeMatch.allowedMethods,
+          );
+        } finally {
+          retainedHandshake?.release();
+        }
+        return;
+      }
       final extraHeaders = <String, String>{
         HttpHeaders.allowHeader: routeMatch.allowedMethods.join(', '),
       };
       await _sendImmediateHttpResponse(
         request: request,
         handshake: retainedHandshake,
-        response: mcpRoute == null
-            ? NativeHttpResponse(
-                status: HttpStatus.methodNotAllowed,
-                headers: extraHeaders,
-                body: NativeHttpResponseJson(const <String, Object?>{
-                  'status': 'error',
-                  'reason': 'method_not_allowed',
-                  'message': 'HTTP method is not allowed for this route',
-                }),
-              )
-            : _mcpJsonRpcHttpError(
-                status: HttpStatus.methodNotAllowed,
-                code: mcp.McpErrorCodes.invalidRequest,
-                message: 'HTTP method is not allowed for this MCP route',
-                sessionId: mcpResponseSessionId,
-                protocolVersion: responseMcpProtocolVersion,
-                extraHeaders: <String, String>{
-                  ...extraHeaders,
-                  ..._mcpCorsResponseHeaders(
-                    this,
-                    request,
-                    mcpRoute,
-                    preflight: _isCorsPreflight(request),
-                  ),
-                },
-              ),
+        response: NativeHttpResponse(
+          status: HttpStatus.methodNotAllowed,
+          headers: extraHeaders,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'method_not_allowed',
+            'message': 'HTTP method is not allowed for this route',
+          }),
+        ),
       );
       retainedHandshake?.release();
       return;
     }
     if (routeMatch.isProtocolNotAllowed) {
+      if (mcpRoute != null) {
+        try {
+          await _handleMcpHttpRequestForBinding(
+            this,
+            request: request,
+            handshake: retainedHandshake,
+            listenerSettings: listenerSettings,
+            route: mcpRoute,
+            sessionProfile: sessionProfile,
+            routeAllowedProtocols: routeMatch.allowedProtocols,
+          );
+        } finally {
+          retainedHandshake?.release();
+        }
+        return;
+      }
       final extraHeaders = <String, String>{
         HttpHeaders.upgradeHeader: routeMatch.allowedProtocols.join(', '),
       };
       await _sendImmediateHttpResponse(
         request: request,
         handshake: retainedHandshake,
-        response: mcpRoute == null
-            ? NativeHttpResponse(
-                status: HttpStatus.upgradeRequired,
-                headers: extraHeaders,
-                body: NativeHttpResponseJson(const <String, Object?>{
-                  'status': 'error',
-                  'reason': 'protocol_not_allowed',
-                  'message': 'HTTP protocol is not allowed for this route',
-                }),
-              )
-            : _mcpJsonRpcHttpError(
-                status: HttpStatus.upgradeRequired,
-                code: mcp.McpErrorCodes.invalidRequest,
-                message: 'HTTP protocol is not allowed for this MCP route',
-                sessionId: mcpResponseSessionId,
-                protocolVersion: responseMcpProtocolVersion,
-                extraHeaders: <String, String>{
-                  ...extraHeaders,
-                  ..._mcpCorsResponseHeaders(
-                    this,
-                    request,
-                    mcpRoute,
-                    preflight: _isCorsPreflight(request),
-                  ),
-                },
-              ),
+        response: NativeHttpResponse(
+          status: HttpStatus.upgradeRequired,
+          headers: extraHeaders,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'protocol_not_allowed',
+            'message': 'HTTP protocol is not allowed for this route',
+          }),
+        ),
       );
       retainedHandshake?.release();
       return;
