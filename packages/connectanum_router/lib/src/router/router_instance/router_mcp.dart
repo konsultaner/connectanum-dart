@@ -1658,6 +1658,13 @@ Future<void> _handleMcpHttpRequestForBinding(
       httpMethod == 'POST' &&
       !statelessHttpRequest &&
       _mcpAcceptRequestsStreamableHttpSession(binding, request);
+  final postAcceptAllowsJsonResponse =
+      httpMethod == 'POST' && _mcpAcceptAllowsJsonResponse(binding, request);
+  final claimedCompatibilitySessionPost =
+      httpMethod == 'POST' &&
+      !statelessHttpRequest &&
+      mcpSessionId != null &&
+      (streamableHttpRequest || !postAcceptAllowsJsonResponse);
   final responseMcpSessionId = statelessHttpRequest
       ? null
       : _mcpResponseSessionIdForRequest(
@@ -1819,7 +1826,9 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  if (httpMethod == 'POST' && !_mcpAcceptAllowsJsonResponse(binding, request)) {
+  if (httpMethod == 'POST' &&
+      !claimedCompatibilitySessionPost &&
+      !postAcceptAllowsJsonResponse) {
     await binding._sendImmediateHttpResponse(
       request: request,
       handshake: handshake,
@@ -1852,8 +1861,7 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  final deferPostContentTypeValidation =
-      httpMethod == 'POST' && streamableHttpRequest && mcpSessionId != null;
+  final deferPostContentTypeValidation = claimedCompatibilitySessionPost;
   if (httpMethod == 'POST' &&
       !deferPostContentTypeValidation &&
       !_mcpContentTypeAllowsJsonBody(binding, request)) {
@@ -1982,17 +1990,16 @@ Future<void> _handleMcpHttpRequestForBinding(
 
   Object? predecodedPostMessage;
   var hasPredecodedPostMessage = false;
-  if (httpMethod == 'POST' &&
-      streamableHttpRequest &&
-      mcpSessionId != null &&
-      binding._mcpEndpointForRoute(
-            request: request,
-            route: route,
-            session: session,
-            mcpSessionId: mcpSessionId,
-            create: false,
-          ) ==
-          null) {
+  final claimedPostEndpoint = claimedCompatibilitySessionPost
+      ? binding._mcpEndpointForRoute(
+          request: request,
+          route: route,
+          session: session,
+          mcpSessionId: mcpSessionId,
+          create: false,
+        )
+      : null;
+  if (claimedCompatibilitySessionPost && claimedPostEndpoint == null) {
     if (request.nativeBody.length <= _mcpMaxRequestBytesForRoute(route)) {
       try {
         predecodedPostMessage = jsonDecode(utf8.decode(request.body));
@@ -2016,6 +2023,22 @@ Future<void> _handleMcpHttpRequestForBinding(
       );
       return;
     }
+  }
+
+  if (claimedCompatibilitySessionPost && !postAcceptAllowsJsonResponse) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.notAcceptable,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP POST responses require an Accept header allowing JSON',
+        sessionId: claimedPostEndpoint == null ? null : mcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      ),
+    );
+    return;
   }
 
   if (deferPostContentTypeValidation &&

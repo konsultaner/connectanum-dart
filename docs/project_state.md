@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-10
-Current branch: `codex/mcp-router-unknown-get-accept`
+Current branch: `codex/mcp-router-unknown-post-accept`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24375,6 +24375,24 @@ at the older `47bbf9c` commit.
 ## Verification Status
 
 - 2026-08-10: A fail-first native-router regression reproduced an unknown or
+  terminated compatibility Streamable HTTP session returning HTTP 406 when a
+  POST accepted only SSE and therefore could not be a valid direct JSON call.
+  Such nonstateless POSTs now authenticate and resolve their claimed session
+  before response-content and deferred content-type validation: unknown
+  sessions receive the required sessionless HTTP 404 with a safe readable
+  request ID, live sessions retain HTTP 406 with their active session header,
+  and protected routes still challenge before lookup or negotiation errors.
+  Valid JSON-only direct calls remain lifecycle-free and continue to ignore a
+  stale session header. Focused native-router ingress/session and
+  protected-route tests, router analysis, formatting, `git diff --check`,
+  pre-change and post-change `bin/test-fast`, and full `bin/verify` pass. Full
+  verification covered the complete Rust and Dart workspace, 360 core tests,
+  101 MCP tests, the 280-case client MCP matrix, all 96 benchmark tests
+  including 36 live WAMP workloads, all 416 router tests, remote-auth
+  isolation, native follow-ups, every generated and globally activated
+  consumer/CLI smoke, and Chrome/Dart2Wasm. Hosted exact-head evidence is
+  pending publication of the implementation commit.
+- 2026-08-10: A fail-first native-router regression reproduced an unknown or
   terminated Streamable HTTP session returning HTTP 415 when its operation
   used a non-JSON content type. Claimed compatibility sessions now authenticate
   and resolve before content-type validation, making the required sessionless
@@ -24870,6 +24888,23 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
+- The active implementation plan is:
+  `docs/exec-plans/2026-08-10-mcp-router-unknown-post-accept.md`.
+  Router-hosted compatibility POST previously validated JSON response
+  negotiation before authenticating and resolving a claimed session, so an
+  unknown or terminated session whose request accepted only SSE returned HTTP
+  406 instead of the maintained transport contract's sessionless HTTP 404.
+  The fail-first native-router regression reproduced that precedence.
+  Nonstateless POSTs carrying a session ID but unable to negotiate JSON now
+  authenticate and resolve the claimed endpoint first; unknown sessions return
+  404 without a session header, live sessions retain 406 with their active
+  session header, and deferred content-type validation cannot mask the unknown
+  session. Valid JSON-only direct requests remain lifecycle-free, and protected
+  routes still challenge before session lookup or negotiation errors. Focused
+  tests, analysis, formatting, `git diff --check`, pre-change and post-change
+  `bin/test-fast`, and full `bin/verify` pass across the complete Rust, Dart,
+  router, native, benchmark/live-WAMP, consumer/CLI, remote-auth, and
+  Chrome/Dart2Wasm matrix. Hosted exact-head evidence remains pending.
 - Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-unknown-get-accept.md`.
   Router-hosted compatibility GET previously validated SSE response negotiation
@@ -24895,6 +24930,17 @@ at the older `47bbf9c` commit.
   MCP matrix, all 96 benchmark tests and 36 live WAMP workloads, all 416 router
   tests, remote-auth isolation, 13 native follow-ups, every generated and
   globally activated consumer/CLI smoke, and Chrome/Dart2Wasm coverage.
+  Implementation commit `d1014bd6` is on both maintained `master` branches.
+  Exact-head CI `31343916726`, Dart Package Publish Dry Run `31343916710`, WAMP
+  Profile Benchmarks `31343916713`, and Router Image dry run `31343923002` all
+  pass. Coverage artifact `9046935282`, WAMP artifact `9046775435`, Router
+  Image preview artifact `9046667831`, and Docker build records `9046734004`
+  and `9046733591` were uploaded. The comprehensive strict deployment-chain
+  audit exits zero with clean exact-head CI jobs and logs plus every required
+  package, still-relevant native release, fresh-image MCP smoke,
+  multi-architecture image build, WAMP, workflow visibility, branch
+  protection, and public GHCR gates ready. Only the deliberately unapproved
+  next RC tag remains outside this milestone.
 - Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-09-mcp-router-unknown-session-content-type.md`.
   Router-hosted compatibility Streamable POST already makes unknown sessions

@@ -2497,6 +2497,59 @@ void main() {
       expect(unknownSession.statusCode, equals(HttpStatus.notFound));
       expect(unknownSession.headers, isNot(contains('mcp-session-id')));
 
+      final unknownSessionWithInvalidJsonAccept = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'unknown-session-invalid-json-accept',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: {
+          ...streamableHeaders('tools/list'),
+          'MCP-Session-Id': 'unknown-session',
+          HttpHeaders.acceptHeader: 'text/event-stream',
+        },
+      );
+      expect(
+        unknownSessionWithInvalidJsonAccept.statusCode,
+        equals(HttpStatus.notFound),
+      );
+      expect(
+        unknownSessionWithInvalidJsonAccept.json?['id'],
+        equals('unknown-session-invalid-json-accept'),
+      );
+      expect(
+        unknownSessionWithInvalidJsonAccept.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
+      final liveSessionWithInvalidJsonAccept = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'live-session-invalid-json-accept',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: {
+          ...streamableHeaders('tools/list'),
+          HttpHeaders.acceptHeader: 'text/event-stream',
+        },
+      );
+      expect(
+        liveSessionWithInvalidJsonAccept.statusCode,
+        equals(HttpStatus.notAcceptable),
+      );
+      expect(
+        liveSessionWithInvalidJsonAccept.headers['mcp-session-id'],
+        equals(mcpSessionId),
+      );
+
       final unknownSessionWithInvalidContentType = await _postBody(
         client,
         listener.port,
@@ -12674,6 +12727,32 @@ void main() {
       expect(
         unauthorizedDirectResources.statusCode,
         equals(HttpStatus.unauthorized),
+      );
+
+      final unauthorizedInvalidJsonAcceptSessionPost = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure',
+        {
+          'jsonrpc': '2.0',
+          'id': 'secure-invalid-json-accept-unauthorized',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: {
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          'MCP-Session-Id': 'unknown-session',
+          'MCP-Protocol-Version': '2025-11-25',
+          'Mcp-Method': 'tools/list',
+        },
+      );
+      expect(
+        unauthorizedInvalidJsonAcceptSessionPost.statusCode,
+        equals(HttpStatus.unauthorized),
+      );
+      expect(
+        unauthorizedInvalidJsonAcceptSessionPost.headers,
+        isNot(contains('mcp-session-id')),
       );
 
       final unauthorizedJsonPost = await _postJson(
