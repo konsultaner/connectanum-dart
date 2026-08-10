@@ -1732,117 +1732,6 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
-  if (statelessHttpRequest && httpMethod != 'POST') {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: _mcpJsonRpcHttpError(
-        status: HttpStatus.methodNotAllowed,
-        code: mcp.McpErrorCodes.invalidRequest,
-        message: 'MCP 2026 HTTP endpoints support POST and OPTIONS',
-        protocolVersion: responseMcpProtocolVersion,
-        extraHeaders: <String, String>{
-          ...corsHeaders,
-          HttpHeaders.allowHeader: 'POST, OPTIONS',
-        },
-      ),
-    );
-    return;
-  }
-
-  final deferGetAcceptValidation = httpMethod == 'GET' && mcpSessionId != null;
-  if (httpMethod == 'GET') {
-    if (!deferGetAcceptValidation &&
-        !_mcpAcceptAllowsSseResponse(binding, request)) {
-      await binding._sendImmediateHttpResponse(
-        request: request,
-        handshake: handshake,
-        response: _mcpJsonRpcHttpError(
-          status: HttpStatus.notAcceptable,
-          code: mcp.McpErrorCodes.invalidRequest,
-          message: 'MCP GET responses require an Accept header allowing SSE',
-          sessionId: responseMcpSessionId,
-          protocolVersion: responseMcpProtocolVersion,
-          extraHeaders: corsHeaders,
-        ),
-      );
-      return;
-    }
-  }
-
-  if (httpMethod != 'GET' && httpMethod != 'POST' && httpMethod != 'DELETE') {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: _mcpJsonRpcHttpError(
-        status: HttpStatus.methodNotAllowed,
-        code: mcp.McpErrorCodes.invalidRequest,
-        message: 'MCP HTTP endpoint supports GET, POST, DELETE and OPTIONS',
-        sessionId: responseMcpSessionId,
-        protocolVersion: responseMcpProtocolVersion,
-        extraHeaders: <String, String>{
-          ...corsHeaders,
-          HttpHeaders.allowHeader: _mcpCorsAllowMethods,
-        },
-      ),
-    );
-    return;
-  }
-
-  if (httpMethod == 'POST' &&
-      !claimedCompatibilitySessionPost &&
-      !postAcceptAllowsJsonResponse) {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: _mcpJsonRpcHttpError(
-        status: HttpStatus.notAcceptable,
-        code: mcp.McpErrorCodes.invalidRequest,
-        message: 'MCP POST responses require an Accept header allowing JSON',
-        sessionId: responseMcpSessionId,
-        protocolVersion: responseMcpProtocolVersion,
-        extraHeaders: corsHeaders,
-      ),
-    );
-    return;
-  }
-
-  if (statelessHttpRequest &&
-      !_mcpAcceptRequestsStreamableHttpSession(binding, request)) {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: _mcpJsonRpcHttpError(
-        status: HttpStatus.notAcceptable,
-        code: mcp.McpErrorCodes.invalidRequest,
-        message:
-            'MCP 2026 POST requests require an Accept header allowing JSON and SSE',
-        protocolVersion: responseMcpProtocolVersion,
-        extraHeaders: corsHeaders,
-      ),
-    );
-    return;
-  }
-
-  final deferPostContentTypeValidation = claimedCompatibilitySessionPost;
-  if (httpMethod == 'POST' &&
-      !deferPostContentTypeValidation &&
-      !_mcpContentTypeAllowsJsonBody(binding, request)) {
-    await binding._sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: _mcpJsonRpcHttpError(
-        status: HttpStatus.unsupportedMediaType,
-        code: mcp.McpErrorCodes.invalidRequest,
-        message: 'MCP POST requests must use a JSON content type',
-        sessionId: responseMcpSessionId,
-        protocolVersion: responseMcpProtocolVersion,
-        extraHeaders: corsHeaders,
-      ),
-    );
-    return;
-  }
-
   final profileRealm = sessionProfile?.realm?.trim();
   final resolvedRealmUri = profileRealm != null && profileRealm.isNotEmpty
       ? profileRealm
@@ -1980,6 +1869,117 @@ Future<void> _handleMcpHttpRequestForBinding(
         status: HttpStatus.badRequest,
         code: mcp.McpErrorCodes.invalidRequest,
         message: 'Invalid MCP-Session-Id header',
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      ),
+    );
+    return;
+  }
+
+  if (statelessHttpRequest && httpMethod != 'POST') {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.methodNotAllowed,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP 2026 HTTP endpoints support POST and OPTIONS',
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: <String, String>{
+          ...corsHeaders,
+          HttpHeaders.allowHeader: 'POST, OPTIONS',
+        },
+      ),
+    );
+    return;
+  }
+
+  final deferGetAcceptValidation = httpMethod == 'GET' && mcpSessionId != null;
+  if (httpMethod == 'GET') {
+    if (!deferGetAcceptValidation &&
+        !_mcpAcceptAllowsSseResponse(binding, request)) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: _mcpJsonRpcHttpError(
+          status: HttpStatus.notAcceptable,
+          code: mcp.McpErrorCodes.invalidRequest,
+          message: 'MCP GET responses require an Accept header allowing SSE',
+          sessionId: responseMcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        ),
+      );
+      return;
+    }
+  }
+
+  if (httpMethod != 'GET' && httpMethod != 'POST' && httpMethod != 'DELETE') {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.methodNotAllowed,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP HTTP endpoint supports GET, POST, DELETE and OPTIONS',
+        sessionId: responseMcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: <String, String>{
+          ...corsHeaders,
+          HttpHeaders.allowHeader: _mcpCorsAllowMethods,
+        },
+      ),
+    );
+    return;
+  }
+
+  if (httpMethod == 'POST' &&
+      !claimedCompatibilitySessionPost &&
+      !postAcceptAllowsJsonResponse) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.notAcceptable,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP POST responses require an Accept header allowing JSON',
+        sessionId: responseMcpSessionId,
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      ),
+    );
+    return;
+  }
+
+  if (statelessHttpRequest &&
+      !_mcpAcceptRequestsStreamableHttpSession(binding, request)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.notAcceptable,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message:
+            'MCP 2026 POST requests require an Accept header allowing JSON and SSE',
+        protocolVersion: responseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      ),
+    );
+    return;
+  }
+
+  final deferPostContentTypeValidation = claimedCompatibilitySessionPost;
+  if (httpMethod == 'POST' &&
+      !deferPostContentTypeValidation &&
+      !_mcpContentTypeAllowsJsonBody(binding, request)) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: _mcpJsonRpcHttpError(
+        status: HttpStatus.unsupportedMediaType,
+        code: mcp.McpErrorCodes.invalidRequest,
+        message: 'MCP POST requests must use a JSON content type',
+        sessionId: responseMcpSessionId,
         protocolVersion: responseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),

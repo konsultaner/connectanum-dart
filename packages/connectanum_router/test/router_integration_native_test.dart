@@ -12964,6 +12964,149 @@ void main() {
         }
       }
 
+      Future<void> expectNegotiationRejected({
+        required String path,
+        String? authorization,
+        required bool expectAuthChallenge,
+      }) async {
+        final probes =
+            <
+              ({
+                String accept,
+                String contentType,
+                String label,
+                String message,
+                String method,
+                String protocolVersion,
+                int statusCode,
+              })
+            >[
+              (
+                label: 'compatibility-method',
+                method: 'PUT',
+                accept: 'application/json, text/event-stream',
+                contentType: ContentType.json.mimeType,
+                protocolVersion: '2025-11-25',
+                statusCode: HttpStatus.methodNotAllowed,
+                message:
+                    'MCP HTTP endpoint supports GET, POST, DELETE and OPTIONS',
+              ),
+              (
+                label: 'stateless-method',
+                method: 'GET',
+                accept: 'text/event-stream',
+                contentType: ContentType.json.mimeType,
+                protocolVersion: '2026-07-28',
+                statusCode: HttpStatus.methodNotAllowed,
+                message: 'MCP 2026 HTTP endpoints support POST and OPTIONS',
+              ),
+              (
+                label: 'compatibility-get-accept',
+                method: 'GET',
+                accept: 'text/plain',
+                contentType: ContentType.json.mimeType,
+                protocolVersion: '2025-11-25',
+                statusCode: HttpStatus.notAcceptable,
+                message:
+                    'MCP GET responses require an Accept header allowing SSE',
+              ),
+              (
+                label: 'compatibility-post-accept',
+                method: 'POST',
+                accept: 'text/event-stream',
+                contentType: ContentType.json.mimeType,
+                protocolVersion: '2025-11-25',
+                statusCode: HttpStatus.notAcceptable,
+                message:
+                    'MCP POST responses require an Accept header allowing JSON',
+              ),
+              (
+                label: 'stateless-post-accept',
+                method: 'POST',
+                accept: ContentType.json.mimeType,
+                contentType: ContentType.json.mimeType,
+                protocolVersion: '2026-07-28',
+                statusCode: HttpStatus.notAcceptable,
+                message:
+                    'MCP 2026 POST requests require an Accept header allowing JSON and SSE',
+              ),
+              (
+                label: 'compatibility-post-content-type',
+                method: 'POST',
+                accept: 'application/json, text/event-stream',
+                contentType: ContentType.text.mimeType,
+                protocolVersion: '2025-11-25',
+                statusCode: HttpStatus.unsupportedMediaType,
+                message: 'MCP POST requests must use a JSON content type',
+              ),
+            ];
+
+        for (final probe in probes) {
+          final postBody = probe.method == 'POST'
+              ? utf8.encode(
+                  jsonEncode(<String, Object?>{
+                    'jsonrpc': '2.0',
+                    'id': 'negotiation-${probe.label}',
+                    'method': 'tools/list',
+                    'params': <String, Object?>{},
+                  }),
+                )
+              : null;
+          final request = await client.openUrl(
+            probe.method,
+            Uri(
+              scheme: 'http',
+              host: '127.0.0.1',
+              port: listener.port,
+              path: path,
+            ),
+          );
+          request.headers.set(HttpHeaders.acceptHeader, probe.accept);
+          request.headers.set(HttpHeaders.contentTypeHeader, probe.contentType);
+          request.headers.set('MCP-Protocol-Version', probe.protocolVersion);
+          request.headers.set('Mcp-Method', 'tools/list');
+          if (authorization != null) {
+            request.headers.set(HttpHeaders.authorizationHeader, authorization);
+          }
+          if (postBody != null) {
+            request.contentLength = postBody.length;
+            request.add(postBody);
+          }
+
+          final response = await _readJsonHttpResponse(await request.close());
+          expect(
+            response.statusCode,
+            equals(
+              expectAuthChallenge ? HttpStatus.unauthorized : probe.statusCode,
+            ),
+            reason: '${probe.label} negotiation response on $path',
+          );
+          if (expectAuthChallenge) {
+            expect(
+              response.headers['www-authenticate'],
+              allOf(
+                contains('scope="mcp:read mcp:write"'),
+                contains(
+                  'resource_metadata="https://mcp.example.test/mcp/secure"',
+                ),
+              ),
+              reason: '${probe.label} negotiation auth challenge',
+            );
+          } else {
+            expect(
+              response.body,
+              contains(probe.message),
+              reason: '${probe.label} negotiation rejection body on $path',
+            );
+          }
+          expect(
+            response.headers,
+            isNot(contains('mcp-session-id')),
+            reason: '${probe.label} negotiation response headers on $path',
+          );
+        }
+      }
+
       await expectMalformedSessionRejected(
         idPrefix: 'secure-malformed-session-missing-bearer',
         statusCode: HttpStatus.unauthorized,
@@ -12985,6 +13128,19 @@ void main() {
         authorization: 'Bearer unknown-access-token',
         statusCode: HttpStatus.unauthorized,
         expectAuthChallenge: true,
+      );
+      await expectNegotiationRejected(
+        path: '/mcp/secure',
+        expectAuthChallenge: true,
+      );
+      await expectNegotiationRejected(
+        path: '/mcp/secure',
+        authorization: 'Bearer unknown-access-token',
+        expectAuthChallenge: true,
+      );
+      await expectNegotiationRejected(
+        path: '/mcp/public',
+        expectAuthChallenge: false,
       );
 
       final unauthorizedJsonPost = await _postJson(
@@ -13043,6 +13199,11 @@ void main() {
         idPrefix: 'secure-unsupported-version-authenticated',
         authorization: authHeaders[HttpHeaders.authorizationHeader],
         statusCode: HttpStatus.badRequest,
+        expectAuthChallenge: false,
+      );
+      await expectNegotiationRejected(
+        path: '/mcp/secure',
+        authorization: authHeaders[HttpHeaders.authorizationHeader],
         expectAuthChallenge: false,
       );
       final directSecureMcpClient = McpStreamableHttpClient.withAuthGrant(

@@ -1179,6 +1179,17 @@ if unsupported_protocol_version != {
         f"{unsupported_protocol_version!r}."
     )
 
+request_negotiation = streamable.get("requestNegotiation")
+if request_negotiation != {
+    "rejected": True,
+    "sessionUnchanged": True,
+    "statuses": [405, 406, 415],
+}:
+    raise SystemExit(
+        "Public router-hosted MCP client "
+        f"{label} request negotiation was {request_negotiation!r}."
+    )
+
 if active_direct.get("sessionUnchanged") is not True:
     raise SystemExit(
         "Public router-hosted MCP client "
@@ -1449,6 +1460,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"requestNegotiation":{"rejected":true,"sessionUnchanged":true,"statuses":[405,406,415]}' \
     '"unsupportedProtocolVersion":{"rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"originRejection":{"origin":"https://rejected.example","rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
@@ -1547,6 +1559,7 @@ EOF
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"requestNegotiation":{"rejected":true,"sessionUnchanged":true,"statuses":[405,406,415]}' \
     '"unsupportedProtocolVersion":{"rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"originRejection":{"origin":"https://rejected.example","rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
@@ -1575,6 +1588,7 @@ EOF
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"requestNegotiation":{"rejected":true,"sessionUnchanged":true,"statuses":[405,406,415]}' \
     '"unsupportedProtocolVersion":{"rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
@@ -1687,6 +1701,7 @@ PY
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"requestNegotiation":{"rejected":true,"sessionUnchanged":true,"statuses":[405,406,415]}' \
     '"unsupportedProtocolVersion":{"rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"originRejection":{"origin":"https://rejected.example","rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
@@ -1729,6 +1744,7 @@ PY
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"requestNegotiation":{"rejected":true,"sessionUnchanged":true,"statuses":[405,406,415]}' \
     '"unsupportedProtocolVersion":{"rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
@@ -1775,6 +1791,7 @@ PY
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"requestNegotiation":{"rejected":true,"sessionUnchanged":true,"statuses":[405,406,415]}' \
     '"unsupportedProtocolVersion":{"rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \
@@ -1817,6 +1834,7 @@ PY
     '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}' \
     '"emptyLastEventId":{"accepted":true,"sessionUnchanged":true}' \
     '"malformedSessionId":{"rejected":true,"sessionUnchanged":true}' \
+    '"requestNegotiation":{"rejected":true,"sessionUnchanged":true,"statuses":[405,406,415]}' \
     '"unsupportedProtocolVersion":{"rejected":true,"sessionUnchanged":true,"methods":["POST","GET","DELETE"]}' \
     '"directJsonStaleSessionId":{"ignored":true,"sessionUnchanged":true}' \
     '"notificationOnlyBatch":{"accepted":true,"sessionUnchanged":true}' \

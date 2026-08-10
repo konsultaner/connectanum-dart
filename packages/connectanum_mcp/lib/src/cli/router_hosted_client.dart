@@ -785,6 +785,161 @@ Future<void> _expectMalformedSessionIdRejected(
   );
 }
 
+Future<void> _expectNegotiationRejected(
+  McpStreamableHttpClient client,
+  String? authorizationHeader, {
+  required String sessionId,
+  required String? lastEventId,
+  String trace = 'router-hosted-client-streamable-negotiation',
+}) async {
+  final probes =
+      <
+        ({
+          String accept,
+          String contentType,
+          bool expectSessionId,
+          String label,
+          String message,
+          String method,
+          String protocolVersion,
+          int statusCode,
+        })
+      >[
+        (
+          label: 'compatibility-method',
+          method: 'PUT',
+          accept: 'application/json, text/event-stream',
+          contentType: ContentType.json.mimeType,
+          protocolVersion: '2025-11-25',
+          statusCode: HttpStatus.methodNotAllowed,
+          message: 'MCP HTTP endpoint supports GET, POST, DELETE and OPTIONS',
+          expectSessionId: false,
+        ),
+        (
+          label: 'stateless-method',
+          method: 'GET',
+          accept: 'text/event-stream',
+          contentType: ContentType.json.mimeType,
+          protocolVersion: '2026-07-28',
+          statusCode: HttpStatus.methodNotAllowed,
+          message: 'MCP 2026 HTTP endpoints support POST and OPTIONS',
+          expectSessionId: false,
+        ),
+        (
+          label: 'compatibility-get-accept',
+          method: 'GET',
+          accept: 'text/plain',
+          contentType: ContentType.json.mimeType,
+          protocolVersion: '2025-11-25',
+          statusCode: HttpStatus.notAcceptable,
+          message: 'MCP GET responses require an Accept header allowing SSE',
+          expectSessionId: true,
+        ),
+        (
+          label: 'compatibility-post-accept',
+          method: 'POST',
+          accept: 'text/event-stream',
+          contentType: ContentType.json.mimeType,
+          protocolVersion: '2025-11-25',
+          statusCode: HttpStatus.notAcceptable,
+          message: 'MCP POST responses require an Accept header allowing JSON',
+          expectSessionId: true,
+        ),
+        (
+          label: 'stateless-post-accept',
+          method: 'POST',
+          accept: ContentType.json.mimeType,
+          contentType: ContentType.json.mimeType,
+          protocolVersion: '2026-07-28',
+          statusCode: HttpStatus.notAcceptable,
+          message:
+              'MCP 2026 POST requests require an Accept header allowing JSON and SSE',
+          expectSessionId: false,
+        ),
+        (
+          label: 'compatibility-post-content-type',
+          method: 'POST',
+          accept: 'application/json, text/event-stream',
+          contentType: ContentType.text.mimeType,
+          protocolVersion: '2025-11-25',
+          statusCode: HttpStatus.unsupportedMediaType,
+          message: 'MCP POST requests must use a JSON content type',
+          expectSessionId: true,
+        ),
+      ];
+
+  final httpClient = _shortLivedHttpClient();
+  try {
+    for (final probe in probes) {
+      final postBody = probe.method == 'POST'
+          ? utf8.encode(
+              jsonEncode(<String, Object?>{
+                'jsonrpc': '2.0',
+                'id': 'negotiation-${probe.label}',
+                'method': 'tools/list',
+                'params': <String, Object?>{},
+              }),
+            )
+          : null;
+      final request = await httpClient.openUrl(probe.method, client.endpoint);
+      request.headers.set(HttpHeaders.acceptHeader, probe.accept);
+      request.headers.set(HttpHeaders.contentTypeHeader, probe.contentType);
+      request.headers.set('MCP-Protocol-Version', probe.protocolVersion);
+      request.headers.set('MCP-Session-Id', sessionId);
+      request.headers.set('Mcp-Method', 'tools/list');
+      request.headers.set('x-consumer-trace', '$trace-${probe.label}');
+      if (authorizationHeader != null) {
+        request.headers.set(
+          HttpHeaders.authorizationHeader,
+          authorizationHeader,
+        );
+      }
+      if (postBody != null) {
+        request.contentLength = postBody.length;
+        request.add(postBody);
+      }
+
+      final response = await request.close();
+      final responseBody = await utf8.decodeStream(response);
+      if (response.statusCode != probe.statusCode) {
+        throw StateError(
+          'Streamable ${probe.label} negotiation returned '
+          '${response.statusCode}, expected ${probe.statusCode}.',
+        );
+      }
+      final responseSessionId = response.headers.value('MCP-Session-Id');
+      if (probe.expectSessionId) {
+        if (responseSessionId != sessionId) {
+          throw StateError(
+            'Streamable ${probe.label} negotiation returned session id '
+            '$responseSessionId, expected the active session.',
+          );
+        }
+      } else if (responseSessionId != null) {
+        throw StateError(
+          'Streamable ${probe.label} negotiation unexpectedly returned '
+          'a session id.',
+        );
+      }
+      if (!responseBody.contains(probe.message)) {
+        throw StateError(
+          'Streamable ${probe.label} negotiation did not include '
+          'the expected rejection.',
+        );
+      }
+    }
+  } finally {
+    httpClient.close(force: true);
+  }
+
+  _expectStreamableStateUnchanged(
+    client,
+    sessionId: sessionId,
+    lastEventId: lastEventId,
+    label: 'Streamable request negotiation matrix',
+  );
+}
+
 Future<void> _expectUnsupportedProtocolVersionRejected(
   McpStreamableHttpClient client,
   String? authorizationHeader, {
@@ -4663,6 +4818,13 @@ Future<void> _runStreamableSessionExample(
     sessionId: streamableSessionId,
     lastEventId: eventIdBeforeMalformedSession,
   );
+  final eventIdBeforeNegotiation = client.lastEventId;
+  await _expectNegotiationRejected(
+    client,
+    authorizationHeader,
+    sessionId: streamableSessionId,
+    lastEventId: eventIdBeforeNegotiation,
+  );
   final eventIdBeforeUnsupportedProtocolVersion = client.lastEventId;
   await _expectUnsupportedProtocolVersionRejected(
     client,
@@ -4699,6 +4861,15 @@ Future<void> _runStreamableSessionExample(
     'invalidLastEventId': {'rejected': true, 'sessionUnchanged': true},
     'emptyLastEventId': {'accepted': true, 'sessionUnchanged': true},
     'malformedSessionId': {'rejected': true, 'sessionUnchanged': true},
+    'requestNegotiation': {
+      'rejected': true,
+      'sessionUnchanged': true,
+      'statuses': const [
+        HttpStatus.methodNotAllowed,
+        HttpStatus.notAcceptable,
+        HttpStatus.unsupportedMediaType,
+      ],
+    },
     'unsupportedProtocolVersion': {
       'rejected': true,
       'sessionUnchanged': true,

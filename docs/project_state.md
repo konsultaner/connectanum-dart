@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-10
-Current branch: `codex/mcp-router-protocol-version-auth-precedence`
+Current branch: `codex/mcp-router-negotiation-auth-precedence`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24374,6 +24374,24 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-10: Router-hosted MCP now authenticates protected actual-request
+  traffic before returning HTTP method, Accept, or content-type negotiation
+  failures. A fail-first native regression reproduced missing bearer
+  credentials receiving HTTP 405 instead of the required HTTP 401 challenge;
+  the completed matrix covers public and protected compatibility/stateless
+  405, 406, and 415 responses with missing, unknown, and valid credentials.
+  Invalid Origin, OPTIONS, and public Protected Resource Metadata discovery
+  retain their earlier ingress positions. The neutral public package executable
+  now proves valid compatibility-session negotiation errors leave the session
+  and resume cursor unchanged across all seven maintained live variants.
+  Focused formatting, analysis, shell syntax, the native regression, the live
+  package smoke, and pre-change plus post-change `bin/test-fast` pass. Full
+  `bin/verify` also passes with zero formatting changes, 114 Rust core tests,
+  52 Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete 280-case
+  client MCP matrix, all 96 benchmark tests including 36 live WAMP workloads,
+  all 416 router tests, remote-auth isolation, native follow-ups, every
+  isolated/global consumer and CLI smoke, and Chrome/Dart2Wasm. The
+  implementation checkpoint is ready to publish and audit.
 - 2026-08-10: Router-hosted MCP now authenticates bearer-protected actual
   requests before rejecting an unsupported `MCP-Protocol-Version`. A
   fail-first native POST reproduced HTTP 400 without the required Bearer
@@ -24391,7 +24409,16 @@ at the older `47bbf9c` commit.
   client MCP matrix, all 96 benchmark tests including 36 live WAMP workloads,
   all 416 router tests, remote-auth isolation, 13 native follow-ups, every
   isolated/global consumer and CLI smoke, and Chrome/Dart2Wasm. The
-  implementation checkpoint is ready to publish and audit.
+  implementation checkpoint is commit `2fe1386b` on both maintained `master`
+  branches. Exact-head CI `31385697201`, Dart Package Publish Dry Run
+  `31385697205`, WAMP Profile Benchmarks `31385697233`, and Router Image dry
+  run `31385753910` all pass. Coverage artifact `9062035837`, WAMP artifact
+  `9061809074`, Router Image preview artifact `9061635996`, and Docker build
+  records `9061769768` and `9061768971` were uploaded. A direct download
+  cleared the first transient preview-artifact read race, and the unchanged
+  comprehensive strict deployment-chain audit then exits zero with every
+  required deployment gate ready. Only the deliberately unapproved next RC tag
+  remains outside this milestone.
 - 2026-08-10: Router-hosted MCP invalid-Origin responses are now sessionless
   across compatibility Streamable HTTP POST, GET, and DELETE. A fail-first
   native regression reproduced the active session identifier in the HTTP 403
@@ -24940,6 +24967,18 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active implementation plan:
+  `docs/exec-plans/2026-08-10-mcp-router-negotiation-auth-precedence.md`.
+  Protected actual MCP traffic now resolves its route principal before method,
+  Accept, and content-type negotiation, so missing and unknown bearer
+  credentials receive the endpoint's HTTP 401 challenge instead of an earlier
+  405, 406, or 415. Public and authenticated requests retain the existing
+  negotiation errors, while an active compatibility session and resume cursor
+  survive the complete neutral package-client matrix. Invalid Origin, OPTIONS,
+  and public metadata discovery remain earlier boundaries. Pre-change and
+  post-change `bin/test-fast`, focused native and live package checks, and full
+  `bin/verify` pass; the implementation checkpoint is ready to publish and
+  audit.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-protocol-version-auth-precedence.md`.
   Router-hosted MCP now resolves the protected route principal before rejecting
   an unsupported protocol version: missing and unknown bearer credentials
@@ -24947,9 +24986,15 @@ at the older `47bbf9c` commit.
   requests retain the reserved sessionless HTTP 400 error. Native and neutral
   package-client POST/GET/DELETE matrices preserve the active compatibility
   session and resume cursor across every maintained live variant. Pre-change
-  and post-change `bin/test-fast`, focused checks, and full `bin/verify` pass;
-  the implementation checkpoint is ready to publish and audit.
-- Completed most recently, the implementation plan is:
+  and post-change `bin/test-fast`, focused checks, and full `bin/verify` pass.
+  Implementation commit `2fe1386b` is on both maintained `master` branches.
+  Exact-head CI `31385697201`, Dart Package Publish Dry Run `31385697205`, WAMP
+  Profile Benchmarks `31385697233`, and Router Image dry run `31385753910` all
+  pass with retained coverage, benchmark, preview, and Docker-build artifacts.
+  The comprehensive strict deployment-chain audit exits zero after the initial
+  transient preview-artifact download race cleared; only the unapproved next RC
+  tag remains outside this milestone.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-origin-session-isolation.md`.
   Router-hosted MCP currently validates `Origin` before authentication and
   endpoint ownership, but its 403 response reflects a syntactically valid

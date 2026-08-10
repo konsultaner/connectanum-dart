@@ -1,6 +1,6 @@
 # MCP Router Protocol-Version Auth Precedence
 
-Status: active
+Status: complete
 
 ## Goal
 
@@ -78,3 +78,15 @@ versions use the reserved MCP error.
   follow-ups, every isolated/global consumer and CLI smoke, and
   Chrome/Dart2Wasm. The implementation checkpoint is ready to publish and
   audit.
+- 2026-08-10: Implementation commit `2fe1386b` is published to both maintained
+  `master` branches. Exact-head CI `31385697201`, Dart Package Publish Dry Run
+  `31385697205`, WAMP Profile Benchmarks `31385697233`, and Router Image dry
+  run `31385753910` all pass. Retained artifacts are Dart VM coverage
+  `9062035837`, WAMP profile evidence `9061809074`, Router Image preview
+  `9061635996`, and Docker build records `9061769768` and `9061768971`. After a
+  transient first artifact-download race, a direct download and the unchanged
+  comprehensive strict deployment-chain audit both succeed. Every required
+  exact-head CI/log, package, still-relevant native release, fresh-image MCP
+  smoke, multi-architecture image build, WAMP, workflow-visibility,
+  branch-protection, and public GHCR gate is ready. Only the deliberately
+  unapproved next RC tag remains outside this milestone.
