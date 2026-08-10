@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-10
-Current branch: `codex/mcp-router-unknown-resume-cursor`
+Current branch: `codex/mcp-router-unknown-malformed-resume-cursor`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24899,6 +24899,18 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Completed most recently, the implementation plan is:
+  `docs/exec-plans/2026-08-10-mcp-router-unknown-malformed-resume-cursor.md`.
+  The router already resolves an authenticated claimed compatibility session
+  before validating `Last-Event-ID`, and the preceding checkpoint pins that
+  precedence for a syntactically valid stale cursor. This bounded follow-up
+  adds synthetic native-handshake evidence for a malformed control-character
+  cursor that ordinary HTTP clients refuse to transmit: an unknown session
+  must still receive sessionless HTTP 404 while a live session retains HTTP
+  400. The focused router runtime test, formatting, `git diff --check`,
+  pre-change and post-change `bin/test-fast`, and full `bin/verify` pass across
+  the complete Rust, Dart, router, native, benchmark/live-WAMP, consumer/CLI,
+  remote-auth, and Chrome/Dart2Wasm matrix.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-unknown-resume-cursor.md`.
   Router-hosted compatibility GET already resolves an authenticated claimed
   session before validating its `Last-Event-ID`, but native-router coverage
@@ -24908,7 +24920,18 @@ at the older `47bbf9c` commit.
   retains HTTP 400. The focused native-router test, pre-change and post-change
   `bin/test-fast`, formatting, `git diff --check`, and full `bin/verify` pass
   across the complete Rust, Dart, router, native, benchmark/live-WAMP,
-  consumer/CLI, remote-auth, and Chrome/Dart2Wasm matrix.
+  consumer/CLI, remote-auth, and Chrome/Dart2Wasm matrix. Implementation commit
+  `419ebc6d` is on both maintained `master` branches. Exact-head CI
+  `31352771485`, Dart Package Publish Dry Run `31352771483`, WAMP Profile
+  Benchmarks `31352771487`, and Router Image dry run `31353645568` all pass.
+  Coverage artifact `9049823317`, WAMP artifact `9049638813`, Router Image
+  preview artifact `9049846157`, and Docker build records `9049901171` and
+  `9049900695` were uploaded. The comprehensive strict deployment-chain audit
+  exits zero with clean exact-head CI jobs and logs plus every required
+  package, still-relevant native release, fresh-image MCP smoke,
+  multi-architecture image build, WAMP, workflow visibility, branch
+  protection, and public GHCR gates ready. Only the deliberately unapproved
+  next RC tag remains outside this milestone.
 - Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-unknown-post-accept.md`.
   Router-hosted compatibility POST previously validated JSON response

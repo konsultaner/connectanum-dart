@@ -5402,6 +5402,19 @@ void main() {
       'mcp-protocol-version': '2025-11-25',
       'last-event-id': 'cursor\nnext',
     };
+    final unknownInvalidPollResponse = await sendMcpRequest(
+      method: 'GET',
+      headers: <String, String>{
+        ...invalidPollHeaders,
+        'mcp-session-id': 'unknown-session',
+      },
+    );
+    expect(unknownInvalidPollResponse.status, HttpStatus.notFound);
+    expect(
+      unknownInvalidPollResponse.headers,
+      isNot(contains('MCP-Session-Id')),
+    );
+
     for (var attempt = 0; attempt < 2; attempt++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
       final invalidPollResponse = await sendMcpRequest(
