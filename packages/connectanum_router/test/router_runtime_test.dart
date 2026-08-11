@@ -1430,6 +1430,7 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
   int authTimeoutMs = 10000,
   int tokenTtlMs = 60000,
   int refreshTokenTtlMs = 300000,
+  bool rotateRefreshTokens = true,
 }) {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -1500,7 +1501,7 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
                     options: <String, Object?>{
                       'token_ttl_ms': tokenTtlMs,
                       'refresh_token_ttl_ms': refreshTokenTtlMs,
-                      'rotate_refresh_tokens': true,
+                      'rotate_refresh_tokens': rotateRefreshTokens,
                     },
                   ),
                 ),
@@ -7513,6 +7514,264 @@ void main() {
       },
     );
   }
+
+  test('auth bridge accepts only one overlapping refresh token use', () async {
+    for (final rotateRefreshTokens in <bool>[true, false]) {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(
+          maxHttpAuthGrants: 1,
+          rotateRefreshTokens: rotateRefreshTokens,
+        ),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      final callee = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'svc-refresh-concurrency',
+        authRole: 'internal',
+        roles: const {'callee': <String, Object?>{}},
+      );
+      addTearDown(callee.close);
+      final registration = await callee.register('com.example.api.secure');
+      registration.onInvoke((invocation) {
+        final context = HttpInvocationContext.maybeFromInvocation(invocation);
+        context!.sendText(body: 'secured', status: HttpStatus.ok);
+      });
+      final connectionBase = rotateRefreshTokens ? 110 : 130;
+      final grant = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+        startConnectionId: connectionBase,
+      );
+
+      void enqueueRefresh(int connectionId) {
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId - 40,
+          method: 'POST',
+          target: '/auth',
+          headers: const {'content-type': 'application/json'},
+          body: <String, Object?>{
+            'grant_type': 'refresh_token',
+            'refresh_token': grant.refreshToken,
+          },
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        );
+      }
+
+      enqueueRefresh(connectionBase + 2);
+      enqueueRefresh(connectionBase + 3);
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: connectionBase + 4,
+        handle: connectionBase - 36,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'capacity-user',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[connectionBase + 2]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[connectionBase + 3]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[connectionBase + 4]?.isNotEmpty ?? false),
+      );
+
+      final refreshResponses = <NativeHttpResponse>[
+        runtime.httpResponses[connectionBase + 2]!.single,
+        runtime.httpResponses[connectionBase + 3]!.single,
+      ];
+      expect(
+        refreshResponses.map((response) => response.status),
+        unorderedEquals(<int>[HttpStatus.ok, HttpStatus.unauthorized]),
+        reason:
+            'exactly one ${rotateRefreshTokens ? 'rotating' : 'reusable'} '
+            'refresh request must win',
+      );
+      final accepted = refreshResponses.singleWhere(
+        (response) => response.status == HttpStatus.ok,
+      );
+      final rejected = refreshResponses.singleWhere(
+        (response) => response.status == HttpStatus.unauthorized,
+      );
+      final acceptedBody = _jsonResponseBody(accepted);
+      final rejectedBody = _jsonResponseBody(rejected);
+      expect(rejectedBody['reason'], 'invalid_refresh_token');
+      expect(rejectedBody, isNot(contains('access_token')));
+      expect(rejectedBody, isNot(contains('refresh_token')));
+      final capacityResponse =
+          runtime.httpResponses[connectionBase + 4]!.single;
+      expect(capacityResponse.status, HttpStatus.serviceUnavailable);
+      expect(
+        _jsonResponseBody(capacityResponse),
+        allOf(
+          containsPair('reason', 'auth_grant_capacity_exhausted'),
+          isNot(contains('state')),
+          isNot(contains('access_token')),
+          isNot(contains('refresh_token')),
+        ),
+      );
+
+      final winningAccessToken = acceptedBody['access_token'] as String;
+      final winningRefreshToken = acceptedBody['refresh_token'] as String;
+      expect(winningAccessToken, isNot(grant.accessToken));
+      expect(
+        winningRefreshToken,
+        rotateRefreshTokens ? isNot(grant.refreshToken) : grant.refreshToken,
+      );
+
+      void enqueueProtectedRequest(int connectionId, String accessToken) {
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId - 40,
+          method: 'GET',
+          target: '/api/secure',
+          headers: <String, String>{'authorization': 'Bearer $accessToken'},
+          body: null,
+          realm: 'realm1',
+          procedure: 'com.example.api.secure',
+        );
+      }
+
+      enqueueProtectedRequest(connectionBase + 5, winningAccessToken);
+      await _waitUntil(
+        () => runtime.httpResponses[connectionBase + 5]?.isNotEmpty ?? false,
+      );
+      expect(
+        runtime.httpResponses[connectionBase + 5]!.single.status,
+        HttpStatus.ok,
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: connectionBase + 6,
+        handle: connectionBase - 34,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'revoke',
+          'token': winningRefreshToken,
+          'token_type_hint': 'refresh_token',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(
+        () => runtime.httpResponses[connectionBase + 6]?.isNotEmpty ?? false,
+      );
+      expect(
+        runtime.httpResponses[connectionBase + 6]!.single.status,
+        HttpStatus.ok,
+      );
+
+      enqueueProtectedRequest(connectionBase + 7, winningAccessToken);
+      await _waitUntil(
+        () => runtime.httpResponses[connectionBase + 7]?.isNotEmpty ?? false,
+      );
+      final revokedAccess = runtime.httpResponses[connectionBase + 7]!.single;
+      expect(revokedAccess.status, HttpStatus.unauthorized);
+      expect(_jsonResponseBody(revokedAccess)['reason'], 'invalid_token');
+
+      final revocationRaceGrant = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+        startConnectionId: connectionBase + 10,
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: connectionBase + 12,
+        handle: connectionBase - 28,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': revocationRaceGrant.refreshToken,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: connectionBase + 13,
+        handle: connectionBase - 27,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'revoke',
+          'token': revocationRaceGrant.refreshToken,
+          'token_type_hint': 'refresh_token',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(
+        () =>
+            (runtime.httpResponses[connectionBase + 12]?.isNotEmpty ?? false) &&
+            (runtime.httpResponses[connectionBase + 13]?.isNotEmpty ?? false),
+      );
+      final refreshDuringRevocation =
+          runtime.httpResponses[connectionBase + 12]!.single;
+      expect(refreshDuringRevocation.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(refreshDuringRevocation),
+        allOf(
+          containsPair('reason', 'invalid_refresh_token'),
+          isNot(contains('access_token')),
+          isNot(contains('refresh_token')),
+        ),
+      );
+      expect(
+        runtime.httpResponses[connectionBase + 13]!.single.status,
+        HttpStatus.ok,
+      );
+
+      enqueueProtectedRequest(
+        connectionBase + 14,
+        revocationRaceGrant.accessToken,
+      );
+      await _waitUntil(
+        () => runtime.httpResponses[connectionBase + 14]?.isNotEmpty ?? false,
+      );
+      expect(
+        runtime.httpResponses[connectionBase + 14]!.single.status,
+        HttpStatus.unauthorized,
+      );
+    }
+  });
 
   test(
     'auth bridge rotates refresh tokens and rejects old credentials',

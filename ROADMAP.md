@@ -468,6 +468,10 @@
     client-credential exclusion, redacted failures, and public
     consumer-package round-trip coverage while leaving secure storage and
     refresh scheduling to the consuming application.
+  - [x] Make router-issued HTTP refresh-token use linearizable across
+    overlapping requests, keep the lineage counted against realm capacity
+    while refresh is in flight, let concurrent revocation prevent successor
+    issuance, and prove the boundary from an installed consumer package.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

@@ -1010,6 +1010,7 @@ class RouterBinding {
       {};
   final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
   final Map<String, _HttpRefreshTokenRecord> _httpRefreshTokens = {};
+  final Set<String> _httpRefreshTokensInFlight = {};
   final Map<String, Future<HttpAuthProvider>> _httpAuthProviderCache = {};
   final Map<String, ListenerSettings> _listenerSettingsByEndpoint;
   final Map<int, ListenerSettings?> _listenerConfigById = {};
@@ -1699,6 +1700,7 @@ class RouterBinding {
     _pendingHttpAuthTransactions.clear();
     _httpAuthTokens.clear();
     _httpRefreshTokens.clear();
+    _httpRefreshTokensInFlight.clear();
     try {
       await _closeListenersAndPendingConnections();
     } catch (_) {}
@@ -4529,18 +4531,9 @@ class RouterBinding {
 
     final record = _httpRefreshTokens[refreshToken];
     if (record == null) {
-      await _sendImmediateHttpResponse(
+      await _sendInvalidHttpRefreshTokenResponse(
         request: request,
         handshake: handshake,
-        response: NativeHttpResponse(
-          status: HttpStatus.unauthorized,
-          headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
-          body: NativeHttpResponseJson(const <String, Object?>{
-            'status': 'error',
-            'reason': 'invalid_refresh_token',
-            'message': 'Refresh token is unknown',
-          }),
-        ),
       );
       return;
     }
@@ -4603,71 +4596,107 @@ class RouterBinding {
       route: route,
       listenerSettings: listenerSettings,
     );
-    final linkedAccessTokens = record.accessTokens.toList(growable: false);
-    String? cacheKeyPrefix;
-    for (final accessToken in linkedAccessTokens) {
-      cacheKeyPrefix ??= _httpAuthTokens[accessToken]?.cacheKeyPrefix;
-      await _revokeHttpAccessToken(
-        accessToken,
-        removeFromRefreshToken: false,
-        closeSessions: false,
+    if (!_httpRefreshTokensInFlight.add(refreshToken)) {
+      await _sendInvalidHttpRefreshTokenResponse(
+        request: request,
+        handshake: handshake,
       );
+      return;
     }
+    try {
+      final linkedAccessTokens = record.accessTokens.toList(growable: false);
+      String? cacheKeyPrefix;
+      for (final accessToken in linkedAccessTokens) {
+        cacheKeyPrefix ??= _httpAuthTokens[accessToken]?.cacheKeyPrefix;
+        await _revokeHttpAccessToken(
+          accessToken,
+          removeFromRefreshToken: false,
+          closeSessions: false,
+        );
+      }
 
-    late final _HttpAuthIssueResult issued;
-    if (rotateRefreshTokens) {
-      _httpRefreshTokens.remove(refreshToken);
-      issued = _issueHttpAuthToken(
-        realmUri: record.realmUri,
-        authMethod: record.authMethod,
-        authProvider: record.authProvider,
-        authId: record.authId,
-        authRole: record.authRole,
-        details: record.details,
-        sessionProfileName: record.sessionProfileName ?? sessionProfile?.name,
-        route: route,
-        listenerSettings: listenerSettings,
-        realmSettings: realmSettings,
-        cacheKeyPrefix: cacheKeyPrefix,
-      );
-    } else {
-      final accessRecord = _issueHttpAccessTokenRecord(
-        realmUri: record.realmUri,
-        authMethod: record.authMethod,
-        authProvider: record.authProvider,
-        authId: record.authId,
-        authRole: record.authRole,
-        details: record.details,
-        sessionProfileName: record.sessionProfileName ?? sessionProfile?.name,
-        expiresAt: DateTime.now().toUtc().add(
-          _resolveHttpAuthTokenTtl(
-            route: route,
-            listenerSettings: listenerSettings,
-            realmSettings: realmSettings,
+      if (!identical(_httpRefreshTokens[refreshToken], record)) {
+        await _sendInvalidHttpRefreshTokenResponse(
+          request: request,
+          handshake: handshake,
+        );
+        return;
+      }
+
+      late final _HttpAuthIssueResult issued;
+      if (rotateRefreshTokens) {
+        _httpRefreshTokens.remove(refreshToken);
+        issued = _issueHttpAuthToken(
+          realmUri: record.realmUri,
+          authMethod: record.authMethod,
+          authProvider: record.authProvider,
+          authId: record.authId,
+          authRole: record.authRole,
+          details: record.details,
+          sessionProfileName: record.sessionProfileName ?? sessionProfile?.name,
+          route: route,
+          listenerSettings: listenerSettings,
+          realmSettings: realmSettings,
+          cacheKeyPrefix: cacheKeyPrefix,
+        );
+      } else {
+        final accessRecord = _issueHttpAccessTokenRecord(
+          realmUri: record.realmUri,
+          authMethod: record.authMethod,
+          authProvider: record.authProvider,
+          authId: record.authId,
+          authRole: record.authRole,
+          details: record.details,
+          sessionProfileName: record.sessionProfileName ?? sessionProfile?.name,
+          expiresAt: DateTime.now().toUtc().add(
+            _resolveHttpAuthTokenTtl(
+              route: route,
+              listenerSettings: listenerSettings,
+              realmSettings: realmSettings,
+            ),
           ),
-        ),
-        refreshToken: refreshToken,
-        cacheKeyPrefix: cacheKeyPrefix,
-      );
-      _httpAuthTokens[accessRecord.token] = accessRecord;
-      record
-        ..accessTokens.clear()
-        ..accessTokens.add(accessRecord.token);
-      issued = _HttpAuthIssueResult(
-        accessToken: accessRecord,
-        refreshToken: record,
-      );
-    }
+          refreshToken: refreshToken,
+          cacheKeyPrefix: cacheKeyPrefix,
+        );
+        _httpAuthTokens[accessRecord.token] = accessRecord;
+        record
+          ..accessTokens.clear()
+          ..accessTokens.add(accessRecord.token);
+        issued = _HttpAuthIssueResult(
+          accessToken: accessRecord,
+          refreshToken: record,
+        );
+      }
 
-    await _sendImmediateHttpResponse(
-      request: request,
-      handshake: handshake,
-      response: NativeHttpResponse(
-        status: HttpStatus.ok,
-        body: NativeHttpResponseJson(_httpAuthSuccessPayload(issued)),
-      ),
-    );
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.ok,
+          body: NativeHttpResponseJson(_httpAuthSuccessPayload(issued)),
+        ),
+      );
+    } finally {
+      _httpRefreshTokensInFlight.remove(refreshToken);
+    }
   }
+
+  Future<void> _sendInvalidHttpRefreshTokenResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+  }) => _sendImmediateHttpResponse(
+    request: request,
+    handshake: handshake,
+    response: NativeHttpResponse(
+      status: HttpStatus.unauthorized,
+      headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+      body: NativeHttpResponseJson(const <String, Object?>{
+        'status': 'error',
+        'reason': 'invalid_refresh_token',
+        'message': 'Refresh token is unknown',
+      }),
+    ),
+  );
 
   Future<void> _handleHttpRevokeGrant({
     required RouterHttpRequest request,

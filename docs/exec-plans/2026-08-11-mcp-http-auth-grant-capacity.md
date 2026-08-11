@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Grant Capacity
 
-Status: complete; local verification green; publication pending
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -80,5 +80,14 @@ router telemetry.
   the 360-case core suite, 101 MCP package tests, the complete 280-case
   client/MCP suite, all 96 benchmark tests and 36 live WAMP workloads, all 429
   router tests, six remote-auth integration cases, 13 native follow-ups, every
-  neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage. Publication and
-  exact-head hosted evidence remain.
+  neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage.
+- 2026-08-11: Commit `32e2f5dd` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31523049750`, Dart Package Publish Dry Run
+  `31523049752`, WAMP Profile Benchmarks `31523049748`, and dispatched Router
+  Image dry run `31523103411` all pass on their first attempts. Retained
+  artifacts are coverage `9114377663`, WAMP evidence `9114012262`, Router Image
+  preview `9113835965`, and Docker build records `9114002334` / `9114001181`.
+  The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI logs, loaded-image MCP runtime smoke, multi-architecture image
+  build, and every required deployment gate ready. RC creation remains an
+  explicit release-approval action outside this checkpoint.

@@ -24999,6 +24999,26 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-11-mcp-http-auth-refresh-concurrency.md`. Router HTTP
+  refresh tokens now use a binding-owned in-flight claim while the original
+  grant record remains counted. Exactly one overlapping request can replace a
+  rotating or reusable lineage; other requests receive a secret-free 401, new
+  authentication cannot occupy a transient capacity slot, and concurrent
+  refresh-token revocation prevents successor issuance. Focused analysis and
+  all 13 auth-bridge runtime tests pass, covering both rotation modes, capacity
+  preservation, revocation races, winning-access usability, and complete
+  lineage cleanup. Shell syntax and the neutral installed-router consumer smoke
+  pass; the consumer reports `authRefreshConcurrency: true` and continues
+  through protected MCP, direct JSON, pub/sub, refresh/revoke, and Streamable
+  HTTP. Post-change `bin/test-fast` passes the complete core, MCP, client/auth,
+  benchmark, router-hosted consumer, and native follow-up matrix, including all
+  96 benchmark cases and 36 live WAMP workloads. Full `bin/verify` also passes
+  with zero formatting changes, clean analysis, 114 Rust core tests, 52 Rust
+  FFI tests, 360 Dart core tests, 101 MCP package tests, the complete 280-case
+  client/MCP suite, all 430 router tests, six isolated remote-auth integrations,
+  13 native follow-ups, every neutral consumer and installed-command smoke, and
+  Chrome/Dart2Wasm coverage. Publication and hosted evidence remain.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-http-auth-grant-capacity.md`. Router HTTP-auth
   grant lineages are now bounded by positive per-realm
   `max_http_auth_grants` values with a 4096 default. Each refresh-backed or
@@ -25012,8 +25032,18 @@ at the older `47bbf9c` commit.
   the 360-case core suite, 101 MCP package tests, the complete 280-case
   client/MCP suite, all 96 benchmark cases and 36 live WAMP workloads, all 429
   router tests, six remote-auth integration cases, 13 native follow-ups, every
-  neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage. Publication and
-  exact-head hosted evidence remain.
+  neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage. Commit `32e2f5dd`
+  is now published to both maintained `master` branches. Exact-head GitHub CI
+  `31523049750`, Dart
+  Package Publish Dry Run `31523049752`, WAMP Profile Benchmarks `31523049748`,
+  and Router Image dry run `31523103411` all pass on their first attempts.
+  Retained artifacts are coverage `9114377663`, WAMP evidence `9114012262`,
+  Router Image preview `9113835965`, and Docker build records `9114002334` /
+  `9114001181`. The comprehensive strict deployment-chain audit exits zero
+  with clean exact-head CI logs, loaded-image MCP runtime smoke,
+  multi-architecture image build, and every required deployment gate ready.
+  RC creation remains an explicit release-approval action outside this
+  checkpoint.
 - Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-auth-failure-record-capacity.md`. Realm limits
   now accept a positive `max_failed_auth_records` capacity with a bounded 4096

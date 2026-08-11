@@ -23,6 +23,9 @@
   `max_http_auth_grants`, fail-closed challenge admission and completion,
   secret-free capacity telemetry, refresh-at-capacity support, and
   revocation/expiry recovery.
+- Make router HTTP-auth refresh-token use linearizable across overlapping
+  requests, preserve grant capacity while refresh is in flight, and let
+  concurrent revocation prevent successor issuance without leaking token data.
 - Bound router-hosted MCP POST bodies before UTF-8 and JSON decoding with a
   configurable raw-byte limit and authenticated-route precedence.
 - Bound router-hosted MCP tool and dynamic-resource WAMP calls with a
