@@ -3573,7 +3573,6 @@ void main() {
             id: 'rate-limited-tools',
             headers: <String, String>{
               'x-test-force-status': '${HttpStatus.tooManyRequests}',
-              'x-test-response-session-id': sessionId!,
             },
           ),
           throwsA(

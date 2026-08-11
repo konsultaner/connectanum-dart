@@ -1830,15 +1830,6 @@ class RouterBinding {
     final mcpRouteMismatch =
         mcpRoute != null &&
         (routeMatch.isMethodNotAllowed || routeMatch.isProtocolNotAllowed);
-    final mcpResponseSessionId = mcpRoute == null
-        ? null
-        : _mcpResponseSessionIdForRequest(
-            httpMethod: httpMethod,
-            streamableHttpRequest:
-                httpMethod == 'POST' &&
-                _mcpAcceptRequestsStreamableHttpSession(this, request),
-            sessionId: _mcpHeaderValue(this, request, _mcpSessionIdHeader),
-          );
     if (routeMatch.isMethodNotAllowed) {
       if (mcpRoute == null) {
         final extraHeaders = <String, String>{
@@ -1907,7 +1898,9 @@ class RouterBinding {
       final responseHeaders = mcpRoute == null
           ? rateLimitHeaders
           : _mcpHttpResponseHeaders(
-              sessionId: mcpResponseSessionId,
+              // Rate limiting runs before MCP authentication and session
+              // resolution, so a request header is not yet a trusted session.
+              sessionId: null,
               extra: <String, String>{
                 ...rateLimitHeaders,
                 ..._mcpCorsResponseHeaders(

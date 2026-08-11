@@ -4764,7 +4764,7 @@ void main() {
     );
   });
 
-  test('rate limited MCP routes keep Streamable HTTP CORS headers', () async {
+  test('rate limited MCP routes never trust session headers', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()
       ..addListenerFromBuilder(
@@ -4913,7 +4913,7 @@ void main() {
     expect(directLimitedResponse.headers, isNot(contains('MCP-Session-Id')));
     expect(directLimitedResponse.headers, isNot(contains('mcp-session-id')));
 
-    const streamableSessionId = 'owned-rate-limited-streamable';
+    const streamableSessionId = 'caller-rate-limited-streamable';
     enqueueMcpRequest(
       connectionId: 51,
       handle: 10,
@@ -4934,8 +4934,38 @@ void main() {
     final streamableLimitedResponse = runtime.httpResponses[51]!.single;
     expect(streamableLimitedResponse.status, 429);
     expect(
-      streamableLimitedResponse.headers['MCP-Session-Id'],
-      streamableSessionId,
+      streamableLimitedResponse.headers,
+      isNot(contains('MCP-Session-Id')),
+    );
+    expect(
+      streamableLimitedResponse.headers,
+      isNot(contains('mcp-session-id')),
+    );
+
+    const streamableGetSessionId = 'caller-rate-limited-streamable-get';
+    enqueueMcpRequest(
+      connectionId: 52,
+      handle: 11,
+      method: 'GET',
+      headers: const {
+        'accept': 'text/event-stream',
+        'mcp-session-id': streamableGetSessionId,
+        'mcp-protocol-version': '2025-11-25',
+      },
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[52]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final streamableGetLimitedResponse = runtime.httpResponses[52]!.single;
+    expect(streamableGetLimitedResponse.status, 429);
+    expect(
+      streamableGetLimitedResponse.headers,
+      isNot(contains('MCP-Session-Id')),
+    );
+    expect(
+      streamableGetLimitedResponse.headers,
+      isNot(contains('mcp-session-id')),
     );
   });
 
@@ -5183,7 +5213,8 @@ void main() {
     );
     final limitedResponse = runtime.httpResponses[53]!.single;
     expect(limitedResponse.status, 429);
-    expect(limitedResponse.headers['MCP-Session-Id'], sessionId);
+    expect(limitedResponse.headers, isNot(contains('MCP-Session-Id')));
+    expect(limitedResponse.headers, isNot(contains('mcp-session-id')));
 
     enqueueMcpRequest(
       connectionId: 54,

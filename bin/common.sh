@@ -12644,7 +12644,7 @@ Future<void> _smokeRateLimitedMcpRoute(RouterBinding binding) async {
       streamableLimited,
       expectedStatus: 429,
       label: 'rate-limited Streamable session',
-      sessionId: sessionId,
+      expectNoSession: true,
       bodyContains: 'rate_limited',
     );
     _assertHeaderContains(

@@ -24998,6 +24998,23 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
+- Completed locally most recently, the implementation plan is:
+  `docs/exec-plans/2026-08-10-mcp-router-rate-limit-session-isolation.md`.
+  Router-hosted MCP route limiting runs before endpoint authentication,
+  principal resolution, and compatibility-session ownership checks, so its
+  pre-dispatch 429 responses now omit `MCP-Session-Id` instead of reflecting a
+  syntactically valid caller header. The response retains MCP protocol, CORS,
+  and rate-limit metadata. Public client and neutral generated-consumer
+  coverage prove an already-owned Streamable session and resume cursor survive
+  the headerless 429 so explicit DELETE cleanup can still succeed, while
+  direct JSON remains sessionless. Focused formatting and router/client tests,
+  the isolated consumer smoke, and post-change `bin/test-fast` pass. Full
+  `bin/verify` passes with zero formatting changes, 114 Rust core tests plus
+  serializer integrations, 52 Rust FFI tests, 360 Dart core tests, 101 MCP
+  tests, the complete 280-case MCP/client suite, all 96 benchmark tests and 36
+  live WAMP workloads, all 418 router tests, remote-auth integration, 13 native
+  follow-ups, every neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage.
+  Publication and exact-head hosted evidence are pending.
 - Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-route-rejection-transport-auth.md`.
   Configured MCP route-level method and protocol mismatches now evaluate the
@@ -25011,7 +25028,14 @@ at the older `47bbf9c` commit.
   transport-auth coverage pass. Post-change `bin/test-fast` and full
   `bin/verify` pass the complete Rust, Dart, benchmark/live-WAMP, 418-case
   router, remote-auth, native, neutral consumer/CLI, and Chrome/Dart2Wasm
-  matrix. Publication and exact-head hosted evidence are pending.
+  matrix. Implementation commit `bbe391a6` is on both maintained `master`
+  branches. Exact-head CI `31425599694`, Dart Package Publish Dry Run
+  `31425599716`, WAMP Profile Benchmarks `31425599614`, and Router Image dry
+  run `31425655948` all pass. Coverage artifact `9077617218`, WAMP artifact
+  `9077189943`, Router Image preview artifact `9077079123`, and Docker build
+  records `9077207380` and `9077206839` were uploaded. The comprehensive strict
+  deployment-chain audit exits zero; only the unapproved next RC tag remains
+  outside this milestone.
 - Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-route-rejection-auth-session.md`.
   Configured MCP route-level method and protocol mismatches now reach the MCP
