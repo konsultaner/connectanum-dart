@@ -3626,16 +3626,35 @@ class RouterBinding {
       return;
     }
 
-    final state = _firstNonEmptyString(
+    final stateSelectors = _distinctNonEmptyStrings(
       body['state'],
       query['state'],
       _headerValue(request.headers, 'x-connectanum-auth-state'),
     );
-    final grantType = _firstNonEmptyString(
+    final grantTypeSelectors = _distinctNonEmptyStrings(
       body['grant_type'],
       query['grant_type'],
       _headerValue(request.headers, 'x-connectanum-grant-type'),
     );
+    if (stateSelectors.length > 1 || grantTypeSelectors.length > 1) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'conflicting_auth_selector',
+            'message': 'state and grant_type must agree across request sources',
+          }),
+        ),
+      );
+      return;
+    }
+    final state = stateSelectors.isEmpty ? null : stateSelectors.single;
+    final grantType = grantTypeSelectors.isEmpty
+        ? null
+        : grantTypeSelectors.single;
     if (state != null && grantType != null) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -5061,6 +5080,19 @@ class RouterBinding {
       }
     }
     return null;
+  }
+
+  Set<String> _distinctNonEmptyStrings([Object? a, Object? b, Object? c]) {
+    final values = <String>{};
+    for (final candidate in <Object?>[a, b, c]) {
+      if (candidate is String) {
+        final trimmed = candidate.trim();
+        if (trimmed.isNotEmpty) {
+          values.add(trimmed);
+        }
+      }
+    }
+    return values;
   }
 
   _HttpAuthIssueResult _issueHttpAuthToken({
