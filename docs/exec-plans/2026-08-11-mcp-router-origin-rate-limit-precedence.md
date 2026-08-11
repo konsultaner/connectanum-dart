@@ -1,6 +1,6 @@
 # MCP Router Origin / Rate-Limit Precedence
 
-Status: complete locally; publication and hosted evidence pending
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -71,3 +71,12 @@ boundary, and the DELETE cleanup exemption.
   suite, all 96 benchmark tests and 36 live WAMP workloads, all 418 router
   tests, remote-auth integration, 13 native follow-ups, every neutral
   consumer/CLI smoke, and Chrome/Dart2Wasm coverage.
+- 2026-08-11: Commit `68fbff74` is published to both maintained `master`
+  branches. Exact-head GitHub CI run `31478949605`, Dart package publish dry
+  run `31478949600`, WAMP profile benchmark run `31478949593`, and dispatched
+  Router Image dry run `31478967559` all pass. The runs retain coverage
+  artifact `9096902622`, WAMP artifact `9096611537`, router preview artifact
+  `9096420444`, and Docker build records `9096553720` / `9096552949`. The
+  comprehensive strict deployment-chain audit exits zero with every required
+  gate clean; RC creation remains intentionally unready because no approved
+  numeric RC tag points at this commit.

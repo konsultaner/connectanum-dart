@@ -5014,6 +5014,164 @@ void main() {
     );
   });
 
+  test('bounds MCP route rate-limit buckets and reclaims expiry', () async {
+    final runtime = _HandleRuntime();
+    final events = <Map<String, Object?>>[];
+    final settings = RouterSettingsBuilder()
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: [
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'router.http',
+                    options: <String, Object?>{
+                      'allowed_origins': ['https://agent.example'],
+                    },
+                  ),
+                  methodActions: <String, HttpRouteAction>{
+                    'POST': HttpRouteAction(
+                      type: HttpRouteActionType.mcp,
+                      realm: 'router.http',
+                      rateLimit: HttpRouteRateLimitSettings(
+                        maxRequests: 1,
+                        windowMs: 2000,
+                        key: 'bearer',
+                        maxBuckets: 2,
+                      ),
+                      options: <String, Object?>{
+                        'allowed_origins': ['https://agent.example'],
+                      },
+                    ),
+                  },
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+
+    final binding = router.start(
+      runtime,
+      onEvent: (event) {
+        if (event is Map<String, Object?>) {
+          events.add(event);
+        }
+      },
+    );
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    void enqueuePreflight(int connectionId, int handle, String bucket) {
+      runtime.setConnectionProtocol(
+        connectionId,
+        NativeConnectionProtocol.http,
+      );
+      runtime.enqueueHttpHandshake(
+        listenerId,
+        connectionId,
+        NativeHttpHandshake.synthetic(
+          handle: handle,
+          method: 'OPTIONS',
+          target: '/mcp',
+          path: '/mcp',
+          protocol: 'http/1.1',
+          headers: {
+            'origin': 'https://agent.example',
+            'access-control-request-method': 'POST',
+            HttpHeaders.authorizationHeader: 'Bearer $bucket',
+            HttpHeaders.cookieHeader: 'session=$bucket',
+            'last-event-id': 'cursor-$bucket',
+            'mcp-session-id': 'session-$bucket',
+            'x-api-key': 'api-key-$bucket',
+          },
+          body: Uint8List(0),
+          realm: 'router.http',
+          procedure: 'router.http.mcp',
+        ),
+      );
+    }
+
+    enqueuePreflight(60, 20, 'consumer-a');
+    enqueuePreflight(61, 21, 'consumer-b');
+    enqueuePreflight(62, 22, 'consumer-c');
+    await _waitUntil(
+      () => [60, 61, 62].every(
+        (connectionId) =>
+            runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      ),
+      timeout: const Duration(seconds: 2),
+    );
+    expect(runtime.httpResponses[60]!.single.status, HttpStatus.noContent);
+    expect(runtime.httpResponses[61]!.single.status, HttpStatus.noContent);
+    final capacityResponse = runtime.httpResponses[62]!.single;
+    expect(capacityResponse.status, 429);
+    expect(capacityResponse.headers, isNot(contains('MCP-Session-Id')));
+    expect(capacityResponse.headers['x-ratelimit-limit'], '1');
+    expect(
+      events,
+      contains(
+        allOf(
+          containsPair('type', 'http_route_rate_limited'),
+          containsPair('bucketCapacityExhausted', true),
+          containsPair('maxBuckets', 2),
+        ),
+      ),
+    );
+
+    enqueuePreflight(63, 23, 'consumer-a');
+    await _waitUntil(
+      () => runtime.httpResponses[63]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    expect(runtime.httpResponses[63]!.single.status, 429);
+    final encodedEvents = jsonEncode(events);
+    expect(encodedEvents, isNot(contains('consumer-a')));
+    expect(encodedEvents, isNot(contains('consumer-b')));
+    expect(encodedEvents, isNot(contains('consumer-c')));
+    final firstRequestEvent = events.firstWhere(
+      (event) =>
+          event['type'] == 'listener_http_request' &&
+          event['connectionId'] == 60,
+    );
+    expect(
+      firstRequestEvent['headers'],
+      allOf(
+        containsPair(HttpHeaders.authorizationHeader, '<redacted>'),
+        containsPair(HttpHeaders.cookieHeader, '<redacted>'),
+        containsPair('last-event-id', '<redacted>'),
+        containsPair('mcp-session-id', '<redacted>'),
+        containsPair('x-api-key', '<redacted>'),
+      ),
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 2100));
+    enqueuePreflight(64, 24, 'consumer-c');
+    await _waitUntil(
+      () => runtime.httpResponses[64]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    expect(runtime.httpResponses[64]!.single.status, HttpStatus.noContent);
+  });
+
   test('MCP wildcard CORS preflights vary by requested headers', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()

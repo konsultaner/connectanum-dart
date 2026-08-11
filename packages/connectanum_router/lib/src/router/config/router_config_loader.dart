@@ -272,6 +272,9 @@ class RouterConfigLoader {
               map.remove('keyBy'),
         ) ??
         'global';
+    final maxBuckets =
+        _asNullableInt(map.remove('max_buckets') ?? map.remove('maxBuckets')) ??
+        4096;
     if (maxRequests <= 0) {
       throw FormatException(
         'listener.http.routes.action.rate_limit.max_requests must be > 0',
@@ -282,11 +285,17 @@ class RouterConfigLoader {
         'listener.http.routes.action.rate_limit.window_ms must be > 0',
       );
     }
+    if (maxBuckets <= 0) {
+      throw FormatException(
+        'listener.http.routes.action.rate_limit.max_buckets must be > 0',
+      );
+    }
     final normalizedKey = _normalizeHttpRouteRateLimitKey(key);
     return HttpRouteRateLimitSettings(
       maxRequests: maxRequests,
       windowMs: windowMs,
       key: normalizedKey,
+      maxBuckets: maxBuckets,
     );
   }
 

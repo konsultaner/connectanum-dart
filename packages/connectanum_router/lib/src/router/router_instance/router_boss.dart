@@ -63,6 +63,35 @@ final class RouterBossLoopPacer {
   }
 }
 
+const String _redactedHttpHeaderValue = '<redacted>';
+
+Map<String, String> _httpEventHeaders(Map<String, String> headers) =>
+    Map<String, String>.unmodifiable({
+      for (final entry in headers.entries)
+        entry.key: _isSensitiveHttpEventHeader(entry.key)
+            ? _redactedHttpHeaderValue
+            : entry.value,
+    });
+
+bool _isSensitiveHttpEventHeader(String name) {
+  final normalized = name.trim().toLowerCase();
+  return switch (normalized) {
+    HttpHeaders.authorizationHeader ||
+    HttpHeaders.proxyAuthorizationHeader ||
+    HttpHeaders.cookieHeader ||
+    HttpHeaders.setCookieHeader ||
+    'api-key' ||
+    'dpop' ||
+    'last-event-id' ||
+    'mcp-session-id' ||
+    'x-access-token' ||
+    'x-api-key' ||
+    'x-auth-token' ||
+    'x-refresh-token' => true,
+    _ => false,
+  };
+}
+
 /// Coordinates worker isolates and round-robins connections across them.
 class _RouterBoss {
   _RouterBoss({
@@ -1538,7 +1567,7 @@ class _RouterBoss {
       'version': request.version,
       'realm': request.realm,
       'procedure': request.procedure,
-      'headers': request.headers,
+      'headers': _httpEventHeaders(request.headers),
       'bodyLength': request.nativeBody.length,
     };
     onEvent?.call(event);

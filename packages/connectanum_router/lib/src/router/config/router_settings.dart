@@ -904,12 +904,15 @@ class HttpRouteRateLimitSettings {
     this.maxRequests = 60,
     this.windowMs = 60000,
     this.key = 'global',
+    this.maxBuckets = 4096,
   }) : assert(maxRequests > 0),
-       assert(windowMs > 0);
+       assert(windowMs > 0),
+       assert(maxBuckets > 0);
 
   final int maxRequests;
   final int windowMs;
   final String key;
+  final int maxBuckets;
 
   @override
   bool operator ==(Object other) {
@@ -919,11 +922,12 @@ class HttpRouteRateLimitSettings {
     return other is HttpRouteRateLimitSettings &&
         other.maxRequests == maxRequests &&
         other.windowMs == windowMs &&
-        other.key == key;
+        other.key == key &&
+        other.maxBuckets == maxBuckets;
   }
 
   @override
-  int get hashCode => Object.hash(maxRequests, windowMs, key);
+  int get hashCode => Object.hash(maxRequests, windowMs, key, maxBuckets);
 }
 
 @immutable

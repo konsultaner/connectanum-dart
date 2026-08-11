@@ -24999,6 +24999,29 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Completed locally most recently, the implementation plan is:
+  `docs/exec-plans/2026-08-11-mcp-router-rate-limit-bucket-capacity.md`.
+  Router HTTP route actions now accept a bounded `max_buckets` /
+  `maxBuckets` cardinality (default 4096) for caller-scoped rate state. State
+  is owned by stable route and effective method-action identity, expired
+  buckets are reclaimed when capacity is needed, new callers fail closed with
+  the existing 429 contract while every bucket remains active, and bearer or
+  header values are digested instead of retained as internal map keys. The
+  fail-first MCP runtime regression reproduced a third caller being admitted
+  after the configured two-bucket capacity; focused config, runtime, and
+  neutral generated-consumer coverage now passes. The consumer proof keeps a
+  direct JSON caller usable after a distinct bearer bucket receives a
+  sessionless 429, then initializes and deletes a compatibility Streamable
+  session. The same regression exposed and fixed raw Authorization, cookie,
+  API-key, MCP session, and resume-header values in boss request telemetry.
+  Pre-change and post-change `bin/test-fast`, focused
+  analysis/config/rate-limit tests, shell syntax, diff hygiene, and the
+  isolated consumer smoke pass. `bin/verify` passes formatting, all 114 native
+  transport tests, 52 FFI tests, 360 core tests, 101 MCP tests, the complete
+  280-case MCP/client suite, all 96 benchmark tests and 36 live WAMP workloads,
+  all 419 router tests, remote-auth integration, 13 native follow-ups, every
+  neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage. Publication and
+  exact-head hosted evidence remain pending.
+- Completed locally most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-router-origin-rate-limit-precedence.md`.
   Router-hosted MCP now validates every supplied Origin before route-level
   rate limiting, transport authentication, principal resolution, or
@@ -25018,8 +25041,15 @@ at the older `47bbf9c` commit.
   Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete 280-case
   MCP/client suite, all 96 benchmark tests and 36 live WAMP workloads, all 418
   router tests, remote-auth integration, 13 native follow-ups, every neutral
-  consumer/CLI smoke, and Chrome/Dart2Wasm coverage. Publication and exact-head
-  hosted evidence remain.
+  consumer/CLI smoke, and Chrome/Dart2Wasm coverage. Commit `68fbff74` is
+  published to both maintained `master` branches. Exact-head GitHub CI
+  `31478949605`, package publish dry run `31478949600`, WAMP profile benchmark
+  `31478949593`, and dispatched Router Image dry run `31478967559` all pass.
+  Retained artifacts are coverage `9096902622`, WAMP evidence `9096611537`,
+  router preview `9096420444`, and Docker build records `9096553720` /
+  `9096552949`. The comprehensive strict deployment-chain audit passes every
+  required gate. RC creation remains intentionally unready only because no
+  approved numeric RC tag points at this commit.
 - Completed locally most recently, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-rate-limit-session-isolation.md`.
   Router-hosted MCP route limiting runs before endpoint authentication,

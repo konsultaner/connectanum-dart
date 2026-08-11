@@ -289,6 +289,7 @@ abstract final class RouterSettingsCodec {
         'max_requests': rateLimit.maxRequests,
         'window_ms': rateLimit.windowMs,
         'key': rateLimit.key,
+        'max_buckets': rateLimit.maxBuckets,
       };
     }
     if (action.options.isNotEmpty) {

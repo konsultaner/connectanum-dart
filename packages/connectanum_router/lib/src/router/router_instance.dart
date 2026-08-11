@@ -27,6 +27,7 @@ import 'dart:io'
 
 import 'package:cbor/cbor.dart';
 import 'package:collection/collection.dart';
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:connectanum_core/connectanum_core.dart'
     show
         AbstractMessage,

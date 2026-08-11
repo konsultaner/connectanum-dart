@@ -10292,6 +10292,8 @@ RouterSettings _consumerRouterSettings() {
               rateLimit: HttpRouteRateLimitSettings(
                 maxRequests: 2,
                 windowMs: 60000,
+                key: 'bearer',
+                maxBuckets: 1,
               ),
               options: {
                 'include_registered_procedures': true,
@@ -12592,6 +12594,31 @@ Future<void> _smokeRateLimitedMcpRoute(RouterBinding binding) async {
     if (toolList is! List || toolList.isEmpty) {
       throw StateError('MCP rate-limited route missed the tool catalog.');
     }
+
+    final capacityLimited = await _mcpRawDirectJsonRpcResponse(
+      client,
+      endpoint,
+      const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'rate-limited-distinct-bearer-bucket',
+        'method': 'tools/list',
+      },
+      sessionId: 'caller-rate-limited-capacity-session',
+      bearerToken: 'consumer-distinct-rate-limit-bucket',
+    );
+    _assertMcpCorsErrorResponse(
+      capacityLimited,
+      expectedStatus: 429,
+      label: 'rate-limited distinct bearer bucket capacity',
+      expectNoSession: true,
+      bodyContains: 'rate_limited',
+    );
+    _assertHeaderContains(
+      capacityLimited,
+      'x-ratelimit-limit',
+      '2',
+      label: 'rate-limited distinct bearer bucket capacity',
+    );
 
     final initialize = await _mcpRawJsonPost(
       client,

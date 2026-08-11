@@ -175,6 +175,11 @@ router:
               procedure: "com.example.api.{path}"
               serializer: msgpack
               session_profile: http-auth
+              rate_limit:
+                max_requests: 60
+                window_ms: 60000
+                key: bearer
+                max_buckets: 4096
           - match:
               path: /api/jwt
             action:
@@ -211,6 +216,14 @@ router:
   - `type: auth` routes imply `require_tls` by default so challenge/response login is not exposed over plain HTTP unless a route explicitly opts into `allow_insecure_transport`.
   - Route action options can tighten this further with `require_mtls: true`, `require_tls: true`, or `require_bearer: true`.
   - Route matches can now declare `protocols: [...]` directly instead of relying on the older undocumented extra-map hook.
+- Route actions can set `rate_limit` with `max_requests`, `window_ms`, and a
+  `key` of `global`, `connection`, `bearer`, or `header:<name>`. Caller-scoped
+  state is capped per route action by `max_buckets` (default `4096`); expired
+  buckets are reclaimed when capacity is needed, and a new caller fails closed
+  with the normal HTTP 429 response while all buckets remain active. Bearer and
+  header values are digested instead of retained as map keys, and request
+  telemetry redacts authorization, cookie, API-key, MCP session, and resume
+  headers.
 
 - `session_proxy` routes create or reuse an internal session specified in
   `internal_realms`. This enables wiring to a PHP FPM-based bridge or any other

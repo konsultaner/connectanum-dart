@@ -655,6 +655,7 @@ void main() {
                         'limit': 2,
                         'interval_ms': 1000,
                         'keyBy': 'header:X-Client',
+                        'maxBuckets': 3,
                       },
                       'timeout_ms': 250,
                     },
@@ -675,6 +676,7 @@ void main() {
           maxRequests: 2,
           windowMs: 1000,
           key: 'header:x-client',
+          maxBuckets: 3,
         ),
       );
       expect(action.options['timeout_ms'], 250);

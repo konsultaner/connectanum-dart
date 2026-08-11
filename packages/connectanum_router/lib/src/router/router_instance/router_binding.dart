@@ -996,7 +996,15 @@ class RouterBinding {
   final Map<String, RouterSession> _internalSessionsByRealm = {};
   final Map<String, RouterSession> _internalSessionsByCacheKey = {};
   final Map<int, _PendingHttpCall> _pendingHttpCalls = {};
-  final Map<String, _HttpRouteRateLimitState> _httpRouteRateLimitStates = {};
+  final Map<
+    HttpRouteSettings,
+    Map<HttpRouteAction, Map<String, _HttpRouteRateLimitState>>
+  >
+  _httpRouteRateLimitStates =
+      Map<
+        HttpRouteSettings,
+        Map<HttpRouteAction, Map<String, _HttpRouteRateLimitState>>
+      >.identity();
   final Map<String, _RouterMcpEndpoint> _mcpEndpoints = {};
   final Map<String, _PendingHttpAuthTransaction> _pendingHttpAuthTransactions =
       {};
@@ -1913,7 +1921,11 @@ class RouterBinding {
     }
     final rateLimitDecision = mcpRoute != null && httpMethod == 'DELETE'
         ? null
-        : _evaluateHttpRouteRateLimit(request: request, route: matchedRoute);
+        : _evaluateHttpRouteRateLimit(
+            request: request,
+            route: matchedRoute,
+            routeIdentity: routeMatch.route,
+          );
     if (rateLimitDecision != null) {
       final rateLimitHeaders = rateLimitDecision.headers;
       final responseHeaders = mcpRoute == null
@@ -1942,6 +1954,8 @@ class RouterBinding {
         'limit': rateLimitDecision.limit,
         'windowMs': rateLimitDecision.windowMs,
         'retryAfterMs': rateLimitDecision.retryAfterMs,
+        'bucketCapacityExhausted': rateLimitDecision.bucketCapacityExhausted,
+        'maxBuckets': rateLimitDecision.maxBuckets,
       });
       await _sendImmediateHttpResponse(
         request: request,
@@ -3421,24 +3435,65 @@ class RouterBinding {
   _HttpRouteRateLimitDecision? _evaluateHttpRouteRateLimit({
     required RouterHttpRequest request,
     required HttpRouteSettings? route,
+    required HttpRouteSettings? routeIdentity,
   }) {
     final routeSettings = route;
     final settings = routeSettings?.action.rateLimit;
-    if (routeSettings == null || settings == null) {
+    if (routeSettings == null || settings == null || routeIdentity == null) {
       return null;
     }
     final maxRequests = settings.maxRequests <= 0 ? 1 : settings.maxRequests;
     final windowMs = settings.windowMs <= 0 ? 1 : settings.windowMs;
+    final maxBuckets = settings.maxBuckets <= 0 ? 1 : settings.maxBuckets;
     final now = DateTime.now().toUtc();
     final window = Duration(milliseconds: windowMs);
+    final actionStates = _httpRouteRateLimitStates.putIfAbsent(
+      routeIdentity,
+      () =>
+          Map<
+            HttpRouteAction,
+            Map<String, _HttpRouteRateLimitState>
+          >.identity(),
+    );
+    final bucketStates = actionStates.putIfAbsent(
+      routeSettings.action,
+      () => <String, _HttpRouteRateLimitState>{},
+    );
     final bucketKey = _httpRouteRateLimitBucketKey(
       request: request,
-      route: routeSettings,
       settings: settings,
     );
-    final state = _httpRouteRateLimitStates[bucketKey];
-    if (state == null || now.difference(state.windowStart) >= window) {
-      _httpRouteRateLimitStates[bucketKey] = _HttpRouteRateLimitState(
+    var state = bucketStates[bucketKey];
+    if (state != null && !now.isBefore(state.windowStart.add(window))) {
+      bucketStates.remove(bucketKey);
+      state = null;
+    }
+    if (state == null) {
+      if (bucketStates.length >= maxBuckets) {
+        bucketStates.removeWhere(
+          (_, candidate) => !now.isBefore(candidate.windowStart.add(window)),
+        );
+      }
+      if (bucketStates.length >= maxBuckets) {
+        var resetAt = bucketStates.values.first.windowStart.add(window);
+        for (final activeState in bucketStates.values.skip(1)) {
+          final candidate = activeState.windowStart.add(window);
+          if (candidate.isBefore(resetAt)) {
+            resetAt = candidate;
+          }
+        }
+        final retryAfter = resetAt.difference(now);
+        return _HttpRouteRateLimitDecision(
+          key: settings.key,
+          limit: maxRequests,
+          windowMs: windowMs,
+          retryAfterMs: retryAfter.isNegative ? 0 : retryAfter.inMilliseconds,
+          resetAt: resetAt,
+          maxBuckets: maxBuckets,
+          bucketCapacityExhausted: true,
+        );
+      }
+      bucketStates[bucketKey] = _HttpRouteRateLimitState(
         windowStart: now,
         count: 1,
       );
@@ -3456,26 +3511,27 @@ class RouterBinding {
       windowMs: windowMs,
       retryAfterMs: retryAfter.isNegative ? 0 : retryAfter.inMilliseconds,
       resetAt: resetAt,
+      maxBuckets: maxBuckets,
     );
   }
 
   String _httpRouteRateLimitBucketKey({
     required RouterHttpRequest request,
-    required HttpRouteSettings route,
     required HttpRouteRateLimitSettings settings,
   }) {
     final key = settings.key.trim().toLowerCase();
-    final scopeValue = switch (key) {
+    return switch (key) {
       'connection' => 'connection:${request.connectionId}',
-      'bearer' =>
-        'bearer:${_extractBearerToken(request.headers) ?? '<missing>'}',
+      'bearer' => _httpRouteRateLimitScopeDigest(
+        'bearer',
+        _extractBearerToken(request.headers) ?? '<missing>',
+      ),
       _ when key.startsWith('header:') => _httpRouteRateLimitHeaderBucket(
         request,
         key.substring('header:'.length),
       ),
       _ => 'global',
     };
-    return '${identityHashCode(route)}|$key|$scopeValue';
   }
 
   String _httpRouteRateLimitHeaderBucket(
@@ -3484,9 +3540,17 @@ class RouterBinding {
   ) {
     final normalized = headerName.trim().toLowerCase();
     if (normalized.isEmpty) {
-      return 'header:<missing>:<missing>';
+      return 'header:<missing>';
     }
-    return 'header:$normalized:${_headerValue(request.headers, normalized) ?? '<missing>'}';
+    return _httpRouteRateLimitScopeDigest(
+      'header:$normalized',
+      _headerValue(request.headers, normalized) ?? '<missing>',
+    );
+  }
+
+  String _httpRouteRateLimitScopeDigest(String namespace, String value) {
+    final digest = sha256.convert(utf8.encode(value));
+    return '$namespace:$digest';
   }
 
   bool _isCorsPreflight(RouterHttpRequest request) {
@@ -6951,6 +7015,8 @@ class _HttpRouteRateLimitDecision {
     required this.windowMs,
     required this.retryAfterMs,
     required this.resetAt,
+    required this.maxBuckets,
+    this.bucketCapacityExhausted = false,
   });
 
   final String key;
@@ -6958,6 +7024,8 @@ class _HttpRouteRateLimitDecision {
   final int windowMs;
   final int retryAfterMs;
   final DateTime resetAt;
+  final int maxBuckets;
+  final bool bucketCapacityExhausted;
 
   Map<String, String> get headers => <String, String>{
     HttpHeaders.retryAfterHeader: retryAfterSeconds.toString(),
