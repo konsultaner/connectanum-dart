@@ -72,6 +72,7 @@ abstract final class RouterSettingsCodec {
       'session_idle_ms': limits.sessionIdleMs,
       'max_failed_auth': limits.maxFailedAuth,
       'max_failed_auth_records': limits.maxFailedAuthRecords,
+      'max_http_auth_grants': limits.maxHttpAuthGrants,
       'lockout_ms': limits.lockoutMs,
       'call_timeout_ms': limits.callTimeoutMs,
     };

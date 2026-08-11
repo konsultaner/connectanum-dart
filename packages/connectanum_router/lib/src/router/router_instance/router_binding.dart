@@ -3839,6 +3839,20 @@ class RouterBinding {
         return;
       }
     }
+    final grantCapacityDecision = _evaluateHttpAuthGrantCapacity(
+      realmUri: realmUri,
+      maxHttpAuthGrants: realmSettings.limits.maxHttpAuthGrants,
+      now: DateTime.now().toUtc(),
+    );
+    if (grantCapacityDecision != null) {
+      await _sendHttpAuthGrantCapacityResponse(
+        request: request,
+        handshake: handshake,
+        realmUri: realmUri,
+        decision: grantCapacityDecision,
+      );
+      return;
+    }
     final helloDetails = <String, Object?>{
       'authid': ?authId,
       'authmethods': <String>[authMethod],
@@ -3870,6 +3884,26 @@ class RouterBinding {
     );
 
     final result = await authenticator.onHello(context);
+    if (result.status != AuthStatus.failure) {
+      final grantCapacityDecision = _evaluateHttpAuthGrantCapacity(
+        realmUri: realmUri,
+        maxHttpAuthGrants: realmSettings.limits.maxHttpAuthGrants,
+        now: DateTime.now().toUtc(),
+      );
+      if (grantCapacityDecision != null) {
+        await authenticator.onAbort(
+          context,
+          reason: 'http_auth_grant_capacity_exhausted',
+        );
+        await _sendHttpAuthGrantCapacityResponse(
+          request: request,
+          handshake: handshake,
+          realmUri: realmUri,
+          decision: grantCapacityDecision,
+        );
+        return;
+      }
+    }
     switch (result.status) {
       case AuthStatus.challenge:
         final challenge = result.challenge!;
@@ -4036,6 +4070,85 @@ class RouterBinding {
           'status': 'error',
           'reason': 'auth_capacity_exhausted',
           'message': 'HTTP authentication challenge capacity is exhausted',
+          'retry_after_ms': decision.retryAfterMs,
+        }),
+      ),
+    );
+  }
+
+  _HttpAuthGrantCapacityDecision? _evaluateHttpAuthGrantCapacity({
+    required String realmUri,
+    required int maxHttpAuthGrants,
+    required DateTime now,
+  }) {
+    var activeGrantCount = 0;
+    DateTime? earliestExpiry;
+
+    void recordLineage(DateTime expiresAt) {
+      if (!expiresAt.isAfter(now)) {
+        return;
+      }
+      activeGrantCount++;
+      if (earliestExpiry == null || expiresAt.isBefore(earliestExpiry!)) {
+        earliestExpiry = expiresAt;
+      }
+    }
+
+    for (final refreshToken in _httpRefreshTokens.values) {
+      if (refreshToken.realmUri == realmUri) {
+        recordLineage(refreshToken.expiresAt);
+      }
+    }
+    for (final accessToken in _httpAuthTokens.values) {
+      if (accessToken.realmUri == realmUri &&
+          accessToken.refreshToken == null) {
+        recordLineage(accessToken.expiresAt);
+      }
+    }
+    if (activeGrantCount < maxHttpAuthGrants) {
+      return null;
+    }
+
+    final retryAfter = earliestExpiry?.difference(now);
+    final retryAfterMs = (retryAfter?.inMilliseconds ?? 1000)
+        .clamp(1, 300000)
+        .toInt();
+    return _HttpAuthGrantCapacityDecision(
+      activeGrantCount: activeGrantCount,
+      maxHttpAuthGrants: maxHttpAuthGrants,
+      retryAfterMs: retryAfterMs,
+    );
+  }
+
+  Future<void> _sendHttpAuthGrantCapacityResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required String realmUri,
+    required _HttpAuthGrantCapacityDecision decision,
+  }) async {
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_auth_grant_capacity_exhausted',
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+      'realm': realmUri,
+      'activeGrantCount': decision.activeGrantCount,
+      'maxHttpAuthGrants': decision.maxHttpAuthGrants,
+      'retryAfterMs': decision.retryAfterMs,
+    });
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.serviceUnavailable,
+        headers: {
+          HttpHeaders.retryAfterHeader: decision.retryAfterSeconds.toString(),
+        },
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': 'auth_grant_capacity_exhausted',
+          'message': 'HTTP authentication grant capacity is exhausted',
           'retry_after_ms': decision.retryAfterMs,
         }),
       ),
@@ -4312,6 +4425,21 @@ class RouterBinding {
                 'message': 'Realm ${pending.realmUri} is no longer configured',
               }),
             ),
+          );
+          return;
+        }
+        final grantCapacityDecision = _evaluateHttpAuthGrantCapacity(
+          realmUri: pending.realmUri,
+          maxHttpAuthGrants: realmSettings.limits.maxHttpAuthGrants,
+          now: DateTime.now().toUtc(),
+        );
+        if (grantCapacityDecision != null) {
+          await pending.abort(reason: 'http_auth_grant_capacity_exhausted');
+          await _sendHttpAuthGrantCapacityResponse(
+            request: request,
+            handshake: handshake,
+            realmUri: pending.realmUri,
+            decision: grantCapacityDecision,
           );
           return;
         }
@@ -7134,6 +7262,23 @@ class _HttpAuthPendingCapacityDecision {
 
   final int pendingAuthCount;
   final int maxPendingAuth;
+  final int retryAfterMs;
+
+  int get retryAfterSeconds {
+    final seconds = (retryAfterMs / 1000).ceil();
+    return seconds <= 0 ? 1 : seconds;
+  }
+}
+
+class _HttpAuthGrantCapacityDecision {
+  const _HttpAuthGrantCapacityDecision({
+    required this.activeGrantCount,
+    required this.maxHttpAuthGrants,
+    required this.retryAfterMs,
+  });
+
+  final int activeGrantCount;
+  final int maxHttpAuthGrants;
   final int retryAfterMs;
 
   int get retryAfterSeconds {

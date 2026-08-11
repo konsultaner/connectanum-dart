@@ -30,7 +30,10 @@ void main() {
             <String, Object?>{
               'name': 'realm1',
               'authorization_provider': 'realm-authz',
-              'limits': <String, Object?>{'max_failed_auth_records': 7},
+              'limits': <String, Object?>{
+                'max_failed_auth_records': 7,
+                'max_http_auth_grants': 11,
+              },
               'auth': <String, Object?>{
                 'authmethods': ['anonymous'],
               },
@@ -189,6 +192,7 @@ void main() {
       expect(settings.authorizationProviders.keys, contains('realm-authz'));
       expect(settings.realms.single.authorizationProvider, 'realm-authz');
       expect(settings.realms.single.limits.maxFailedAuthRecords, 7);
+      expect(settings.realms.single.limits.maxHttpAuthGrants, 11);
       expect(settings.internalRealms.single.sessionProfile, 'http-handler');
     });
 
@@ -212,6 +216,31 @@ void main() {
             (error) => error.message,
             'message',
             contains('max_failed_auth_records'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects non-positive HTTP auth grant capacity', () {
+      expect(
+        () => RouterConfigLoader.fromMap({
+          'router': <String, Object?>{
+            'realms': [
+              <String, Object?>{
+                'name': 'realm1',
+                'limits': <String, Object?>{'max_http_auth_grants': 0},
+                'auth': <String, Object?>{
+                  'authmethods': ['anonymous'],
+                },
+              },
+            ],
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('max_http_auth_grants'),
           ),
         ),
       );
@@ -531,7 +560,12 @@ void main() {
         ..addRealmFromBuilder(
           RealmSettingsBuilder('realm1')
             ..addAuthMethod('anonymous')
-            ..setLimits(const RealmLimitSettings(maxFailedAuthRecords: 7))
+            ..setLimits(
+              const RealmLimitSettings(
+                maxFailedAuthRecords: 7,
+                maxHttpAuthGrants: 11,
+              ),
+            )
             ..setAuthorizationProvider('realm-authz'),
         )
         ..addSessionProfileFromBuilder(
@@ -656,6 +690,7 @@ void main() {
       expect(decoded.authorizationProviders.keys, contains('realm-authz'));
       expect(decoded.realms.single.authorizationProvider, 'realm-authz');
       expect(decoded.realms.single.limits.maxFailedAuthRecords, 7);
+      expect(decoded.realms.single.limits.maxHttpAuthGrants, 11);
       expect(
         decoded.sessionProfiles
             .firstWhere((profile) => profile.name == 'http-handler')

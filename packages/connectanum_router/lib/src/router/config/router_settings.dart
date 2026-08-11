@@ -272,15 +272,18 @@ class RealmLimitSettings {
     this.sessionIdleMs = 600000,
     this.maxFailedAuth = 5,
     this.maxFailedAuthRecords = 4096,
+    this.maxHttpAuthGrants = 4096,
     this.lockoutMs = 900000,
     this.callTimeoutMs = 30000,
-  }) : assert(maxFailedAuthRecords > 0);
+  }) : assert(maxFailedAuthRecords > 0),
+       assert(maxHttpAuthGrants > 0);
 
   final int maxPendingAuth;
   final int authTimeoutMs;
   final int sessionIdleMs;
   final int maxFailedAuth;
   final int maxFailedAuthRecords;
+  final int maxHttpAuthGrants;
   final int lockoutMs;
   final int callTimeoutMs;
 }

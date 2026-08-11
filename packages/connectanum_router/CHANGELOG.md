@@ -19,6 +19,10 @@
   `max_failed_auth_records`, fixed-size internal identity digests,
   lockout-window expiry, fail-closed admission, bounded retry metadata, and
   successful-authentication capacity release.
+- Bound successful router HTTP-auth grant lineages per realm with
+  `max_http_auth_grants`, fail-closed challenge admission and completion,
+  secret-free capacity telemetry, refresh-at-capacity support, and
+  revocation/expiry recovery.
 - Bound router-hosted MCP POST bodies before UTF-8 and JSON decoding with a
   configurable raw-byte limit and authenticated-route precedence.
 - Bound router-hosted MCP tool and dynamic-resource WAMP calls with a

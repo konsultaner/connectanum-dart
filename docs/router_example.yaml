@@ -59,6 +59,8 @@ router:
         max_failed_auth: 5
         # Bounds retained identities; sub-threshold records expire after lockout_ms.
         max_failed_auth_records: 4096
+        # Counts each refresh-backed or access-only HTTP-auth grant lineage.
+        max_http_auth_grants: 4096
         lockout_ms: 900000
         call_timeout_ms: 30000
 

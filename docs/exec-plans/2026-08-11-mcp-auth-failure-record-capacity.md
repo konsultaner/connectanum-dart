@@ -1,6 +1,6 @@
 # MCP Auth Failure Record Capacity
 
-Status: complete; local verification green; publication pending
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -80,3 +80,13 @@ remain state-free with bounded retry metadata and secret-safe telemetry.
   280-case MCP/client suite, all 96 benchmark tests and 36 live WAMP workloads,
   all 425 router tests, six remote-auth integration cases, 13 native
   follow-ups, every neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage.
+- 2026-08-11: Commit `d90b86e3` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31513991021`, Dart Package Publish Dry Run
+  `31513990784`, WAMP Profile Benchmarks `31513990863`, and dispatched Router
+  Image dry run `31514031545` all pass on their first attempts. Retained
+  artifacts are coverage `9110837231`, WAMP evidence `9110509365`, Router Image
+  preview `9110282230`, and Docker build records `9110427922` / `9110427312`.
+  The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI logs, loaded-image MCP runtime smoke, multi-architecture image
+  build, and every required deployment gate ready. RC creation remains an
+  explicit release-approval action outside this checkpoint.

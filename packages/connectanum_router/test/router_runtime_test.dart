@@ -1425,8 +1425,11 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
   int maxPendingAuth = 32,
   int maxFailedAuth = 5,
   int maxFailedAuthRecords = 4096,
+  int maxHttpAuthGrants = 4096,
   int lockoutMs = 900000,
   int authTimeoutMs = 10000,
+  int tokenTtlMs = 60000,
+  int refreshTokenTtlMs = 300000,
 }) {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -1436,6 +1439,7 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
             maxPendingAuth: maxPendingAuth,
             maxFailedAuth: maxFailedAuth,
             maxFailedAuthRecords: maxFailedAuthRecords,
+            maxHttpAuthGrants: maxHttpAuthGrants,
             lockoutMs: lockoutMs,
             authTimeoutMs: authTimeoutMs,
           ),
@@ -1485,7 +1489,7 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
           ..addProtocol(ListenerProtocol.rawsocket)
           ..addProtocol(ListenerProtocol.http)
           ..setHttpOptions(
-            const HttpListenerSettings(
+            HttpListenerSettings(
               sessionProfile: 'public-http',
               routes: [
                 HttpRouteSettings(
@@ -1494,8 +1498,8 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
                     type: HttpRouteActionType.auth,
                     sessionProfile: 'http-ticket',
                     options: <String, Object?>{
-                      'token_ttl_ms': 60000,
-                      'refresh_token_ttl_ms': 300000,
+                      'token_ttl_ms': tokenTtlMs,
+                      'refresh_token_ttl_ms': refreshTokenTtlMs,
                       'rotate_refresh_tokens': true,
                     },
                   ),
@@ -6597,6 +6601,363 @@ void main() {
       );
     },
   );
+
+  test(
+    'auth bridge bounds active grant lineages and recovers after revocation',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(maxHttpAuthGrants: 1),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      final firstGrant = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+        startConnectionId: 90,
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 92,
+        handle: 52,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': firstGrant.refreshToken,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[92]?.isNotEmpty ?? false);
+      final refreshResponse = runtime.httpResponses[92]!.single;
+      expect(refreshResponse.status, HttpStatus.ok);
+      final refreshedToken =
+          _jsonResponseBody(refreshResponse)['refresh_token'] as String;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 93,
+        handle: 53,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'locked-user',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[93]?.isNotEmpty ?? false);
+      final capacityResponse = runtime.httpResponses[93]!.single;
+      expect(capacityResponse.status, HttpStatus.serviceUnavailable);
+      final retryAfter = int.parse(
+        capacityResponse.headers[HttpHeaders.retryAfterHeader]!,
+      );
+      expect(retryAfter, inInclusiveRange(1, 300));
+      expect(
+        _jsonResponseBody(capacityResponse),
+        allOf(
+          containsPair('reason', 'auth_grant_capacity_exhausted'),
+          isNot(contains('state')),
+          isNot(contains('access_token')),
+          isNot(contains('refresh_token')),
+        ),
+      );
+      expect(
+        events,
+        contains(
+          allOf(
+            containsPair('type', 'http_auth_grant_capacity_exhausted'),
+            containsPair('realm', 'realm1'),
+            containsPair('activeGrantCount', 1),
+            containsPair('maxHttpAuthGrants', 1),
+            isNot(contains('authid')),
+            isNot(contains('state')),
+            isNot(contains('token')),
+          ),
+        ),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 94,
+        handle: 54,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'revoke',
+          'token': refreshedToken,
+          'token_type_hint': 'refresh_token',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[94]?.isNotEmpty ?? false);
+      expect(runtime.httpResponses[94]!.single.status, HttpStatus.ok);
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 95,
+        handle: 55,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'locked-user',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[95]?.isNotEmpty ?? false);
+      final recoveredChallenge = runtime.httpResponses[95]!.single;
+      expect(recoveredChallenge.status, HttpStatus.unauthorized);
+      expect(_jsonResponseBody(recoveredChallenge)['state'], isNotEmpty);
+    },
+  );
+
+  test(
+    'auth bridge rechecks grant capacity after challenge completion',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(maxHttpAuthGrants: 1),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      Future<String> startChallenge({
+        required int connectionId,
+        required String authId,
+      }) async {
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId - 40,
+          method: 'POST',
+          target: '/auth',
+          headers: const {'content-type': 'application/json'},
+          body: <String, Object?>{
+            'realm': 'realm1',
+            'authmethod': 'ticket',
+            'authid': authId,
+          },
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        );
+        final response = runtime.httpResponses[connectionId]!.single;
+        expect(response.status, HttpStatus.unauthorized);
+        return _jsonResponseBody(response)['state'] as String;
+      }
+
+      Future<NativeHttpResponse> completeChallenge({
+        required int connectionId,
+        required String state,
+        required String ticket,
+      }) async {
+        final authenticate = await TicketAuthentication(
+          ticket,
+        ).challenge(Extra());
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId - 40,
+          method: 'POST',
+          target: '/auth',
+          headers: const {'content-type': 'application/json'},
+          body: <String, Object?>{
+            'state': state,
+            'signature': authenticate.signature,
+            'extra': authenticate.extra,
+          },
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        );
+        return runtime.httpResponses[connectionId]!.single;
+      }
+
+      final firstState = await startChallenge(
+        connectionId: 100,
+        authId: 'user-1',
+      );
+      final secondState = await startChallenge(
+        connectionId: 101,
+        authId: 'locked-user',
+      );
+      final firstResponse = await completeChallenge(
+        connectionId: 102,
+        state: firstState,
+        ticket: 'signed-token',
+      );
+      expect(firstResponse.status, HttpStatus.ok);
+
+      final secondResponse = await completeChallenge(
+        connectionId: 103,
+        state: secondState,
+        ticket: 'locked-user-token',
+      );
+      expect(secondResponse.status, HttpStatus.serviceUnavailable);
+      expect(
+        _jsonResponseBody(secondResponse),
+        allOf(
+          containsPair('reason', 'auth_grant_capacity_exhausted'),
+          isNot(contains('state')),
+          isNot(contains('access_token')),
+          isNot(contains('refresh_token')),
+        ),
+      );
+    },
+  );
+
+  test('auth bridge reclaims expired access-only grant capacity', () async {
+    final runtime = _HandleRuntime();
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpAuthBridge(
+        maxHttpAuthGrants: 1,
+        tokenTtlMs: 500,
+        refreshTokenTtlMs: 0,
+      ),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    Future<NativeHttpResponse> startAuth({
+      required int connectionId,
+      required String authId,
+    }) async {
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: connectionId,
+        handle: connectionId - 40,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': authId,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+      );
+      return runtime.httpResponses[connectionId]!.single;
+    }
+
+    final firstChallenge = await startAuth(connectionId: 110, authId: 'user-1');
+    final state = _jsonResponseBody(firstChallenge)['state'] as String;
+    final authenticate = await TicketAuthentication(
+      'signed-token',
+    ).challenge(Extra());
+    _enqueueSyntheticHttpRequest(
+      runtime: runtime,
+      listenerId: listenerId,
+      connectionId: 111,
+      handle: 71,
+      method: 'POST',
+      target: '/auth',
+      headers: const {'content-type': 'application/json'},
+      body: <String, Object?>{
+        'state': state,
+        'signature': authenticate.signature,
+        'extra': authenticate.extra,
+      },
+      realm: 'router.http',
+      procedure: 'router.http.auth',
+    );
+    await _waitUntil(() => runtime.httpResponses[111]?.isNotEmpty ?? false);
+    final firstGrant = runtime.httpResponses[111]!.single;
+    expect(firstGrant.status, HttpStatus.ok);
+    expect(_jsonResponseBody(firstGrant)['access_token'], isNotEmpty);
+    expect(_jsonResponseBody(firstGrant), isNot(contains('refresh_token')));
+
+    final capacityResponse = await startAuth(
+      connectionId: 112,
+      authId: 'locked-user',
+    );
+    expect(capacityResponse.status, HttpStatus.serviceUnavailable);
+
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    final recoveredChallenge = await startAuth(
+      connectionId: 113,
+      authId: 'locked-user',
+    );
+    expect(recoveredChallenge.status, HttpStatus.unauthorized);
+    expect(_jsonResponseBody(recoveredChallenge)['state'], isNotEmpty);
+  });
 
   test(
     'auth bridge enforces failed-attempt lockout without blocking another identity',

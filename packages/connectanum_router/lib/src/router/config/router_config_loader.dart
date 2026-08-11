@@ -682,12 +682,20 @@ class RouterConfigLoader {
         'Realm "limits.max_failed_auth_records" must be > 0',
       );
     }
+    final maxHttpAuthGrants = _asInt(
+      node['max_http_auth_grants'],
+      defaultValue: 4096,
+    );
+    if (maxHttpAuthGrants <= 0) {
+      throw FormatException('Realm "limits.max_http_auth_grants" must be > 0');
+    }
     return RealmLimitSettings(
       maxPendingAuth: _asInt(node['max_pending_auth'], defaultValue: 32),
       authTimeoutMs: _asInt(node['auth_timeout_ms'], defaultValue: 10000),
       sessionIdleMs: _asInt(node['session_idle_ms'], defaultValue: 600000),
       maxFailedAuth: _asInt(node['max_failed_auth'], defaultValue: 5),
       maxFailedAuthRecords: maxFailedAuthRecords,
+      maxHttpAuthGrants: maxHttpAuthGrants,
       lockoutMs: _asInt(node['lockout_ms'], defaultValue: 900000),
       callTimeoutMs: _asInt(node['call_timeout_ms'], defaultValue: 30000),
     );
