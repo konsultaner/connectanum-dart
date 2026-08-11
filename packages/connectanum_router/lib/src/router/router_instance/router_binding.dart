@@ -1890,6 +1890,27 @@ class RouterBinding {
       retainedHandshake?.release();
       return;
     }
+    if (mcpRoute != null && !_mcpOriginAllowed(this, request, mcpRoute)) {
+      try {
+        await _handleMcpHttpRequestForBinding(
+          this,
+          request: request,
+          handshake: retainedHandshake,
+          listenerSettings: listenerSettings,
+          route: mcpRoute,
+          sessionProfile: sessionProfile,
+          routeAllowedMethods: routeMatch.isMethodNotAllowed
+              ? routeMatch.allowedMethods
+              : null,
+          routeAllowedProtocols: routeMatch.isProtocolNotAllowed
+              ? routeMatch.allowedProtocols
+              : null,
+        );
+      } finally {
+        retainedHandshake?.release();
+      }
+      return;
+    }
     final rateLimitDecision = mcpRoute != null && httpMethod == 'DELETE'
         ? null
         : _evaluateHttpRouteRateLimit(request: request, route: matchedRoute);

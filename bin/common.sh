@@ -12551,6 +12551,28 @@ Future<void> _smokeRateLimitedMcpRoute(RouterBinding binding) async {
   final client = HttpClient();
   final endpoint = _rateLimitedMcpEndpoint(binding);
   try {
+    final rejectedOrigin = await _mcpRawMcpRequest(
+      client,
+      endpoint,
+      'POST',
+      origin: 'https://rejected.example',
+      jsonBody: const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'rate-limited-rejected-origin',
+        'method': 'tools/list',
+      },
+    );
+    if (rejectedOrigin.statusCode != HttpStatus.forbidden ||
+        rejectedOrigin.header('mcp-session-id') != null ||
+        rejectedOrigin.header('x-ratelimit-limit') != null ||
+        !rejectedOrigin.body.contains('Invalid Origin')) {
+      throw StateError(
+        'MCP rate-limited route did not reject an invalid Origin before '
+        'session and rate-limit handling: ${rejectedOrigin.statusCode} '
+        '${rejectedOrigin.body}',
+      );
+    }
+
     final toolsId = 'rate-limited-direct-tools';
     final tools = await _mcpRawDirectJsonRpc(
       client,
@@ -16341,11 +16363,12 @@ Future<_McpRawHttpResponse> _mcpRawMcpRequest(
   Uri endpoint,
   String method, {
   String accept = 'application/json, text/event-stream',
+  String origin = _allowedOrigin,
   String? bearerToken,
   Map<String, Object?>? jsonBody,
 }) async {
   final request = await client.openUrl(method, endpoint);
-  request.headers.set('Origin', _allowedOrigin);
+  request.headers.set('Origin', origin);
   request.headers.set(HttpHeaders.acceptHeader, accept);
   request.headers.set(
     'MCP-Protocol-Version',

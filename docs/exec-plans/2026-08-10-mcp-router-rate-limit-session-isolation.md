@@ -1,6 +1,6 @@
 # MCP Router Rate-Limit Session Isolation
 
-Status: complete; implementation and local verification green
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -68,5 +68,13 @@ session it already owns.
   tests, 101 MCP tests, the complete 280-case MCP/client suite, all 96
   benchmark tests including 36 live WAMP workloads, all 418 router tests,
   remote-auth integration, 13 native follow-ups, every neutral consumer and
-  CLI smoke, and Chrome/Dart2Wasm coverage. Publication and exact-head hosted
-  evidence remain.
+  CLI smoke, and Chrome/Dart2Wasm coverage.
+- 2026-08-11: Commit `7c5e812a` is published to both maintained `master`
+  branches. Exact-head GitHub CI run `31469880154`, Dart package publish dry
+  run `31469880208`, WAMP profile benchmark run `31469880194`, and dispatched
+  Router Image dry run `31471154864` all pass. The runs retain coverage
+  artifact `9093248524`, WAMP artifact `9093111507`, router preview artifact
+  `9093396133`, and Docker build records `9093538729` / `9093537939`. The
+  comprehensive strict deployment-chain audit passes every required gate; RC
+  creation remains intentionally unready because no approved numeric RC tag
+  points at this commit.

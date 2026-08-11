@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-10
+Last updated: 2026-08-11
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -24999,6 +24999,28 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Completed locally most recently, the implementation plan is:
+  `docs/exec-plans/2026-08-11-mcp-router-origin-rate-limit-precedence.md`.
+  Router-hosted MCP now validates every supplied Origin before route-level
+  rate limiting, transport authentication, principal resolution, or
+  compatibility-session work. Invalid Origins therefore always receive the
+  required HTTP 403 boundary without consuming quota or receiving session or
+  rate-limit headers; valid-Origin traffic retains the existing sessionless
+  429 response, CORS/protocol/rate metadata, and Streamable DELETE exemption.
+  The focused router regression and neutral generated-consumer smoke send
+  rejected-Origin traffic before valid requests and prove the valid-client
+  budget remains intact. The first full verification run exposed an unrelated
+  load-sensitive 500 ms idle-expiry test deadline; the exact test passed five
+  isolated reruns, and its equivalent semantics now have sufficient
+  concurrent-suite margin. Five post-hardening focused reruns and the complete
+  424-test router package suite pass. Pre-change and post-change
+  `bin/test-fast` pass. The canonical `bin/verify` rerun passes with zero
+  formatting changes, 114 Rust core tests plus serializer integrations, 52
+  Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete 280-case
+  MCP/client suite, all 96 benchmark tests and 36 live WAMP workloads, all 418
+  router tests, remote-auth integration, 13 native follow-ups, every neutral
+  consumer/CLI smoke, and Chrome/Dart2Wasm coverage. Publication and exact-head
+  hosted evidence remain.
+- Completed locally most recently, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-rate-limit-session-isolation.md`.
   Router-hosted MCP route limiting runs before endpoint authentication,
   principal resolution, and compatibility-session ownership checks, so its
@@ -25014,7 +25036,14 @@ at the older `47bbf9c` commit.
   tests, the complete 280-case MCP/client suite, all 96 benchmark tests and 36
   live WAMP workloads, all 418 router tests, remote-auth integration, 13 native
   follow-ups, every neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage.
-  Publication and exact-head hosted evidence are pending.
+  Commit `7c5e812a` is published to both maintained `master` branches.
+  Exact-head GitHub CI `31469880154`, package publish dry run `31469880208`,
+  WAMP profile benchmark `31469880194`, and dispatched Router Image dry run
+  `31471154864` all pass. Retained artifacts are coverage `9093248524`, WAMP
+  evidence `9093111507`, router preview `9093396133`, and Docker build records
+  `9093538729` / `9093537939`. The comprehensive strict deployment-chain audit
+  passes every required gate. RC creation remains intentionally unready only
+  because no approved numeric RC tag points at this commit.
 - Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-10-mcp-router-route-rejection-transport-auth.md`.
   Configured MCP route-level method and protocol mismatches now evaluate the

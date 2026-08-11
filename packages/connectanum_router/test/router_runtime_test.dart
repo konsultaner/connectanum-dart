@@ -4764,7 +4764,7 @@ void main() {
     );
   });
 
-  test('rate limited MCP routes never trust session headers', () async {
+  test('rate limited MCP routes validate origins before limits', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()
       ..addListenerFromBuilder(
@@ -4784,6 +4784,7 @@ void main() {
                     ),
                     options: <String, Object?>{
                       'allowed_origins': ['https://agent.example'],
+                      'require_bearer': true,
                     },
                   ),
                 ),
@@ -4839,18 +4840,52 @@ void main() {
       );
     }
 
-    void enqueuePreflight(int connectionId, int handle) {
+    void enqueuePreflight(
+      int connectionId,
+      int handle, {
+      String origin = 'https://agent.example',
+    }) {
       enqueueMcpRequest(
         connectionId: connectionId,
         handle: handle,
         method: 'OPTIONS',
-        headers: const {
-          'origin': 'https://agent.example',
+        headers: {
+          'origin': origin,
           'access-control-request-method': 'POST',
           'access-control-request-headers': 'MCP-Protocol-Version',
         },
       );
     }
+
+    enqueueMcpRequest(
+      connectionId: 55,
+      handle: 14,
+      method: 'POST',
+      headers: const {
+        'origin': 'https://rejected.example',
+        'accept': 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+      },
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[55]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final rejectedBeforeAuth = runtime.httpResponses[55]!.single;
+    expect(rejectedBeforeAuth.status, HttpStatus.forbidden);
+    expect(rejectedBeforeAuth.headers, isNot(contains('www-authenticate')));
+    expect(rejectedBeforeAuth.headers, isNot(contains('x-ratelimit-limit')));
+
+    enqueuePreflight(53, 12, origin: 'https://rejected.example');
+    await _waitUntil(
+      () => runtime.httpResponses[53]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final rejectedBeforeLimit = runtime.httpResponses[53]!.single;
+    expect(rejectedBeforeLimit.status, HttpStatus.forbidden);
+    expect(rejectedBeforeLimit.headers, isNot(contains('x-ratelimit-limit')));
+    expect(rejectedBeforeLimit.headers, isNot(contains('MCP-Session-Id')));
 
     enqueuePreflight(48, 7);
     await _waitUntil(
@@ -4858,6 +4893,16 @@ void main() {
       timeout: const Duration(seconds: 2),
     );
     expect(runtime.httpResponses[48]!.single.status, HttpStatus.noContent);
+
+    enqueuePreflight(54, 13, origin: 'https://rejected.example');
+    await _waitUntil(
+      () => runtime.httpResponses[54]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final rejectedAfterLimit = runtime.httpResponses[54]!.single;
+    expect(rejectedAfterLimit.status, HttpStatus.forbidden);
+    expect(rejectedAfterLimit.headers, isNot(contains('x-ratelimit-limit')));
+    expect(rejectedAfterLimit.headers, isNot(contains('MCP-Session-Id')));
 
     enqueuePreflight(49, 8);
     await _waitUntil(
@@ -5273,7 +5318,7 @@ void main() {
                     realm: 'router.http',
                     options: <String, Object?>{
                       'post_response_transport': 'json',
-                      'session_idle_timeout_ms': 500,
+                      'session_idle_timeout_ms': 1000,
                       'procedures': <Object?>[
                         <String, Object?>{
                           'procedure': 'app.safe.header_lookup',
@@ -5487,7 +5532,7 @@ void main() {
       contains("does not match body value 'task-1'"),
     );
 
-    await Future<void>.delayed(const Duration(milliseconds: 250));
+    await Future<void>.delayed(const Duration(milliseconds: 750));
 
     final expiredResponse = await sendMcpRequest(
       method: 'POST',
@@ -5535,7 +5580,7 @@ void main() {
     final disabledSessionId = disabledInitialize.headers['MCP-Session-Id'];
     expect(disabledSessionId, isNotNull);
 
-    await Future<void>.delayed(const Duration(milliseconds: 650));
+    await Future<void>.delayed(const Duration(milliseconds: 1150));
 
     final disabledTools = await sendMcpRequest(
       method: 'POST',
