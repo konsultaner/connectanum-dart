@@ -9,6 +9,9 @@
   isolation, pub/sub, Streamable HTTP compatibility, and operational metrics.
 - Preserve router-hosted MCP sessions across HTTP-auth access and refresh-token
   rotation while continuing to reject the rotated credentials.
+- Enforce positive realm `max_pending_auth` limits on router HTTP-auth
+  challenges with per-realm capacity, bounded retry metadata, authenticator
+  cleanup, and recovery after the occupying challenge completes or expires.
 - Bound router-hosted MCP POST bodies before UTF-8 and JSON decoding with a
   configurable raw-byte limit and authenticated-route precedence.
 - Bound router-hosted MCP tool and dynamic-resource WAMP calls with a

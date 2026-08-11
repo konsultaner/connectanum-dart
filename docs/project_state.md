@@ -24999,6 +24999,26 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Completed locally most recently, the implementation plan is:
+  `docs/exec-plans/2026-08-11-mcp-http-auth-pending-capacity.md`. Router-hosted
+  HTTP authentication now enforces positive realm `max_pending_auth` limits
+  before inserting initial or multi-round challenge state. Full realms abort
+  the rejected authenticator and return a state-free HTTP 429 with a bounded
+  retry window derived from the earliest active same-realm expiry. Structured
+  capacity telemetry contains no auth ID, signature, state, or token, and
+  subsequent challenges now retain the configured realm auth timeout. The
+  fail-first router regression reproduced a second challenge being admitted
+  while a one-entry realm was occupied. The neutral installed-consumer smoke
+  proves the second request is rejected, completes the occupying challenge,
+  and uses that public grant through protected router-hosted MCP, direct JSON,
+  pub/sub, refresh/revoke, and Streamable session flows. Pre-change and
+  post-change `bin/test-fast`, focused analysis and auth-bridge tests, shell
+  syntax, diff hygiene, and the generated-consumer smoke pass. `bin/verify`
+  passes formatting, all 114 native transport tests, 52 FFI tests, 360 core
+  tests, 101 MCP tests, the complete 280-case MCP/client suite, all 96
+  benchmark tests and 36 live WAMP workloads, all 420 router tests,
+  remote-auth integration, 13 native follow-ups, every neutral consumer/CLI
+  smoke, and Chrome/Dart2Wasm coverage. Publication is pending.
+- Completed locally most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-router-rate-limit-bucket-capacity.md`.
   Router HTTP route actions now accept a bounded `max_buckets` /
   `maxBuckets` cardinality (default 4096) for caller-scoped rate state. State
@@ -25019,8 +25039,15 @@ at the older `47bbf9c` commit.
   transport tests, 52 FFI tests, 360 core tests, 101 MCP tests, the complete
   280-case MCP/client suite, all 96 benchmark tests and 36 live WAMP workloads,
   all 419 router tests, remote-auth integration, 13 native follow-ups, every
-  neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage. Publication and
-  exact-head hosted evidence remain pending.
+  neutral consumer/CLI smoke, and Chrome/Dart2Wasm coverage. Commit `66a802bf`
+  is published to both maintained `master` branches. Exact-head GitHub CI
+  `31486847494`, package publish dry run `31486847474`, WAMP profile benchmark
+  `31486847456`, and dispatched Router Image dry run `31486902644` all pass.
+  Retained artifacts are coverage `9099966443`, WAMP evidence `9099650231`,
+  router preview `9099472732`, and Docker build records `9099612769` /
+  `9099611972`. The comprehensive strict deployment-chain audit passes every
+  required gate. RC creation remains intentionally unready only because no
+  approved numeric RC tag points at this commit.
 - Completed locally most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-router-origin-rate-limit-precedence.md`.
   Router-hosted MCP now validates every supplied Origin before route-level

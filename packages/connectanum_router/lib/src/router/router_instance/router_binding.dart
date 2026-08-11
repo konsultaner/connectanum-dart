@@ -3828,6 +3828,25 @@ class RouterBinding {
     switch (result.status) {
       case AuthStatus.challenge:
         final challenge = result.challenge!;
+        final now = DateTime.now().toUtc();
+        final capacityDecision = _evaluateHttpAuthPendingCapacity(
+          realmUri: realmUri,
+          maxPendingAuth: realmSettings.limits.maxPendingAuth,
+          now: now,
+        );
+        if (capacityDecision != null) {
+          await authenticator.onAbort(
+            context,
+            reason: 'http_auth_capacity_exhausted',
+          );
+          await _sendHttpAuthCapacityResponse(
+            request: request,
+            handshake: handshake,
+            realmUri: realmUri,
+            decision: capacityDecision,
+          );
+          return;
+        }
         final authState = _randomHttpAuthToken();
         final timeoutMs = realmSettings.limits.authTimeoutMs;
         _pendingHttpAuthTransactions[authState] = _PendingHttpAuthTransaction(
@@ -3838,7 +3857,7 @@ class RouterBinding {
           authenticator: authenticator,
           context: context,
           sessionProfileName: sessionProfile?.name,
-          expiresAt: DateTime.now().toUtc().add(
+          expiresAt: now.add(
             Duration(milliseconds: timeoutMs > 0 ? timeoutMs : 10000),
           ),
         );
@@ -3897,6 +3916,72 @@ class RouterBinding {
           ),
         );
     }
+  }
+
+  _HttpAuthPendingCapacityDecision? _evaluateHttpAuthPendingCapacity({
+    required String realmUri,
+    required int maxPendingAuth,
+    required DateTime now,
+  }) {
+    if (maxPendingAuth <= 0) {
+      return null;
+    }
+    var pendingAuthCount = 0;
+    DateTime? earliestExpiry;
+    for (final pending in _pendingHttpAuthTransactions.values) {
+      if (pending.realmUri != realmUri || !pending.expiresAt.isAfter(now)) {
+        continue;
+      }
+      pendingAuthCount++;
+      if (earliestExpiry == null ||
+          pending.expiresAt.isBefore(earliestExpiry)) {
+        earliestExpiry = pending.expiresAt;
+      }
+    }
+    if (pendingAuthCount < maxPendingAuth || earliestExpiry == null) {
+      return null;
+    }
+    final retryAfter = earliestExpiry.difference(now);
+    return _HttpAuthPendingCapacityDecision(
+      pendingAuthCount: pendingAuthCount,
+      maxPendingAuth: maxPendingAuth,
+      retryAfterMs: retryAfter.isNegative ? 0 : retryAfter.inMilliseconds,
+    );
+  }
+
+  Future<void> _sendHttpAuthCapacityResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required String realmUri,
+    required _HttpAuthPendingCapacityDecision decision,
+  }) async {
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_auth_capacity_exhausted',
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+      'realm': realmUri,
+      'pendingAuthCount': decision.pendingAuthCount,
+      'maxPendingAuth': decision.maxPendingAuth,
+      'retryAfterMs': decision.retryAfterMs,
+    });
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.tooManyRequests,
+        headers: {
+          HttpHeaders.retryAfterHeader: decision.retryAfterSeconds.toString(),
+        },
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': 'auth_capacity_exhausted',
+          'message': 'HTTP authentication challenge capacity is exhausted',
+          'retry_after_ms': decision.retryAfterMs,
+        }),
+      ),
+    );
   }
 
   Future<void> _continueHttpAuthTransaction({
@@ -3978,10 +4063,30 @@ class RouterBinding {
     );
     switch (result.status) {
       case AuthStatus.challenge:
+        final now = DateTime.now().toUtc();
+        final realmLimits = pending.context.realm.limits;
+        final capacityDecision = _evaluateHttpAuthPendingCapacity(
+          realmUri: pending.realmUri,
+          maxPendingAuth: realmLimits.maxPendingAuth,
+          now: now,
+        );
+        if (capacityDecision != null) {
+          await pending.abort(reason: 'http_auth_capacity_exhausted');
+          await _sendHttpAuthCapacityResponse(
+            request: request,
+            handshake: handshake,
+            realmUri: pending.realmUri,
+            decision: capacityDecision,
+          );
+          return;
+        }
         final nextState = _randomHttpAuthToken();
+        final timeoutMs = realmLimits.authTimeoutMs;
         _pendingHttpAuthTransactions[nextState] = pending.copyWith(
           state: nextState,
-          expiresAt: DateTime.now().toUtc().add(const Duration(seconds: 10)),
+          expiresAt: now.add(
+            Duration(milliseconds: timeoutMs > 0 ? timeoutMs : 10000),
+          ),
         );
         await _sendImmediateHttpResponse(
           request: request,
@@ -6805,6 +6910,23 @@ class _ProcedureMetricsDetail {
     'policy': policy.name,
     'callee_count': calleeCount,
   };
+}
+
+class _HttpAuthPendingCapacityDecision {
+  const _HttpAuthPendingCapacityDecision({
+    required this.pendingAuthCount,
+    required this.maxPendingAuth,
+    required this.retryAfterMs,
+  });
+
+  final int pendingAuthCount;
+  final int maxPendingAuth;
+  final int retryAfterMs;
+
+  int get retryAfterSeconds {
+    final seconds = (retryAfterMs / 1000).ceil();
+    return seconds <= 0 ? 1 : seconds;
+  }
 }
 
 class _PendingHttpAuthTransaction {

@@ -51,6 +51,7 @@ router:
               match: prefix
               allow: [call]
       limits:
+        # Positive values cap pending router HTTP-auth challenges per realm.
         max_pending_auth: 32
         auth_timeout_ms: 10000
         session_idle_ms: 600000

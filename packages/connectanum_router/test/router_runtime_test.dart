@@ -1420,10 +1420,13 @@ RouterSettings _buildRouterSettingsWithSessionProfiles() {
   return builder.build();
 }
 
-RouterSettings _buildRouterSettingsWithHttpAuthBridge() {
+RouterSettings _buildRouterSettingsWithHttpAuthBridge({
+  int maxPendingAuth = 32,
+}) {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
       RealmSettingsBuilder('realm1')
+        ..setLimits(RealmLimitSettings(maxPendingAuth: maxPendingAuth))
         ..addAuthMethod(
           'ticket',
           options: const {'authenticator': 'ticket-basic'},
@@ -6452,6 +6455,127 @@ void main() {
               event['connectionId'] == thirdConnectionId,
         ),
         isTrue,
+      );
+    },
+  );
+
+  test(
+    'auth bridge bounds pending challenges and reclaims completed capacity',
+    () async {
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(maxPendingAuth: 1),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      void enqueueAuthStart(int connectionId, int handle) {
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: handle,
+          method: 'POST',
+          target: '/auth',
+          headers: const {'content-type': 'application/json'},
+          body: const <String, Object?>{
+            'realm': 'realm1',
+            'authmethod': 'ticket',
+            'authid': 'user-1',
+          },
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        );
+      }
+
+      enqueueAuthStart(60, 20);
+      await _waitUntil(() => runtime.httpResponses[60]?.isNotEmpty ?? false);
+      final firstChallenge = runtime.httpResponses[60]!.single;
+      expect(firstChallenge.status, HttpStatus.unauthorized);
+      final firstChallengeBody = _jsonResponseBody(firstChallenge);
+      final state = firstChallengeBody['state'] as String;
+
+      enqueueAuthStart(61, 21);
+      await _waitUntil(() => runtime.httpResponses[61]?.isNotEmpty ?? false);
+      final capacityResponse = runtime.httpResponses[61]!.single;
+      expect(capacityResponse.status, HttpStatus.tooManyRequests);
+      final retryAfter = int.parse(
+        capacityResponse.headers[HttpHeaders.retryAfterHeader]!,
+      );
+      expect(retryAfter, inInclusiveRange(1, 10));
+      expect(
+        _jsonResponseBody(capacityResponse),
+        allOf(
+          containsPair('reason', 'auth_capacity_exhausted'),
+          isNot(contains('state')),
+        ),
+      );
+      expect(
+        events,
+        contains(
+          allOf(
+            containsPair('type', 'http_auth_capacity_exhausted'),
+            containsPair('realm', 'realm1'),
+            containsPair('pendingAuthCount', 1),
+            containsPair('maxPendingAuth', 1),
+            isNot(contains('authid')),
+          ),
+        ),
+      );
+
+      final authenticate = await TicketAuthentication(
+        'signed-token',
+      ).challenge(Extra());
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 62,
+        handle: 22,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'state': state,
+          'signature': authenticate.signature,
+          'extra': authenticate.extra,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[62]?.isNotEmpty ?? false);
+      final successResponse = runtime.httpResponses[62]!.single;
+      expect(successResponse.status, HttpStatus.ok);
+      expect(_jsonResponseBody(successResponse)['access_token'], isNotEmpty);
+
+      enqueueAuthStart(63, 23);
+      await _waitUntil(() => runtime.httpResponses[63]?.isNotEmpty ?? false);
+      final recoveredChallenge = runtime.httpResponses[63]!.single;
+      expect(recoveredChallenge.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(recoveredChallenge)['state'],
+        isNot(equals(state)),
       );
     },
   );

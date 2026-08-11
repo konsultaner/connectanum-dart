@@ -1,6 +1,6 @@
 # MCP Router Rate-Limit Bucket Capacity
 
-Status: complete locally; publication and hosted evidence pending
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -73,3 +73,12 @@ Streamable DELETE must remain exempt so an active session can be cleaned up.
   suite, all 96 benchmark tests and 36 live WAMP workloads, all 419 router
   tests, remote-auth integration, 13 native follow-ups, every neutral
   consumer/CLI smoke, and Chrome/Dart2Wasm coverage.
+- 2026-08-11: Commit `66a802bf` is published to both maintained `master`
+  branches. Exact-head GitHub CI run `31486847494`, Dart package publish dry
+  run `31486847474`, WAMP profile benchmark run `31486847456`, and dispatched
+  Router Image dry run `31486902644` all pass. The runs retain coverage
+  artifact `9099966443`, WAMP artifact `9099650231`, router preview artifact
+  `9099472732`, and Docker build records `9099612769` / `9099611972`. The
+  comprehensive strict deployment-chain audit exits zero with every required
+  gate clean; RC creation remains intentionally unready because no approved
+  numeric RC tag points at this commit.
