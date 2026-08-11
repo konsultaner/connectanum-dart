@@ -12,6 +12,9 @@
 - Enforce positive realm `max_pending_auth` limits on router HTTP-auth
   challenges with per-realm capacity, bounded retry metadata, authenticator
   cleanup, and recovery after the occupying challenge completes or expires.
+- Apply realm failed-authentication lockouts to router HTTP-auth challenges,
+  including pending-transaction races, bounded retry metadata, audit events,
+  identity isolation, and successful-authentication reset behavior.
 - Bound router-hosted MCP POST bodies before UTF-8 and JSON decoding with a
   configurable raw-byte limit and authenticated-route precedence.
 - Bound router-hosted MCP tool and dynamic-resource WAMP calls with a

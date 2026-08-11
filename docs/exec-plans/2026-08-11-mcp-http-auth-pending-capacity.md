@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Pending Capacity
 
-Status: complete locally; publication pending
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -73,3 +73,14 @@ must remain compatible.
   suite, all 96 benchmark tests and 36 live WAMP workloads, all 420 router
   tests, remote-auth integration, 13 native follow-ups, every neutral
   consumer/CLI smoke, and Chrome/Dart2Wasm coverage.
+- 2026-08-11: Commit `9b1c4847` is published to both maintained `master`
+  branches. Exact-head GitHub CI run `31495162728`, Dart package publish dry
+  run `31495162703`, WAMP profile benchmark run `31495162695`, and dispatched
+  Router Image dry run `31495782368` all pass. The runs retain coverage
+  artifact `9103183347`, WAMP artifact `9102889429`, router preview artifact
+  `9102895859`, and Docker build records `9103034802` / `9103034192`. The
+  comprehensive strict deployment-chain audit exits zero with exact-head CI
+  logs, package, native-release, loaded-image MCP, multi-architecture image,
+  benchmark, workflow, package-visibility, and branch-protection gates clean;
+  RC creation remains intentionally unready because no approved numeric RC tag
+  points at this commit.

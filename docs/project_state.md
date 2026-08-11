@@ -24998,7 +24998,26 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Completed locally most recently, the implementation plan is:
+- Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-11-mcp-http-auth-lockout-parity.md`. Router-provided
+  HTTP authentication now applies the realm's existing `max_failed_auth` /
+  `lockout_ms` policy and auth audit lifecycle shared with WAMP handshakes.
+  Locked identities are rejected before new authenticator state is allocated,
+  already-issued transactions are rechecked, rejected credentials and expired
+  challenges count as failures, and success clears prior failures. Lockout
+  responses are state-free HTTP 429 replies with bounded retry metadata and
+  secret-safe router telemetry. Focused router/WAMP coverage and the neutral
+  installed-consumer smoke pass; the consumer proves the lockout remains
+  isolated from an unrelated grant used through protected MCP, direct JSON,
+  pub/sub, refresh/revoke, and Streamable HTTP flows. Pre-change and post-change
+  `bin/test-fast` pass. Full `bin/verify` passes with zero formatting changes,
+  all 114 native transport tests plus serializer integrations, 52 FFI tests,
+  360 core tests, 101 MCP tests, the complete 280-case MCP/client suite, all 96
+  benchmark cases and 36 live WAMP workloads, all 422 router tests, remote-auth
+  integration, 13 native follow-ups, every neutral consumer/CLI smoke, and
+  Chrome Dart2Wasm WebSocket coverage. Publication and exact-head hosted
+  evidence remain.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-http-auth-pending-capacity.md`. Router-hosted
   HTTP authentication now enforces positive realm `max_pending_auth` limits
   before inserting initial or multi-round challenge state. Full realms abort
@@ -25017,7 +25036,16 @@ at the older `47bbf9c` commit.
   tests, 101 MCP tests, the complete 280-case MCP/client suite, all 96
   benchmark tests and 36 live WAMP workloads, all 420 router tests,
   remote-auth integration, 13 native follow-ups, every neutral consumer/CLI
-  smoke, and Chrome/Dart2Wasm coverage. Publication is pending.
+  smoke, and Chrome/Dart2Wasm coverage. Commit `9b1c4847` is published to both
+  maintained `master` branches. Exact-head GitHub CI `31495162728`, Dart
+  Package Publish Dry Run `31495162703`, WAMP Profile Benchmarks `31495162695`,
+  and Router Image dry run `31495782368` all pass. CI uploaded coverage
+  artifact `9103183347`, WAMP uploaded benchmark artifact `9102889429`, and
+  Router Image uploaded preview artifact `9102895859` plus Docker build records
+  `9103034802` / `9103034192`. The comprehensive strict deployment-chain audit
+  exits zero with all required gates clean. Its non-gating RC summary remains
+  intentionally not ready because no approved numeric RC tag points at this
+  commit.
 - Completed locally most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-router-rate-limit-bucket-capacity.md`.
   Router HTTP route actions now accept a bounded `max_buckets` /

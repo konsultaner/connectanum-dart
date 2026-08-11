@@ -27137,6 +27137,8 @@ router:
       limits:
         max_pending_auth: 1
         auth_timeout_ms: 10000
+        max_failed_auth: 2
+        lockout_ms: 60000
       auth:
         authmethods: [anonymous, ticket]
         ticket:
@@ -27403,6 +27405,10 @@ router:
         secrets:
           cli-user:
             ticket: cli-ticket
+            role: member
+            provider: cli-ticket-db
+          locked-user:
+            ticket: locked-user-ticket
             role: member
             provider: cli-ticket-db
 YAML
@@ -28515,7 +28521,7 @@ const _secureTopic = 'cli.smoke.secure.events';
 const _configuredOnlySecureTopic = 'cli.smoke.secure.metadata';
 const _secureProcedure = 'cli.smoke.secure.lookup';
 
-Future<ConnectanumHttpAuthGrant> _issueTicketGrantWithCapacityProof({
+Future<ConnectanumHttpAuthGrant> _issueTicketGrantWithPolicyProof({
   required Uri endpoint,
   required String realm,
   required String authId,
@@ -28534,7 +28540,7 @@ Future<ConnectanumHttpAuthGrant> _issueTicketGrantWithCapacityProof({
       final response = await request.close();
       final responseBody = await utf8.decoder.bind(response).join();
       final decoded = jsonDecode(responseBody);
-      _expect(decoded is Map, 'HTTP auth capacity response was not an object.');
+      _expect(decoded is Map, 'HTTP auth policy response was not an object.');
       return (
         statusCode: response.statusCode,
         retryAfter: response.headers.value(HttpHeaders.retryAfterHeader),
@@ -28581,6 +28587,44 @@ Future<ConnectanumHttpAuthGrant> _issueTicketGrantWithCapacityProof({
     _expect(
       completed.statusCode == HttpStatus.ok,
       'HTTP auth capacity proof could not complete the occupying challenge.',
+    );
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final lockoutChallenge = await post(<String, Object?>{
+        'realm': realm,
+        'authmethod': 'ticket',
+        'authid': 'locked-user',
+      });
+      final lockoutState = lockoutChallenge.body['state'];
+      _expect(
+        lockoutChallenge.statusCode == HttpStatus.unauthorized &&
+            lockoutState is String &&
+            lockoutState.isNotEmpty,
+        'HTTP auth lockout proof did not receive a challenge.',
+      );
+      final rejected = await post(<String, Object?>{
+        'state': lockoutState,
+        'signature': 'wrong-ticket',
+      });
+      _expect(
+        rejected.statusCode == HttpStatus.unauthorized,
+        'HTTP auth lockout proof did not reject invalid credentials.',
+      );
+    }
+    final lockedOut = await post(<String, Object?>{
+      'realm': realm,
+      'authmethod': 'ticket',
+      'authid': 'locked-user',
+    });
+    final lockoutRetryAfter = int.tryParse(lockedOut.retryAfter ?? '');
+    _expect(
+      lockedOut.statusCode == HttpStatus.tooManyRequests &&
+          lockedOut.body['reason'] == 'auth_locked_out' &&
+          !lockedOut.body.containsKey('state') &&
+          lockoutRetryAfter != null &&
+          lockoutRetryAfter >= 1 &&
+          lockoutRetryAfter <= 60,
+      'HTTP auth lockout proof did not reject the locked identity safely.',
     );
     return ConnectanumHttpAuthGrant.fromJson(completed.body);
   } finally {
@@ -29044,7 +29088,7 @@ Future<void> main() async {
       'Dart consumer public Streamable delete leaked state.',
     );
 
-    final grant = await _issueTicketGrantWithCapacityProof(
+    final grant = await _issueTicketGrantWithPolicyProof(
       endpoint: authEndpoint,
       realm: 'cli.smoke',
       authId: 'cli-user',
@@ -31942,6 +31986,7 @@ Future<void> main() async {
         'secure': <String, Object?>{
           'ticketGrant': true,
           'authPendingCapacity': true,
+          'authLockout': true,
           'stateless2026': true,
           'subscriptionsListen': true,
           'resourceSubscriptionCoexistence': true,
@@ -33604,11 +33649,11 @@ DART
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
     '"public":{"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"resourceSubscriptionSessionDeleteCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"authPendingCapacity":true,"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"resourceSubscriptionSessionDeleteCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"secure":{"ticketGrant":true,"authPendingCapacity":true,"authLockout":true,"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"resourceSubscriptionSessionDeleteCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 
-  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, a configured /proxy/healthz session_proxy route backed by the router internal metrics health service, a configured /php FastCGI route backed by a neutral upstream, a configured /upstream reverse_proxy route backed by a neutral upstream, /auth with bounded pending-challenge capacity and recovery, /mcp, /mcp/secure, /mcp/secure-json-post, public and protected cross-era dynamic resource and WAMP pub/sub coexistence with active Streamable session deletion, direct JSON survival, replacement-session rejoin, and independent cleanup, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub/notification pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/notification pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/empty Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta, resource/prompt, and notification pub-sub isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/notification pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
+  printf 'Router CLI consumer package smoke served GET/HEAD /healthz, /health, /metrics, a configured /assets file route with GET/HEAD/range/traversal coverage, a configured /proxy/healthz session_proxy route backed by the router internal metrics health service, a configured /php FastCGI route backed by a neutral upstream, a configured /upstream reverse_proxy route backed by a neutral upstream, /auth with bounded pending-challenge capacity, failed-attempt lockout isolation, and recovery, /mcp, /mcp/secure, /mcp/secure-json-post, public and protected cross-era dynamic resource and WAMP pub/sub coexistence with active Streamable session deletion, direct JSON survival, replacement-session rejoin, and independent cleanup, public raw JSON resources/resource templates/prompts/WAMP procedure and topic catalog/describe/pub-sub/notification pub-sub plus Streamable procedure and topic describe/pub-sub/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, token-only protected clients, token-only protected JSON-response tool calls/resources/resource templates/prompts/WAMP procedure catalog/describe/registration/configured registration/session/subscription/configured subscription meta/pubsub/notification pubsub/batches/direct JSON stale session-id isolation plus Streamable procedure catalog/describe/topic describe/invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected tool calls/resources/resource templates/prompts/WAMP registration/configured registration/session/subscription/configured subscription meta/notification pubsub/batches plus Streamable invalid Last-Event-ID/empty Last-Event-ID/session delete, token-only protected pub/sub, active protected JSON-response auth rejection/refresh-revoke/direct JSON stale session-id isolation, direct JSON procedure catalog/describe/topic/registration/configured registration/session/subscription/configured subscription/resource list pagination/read/resource template pagination/prompt pagination/pub-sub/notification pub-sub/batch isolation, and Streamable resource list pagination/read/resource template pagination/prompt pagination plus procedure/topic/registration/configured registration/session/subscription/configured subscription metadata/pub-sub/batch/invalid Last-Event-ID/empty Last-Event-ID/session delete, active protected auth rejection isolation, active protected direct JSON WAMP meta, resource/prompt, and notification pub-sub isolation, protected raw JSON resources/resource templates/prompts/WAMP procedure and topic describe/pub-sub/notification pub-sub/batches plus Streamable resources/resource templates/prompts/procedure and topic describe/pub-sub/batches/invalid Last-Event-ID/empty Last-Event-ID/session delete/direct JSON stale session-id isolation, protected pub/sub, and a public Dart MCP client from the package executable command.\n'
   printf 'Router CLI consumer package smoke rejected stale protected Streamable session replay across the method matrix.\n'
   _cleanup_router_cli_smoke 0
 )

@@ -3794,6 +3794,29 @@ class RouterBinding {
       query['authid'],
       _headerValue(request.headers, 'x-connectanum-auth-id'),
     );
+    if (authId != null) {
+      final remaining = AuthSecurityTracker.lockoutRemaining(
+        realmUri,
+        authId,
+        realmSettings.limits,
+      );
+      if (remaining != null) {
+        AuthAuditLogger.failure(
+          realmUri: realmUri,
+          method: authMethod,
+          authId: authId,
+          message: 'locked out',
+        );
+        await _sendHttpAuthLockoutResponse(
+          request: request,
+          handshake: handshake,
+          realmUri: realmUri,
+          authMethod: authMethod,
+          remaining: remaining,
+        );
+        return;
+      }
+    }
     final helloDetails = <String, Object?>{
       'authid': ?authId,
       'authmethods': <String>[authMethod],
@@ -3878,6 +3901,11 @@ class RouterBinding {
           ),
         );
       case AuthStatus.success:
+        _recordHttpAuthSuccess(
+          realmUri: realmUri,
+          authMethod: authMethod,
+          authId: result.success!.authId,
+        );
         final token = _issueHttpAuthToken(
           realmUri: realmUri,
           authMethod: authMethod,
@@ -3901,6 +3929,14 @@ class RouterBinding {
           ),
         );
       case AuthStatus.failure:
+        await authenticator.onAbort(context, reason: result.failure!.reason);
+        _recordHttpAuthFailure(
+          realmUri: realmUri,
+          authMethod: authMethod,
+          authId: authId,
+          limits: realmSettings.limits,
+          message: result.failure!.message,
+        );
         await _sendImmediateHttpResponse(
           request: request,
           handshake: handshake,
@@ -3984,6 +4020,72 @@ class RouterBinding {
     );
   }
 
+  void _recordHttpAuthFailure({
+    required String realmUri,
+    required String authMethod,
+    required String? authId,
+    required RealmLimitSettings limits,
+    required String? message,
+  }) {
+    if (authId != null && authId.isNotEmpty) {
+      AuthSecurityTracker.recordFailure(realmUri, authId, limits);
+    }
+    AuthAuditLogger.failure(
+      realmUri: realmUri,
+      method: authMethod,
+      authId: authId,
+      message: message,
+    );
+  }
+
+  void _recordHttpAuthSuccess({
+    required String realmUri,
+    required String authMethod,
+    required String authId,
+  }) {
+    AuthSecurityTracker.recordSuccess(realmUri, authId);
+    AuthAuditLogger.success(
+      realmUri: realmUri,
+      method: authMethod,
+      authId: authId,
+    );
+  }
+
+  Future<void> _sendHttpAuthLockoutResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required String realmUri,
+    required String authMethod,
+    required Duration remaining,
+  }) async {
+    final retryAfterMs = remaining.inMilliseconds.clamp(1, 0x7fffffff).toInt();
+    final retryAfterSeconds = (retryAfterMs + 999) ~/ 1000;
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_auth_locked_out',
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+      'realm': realmUri,
+      'authMethod': authMethod,
+      'retryAfterMs': retryAfterMs,
+    });
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.tooManyRequests,
+        headers: {HttpHeaders.retryAfterHeader: retryAfterSeconds.toString()},
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': 'auth_locked_out',
+          'message': 'Too many failed authentication attempts',
+          'retry_after_ms': retryAfterMs,
+        }),
+      ),
+    );
+  }
+
   Future<void> _continueHttpAuthTransaction({
     required RouterHttpRequest request,
     required NativeHttpHandshake? handshake,
@@ -4012,6 +4114,13 @@ class RouterBinding {
     }
     if (pending.expiresAt.isBefore(DateTime.now().toUtc())) {
       await pending.abort(reason: 'http_auth_timeout');
+      _recordHttpAuthFailure(
+        realmUri: pending.realmUri,
+        authMethod: pending.authMethod,
+        authId: pending.authId,
+        limits: pending.context.realm.limits,
+        message: 'challenge timeout',
+      );
       await _sendImmediateHttpResponse(
         request: request,
         handshake: handshake,
@@ -4026,6 +4135,32 @@ class RouterBinding {
         ),
       );
       return;
+    }
+
+    final pendingAuthId = pending.authId;
+    if (pendingAuthId != null) {
+      final remaining = AuthSecurityTracker.lockoutRemaining(
+        pending.realmUri,
+        pendingAuthId,
+        pending.context.realm.limits,
+      );
+      if (remaining != null) {
+        await pending.abort(reason: 'http_auth_locked_out');
+        AuthAuditLogger.failure(
+          realmUri: pending.realmUri,
+          method: pending.authMethod,
+          authId: pendingAuthId,
+          message: 'locked out',
+        );
+        await _sendHttpAuthLockoutResponse(
+          request: request,
+          handshake: handshake,
+          realmUri: pending.realmUri,
+          authMethod: pending.authMethod,
+          remaining: remaining,
+        );
+        return;
+      }
     }
 
     final signature = _firstNonEmptyString(
@@ -4121,6 +4256,11 @@ class RouterBinding {
           );
           return;
         }
+        _recordHttpAuthSuccess(
+          realmUri: pending.realmUri,
+          authMethod: pending.authMethod,
+          authId: result.success!.authId,
+        );
         final token = _issueHttpAuthToken(
           realmUri: pending.realmUri,
           authMethod: pending.authMethod,
@@ -4146,6 +4286,13 @@ class RouterBinding {
         );
       case AuthStatus.failure:
         await pending.abort(reason: 'authenticate_failed');
+        _recordHttpAuthFailure(
+          realmUri: pending.realmUri,
+          authMethod: pending.authMethod,
+          authId: pending.authId,
+          limits: pending.context.realm.limits,
+          message: result.failure!.message,
+        );
         await _sendImmediateHttpResponse(
           request: request,
           handshake: handshake,
@@ -4870,6 +5017,13 @@ class RouterBinding {
     for (final state in expiredPending) {
       final pending = _pendingHttpAuthTransactions.remove(state);
       if (pending != null) {
+        _recordHttpAuthFailure(
+          realmUri: pending.realmUri,
+          authMethod: pending.authMethod,
+          authId: pending.authId,
+          limits: pending.context.realm.limits,
+          message: 'challenge timeout',
+        );
         unawaited(pending.abort(reason: 'http_auth_timeout'));
       }
     }

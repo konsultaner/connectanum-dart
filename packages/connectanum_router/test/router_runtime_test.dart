@@ -26,6 +26,7 @@ import 'package:connectanum_core/connectanum_core.dart'
         RegisterOptions;
 import 'package:connectanum_core/connectanum_core.dart' show YieldOptions;
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/router/auth/security.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/sni_certificate.dart';
@@ -1422,11 +1423,21 @@ RouterSettings _buildRouterSettingsWithSessionProfiles() {
 
 RouterSettings _buildRouterSettingsWithHttpAuthBridge({
   int maxPendingAuth = 32,
+  int maxFailedAuth = 5,
+  int lockoutMs = 900000,
+  int authTimeoutMs = 10000,
 }) {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
       RealmSettingsBuilder('realm1')
-        ..setLimits(RealmLimitSettings(maxPendingAuth: maxPendingAuth))
+        ..setLimits(
+          RealmLimitSettings(
+            maxPendingAuth: maxPendingAuth,
+            maxFailedAuth: maxFailedAuth,
+            lockoutMs: lockoutMs,
+            authTimeoutMs: authTimeoutMs,
+          ),
+        )
         ..addAuthMethod(
           'ticket',
           options: const {'authenticator': 'ticket-basic'},
@@ -1529,6 +1540,11 @@ RouterSettings _buildRouterSettingsWithHttpAuthBridge({
           'secrets': <String, Object?>{
             'user-1': <String, Object?>{
               'ticket': 'signed-token',
+              'role': 'member',
+              'provider': 'ticket-db',
+            },
+            'locked-user': <String, Object?>{
+              'ticket': 'locked-user-token',
               'role': 'member',
               'provider': 'ticket-db',
             },
@@ -6579,6 +6595,322 @@ void main() {
       );
     },
   );
+
+  test(
+    'auth bridge enforces failed-attempt lockout without blocking another identity',
+    () async {
+      AuthSecurityTracker.reset();
+      AuthAuditLogger.clearSink();
+      addTearDown(() {
+        AuthAuditLogger.clearSink();
+        AuthSecurityTracker.reset();
+      });
+
+      final runtime = _HandleRuntime();
+      final events = <Map<String, Object?>>[];
+      final auditEvents = <AuthAuditEvent>[];
+      AuthAuditLogger.registerSink(auditEvents.add);
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(
+          maxFailedAuth: 2,
+          lockoutMs: 5000,
+        ),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is Map<String, Object?>) {
+            events.add(event);
+          }
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      var connectionId = 70;
+      Future<NativeHttpResponse> sendAuth(Map<String, Object?> body) async {
+        final currentConnectionId = connectionId++;
+        runtime.setConnectionProtocol(
+          currentConnectionId,
+          NativeConnectionProtocol.http,
+        );
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: currentConnectionId,
+          handle: currentConnectionId,
+          method: 'POST',
+          target: '/auth',
+          headers: const {'content-type': 'application/json'},
+          body: body,
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[currentConnectionId]?.isNotEmpty ?? false,
+        );
+        return runtime.httpResponses[currentConnectionId]!.single;
+      }
+
+      final dormantChallenge = await sendAuth(const <String, Object?>{
+        'realm': 'realm1',
+        'authmethod': 'ticket',
+        'authid': 'locked-user',
+      });
+      expect(dormantChallenge.status, HttpStatus.unauthorized);
+      final dormantState =
+          _jsonResponseBody(dormantChallenge)['state'] as String;
+
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final challenge = await sendAuth(const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'locked-user',
+        });
+        expect(challenge.status, HttpStatus.unauthorized);
+        final state = _jsonResponseBody(challenge)['state'] as String;
+        final rejected = await sendAuth(<String, Object?>{
+          'state': state,
+          'signature': 'wrong-ticket',
+        });
+        expect(rejected.status, HttpStatus.unauthorized);
+      }
+
+      final lockedContinuation = await sendAuth(<String, Object?>{
+        'state': dormantState,
+        'signature': 'locked-user-token',
+      });
+      expect(lockedContinuation.status, HttpStatus.tooManyRequests);
+      expect(
+        _jsonResponseBody(lockedContinuation),
+        allOf(
+          containsPair('reason', 'auth_locked_out'),
+          isNot(contains('state')),
+          isNot(contains('access_token')),
+        ),
+      );
+
+      final locked = await sendAuth(const <String, Object?>{
+        'realm': 'realm1',
+        'authmethod': 'ticket',
+        'authid': 'locked-user',
+      });
+      expect(locked.status, HttpStatus.tooManyRequests);
+      final lockedBody = _jsonResponseBody(locked);
+      expect(lockedBody['reason'], 'auth_locked_out');
+      expect(lockedBody, isNot(contains('state')));
+      expect(
+        int.parse(locked.headers[HttpHeaders.retryAfterHeader]!),
+        inInclusiveRange(1, 5),
+      );
+      expect(
+        events,
+        contains(
+          allOf(
+            containsPair('type', 'http_auth_locked_out'),
+            containsPair('realm', 'realm1'),
+            containsPair('authMethod', 'ticket'),
+            isNot(contains('authId')),
+            isNot(contains('signature')),
+            isNot(contains('state')),
+          ),
+        ),
+      );
+      expect(
+        auditEvents
+            .where(
+              (event) =>
+                  event.outcome == AuthAuditOutcome.failure &&
+                  event.authId == 'locked-user',
+            )
+            .length,
+        4,
+      );
+
+      final otherRejectedChallenge = await sendAuth(const <String, Object?>{
+        'realm': 'realm1',
+        'authmethod': 'ticket',
+        'authid': 'user-1',
+      });
+      final otherRejectedState =
+          _jsonResponseBody(otherRejectedChallenge)['state'] as String;
+      final otherRejected = await sendAuth(<String, Object?>{
+        'state': otherRejectedState,
+        'signature': 'wrong-ticket',
+      });
+      expect(otherRejected.status, HttpStatus.unauthorized);
+
+      final otherChallenge = await sendAuth(const <String, Object?>{
+        'realm': 'realm1',
+        'authmethod': 'ticket',
+        'authid': 'user-1',
+      });
+      expect(otherChallenge.status, HttpStatus.unauthorized);
+      final otherState = _jsonResponseBody(otherChallenge)['state'] as String;
+      final authenticate = await TicketAuthentication(
+        'signed-token',
+      ).challenge(Extra());
+      final success = await sendAuth(<String, Object?>{
+        'state': otherState,
+        'signature': authenticate.signature,
+        'extra': authenticate.extra,
+      });
+      expect(success.status, HttpStatus.ok);
+      expect(_jsonResponseBody(success)['access_token'], isNotEmpty);
+      expect(
+        auditEvents,
+        contains(
+          isA<AuthAuditEvent>()
+              .having(
+                (event) => event.outcome,
+                'outcome',
+                AuthAuditOutcome.success,
+              )
+              .having((event) => event.authId, 'authId', 'user-1'),
+        ),
+      );
+
+      final postSuccessRejectedChallenge = await sendAuth(
+        const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'user-1',
+        },
+      );
+      final postSuccessRejectedState =
+          _jsonResponseBody(postSuccessRejectedChallenge)['state'] as String;
+      final postSuccessRejected = await sendAuth(<String, Object?>{
+        'state': postSuccessRejectedState,
+        'signature': 'wrong-ticket',
+      });
+      expect(postSuccessRejected.status, HttpStatus.unauthorized);
+
+      final postSuccessChallenge = await sendAuth(const <String, Object?>{
+        'realm': 'realm1',
+        'authmethod': 'ticket',
+        'authid': 'user-1',
+      });
+      expect(postSuccessChallenge.status, HttpStatus.unauthorized);
+      expect(_jsonResponseBody(postSuccessChallenge)['state'], isNotEmpty);
+    },
+  );
+
+  test('auth bridge timeout contributes to failed-attempt lockout', () async {
+    AuthSecurityTracker.reset();
+    AuthAuditLogger.clearSink();
+    addTearDown(() {
+      AuthAuditLogger.clearSink();
+      AuthSecurityTracker.reset();
+    });
+
+    final runtime = _HandleRuntime();
+    final auditEvents = <AuthAuditEvent>[];
+    AuthAuditLogger.registerSink(auditEvents.add);
+    final router = Router(
+      RouterConfig(
+        endpoints: [
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: [_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: _buildRouterSettingsWithHttpAuthBridge(
+        maxFailedAuth: 1,
+        lockoutMs: 5000,
+        authTimeoutMs: 1,
+      ),
+    );
+
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    var connectionId = 90;
+    Future<NativeHttpResponse> sendAuth(Map<String, Object?> body) async {
+      final currentConnectionId = connectionId++;
+      runtime.setConnectionProtocol(
+        currentConnectionId,
+        NativeConnectionProtocol.http,
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: currentConnectionId,
+        handle: currentConnectionId,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: body,
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(
+        () => runtime.httpResponses[currentConnectionId]?.isNotEmpty ?? false,
+      );
+      return runtime.httpResponses[currentConnectionId]!.single;
+    }
+
+    final challenge = await sendAuth(const <String, Object?>{
+      'realm': 'realm1',
+      'authmethod': 'ticket',
+      'authid': 'locked-user',
+    });
+    expect(challenge.status, HttpStatus.unauthorized);
+    expect(_jsonResponseBody(challenge)['state'], isNotEmpty);
+
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    final locked = await sendAuth(const <String, Object?>{
+      'realm': 'realm1',
+      'authmethod': 'ticket',
+      'authid': 'locked-user',
+    });
+    expect(locked.status, HttpStatus.tooManyRequests);
+    expect(
+      _jsonResponseBody(locked),
+      allOf(
+        containsPair('reason', 'auth_locked_out'),
+        isNot(contains('state')),
+      ),
+    );
+    expect(
+      int.parse(locked.headers[HttpHeaders.retryAfterHeader]!),
+      inInclusiveRange(1, 5),
+    );
+    expect(
+      auditEvents,
+      contains(
+        isA<AuthAuditEvent>()
+            .having(
+              (event) => event.outcome,
+              'outcome',
+              AuthAuditOutcome.failure,
+            )
+            .having((event) => event.realmUri, 'realmUri', 'realm1')
+            .having((event) => event.method, 'method', 'ticket')
+            .having((event) => event.authId, 'authId', 'locked-user')
+            .having((event) => event.message, 'message', 'challenge timeout'),
+      ),
+    );
+  });
 
   for (final authCase in const <({String method, String secret})>[
     (method: 'wampcra', secret: 'secret-1'),

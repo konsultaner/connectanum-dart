@@ -13,22 +13,32 @@ class AuthSecurityTracker {
     String authId,
     RealmLimitSettings limits,
   ) {
+    return lockoutRemaining(realmUri, authId, limits) != null;
+  }
+
+  static Duration? lockoutRemaining(
+    String realmUri,
+    String authId,
+    RealmLimitSettings limits,
+  ) {
     if (limits.maxFailedAuth <= 0) {
-      return false;
+      return null;
     }
-    final record = _realmFailures[realmUri]?[authId];
-    if (record == null) {
-      return false;
+    final realmMap = _realmFailures[realmUri];
+    final record = realmMap?[authId];
+    final lockedUntil = record?.lockedUntil;
+    if (lockedUntil == null) {
+      return null;
     }
     final now = DateTime.now();
-    if (record.lockedUntil != null) {
-      if (record.lockedUntil!.isAfter(now)) {
-        return true;
-      }
-      _realmFailures[realmUri]?.remove(authId);
-      return false;
+    if (lockedUntil.isAfter(now)) {
+      return lockedUntil.difference(now);
     }
-    return false;
+    realmMap!.remove(authId);
+    if (realmMap.isEmpty) {
+      _realmFailures.remove(realmUri);
+    }
+    return null;
   }
 
   static void recordFailure(
