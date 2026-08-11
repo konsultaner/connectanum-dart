@@ -6388,6 +6388,62 @@ void main() {
   );
 
   test(
+    'auth bridge rejects unsupported grant types before authentication',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 59,
+        handle: 19,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: const <String, Object?>{
+          'grant_type': 'password',
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'user-1',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+
+      await _waitUntil(() => runtime.httpResponses[59]?.isNotEmpty ?? false);
+      final response = runtime.httpResponses[59]!.single;
+      expect(response.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(response),
+        allOf(
+          containsPair('status', 'error'),
+          containsPair('reason', 'unsupported_grant_type'),
+        ),
+      );
+    },
+  );
+
+  test(
     'auth bridge issues bearer token for ticket and dispatches secure route',
     () async {
       final runtime = _HandleRuntime();

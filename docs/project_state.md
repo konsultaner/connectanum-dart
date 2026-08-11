@@ -24999,6 +24999,23 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-11-mcp-http-auth-grant-type-validation.md`.
+  Router-provided HTTP authentication currently treats any non-empty
+  unsupported `grant_type` as a fresh authentication request. A fail-first
+  runtime regression reproduced `grant_type=password` allocating a ticket
+  challenge and returning HTTP 401. The dispatch now fails closed before
+  authenticator state with HTTP 400 and `unsupported_grant_type`; the focused
+  regression passes. Pre-change `bin/test-fast` passed the complete core, MCP,
+  client/auth, benchmark, router-hosted consumer, packaging,
+  installed-command, and native follow-up matrix. Router analysis and all 14
+  auth-bridge runtime tests pass. Shell syntax and the neutral installed-router
+  consumer smoke pass; the consumer reports `authGrantTypeValidation: true`,
+  proves the rejection is state/token-free, and then continues through
+  protected MCP, direct JSON, pub/sub, refresh/revoke, and Streamable HTTP
+  paths. Full `bin/verify` passes, including 431 router tests, all 6 isolated
+  remote-auth integrations, all 13 native follow-ups, and the Chrome/Dart2Wasm
+  WebSocket check. Publication and hosted verification remain.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-http-auth-refresh-concurrency.md`. Router HTTP
   refresh tokens now use a binding-owned in-flight claim while the original
   grant record remains counted. Exactly one overlapping request can replace a
@@ -25017,7 +25034,16 @@ at the older `47bbf9c` commit.
   FFI tests, 360 Dart core tests, 101 MCP package tests, the complete 280-case
   client/MCP suite, all 430 router tests, six isolated remote-auth integrations,
   13 native follow-ups, every neutral consumer and installed-command smoke, and
-  Chrome/Dart2Wasm coverage. Publication and hosted evidence remain.
+  Chrome/Dart2Wasm coverage. Commit `6a1afc94` is published to both maintained
+  `master` branches. Exact-head GitHub CI `31531878333`, Dart Package Publish
+  Dry Run `31531878149`, WAMP Profile Benchmarks `31531878240`, and dispatched
+  Router Image dry run `31531914247` all pass. Retained artifacts are Dart VM
+  coverage `9117746076`, WAMP evidence `9117429742`, Router Image preview
+  `9117204574`, and Docker build records `9117358946` / `9117357952`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI logs, loaded-image MCP runtime smoke, multi-architecture image build, and
+  every required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.
 - Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-http-auth-grant-capacity.md`. Router HTTP-auth
   grant lineages are now bounded by positive per-realm

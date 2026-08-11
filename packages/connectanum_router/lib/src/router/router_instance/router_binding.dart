@@ -3673,6 +3673,20 @@ class RouterBinding {
             query: query,
           );
           return;
+        default:
+          await _sendImmediateHttpResponse(
+            request: request,
+            handshake: handshake,
+            response: NativeHttpResponse(
+              status: HttpStatus.badRequest,
+              body: NativeHttpResponseJson(const <String, Object?>{
+                'status': 'error',
+                'reason': 'unsupported_grant_type',
+                'message': 'HTTP auth bridge does not support this grant_type',
+              }),
+            ),
+          );
+          return;
       }
     }
 

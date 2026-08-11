@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Refresh Concurrency
 
-Status: complete; local verification green; publication pending
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -87,3 +87,13 @@ and revocable.
   cases and 36 live WAMP workloads, all 430 router tests, six isolated
   remote-auth integrations, 13 native follow-ups, every neutral consumer and
   installed-command smoke, and Chrome/Dart2Wasm coverage.
+- 2026-08-11: Commit `6a1afc94` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31531878333`, Dart Package Publish Dry Run
+  `31531878149`, WAMP Profile Benchmarks `31531878240`, and dispatched Router
+  Image dry run `31531914247` all pass. Retained artifacts are Dart VM coverage
+  `9117746076`, WAMP evidence `9117429742`, Router Image preview `9117204574`,
+  and Docker build records `9117358946` / `9117357952`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, and every
+  required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.
