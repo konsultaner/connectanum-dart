@@ -24999,6 +24999,27 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-12-mcp-http-auth-operation-selector-isolation.md`.
+  Router-provided HTTP authentication previously dispatched a pending
+  challenge `state` before inspecting `grant_type`, so a malformed refresh or
+  revocation request carrying a valid challenge response could consume the
+  challenge and issue a fresh grant. A fail-first regression reproduced HTTP
+  200 plus token issuance for `state` combined with
+  `grant_type=refresh_token`. The dispatcher now resolves both operation
+  selectors before either path and returns a state/token-free HTTP 400 with
+  `conflicting_auth_operation`; the same pending challenge then completes
+  normally. Pre-change `bin/test-fast` passed the complete core, MCP,
+  client/auth, benchmark, router-hosted consumer, packaging,
+  installed-command, and native follow-up matrix, including all 96 benchmark
+  cases and 36 live WAMP workloads. Router analysis and all 15 auth-bridge
+  runtime tests pass. Shell syntax and the neutral installed-router consumer
+  smoke pass; the consumer reports `authSelectorIsolation: true`, proves the
+  rejection is state/token-free and preserves pending capacity, then continues
+  through protected MCP, direct JSON, pub/sub, refresh/revoke, and Streamable
+  HTTP paths. Full `bin/verify` passes, including 432 router tests, all 6
+  isolated remote-auth integrations, all 13 native follow-ups, and the
+  Chrome/Dart2Wasm WebSocket check. Publication and hosted verification remain.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-http-auth-grant-type-validation.md`.
   Router-provided HTTP authentication currently treats any non-empty
   unsupported `grant_type` as a fresh authentication request. A fail-first
@@ -25014,7 +25035,16 @@ at the older `47bbf9c` commit.
   protected MCP, direct JSON, pub/sub, refresh/revoke, and Streamable HTTP
   paths. Full `bin/verify` passes, including 431 router tests, all 6 isolated
   remote-auth integrations, all 13 native follow-ups, and the Chrome/Dart2Wasm
-  WebSocket check. Publication and hosted verification remain.
+  WebSocket check. Commit `f0f8b14d` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31538299139`, Dart Package Publish Dry Run
+  `31538299215`, WAMP Profile Benchmarks `31538299128`, and dispatched Router
+  Image dry run `31538317518` all pass. Retained artifacts are Dart VM coverage
+  `9120205392`, WAMP evidence `9119865869`, Router Image preview `9119668329`,
+  and Docker build records `9119801826` / `9119801051`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, and every
+  required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.
 - Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-http-auth-refresh-concurrency.md`. Router HTTP
   refresh tokens now use a binding-owned in-flight claim while the original

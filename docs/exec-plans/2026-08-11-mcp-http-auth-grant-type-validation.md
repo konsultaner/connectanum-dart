@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Grant-Type Validation
 
-Status: complete locally; publication and hosted verification pending
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -59,3 +59,13 @@ closed.
 - 2026-08-11: Full `bin/verify` passes, including 431 router tests, all 6
   isolated remote-auth integrations, all 13 native follow-ups, and the
   Chrome/Dart2Wasm WebSocket check.
+- 2026-08-11: Commit `f0f8b14d` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31538299139`, Dart Package Publish Dry Run
+  `31538299215`, WAMP Profile Benchmarks `31538299128`, and dispatched Router
+  Image dry run `31538317518` all pass. Retained artifacts are Dart VM coverage
+  `9120205392`, WAMP evidence `9119865869`, Router Image preview `9119668329`,
+  and Docker build records `9119801826` / `9119801051`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, multi-architecture image build, and every
+  required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.

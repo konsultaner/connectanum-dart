@@ -3631,7 +3631,26 @@ class RouterBinding {
       query['state'],
       _headerValue(request.headers, 'x-connectanum-auth-state'),
     );
-
+    final grantType = _firstNonEmptyString(
+      body['grant_type'],
+      query['grant_type'],
+      _headerValue(request.headers, 'x-connectanum-grant-type'),
+    );
+    if (state != null && grantType != null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: NativeHttpResponse(
+          status: HttpStatus.badRequest,
+          body: NativeHttpResponseJson(const <String, Object?>{
+            'status': 'error',
+            'reason': 'conflicting_auth_operation',
+            'message': 'state and grant_type cannot be used together',
+          }),
+        ),
+      );
+      return;
+    }
     if (state != null) {
       await _continueHttpAuthTransaction(
         request: request,
@@ -3644,12 +3663,6 @@ class RouterBinding {
       );
       return;
     }
-
-    final grantType = _firstNonEmptyString(
-      body['grant_type'],
-      query['grant_type'],
-      _headerValue(request.headers, 'x-connectanum-grant-type'),
-    );
     if (grantType != null) {
       switch (grantType) {
         case 'refresh':

@@ -6388,6 +6388,115 @@ void main() {
   );
 
   test(
+    'auth bridge rejects mixed challenge and grant selectors without consuming state',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 58,
+        handle: 18,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'user-1',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+
+      await _waitUntil(() => runtime.httpResponses[58]?.isNotEmpty ?? false);
+      final challenge = runtime.httpResponses[58]!.single;
+      expect(challenge.status, HttpStatus.unauthorized);
+      final state = _jsonResponseBody(challenge)['state'] as String;
+      final authenticate = await TicketAuthentication(
+        'signed-token',
+      ).challenge(Extra());
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 59,
+        handle: 19,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'state': state,
+          'grant_type': 'refresh_token',
+          'refresh_token': 'not-a-grant',
+          'signature': authenticate.signature,
+          'extra': authenticate.extra,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+
+      await _waitUntil(() => runtime.httpResponses[59]?.isNotEmpty ?? false);
+      final conflict = runtime.httpResponses[59]!.single;
+      expect(conflict.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(conflict),
+        allOf(
+          containsPair('status', 'error'),
+          containsPair('reason', 'conflicting_auth_operation'),
+          isNot(contains('access_token')),
+          isNot(contains('refresh_token')),
+        ),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 60,
+        handle: 20,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'state': state,
+          'signature': authenticate.signature,
+          'extra': authenticate.extra,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+
+      await _waitUntil(() => runtime.httpResponses[60]?.isNotEmpty ?? false);
+      final success = runtime.httpResponses[60]!.single;
+      expect(success.status, HttpStatus.ok);
+      expect(
+        _jsonResponseBody(success),
+        allOf(contains('access_token'), contains('refresh_token')),
+      );
+    },
+  );
+
+  test(
     'auth bridge rejects unsupported grant types before authentication',
     () async {
       final runtime = _HandleRuntime();
