@@ -673,11 +673,21 @@ class RouterConfigLoader {
     if (node is! Map<String, Object?>) {
       throw FormatException('Realm "limits" must be a map');
     }
+    final maxFailedAuthRecords = _asInt(
+      node['max_failed_auth_records'],
+      defaultValue: 4096,
+    );
+    if (maxFailedAuthRecords <= 0) {
+      throw FormatException(
+        'Realm "limits.max_failed_auth_records" must be > 0',
+      );
+    }
     return RealmLimitSettings(
       maxPendingAuth: _asInt(node['max_pending_auth'], defaultValue: 32),
       authTimeoutMs: _asInt(node['auth_timeout_ms'], defaultValue: 10000),
       sessionIdleMs: _asInt(node['session_idle_ms'], defaultValue: 600000),
       maxFailedAuth: _asInt(node['max_failed_auth'], defaultValue: 5),
+      maxFailedAuthRecords: maxFailedAuthRecords,
       lockoutMs: _asInt(node['lockout_ms'], defaultValue: 900000),
       callTimeoutMs: _asInt(node['call_timeout_ms'], defaultValue: 30000),
     );

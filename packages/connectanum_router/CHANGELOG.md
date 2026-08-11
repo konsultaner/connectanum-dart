@@ -15,6 +15,10 @@
 - Apply realm failed-authentication lockouts to router HTTP-auth challenges,
   including pending-transaction races, bounded retry metadata, audit events,
   identity isolation, and successful-authentication reset behavior.
+- Bound shared WAMP and router HTTP-auth failure records per realm with
+  `max_failed_auth_records`, fixed-size internal identity digests,
+  lockout-window expiry, fail-closed admission, bounded retry metadata, and
+  successful-authentication capacity release.
 - Bound router-hosted MCP POST bodies before UTF-8 and JSON decoding with a
   configurable raw-byte limit and authenticated-route precedence.
 - Bound router-hosted MCP tool and dynamic-resource WAMP calls with a

@@ -88,6 +88,30 @@ Future<void> _handleHello(
     state.phase = HandshakePhase.aborted;
     return;
   }
+  if (pendingAuthId != null &&
+      AuthSecurityTracker.capacityRetryAfter(
+            realmUri,
+            pendingAuthId,
+            realmSettings.limits,
+          ) !=
+          null) {
+    await sendAbort(
+      bossPort,
+      state,
+      connectionId,
+      wamp_core.Error.notAuthorized,
+      message: 'Authentication failure tracking capacity exhausted',
+    );
+    AuthAuditLogger.failure(
+      realmUri: realmUri,
+      method: 'unknown',
+      authId: pendingAuthId,
+      message: 'failure tracking capacity exhausted',
+    );
+    state.pendingAuthId = null;
+    state.phase = HandshakePhase.aborted;
+    return;
+  }
   if (selection == null) {
     await sendAbort(
       bossPort,

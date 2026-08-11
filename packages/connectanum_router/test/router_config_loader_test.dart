@@ -30,6 +30,7 @@ void main() {
             <String, Object?>{
               'name': 'realm1',
               'authorization_provider': 'realm-authz',
+              'limits': <String, Object?>{'max_failed_auth_records': 7},
               'auth': <String, Object?>{
                 'authmethods': ['anonymous'],
               },
@@ -187,7 +188,33 @@ void main() {
       expect(settings.httpAuthProviders.keys, contains('edge-jwt'));
       expect(settings.authorizationProviders.keys, contains('realm-authz'));
       expect(settings.realms.single.authorizationProvider, 'realm-authz');
+      expect(settings.realms.single.limits.maxFailedAuthRecords, 7);
       expect(settings.internalRealms.single.sessionProfile, 'http-handler');
+    });
+
+    test('rejects non-positive failed-auth record capacity', () {
+      expect(
+        () => RouterConfigLoader.fromMap({
+          'router': <String, Object?>{
+            'realms': [
+              <String, Object?>{
+                'name': 'realm1',
+                'limits': <String, Object?>{'max_failed_auth_records': 0},
+                'auth': <String, Object?>{
+                  'authmethods': ['anonymous'],
+                },
+              },
+            ],
+          },
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            contains('max_failed_auth_records'),
+          ),
+        ),
+      );
     });
 
     test('parses and round-trips per-method HTTP route actions', () {
@@ -504,6 +531,7 @@ void main() {
         ..addRealmFromBuilder(
           RealmSettingsBuilder('realm1')
             ..addAuthMethod('anonymous')
+            ..setLimits(const RealmLimitSettings(maxFailedAuthRecords: 7))
             ..setAuthorizationProvider('realm-authz'),
         )
         ..addSessionProfileFromBuilder(
@@ -627,6 +655,7 @@ void main() {
       expect(decoded.httpAuthProviders.keys, contains('edge-jwt'));
       expect(decoded.authorizationProviders.keys, contains('realm-authz'));
       expect(decoded.realms.single.authorizationProvider, 'realm-authz');
+      expect(decoded.realms.single.limits.maxFailedAuthRecords, 7);
       expect(
         decoded.sessionProfiles
             .firstWhere((profile) => profile.name == 'http-handler')

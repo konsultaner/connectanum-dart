@@ -272,6 +272,10 @@
   - [x] Remote-auth integration coverage now proves that post-auth realm permissions are enforced on authenticated client actions, not just on handshake success.
 - [x] Static TLS cert/SNI configuration pipeline to native runtime (config loader + native TLS acceptor; see `docs/tls.md`).
 - [ ] Intrusion detection (failed-auth rate limiting, account lockouts, anomaly alarms)
+  - [x] Bound shared WAMP and router HTTP-auth failed-identity records per realm
+    with configurable capacity, fixed-size internal identity digests,
+    lockout-window reclamation, fail-closed admission, bounded HTTP retry
+    metadata, and secret-safe router telemetry.
 
 ### Introspection & Testing
 

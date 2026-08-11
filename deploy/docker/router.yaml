@@ -14,6 +14,7 @@ router:
         auth_timeout_ms: 10000
         session_idle_ms: 600000
         max_failed_auth: 5
+        max_failed_auth_records: 4096
         lockout_ms: 900000
         call_timeout_ms: 30000
 

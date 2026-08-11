@@ -3816,6 +3816,28 @@ class RouterBinding {
         );
         return;
       }
+      final capacityRetryAfter = AuthSecurityTracker.capacityRetryAfter(
+        realmUri,
+        authId,
+        realmSettings.limits,
+      );
+      if (capacityRetryAfter != null) {
+        AuthAuditLogger.failure(
+          realmUri: realmUri,
+          method: authMethod,
+          authId: authId,
+          message: 'failure tracking capacity exhausted',
+        );
+        await _sendHttpAuthFailureCapacityResponse(
+          request: request,
+          handshake: handshake,
+          realmUri: realmUri,
+          authMethod: authMethod,
+          maxFailedAuthRecords: realmSettings.limits.maxFailedAuthRecords,
+          remaining: capacityRetryAfter,
+        );
+        return;
+      }
     }
     final helloDetails = <String, Object?>{
       'authid': ?authId,
@@ -4048,6 +4070,43 @@ class RouterBinding {
       realmUri: realmUri,
       method: authMethod,
       authId: authId,
+    );
+  }
+
+  Future<void> _sendHttpAuthFailureCapacityResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+    required String realmUri,
+    required String authMethod,
+    required int maxFailedAuthRecords,
+    required Duration remaining,
+  }) async {
+    final retryAfterMs = remaining.inMilliseconds.clamp(1, 0x7fffffff).toInt();
+    final retryAfterSeconds = (retryAfterMs + 999) ~/ 1000;
+    onEvent?.call({
+      'source': 'binding',
+      'type': 'http_auth_failure_capacity_exhausted',
+      'listenerId': request.listenerId,
+      'connectionId': request.connectionId,
+      'endpoint': request.endpoint,
+      'realm': realmUri,
+      'authMethod': authMethod,
+      'maxFailedAuthRecords': maxFailedAuthRecords,
+      'retryAfterMs': retryAfterMs,
+    });
+    await _sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: NativeHttpResponse(
+        status: HttpStatus.tooManyRequests,
+        headers: {HttpHeaders.retryAfterHeader: retryAfterSeconds.toString()},
+        body: NativeHttpResponseJson(<String, Object?>{
+          'status': 'error',
+          'reason': 'auth_failure_capacity_exhausted',
+          'message': 'Authentication failure tracking capacity is exhausted',
+          'retry_after_ms': retryAfterMs,
+        }),
+      ),
     );
   }
 

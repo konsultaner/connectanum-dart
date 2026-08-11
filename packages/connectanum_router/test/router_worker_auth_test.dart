@@ -1033,6 +1033,49 @@ void main() {
       expect(context.lastAbort?.message?.message, contains('Too many'));
     });
 
+    test('bounds failed-auth records and reclaims expired capacity', () async {
+      final routerSettings = _buildRouterSettings(
+        realmMethods: const ['ticket'],
+        realmOptions: const {
+          'ticket': {'authenticator': 'ticket-basic'},
+        },
+        listenerMethods: const ['ticket'],
+        authenticators: const {
+          'ticket-basic': AuthenticatorDefinition(
+            type: 'ticket',
+            options: {
+              'secrets': {'user-1': 'secret-1', 'user-2': 'secret-2'},
+            },
+          ),
+        },
+        limits: const RealmLimitSettings(
+          maxFailedAuth: 3,
+          maxFailedAuthRecords: 1,
+          lockoutMs: 40,
+        ),
+      );
+
+      final first = _HandshakeHarness(routerSettings, serializer);
+      await first.performHello(authMethod: 'ticket', authId: 'user-1');
+      await first.performAuthenticate(Authenticate(signature: 'wrong-ticket'));
+      expect(first.lastAbort, isNotNull);
+
+      final rejected = _HandshakeHarness(routerSettings, serializer);
+      await rejected.performHello(authMethod: 'ticket', authId: 'user-2');
+      expect(
+        rejected.lastAbort?.message?.message,
+        contains('failure tracking capacity'),
+      );
+      expect(rejected.lastChallenge, isNull);
+
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+
+      final recovered = _HandshakeHarness(routerSettings, serializer);
+      await recovered.performHello(authMethod: 'ticket', authId: 'user-2');
+      expect(recovered.lastAbort, isNull);
+      expect(recovered.lastChallenge, isNotNull);
+    });
+
     test('emits audit events for success and failure', () async {
       final events = <AuthAuditEvent>[];
       AuthAuditLogger.registerSink(events.add);

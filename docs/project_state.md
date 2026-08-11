@@ -24999,6 +24999,25 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-11-mcp-auth-failure-record-capacity.md`. Realm limits
+  now accept a positive `max_failed_auth_records` capacity with a bounded 4096
+  default. The shared WAMP/router-HTTP tracker retains only fixed-size auth-ID
+  digests for `lockout_ms`, reclaims expired state, keeps existing identities
+  eligible for lockout accounting, and fails closed for new identities before
+  authenticator, challenge, or session state is allocated while all slots are
+  active. Successful authentication releases its record. WAMP and HTTP
+  regressions prove rejection, reclamation, and success release; HTTP uses a
+  state-free 429 with bounded retry metadata and secret-safe telemetry. The
+  neutral installed-consumer smoke proves capacity rejection and recovery
+  before using the issued grant through protected MCP, direct JSON, pub/sub,
+  refresh/revoke, and Streamable HTTP. Pre-change and post-change
+  `bin/test-fast` pass. Full `bin/verify` passes with zero formatting changes,
+  all 114 native transport tests, 52 FFI tests, 360 core tests, 101 MCP tests,
+  the complete 280-case MCP/client suite, all 96 benchmark cases and 36 live
+  WAMP workloads, all 425 router tests, six remote-auth integration cases, 13
+  native follow-ups, every neutral consumer/CLI smoke, and Chrome/Dart2Wasm
+  coverage. Publication and exact-head hosted evidence remain.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-http-auth-lockout-parity.md`. Router-provided
   HTTP authentication now applies the realm's existing `max_failed_auth` /
   `lockout_ms` policy and auth audit lifecycle shared with WAMP handshakes.
@@ -25015,8 +25034,17 @@ at the older `47bbf9c` commit.
   360 core tests, 101 MCP tests, the complete 280-case MCP/client suite, all 96
   benchmark cases and 36 live WAMP workloads, all 422 router tests, remote-auth
   integration, 13 native follow-ups, every neutral consumer/CLI smoke, and
-  Chrome Dart2Wasm WebSocket coverage. Publication and exact-head hosted
-  evidence remain.
+  Chrome Dart2Wasm WebSocket coverage. Commit `9064b5c6` is published to both
+  maintained `master` branches. Exact-head GitHub CI `31504707535`, Dart
+  Package Publish Dry Run `31504707548`, WAMP Profile Benchmarks `31504707509`,
+  and Router Image dry run `31504750032` all pass on their first attempts.
+  Retained artifacts are coverage `9107138007`, WAMP evidence `9106791094`,
+  Router Image preview `9106548681`, and Docker build records `9106748573` /
+  `9106747484`. The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI logs, loaded-image MCP runtime smoke,
+  multi-architecture image build, and every required deployment gate ready.
+  RC creation remains an explicit release-approval action outside this
+  checkpoint.
 - Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-11-mcp-http-auth-pending-capacity.md`. Router-hosted
   HTTP authentication now enforces positive realm `max_pending_auth` limits

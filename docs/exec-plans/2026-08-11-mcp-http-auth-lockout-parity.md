@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Lockout Parity
 
-Status: active
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -73,5 +73,14 @@ telemetry.
   tests, 101 MCP tests, the complete 280-case MCP/client suite, all 96
   benchmark cases and 36 live WAMP workloads, all 422 router tests, remote-auth
   integration, 13 native follow-ups, every neutral consumer/CLI smoke, and
-  Chrome Dart2Wasm WebSocket coverage. Publication and exact-head hosted
-  evidence remain.
+  Chrome Dart2Wasm WebSocket coverage.
+- 2026-08-11: Commit `9064b5c6` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31504707535`, Dart Package Publish Dry Run
+  `31504707548`, WAMP Profile Benchmarks `31504707509`, and dispatched Router
+  Image dry run `31504750032` all pass on their first attempts. Retained
+  artifacts are coverage `9107138007`, WAMP evidence `9106791094`, Router Image
+  preview `9106548681`, and Docker build records `9106748573` / `9106747484`.
+  The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI logs, loaded-image MCP runtime smoke, multi-architecture image
+  build, and every required deployment gate ready. RC creation remains an
+  explicit release-approval action outside this checkpoint.
