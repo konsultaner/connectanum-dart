@@ -9197,6 +9197,62 @@ void main() {
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
+        connectionId: 67,
+        handle: 27,
+        method: 'DELETE',
+        target: '/mcp/secure',
+        headers: {
+          'MCP-Session-Id': mcpSessionId!,
+          'mcp-session-id': 'conflicting-session-id',
+          'mcp-protocol-version': '2025-11-25',
+        },
+        body: null,
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[67]?.isNotEmpty ?? false);
+      final unauthenticatedRepeatedSession = runtime.httpResponses[67]!.single;
+      expect(
+        unauthenticatedRepeatedSession.status,
+        HttpStatus.unauthorized,
+      );
+      expect(
+        unauthenticatedRepeatedSession.headers,
+        isNot(contains('MCP-Session-Id')),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 68,
+        handle: 28,
+        method: 'DELETE',
+        target: '/mcp/secure',
+        headers: {
+          'authorization': 'Bearer ${firstGrant.accessToken}',
+          'MCP-Session-Id': mcpSessionId,
+          'mcp-session-id': 'conflicting-session-id',
+          'mcp-protocol-version': '2025-11-25',
+        },
+        body: null,
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[68]?.isNotEmpty ?? false);
+      final authenticatedRepeatedSession = runtime.httpResponses[68]!.single;
+      expect(authenticatedRepeatedSession.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(authenticatedRepeatedSession).toString(),
+        contains('Invalid MCP-Session-Id header'),
+      );
+      expect(
+        authenticatedRepeatedSession.headers,
+        isNot(contains('MCP-Session-Id')),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
         connectionId: 78,
         handle: 38,
         method: 'POST',
@@ -9258,7 +9314,7 @@ void main() {
         target: '/mcp/secure',
         headers: {
           'authorization': 'Bearer $refreshedAccessToken',
-          'mcp-session-id': mcpSessionId!,
+          'mcp-session-id': mcpSessionId,
           'mcp-protocol-version': '2025-11-25',
         },
         body: null,

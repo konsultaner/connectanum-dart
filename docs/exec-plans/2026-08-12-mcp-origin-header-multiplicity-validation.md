@@ -1,6 +1,6 @@
 # MCP Origin Header Multiplicity Validation
 
-Status: active; implementation and local verification green, hosted evidence pending
+Status: complete; local and exact-head hosted verification green
 
 ## Goal
 
@@ -62,5 +62,17 @@ mutations.
   complete 280-case client/MCP suite, all 96 benchmark cases and 36 live WAMP
   workloads, all 436 router tests, six remote-auth integrations, 13 native
   follow-ups, every generated and installed consumer smoke, and
-  Chrome/Dart2Wasm. The implementation is ready to publish; exact-head hosted
-  workflows and the strict deployment-chain audit remain.
+  Chrome/Dart2Wasm.
+- 2026-08-12: Implementation commit `75cf249f7066` reached both maintained
+  `master` branches. The clean-commit strict package gate passes all seven
+  synchronized `3.0.0-beta` archives with zero warnings. Exact-head CI
+  `31604704535`, package dry run `31604704478`, WAMP Profile Benchmarks
+  `31604704494`, and Router Image dry run `31606491257` all pass. CI uploaded
+  coverage artifact `9145272598`, WAMP uploaded artifact `9144850018`, and
+  Router Image uploaded preview artifact `9145326473` plus Docker build
+  records `9145493288` and `9145492382`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head CI logs and every
+  required branch, workflow, public package, unchanged native-release
+  relevance, loaded-image MCP, multi-architecture image, package-publish, and
+  benchmark gate clean. The non-gating RC summary remains intentionally not
+  ready because no approved numeric RC tag points at this implementation head.

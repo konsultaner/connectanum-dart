@@ -24999,6 +24999,31 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-12-mcp-session-header-multiplicity-validation.md`.
+  Native HTTP retains normalized duplicate-header-name evidence, but
+  router-hosted MCP previously selected one scalar `MCP-Session-Id` before
+  endpoint lookup and session mutation. A fail-first protected DELETE sent a
+  live session ID before a conflicting case-variant value and returned HTTP
+  202, proving the first value could delete the live session; its bearer-free
+  counterpart returned HTTP 401 and established authentication precedence.
+  Router-hosted MCP now rejects normalized repeated session-header names
+  immediately after route-principal authentication and before protocol or
+  session validation, endpoint lookup, or session deletion. Synthetic and
+  real native HTTP regressions prove POST, GET, and DELETE return canonical
+  HTTP 400 JSON-RPC errors without session reflection, while a later valid
+  request proves the original session remains usable. The isolated installed
+  router consumer reports `sessionHeaderMultiplicityValidation: true` and
+  continues through direct JSON, Streamable HTTP, WAMP metadata, pub/sub,
+  refresh/revoke, and session deletion without private project assumptions.
+  Pre-change `bin/test-fast`, focused router analysis and tests, the installed
+  consumer smoke, and post-change `bin/verify` pass. Full verification includes
+  114 Rust core tests, 52 Rust FFI tests, 360 core tests, 101 MCP tests, the
+  complete 280-case client/MCP suite, all 96 benchmark cases and 36 live WAMP
+  workloads, all 436 router tests, six remote-auth integrations, 13 native
+  follow-ups, every generated and installed consumer smoke, and
+  Chrome/Dart2Wasm. The implementation is ready to publish; exact-head hosted
+  workflows and the strict deployment-chain audit remain.
+- Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-origin-header-multiplicity-validation.md`.
   Native HTTP retains normalized duplicate-header-name evidence, but MCP
   Origin validation still selects one scalar before route rate limiting,
@@ -25020,9 +25045,20 @@ at the older `47bbf9c` commit.
   tests, 52 Rust FFI tests, 360 core tests, 101 MCP tests, the complete
   280-case client/MCP suite, all 96 benchmark cases and 36 live WAMP workloads,
   all 436 router tests, six remote-auth integrations, 13 native follow-ups,
-  every generated and installed consumer smoke, and Chrome/Dart2Wasm. The
-  implementation is ready to publish; exact-head hosted workflows and the
-  strict deployment-chain audit remain.
+  every generated and installed consumer smoke, and Chrome/Dart2Wasm.
+  Implementation commit `75cf249f7066` reached both maintained `master`
+  branches. The clean-commit strict package gate passes all seven synchronized
+  `3.0.0-beta` archives with zero warnings. Exact-head CI `31604704535`,
+  package dry run `31604704478`, WAMP Profile Benchmarks `31604704494`, and
+  Router Image dry run `31606491257` all pass. CI uploaded coverage artifact
+  `9145272598`, WAMP uploaded artifact `9144850018`, and Router Image uploaded
+  preview artifact `9145326473` plus Docker build records `9145493288` and
+  `9145492382`. The comprehensive strict deployment-chain audit exits zero
+  with clean exact-head CI logs and every required branch, workflow, public
+  package, unchanged native-release relevance, loaded-image MCP,
+  multi-architecture image, package-publish, and benchmark gate clean. Its
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation head.
 - Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-authorization-header-multiplicity-validation.md`.
   Native HTTP now retains normalized duplicate-header-name evidence, but

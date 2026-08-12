@@ -567,6 +567,25 @@ String? _mcpHeaderValue(
   return value == null || value.isEmpty ? null : value;
 }
 
+NativeHttpResponse? _mcpSessionIdHeaderMultiplicityError(
+  RouterHttpRequest request, {
+  required String protocolVersion,
+  required Map<String, String> extraHeaders,
+}) {
+  if (!request.duplicateHeaderNames.contains(
+    _mcpSessionIdHeader.toLowerCase(),
+  )) {
+    return null;
+  }
+  return _mcpJsonRpcHttpError(
+    status: HttpStatus.badRequest,
+    code: mcp.McpErrorCodes.invalidRequest,
+    message: 'Invalid MCP-Session-Id header',
+    protocolVersion: protocolVersion,
+    extraHeaders: extraHeaders,
+  );
+}
+
 bool _mcpSessionIdHeaderValueValid(String value) {
   for (final codeUnit in value.codeUnits) {
     if (codeUnit < 0x21 || codeUnit > 0x7e) {
@@ -1864,6 +1883,20 @@ Future<void> _handleMcpHttpRequestForBinding(
           if (error.message != null) 'message': error.message,
         }),
       ),
+    );
+    return;
+  }
+
+  final sessionHeaderMultiplicityError = _mcpSessionIdHeaderMultiplicityError(
+    request,
+    protocolVersion: responseMcpProtocolVersion,
+    extraHeaders: corsHeaders,
+  );
+  if (sessionHeaderMultiplicityError != null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: sessionHeaderMultiplicityError,
     );
     return;
   }

@@ -13703,6 +13703,68 @@ void main() {
       final activeSecureJsonSessionId = secureJsonSessionId!;
       expect(secureJsonPostClient.lastEventId, isNull);
 
+      for (final method in const <String>['POST', 'GET', 'DELETE']) {
+        final headers = <String, String>{
+          HttpHeaders.acceptHeader: method == 'GET'
+              ? 'text/event-stream'
+              : 'application/json, text/event-stream',
+          HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+          'MCP-Protocol-Version': '2025-11-25',
+          'Mcp-Method': 'tools/list',
+        };
+        final repeatedHeaders = <String, List<String>>{
+          'MCP-Session-Id': <String>[
+            activeSecureJsonSessionId,
+            'conflicting-session-id',
+          ],
+        };
+        final response = switch (method) {
+          'POST' => await _postJson(
+            client,
+            listener.port,
+            '/mcp/secure-json-post',
+            <String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 'secure-json-post-repeated-session-post',
+              'method': 'tools/list',
+              'params': <String, Object?>{},
+            },
+            headers: headers,
+            repeatedHeaders: repeatedHeaders,
+          ),
+          'GET' => await _getHttp(
+            client,
+            listener.port,
+            '/mcp/secure-json-post',
+            headers: headers,
+            repeatedHeaders: repeatedHeaders,
+          ),
+          'DELETE' => await _deleteHttp(
+            client,
+            listener.port,
+            '/mcp/secure-json-post',
+            headers: headers,
+            repeatedHeaders: repeatedHeaders,
+          ),
+          _ => throw StateError('Unexpected HTTP method $method'),
+        };
+        expect(
+          response.statusCode,
+          HttpStatus.badRequest,
+          reason: '$method repeated MCP session header status',
+        );
+        expect(
+          response.body,
+          contains('Invalid MCP-Session-Id header'),
+          reason: '$method repeated MCP session header body',
+        );
+        expect(
+          response.headers,
+          isNot(contains('mcp-session-id')),
+          reason: '$method repeated MCP session response headers',
+        );
+      }
+
       await secureJsonPostClient.notifyInitialized();
       expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
       expect(secureJsonPostClient.lastEventId, isNull);
@@ -16952,9 +17014,16 @@ _getHttp(
   int port,
   String path, {
   Map<String, String> headers = const <String, String>{},
+  Map<String, List<String>> repeatedHeaders = const <String, List<String>>{},
 }) async {
   final request = await client.get('127.0.0.1', port, path);
   headers.forEach(request.headers.set);
+  for (final MapEntry(:key, :value) in repeatedHeaders.entries) {
+    request.headers.noFolding(key);
+    for (final headerValue in value) {
+      request.headers.add(key, headerValue, preserveHeaderCase: true);
+    }
+  }
   return _readJsonHttpResponse(await request.close());
 }
 
@@ -16971,9 +17040,16 @@ _deleteHttp(
   int port,
   String path, {
   Map<String, String> headers = const <String, String>{},
+  Map<String, List<String>> repeatedHeaders = const <String, List<String>>{},
 }) async {
   final request = await client.delete('127.0.0.1', port, path);
   headers.forEach(request.headers.set);
+  for (final MapEntry(:key, :value) in repeatedHeaders.entries) {
+    request.headers.noFolding(key);
+    for (final headerValue in value) {
+      request.headers.add(key, headerValue, preserveHeaderCase: true);
+    }
+  }
   return _readJsonHttpResponse(await request.close());
 }
 
