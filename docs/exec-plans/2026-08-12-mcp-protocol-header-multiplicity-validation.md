@@ -1,7 +1,7 @@
 # MCP Protocol Header Multiplicity Validation
 
-Status: complete; implementation and local verification green, hosted evidence
-pending
+Status: complete; implementation, local verification, and exact-head hosted
+evidence green
 
 ## Goal
 
@@ -63,3 +63,15 @@ or Protected Resource Metadata discovery.
   all 436 router tests, six remote-auth integrations, 13 native follow-ups,
   every generated and installed consumer smoke, and Chrome/Dart2Wasm. The
   checkpoint is ready to publish; exact-head hosted deployment evidence remains.
+- 2026-08-12: Implementation commit `53726634ca65` reached both maintained
+  `master` branches, and the clean-commit strict package gate passed all seven
+  synchronized `3.0.0-beta` archives with zero warnings. Exact-head CI
+  `31623281361`, Dart Package Publish Dry Run `31623281530`, WAMP Profile
+  Benchmarks `31623281397`, and Router Image dry run `31624905049` all passed.
+  CI uploaded coverage artifact `9152684415`, WAMP uploaded artifact
+  `9152326914`, and Router Image uploaded preview artifact `9152722617` plus
+  Docker build records `9152888519` and `9152887578`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head CI logs and every
+  required deployment gate ready; its non-gating RC summary remains
+  intentionally not ready because no approved current-head RC publication was
+  requested.

@@ -9309,6 +9309,68 @@ void main() {
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
+        connectionId: 81,
+        handle: 41,
+        method: 'GET',
+        target: '/mcp/secure',
+        headers: {
+          'accept': 'text/event-stream',
+          'MCP-Session-Id': mcpSessionId,
+          'MCP-Protocol-Version': '2025-11-25',
+          'Last-Event-ID': 'unknown-resume-cursor',
+          'last-event-id': 'conflicting-resume-cursor',
+        },
+        body: null,
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[81]?.isNotEmpty ?? false);
+      final unauthenticatedRepeatedLastEventId =
+          runtime.httpResponses[81]!.single;
+      expect(
+        unauthenticatedRepeatedLastEventId.status,
+        HttpStatus.unauthorized,
+      );
+      expect(
+        unauthenticatedRepeatedLastEventId.headers,
+        isNot(contains('MCP-Session-Id')),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 82,
+        handle: 42,
+        method: 'GET',
+        target: '/mcp/secure',
+        headers: {
+          'accept': 'text/event-stream',
+          'authorization': 'Bearer ${firstGrant.accessToken}',
+          'MCP-Session-Id': mcpSessionId,
+          'MCP-Protocol-Version': '2025-11-25',
+          'Last-Event-ID': 'unknown-resume-cursor',
+          'last-event-id': 'conflicting-resume-cursor',
+        },
+        body: null,
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[82]?.isNotEmpty ?? false);
+      final authenticatedRepeatedLastEventId =
+          runtime.httpResponses[82]!.single;
+      expect(authenticatedRepeatedLastEventId.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(authenticatedRepeatedLastEventId).toString(),
+        contains('Invalid Last-Event-ID header'),
+      );
+      expect(
+        authenticatedRepeatedLastEventId.headers['MCP-Session-Id'],
+        mcpSessionId,
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
         connectionId: 78,
         handle: 38,
         method: 'POST',

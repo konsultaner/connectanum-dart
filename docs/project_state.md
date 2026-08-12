@@ -24390,8 +24390,18 @@ at the older `47bbf9c` commit.
   52 Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete 280-case
   client/MCP matrix, all 97 benchmark cases and 37 live WAMP workloads, all 436
   router tests, six remote-auth integrations, 13 native follow-ups, every
-  generated and installed consumer smoke, and Chrome/Dart2Wasm. Exact-head
-  hosted deployment evidence remains for the implementation checkpoint.
+  generated and installed consumer smoke, and Chrome/Dart2Wasm. Implementation
+  commit `53726634ca65` is on both maintained `master` branches, and the clean
+  strict package gate passes all seven synchronized `3.0.0-beta` archives with
+  zero warnings. Exact-head CI `31623281361`, Dart Package Publish Dry Run
+  `31623281530`, WAMP Profile Benchmarks `31623281397`, and Router Image dry run
+  `31624905049` all pass. CI uploaded coverage artifact `9152684415`, WAMP
+  uploaded artifact `9152326914`, and Router Image uploaded preview artifact
+  `9152722617` plus Docker build records `9152888519` and `9152887578`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI logs and every required deployment gate ready; its non-gating RC summary
+  remains intentionally not ready because no approved current-head RC
+  publication was requested.
 - 2026-08-10: Active router-hosted MCP hardening now routes configured
   `HttpRouteMatch.methods` and `HttpRouteMatch.protocols` mismatches through
   the MCP ingress boundary. Fail-first native coverage reproduced public
@@ -25017,6 +25027,31 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - No implementation plan is active. The most recently completed plan is
+  `docs/exec-plans/2026-08-12-mcp-last-event-id-header-multiplicity-validation.md`.
+  Native HTTP retains normalized duplicate-header-name evidence, but
+  compatibility-era router-hosted MCP GET polling still selects one scalar
+  `Last-Event-ID` after route-principal authentication and endpoint lookup.
+  The active slice will reproduce and reject repeated case-insensitive resume
+  cursor names before cursor/history validation or SSE replay mutation while
+  preserving authentication precedence, unknown-session handling, stateless
+  2026 behavior, and continued use of the original session. Pre-change
+  `bin/test-fast` passes the complete core, MCP, client/auth, benchmark,
+  router-hosted consumer, packaging, installed-command, and native follow-up
+  matrix. A fail-first protected regression reproduced first-scalar cursor
+  history validation while preserving bearer-authentication precedence.
+  Router-hosted MCP now rejects authenticated repeated resume-cursor names
+  after endpoint ownership and Accept validation but before cursor parsing or
+  replay. Focused synthetic and real native HTTP tests plus the isolated
+  installed-router consumer pass, and the consumer retains the active session
+  through the remaining direct JSON, resource/prompt, WAMP metadata, pub/sub,
+  refresh/revoke, and deletion flow. Full `bin/verify` passes with zero
+  formatting changes, 114 Rust core tests, 52 Rust FFI tests, 360 Dart core
+  tests, 101 MCP tests, the complete 280-case client/MCP matrix, all 97
+  benchmark cases and 37 live WAMP workloads, all 436 router tests, six
+  remote-auth integrations, 13 native follow-ups, every generated and
+  installed consumer smoke, and Chrome/Dart2Wasm. Exact-head hosted deployment
+  evidence remains.
+- Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-protocol-header-multiplicity-validation.md`.
   Native HTTP retains normalized duplicate-header-name evidence, but
   router-hosted MCP previously selected one scalar `MCP-Protocol-Version`
@@ -25029,8 +25064,11 @@ at the older `47bbf9c` commit.
   and real/native plus isolated installed-consumer POST, GET, and DELETE
   coverage proves rejection does not lose the original live session.
   Pre-change `bin/test-fast`, focused tests, router analysis, shell syntax,
-  diff hygiene, and full `bin/verify` pass. Exact-head hosted deployment
-  evidence remains.
+  diff hygiene, full `bin/verify`, the clean strict package gate, exact-head CI,
+  package, WAMP, and Router Image workflows, and the comprehensive strict audit
+  all pass. Implementation commit `53726634ca65` is on both maintained
+  `master` branches. A later implementation commit should bundle these hosted
+  evidence notes rather than creating a docs-only checkpoint.
 - Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-session-header-multiplicity-validation.md`.
   Native HTTP retains normalized duplicate-header-name evidence, but

@@ -613,6 +613,27 @@ bool _mcpSessionIdHeaderValueValid(String value) {
   return value.isNotEmpty;
 }
 
+NativeHttpResponse? _mcpLastEventIdHeaderMultiplicityError(
+  RouterHttpRequest request, {
+  required String sessionId,
+  required String protocolVersion,
+  required Map<String, String> extraHeaders,
+}) {
+  if (!request.duplicateHeaderNames.contains(
+    _mcpLastEventIdHeader.toLowerCase(),
+  )) {
+    return null;
+  }
+  return _mcpJsonRpcHttpError(
+    status: HttpStatus.badRequest,
+    code: mcp.McpErrorCodes.invalidRequest,
+    message: 'Invalid Last-Event-ID header',
+    sessionId: sessionId,
+    protocolVersion: protocolVersion,
+    extraHeaders: extraHeaders,
+  );
+}
+
 bool _mcpLastEventIdHeaderValueValid(String value) {
   return mcpLastEventIdHeaderValueValidForTest(value);
 }
@@ -2248,6 +2269,21 @@ Future<void> _handleMcpHttpRequestForBinding(
           protocolVersion: responseMcpProtocolVersion,
           extraHeaders: corsHeaders,
         ),
+      );
+      return;
+    }
+    final lastEventIdHeaderMultiplicityError =
+        _mcpLastEventIdHeaderMultiplicityError(
+          request,
+          sessionId: mcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        );
+    if (lastEventIdHeaderMultiplicityError != null) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: lastEventIdHeaderMultiplicityError,
       );
       return;
     }

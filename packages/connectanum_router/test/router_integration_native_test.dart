@@ -13824,6 +13824,33 @@ void main() {
         );
       }
 
+      final repeatedLastEventId = await _getHttp(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        headers: <String, String>{
+          HttpHeaders.acceptHeader: 'text/event-stream',
+          HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+          'MCP-Session-Id': activeSecureJsonSessionId,
+          'MCP-Protocol-Version': '2025-11-25',
+        },
+        repeatedHeaders: <String, List<String>>{
+          'Last-Event-ID': <String>[
+            'unknown-resume-cursor',
+            'conflicting-resume-cursor',
+          ],
+        },
+      );
+      expect(repeatedLastEventId.statusCode, HttpStatus.badRequest);
+      expect(
+        repeatedLastEventId.body,
+        contains('Invalid Last-Event-ID header'),
+      );
+      expect(
+        repeatedLastEventId.headers['mcp-session-id'],
+        activeSecureJsonSessionId,
+      );
+
       await secureJsonPostClient.notifyInitialized();
       expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
       expect(secureJsonPostClient.lastEventId, isNull);
