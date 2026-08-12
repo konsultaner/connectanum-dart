@@ -25021,8 +25021,16 @@ at the older `47bbf9c` commit.
   client/MCP matrix, all 96 benchmark cases and 36 live WAMP workloads, all
   435 router tests, six isolated remote-auth integrations, 13 native
   follow-ups, every neutral consumer and installed-command smoke, and
-  Chrome/Dart2Wasm coverage. Publication, exact-head workflows, and strict
-  deployment audit remain.
+  Chrome/Dart2Wasm coverage. Implementation commit `9d038536a356` reached both
+  maintained `master` branches, after which exact-head GitHub CI `31580742905`
+  exposed five Dart 3.13 analyzer diagnostics absent from the local SDK and
+  package dry run `31580742681` failed on the same router warnings. The repair
+  now awaits a benchmark fake-call result before `finally` cleanup, removes
+  three unused catch stack bindings, and forwards the native library path with
+  a super parameter. Workspace analysis, 51 focused benchmark-runner cases, 70
+  router worker cases, and 12 native transport cases pass. A second full
+  `bin/verify` passes the complete matrix unchanged at 435 router tests. Repair
+  publication, clean exact-head workflows, and strict deployment audit remain.
 - Most recently completed, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-object-parameter-validation.md`.
   Router-provided HTTP authentication previously discarded non-null non-object

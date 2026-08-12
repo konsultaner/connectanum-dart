@@ -1639,7 +1639,7 @@ class _FakeWampBroker {
         pptSerializer: options?.pptSerializer,
       );
       await Future.sync(() => handler(invocation));
-      return completer.future;
+      return await completer.future;
     } finally {
       endCall();
     }

@@ -411,7 +411,7 @@ Future<void> _handleUnsubscribe({
       reason: wamp_core.Error.noSuchSubscription,
       detailsMessage: error.message,
     );
-  } catch (error, _) {
+  } catch (error) {
     await _sendSessionError(
       bossPort: bossPort,
       state: state,
@@ -498,7 +498,7 @@ Future<void> _handleRegister({
       reason: reason,
       detailsMessage: error.message,
     );
-  } catch (error, _) {
+  } catch (error) {
     await _sendSessionError(
       bossPort: bossPort,
       state: state,
@@ -589,7 +589,7 @@ Future<void> _handleUnregister({
       reason: wamp_core.Error.noSuchRegistration,
       detailsMessage: error.message,
     );
-  } catch (error, _) {
+  } catch (error) {
     await _sendSessionError(
       bossPort: bossPort,
       state: state,

@@ -289,15 +289,11 @@ class NativeRawSocketTransport extends _NativeTransportBase {
     bool ssl = false,
     bool allowInsecureCertificates = false,
     int messageLengthExponent = SocketHelper.maxMessageLengthExponent,
-    String? libraryPath,
+    super.libraryPath,
   }) : _ssl = ssl,
        _allowInsecureCertificates = allowInsecureCertificates,
        _messageLengthExponent = messageLengthExponent,
-       super(
-         serializer,
-         _nativeSerializerForRawSocket(_serializerType),
-         libraryPath: libraryPath,
-       );
+       super(serializer, _nativeSerializerForRawSocket(_serializerType));
 
   final String _host;
   final int _port;

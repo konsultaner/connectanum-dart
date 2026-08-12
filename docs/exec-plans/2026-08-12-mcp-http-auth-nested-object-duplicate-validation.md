@@ -70,3 +70,12 @@ decisions, so parser last-value behavior must not decide their input.
   WAMP workloads, all 435 router tests, six isolated remote-auth integrations,
   13 native follow-ups, every neutral consumer and installed-command smoke,
   and Chrome/Dart2Wasm coverage.
+- 2026-08-12: Implementation commit `9d038536a356` reached both maintained
+  `master` branches. Exact-head GitHub CI `31580742905` then exposed five new
+  Dart 3.13 analyzer diagnostics absent from the local SDK, and package dry run
+  `31580742681` failed on the same router warnings. The repair awaits a WAMP
+  fake-call result before its `finally` cleanup, removes three unused catch
+  stack bindings, and forwards the native library path with a super parameter.
+  Workspace analysis plus the 51-case benchmark-runner, 70-case router worker,
+  and 12-case native transport suites pass. A second full `bin/verify` passes
+  the complete matrix unchanged at 435 router tests.
