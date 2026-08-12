@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Parameter Type Validation
 
-Status: implementation and local verification green; publication pending
+Status: complete
 
 ## Goal
 
@@ -65,3 +65,13 @@ problem because ordinary map lookup could not distinguish it from omission.
   benchmark cases and 36 live WAMP workloads, all 434 router tests, six
   isolated remote-auth integrations, 13 native follow-ups, every neutral
   consumer and installed-command smoke, and Chrome/Dart2Wasm coverage.
+- 2026-08-12: Commit `f988d873` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31557226313`, Dart Package Publish Dry Run
+  `31557226228`, WAMP Profile Benchmarks `31557226245`, and dispatched Router
+  Image dry run `31557247322` all pass. Retained artifacts are Dart VM coverage
+  `9126725792`, WAMP evidence `9126537780`, Router Image preview `9126418018`,
+  and Docker build records `9126508597` / `9126508047`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, relevant native-release evidence, and every
+  required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.

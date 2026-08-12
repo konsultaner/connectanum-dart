@@ -800,6 +800,7 @@ void _enqueueSyntheticHttpRequest({
   required int handle,
   required String method,
   required String target,
+  String? query,
   required Map<String, String> headers,
   required Object? body,
   required String realm,
@@ -814,6 +815,7 @@ void _enqueueSyntheticHttpRequest({
       method: method,
       target: target,
       path: target.split('?').first,
+      query: query,
       protocol: 'http/1.1',
       headers: headers,
       body: body == null
@@ -6738,7 +6740,7 @@ void main() {
   );
 
   test(
-    'auth bridge rejects non-string JSON parameters without mutating state',
+    'auth bridge rejects malformed parameter values without mutating state',
     () async {
       final runtime = _HandleRuntime();
       final router = Router(
@@ -6766,6 +6768,7 @@ void main() {
       Future<NativeHttpResponse> postAuth({
         required Map<String, Object?> body,
         Map<String, String> headers = const <String, String>{},
+        String target = '/auth',
       }) async {
         final connectionId = nextConnectionId++;
         _enqueueSyntheticHttpRequest(
@@ -6774,7 +6777,8 @@ void main() {
           connectionId: connectionId,
           handle: connectionId + 1000,
           method: 'POST',
-          target: '/auth',
+          target: target,
+          query: Uri.parse(target).query,
           headers: <String, String>{
             'content-type': 'application/json',
             ...headers,
@@ -6841,6 +6845,51 @@ void main() {
         );
       }
 
+      for (final malformed
+          in <
+            ({
+              Map<String, Object?> body,
+              Map<String, String> headers,
+              String target,
+            })
+          >[
+            (
+              body: const <String, Object?>{
+                'realm': ' ',
+                'authmethod': 'ticket',
+                'authid': 'user-1',
+              },
+              headers: const <String, String>{'x-connectanum-realm': 'realm1'},
+              target: '/auth',
+            ),
+            (
+              body: const <String, Object?>{
+                'realm': 'realm1',
+                'authmethod': 'ticket',
+                'authid': 'user-1',
+              },
+              headers: const <String, String>{},
+              target: '/auth?authmethod=%20',
+            ),
+            (
+              body: const <String, Object?>{
+                'realm': 'realm1',
+                'authmethod': 'ticket',
+                'authid': 'user-1',
+              },
+              headers: const <String, String>{'x-connectanum-auth-id': ' '},
+              target: '/auth',
+            ),
+          ]) {
+        expectInvalidParameter(
+          await postAuth(
+            body: malformed.body,
+            headers: malformed.headers,
+            target: malformed.target,
+          ),
+        );
+      }
+
       final challenge = await postAuth(
         body: const <String, Object?>{
           'realm': 'realm1',
@@ -6865,6 +6914,36 @@ void main() {
             'x-connectanum-auth-state': state,
             'x-connectanum-auth-signature': authenticate.signature!,
           },
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'state': ' ',
+            'signature': authenticate.signature,
+            'extra': authenticate.extra,
+          },
+          headers: <String, String>{'x-connectanum-auth-state': state},
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'state': state,
+            'signature': authenticate.signature,
+            'extra': authenticate.extra,
+          },
+          target: '/auth?state=%20',
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'state': state,
+            'signature': authenticate.signature,
+            'extra': authenticate.extra,
+          },
+          headers: const <String, String>{'x-connectanum-auth-signature': ' '},
         ),
       );
       expectInvalidParameter(
@@ -6913,7 +6992,25 @@ void main() {
           body: <String, Object?>{
             'grant_type': 'refresh_token',
             'refresh_token': refreshToken,
+          },
+          target: '/auth?grant_type=%20',
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'grant_type': 'refresh_token',
+            'refresh_token': refreshToken,
             'token': false,
+          },
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'grant_type': 'refresh_token',
+            'refresh_token': refreshToken,
+            'token': ' ',
           },
         ),
       );
@@ -6944,11 +7041,31 @@ void main() {
           body: <String, Object?>{
             'grant_type': 'revoke',
             'token': refreshedToken,
+            'refresh_token': ' ',
+            'token_type_hint': 'refresh_token',
+          },
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'grant_type': 'revoke',
+            'token': refreshedToken,
             'token_type_hint': null,
           },
           headers: const <String, String>{
             'x-connectanum-token-type-hint': 'refresh_token',
           },
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'grant_type': 'revoke',
+            'token': refreshedToken,
+            'token_type_hint': 'refresh_token',
+          },
+          headers: const <String, String>{'x-connectanum-token-type-hint': ' '},
         ),
       );
 

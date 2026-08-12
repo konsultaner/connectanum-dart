@@ -3626,10 +3626,17 @@ class RouterBinding {
       return;
     }
 
-    if (_hasInvalidHttpAuthBodyString(body, const <String>{
-      'state',
-      'grant_type',
-    })) {
+    if (_hasInvalidHttpAuthStringSources(
+      body: body,
+      bodyKeys: const <String>{'state', 'grant_type'},
+      query: query,
+      queryKeys: const <String>{'state', 'grant_type'},
+      headers: request.headers,
+      headerNames: const <String>{
+        'x-connectanum-auth-state',
+        'x-connectanum-grant-type',
+      },
+    )) {
       await _sendInvalidHttpAuthParameterResponse(
         request: request,
         handshake: handshake,
@@ -3682,7 +3689,12 @@ class RouterBinding {
       return;
     }
     if (state != null) {
-      if (_hasInvalidHttpAuthBodyString(body, const <String>{'signature'})) {
+      if (_hasInvalidHttpAuthStringSources(
+        body: body,
+        bodyKeys: const <String>{'signature'},
+        headers: request.headers,
+        headerNames: const <String>{'x-connectanum-auth-signature'},
+      )) {
         await _sendInvalidHttpAuthParameterResponse(
           request: request,
           handshake: handshake,
@@ -3754,11 +3766,18 @@ class RouterBinding {
       }
     }
 
-    if (_hasInvalidHttpAuthBodyString(body, const <String>{
-      'realm',
-      'authmethod',
-      'authid',
-    })) {
+    if (_hasInvalidHttpAuthStringSources(
+      body: body,
+      bodyKeys: const <String>{'realm', 'authmethod', 'authid'},
+      query: query,
+      queryKeys: const <String>{'realm', 'authmethod', 'authid'},
+      headers: request.headers,
+      headerNames: const <String>{
+        'x-connectanum-realm',
+        'x-connectanum-auth-method',
+        'x-connectanum-auth-id',
+      },
+    )) {
       await _sendInvalidHttpAuthParameterResponse(
         request: request,
         handshake: handshake,
@@ -4396,7 +4415,8 @@ class RouterBinding {
       body: NativeHttpResponseJson(const <String, Object?>{
         'status': 'error',
         'reason': 'invalid_auth_parameter',
-        'message': 'HTTP auth parameters must be strings when provided',
+        'message':
+            'HTTP auth parameters must be non-empty strings when provided',
       }),
     ),
   );
@@ -4646,10 +4666,12 @@ class RouterBinding {
     required HttpRouteSettings route,
     required ListenerSettings? listenerSettings,
   }) async {
-    if (_hasInvalidHttpAuthBodyString(body, const <String>{
-      'refresh_token',
-      'token',
-    })) {
+    if (_hasInvalidHttpAuthStringSources(
+      body: body,
+      bodyKeys: const <String>{'refresh_token', 'token'},
+      query: query,
+      queryKeys: const <String>{'refresh_token'},
+    )) {
       await _sendInvalidHttpAuthParameterResponse(
         request: request,
         handshake: handshake,
@@ -4862,11 +4884,14 @@ class RouterBinding {
     required Map<String, Object?> body,
     required Map<String, String> query,
   }) async {
-    if (_hasInvalidHttpAuthBodyString(body, const <String>{
-      'token',
-      'refresh_token',
-      'token_type_hint',
-    })) {
+    if (_hasInvalidHttpAuthStringSources(
+      body: body,
+      bodyKeys: const <String>{'token', 'refresh_token', 'token_type_hint'},
+      query: query,
+      queryKeys: const <String>{'token', 'token_type_hint'},
+      headers: request.headers,
+      headerNames: const <String>{'x-connectanum-token-type-hint'},
+    )) {
       await _sendInvalidHttpAuthParameterResponse(
         request: request,
         handshake: handshake,
@@ -5229,10 +5254,36 @@ class RouterBinding {
     return values;
   }
 
-  bool _hasInvalidHttpAuthBodyString(
-    Map<String, Object?> body,
-    Iterable<String> keys,
-  ) => keys.any((key) => body.containsKey(key) && body[key] is! String);
+  bool _hasInvalidHttpAuthStringSources({
+    required Map<String, Object?> body,
+    Iterable<String> bodyKeys = const <String>[],
+    Map<String, String> query = const <String, String>{},
+    Iterable<String> queryKeys = const <String>[],
+    Map<String, String> headers = const <String, String>{},
+    Iterable<String> headerNames = const <String>[],
+  }) {
+    for (final key in bodyKeys) {
+      if (!body.containsKey(key)) {
+        continue;
+      }
+      final value = body[key];
+      if (value is! String || value.trim().isEmpty) {
+        return true;
+      }
+    }
+    for (final key in queryKeys) {
+      if (query.containsKey(key) && query[key]!.trim().isEmpty) {
+        return true;
+      }
+    }
+    for (final name in headerNames) {
+      final value = _headerValue(headers, name);
+      if (value != null && value.trim().isEmpty) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   _HttpAuthIssueResult _issueHttpAuthToken({
     required String realmUri,
