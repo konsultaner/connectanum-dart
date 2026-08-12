@@ -3589,7 +3589,11 @@ class RouterBinding {
       return;
     }
 
-    late final ({Map<String, Object?> values, Set<String> duplicateKeys})
+    late final ({
+      Map<String, Object?> values,
+      Set<String> duplicateKeys,
+      Set<String> keysWithDuplicateMembers,
+    })
     parsedBody;
     try {
       parsedBody = _decodeHttpJsonBody(request);
@@ -3610,6 +3614,7 @@ class RouterBinding {
     }
     final body = parsedBody.values;
     final duplicateBodyKeys = parsedBody.duplicateKeys;
+    final bodyKeysWithDuplicateMembers = parsedBody.keysWithDuplicateMembers;
     late final ({Map<String, String> values, Set<String> duplicateKeys})
     parsedQuery;
     try {
@@ -3720,6 +3725,7 @@ class RouterBinding {
             body: body,
             bodyKeys: const <String>{'extra'},
             duplicateBodyKeys: duplicateBodyKeys,
+            bodyKeysWithDuplicateMembers: bodyKeysWithDuplicateMembers,
           )) {
         await _sendInvalidHttpAuthParameterResponse(
           request: request,
@@ -3814,6 +3820,7 @@ class RouterBinding {
           body: body,
           bodyKeys: const <String>{'authextra'},
           duplicateBodyKeys: duplicateBodyKeys,
+          bodyKeysWithDuplicateMembers: bodyKeysWithDuplicateMembers,
         )) {
       await _sendInvalidHttpAuthParameterResponse(
         request: request,
@@ -5241,26 +5248,37 @@ class RouterBinding {
     );
   }
 
-  ({Map<String, Object?> values, Set<String> duplicateKeys})
+  ({
+    Map<String, Object?> values,
+    Set<String> duplicateKeys,
+    Set<String> keysWithDuplicateMembers,
+  })
   _decodeHttpJsonBody(RouterHttpRequest request) {
     final bytes = request.body;
     if (bytes.isEmpty) {
-      return (values: <String, Object?>{}, duplicateKeys: const <String>{});
+      return (
+        values: <String, Object?>{},
+        duplicateKeys: const <String>{},
+        keysWithDuplicateMembers: const <String>{},
+      );
     }
     final source = utf8.decode(bytes);
     final decoded = jsonDecode(source);
     if (decoded is! Map) {
       throw FormatException('HTTP auth body must decode to a JSON object');
     }
+    final duplicateEvidence = _httpJsonObjectDuplicateEvidence(source);
     return (
       values: Map<String, Object?>.from(decoded),
-      duplicateKeys: _topLevelJsonObjectDuplicateKeys(source),
+      duplicateKeys: duplicateEvidence.duplicateKeys,
+      keysWithDuplicateMembers: duplicateEvidence.keysWithDuplicateMembers,
     );
   }
 
-  Set<String> _topLevelJsonObjectDuplicateKeys(String source) {
-    final seenKeys = <String>{};
+  ({Set<String> duplicateKeys, Set<String> keysWithDuplicateMembers})
+  _httpJsonObjectDuplicateEvidence(String source) {
     final duplicateKeys = <String>{};
+    final keysWithDuplicateMembers = <String>{};
     var index = 0;
 
     void skipWhitespace() {
@@ -5291,6 +5309,123 @@ class RouterBinding {
       throw FormatException('HTTP auth body contains an unterminated JSON key');
     }
 
+    String parseString() {
+      if (index >= source.length || source.codeUnitAt(index) != 0x22) {
+        throw FormatException('HTTP auth body contains an invalid JSON string');
+      }
+      final start = index;
+      index = stringEnd(start);
+      return jsonDecode(source.substring(start, index)) as String;
+    }
+
+    late bool Function() parseValue;
+
+    bool parseObject() {
+      index++;
+      skipWhitespace();
+      if (index < source.length && source.codeUnitAt(index) == 0x7d) {
+        index++;
+        return false;
+      }
+
+      final seenKeys = <String>{};
+      var hasDuplicateMembers = false;
+      while (index < source.length) {
+        skipWhitespace();
+        final key = parseString();
+        if (!seenKeys.add(key)) {
+          hasDuplicateMembers = true;
+        }
+
+        skipWhitespace();
+        if (index >= source.length || source.codeUnitAt(index) != 0x3a) {
+          throw FormatException(
+            'HTTP auth body contains an invalid JSON member',
+          );
+        }
+        index++;
+        if (parseValue()) {
+          hasDuplicateMembers = true;
+        }
+
+        skipWhitespace();
+        if (index < source.length && source.codeUnitAt(index) == 0x7d) {
+          index++;
+          return hasDuplicateMembers;
+        }
+        if (index >= source.length || source.codeUnitAt(index) != 0x2c) {
+          throw FormatException(
+            'HTTP auth body contains an incomplete JSON object',
+          );
+        }
+        index++;
+      }
+      throw FormatException(
+        'HTTP auth body contains an incomplete JSON object',
+      );
+    }
+
+    bool parseArray() {
+      index++;
+      skipWhitespace();
+      if (index < source.length && source.codeUnitAt(index) == 0x5d) {
+        index++;
+        return false;
+      }
+
+      var hasDuplicateMembers = false;
+      while (index < source.length) {
+        if (parseValue()) {
+          hasDuplicateMembers = true;
+        }
+        skipWhitespace();
+        if (index < source.length && source.codeUnitAt(index) == 0x5d) {
+          index++;
+          return hasDuplicateMembers;
+        }
+        if (index >= source.length || source.codeUnitAt(index) != 0x2c) {
+          throw FormatException(
+            'HTTP auth body contains an incomplete JSON array',
+          );
+        }
+        index++;
+      }
+      throw FormatException('HTTP auth body contains an incomplete JSON array');
+    }
+
+    parseValue = () {
+      skipWhitespace();
+      if (index >= source.length) {
+        throw FormatException(
+          'HTTP auth body contains an incomplete JSON value',
+        );
+      }
+      switch (source.codeUnitAt(index)) {
+        case 0x7b:
+          return parseObject();
+        case 0x5b:
+          return parseArray();
+        case 0x22:
+          parseString();
+          return false;
+        default:
+          while (index < source.length) {
+            final codeUnit = source.codeUnitAt(index);
+            if (codeUnit == 0x2c ||
+                codeUnit == 0x5d ||
+                codeUnit == 0x7d ||
+                codeUnit == 0x20 ||
+                codeUnit == 0x09 ||
+                codeUnit == 0x0a ||
+                codeUnit == 0x0d) {
+              break;
+            }
+            index++;
+          }
+          return false;
+      }
+    };
+
     skipWhitespace();
     if (index >= source.length || source.codeUnitAt(index) != 0x7b) {
       throw FormatException('HTTP auth body must decode to a JSON object');
@@ -5298,61 +5433,55 @@ class RouterBinding {
     index++;
     skipWhitespace();
     if (index < source.length && source.codeUnitAt(index) == 0x7d) {
-      return duplicateKeys;
+      index++;
+      skipWhitespace();
+      if (index != source.length) {
+        throw FormatException('HTTP auth body contains trailing JSON data');
+      }
+      return (
+        duplicateKeys: duplicateKeys,
+        keysWithDuplicateMembers: keysWithDuplicateMembers,
+      );
     }
 
+    final seenKeys = <String>{};
     while (index < source.length) {
       skipWhitespace();
-      if (index >= source.length || source.codeUnitAt(index) != 0x22) {
-        throw FormatException('HTTP auth body contains an invalid JSON key');
-      }
-      final keyStart = index;
-      final keyEnd = stringEnd(keyStart);
-      final key = jsonDecode(source.substring(keyStart, keyEnd)) as String;
+      final key = parseString();
       if (!seenKeys.add(key)) {
         duplicateKeys.add(key);
       }
 
-      index = keyEnd;
       skipWhitespace();
       if (index >= source.length || source.codeUnitAt(index) != 0x3a) {
         throw FormatException('HTTP auth body contains an invalid JSON member');
       }
       index++;
-      skipWhitespace();
-
-      var nestedDepth = 0;
-      var inString = false;
-      var escaped = false;
-      while (index < source.length) {
-        final codeUnit = source.codeUnitAt(index);
-        if (inString) {
-          if (escaped) {
-            escaped = false;
-          } else if (codeUnit == 0x5c) {
-            escaped = true;
-          } else if (codeUnit == 0x22) {
-            inString = false;
-          }
-        } else if (codeUnit == 0x22) {
-          inString = true;
-        } else if (codeUnit == 0x7b || codeUnit == 0x5b) {
-          nestedDepth++;
-        } else if (codeUnit == 0x7d) {
-          if (nestedDepth == 0) {
-            return duplicateKeys;
-          }
-          nestedDepth--;
-        } else if (codeUnit == 0x5d) {
-          nestedDepth--;
-        } else if (codeUnit == 0x2c && nestedDepth == 0) {
-          index++;
-          break;
-        }
-        index++;
+      if (parseValue()) {
+        keysWithDuplicateMembers.add(key);
       }
+
+      skipWhitespace();
+      if (index < source.length && source.codeUnitAt(index) == 0x7d) {
+        index++;
+        break;
+      }
+      if (index >= source.length || source.codeUnitAt(index) != 0x2c) {
+        throw FormatException(
+          'HTTP auth body contains an incomplete JSON object',
+        );
+      }
+      index++;
     }
-    throw FormatException('HTTP auth body contains an incomplete JSON object');
+
+    skipWhitespace();
+    if (index != source.length) {
+      throw FormatException('HTTP auth body contains trailing JSON data');
+    }
+    return (
+      duplicateKeys: duplicateKeys,
+      keysWithDuplicateMembers: keysWithDuplicateMembers,
+    );
   }
 
   ({Map<String, String> values, Set<String> duplicateKeys})
@@ -5425,9 +5554,11 @@ class RouterBinding {
     required Map<String, Object?> body,
     required Iterable<String> bodyKeys,
     Set<String> duplicateBodyKeys = const <String>{},
+    Set<String> bodyKeysWithDuplicateMembers = const <String>{},
   }) {
     for (final key in bodyKeys) {
-      if (duplicateBodyKeys.contains(key)) {
+      if (duplicateBodyKeys.contains(key) ||
+          bodyKeysWithDuplicateMembers.contains(key)) {
         return true;
       }
       final value = body[key];

@@ -7233,6 +7233,134 @@ void main() {
   );
 
   test(
+    'auth bridge rejects duplicate members inside selected auth objects',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(maxPendingAuth: 1),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      var nextConnectionId = 190;
+
+      Future<NativeHttpResponse> postAuth({required String rawBody}) async {
+        final connectionId = nextConnectionId++;
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId + 1000,
+          method: 'POST',
+          target: '/auth',
+          headers: const <String, String>{'content-type': 'application/json'},
+          body: const <String, Object?>{},
+          rawBody: utf8.encode(rawBody),
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        );
+        return runtime.httpResponses[connectionId]!.single;
+      }
+
+      void expectInvalidParameter(NativeHttpResponse response) {
+        expect(response.status, HttpStatus.badRequest);
+        expect(
+          _jsonResponseBody(response),
+          allOf(
+            containsPair('reason', 'invalid_auth_parameter'),
+            isNot(contains('state')),
+            isNot(contains('access_token')),
+            isNot(contains('refresh_token')),
+          ),
+        );
+      }
+
+      for (final rawBody in <String>[
+        r'{"realm":"realm1","authmethod":"ticket","authid":"user-1","authextra":{"source":"first","\u0073ource":"second"}}',
+        r'{"realm":"realm1","authmethod":"ticket","authid":"user-1","authextra":{"context":{"level":"first","\u006cevel":"second"}}}',
+        r'{"realm":"realm1","authmethod":"ticket","authid":"user-1","authextra":{"contexts":[{"level":"first","\u006cevel":"second"}]}}',
+      ]) {
+        expectInvalidParameter(await postAuth(rawBody: rawBody));
+      }
+
+      final challenge = await postAuth(
+        rawBody:
+            '{"realm":"realm1","authmethod":"ticket",'
+            '"authid":"user-1","authextra":null}',
+      );
+      expect(challenge.status, HttpStatus.unauthorized);
+      final state = _jsonResponseBody(challenge)['state'] as String;
+      final authenticate = await TicketAuthentication(
+        'signed-token',
+      ).challenge(Extra());
+
+      for (final rawBody in <String>[
+        '{"state":${jsonEncode(state)},'
+            '"signature":${jsonEncode(authenticate.signature)},'
+            r'"extra":{"source":"first","\u0073ource":"second"}}',
+        '{"state":${jsonEncode(state)},'
+            '"signature":${jsonEncode(authenticate.signature)},'
+            r'"extra":{"context":{"level":"first","\u006cevel":"second"}}}',
+      ]) {
+        expectInvalidParameter(await postAuth(rawBody: rawBody));
+      }
+
+      final occupiedCapacity = await postAuth(
+        rawBody: '{"realm":"realm1","authmethod":"ticket","authid":"user-1"}',
+      );
+      expect(occupiedCapacity.status, HttpStatus.tooManyRequests);
+      expect(
+        _jsonResponseBody(occupiedCapacity),
+        allOf(
+          containsPair('reason', 'auth_capacity_exhausted'),
+          isNot(contains('state')),
+        ),
+      );
+
+      final authenticated = await postAuth(
+        rawBody:
+            '{"state":${jsonEncode(state)},'
+            '"signature":${jsonEncode(authenticate.signature)},'
+            '"extra":null}',
+      );
+      expect(authenticated.status, HttpStatus.ok);
+      final refreshToken =
+          _jsonResponseBody(authenticated)['refresh_token'] as String;
+
+      final refreshed = await postAuth(
+        rawBody:
+            '{"grant_type":"refresh_token",'
+            '"refresh_token":${jsonEncode(refreshToken)},'
+            '"authextra":{"source":"ignored-a","source":"ignored-b"},'
+            '"extra":{"context":{"source":"ignored-a",'
+            '"source":"ignored-b"}}}',
+      );
+      expect(refreshed.status, HttpStatus.ok);
+      expect(
+        _jsonResponseBody(refreshed),
+        allOf(contains('access_token'), contains('refresh_token')),
+      );
+    },
+  );
+
+  test(
     'auth bridge rejects unsupported grant types before authentication',
     () async {
       final runtime = _HandleRuntime();

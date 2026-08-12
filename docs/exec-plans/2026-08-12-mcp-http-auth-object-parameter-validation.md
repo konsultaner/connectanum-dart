@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Object Parameter Validation
 
-Status: implementation complete; local verification green; publication pending
+Status: complete
 
 ## Goal
 
@@ -70,3 +70,22 @@ objects as null, so null retains its established omitted-value semantics.
   router tests, six isolated remote-auth integrations, 13 native follow-ups,
   every neutral consumer and installed-command smoke, and Chrome/Dart2Wasm
   coverage.
+- 2026-08-12: Implementation commit `c39ca2385131` is on both maintained
+  `master` branches. Exact-head CI `31574536358`, Dart Package Publish Dry Run
+  `31574536413`, WAMP Profile Benchmarks `31574536381`, and Router Image dry
+  run `31574578812` all passed on their first attempts. CI uploaded coverage
+  artifact `9133131431`, WAMP uploaded benchmark artifact `9132819435`, and
+  Router Image uploaded preview artifact `9132643342` plus Docker build records
+  `9132753196` and `9132752751`.
+- 2026-08-12: Comprehensive
+  `bin/audit-github-deployment-chain --branch master --run-limit 8 --strict
+  --require-workflows-visible --require-router-package
+  --require-clean-latest-ci --require-clean-latest-ci-logs
+  --require-clean-dart-package-publish-dry-run
+  --require-clean-native-release-dry-run --require-clean-router-image-dry-run
+  --require-clean-wamp-profile-benchmarks --show-rc-readiness` passes with
+  clean exact-head CI logs and all required branch, workflow, package,
+  native-release, package-publish, loaded-image MCP, multi-architecture image,
+  and benchmark gates clean. Its non-gating release-candidate summary remains
+  intentionally not ready because no approved numeric RC tag points at this
+  implementation commit.

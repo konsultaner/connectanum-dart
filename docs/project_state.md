@@ -24999,6 +24999,31 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-12-mcp-http-auth-nested-object-duplicate-validation.md`.
+  Router-provided HTTP authentication previously let `jsonDecode` collapse
+  repeated members anywhere inside selected initial `authextra` and challenge
+  `extra` objects before authenticators received that metadata. A fail-first
+  lifecycle regression reproduced an escaped-equivalent duplicate initial
+  member returning HTTP 401 instead of the generic HTTP 400. The raw JSON scan
+  now canonicalizes member names, recursively retains duplicate evidence
+  through nested objects and arrays, and applies it only to the object relevant
+  to the selected initial or challenge operation before authenticator creation
+  or pending-state removal. Explicit null remains omitted, unrelated refresh
+  fields remain ignored, and generic rejection exposes no state or tokens.
+  Router analysis, the focused lifecycle, the complete 88-case router runtime
+  suite, shell syntax, diff hygiene, and the neutral installed-router consumer
+  smoke pass. The consumer reports
+  `authNestedObjectMultiplicityValidation: true`, proves retained max-one
+  pending capacity plus valid completion, and continues through protected MCP,
+  direct JSON, pub/sub, refresh/revoke, and Streamable HTTP. Full `bin/verify`
+  passes with unchanged formatting and clean analysis, 114 Rust core tests, 52
+  FFI tests, all 360 Dart core tests, all 101 MCP tests, the 280-case
+  client/MCP matrix, all 96 benchmark cases and 36 live WAMP workloads, all
+  435 router tests, six isolated remote-auth integrations, 13 native
+  follow-ups, every neutral consumer and installed-command smoke, and
+  Chrome/Dart2Wasm coverage. Publication, exact-head workflows, and strict
+  deployment audit remain.
+- Most recently completed, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-object-parameter-validation.md`.
   Router-provided HTTP authentication previously discarded non-null non-object
   `authextra`/challenge `extra` values, collapsed repeated top-level values, and
@@ -25018,8 +25043,18 @@ at the older `47bbf9c` commit.
   tests, all 101 MCP tests, the 280-case client/MCP matrix, all 96 benchmark
   cases and 36 live WAMP workloads, all 434 router tests, six isolated
   remote-auth integrations, 13 native follow-ups, every neutral consumer and
-  installed-command smoke, and Chrome/Dart2Wasm coverage. Publication,
-  exact-head workflows, and strict deployment audit remain.
+  installed-command smoke, and Chrome/Dart2Wasm coverage. Implementation
+  commit `c39ca2385131` is on both maintained `master` branches. Exact-head CI
+  `31574536358`, Dart Package Publish Dry Run `31574536413`, WAMP Profile
+  Benchmarks `31574536381`, and Router Image dry run `31574578812` passed on
+  their first attempts. Coverage artifact `9133131431`, WAMP artifact
+  `9132819435`, Router Image preview artifact `9132643342`, and Docker build
+  records `9132753196` and `9132752751` were uploaded. The comprehensive strict
+  deployment-chain audit passes with clean exact-head CI logs and all required
+  branch, workflow, public package, native-release, package-publish,
+  loaded-image MCP, multi-architecture image, and benchmark gates clean. Its
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation commit.
 - Completed now, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-json-duplicate-validation.md`.
   Router-provided HTTP authentication previously decoded JSON directly into a
