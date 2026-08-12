@@ -3671,10 +3671,24 @@ class RouterBinding {
       return;
     }
     if (state != null) {
+      final signatureSelectors = _distinctNonEmptyStrings(
+        body['signature'],
+        _headerValue(request.headers, 'x-connectanum-auth-signature'),
+      );
+      if (signatureSelectors.length > 1) {
+        await _sendConflictingHttpAuthParameterResponse(
+          request: request,
+          handshake: handshake,
+        );
+        return;
+      }
       await _continueHttpAuthTransaction(
         request: request,
         handshake: handshake,
         state: state,
+        signature: signatureSelectors.isEmpty
+            ? null
+            : signatureSelectors.single,
         body: body,
         sessionProfile: sessionProfile,
         route: route,
@@ -3722,6 +3736,35 @@ class RouterBinding {
       }
     }
 
+    final realmSelectors = _distinctNonEmptyStrings(
+      body['realm'],
+      query['realm'],
+      _headerValue(request.headers, 'x-connectanum-realm'),
+    );
+    final authMethodSelectors = _distinctNonEmptyStrings(
+      body['authmethod'],
+      query['authmethod'],
+      _headerValue(request.headers, 'x-connectanum-auth-method'),
+    );
+    final authIdSelectors = _distinctNonEmptyStrings(
+      body['authid'],
+      query['authid'],
+      _headerValue(request.headers, 'x-connectanum-auth-id'),
+    );
+    if (realmSelectors.length > 1 ||
+        authMethodSelectors.length > 1 ||
+        authIdSelectors.length > 1) {
+      await _sendConflictingHttpAuthParameterResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
+    final authMethod = authMethodSelectors.isEmpty
+        ? null
+        : authMethodSelectors.single;
+    final authId = authIdSelectors.isEmpty ? null : authIdSelectors.single;
+
     registerDefaultAuthenticators();
     final realmUri = _resolveHttpAuthRealm(
       request: request,
@@ -3763,11 +3806,6 @@ class RouterBinding {
       return;
     }
 
-    final authMethod = _firstNonEmptyString(
-      body['authmethod'],
-      query['authmethod'],
-      _headerValue(request.headers, 'x-connectanum-auth-method'),
-    );
     if (authMethod == null || authMethod == 'anonymous') {
       await _sendImmediateHttpResponse(
         request: request,
@@ -3837,11 +3875,6 @@ class RouterBinding {
       return;
     }
 
-    final authId = _firstNonEmptyString(
-      body['authid'],
-      query['authid'],
-      _headerValue(request.headers, 'x-connectanum-auth-id'),
-    );
     if (authId != null) {
       final remaining = AuthSecurityTracker.lockoutRemaining(
         realmUri,
@@ -4306,10 +4339,27 @@ class RouterBinding {
     );
   }
 
+  Future<void> _sendConflictingHttpAuthParameterResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+  }) => _sendImmediateHttpResponse(
+    request: request,
+    handshake: handshake,
+    response: NativeHttpResponse(
+      status: HttpStatus.badRequest,
+      body: NativeHttpResponseJson(const <String, Object?>{
+        'status': 'error',
+        'reason': 'conflicting_auth_parameter',
+        'message': 'HTTP auth parameters must agree across request sources',
+      }),
+    ),
+  );
+
   Future<void> _continueHttpAuthTransaction({
     required RouterHttpRequest request,
     required NativeHttpHandshake? handshake,
     required String state,
+    required String? signature,
     required Map<String, Object?> body,
     required SessionProfileSettings? sessionProfile,
     required HttpRouteSettings route,
@@ -4383,10 +4433,6 @@ class RouterBinding {
       }
     }
 
-    final signature = _firstNonEmptyString(
-      body['signature'],
-      _headerValue(request.headers, 'x-connectanum-auth-signature'),
-    );
     if (signature == null || signature.isEmpty) {
       await pending.abort(reason: 'missing_signature');
       await _sendImmediateHttpResponse(
@@ -4554,11 +4600,21 @@ class RouterBinding {
     required HttpRouteSettings route,
     required ListenerSettings? listenerSettings,
   }) async {
-    final refreshToken = _firstNonEmptyString(
+    final refreshTokenSelectors = _distinctNonEmptyStrings(
       body['refresh_token'],
       body['token'],
       query['refresh_token'],
     );
+    if (refreshTokenSelectors.length > 1) {
+      await _sendConflictingHttpAuthParameterResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
+    final refreshToken = refreshTokenSelectors.isEmpty
+        ? null
+        : refreshTokenSelectors.single;
     if (refreshToken == null || refreshToken.isEmpty) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -4750,16 +4806,27 @@ class RouterBinding {
     required Map<String, Object?> body,
     required Map<String, String> query,
   }) async {
-    final token = _firstNonEmptyString(
+    final tokenSelectors = _distinctNonEmptyStrings(
       body['token'],
       body['refresh_token'],
       query['token'],
     );
-    final tokenTypeHint = _firstNonEmptyString(
+    final tokenTypeHintSelectors = _distinctNonEmptyStrings(
       body['token_type_hint'],
       query['token_type_hint'],
       _headerValue(request.headers, 'x-connectanum-token-type-hint'),
     );
+    if (tokenSelectors.length > 1 || tokenTypeHintSelectors.length > 1) {
+      await _sendConflictingHttpAuthParameterResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
+    final token = tokenSelectors.isEmpty ? null : tokenSelectors.single;
+    final tokenTypeHint = tokenTypeHintSelectors.isEmpty
+        ? null
+        : tokenTypeHintSelectors.single;
 
     if (token != null && token.isNotEmpty) {
       if (tokenTypeHint == 'refresh_token') {

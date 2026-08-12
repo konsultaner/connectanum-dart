@@ -24999,6 +24999,34 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-12-mcp-http-auth-credential-source-isolation.md`.
+  Router-provided HTTP authentication still selected the first non-empty realm,
+  auth method, auth identity, signature, refresh credential alias, revocation
+  credential alias, or revocation hint across supported request sources. A
+  fail-first regression reproduced conflicting explicit initial auth values
+  proceeding to an HTTP 401 challenge instead of failing before authenticator
+  state allocation. The bridge now requires agreement for parameters relevant
+  to the selected operation and returns a state/token-free HTTP 400 with
+  `conflicting_auth_parameter` before challenge or token mutation. Identical
+  duplicate challenge state and signatures remain valid; a conflicting
+  signature leaves the pending challenge available for legitimate completion.
+  Pre-change `bin/test-fast` passed the complete core, MCP, client/auth,
+  benchmark, router-hosted consumer, packaging, installed-command, and native
+  follow-up matrix, including all 96 benchmark cases and 36 live WAMP
+  workloads. Router analysis and focused selector/signature, refresh, and
+  revocation runtime regressions pass. Shell syntax and the neutral
+  installed-router consumer smoke pass; the consumer reports
+  `authCredentialSourceIsolation: true`, proves state/token-free rejection and
+  pending-capacity retention, then continues through protected MCP, direct
+  JSON, pub/sub, refresh/revoke, and Streamable HTTP paths. Full `bin/verify`
+  passes with zero formatting changes, clean analysis, 114 Rust core tests, 52
+  Rust FFI tests, the 360-case Dart core suite, 101 MCP package tests, the
+  complete client/MCP matrix, all 96 benchmark cases and 36 live WAMP
+  workloads, all 433 router tests, six isolated remote-auth integrations, 13
+  native follow-ups, every neutral consumer and installed-command smoke, and
+  Chrome/Dart2Wasm coverage. Publication and exact-head hosted evidence remain
+  pending.
+- Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-selector-source-isolation.md`.
   Router-provided HTTP authentication previously selected the first non-empty
   `state` or `grant_type` from the JSON body, query, and Connectanum header,
@@ -25019,7 +25047,15 @@ at the older `47bbf9c` commit.
   JSON, pub/sub, refresh/revoke, and Streamable HTTP paths. Full `bin/verify`
   passes, including 433 router tests, all 6 isolated remote-auth integrations,
   all 13 native follow-ups, and the Chrome/Dart2Wasm WebSocket check.
-  Publication and hosted verification remain.
+  Commit `281f2d16` is published to both maintained `master` branches.
+  Exact-head GitHub CI `31548560821`, Dart Package Publish Dry Run
+  `31548560920`, WAMP Profile Benchmarks `31548560994`, and dispatched Router
+  Image dry run `31548567245` all pass. Retained artifacts are Dart VM coverage
+  `9123772167`, WAMP evidence `9123530911`, Router Image preview `9123382005`,
+  and Docker build records `9123486144` / `9123485514`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs and
+  every required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.
 - Completed most recently, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-operation-selector-isolation.md`.
   Router-provided HTTP authentication previously dispatched a pending

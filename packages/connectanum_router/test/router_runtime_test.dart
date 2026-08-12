@@ -6521,6 +6521,62 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       final listenerId = binding.listeners.single.listenerId;
 
+      for (final conflict
+          in <({int connectionId, String headerName, String headerValue})>[
+            (
+              connectionId: 65,
+              headerName: 'x-connectanum-realm',
+              headerValue: 'different-realm',
+            ),
+            (
+              connectionId: 66,
+              headerName: 'x-connectanum-auth-method',
+              headerValue: 'wampcra',
+            ),
+            (
+              connectionId: 67,
+              headerName: 'x-connectanum-auth-id',
+              headerValue: 'different-user',
+            ),
+          ]) {
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: conflict.connectionId,
+          handle: conflict.connectionId - 40,
+          method: 'POST',
+          target: '/auth',
+          headers: <String, String>{
+            'content-type': 'application/json',
+            conflict.headerName: conflict.headerValue,
+          },
+          body: const <String, Object?>{
+            'realm': 'realm1',
+            'authmethod': 'ticket',
+            'authid': 'user-1',
+          },
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        );
+
+        await _waitUntil(
+          () =>
+              runtime.httpResponses[conflict.connectionId]?.isNotEmpty ?? false,
+        );
+        final response = runtime.httpResponses[conflict.connectionId]!.single;
+        expect(response.status, HttpStatus.badRequest);
+        expect(
+          _jsonResponseBody(response),
+          allOf(
+            containsPair('status', 'error'),
+            containsPair('reason', 'conflicting_auth_parameter'),
+            isNot(contains('state')),
+            isNot(contains('access_token')),
+            isNot(contains('refresh_token')),
+          ),
+        );
+      }
+
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
@@ -6558,7 +6614,12 @@ void main() {
         handle: 21,
         method: 'POST',
         target: '/auth',
-        headers: const {'content-type': 'application/json'},
+        headers: const {
+          'content-type': 'application/json',
+          'x-connectanum-realm': 'realm1',
+          'x-connectanum-auth-method': 'ticket',
+          'x-connectanum-auth-id': 'user-1',
+        },
         body: const <String, Object?>{
           'realm': 'realm1',
           'authmethod': 'ticket',
@@ -6613,6 +6674,41 @@ void main() {
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
+        connectionId: 68,
+        handle: 28,
+        method: 'POST',
+        target: '/auth',
+        headers: <String, String>{
+          'content-type': 'application/json',
+          'x-connectanum-auth-state': state,
+          'x-connectanum-auth-signature': 'different-signature',
+        },
+        body: <String, Object?>{
+          'state': state,
+          'signature': authenticate.signature,
+          'extra': authenticate.extra,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+
+      await _waitUntil(() => runtime.httpResponses[68]?.isNotEmpty ?? false);
+      final signatureConflict = runtime.httpResponses[68]!.single;
+      expect(signatureConflict.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(signatureConflict),
+        allOf(
+          containsPair('status', 'error'),
+          containsPair('reason', 'conflicting_auth_parameter'),
+          isNot(contains('state')),
+          isNot(contains('access_token')),
+          isNot(contains('refresh_token')),
+        ),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
         connectionId: 63,
         handle: 23,
         method: 'POST',
@@ -6620,6 +6716,7 @@ void main() {
         headers: <String, String>{
           'content-type': 'application/json',
           'x-connectanum-auth-state': state,
+          'x-connectanum-auth-signature': authenticate.signature!,
         },
         body: <String, Object?>{
           'state': state,
@@ -8166,6 +8263,35 @@ void main() {
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
+        connectionId: 78,
+        handle: 38,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': firstGrant.refreshToken,
+          'token': 'different-refresh-token',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[78]?.isNotEmpty ?? false);
+      final conflictingRefresh = runtime.httpResponses[78]!.single;
+      expect(conflictingRefresh.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(conflictingRefresh),
+        allOf(
+          containsPair('status', 'error'),
+          containsPair('reason', 'conflicting_auth_parameter'),
+          isNot(contains('access_token')),
+          isNot(contains('refresh_token')),
+        ),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
         connectionId: 72,
         handle: 32,
         method: 'POST',
@@ -8317,6 +8443,65 @@ void main() {
       listenerId: listenerId,
       startConnectionId: 80,
     );
+
+    for (final conflict
+        in <
+          ({
+            int connectionId,
+            Map<String, String> headers,
+            Map<String, Object?> body,
+          })
+        >[
+          (
+            connectionId: 85,
+            headers: const {'content-type': 'application/json'},
+            body: <String, Object?>{
+              'grant_type': 'revoke',
+              'token': grant.refreshToken,
+              'refresh_token': 'different-revoke-token',
+              'token_type_hint': 'refresh_token',
+            },
+          ),
+          (
+            connectionId: 86,
+            headers: const {
+              'content-type': 'application/json',
+              'x-connectanum-token-type-hint': 'access_token',
+            },
+            body: <String, Object?>{
+              'grant_type': 'revoke',
+              'token': grant.refreshToken,
+              'token_type_hint': 'refresh_token',
+            },
+          ),
+        ]) {
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: conflict.connectionId,
+        handle: conflict.connectionId - 40,
+        method: 'POST',
+        target: '/auth',
+        headers: conflict.headers,
+        body: conflict.body,
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(
+        () => runtime.httpResponses[conflict.connectionId]?.isNotEmpty ?? false,
+      );
+      final response = runtime.httpResponses[conflict.connectionId]!.single;
+      expect(response.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(response),
+        allOf(
+          containsPair('status', 'error'),
+          containsPair('reason', 'conflicting_auth_parameter'),
+          isNot(contains('access_token')),
+          isNot(contains('refresh_token')),
+        ),
+      );
+    }
 
     _enqueueSyntheticHttpRequest(
       runtime: runtime,

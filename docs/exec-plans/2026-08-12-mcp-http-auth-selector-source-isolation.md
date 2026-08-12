@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Selector Source Isolation
 
-Status: complete locally; publication and hosted verification pending
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -61,3 +61,13 @@ same precedence ambiguity could select refresh versus revocation when
 - 2026-08-12: Full `bin/verify` passes, including 433 router tests, all 6
   isolated remote-auth integrations, all 13 native follow-ups, and the
   Chrome/Dart2Wasm WebSocket check.
+- 2026-08-12: Commit `281f2d16` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31548560821`, Dart Package Publish Dry Run
+  `31548560920`, WAMP Profile Benchmarks `31548560994`, and dispatched Router
+  Image dry run `31548567245` all pass. Retained artifacts are Dart VM coverage
+  `9123772167`, WAMP evidence `9123530911`, Router Image preview `9123382005`,
+  and Docker build records `9123486144` / `9123485514`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs and
+  every required branch, workflow, package, publish-dry-run, image, and
+  benchmark gate ready. RC creation remains an explicit release-approval
+  action outside this checkpoint.
