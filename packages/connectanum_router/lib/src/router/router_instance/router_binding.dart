@@ -3626,6 +3626,17 @@ class RouterBinding {
       return;
     }
 
+    if (_hasInvalidHttpAuthBodyString(body, const <String>{
+      'state',
+      'grant_type',
+    })) {
+      await _sendInvalidHttpAuthParameterResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
+
     final stateSelectors = _distinctNonEmptyStrings(
       body['state'],
       query['state'],
@@ -3671,6 +3682,13 @@ class RouterBinding {
       return;
     }
     if (state != null) {
+      if (_hasInvalidHttpAuthBodyString(body, const <String>{'signature'})) {
+        await _sendInvalidHttpAuthParameterResponse(
+          request: request,
+          handshake: handshake,
+        );
+        return;
+      }
       final signatureSelectors = _distinctNonEmptyStrings(
         body['signature'],
         _headerValue(request.headers, 'x-connectanum-auth-signature'),
@@ -3734,6 +3752,18 @@ class RouterBinding {
           );
           return;
       }
+    }
+
+    if (_hasInvalidHttpAuthBodyString(body, const <String>{
+      'realm',
+      'authmethod',
+      'authid',
+    })) {
+      await _sendInvalidHttpAuthParameterResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
     }
 
     final realmSelectors = _distinctNonEmptyStrings(
@@ -4355,6 +4385,22 @@ class RouterBinding {
     ),
   );
 
+  Future<void> _sendInvalidHttpAuthParameterResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+  }) => _sendImmediateHttpResponse(
+    request: request,
+    handshake: handshake,
+    response: NativeHttpResponse(
+      status: HttpStatus.badRequest,
+      body: NativeHttpResponseJson(const <String, Object?>{
+        'status': 'error',
+        'reason': 'invalid_auth_parameter',
+        'message': 'HTTP auth parameters must be strings when provided',
+      }),
+    ),
+  );
+
   Future<void> _continueHttpAuthTransaction({
     required RouterHttpRequest request,
     required NativeHttpHandshake? handshake,
@@ -4600,6 +4646,16 @@ class RouterBinding {
     required HttpRouteSettings route,
     required ListenerSettings? listenerSettings,
   }) async {
+    if (_hasInvalidHttpAuthBodyString(body, const <String>{
+      'refresh_token',
+      'token',
+    })) {
+      await _sendInvalidHttpAuthParameterResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
     final refreshTokenSelectors = _distinctNonEmptyStrings(
       body['refresh_token'],
       body['token'],
@@ -4806,6 +4862,17 @@ class RouterBinding {
     required Map<String, Object?> body,
     required Map<String, String> query,
   }) async {
+    if (_hasInvalidHttpAuthBodyString(body, const <String>{
+      'token',
+      'refresh_token',
+      'token_type_hint',
+    })) {
+      await _sendInvalidHttpAuthParameterResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
     final tokenSelectors = _distinctNonEmptyStrings(
       body['token'],
       body['refresh_token'],
@@ -5161,6 +5228,11 @@ class RouterBinding {
     }
     return values;
   }
+
+  bool _hasInvalidHttpAuthBodyString(
+    Map<String, Object?> body,
+    Iterable<String> keys,
+  ) => keys.any((key) => body.containsKey(key) && body[key] is! String);
 
   _HttpAuthIssueResult _issueHttpAuthToken({
     required String realmUri,

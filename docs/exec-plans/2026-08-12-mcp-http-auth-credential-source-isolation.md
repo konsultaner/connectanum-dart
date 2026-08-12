@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Credential Source Isolation
 
-Status: active; implementation and local verification green, publication pending
+Status: complete; implementation, publication, and hosted verification green
 
 ## Goal
 
@@ -67,3 +67,14 @@ silently controlled token mutation.
   benchmark cases and 36 live WAMP workloads, all 433 router tests, six
   isolated remote-auth integrations, 13 native follow-ups, every neutral
   consumer and installed-command smoke, and Chrome/Dart2Wasm coverage.
+- 2026-08-12: Commit `dfa0b97d` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31553032837`, Dart Package Publish Dry Run
+  `31553032815`, WAMP Profile Benchmarks `31553032736`, and dispatched Router
+  Image dry run `31553065280` all pass. Retained artifacts are Dart VM coverage
+  `9125308797`, WAMP evidence `9125084054`, Router Image preview `9124965030`,
+  and Docker build records `9125038671` / `9125038313`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, relevant native-release evidence, and every
+  required branch, workflow, package, publish-dry-run, image, and benchmark
+  gate ready. RC creation remains an explicit release-approval action outside
+  this checkpoint.
