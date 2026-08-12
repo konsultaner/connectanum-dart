@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Query Validation
 
-Status: implementation and local verification green; publication pending
+Status: complete
 
 ## Goal
 
@@ -64,4 +64,14 @@ collapse behavior rather than the bridge's generic fail-closed contract.
   client/MCP matrix, all 96 benchmark cases and 36 live WAMP workloads, all
   434 router tests, six isolated remote-auth integrations, 13 native
   follow-ups, every neutral consumer and installed-command smoke, and
-  Chrome/Dart2Wasm coverage. Publication remains.
+  Chrome/Dart2Wasm coverage.
+- 2026-08-12: Commit `9dd71183` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31565229346`, Dart Package Publish Dry Run
+  `31565229330`, WAMP Profile Benchmarks `31565229358`, and dispatched Router
+  Image dry run `31565240994` all pass. Retained artifacts are Dart VM coverage
+  `9129496766`, WAMP evidence `9129335988`, Router Image preview `9129208998`,
+  and Docker build records `9129283396` / `9129283105`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, relevant native-release evidence, and every
+  required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.

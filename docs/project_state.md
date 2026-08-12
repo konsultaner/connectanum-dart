@@ -24999,6 +24999,38 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-12-mcp-http-auth-json-duplicate-validation.md`.
+  Router-provided HTTP authentication previously decoded JSON directly into a
+  scalar map, so repeated top-level members were collapsed before the
+  operation-scoped selector and credential validation that already rejects
+  equivalent repeated query parameters. The new checkpoint retains body member
+  multiplicity, rejects repeated operation-relevant selectors and credentials
+  before challenge or token-lineage mutation, preserves unrelated repeated
+  fields across other operations, and proves the boundary from router lifecycle
+  tests plus the neutral installed-router consumer. Workflow,
+  Serena, overlap, completed-plan, and both roadmap preflights passed. The only
+  startup changes were the preceding checkpoint's hosted-evidence notes.
+  Pre-change `bin/test-fast` passed the complete core, MCP, client/auth,
+  benchmark, router-hosted consumer, packaging, installed-command, and native
+  follow-up matrix, including all 96 benchmark cases and 36 live WAMP
+  workloads. A fail-first lifecycle regression reproduced repeated initial
+  `realm` JSON members collapsing into a realm-dependent HTTP 404 instead of
+  the generic HTTP 400. Body decoding now retains duplicate top-level member
+  evidence, including escaped-equivalent spellings, and rejects operation-
+  relevant selector, initial, challenge, refresh, and revoke fields before
+  mutation while leaving unrelated repeated fields scoped out. Router analysis
+  and the focused lifecycle regression pass. Shell syntax and the neutral
+  installed-router consumer smoke pass; the consumer reports
+  `authBodyMultiplicityValidation: true`, proves repeated-state rejection
+  preserves pending capacity, and completes the legitimate challenge before
+  continuing through protected MCP, direct JSON, pub/sub, refresh/revoke, and
+  Streamable HTTP paths. Full `bin/verify` passes formatting and analysis, 114
+  Rust core tests, 52 FFI tests, all 360 Dart core tests, all 101 MCP tests, the
+  280-case client/MCP matrix, all 96 benchmark cases and 36 live WAMP
+  workloads, all 434 router tests, six isolated remote-auth integrations, 13
+  native follow-ups, every neutral consumer and installed-command smoke, and
+  Chrome/Dart2Wasm coverage.
+- Completed now, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-query-validation.md`.
   Router-provided HTTP authentication previously collapsed repeated query keys
   into one scalar before source-conflict validation, while malformed percent
@@ -25024,7 +25056,17 @@ at the older `47bbf9c` commit.
   101 MCP tests, the 280-case client/MCP matrix, all 96 benchmark cases and 36
   live WAMP workloads, all 434 router tests, six isolated remote-auth
   integrations, 13 native follow-ups, every neutral consumer and
-  installed-command smoke, and Chrome/Dart2Wasm coverage. Publication remains.
+  installed-command smoke, and Chrome/Dart2Wasm coverage. Commit `9dd71183` is
+  published to both maintained `master` branches. Exact-head GitHub CI
+  `31565229346`, Dart Package Publish Dry Run `31565229330`, WAMP Profile
+  Benchmarks `31565229358`, and dispatched Router Image dry run `31565240994`
+  all pass. Retained artifacts are Dart VM coverage `9129496766`, WAMP evidence
+  `9129335988`, Router Image preview `9129208998`, and Docker build records
+  `9129283396` / `9129283105`. The comprehensive strict deployment-chain audit
+  exits zero with clean exact-head CI logs, loaded-image MCP runtime smoke,
+  relevant native-release evidence, and every required deployment gate ready.
+  RC creation remains an explicit release-approval action outside this
+  checkpoint.
 - Completed now, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-blank-parameter-validation.md`.
   Router-provided HTTP authentication still trimmed and ignored explicitly

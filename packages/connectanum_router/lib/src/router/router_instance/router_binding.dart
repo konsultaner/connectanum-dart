@@ -3589,9 +3589,10 @@ class RouterBinding {
       return;
     }
 
-    late final Map<String, Object?> body;
+    late final ({Map<String, Object?> values, Set<String> duplicateKeys})
+    parsedBody;
     try {
-      body = _decodeHttpJsonBody(request);
+      parsedBody = _decodeHttpJsonBody(request);
     } on FormatException catch (error) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -3607,6 +3608,8 @@ class RouterBinding {
       );
       return;
     }
+    final body = parsedBody.values;
+    final duplicateBodyKeys = parsedBody.duplicateKeys;
     late final ({Map<String, String> values, Set<String> duplicateKeys})
     parsedQuery;
     try {
@@ -3644,6 +3647,7 @@ class RouterBinding {
     if (_hasInvalidHttpAuthStringSources(
       body: body,
       bodyKeys: const <String>{'state', 'grant_type'},
+      duplicateBodyKeys: duplicateBodyKeys,
       query: query,
       queryKeys: const <String>{'state', 'grant_type'},
       duplicateQueryKeys: duplicateQueryKeys,
@@ -3708,6 +3712,7 @@ class RouterBinding {
       if (_hasInvalidHttpAuthStringSources(
         body: body,
         bodyKeys: const <String>{'signature'},
+        duplicateBodyKeys: duplicateBodyKeys,
         headers: request.headers,
         headerNames: const <String>{'x-connectanum-auth-signature'},
       )) {
@@ -3750,6 +3755,7 @@ class RouterBinding {
             request: request,
             handshake: handshake,
             body: body,
+            duplicateBodyKeys: duplicateBodyKeys,
             query: query,
             duplicateQueryKeys: duplicateQueryKeys,
             sessionProfile: sessionProfile,
@@ -3763,6 +3769,7 @@ class RouterBinding {
             request: request,
             handshake: handshake,
             body: body,
+            duplicateBodyKeys: duplicateBodyKeys,
             query: query,
             duplicateQueryKeys: duplicateQueryKeys,
           );
@@ -3787,6 +3794,7 @@ class RouterBinding {
     if (_hasInvalidHttpAuthStringSources(
       body: body,
       bodyKeys: const <String>{'realm', 'authmethod', 'authid'},
+      duplicateBodyKeys: duplicateBodyKeys,
       query: query,
       queryKeys: const <String>{'realm', 'authmethod', 'authid'},
       duplicateQueryKeys: duplicateQueryKeys,
@@ -4680,6 +4688,7 @@ class RouterBinding {
     required RouterHttpRequest request,
     required NativeHttpHandshake? handshake,
     required Map<String, Object?> body,
+    required Set<String> duplicateBodyKeys,
     required Map<String, String> query,
     required Set<String> duplicateQueryKeys,
     required SessionProfileSettings? sessionProfile,
@@ -4689,6 +4698,7 @@ class RouterBinding {
     if (_hasInvalidHttpAuthStringSources(
       body: body,
       bodyKeys: const <String>{'refresh_token', 'token'},
+      duplicateBodyKeys: duplicateBodyKeys,
       query: query,
       queryKeys: const <String>{'refresh_token'},
       duplicateQueryKeys: duplicateQueryKeys,
@@ -4903,12 +4913,14 @@ class RouterBinding {
     required RouterHttpRequest request,
     required NativeHttpHandshake? handshake,
     required Map<String, Object?> body,
+    required Set<String> duplicateBodyKeys,
     required Map<String, String> query,
     required Set<String> duplicateQueryKeys,
   }) async {
     if (_hasInvalidHttpAuthStringSources(
       body: body,
       bodyKeys: const <String>{'token', 'refresh_token', 'token_type_hint'},
+      duplicateBodyKeys: duplicateBodyKeys,
       query: query,
       queryKeys: const <String>{'token', 'token_type_hint'},
       duplicateQueryKeys: duplicateQueryKeys,
@@ -5219,19 +5231,118 @@ class RouterBinding {
     );
   }
 
-  Map<String, Object?> _decodeHttpJsonBody(RouterHttpRequest request) {
+  ({Map<String, Object?> values, Set<String> duplicateKeys})
+  _decodeHttpJsonBody(RouterHttpRequest request) {
     final bytes = request.body;
     if (bytes.isEmpty) {
-      return <String, Object?>{};
+      return (values: <String, Object?>{}, duplicateKeys: const <String>{});
     }
-    final decoded = jsonDecode(utf8.decode(bytes));
-    if (decoded is Map<String, Object?>) {
-      return Map<String, Object?>.from(decoded);
+    final source = utf8.decode(bytes);
+    final decoded = jsonDecode(source);
+    if (decoded is! Map) {
+      throw FormatException('HTTP auth body must decode to a JSON object');
     }
-    if (decoded is Map) {
-      return Map<String, Object?>.from(decoded);
+    return (
+      values: Map<String, Object?>.from(decoded),
+      duplicateKeys: _topLevelJsonObjectDuplicateKeys(source),
+    );
+  }
+
+  Set<String> _topLevelJsonObjectDuplicateKeys(String source) {
+    final seenKeys = <String>{};
+    final duplicateKeys = <String>{};
+    var index = 0;
+
+    void skipWhitespace() {
+      while (index < source.length) {
+        final codeUnit = source.codeUnitAt(index);
+        if (codeUnit != 0x20 &&
+            codeUnit != 0x09 &&
+            codeUnit != 0x0a &&
+            codeUnit != 0x0d) {
+          return;
+        }
+        index++;
+      }
     }
-    throw FormatException('HTTP auth body must decode to a JSON object');
+
+    int stringEnd(int start) {
+      var escaped = false;
+      for (var cursor = start + 1; cursor < source.length; cursor++) {
+        final codeUnit = source.codeUnitAt(cursor);
+        if (escaped) {
+          escaped = false;
+        } else if (codeUnit == 0x5c) {
+          escaped = true;
+        } else if (codeUnit == 0x22) {
+          return cursor + 1;
+        }
+      }
+      throw FormatException('HTTP auth body contains an unterminated JSON key');
+    }
+
+    skipWhitespace();
+    if (index >= source.length || source.codeUnitAt(index) != 0x7b) {
+      throw FormatException('HTTP auth body must decode to a JSON object');
+    }
+    index++;
+    skipWhitespace();
+    if (index < source.length && source.codeUnitAt(index) == 0x7d) {
+      return duplicateKeys;
+    }
+
+    while (index < source.length) {
+      skipWhitespace();
+      if (index >= source.length || source.codeUnitAt(index) != 0x22) {
+        throw FormatException('HTTP auth body contains an invalid JSON key');
+      }
+      final keyStart = index;
+      final keyEnd = stringEnd(keyStart);
+      final key = jsonDecode(source.substring(keyStart, keyEnd)) as String;
+      if (!seenKeys.add(key)) {
+        duplicateKeys.add(key);
+      }
+
+      index = keyEnd;
+      skipWhitespace();
+      if (index >= source.length || source.codeUnitAt(index) != 0x3a) {
+        throw FormatException('HTTP auth body contains an invalid JSON member');
+      }
+      index++;
+      skipWhitespace();
+
+      var nestedDepth = 0;
+      var inString = false;
+      var escaped = false;
+      while (index < source.length) {
+        final codeUnit = source.codeUnitAt(index);
+        if (inString) {
+          if (escaped) {
+            escaped = false;
+          } else if (codeUnit == 0x5c) {
+            escaped = true;
+          } else if (codeUnit == 0x22) {
+            inString = false;
+          }
+        } else if (codeUnit == 0x22) {
+          inString = true;
+        } else if (codeUnit == 0x7b || codeUnit == 0x5b) {
+          nestedDepth++;
+        } else if (codeUnit == 0x7d) {
+          if (nestedDepth == 0) {
+            return duplicateKeys;
+          }
+          nestedDepth--;
+        } else if (codeUnit == 0x5d) {
+          nestedDepth--;
+        } else if (codeUnit == 0x2c && nestedDepth == 0) {
+          index++;
+          break;
+        }
+        index++;
+      }
+    }
+    throw FormatException('HTTP auth body contains an incomplete JSON object');
   }
 
   ({Map<String, String> values, Set<String> duplicateKeys})
@@ -5303,6 +5414,7 @@ class RouterBinding {
   bool _hasInvalidHttpAuthStringSources({
     required Map<String, Object?> body,
     Iterable<String> bodyKeys = const <String>[],
+    Set<String> duplicateBodyKeys = const <String>{},
     Map<String, String> query = const <String, String>{},
     Iterable<String> queryKeys = const <String>[],
     Set<String> duplicateQueryKeys = const <String>{},
@@ -5310,6 +5422,9 @@ class RouterBinding {
     Iterable<String> headerNames = const <String>[],
   }) {
     for (final key in bodyKeys) {
+      if (duplicateBodyKeys.contains(key)) {
+        return true;
+      }
       if (!body.containsKey(key)) {
         continue;
       }
