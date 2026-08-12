@@ -24,6 +24,11 @@ void main() {
       ? 'Native transport library missing; build native transport first.'
       : null;
 
+  test('listener reservation keeps WAMP ports distinct', () async {
+    final ports = await _reserveDistinctWampPorts();
+    expect(ports.rawSocketPort, isNot(ports.webSocketPort));
+  });
+
   group('live WAMP transport workloads', () {
     _WampTransportHarness? harness;
 
@@ -955,8 +960,7 @@ class _WampTransportHarness {
 
   static Future<_WampTransportHarness> start(String nativeLib) async {
     final workerScriptPath = _resolveBenchTool('wamp_client_main.dart');
-    final rawSocketPort = await _reservePort();
-    final webSocketPort = await _reservePort();
+    final (:rawSocketPort, :webSocketPort) = await _reserveDistinctWampPorts();
     final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
     final e2eeTrace = _E2eeTrace();
     final settings = RouterSettingsBuilder()
@@ -1395,4 +1399,22 @@ Future<int> _reservePort() async {
   final port = socket.port;
   await socket.close();
   return port;
+}
+
+Future<({int rawSocketPort, int webSocketPort})>
+_reserveDistinctWampPorts() async {
+  final rawSocket = await ServerSocket.bind('127.0.0.1', 0);
+  try {
+    final webSocket = await ServerSocket.bind('127.0.0.1', 0);
+    try {
+      return (
+        rawSocketPort: rawSocket.port,
+        webSocketPort: webSocket.port,
+      );
+    } finally {
+      await webSocket.close();
+    }
+  } finally {
+    await rawSocket.close();
+  }
 }

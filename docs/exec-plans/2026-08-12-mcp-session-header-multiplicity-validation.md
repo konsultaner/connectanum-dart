@@ -61,10 +61,20 @@ boundary without weakening the established authentication precedence.
   JSON, Streamable HTTP, WAMP metadata, pub/sub, refresh/revoke, and session
   deletion without private project assumptions. Focused router analysis,
   formatting, diff hygiene, runtime/native tests, and shell smoke checks pass.
-- 2026-08-12: Post-change `bin/verify` passes with zero formatting changes,
-  114 Rust core tests, 52 Rust FFI tests, 360 core tests, 101 MCP tests, the
-  complete 280-case client/MCP suite, all 96 benchmark cases and 36 live WAMP
+- 2026-08-12: Initial implementation commit `90c6c26c7fd8` reached both
+  maintained `master` branches. Package dry-run workflow `31613021020` and
+  WAMP Profile Benchmarks `31613021138` passed, but exact-head CI
+  `31613021553` exposed a Linux benchmark-harness race: two sequential
+  bind-close ephemeral-port reservations could return the same port for the
+  RawSocket and WebSocket listeners, causing native router configuration to
+  fail before the WAMP transport suite ran.
+- 2026-08-12: The benchmark harness now holds both ephemeral sockets open
+  until it has reserved distinct listener ports, and a focused contract test
+  prevents regression. The repaired focused benchmark file passes all 27
+  cases. Post-repair `bin/verify` passes with zero formatting changes, 114
+  Rust core tests, 52 Rust FFI tests, 360 core tests, 101 MCP tests, the
+  complete 280-case client/MCP suite, all 97 benchmark cases and 37 live WAMP
   workloads, all 436 router tests, six remote-auth integrations, 13 native
   follow-ups, every generated and installed consumer smoke, and
-  Chrome/Dart2Wasm. The implementation is ready to publish; exact-head hosted
-  workflows and the strict deployment-chain audit remain.
+  Chrome/Dart2Wasm. The repaired checkpoint is ready to publish; a fresh
+  exact-head hosted chain and the strict deployment-chain audit remain.

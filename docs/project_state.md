@@ -25016,13 +25016,21 @@ at the older `47bbf9c` commit.
   continues through direct JSON, Streamable HTTP, WAMP metadata, pub/sub,
   refresh/revoke, and session deletion without private project assumptions.
   Pre-change `bin/test-fast`, focused router analysis and tests, the installed
-  consumer smoke, and post-change `bin/verify` pass. Full verification includes
-  114 Rust core tests, 52 Rust FFI tests, 360 core tests, 101 MCP tests, the
-  complete 280-case client/MCP suite, all 96 benchmark cases and 36 live WAMP
-  workloads, all 436 router tests, six remote-auth integrations, 13 native
-  follow-ups, every generated and installed consumer smoke, and
-  Chrome/Dart2Wasm. The implementation is ready to publish; exact-head hosted
-  workflows and the strict deployment-chain audit remain.
+  consumer smoke, and the initial post-change `bin/verify` pass. Implementation
+  commit `90c6c26c7fd8` reached both maintained `master` branches. Package dry
+  run `31613021020` and WAMP Profile Benchmarks `31613021138` passed, but
+  exact-head CI `31613021553` exposed a Linux benchmark-harness race: sequential
+  bind-close ephemeral-port reservations could return one port for both the
+  RawSocket and WebSocket listeners and make native router configuration fail.
+  The harness now holds both sockets open until it has reserved distinct ports,
+  with a focused regression guarding the contract. The repaired benchmark file
+  passes all 27 cases. Post-repair `bin/verify` passes with 114 Rust core tests,
+  52 Rust FFI tests, 360 core tests, 101 MCP tests, the complete 280-case
+  client/MCP suite, all 97 benchmark cases and 37 live WAMP workloads, all 436
+  router tests, six remote-auth integrations, 13 native follow-ups, every
+  generated and installed consumer smoke, and Chrome/Dart2Wasm. The repaired
+  checkpoint is ready to publish; a fresh exact-head hosted chain and the
+  strict deployment-chain audit remain.
 - Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-origin-header-multiplicity-validation.md`.
   Native HTTP retains normalized duplicate-header-name evidence, but MCP
