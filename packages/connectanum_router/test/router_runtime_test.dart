@@ -9371,6 +9371,150 @@ void main() {
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
+        connectionId: 83,
+        handle: 43,
+        method: 'POST',
+        target: '/mcp/secure',
+        headers: {
+          'accept': 'application/json, text/event-stream',
+          'MCP-Session-Id': mcpSessionId,
+          'MCP-Protocol-Version': '2025-11-25',
+          'Content-Type': 'application/json',
+          'content-type': 'text/plain',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/initialized',
+          'params': <String, Object?>{},
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[83]?.isNotEmpty ?? false);
+      final unauthenticatedRepeatedContentType =
+          runtime.httpResponses[83]!.single;
+      expect(
+        unauthenticatedRepeatedContentType.status,
+        HttpStatus.unauthorized,
+      );
+      expect(
+        unauthenticatedRepeatedContentType.headers,
+        isNot(contains('MCP-Session-Id')),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 84,
+        handle: 44,
+        method: 'POST',
+        target: '/mcp/secure',
+        headers: {
+          'accept': 'application/json, text/event-stream',
+          'authorization': 'Bearer ${firstGrant.accessToken}',
+          'MCP-Session-Id': mcpSessionId,
+          'MCP-Protocol-Version': '2025-11-25',
+          'Content-Type': 'application/json',
+          'content-type': 'text/plain',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'method': 'notifications/initialized',
+          'params': <String, Object?>{},
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[84]?.isNotEmpty ?? false);
+      final authenticatedRepeatedContentType =
+          runtime.httpResponses[84]!.single;
+      expect(authenticatedRepeatedContentType.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(authenticatedRepeatedContentType).toString(),
+        contains('Invalid Content-Type header'),
+      );
+      expect(
+        authenticatedRepeatedContentType.headers['MCP-Session-Id'],
+        mcpSessionId,
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 85,
+        handle: 45,
+        method: 'POST',
+        target: '/mcp/secure',
+        headers: {
+          'accept': 'application/json, text/event-stream',
+          'authorization': 'Bearer ${firstGrant.accessToken}',
+          'MCP-Protocol-Version': '2025-11-25',
+          'Content-Type': 'application/json',
+          'content-type': 'text/plain',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'repeated-content-type-initialize',
+          'method': 'initialize',
+          'params': <String, Object?>{
+            'protocolVersion': '2025-11-25',
+            'capabilities': <String, Object?>{},
+            'clientInfo': <String, Object?>{
+              'name': 'router-runtime-content-type-test',
+              'version': '0.1.0',
+            },
+          },
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[85]?.isNotEmpty ?? false);
+      final repeatedInitialContentType = runtime.httpResponses[85]!.single;
+      expect(repeatedInitialContentType.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(repeatedInitialContentType).toString(),
+        contains('Invalid Content-Type header'),
+      );
+      expect(
+        repeatedInitialContentType.headers,
+        isNot(contains('MCP-Session-Id')),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 86,
+        handle: 46,
+        method: 'POST',
+        target: '/mcp/secure',
+        headers: {
+          'accept': 'application/json, text/event-stream',
+          'authorization': 'Bearer ${firstGrant.accessToken}',
+          'MCP-Session-Id': 'unknown-content-type-session',
+          'MCP-Protocol-Version': '2025-11-25',
+          'Content-Type': 'application/json',
+          'content-type': 'text/plain',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'unknown-session-content-type',
+          'method': 'ping',
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[86]?.isNotEmpty ?? false);
+      final unknownSessionRepeatedContentType =
+          runtime.httpResponses[86]!.single;
+      expect(unknownSessionRepeatedContentType.status, HttpStatus.notFound);
+      expect(
+        unknownSessionRepeatedContentType.headers,
+        isNot(contains('MCP-Session-Id')),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
         connectionId: 78,
         handle: 38,
         method: 'POST',

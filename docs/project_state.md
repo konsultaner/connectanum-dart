@@ -25026,31 +25026,47 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- No implementation plan is active. The most recently completed plan is
-  `docs/exec-plans/2026-08-12-mcp-last-event-id-header-multiplicity-validation.md`.
-  Native HTTP retains normalized duplicate-header-name evidence, but
-  compatibility-era router-hosted MCP GET polling still selects one scalar
-  `Last-Event-ID` after route-principal authentication and endpoint lookup.
-  The active slice will reproduce and reject repeated case-insensitive resume
-  cursor names before cursor/history validation or SSE replay mutation while
-  preserving authentication precedence, unknown-session handling, stateless
-  2026 behavior, and continued use of the original session. Pre-change
-  `bin/test-fast` passes the complete core, MCP, client/auth, benchmark,
-  router-hosted consumer, packaging, installed-command, and native follow-up
-  matrix. A fail-first protected regression reproduced first-scalar cursor
-  history validation while preserving bearer-authentication precedence.
-  Router-hosted MCP now rejects authenticated repeated resume-cursor names
-  after endpoint ownership and Accept validation but before cursor parsing or
-  replay. Focused synthetic and real native HTTP tests plus the isolated
-  installed-router consumer pass, and the consumer retains the active session
-  through the remaining direct JSON, resource/prompt, WAMP metadata, pub/sub,
-  refresh/revoke, and deletion flow. Full `bin/verify` passes with zero
-  formatting changes, 114 Rust core tests, 52 Rust FFI tests, 360 Dart core
-  tests, 101 MCP tests, the complete 280-case client/MCP matrix, all 97
+- The most recently completed implementation plan is
+  `docs/exec-plans/2026-08-12-mcp-content-type-header-multiplicity-validation.md`.
+  Router-hosted MCP now rejects repeated case-insensitive `Content-Type` names
+  on POST before scalar media-type validation, JSON decoding, or dispatch.
+  Authentication, Accept negotiation, and claimed compatibility-session lookup
+  retain their existing precedence: bearer-free protected requests remain 401,
+  unknown sessions remain 404, sessionless requests receive a sessionless 400,
+  and valid active sessions receive a session-aware 400. Synthetic runtime
+  coverage spans both POST validation branches and the unknown-session boundary;
+  real native HTTP and the neutral installed-router consumer send distinct
+  case-variant wire fields, preserve the live session, then complete normal
+  session use. Pre-change `bin/test-fast`, focused runtime and native-router
+  tests, router analysis, shell syntax, all 19 consumer-boundary contracts, and
+  `run_router_cli_consumer_package_smoke` pass. Full `bin/verify` passes
+  formatting and analysis, 114 Rust core tests, 52 FFI tests, 360 Dart core
+  tests, all 101 MCP tests, the complete 280-case client/MCP matrix, all 97
   benchmark cases and 37 live WAMP workloads, all 436 router tests, six
-  remote-auth integrations, 13 native follow-ups, every generated and
-  installed consumer smoke, and Chrome/Dart2Wasm. Exact-head hosted deployment
-  evidence remains.
+  isolated remote-auth integrations, 13 native follow-ups, every neutral
+  consumer and installed-command smoke, and Chrome/Dart2Wasm coverage. The
+  implementation is ready to publish; exact-head hosted workflows and the
+  strict deployment-chain audit remain.
+- Completed immediately before that, the implementation plan is
+  `docs/exec-plans/2026-08-12-mcp-last-event-id-header-multiplicity-validation.md`.
+  Router-hosted MCP now rejects authenticated repeated case-insensitive
+  `Last-Event-ID` names on compatibility GET after endpoint ownership and
+  Accept validation but before cursor parsing, history lookup, or SSE replay.
+  Bearer-free authentication, unknown-session, and stateless 2026 behavior keep
+  their established precedence. Synthetic and real native HTTP regressions
+  plus the neutral installed-router consumer prove rejection preserves the
+  original session through direct JSON, resources/prompts, WAMP metadata,
+  pub/sub, refresh/revoke, and deletion. Pre-change `bin/test-fast`, focused
+  verification, strict package readiness, and full `bin/verify` pass.
+  Implementation commit `a75e9e319ba1` is published on both maintained
+  `master` remotes. Exact-head CI `31630345477`, Dart package dry run
+  `31630345456`, WAMP benchmarks `31630345310`, and Router Image dry run
+  `31631943579` pass with coverage artifact `9155390378`, WAMP artifact
+  `9155036865`, Router Image preview `9155433378`, and Docker build records
+  `9155586353` / `9155587192`. The comprehensive strict deployment-chain audit
+  exits zero with every required gate ready; RC creation remains a separate
+  approval-gated release action. These hosted-evidence notes are intentionally
+  uncommitted for bundling with the next implementation checkpoint.
 - Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-protocol-header-multiplicity-validation.md`.
   Native HTTP retains normalized duplicate-header-name evidence, but

@@ -1418,7 +1418,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("id: '$idPrefix-listen'", body)
         self.assertIn("resourceSubscriptions: <String>[resourceUri]", body)
         self.assertIn(
-            '"public":{"stateless2026":true,"subscriptionsListen":true,'
+            '"public":{"originHeaderMultiplicityValidation":true,'
+            '"stateless2026":true,"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
             '"resourceSubscriptionSessionDeleteCoexistence":true,'
             '"wampPubSubCoexistence":true,'
@@ -1435,7 +1436,28 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            '"secure":{"ticketGrant":true,"stateless2026":true,'
+            '"secure":{"ticketGrant":true,'
+            '"authGrantTypeValidation":true,'
+            '"authSelectorIsolation":true,'
+            '"authSelectorSourceIsolation":true,'
+            '"authCredentialSourceIsolation":true,'
+            '"authParameterTypeValidation":true,'
+            '"authParameterBlankValidation":true,'
+            '"authQueryValidation":true,'
+            '"authBodyMultiplicityValidation":true,'
+            '"authObjectParameterValidation":true,'
+            '"authNestedObjectMultiplicityValidation":true,'
+            '"authHeaderMultiplicityValidation":true,'
+            '"protocolHeaderMultiplicityValidation":true,'
+            '"sessionHeaderMultiplicityValidation":true,'
+            '"lastEventIdHeaderMultiplicityValidation":true,'
+            '"contentTypeHeaderMultiplicityValidation":true,'
+            '"authPendingCapacity":true,'
+            '"authLockout":true,'
+            '"authFailureCapacity":true,'
+            '"authGrantCapacity":true,'
+            '"authRefreshConcurrency":true,'
+            '"stateless2026":true,'
             '"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
             '"resourceSubscriptionSessionDeleteCoexistence":true,'
@@ -1454,6 +1476,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"wampMeta":true,'
             '"batch":true,'
             '"authRejectionIsolation":true,"refreshAndRevoke":true}',
+            body,
+        )
+        self.assertIn("_expectRepeatedContentTypeHeaderRejected", body)
+        self.assertIn("content-type: text/plain", body)
+        self.assertIn("Invalid Content-Type header", body)
+        self.assertIn(
+            "repeated Content-Type header did not preserve auth and session "
+            "precedence",
             body,
         )
         self.assertIn(
@@ -1767,7 +1797,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("active protected auth rejection isolation", body)
         self.assertIn(
             "active protected direct JSON WAMP meta, resource/prompt, and "
-            "notification pub-sub isolation",
+            "notification pub/sub isolation",
             body,
         )
         self.assertIn(

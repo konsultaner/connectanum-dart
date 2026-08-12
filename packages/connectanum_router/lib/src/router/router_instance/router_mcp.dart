@@ -914,6 +914,27 @@ bool _mcpPostResponsesUseSse(
   ], defaultValue: true);
 }
 
+NativeHttpResponse? _mcpContentTypeHeaderMultiplicityError(
+  RouterHttpRequest request, {
+  required String protocolVersion,
+  String? sessionId,
+  required Map<String, String> extraHeaders,
+}) {
+  if (!request.duplicateHeaderNames.contains(
+    HttpHeaders.contentTypeHeader,
+  )) {
+    return null;
+  }
+  return _mcpJsonRpcHttpError(
+    status: HttpStatus.badRequest,
+    code: mcp.McpErrorCodes.invalidRequest,
+    message: 'Invalid Content-Type header',
+    sessionId: sessionId,
+    protocolVersion: protocolVersion,
+    extraHeaders: extraHeaders,
+  );
+}
+
 bool _mcpContentTypeAllowsJsonBody(
   RouterBinding binding,
   RouterHttpRequest request,
@@ -2119,6 +2140,23 @@ Future<void> _handleMcpHttpRequestForBinding(
   }
 
   final deferPostContentTypeValidation = claimedCompatibilitySessionPost;
+  if (httpMethod == 'POST' && !deferPostContentTypeValidation) {
+    final contentTypeHeaderMultiplicityError =
+        _mcpContentTypeHeaderMultiplicityError(
+          request,
+          sessionId: responseMcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        );
+    if (contentTypeHeaderMultiplicityError != null) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: contentTypeHeaderMultiplicityError,
+      );
+      return;
+    }
+  }
   if (httpMethod == 'POST' &&
       !deferPostContentTypeValidation &&
       !_mcpContentTypeAllowsJsonBody(binding, request)) {
@@ -2190,6 +2228,23 @@ Future<void> _handleMcpHttpRequestForBinding(
     return;
   }
 
+  if (deferPostContentTypeValidation) {
+    final contentTypeHeaderMultiplicityError =
+        _mcpContentTypeHeaderMultiplicityError(
+          request,
+          sessionId: responseMcpSessionId,
+          protocolVersion: responseMcpProtocolVersion,
+          extraHeaders: corsHeaders,
+        );
+    if (contentTypeHeaderMultiplicityError != null) {
+      await binding._sendImmediateHttpResponse(
+        request: request,
+        handshake: handshake,
+        response: contentTypeHeaderMultiplicityError,
+      );
+      return;
+    }
+  }
   if (deferPostContentTypeValidation &&
       !_mcpContentTypeAllowsJsonBody(binding, request)) {
     await binding._sendImmediateHttpResponse(

@@ -1,7 +1,7 @@
 # MCP Last-Event-ID Header Multiplicity Validation
 
-Status: complete; implementation and local verification green, hosted evidence
-pending
+Status: complete; implementation, local verification, and hosted deployment
+evidence green
 
 ## Goal
 
@@ -71,5 +71,20 @@ session handling, stateless 2026 behavior, and the existing rule that
   complete 280-case client/MCP matrix, all 97 benchmark cases and 37 live WAMP
   workloads, all 436 router tests, six remote-auth integrations, 13 native
   follow-ups, every generated and installed consumer smoke, and
-  Chrome/Dart2Wasm. The checkpoint is ready to publish; exact-head hosted
-  deployment evidence remains.
+  Chrome/Dart2Wasm.
+- 2026-08-12: Strict release-ready Dart package validation passed for all seven
+  synchronized `3.0.0-beta` archives with zero warnings. Implementation commit
+  `a75e9e319ba1` (`Reject repeated MCP resume headers`) is published on both
+  maintained `master` remotes.
+- 2026-08-12: Exact-head GitHub CI `31630345477`, Dart Package Publish Dry Run
+  `31630345456`, WAMP Profile Benchmarks `31630345310`, and non-publishing
+  Router Image dry run `31631943579` all passed. CI uploaded coverage artifact
+  `9155390378`; WAMP uploaded benchmark artifact `9155036865`; Router Image
+  uploaded preview artifact `9155433378` and Docker build records `9155586353`
+  / `9155587192` after the loaded-image MCP smoke and multi-architecture build.
+- 2026-08-12: The comprehensive strict deployment-chain audit exited zero with
+  exact-head branch alignment, clean CI jobs and logs, package and relevant
+  native-release evidence, loaded-image MCP runtime smoke, multi-architecture
+  image evidence, WAMP artifacts, branch protection, workflow visibility, and
+  public router-package visibility all ready. RC creation remains a separate
+  approval-gated release action.

@@ -13851,6 +13851,74 @@ void main() {
         activeSecureJsonSessionId,
       );
 
+      Future<String> postRepeatedContentType({
+        required bool authenticated,
+      }) async {
+        final body = utf8.encode(
+          jsonEncode(const <String, Object?>{
+            'jsonrpc': '2.0',
+            'method': 'notifications/initialized',
+            'params': <String, Object?>{},
+          }),
+        );
+        final socket = await Socket.connect('127.0.0.1', listener.port);
+        try {
+          socket.add(
+            utf8.encode(
+              'POST /mcp/secure-json-post HTTP/1.1\r\n'
+              'Host: 127.0.0.1:${listener.port}\r\n'
+              'Connection: close\r\n'
+              'Accept: application/json, text/event-stream\r\n'
+              '${authenticated ? 'Authorization: Bearer ${grant.accessToken}\r\n' : ''}'
+              'MCP-Session-Id: $activeSecureJsonSessionId\r\n'
+              'MCP-Protocol-Version: 2025-11-25\r\n'
+              'Content-Type: application/json\r\n'
+              'content-type: text/plain\r\n'
+              'Content-Length: ${body.length}\r\n'
+              '\r\n',
+            ),
+          );
+          socket.add(body);
+          await socket.flush();
+          return await _readHttpResponse(socket);
+        } finally {
+          socket.destroy();
+        }
+      }
+
+      final repeatedContentTypeMissingBearer = await postRepeatedContentType(
+        authenticated: false,
+      );
+      expect(
+        repeatedContentTypeMissingBearer,
+        startsWith('HTTP/1.1 ${HttpStatus.unauthorized}'),
+      );
+      expect(
+        RegExp(
+          r'^mcp-session-id:',
+          caseSensitive: false,
+          multiLine: true,
+        ).hasMatch(repeatedContentTypeMissingBearer),
+        isFalse,
+      );
+
+      final repeatedContentType = await postRepeatedContentType(
+        authenticated: true,
+      );
+      expect(
+        repeatedContentType,
+        startsWith('HTTP/1.1 ${HttpStatus.badRequest}'),
+      );
+      expect(repeatedContentType, contains('Invalid Content-Type header'));
+      expect(
+        RegExp(
+          '^mcp-session-id:\\s*${RegExp.escape(activeSecureJsonSessionId)}\\s*\$',
+          caseSensitive: false,
+          multiLine: true,
+        ).hasMatch(repeatedContentType),
+        isTrue,
+      );
+
       await secureJsonPostClient.notifyInitialized();
       expect(secureJsonPostClient.sessionId, equals(secureJsonSessionId));
       expect(secureJsonPostClient.lastEventId, isNull);
