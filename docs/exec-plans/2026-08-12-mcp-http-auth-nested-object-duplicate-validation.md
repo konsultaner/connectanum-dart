@@ -79,3 +79,17 @@ decisions, so parser last-value behavior must not decide their input.
   Workspace analysis plus the 51-case benchmark-runner, 70-case router worker,
   and 12-case native transport suites pass. A second full `bin/verify` passes
   the complete matrix unchanged at 435 router tests.
+- 2026-08-12: Analyzer repair `4382cde4370` reached both maintained `master`
+  branches. Exact-head package dry run `31582730259`, WAMP profile benchmarks
+  `31582730298`, and Router Image dry run `31582743538` passed. CI
+  `31582730305` passed Fast Checks, then its Dart 3.13 Full Verify formatter
+  found five pre-existing constructs whose automated trailing-comma layout
+  differs from local Dart 3.12. The workspace now configures the supported
+  `trailing_commas: preserve` formatter mode, and the four resulting source and
+  test normalizations are stable under plain `dart format` on both Dart 3.12.2
+  and Dart 3.13.0. Workspace analysis and diff hygiene pass. A third full
+  `bin/verify` passes the complete matrix unchanged at 435 router tests,
+  including all neutral/installed MCP consumers, all 96 benchmark cases and 36
+  live WAMP workloads, six remote-auth integrations, native follow-ups, and
+  Chrome/Dart2Wasm. Repair publication, exact-head workflows, and the strict
+  deployment audit remain.

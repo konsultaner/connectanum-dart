@@ -977,13 +977,17 @@ void main() {
       expect(directToolsWithHeaderWhitespace.statusCode, equals(HttpStatus.ok));
       expect(directToolsWithHeaderWhitespace.headers['mcp-session-id'], isNull);
 
-      final directInvalidMethod =
-          await _postJson(client, listener.port, '/mcp', {
-            'jsonrpc': '2.0',
-            'id': 'direct-invalid-method',
-            'method': 'tools/list\n',
-            'params': {},
-          });
+      final directInvalidMethod = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-invalid-method',
+          'method': 'tools/list\n',
+          'params': {},
+        },
+      );
       expect(directInvalidMethod.statusCode, equals(HttpStatus.ok));
       expect(
         (directInvalidMethod.json?['error'] as Map<String, Object?>)['code'],
@@ -1993,13 +1997,18 @@ void main() {
         'Mcp-Method': 'tools/list',
         'MCP-Session-Id': 'malformed session',
       };
-      final malformedSessionId =
-          await _postJson(client, listener.port, '/mcp', {
-            'jsonrpc': '2.0',
-            'id': 'malformed-session-id',
-            'method': 'tools/list',
-            'params': {},
-          }, headers: malformedSessionIdHeaders);
+      final malformedSessionId = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'malformed-session-id',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: malformedSessionIdHeaders,
+      );
       expect(malformedSessionId.statusCode, equals(HttpStatus.badRequest));
       expect(
         jsonEncode(malformedSessionId.json?['error']),
@@ -2779,13 +2788,18 @@ void main() {
         isNot(contains('Invalid JSON-RPC message')),
       );
 
-      final mismatchedHeadersAfterDelete =
-          await _postJson(client, listener.port, '/mcp', {
-            'jsonrpc': '2.0',
-            'id': 'mismatched-headers-after-delete',
-            'method': 'tools/list',
-            'params': {},
-          }, headers: streamableHeaders('resources/list'));
+      final mismatchedHeadersAfterDelete = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'mismatched-headers-after-delete',
+          'method': 'tools/list',
+          'params': {},
+        },
+        headers: streamableHeaders('resources/list'),
+      );
       expect(
         mismatchedHeadersAfterDelete.statusCode,
         equals(HttpStatus.notFound),
@@ -5009,13 +5023,18 @@ void main() {
         expect(otherPrincipalMcpClient.lastEventId, isNull);
         expect(primaryMcpClient.sessionId, equals(primarySessionId));
 
-        final publicRouteReuse =
-            await _postJson(httpClient, listener.port, '/mcp/public', {
-              'jsonrpc': '2.0',
-              'id': 'cross-route-tools',
-              'method': 'tools/list',
-              'params': {},
-            }, headers: toolsHeaders);
+        final publicRouteReuse = await _postJson(
+          httpClient,
+          listener.port,
+          '/mcp/public',
+          {
+            'jsonrpc': '2.0',
+            'id': 'cross-route-tools',
+            'method': 'tools/list',
+            'params': {},
+          },
+          headers: toolsHeaders,
+        );
         expect(publicRouteReuse.statusCode, equals(HttpStatus.notFound));
         expect(publicRouteReuse.headers, isNot(contains('mcp-session-id')));
         expect(
@@ -13011,13 +13030,17 @@ void main() {
         equals(HttpStatus.unauthorized),
       );
 
-      final unauthorizedDirectResources =
-          await _postJson(client, listener.port, '/mcp/secure', {
-            'jsonrpc': '2.0',
-            'id': 'secure-direct-resources-unauthorized',
-            'method': 'resources/list',
-            'params': {},
-          });
+      final unauthorizedDirectResources = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure',
+        {
+          'jsonrpc': '2.0',
+          'id': 'secure-direct-resources-unauthorized',
+          'method': 'resources/list',
+          'params': {},
+        },
+      );
       expect(
         unauthorizedDirectResources.statusCode,
         equals(HttpStatus.unauthorized),

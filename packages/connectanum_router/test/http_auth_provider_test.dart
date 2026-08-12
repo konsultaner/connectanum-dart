@@ -222,11 +222,12 @@ void main() {
       await request.response.close();
     });
 
-    final provider = await HttpAuthProviderRegistry.factoryFor('oauth')!
-        .create({
-          'introspection_url': 'http://127.0.0.1:${server.port}/introspect',
-          'timeout_ms': 500,
-        });
+    final provider = await HttpAuthProviderRegistry.factoryFor('oauth')!.create(
+      {
+        'introspection_url': 'http://127.0.0.1:${server.port}/introspect',
+        'timeout_ms': 500,
+      },
+    );
 
     final authentication = provider.authenticate(
       _request(token: 'opaque-token'),
@@ -254,11 +255,12 @@ void main() {
       await request.response.close();
     });
 
-    final provider = await HttpAuthProviderRegistry.factoryFor('oauth')!
-        .create({
-          'introspection_url': 'http://127.0.0.1:${server.port}/introspect',
-          'max_response_bytes': 32,
-        });
+    final provider = await HttpAuthProviderRegistry.factoryFor('oauth')!.create(
+      {
+        'introspection_url': 'http://127.0.0.1:${server.port}/introspect',
+        'max_response_bytes': 32,
+      },
+    );
 
     final result = await provider.authenticate(_request(token: 'opaque-token'));
 

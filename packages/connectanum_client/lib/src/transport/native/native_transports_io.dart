@@ -586,13 +586,16 @@ class _NativeReceiveWorker {
     final controlPortFuture = events
         .firstWhere((event) => event is SendPort)
         .then((event) => event as SendPort);
-    final isolate =
-        await Isolate.spawn(_nativeReceiveWorkerMain, <String, Object?>{
-          'connectionId': connectionId,
-          'libraryPath': libraryPath,
-          'sendPort': eventsPort.sendPort,
-          'timeoutMs': _waitTimeout.inMilliseconds,
-        }, onExit: exitPort.sendPort);
+    final isolate = await Isolate.spawn(
+      _nativeReceiveWorkerMain,
+      <String, Object?>{
+        'connectionId': connectionId,
+        'libraryPath': libraryPath,
+        'sendPort': eventsPort.sendPort,
+        'timeoutMs': _waitTimeout.inMilliseconds,
+      },
+      onExit: exitPort.sendPort,
+    );
     final controlPort = await controlPortFuture;
     return _NativeReceiveWorker._(
       isolate,

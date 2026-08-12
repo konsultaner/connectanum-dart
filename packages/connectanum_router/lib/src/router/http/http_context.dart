@@ -875,14 +875,16 @@ class _DirectHttpResponseStreamController {
   Future<NativeHttpResponseStream?> _openStream() async {
     final roundTripStopwatch = Stopwatch()..start();
     final requestSentAtUs = DateTime.now().microsecondsSinceEpoch;
-    final response = await _sharedDirectStreamReplyChannel
-        .request(controlPort, {
-          'type': HttpInvocationControlMessages.openResponseStream,
-          'requestId': requestId,
-          'status': status,
-          'headers': headers,
-          'sentAtUs': requestSentAtUs,
-        });
+    final response = await _sharedDirectStreamReplyChannel.request(
+      controlPort,
+      {
+        'type': HttpInvocationControlMessages.openResponseStream,
+        'requestId': requestId,
+        'status': status,
+        'headers': headers,
+        'sentAtUs': requestSentAtUs,
+      },
+    );
     final responseReceivedAtUs = DateTime.now().microsecondsSinceEpoch;
     final handle = response['handle'];
     if (handle is! int || handle <= 0) {
