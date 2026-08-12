@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Nested Object Duplicate Validation
 
-Status: implementation complete; local verification green; publication pending
+Status: complete; local and exact-head hosted verification green
 
 ## Goal
 
@@ -93,3 +93,16 @@ decisions, so parser last-value behavior must not decide their input.
   live WAMP workloads, six remote-auth integrations, native follow-ups, and
   Chrome/Dart2Wasm. Repair publication, exact-head workflows, and the strict
   deployment audit remain.
+- 2026-08-12: Cross-SDK formatter repair `3100b1aa974a` reached both maintained
+  `master` branches. The clean-commit strict package gate passes all seven
+  synchronized `3.0.0-beta` archives with zero warnings. Exact-head CI
+  `31585494406`, package dry run `31585493658`, WAMP profile benchmarks
+  `31585493877`, and Router Image dry run `31585943113` all pass. CI uploaded
+  coverage artifact `9137467721`, WAMP uploaded artifact `9137140265`, and
+  Router Image uploaded preview artifact `9137102662` plus Docker build records
+  `9137249562` and `9137248674`. The comprehensive strict deployment-chain
+  audit passes with clean exact-head CI logs and every required branch,
+  workflow, public package, native-release relevance, loaded-image MCP,
+  multi-architecture image, package-publish, and benchmark gate clean. The
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation head.

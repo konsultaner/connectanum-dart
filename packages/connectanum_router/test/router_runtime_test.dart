@@ -7233,6 +7233,196 @@ void main() {
   );
 
   test(
+    'auth bridge rejects repeated operation-relevant headers',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(maxPendingAuth: 1),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      var nextConnectionId = 189;
+
+      Future<NativeHttpResponse> postAuth({
+        required Map<String, Object?> body,
+        Map<String, String> headers = const <String, String>{},
+      }) async {
+        final connectionId = nextConnectionId++;
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId + 1000,
+          method: 'POST',
+          target: '/auth',
+          headers: <String, String>{
+            'content-type': 'application/json',
+            ...headers,
+          },
+          body: body,
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        );
+        return runtime.httpResponses[connectionId]!.single;
+      }
+
+      void expectInvalidParameter(NativeHttpResponse response) {
+        expect(response.status, HttpStatus.badRequest);
+        expect(
+          _jsonResponseBody(response),
+          allOf(
+            containsPair('reason', 'invalid_auth_parameter'),
+            isNot(contains('state')),
+            isNot(contains('access_token')),
+            isNot(contains('refresh_token')),
+          ),
+        );
+      }
+
+      expectInvalidParameter(
+        await postAuth(
+          body: const <String, Object?>{},
+          headers: const <String, String>{
+            'x-connectanum-realm': 'realm1',
+            'X-Connectanum-Realm': 'realm1',
+            'x-connectanum-auth-method': 'ticket',
+            'x-connectanum-auth-id': 'user-1',
+          },
+        ),
+      );
+
+      final challenge = await postAuth(
+        body: const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'user-1',
+        },
+      );
+      expect(challenge.status, HttpStatus.unauthorized);
+      final state = _jsonResponseBody(challenge)['state'] as String;
+      final authenticate = await TicketAuthentication(
+        'signed-token',
+      ).challenge(Extra());
+
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'signature': authenticate.signature,
+            'extra': authenticate.extra,
+          },
+          headers: <String, String>{
+            'x-connectanum-auth-state': state,
+            'X-Connectanum-Auth-State': state,
+          },
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'state': state,
+            'extra': authenticate.extra,
+          },
+          headers: <String, String>{
+            'x-connectanum-auth-signature': authenticate.signature!,
+            'X-Connectanum-Auth-Signature': authenticate.signature!,
+          },
+        ),
+      );
+
+      final occupiedCapacity = await postAuth(
+        body: const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'user-1',
+        },
+      );
+      expect(occupiedCapacity.status, HttpStatus.tooManyRequests);
+      expect(
+        _jsonResponseBody(occupiedCapacity),
+        containsPair('reason', 'auth_capacity_exhausted'),
+      );
+
+      final authenticated = await postAuth(
+        body: <String, Object?>{
+          'state': state,
+          'signature': authenticate.signature,
+          'extra': authenticate.extra,
+        },
+      );
+      expect(authenticated.status, HttpStatus.ok);
+      final refreshToken =
+          _jsonResponseBody(authenticated)['refresh_token'] as String;
+
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{'refresh_token': refreshToken},
+          headers: const <String, String>{
+            'x-connectanum-grant-type': 'refresh_token',
+            'X-Connectanum-Grant-Type': 'refresh_token',
+          },
+        ),
+      );
+
+      final refreshed = await postAuth(
+        body: <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': refreshToken,
+        },
+        headers: const <String, String>{
+          'x-connectanum-auth-signature': 'ignored-a',
+          'X-Connectanum-Auth-Signature': 'ignored-b',
+        },
+      );
+      expect(refreshed.status, HttpStatus.ok);
+      final refreshedToken =
+          _jsonResponseBody(refreshed)['refresh_token'] as String;
+
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'grant_type': 'revoke',
+            'token': refreshedToken,
+          },
+          headers: const <String, String>{
+            'x-connectanum-token-type-hint': 'refresh_token',
+            'X-Connectanum-Token-Type-Hint': 'refresh_token',
+          },
+        ),
+      );
+
+      final preservedRefresh = await postAuth(
+        body: <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': refreshedToken,
+        },
+      );
+      expect(preservedRefresh.status, HttpStatus.ok);
+      expect(
+        _jsonResponseBody(preservedRefresh),
+        allOf(contains('access_token'), contains('refresh_token')),
+      );
+    },
+  );
+
+  test(
     'auth bridge rejects duplicate members inside selected auth objects',
     () async {
       final runtime = _HandleRuntime();

@@ -292,6 +292,12 @@ void main() {
         path: '/inline',
         host: '127.0.0.1:$port',
         body: inlineBody,
+        headerLines: const <String>[
+          'X-Connectanum-Realm: realm1',
+          'X-Connectanum-Realm: realm1',
+          'X-Connectanum-Auth-Method: ticket',
+          'x-connectanum-auth-method: ticket',
+        ],
       );
 
       final inlineConnectionId = await _pollConnectionUntil(
@@ -309,6 +315,10 @@ void main() {
       addTearDown(inlineHandshake.release);
       expect(inlineHandshake.method, 'POST');
       expect(inlineHandshake.path, '/inline');
+      expect(inlineHandshake.duplicateHeaderNames, {
+        'x-connectanum-realm',
+        'x-connectanum-auth-method',
+      });
       expect(inlineHandshake.body.length, inlineBody.length);
       expect(inlineHandshake.body.view, inlineBody);
       expect(await _readBody(inlineHandshake.body, chunkSize: 4), inlineBody);
@@ -452,10 +462,12 @@ Future<void> _sendHttpRequest(
   required String path,
   required String host,
   required Uint8List body,
+  List<String> headerLines = const <String>[],
 }) async {
   final lines = <String>[
     '$method $path HTTP/1.1',
     'Host: $host',
+    ...headerLines,
     'Content-Length: ${body.length}',
     '',
   ];

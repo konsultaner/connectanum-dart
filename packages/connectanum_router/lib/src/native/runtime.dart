@@ -192,6 +192,7 @@ class NativeHttpHandshake {
     required this.protocol,
     required this.version,
     required this.headers,
+    required this.duplicateHeaderNames,
     required this.body,
     required void Function() release,
     this.query,
@@ -208,6 +209,7 @@ class NativeHttpHandshake {
     String protocol = 'http/1.1',
     int version = 1,
     Map<String, String>? headers,
+    Set<String> duplicateHeaderNames = const <String>{},
     Uint8List? body,
     NativeHttpRequestBody? bodyHandle,
     String? realm,
@@ -216,6 +218,16 @@ class NativeHttpHandshake {
     final resolvedHeaders = headers == null
         ? const <String, String>{}
         : Map<String, String>.unmodifiable(Map<String, String>.from(headers));
+    final seenHeaderNames = <String>{};
+    final resolvedDuplicateHeaderNames = <String>{
+      for (final name in duplicateHeaderNames) name.toLowerCase(),
+    };
+    for (final name in resolvedHeaders.keys) {
+      final normalized = name.toLowerCase();
+      if (!seenHeaderNames.add(normalized)) {
+        resolvedDuplicateHeaderNames.add(normalized);
+      }
+    }
     final resolvedBody =
         bodyHandle ??
         NativeHttpRequestBody.synthetic(
@@ -230,6 +242,9 @@ class NativeHttpHandshake {
       protocol: protocol,
       version: version,
       headers: resolvedHeaders,
+      duplicateHeaderNames: Set<String>.unmodifiable(
+        resolvedDuplicateHeaderNames,
+      ),
       body: resolvedBody,
       realm: realm,
       procedure: procedure,
@@ -244,6 +259,7 @@ class NativeHttpHandshake {
   final String protocol;
   final int version;
   final Map<String, String> headers;
+  final Set<String> duplicateHeaderNames;
   final NativeHttpRequestBody body;
   final String? query;
   final String? realm;
@@ -1290,6 +1306,7 @@ class _HttpHandshakeFields {
     required this.protocol,
     required this.version,
     required this.headers,
+    required this.duplicateHeaderNames,
     required this.body,
     required this.realm,
     required this.procedure,
@@ -1303,6 +1320,7 @@ class _HttpHandshakeFields {
   final String protocol;
   final int version;
   final Map<String, String> headers;
+  final Set<String> duplicateHeaderNames;
   final Uint8List body;
   final String? realm;
   final String? procedure;
@@ -2301,6 +2319,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
           protocol: data.protocol,
           version: data.version,
           headers: data.headers,
+          duplicateHeaderNames: data.duplicateHeaderNames,
           body: body,
           realm: data.realm,
           procedure: data.procedure,
@@ -2686,6 +2705,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         protocol: data.protocol,
         version: data.version,
         headers: data.headers,
+        duplicateHeaderNames: data.duplicateHeaderNames,
         body: body,
         realm: data.realm,
         procedure: data.procedure,
@@ -3129,6 +3149,8 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     final query = _decodeUtf8Nullable(info.queryPtr, info.queryLen);
     final protocol = _decodeUtf8(info.protocolPtr, info.protocolLen);
     final headers = <String, String>{};
+    final seenHeaderNames = <String>{};
+    final duplicateHeaderNames = <String>{};
     for (var i = 0; i < info.headersLen; i++) {
       final headerPtr = calloc<CtHttpHeader>();
       try {
@@ -3144,6 +3166,10 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         final header = headerPtr.ref;
         final name = _decodeUtf8(header.namePtr, header.nameLen);
         final value = _decodeUtf8(header.valuePtr, header.valueLen);
+        final normalizedName = name.toLowerCase();
+        if (!seenHeaderNames.add(normalizedName)) {
+          duplicateHeaderNames.add(normalizedName);
+        }
         headers[name] = value;
       } finally {
         calloc.free(headerPtr);
@@ -3160,6 +3186,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       protocol: protocol,
       version: info.version,
       headers: headers,
+      duplicateHeaderNames: Set<String>.unmodifiable(duplicateHeaderNames),
       body: body,
       realm: realm,
       procedure: procedure,

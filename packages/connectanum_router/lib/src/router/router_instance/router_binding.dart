@@ -906,12 +906,16 @@ class RouterHttpRequest {
     required this.protocol,
     required this.version,
     required Map<String, String> headers,
+    Set<String> duplicateHeaderNames = const <String>{},
     required NativeHttpRequestBody body,
     required this.handshakeHandle,
     this.query,
     this.realm,
     this.procedure,
   }) : headers = Map.unmodifiable(headers),
+       duplicateHeaderNames = Set.unmodifiable(
+         duplicateHeaderNames.map((name) => name.toLowerCase()),
+       ),
        _body = body;
 
   final RouterListener listener;
@@ -922,6 +926,7 @@ class RouterHttpRequest {
   final String protocol;
   final int version;
   final Map<String, String> headers;
+  final Set<String> duplicateHeaderNames;
   final NativeHttpRequestBody _body;
   final int handshakeHandle;
   final String? query;
@@ -3661,6 +3666,7 @@ class RouterBinding {
         'x-connectanum-auth-state',
         'x-connectanum-grant-type',
       },
+      duplicateHeaderNames: request.duplicateHeaderNames,
     )) {
       await _sendInvalidHttpAuthParameterResponse(
         request: request,
@@ -3720,6 +3726,7 @@ class RouterBinding {
             duplicateBodyKeys: duplicateBodyKeys,
             headers: request.headers,
             headerNames: const <String>{'x-connectanum-auth-signature'},
+            duplicateHeaderNames: request.duplicateHeaderNames,
           ) ||
           _hasInvalidHttpAuthObjectParameters(
             body: body,
@@ -3815,6 +3822,7 @@ class RouterBinding {
             'x-connectanum-auth-method',
             'x-connectanum-auth-id',
           },
+          duplicateHeaderNames: request.duplicateHeaderNames,
         ) ||
         _hasInvalidHttpAuthObjectParameters(
           body: body,
@@ -4943,6 +4951,7 @@ class RouterBinding {
       duplicateQueryKeys: duplicateQueryKeys,
       headers: request.headers,
       headerNames: const <String>{'x-connectanum-token-type-hint'},
+      duplicateHeaderNames: request.duplicateHeaderNames,
     )) {
       await _sendInvalidHttpAuthParameterResponse(
         request: request,
@@ -5578,6 +5587,7 @@ class RouterBinding {
     Set<String> duplicateQueryKeys = const <String>{},
     Map<String, String> headers = const <String, String>{},
     Iterable<String> headerNames = const <String>[],
+    Set<String> duplicateHeaderNames = const <String>{},
   }) {
     for (final key in bodyKeys) {
       if (duplicateBodyKeys.contains(key)) {
@@ -5598,6 +5608,9 @@ class RouterBinding {
       }
     }
     for (final name in headerNames) {
+      if (duplicateHeaderNames.contains(name.toLowerCase())) {
+        return true;
+      }
       final value = _headerValue(headers, name);
       if (value != null && value.trim().isEmpty) {
         return true;

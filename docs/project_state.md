@@ -24999,6 +24999,33 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-12-mcp-http-auth-header-multiplicity-validation.md`.
+  Native HTTP retains every request-header entry, but the Dart handshake
+  decoder currently collapses those entries into a scalar map before
+  router-provided HTTP-auth validation. Repeated or case-variant selector and
+  credential headers can therefore make request interpretation depend on map
+  overwrite or iteration order. This checkpoint will preserve normalized
+  duplicate-header evidence through the native boundary and reject only
+  operation-relevant repeated auth headers before authenticator state or token
+  mutation. The required Serena, overlap, completed-plan, and both-roadmap
+  preflights passed. Pre-change `bin/test-fast` passes the complete core, MCP,
+  client/auth, benchmark, router-hosted consumer, packaging, installed-command,
+  and native follow-up matrix, including all 96 benchmark cases and 36 live
+  WAMP workloads. A fail-first router lifecycle regression observed HTTP 401
+  instead of the required generic HTTP 400 for repeated realm headers. The
+  implementation now retains immutable lowercase duplicate-name evidence
+  across both native HTTP handshake paths and applies it only to headers
+  relevant to the selected auth operation before state or token mutation.
+  Focused router lifecycle, full router runtime, native HTTP boundary, native
+  request-body, analysis, shell syntax, and installed neutral consumer smoke
+  checks pass; the consumer reports
+  `authHeaderMultiplicityValidation: true`. Post-change `bin/verify` passes the
+  complete matrix at 436 router tests, 360 core tests, 101 MCP tests, 280
+  client/MCP tests, all 96 benchmark cases and 36 live WAMP workloads, six
+  remote-auth integrations, all neutral and installed consumers, native
+  follow-ups, and Chrome/Dart2Wasm. Publication and exact-head hosted evidence
+  remain.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-nested-object-duplicate-validation.md`.
   Router-provided HTTP authentication previously let `jsonDecode` collapse
   repeated members anywhere inside selected initial `authextra` and challenge
@@ -25042,8 +25069,19 @@ at the older `47bbf9c` commit.
   passes the complete matrix unchanged at 435 router tests, including all
   neutral/installed MCP consumers, all 96 benchmark cases and 36 live WAMP
   workloads, six remote-auth integrations, native follow-ups, and
-  Chrome/Dart2Wasm. Formatter repair publication, clean exact-head workflows,
-  and the strict deployment audit remain.
+  Chrome/Dart2Wasm. Formatter repair commit `3100b1aa974a` reached both
+  maintained `master` branches. The clean-commit strict package gate passes all
+  seven synchronized `3.0.0-beta` archives with zero warnings. Exact-head CI
+  `31585494406`, package dry run `31585493658`, WAMP profile benchmarks
+  `31585493877`, and Router Image dry run `31585943113` all pass. CI uploaded
+  coverage artifact `9137467721`, WAMP uploaded artifact `9137140265`, and
+  Router Image uploaded preview artifact `9137102662` plus Docker build records
+  `9137249562` and `9137248674`. The comprehensive strict deployment-chain
+  audit passes with clean exact-head CI logs and every required branch,
+  workflow, public package, native-release relevance, loaded-image MCP,
+  multi-architecture image, package-publish, and benchmark gate clean. Its
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation head.
 - Most recently completed, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-object-parameter-validation.md`.
   Router-provided HTTP authentication previously discarded non-null non-object
