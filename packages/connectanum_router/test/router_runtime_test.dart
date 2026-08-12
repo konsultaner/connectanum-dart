@@ -6758,7 +6758,7 @@ void main() {
             ),
           ],
         ),
-        settings: _buildRouterSettingsWithHttpAuthBridge(),
+        settings: _buildRouterSettingsWithHttpAuthBridge(maxPendingAuth: 1),
       );
 
       final binding = router.start(runtime);
@@ -6923,11 +6923,33 @@ void main() {
         ),
       );
 
+      expectInvalidParameter(
+        await postAuth(
+          body: const <String, Object?>{
+            'realm': 'realm1',
+            'authmethod': 'ticket',
+            'authid': 'user-1',
+            'authextra': false,
+          },
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: const <String, Object?>{},
+          rawBody:
+              '{"realm":"realm1","authmethod":"ticket","authid":"user-1",'
+              '"authextra":{"source":"first"},'
+              '"authextra":{"source":"second"}}',
+        ),
+      );
+
       final challenge = await postAuth(
         body: const <String, Object?>{
           'realm': 'realm1',
           'authmethod': 'ticket',
           'authid': 'user-1',
+          'authextra': <String, Object?>{'source': 'router-test'},
+          'extra': false,
         },
       );
       expect(challenge.status, HttpStatus.unauthorized);
@@ -7011,12 +7033,51 @@ void main() {
               '"signature":"ignored"}',
         ),
       );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'state': state,
+            'signature': authenticate.signature,
+            'extra': false,
+          },
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: const <String, Object?>{},
+          rawBody:
+              '{"state":${jsonEncode(state)},'
+              '"signature":${jsonEncode(authenticate.signature)},'
+              '"extra":{"source":"first"},'
+              '"extra":{"source":"second"}}',
+        ),
+      );
+
+      final occupiedCapacity = await postAuth(
+        body: const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'user-1',
+        },
+      );
+      expect(occupiedCapacity.status, HttpStatus.tooManyRequests);
+      expect(
+        _jsonResponseBody(occupiedCapacity),
+        allOf(
+          containsPair('reason', 'auth_capacity_exhausted'),
+          isNot(contains('state')),
+        ),
+      );
 
       final authenticated = await postAuth(
         body: <String, Object?>{
           'state': state,
           'signature': authenticate.signature,
-          'extra': authenticate.extra,
+          'extra': <String, Object?>{
+            ...?authenticate.extra,
+            'source': 'router-test',
+          },
+          'authextra': false,
           'token': false,
         },
         headers: <String, String>{

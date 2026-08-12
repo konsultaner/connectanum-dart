@@ -3710,12 +3710,17 @@ class RouterBinding {
     }
     if (state != null) {
       if (_hasInvalidHttpAuthStringSources(
-        body: body,
-        bodyKeys: const <String>{'signature'},
-        duplicateBodyKeys: duplicateBodyKeys,
-        headers: request.headers,
-        headerNames: const <String>{'x-connectanum-auth-signature'},
-      )) {
+            body: body,
+            bodyKeys: const <String>{'signature'},
+            duplicateBodyKeys: duplicateBodyKeys,
+            headers: request.headers,
+            headerNames: const <String>{'x-connectanum-auth-signature'},
+          ) ||
+          _hasInvalidHttpAuthObjectParameters(
+            body: body,
+            bodyKeys: const <String>{'extra'},
+            duplicateBodyKeys: duplicateBodyKeys,
+          )) {
         await _sendInvalidHttpAuthParameterResponse(
           request: request,
           handshake: handshake,
@@ -3792,19 +3797,24 @@ class RouterBinding {
     }
 
     if (_hasInvalidHttpAuthStringSources(
-      body: body,
-      bodyKeys: const <String>{'realm', 'authmethod', 'authid'},
-      duplicateBodyKeys: duplicateBodyKeys,
-      query: query,
-      queryKeys: const <String>{'realm', 'authmethod', 'authid'},
-      duplicateQueryKeys: duplicateQueryKeys,
-      headers: request.headers,
-      headerNames: const <String>{
-        'x-connectanum-realm',
-        'x-connectanum-auth-method',
-        'x-connectanum-auth-id',
-      },
-    )) {
+          body: body,
+          bodyKeys: const <String>{'realm', 'authmethod', 'authid'},
+          duplicateBodyKeys: duplicateBodyKeys,
+          query: query,
+          queryKeys: const <String>{'realm', 'authmethod', 'authid'},
+          duplicateQueryKeys: duplicateQueryKeys,
+          headers: request.headers,
+          headerNames: const <String>{
+            'x-connectanum-realm',
+            'x-connectanum-auth-method',
+            'x-connectanum-auth-id',
+          },
+        ) ||
+        _hasInvalidHttpAuthObjectParameters(
+          body: body,
+          bodyKeys: const <String>{'authextra'},
+          duplicateBodyKeys: duplicateBodyKeys,
+        )) {
       await _sendInvalidHttpAuthParameterResponse(
         request: request,
         handshake: handshake,
@@ -5409,6 +5419,23 @@ class RouterBinding {
       }
     }
     return values;
+  }
+
+  bool _hasInvalidHttpAuthObjectParameters({
+    required Map<String, Object?> body,
+    required Iterable<String> bodyKeys,
+    Set<String> duplicateBodyKeys = const <String>{},
+  }) {
+    for (final key in bodyKeys) {
+      if (duplicateBodyKeys.contains(key)) {
+        return true;
+      }
+      final value = body[key];
+      if (value != null && value is! Map) {
+        return true;
+      }
+    }
+    return false;
   }
 
   bool _hasInvalidHttpAuthStringSources({

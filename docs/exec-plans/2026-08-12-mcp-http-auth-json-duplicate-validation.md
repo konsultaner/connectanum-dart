@@ -1,6 +1,6 @@
 # MCP HTTP-Auth JSON Duplicate Validation
 
-Status: implementation and full local verification complete; publish pending
+Status: complete
 
 ## Goal
 
@@ -66,3 +66,13 @@ failed closed.
   434 router tests, six isolated remote-auth integrations, 13 native
   follow-ups, every neutral consumer and installed-command smoke, and
   Chrome/Dart2Wasm coverage.
+- 2026-08-12: Commit `56c2a64d` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31569465395`, Dart Package Publish Dry Run
+  `31569465430`, WAMP Profile Benchmarks `31569465330`, and dispatched Router
+  Image dry run `31569484002` all pass. Retained artifacts are Dart VM coverage
+  `9131106661`, WAMP evidence `9130886257`, Router Image preview `9130745460`,
+  and Docker build records `9130823079` / `9130822665`. The comprehensive
+  strict deployment-chain audit exits zero with clean exact-head CI logs,
+  loaded-image MCP runtime smoke, relevant native-release evidence, and every
+  required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.

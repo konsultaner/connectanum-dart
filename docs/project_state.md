@@ -24999,6 +24999,28 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-12-mcp-http-auth-object-parameter-validation.md`.
+  Router-provided HTTP authentication previously discarded non-null non-object
+  `authextra`/challenge `extra` values, collapsed repeated top-level values, and
+  removed pending challenge state before interpreting `extra`. Operation-scoped
+  object validation now returns the generic state/token-free HTTP 400 before
+  authenticator creation or pending-state removal while preserving null as the
+  established omitted optional-object representation. The fail-first lifecycle
+  regression reproduced malformed initial `authextra` returning HTTP 401 and
+  allocating state. Pre-change `bin/test-fast`, router analysis, the focused
+  regression, the complete 88-case router runtime lifecycle, shell syntax, and
+  the neutral installed-router consumer smoke pass. The consumer reports
+  `authObjectParameterValidation: true`, proves malformed and repeated
+  challenge-object rejection retain max-one pending capacity, and completes the
+  legitimate challenge before continuing through protected MCP, direct JSON,
+  pub/sub, refresh/revoke, and Streamable HTTP paths. Full `bin/verify` passes
+  formatting and analysis, 114 Rust core tests, 52 FFI tests, all 360 Dart core
+  tests, all 101 MCP tests, the 280-case client/MCP matrix, all 96 benchmark
+  cases and 36 live WAMP workloads, all 434 router tests, six isolated
+  remote-auth integrations, 13 native follow-ups, every neutral consumer and
+  installed-command smoke, and Chrome/Dart2Wasm coverage. Publication,
+  exact-head workflows, and strict deployment audit remain.
+- Completed now, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-json-duplicate-validation.md`.
   Router-provided HTTP authentication previously decoded JSON directly into a
   scalar map, so repeated top-level members were collapsed before the
@@ -25029,7 +25051,16 @@ at the older `47bbf9c` commit.
   280-case client/MCP matrix, all 96 benchmark cases and 36 live WAMP
   workloads, all 434 router tests, six isolated remote-auth integrations, 13
   native follow-ups, every neutral consumer and installed-command smoke, and
-  Chrome/Dart2Wasm coverage.
+  Chrome/Dart2Wasm coverage. Commit `56c2a64d` is published to both maintained
+  `master` branches. Exact-head GitHub CI `31569465395`, Dart Package Publish
+  Dry Run `31569465430`, WAMP Profile Benchmarks `31569465330`, and dispatched
+  Router Image dry run `31569484002` all pass. Retained artifacts are Dart VM
+  coverage `9131106661`, WAMP evidence `9130886257`, Router Image preview
+  `9130745460`, and Docker build records `9130823079` / `9130822665`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI logs, loaded-image MCP runtime smoke, relevant native-release evidence,
+  and every required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.
 - Completed now, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-query-validation.md`.
   Router-provided HTTP authentication previously collapsed repeated query keys
