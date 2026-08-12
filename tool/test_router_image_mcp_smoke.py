@@ -16,6 +16,7 @@ RUNNER = REPO_ROOT / "bin" / "router-image-mcp-smoke"
 CLIENT = REPO_ROOT / "tool" / "smoke_router_image_mcp.py"
 CONFIG = REPO_ROOT / "deploy" / "docker" / "router_mcp_smoke.yaml"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "router-image.yml"
+DOCKERFILE = REPO_ROOT / "deploy" / "docker" / "Dockerfile"
 
 CLIENT_SPEC = importlib.util.spec_from_file_location("router_image_mcp_smoke", CLIENT)
 assert CLIENT_SPEC is not None and CLIENT_SPEC.loader is not None
@@ -24,6 +25,20 @@ CLIENT_SPEC.loader.exec_module(CLIENT_MODULE)
 
 
 class RouterImageMcpSmokeTest(unittest.TestCase):
+    def test_dockerfile_builds_hook_aware_cli_bundle(self) -> None:
+        dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+        self.assertIn("dart build cli", dockerfile)
+        self.assertIn(
+            "--target=packages/connectanum_router/bin/connectanum_router.dart",
+            dockerfile,
+        )
+        self.assertIn("--output=/out", dockerfile)
+        self.assertIn(
+            "COPY --from=dart-builder /out/bundle/bin/connectanum_router",
+            dockerfile,
+        )
+        self.assertNotIn("dart compile exe", dockerfile)
+
     def test_sse_parser_accepts_leading_event_id(self) -> None:
         payload = CLIENT_MODULE._json_payload(
             'event: heartbeat\ndata:\n\n'

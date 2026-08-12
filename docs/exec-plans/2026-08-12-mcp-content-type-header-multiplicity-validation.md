@@ -1,6 +1,7 @@
 # MCP Content-Type Header Multiplicity Validation
 
-Status: completed
+Status: active; MCP implementation and local verification green, exact-head
+Router Image toolchain repair pending
 
 ## Goal
 
@@ -69,3 +70,30 @@ rejection.
   Chrome/Dart2Wasm coverage. The implementation is ready to publish; exact-head
   hosted workflows and the strict deployment-chain audit remain follow-up
   evidence.
+- 2026-08-12: Strict release-ready validation passed all seven synchronized
+  `3.0.0-beta` package archives with zero warnings. Implementation commit
+  `9a61449621ea` is published on both maintained `master` remotes. Exact-head
+  Dart Package Publish Dry Run `31637826023` and WAMP Profile Benchmarks
+  `31637826063` pass; CI `31637826022` also passes Fast Checks, Full Verify,
+  and coverage.
+- 2026-08-12: Router Image dry run `31637835420` failed before image creation
+  because current `dart:stable` (3.13.0) now rejects `dart compile exe` when
+  the package graph declares build hooks. Official Dart CLI documentation says
+  hook-bearing applications must use `dart build`; `dart build cli` runs build
+  hooks and emits an application bundle under `<output>/bundle/`. A fail-first
+  Dockerfile contract reproduced the stale command. The image builder now uses
+  `dart build cli --target=packages/connectanum_router/bin/connectanum_router.dart
+  --output=/out` and copies `/out/bundle/bin/connectanum_router`; all 29 focused
+  Router Image MCP contracts pass. Local Docker Desktop stalled while resolving
+  the Dockerfile frontend and while sending the legacy build context, before a
+  build instruction ran, so the repaired exact-head hosted dry run remains the
+  decisive image proof.
+- 2026-08-12: Exact-head CI `31637826022` completed successfully, including
+  Fast Checks, Full Verify, and Dart VM coverage. Post-repair `bin/test-fast`
+  also passes the complete local fast matrix, including all neutral consumer
+  and installed-command MCP smokes. Final post-repair `bin/verify` passes the
+  complete repository matrix: formatting, Rust/FFI, 360 core, 101 MCP, 280
+  client/MCP, 97 benchmark plus 37 live WAMP, 436 router, isolated remote-auth,
+  native follow-up, consumer-package, installed-command, and Chrome/Dart2Wasm
+  coverage. Publication, the repaired Router Image dry run, and the strict
+  audit remain.

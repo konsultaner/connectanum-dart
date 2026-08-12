@@ -12,7 +12,9 @@ COPY pubspec.yaml ./
 COPY packages packages
 RUN dart pub get
 RUN mkdir -p /out \
-    && dart compile exe packages/connectanum_router/bin/connectanum_router.dart -o /out/connectanum_router
+    && dart build cli \
+        --target=packages/connectanum_router/bin/connectanum_router.dart \
+        --output=/out
 
 FROM debian:bookworm-slim
 RUN apt-get update \
@@ -23,7 +25,7 @@ RUN useradd -r -u 10001 -g nogroup connectanum
 RUN mkdir -p /app/lib /etc/connectanum /etc/connectanum/tls \
     && chown -R connectanum:nogroup /app /etc/connectanum
 
-COPY --from=dart-builder /out/connectanum_router /app/connectanum_router
+COPY --from=dart-builder /out/bundle/bin/connectanum_router /app/connectanum_router
 COPY --from=rust-builder /src/native/transport/target/release/libct_ffi.so /app/lib/libct_ffi.so
 
 RUN chmod +x /app/connectanum_router \

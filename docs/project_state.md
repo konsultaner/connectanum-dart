@@ -25026,7 +25026,7 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The most recently completed implementation plan is
+- The active implementation and deployment-repair plan is
   `docs/exec-plans/2026-08-12-mcp-content-type-header-multiplicity-validation.md`.
   Router-hosted MCP now rejects repeated case-insensitive `Content-Type` names
   on POST before scalar media-type validation, JSON decoding, or dispatch.
@@ -25045,8 +25045,25 @@ at the older `47bbf9c` commit.
   benchmark cases and 37 live WAMP workloads, all 436 router tests, six
   isolated remote-auth integrations, 13 native follow-ups, every neutral
   consumer and installed-command smoke, and Chrome/Dart2Wasm coverage. The
-  implementation is ready to publish; exact-head hosted workflows and the
-  strict deployment-chain audit remain.
+  implementation commit `9a61449621ea` is published on both maintained
+  `master` remotes. Strict release-ready validation passes all seven
+  synchronized `3.0.0-beta` archives with zero warnings. Exact-head Dart
+  Package Publish Dry Run `31637826023` and WAMP Profile Benchmarks
+  `31637826063` pass; CI `31637826022` also passes Fast Checks, Full Verify,
+  and Dart VM coverage. Router Image dry run `31637835420` exposed a Dart
+  3.13 build-tool migration: hook-bearing applications can no longer use
+  `dart compile exe` and must use `dart build cli`. A fail-first Dockerfile
+  contract reproduced the failure; the image builder now creates the
+  hook-aware CLI bundle and copies its generated executable, and all 29 Router
+  Image MCP contracts pass. Post-repair `bin/test-fast` passes the complete
+  fast matrix, including every neutral consumer and installed-command MCP
+  smoke. Final post-repair `bin/verify` also passes formatting, Rust/FFI, 360
+  core, 101 MCP, the 280-case client/MCP matrix, 97 benchmark cases plus 37
+  live WAMP workloads, 436 router tests, isolated remote-auth and native
+  follow-ups, every consumer/package command smoke, and Chrome/Dart2Wasm.
+  Local Docker Desktop stalled before running a build instruction, so a
+  repaired exact-head Router Image dry run and the strict deployment-chain
+  audit remain.
 - Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-last-event-id-header-multiplicity-validation.md`.
   Router-hosted MCP now rejects authenticated repeated case-insensitive
