@@ -1548,6 +1548,7 @@ class _RouterBoss {
       protocol: handshake.protocol,
       version: handshake.version,
       headers: handshake.headers,
+      headerValues: handshake.headerValues,
       duplicateHeaderNames: handshake.duplicateHeaderNames,
       body: handshake.body,
       handshakeHandle: handshake.handle,

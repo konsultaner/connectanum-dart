@@ -34,6 +34,33 @@ abstract final class HttpInvocationControlMessages {
 final DirectStreamReplyChannel _sharedDirectStreamReplyChannel =
     DirectStreamReplyChannel();
 
+// Builds a case-insensitive, deeply immutable view of every field value.
+Map<String, List<String>> _immutableHttpHeaderValues(
+  Map<String, String> headers,
+  Map<String, List<String>>? headerValues,
+) {
+  final resolved = <String, List<String>>{};
+  for (final entry in headers.entries) {
+    resolved
+        .putIfAbsent(entry.key.toLowerCase(), () => <String>[])
+        .add(entry.value);
+  }
+  if (headerValues != null) {
+    final replacedNames = <String>{};
+    for (final entry in headerValues.entries) {
+      final normalizedName = entry.key.toLowerCase();
+      if (replacedNames.add(normalizedName)) {
+        resolved[normalizedName] = <String>[];
+      }
+      resolved[normalizedName]!.addAll(entry.value);
+    }
+  }
+  return Map<String, List<String>>.unmodifiable({
+    for (final entry in resolved.entries)
+      entry.key: List<String>.unmodifiable(entry.value),
+  });
+}
+
 /// Snapshot of an HTTP request that is routed through the WAMP invocation
 /// pipeline.
 class HttpRequestSnapshot {
@@ -45,6 +72,7 @@ class HttpRequestSnapshot {
     required this.protocol,
     required this.version,
     required Map<String, String> headers,
+    Map<String, List<String>>? headerValues,
     this.query,
     Uint8List? body,
     this.nativeBody,
@@ -52,6 +80,7 @@ class HttpRequestSnapshot {
     this.realm,
     this.procedure,
   }) : headers = Map.unmodifiable(headers),
+       headerValues = _immutableHttpHeaderValues(headers, headerValues),
        _body = body == null
            ? null
            : (copyBody ? Uint8List.fromList(body) : body);
@@ -63,6 +92,7 @@ class HttpRequestSnapshot {
   final String protocol;
   final int version;
   final Map<String, String> headers;
+  final Map<String, List<String>> headerValues;
   final String? query;
   Uint8List? _body;
   final NativeHttpRequestBody? nativeBody;
@@ -93,6 +123,7 @@ class HttpRequestSnapshot {
       'protocol': protocol,
       'version': version,
       'headers': headers,
+      'headerValues': headerValues,
       if (realm != null) 'realm': realm,
       if (procedure != null) 'procedure': procedure,
     };
@@ -147,6 +178,23 @@ class HttpRequestSnapshot {
         headers is! Map) {
       return null;
     }
+    final rawHeaderValues = payload['headerValues'];
+    Map<String, List<String>>? headerValues;
+    if (rawHeaderValues is Map) {
+      headerValues = <String, List<String>>{};
+      for (final entry in rawHeaderValues.entries) {
+        final name = entry.key;
+        final values = entry.value;
+        if (name is! String ||
+            values is! List ||
+            values.any((v) => v is! String)) {
+          return null;
+        }
+        headerValues[name] = values.cast<String>();
+      }
+    } else if (rawHeaderValues != null) {
+      return null;
+    }
     final query = payload['query'] as String?;
     final body = payload['body'];
     Uint8List? binaryBody;
@@ -177,6 +225,7 @@ class HttpRequestSnapshot {
       protocol: protocol,
       version: version,
       headers: headers.cast<String, String>(),
+      headerValues: headerValues,
       body: binaryBody,
       nativeBody: nativeBody,
       realm: payload['realm'] as String?,

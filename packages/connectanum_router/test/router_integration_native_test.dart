@@ -1541,7 +1541,9 @@ void main() {
         listener.port,
         '/mcp',
         payload,
-        headers: {HttpHeaders.acceptHeader: 'application/json;q=0, */*;q=1'},
+        repeatedHeaders: const <String, List<String>>{
+          'Accept': <String>['application/json;q=0', '*/*;q=1'],
+        },
       );
       expect(
         jsonQZeroWildcardAccept.statusCode,
@@ -2403,8 +2405,11 @@ void main() {
         listener.port,
         '/mcp',
         headers: {
-          ...sessionHeaders,
-          HttpHeaders.acceptHeader: 'text/event-stream;q=0, */*;q=1',
+          'MCP-Session-Id': mcpSessionId,
+          'MCP-Protocol-Version': '2025-11-25',
+        },
+        repeatedHeaders: const <String, List<String>>{
+          'Accept': <String>['text/event-stream;q=0', '*/*;q=1'],
         },
       );
       expect(
@@ -13693,6 +13698,72 @@ void main() {
         contains('T-secure-json-direct-prompt'),
       );
       expect(secureJsonPostClient.sessionId, isNull);
+
+      final splitAcceptInitializeBody = utf8.encode(
+        jsonEncode(const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'secure-json-post-split-accept-initialize',
+          'method': 'initialize',
+          'params': <String, Object?>{
+            'protocolVersion': '2025-11-25',
+            'capabilities': <String, Object?>{},
+            'clientInfo': <String, Object?>{
+              'name': 'router-native-split-accept-test',
+              'version': '0.1.0',
+            },
+          },
+        }),
+      );
+      final splitAcceptSocket = await Socket.connect(
+        '127.0.0.1',
+        listener.port,
+      );
+      late final String splitAcceptInitializeResponse;
+      try {
+        splitAcceptSocket.add(
+          utf8.encode(
+            'POST /mcp/secure-json-post HTTP/1.1\r\n'
+            'Host: 127.0.0.1:${listener.port}\r\n'
+            'Connection: close\r\n'
+            'Accept: application/json\r\n'
+            'Accept: text/event-stream\r\n'
+            'Authorization: Bearer ${grant.accessToken}\r\n'
+            'MCP-Protocol-Version: 2025-11-25\r\n'
+            'Content-Type: application/json\r\n'
+            'Content-Length: ${splitAcceptInitializeBody.length}\r\n'
+            '\r\n',
+          ),
+        );
+        splitAcceptSocket.add(splitAcceptInitializeBody);
+        await splitAcceptSocket.flush();
+        splitAcceptInitializeResponse = await _readHttpResponse(
+          splitAcceptSocket,
+        );
+      } finally {
+        splitAcceptSocket.destroy();
+      }
+      expect(
+        splitAcceptInitializeResponse,
+        startsWith('HTTP/1.1 ${HttpStatus.ok}'),
+      );
+      final splitAcceptSessionMatch = RegExp(
+        r'^mcp-session-id:\s*(\S+)\s*$',
+        caseSensitive: false,
+        multiLine: true,
+      ).firstMatch(splitAcceptInitializeResponse);
+      expect(splitAcceptSessionMatch, isNotNull);
+      final splitAcceptSessionId = splitAcceptSessionMatch!.group(1)!;
+      final splitAcceptDelete = await _deleteHttp(
+        client,
+        listener.port,
+        '/mcp/secure-json-post',
+        headers: <String, String>{
+          HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+          'MCP-Protocol-Version': '2025-11-25',
+          'MCP-Session-Id': splitAcceptSessionId,
+        },
+      );
+      expect(splitAcceptDelete.statusCode, HttpStatus.accepted);
 
       final secureJsonInitialize = await secureJsonPostClient.initialize(
         id: 'secure-json-post-initialize',

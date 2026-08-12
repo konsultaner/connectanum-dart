@@ -1452,6 +1452,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"sessionHeaderMultiplicityValidation":true,'
             '"lastEventIdHeaderMultiplicityValidation":true,'
             '"contentTypeHeaderMultiplicityValidation":true,'
+            '"acceptFieldValuePreservation":true,'
             '"authPendingCapacity":true,'
             '"authLockout":true,'
             '"authFailureCapacity":true,'
@@ -1484,6 +1485,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "repeated Content-Type header did not preserve auth and session "
             "precedence",
+            body,
+        )
+        self.assertIn("_expectSplitAcceptHeadersNegotiated", body)
+        self.assertIn("Accept: application/json\\r\\n", body)
+        self.assertIn("Accept: text/event-stream\\r\\n", body)
+        self.assertIn(
+            "split Accept fields were not negotiated as one field value",
             body,
         )
         self.assertIn(

@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -25026,7 +25026,31 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active implementation and deployment-repair plan is
+- The most recently completed implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-accept-field-value-preservation.md`.
+  Fail-first synthetic and raw native HTTP requests proved that separate JSON
+  and SSE `Accept` field values could lose Streamable HTTP opt-in or return
+  406 because the native/router boundary exposed only one scalar. Native HTTP
+  ingress now preserves deeply immutable case-insensitive value lists beside
+  the scalar map and duplicate-name evidence; router requests and WAMP HTTP
+  snapshots retain them through invocation payloads. Router-hosted MCP parses
+  every field value together while singleton validation remains unchanged.
+  Synthetic, real native, and neutral installed-router consumer coverage
+  creates and deletes a protected split-field session, and split `q=0`
+  regressions preserve media-range specificity. Pre-change `bin/test-fast`,
+  focused analysis/tests, shell syntax, all 19 consumer-boundary contracts,
+  and the installed-router consumer smoke pass. Full `bin/verify` passes 114
+  Rust core tests, 52 FFI tests, 360 Dart core tests, all 101 MCP tests, the
+  280-case client/MCP matrix, 97 benchmark cases plus 37 live WAMP workloads,
+  all 436 router tests, six isolated remote-auth integrations, 13 native
+  follow-ups, every consumer/package command smoke, and Chrome/Dart2Wasm.
+  Clean strict release-ready validation also passes all seven synchronized
+  `3.0.0-beta` package archives with zero warnings and no private dependency
+  blockers. Publication, exact-head hosted workflows, and the strict
+  deployment-chain audit remain follow-up evidence. The prior content-type
+  checkpoint's final hosted-evidence notes are bundled with this implementation
+  checkpoint.
+- The most recently completed implementation and deployment-repair plan is
   `docs/exec-plans/2026-08-12-mcp-content-type-header-multiplicity-validation.md`.
   Router-hosted MCP now rejects repeated case-insensitive `Content-Type` names
   on POST before scalar media-type validation, JSON decoding, or dispatch.
@@ -25061,9 +25085,20 @@ at the older `47bbf9c` commit.
   core, 101 MCP, the 280-case client/MCP matrix, 97 benchmark cases plus 37
   live WAMP workloads, 436 router tests, isolated remote-auth and native
   follow-ups, every consumer/package command smoke, and Chrome/Dart2Wasm.
-  Local Docker Desktop stalled before running a build instruction, so a
-  repaired exact-head Router Image dry run and the strict deployment-chain
-  audit remain.
+  Local Docker Desktop stalled before running a build instruction, but hosted
+  evidence closes that local limitation. Toolchain-repair commit
+  `fc62e6c5ef81` is published on both maintained `master` remotes. Exact-head
+  CI `31642069646`, Dart Package Publish Dry Run `31642123332`, WAMP Profile
+  Benchmarks `31642125463`, and Router Image dry run `31642076746` all pass.
+  CI uploaded coverage artifact `9159878300`, WAMP uploaded artifact
+  `9159478975`, and Router Image uploaded preview artifact `9159248769` plus
+  Docker build records `9159390243` and `9159389744`. The repaired image job
+  passes the hook-aware local build, loaded MCP smoke, and multi-architecture
+  dry-run build. The comprehensive strict deployment-chain audit passes
+  exact-head CI and log cleanliness, package, relevant native release, Router
+  Image, WAMP, workflow visibility, public router package, branch protection,
+  and release-readiness gates. A new numeric RC tag still requires explicit
+  release approval and was not created.
 - Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-last-event-id-header-multiplicity-validation.md`.
   Router-hosted MCP now rejects authenticated repeated case-insensitive

@@ -9166,7 +9166,8 @@ void main() {
         target: '/mcp/secure',
         headers: {
           'authorization': 'Bearer ${firstGrant.accessToken}',
-          'accept': 'application/json, text/event-stream',
+          'Accept': 'application/json',
+          'accept': 'text/event-stream',
           'content-type': 'application/json',
           'mcp-protocol-version': '2025-11-25',
           'mcp-method': 'initialize',

@@ -319,6 +319,24 @@ void main() {
         'x-connectanum-realm',
         'x-connectanum-auth-method',
       });
+      expect(inlineHandshake.headerValues['x-connectanum-realm'], [
+        'realm1',
+        'realm1',
+      ]);
+      expect(inlineHandshake.headerValues['x-connectanum-auth-method'], [
+        'ticket',
+        'ticket',
+      ]);
+      expect(
+        () => inlineHandshake.headerValues['x-connectanum-realm']!.add(
+          'other',
+        ),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => inlineHandshake.headerValues['other'] = const <String>[],
+        throwsUnsupportedError,
+      );
       expect(inlineHandshake.body.length, inlineBody.length);
       expect(inlineHandshake.body.view, inlineBody);
       expect(await _readBody(inlineHandshake.body, chunkSize: 4), inlineBody);

@@ -131,7 +131,11 @@ void main() {
       path: '/metrics',
       protocol: 'http/3',
       version: 3,
-      headers: const {'content-type': 'application/json'},
+      headers: const {
+        'content-type': 'application/json',
+        'Accept': 'application/json',
+        'accept': 'text/event-stream',
+      },
       body: nativeBody,
       handshakeHandle: 99,
       query: 'foo=bar',
@@ -141,9 +145,29 @@ void main() {
 
     expect(identical(request.nativeBody, nativeBody), isTrue);
     expect(identical(request.body, nativeBody.view), isTrue);
+    expect(request.headerValues['accept'], [
+      'application/json',
+      'text/event-stream',
+    ]);
+    expect(
+      () => request.headerValues['accept']!.add('text/plain'),
+      throwsUnsupportedError,
+    );
 
     final snapshot = request.toSnapshot(7);
     expect(identical(snapshot.nativeBody, nativeBody), isTrue);
+    expect(snapshot.headerValues['accept'], [
+      'application/json',
+      'text/event-stream',
+    ]);
+    final restored = HttpRequestSnapshot.fromInvocationPayload(
+      snapshot.toInvocationPayload(),
+    );
+    expect(restored, isNotNull);
+    expect(restored!.headerValues['accept'], [
+      'application/json',
+      'text/event-stream',
+    ]);
     final snapshotBody = snapshot.body;
     expect(snapshotBody, isNotNull);
     expect(snapshotBody, equals(request.body));

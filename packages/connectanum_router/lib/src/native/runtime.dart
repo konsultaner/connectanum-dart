@@ -192,6 +192,7 @@ class NativeHttpHandshake {
     required this.protocol,
     required this.version,
     required this.headers,
+    required this.headerValues,
     required this.duplicateHeaderNames,
     required this.body,
     required void Function() release,
@@ -219,11 +220,15 @@ class NativeHttpHandshake {
         ? const <String, String>{}
         : Map<String, String>.unmodifiable(Map<String, String>.from(headers));
     final seenHeaderNames = <String>{};
+    final resolvedHeaderValues = <String, List<String>>{};
     final resolvedDuplicateHeaderNames = <String>{
       for (final name in duplicateHeaderNames) name.toLowerCase(),
     };
     for (final name in resolvedHeaders.keys) {
       final normalized = name.toLowerCase();
+      resolvedHeaderValues
+          .putIfAbsent(normalized, () => <String>[])
+          .add(resolvedHeaders[name]!);
       if (!seenHeaderNames.add(normalized)) {
         resolvedDuplicateHeaderNames.add(normalized);
       }
@@ -242,6 +247,10 @@ class NativeHttpHandshake {
       protocol: protocol,
       version: version,
       headers: resolvedHeaders,
+      headerValues: Map<String, List<String>>.unmodifiable({
+        for (final entry in resolvedHeaderValues.entries)
+          entry.key: List<String>.unmodifiable(entry.value),
+      }),
       duplicateHeaderNames: Set<String>.unmodifiable(
         resolvedDuplicateHeaderNames,
       ),
@@ -259,6 +268,7 @@ class NativeHttpHandshake {
   final String protocol;
   final int version;
   final Map<String, String> headers;
+  final Map<String, List<String>> headerValues;
   final Set<String> duplicateHeaderNames;
   final NativeHttpRequestBody body;
   final String? query;
@@ -1306,6 +1316,7 @@ class _HttpHandshakeFields {
     required this.protocol,
     required this.version,
     required this.headers,
+    required this.headerValues,
     required this.duplicateHeaderNames,
     required this.body,
     required this.realm,
@@ -1320,6 +1331,7 @@ class _HttpHandshakeFields {
   final String protocol;
   final int version;
   final Map<String, String> headers;
+  final Map<String, List<String>> headerValues;
   final Set<String> duplicateHeaderNames;
   final Uint8List body;
   final String? realm;
@@ -2319,6 +2331,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
           protocol: data.protocol,
           version: data.version,
           headers: data.headers,
+          headerValues: data.headerValues,
           duplicateHeaderNames: data.duplicateHeaderNames,
           body: body,
           realm: data.realm,
@@ -2705,6 +2718,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         protocol: data.protocol,
         version: data.version,
         headers: data.headers,
+        headerValues: data.headerValues,
         duplicateHeaderNames: data.duplicateHeaderNames,
         body: body,
         realm: data.realm,
@@ -3149,6 +3163,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     final query = _decodeUtf8Nullable(info.queryPtr, info.queryLen);
     final protocol = _decodeUtf8(info.protocolPtr, info.protocolLen);
     final headers = <String, String>{};
+    final headerValues = <String, List<String>>{};
     final seenHeaderNames = <String>{};
     final duplicateHeaderNames = <String>{};
     for (var i = 0; i < info.headersLen; i++) {
@@ -3167,6 +3182,7 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
         final name = _decodeUtf8(header.namePtr, header.nameLen);
         final value = _decodeUtf8(header.valuePtr, header.valueLen);
         final normalizedName = name.toLowerCase();
+        headerValues.putIfAbsent(normalizedName, () => <String>[]).add(value);
         if (!seenHeaderNames.add(normalizedName)) {
           duplicateHeaderNames.add(normalizedName);
         }
@@ -3185,7 +3201,11 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
       query: query,
       protocol: protocol,
       version: info.version,
-      headers: headers,
+      headers: Map<String, String>.unmodifiable(headers),
+      headerValues: Map<String, List<String>>.unmodifiable({
+        for (final entry in headerValues.entries)
+          entry.key: List<String>.unmodifiable(entry.value),
+      }),
       duplicateHeaderNames: Set<String>.unmodifiable(duplicateHeaderNames),
       body: body,
       realm: realm,

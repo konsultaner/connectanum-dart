@@ -567,6 +567,22 @@ String? _mcpHeaderValue(
   return value == null || value.isEmpty ? null : value;
 }
 
+List<String> _mcpHeaderValues(
+  RouterBinding binding,
+  RouterHttpRequest request,
+  String name,
+) {
+  final values = request.headerValues[name.toLowerCase()];
+  if (values == null) {
+    final value = _mcpHeaderValue(binding, request, name);
+    return value == null ? const <String>[] : <String>[value];
+  }
+  return <String>[
+    for (final value in values)
+      if (value.trim().isNotEmpty) value.trim(),
+  ];
+}
+
 NativeHttpResponse? _mcpProtocolVersionHeaderMultiplicityError(
   RouterHttpRequest request, {
   required Map<String, String> extraHeaders,
@@ -754,46 +770,47 @@ List<_McpAcceptMediaRange> _mcpAcceptTypes(
   RouterBinding binding,
   RouterHttpRequest request,
 ) {
-  final accept = _mcpHeaderValue(binding, request, HttpHeaders.acceptHeader);
-  if (accept == null) {
-    return const <_McpAcceptMediaRange>[];
-  }
-
   final accepted = <_McpAcceptMediaRange>[];
-  for (final part in accept.split(',')) {
-    final segments = part.split(';');
-    final mediaType = segments.first.trim().toLowerCase();
-    if (mediaType.isEmpty) {
-      continue;
-    }
-
-    final slash = mediaType.indexOf('/');
-    final type = slash < 0 ? mediaType : mediaType.substring(0, slash).trim();
-    final subtype = slash < 0 ? '' : mediaType.substring(slash + 1).trim();
-    if (type.isEmpty || (slash >= 0 && subtype.isEmpty)) {
-      continue;
-    }
-
-    var quality = 1.0;
-    for (final parameter in segments.skip(1)) {
-      final separator = parameter.indexOf('=');
-      if (separator <= 0) {
+  for (final accept in _mcpHeaderValues(
+    binding,
+    request,
+    HttpHeaders.acceptHeader,
+  )) {
+    for (final part in accept.split(',')) {
+      final segments = part.split(';');
+      final mediaType = segments.first.trim().toLowerCase();
+      if (mediaType.isEmpty) {
         continue;
       }
-      final name = parameter.substring(0, separator).trim().toLowerCase();
-      if (name != 'q') {
+
+      final slash = mediaType.indexOf('/');
+      final type = slash < 0 ? mediaType : mediaType.substring(0, slash).trim();
+      final subtype = slash < 0 ? '' : mediaType.substring(slash + 1).trim();
+      if (type.isEmpty || (slash >= 0 && subtype.isEmpty)) {
         continue;
       }
-      final parsedQuality = double.tryParse(
-        parameter.substring(separator + 1).trim(),
-      );
-      if (parsedQuality != null) {
-        quality = parsedQuality;
-      }
-      break;
-    }
 
-    accepted.add(_McpAcceptMediaRange(type, subtype, quality));
+      var quality = 1.0;
+      for (final parameter in segments.skip(1)) {
+        final separator = parameter.indexOf('=');
+        if (separator <= 0) {
+          continue;
+        }
+        final name = parameter.substring(0, separator).trim().toLowerCase();
+        if (name != 'q') {
+          continue;
+        }
+        final parsedQuality = double.tryParse(
+          parameter.substring(separator + 1).trim(),
+        );
+        if (parsedQuality != null) {
+          quality = parsedQuality;
+        }
+        break;
+      }
+
+      accepted.add(_McpAcceptMediaRange(type, subtype, quality));
+    }
   }
   return accepted;
 }

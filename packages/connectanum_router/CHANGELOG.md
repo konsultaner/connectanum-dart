@@ -7,6 +7,9 @@
   statistics Meta APIs, lifecycle events, and router-opaque payload E2EE.
 - Add production router-hosted MCP endpoints, direct JSON access, auth/session
   isolation, pub/sub, Streamable HTTP compatibility, and operational metrics.
+- Preserve every case-insensitive native HTTP header field value on router
+  requests and negotiate split `Accept` fields as one list for router-hosted
+  MCP JSON/SSE and Streamable HTTP selection.
 - Preserve router-hosted MCP sessions across HTTP-auth access and refresh-token
   rotation while continuing to reject the rotated credentials.
 - Enforce positive realm `max_pending_auth` limits on router HTTP-auth

@@ -1,7 +1,6 @@
 # MCP Content-Type Header Multiplicity Validation
 
-Status: active; MCP implementation and local verification green, exact-head
-Router Image toolchain repair pending
+Status: completed
 
 ## Goal
 
@@ -97,3 +96,18 @@ rejection.
   native follow-up, consumer-package, installed-command, and Chrome/Dart2Wasm
   coverage. Publication, the repaired Router Image dry run, and the strict
   audit remain.
+- 2026-08-12: Toolchain-repair commit `fc62e6c5ef81` is published on both
+  maintained `master` remotes. Strict release-ready package validation again
+  passed all seven synchronized archives with zero warnings. Exact-head CI
+  `31642069646`, Dart Package Publish Dry Run `31642123332`, WAMP Profile
+  Benchmarks `31642125463`, and Router Image dry run `31642076746` all pass.
+  CI uploaded coverage artifact `9159878300`, WAMP uploaded artifact
+  `9159478975`, and Router Image uploaded preview artifact `9159248769` plus
+  Docker build records `9159390243` and `9159389744`. The repaired image job
+  passed the hook-aware local build, loaded router-hosted MCP smoke, and
+  multi-architecture dry-run build. The comprehensive strict deployment-chain
+  audit passes exact-head CI and log cleanliness, package, relevant native
+  release, Router Image, WAMP, workflow visibility, public router package,
+  branch protection, and release-readiness gates. Creating a follow-up numeric
+  RC tag remains an explicit release-approval decision and is not part of this
+  checkpoint.

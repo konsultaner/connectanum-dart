@@ -895,6 +895,33 @@ class _HttpFileRange {
   int get length => end - start + 1;
 }
 
+// Builds a case-insensitive, deeply immutable view of every field value.
+Map<String, List<String>> _immutableRouterHeaderValues(
+  Map<String, String> headers,
+  Map<String, List<String>>? headerValues,
+) {
+  final resolved = <String, List<String>>{};
+  for (final entry in headers.entries) {
+    resolved
+        .putIfAbsent(entry.key.toLowerCase(), () => <String>[])
+        .add(entry.value);
+  }
+  if (headerValues != null) {
+    final replacedNames = <String>{};
+    for (final entry in headerValues.entries) {
+      final normalizedName = entry.key.toLowerCase();
+      if (replacedNames.add(normalizedName)) {
+        resolved[normalizedName] = <String>[];
+      }
+      resolved[normalizedName]!.addAll(entry.value);
+    }
+  }
+  return Map<String, List<String>>.unmodifiable({
+    for (final entry in resolved.entries)
+      entry.key: List<String>.unmodifiable(entry.value),
+  });
+}
+
 /// Immutable snapshot of an HTTP request surfaced by the native runtime.
 class RouterHttpRequest {
   RouterHttpRequest({
@@ -906,6 +933,7 @@ class RouterHttpRequest {
     required this.protocol,
     required this.version,
     required Map<String, String> headers,
+    Map<String, List<String>>? headerValues,
     Set<String> duplicateHeaderNames = const <String>{},
     required NativeHttpRequestBody body,
     required this.handshakeHandle,
@@ -913,6 +941,7 @@ class RouterHttpRequest {
     this.realm,
     this.procedure,
   }) : headers = Map.unmodifiable(headers),
+       headerValues = _immutableRouterHeaderValues(headers, headerValues),
        duplicateHeaderNames = Set.unmodifiable(
          duplicateHeaderNames.map((name) => name.toLowerCase()),
        ),
@@ -926,6 +955,7 @@ class RouterHttpRequest {
   final String protocol;
   final int version;
   final Map<String, String> headers;
+  final Map<String, List<String>> headerValues;
   final Set<String> duplicateHeaderNames;
   final NativeHttpRequestBody _body;
   final int handshakeHandle;
@@ -948,6 +978,7 @@ class RouterHttpRequest {
     protocol: protocol,
     version: version,
     headers: headers,
+    headerValues: headerValues,
     nativeBody: _body,
     query: query,
     realm: realm,
