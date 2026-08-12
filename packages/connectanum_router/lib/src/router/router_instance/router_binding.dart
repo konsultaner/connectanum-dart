@@ -3607,7 +3607,22 @@ class RouterBinding {
       );
       return;
     }
-    final query = _httpQueryParameters(request);
+    late final ({Map<String, String> values, Set<String> duplicateKeys})
+    parsedQuery;
+    try {
+      parsedQuery = _httpQueryParameters(request);
+    } catch (error) {
+      if (error is! FormatException && error is! ArgumentError) {
+        rethrow;
+      }
+      await _sendInvalidHttpAuthParameterResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
+    final query = parsedQuery.values;
+    final duplicateQueryKeys = parsedQuery.duplicateKeys;
     final allowedMethods = sessionProfile?.auth.methods ?? const <String>[];
     if (allowedMethods.isEmpty) {
       await _sendImmediateHttpResponse(
@@ -3631,6 +3646,7 @@ class RouterBinding {
       bodyKeys: const <String>{'state', 'grant_type'},
       query: query,
       queryKeys: const <String>{'state', 'grant_type'},
+      duplicateQueryKeys: duplicateQueryKeys,
       headers: request.headers,
       headerNames: const <String>{
         'x-connectanum-auth-state',
@@ -3735,6 +3751,7 @@ class RouterBinding {
             handshake: handshake,
             body: body,
             query: query,
+            duplicateQueryKeys: duplicateQueryKeys,
             sessionProfile: sessionProfile,
             route: route,
             listenerSettings: listenerSettings,
@@ -3747,6 +3764,7 @@ class RouterBinding {
             handshake: handshake,
             body: body,
             query: query,
+            duplicateQueryKeys: duplicateQueryKeys,
           );
           return;
         default:
@@ -3771,6 +3789,7 @@ class RouterBinding {
       bodyKeys: const <String>{'realm', 'authmethod', 'authid'},
       query: query,
       queryKeys: const <String>{'realm', 'authmethod', 'authid'},
+      duplicateQueryKeys: duplicateQueryKeys,
       headers: request.headers,
       headerNames: const <String>{
         'x-connectanum-realm',
@@ -4662,6 +4681,7 @@ class RouterBinding {
     required NativeHttpHandshake? handshake,
     required Map<String, Object?> body,
     required Map<String, String> query,
+    required Set<String> duplicateQueryKeys,
     required SessionProfileSettings? sessionProfile,
     required HttpRouteSettings route,
     required ListenerSettings? listenerSettings,
@@ -4671,6 +4691,7 @@ class RouterBinding {
       bodyKeys: const <String>{'refresh_token', 'token'},
       query: query,
       queryKeys: const <String>{'refresh_token'},
+      duplicateQueryKeys: duplicateQueryKeys,
     )) {
       await _sendInvalidHttpAuthParameterResponse(
         request: request,
@@ -4883,12 +4904,14 @@ class RouterBinding {
     required NativeHttpHandshake? handshake,
     required Map<String, Object?> body,
     required Map<String, String> query,
+    required Set<String> duplicateQueryKeys,
   }) async {
     if (_hasInvalidHttpAuthStringSources(
       body: body,
       bodyKeys: const <String>{'token', 'refresh_token', 'token_type_hint'},
       query: query,
       queryKeys: const <String>{'token', 'token_type_hint'},
+      duplicateQueryKeys: duplicateQueryKeys,
       headers: request.headers,
       headerNames: const <String>{'x-connectanum-token-type-hint'},
     )) {
@@ -5211,12 +5234,35 @@ class RouterBinding {
     throw FormatException('HTTP auth body must decode to a JSON object');
   }
 
-  Map<String, String> _httpQueryParameters(RouterHttpRequest request) {
+  ({Map<String, String> values, Set<String> duplicateKeys})
+  _httpQueryParameters(RouterHttpRequest request) {
     final query = request.query;
     if (query == null || query.isEmpty) {
-      return const <String, String>{};
+      return (
+        values: const <String, String>{},
+        duplicateKeys: const <String>{},
+      );
     }
-    return Uri.splitQueryString(query);
+
+    final values = <String, String>{};
+    final duplicateKeys = <String>{};
+    for (final field in query.split('&')) {
+      if (field.isEmpty) {
+        continue;
+      }
+      final separator = field.indexOf('=');
+      final key = Uri.decodeQueryComponent(
+        separator < 0 ? field : field.substring(0, separator),
+      );
+      final value = Uri.decodeQueryComponent(
+        separator < 0 ? '' : field.substring(separator + 1),
+      );
+      if (values.containsKey(key)) {
+        duplicateKeys.add(key);
+      }
+      values[key] = value;
+    }
+    return (values: values, duplicateKeys: duplicateKeys);
   }
 
   String? _headerValue(Map<String, String> headers, String name) {
@@ -5259,6 +5305,7 @@ class RouterBinding {
     Iterable<String> bodyKeys = const <String>[],
     Map<String, String> query = const <String, String>{},
     Iterable<String> queryKeys = const <String>[],
+    Set<String> duplicateQueryKeys = const <String>{},
     Map<String, String> headers = const <String, String>{},
     Iterable<String> headerNames = const <String>[],
   }) {
@@ -5272,7 +5319,8 @@ class RouterBinding {
       }
     }
     for (final key in queryKeys) {
-      if (query.containsKey(key) && query[key]!.trim().isEmpty) {
+      if (duplicateQueryKeys.contains(key) ||
+          (query.containsKey(key) && query[key]!.trim().isEmpty)) {
         return true;
       }
     }

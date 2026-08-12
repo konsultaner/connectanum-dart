@@ -6769,6 +6769,7 @@ void main() {
         required Map<String, Object?> body,
         Map<String, String> headers = const <String, String>{},
         String target = '/auth',
+        String? query,
       }) async {
         final connectionId = nextConnectionId++;
         _enqueueSyntheticHttpRequest(
@@ -6778,7 +6779,7 @@ void main() {
           handle: connectionId + 1000,
           method: 'POST',
           target: target,
-          query: Uri.parse(target).query,
+          query: query ?? Uri.parse(target).query,
           headers: <String, String>{
             'content-type': 'application/json',
             ...headers,
@@ -6890,6 +6891,26 @@ void main() {
         );
       }
 
+      expectInvalidParameter(
+        await postAuth(
+          body: const <String, Object?>{
+            'authmethod': 'ticket',
+            'authid': 'user-1',
+          },
+          query: 'realm=realm1&realm=realm2',
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: const <String, Object?>{
+            'realm': 'realm1',
+            'authmethod': 'ticket',
+            'authid': 'user-1',
+          },
+          query: 'realm=%',
+        ),
+      );
+
       final challenge = await postAuth(
         body: const <String, Object?>{
           'realm': 'realm1',
@@ -6934,6 +6955,16 @@ void main() {
             'extra': authenticate.extra,
           },
           target: '/auth?state=%20',
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'signature': authenticate.signature,
+            'extra': authenticate.extra,
+          },
+          query:
+              'state=${Uri.encodeQueryComponent(state)}&state=${Uri.encodeQueryComponent(state)}',
         ),
       );
       expectInvalidParameter(
@@ -7014,6 +7045,13 @@ void main() {
           },
         ),
       );
+      expectInvalidParameter(
+        await postAuth(
+          body: const <String, Object?>{'grant_type': 'refresh_token'},
+          query:
+              'refresh_token=${Uri.encodeQueryComponent(refreshToken)}&refresh_token=${Uri.encodeQueryComponent(refreshToken)}',
+        ),
+      );
 
       final refreshed = await postAuth(
         body: <String, Object?>{
@@ -7021,6 +7059,7 @@ void main() {
           'refresh_token': refreshToken,
           'signature': false,
         },
+        query: 'realm=ignored-a&realm=ignored-b',
       );
       expect(refreshed.status, HttpStatus.ok);
       final refreshedToken =
@@ -7066,6 +7105,15 @@ void main() {
             'token_type_hint': 'refresh_token',
           },
           headers: const <String, String>{'x-connectanum-token-type-hint': ' '},
+        ),
+      );
+      expectInvalidParameter(
+        await postAuth(
+          body: <String, Object?>{
+            'grant_type': 'revoke',
+            'token': refreshedToken,
+          },
+          query: 'token_type_hint=refresh_token&token_type_hint=refresh_token',
         ),
       );
 

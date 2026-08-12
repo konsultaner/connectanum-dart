@@ -24999,6 +24999,33 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - Active now, the implementation plan is:
+  `docs/exec-plans/2026-08-12-mcp-http-auth-query-validation.md`.
+  Router-provided HTTP authentication previously collapsed repeated query keys
+  into one scalar before source-conflict validation, while malformed percent
+  encoding escaped without an HTTP response. Fail-first lifecycle coverage
+  reproduced a repeated initial realm reaching a realm-dependent HTTP 404 and
+  malformed encoding timing out instead of returning the generic HTTP 400.
+  Strict query parsing now retains duplicate-key evidence, rejects malformed
+  decoding, and applies repeated-key validation to operation selectors,
+  initial realm/method/identity, refresh credentials, and revocation
+  credentials/hints only when relevant to the selected operation. Rejections
+  use the generic, state/token-free HTTP 400 `invalid_auth_parameter` response
+  before mutation, while unrelated repeated keys remain ignored. Pre-change
+  `bin/test-fast` passed the complete core, MCP, client/auth, benchmark,
+  router-hosted consumer, packaging, installed-command, and native follow-up
+  matrix, including all 96 benchmark cases and 36 live WAMP workloads. Router
+  analysis and focused selector-source, malformed-value, refresh, and revoke
+  regressions pass. Shell syntax and the neutral installed-router consumer
+  smoke pass; the consumer reports `authQueryValidation: true`, proves repeated
+  state rejection preserves pending capacity, and completes the legitimate
+  challenge before continuing through protected MCP, direct JSON, pub/sub,
+  refresh/revoke, and Streamable HTTP paths. Full `bin/verify` passes formatting
+  and analysis, 114 Rust core tests, 52 FFI tests, all 360 Dart core tests, all
+  101 MCP tests, the 280-case client/MCP matrix, all 96 benchmark cases and 36
+  live WAMP workloads, all 434 router tests, six isolated remote-auth
+  integrations, 13 native follow-ups, every neutral consumer and
+  installed-command smoke, and Chrome/Dart2Wasm coverage. Publication remains.
+- Completed now, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-blank-parameter-validation.md`.
   Router-provided HTTP authentication still trimmed and ignored explicitly
   blank string parameters while selecting non-empty aliases from another JSON,
@@ -25023,7 +25050,16 @@ at the older `47bbf9c` commit.
   280-case client/MCP matrix, all 96 benchmark cases and 36 live WAMP
   workloads, all 434 router tests, six isolated remote-auth integrations, 13
   native follow-ups, every neutral consumer and installed-command smoke, and
-  Chrome/Dart2Wasm coverage. Publication remains.
+  Chrome/Dart2Wasm coverage. Commit `52c25ec2` is published to both maintained
+  `master` branches. Exact-head GitHub CI `31561210953`, Dart Package Publish
+  Dry Run `31561210949`, WAMP Profile Benchmarks `31561210948`, and dispatched
+  Router Image dry run `31561219834` all pass. Retained artifacts are Dart VM
+  coverage `9128110370`, WAMP evidence `9127920561`, Router Image preview
+  `9127785643`, and Docker build records `9127863199` / `9127862880`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI logs, loaded-image MCP runtime smoke, relevant native-release evidence,
+  and every required deployment gate ready. RC creation remains an explicit
+  release-approval action outside this checkpoint.
 - Completed now, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-parameter-type-validation.md`.
   Router-provided HTTP authentication previously ignored explicitly present
