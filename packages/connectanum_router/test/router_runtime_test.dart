@@ -9253,6 +9253,62 @@ void main() {
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
+        connectionId: 79,
+        handle: 39,
+        method: 'DELETE',
+        target: '/mcp/secure',
+        headers: {
+          'MCP-Session-Id': mcpSessionId,
+          'MCP-Protocol-Version': '2025-11-25',
+          'mcp-protocol-version': '2026-07-28',
+        },
+        body: null,
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[79]?.isNotEmpty ?? false);
+      final unauthenticatedRepeatedProtocol = runtime.httpResponses[79]!.single;
+      expect(
+        unauthenticatedRepeatedProtocol.status,
+        HttpStatus.unauthorized,
+      );
+      expect(
+        unauthenticatedRepeatedProtocol.headers,
+        isNot(contains('MCP-Session-Id')),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 80,
+        handle: 40,
+        method: 'DELETE',
+        target: '/mcp/secure',
+        headers: {
+          'authorization': 'Bearer ${firstGrant.accessToken}',
+          'MCP-Session-Id': mcpSessionId,
+          'MCP-Protocol-Version': '2025-11-25',
+          'mcp-protocol-version': '2026-07-28',
+        },
+        body: null,
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[80]?.isNotEmpty ?? false);
+      final authenticatedRepeatedProtocol = runtime.httpResponses[80]!.single;
+      expect(authenticatedRepeatedProtocol.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(authenticatedRepeatedProtocol).toString(),
+        contains('Invalid MCP-Protocol-Version header'),
+      );
+      expect(
+        authenticatedRepeatedProtocol.headers,
+        isNot(contains('MCP-Session-Id')),
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
         connectionId: 78,
         handle: 38,
         method: 'POST',

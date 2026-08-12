@@ -1,6 +1,7 @@
 # MCP Session Header Multiplicity Validation
 
-Status: active; implementation and local verification green, hosted evidence pending
+Status: complete; implementation, local verification, and exact-head hosted
+evidence green
 
 ## Goal
 
@@ -78,3 +79,19 @@ boundary without weakening the established authentication precedence.
   follow-ups, every generated and installed consumer smoke, and
   Chrome/Dart2Wasm. The repaired checkpoint is ready to publish; a fresh
   exact-head hosted chain and the strict deployment-chain audit remain.
+- 2026-08-12: Repair commit `ceacac7c5141` reached both maintained `master`
+  branches and the clean-commit strict package gate again passed all seven
+  synchronized `3.0.0-beta` archives with zero warnings. Exact-head CI
+  `31616008117` passed Fast Checks, Full Verify, Dart VM Coverage, Codecov
+  upload, and coverage artifact `9149903984`. Dart Package Publish Dry Run
+  `31616008120` and WAMP Profile Benchmarks `31616008129` passed; the WAMP
+  run uploaded artifact `9149490364`.
+- 2026-08-12: Exact-head Router Image dry run `31617676907` passed loaded-image
+  router-hosted MCP smoke and multi-architecture build validation. It uploaded
+  preview artifact `9149937044` and Docker build records `9150077924` and
+  `9150077263`. The comprehensive strict deployment-chain audit exits zero
+  with clean exact-head CI logs and every required branch, workflow, public
+  package, unchanged native-release relevance, loaded-image MCP,
+  multi-architecture image, package-publish, and benchmark gate clean. Its
+  non-gating RC summary remains intentionally not ready because no approved
+  current-head RC publication was requested.

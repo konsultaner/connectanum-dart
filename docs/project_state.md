@@ -24374,6 +24374,24 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-12: Router-hosted MCP now rejects normalized repeated
+  `MCP-Protocol-Version` field names after protected-route authentication and
+  before protocol or session validation, lookup, dispatch, or deletion. A
+  fail-first authenticated DELETE reproduced HTTP 202 and removal of the live
+  compatibility session when a supported version preceded a conflicting
+  case-variant stateless version; the corrected path returns sessionless HTTP
+  400 with canonical JSON-RPC text, while missing credentials retain HTTP 401
+  precedence. Synthetic and real native HTTP tests plus the neutral isolated
+  installed/global router consumer cover POST, GET, and DELETE and prove the
+  original session remains usable. Pre-change `bin/test-fast`, focused router
+  analysis and regression tests, shell syntax, diff hygiene, the 69-case native
+  integration run, and the router CLI consumer package smoke pass. Full
+  `bin/verify` also passes with zero formatting changes, 114 Rust core tests,
+  52 Rust FFI tests, 360 Dart core tests, 101 MCP tests, the complete 280-case
+  client/MCP matrix, all 97 benchmark cases and 37 live WAMP workloads, all 436
+  router tests, six remote-auth integrations, 13 native follow-ups, every
+  generated and installed consumer smoke, and Chrome/Dart2Wasm. Exact-head
+  hosted deployment evidence remains for the implementation checkpoint.
 - 2026-08-10: Active router-hosted MCP hardening now routes configured
   `HttpRouteMatch.methods` and `HttpRouteMatch.protocols` mismatches through
   the MCP ingress boundary. Fail-first native coverage reproduced public
@@ -24998,7 +25016,22 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active implementation plan is
+- No implementation plan is active. The most recently completed plan is
+  `docs/exec-plans/2026-08-12-mcp-protocol-header-multiplicity-validation.md`.
+  Native HTTP retains normalized duplicate-header-name evidence, but
+  router-hosted MCP previously selected one scalar `MCP-Protocol-Version`
+  before deciding whether a request was modern/stateless or
+  compatibility/session based. Router-hosted MCP now rejects repeated
+  protocol-version names after
+  route-principal authentication and before protocol/session validation,
+  endpoint lookup, or session mutation. It preserves earlier Origin,
+  Authorization, CORS preflight, and Protected Resource Metadata boundaries
+  and real/native plus isolated installed-consumer POST, GET, and DELETE
+  coverage proves rejection does not lose the original live session.
+  Pre-change `bin/test-fast`, focused tests, router analysis, shell syntax,
+  diff hygiene, and full `bin/verify` pass. Exact-head hosted deployment
+  evidence remains.
+- Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-session-header-multiplicity-validation.md`.
   Native HTTP retains normalized duplicate-header-name evidence, but
   router-hosted MCP previously selected one scalar `MCP-Session-Id` before
@@ -25029,8 +25062,19 @@ at the older `47bbf9c` commit.
   client/MCP suite, all 97 benchmark cases and 37 live WAMP workloads, all 436
   router tests, six remote-auth integrations, 13 native follow-ups, every
   generated and installed consumer smoke, and Chrome/Dart2Wasm. The repaired
-  checkpoint is ready to publish; a fresh exact-head hosted chain and the
-  strict deployment-chain audit remain.
+  checkpoint reached both maintained `master` branches in repair commit
+  `ceacac7c5141`, and the clean-commit strict package gate again passes all
+  seven synchronized `3.0.0-beta` archives with zero warnings. Exact-head CI
+  `31616008117`, Dart Package Publish Dry Run `31616008120`, WAMP Profile
+  Benchmarks `31616008129`, and Router Image dry run `31617676907` all pass.
+  CI uploaded coverage artifact `9149903984`, WAMP uploaded artifact
+  `9149490364`, and Router Image uploaded preview artifact `9149937044` plus
+  Docker build records `9150077924` and `9150077263`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head CI logs and every
+  required branch, workflow, public package, unchanged native-release
+  relevance, loaded-image MCP, multi-architecture image, package-publish, and
+  benchmark gate clean. Its non-gating RC summary remains intentionally not
+  ready because no approved current-head RC publication was requested.
 - Completed immediately before that, the implementation plan is
   `docs/exec-plans/2026-08-12-mcp-origin-header-multiplicity-validation.md`.
   Native HTTP retains normalized duplicate-header-name evidence, but MCP

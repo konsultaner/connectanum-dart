@@ -13709,6 +13709,65 @@ void main() {
               ? 'text/event-stream'
               : 'application/json, text/event-stream',
           HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+          'MCP-Session-Id': activeSecureJsonSessionId,
+          'Mcp-Method': 'tools/list',
+        };
+        final repeatedHeaders = <String, List<String>>{
+          'MCP-Protocol-Version': <String>['2025-11-25', '2026-07-28'],
+        };
+        final response = switch (method) {
+          'POST' => await _postJson(
+            client,
+            listener.port,
+            '/mcp/secure-json-post',
+            <String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 'secure-json-post-repeated-protocol-post',
+              'method': 'tools/list',
+              'params': <String, Object?>{},
+            },
+            headers: headers,
+            repeatedHeaders: repeatedHeaders,
+          ),
+          'GET' => await _getHttp(
+            client,
+            listener.port,
+            '/mcp/secure-json-post',
+            headers: headers,
+            repeatedHeaders: repeatedHeaders,
+          ),
+          'DELETE' => await _deleteHttp(
+            client,
+            listener.port,
+            '/mcp/secure-json-post',
+            headers: headers,
+            repeatedHeaders: repeatedHeaders,
+          ),
+          _ => throw StateError('Unexpected HTTP method $method'),
+        };
+        expect(
+          response.statusCode,
+          HttpStatus.badRequest,
+          reason: '$method repeated MCP protocol header status',
+        );
+        expect(
+          response.body,
+          contains('Invalid MCP-Protocol-Version header'),
+          reason: '$method repeated MCP protocol header body',
+        );
+        expect(
+          response.headers,
+          isNot(contains('mcp-session-id')),
+          reason: '$method repeated MCP protocol response headers',
+        );
+      }
+
+      for (final method in const <String>['POST', 'GET', 'DELETE']) {
+        final headers = <String, String>{
+          HttpHeaders.acceptHeader: method == 'GET'
+              ? 'text/event-stream'
+              : 'application/json, text/event-stream',
+          HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
           'MCP-Protocol-Version': '2025-11-25',
           'Mcp-Method': 'tools/list',
         };

@@ -567,6 +567,24 @@ String? _mcpHeaderValue(
   return value == null || value.isEmpty ? null : value;
 }
 
+NativeHttpResponse? _mcpProtocolVersionHeaderMultiplicityError(
+  RouterHttpRequest request, {
+  required Map<String, String> extraHeaders,
+}) {
+  if (!request.duplicateHeaderNames.contains(
+    _mcpProtocolVersionHeader.toLowerCase(),
+  )) {
+    return null;
+  }
+  return _mcpJsonRpcHttpError(
+    status: HttpStatus.badRequest,
+    code: mcp.McpErrorCodes.invalidRequest,
+    message: 'Invalid MCP-Protocol-Version header',
+    protocolVersion: mcp.mcpLatestStatelessProtocolVersion,
+    extraHeaders: extraHeaders,
+  );
+}
+
 NativeHttpResponse? _mcpSessionIdHeaderMultiplicityError(
   RouterHttpRequest request, {
   required String protocolVersion,
@@ -1883,6 +1901,20 @@ Future<void> _handleMcpHttpRequestForBinding(
           if (error.message != null) 'message': error.message,
         }),
       ),
+    );
+    return;
+  }
+
+  final protocolHeaderMultiplicityError =
+      _mcpProtocolVersionHeaderMultiplicityError(
+        request,
+        extraHeaders: corsHeaders,
+      );
+  if (protocolHeaderMultiplicityError != null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: protocolHeaderMultiplicityError,
     );
     return;
   }
