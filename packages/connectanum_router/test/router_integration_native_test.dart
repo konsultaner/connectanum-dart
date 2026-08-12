@@ -12983,6 +12983,38 @@ void main() {
       );
 
       final metadataOrigin = 'http://127.0.0.1:${listener.port}';
+      final repeatedOrigin = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure',
+        const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'secure-repeated-origin',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: const <String, String>{
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+        },
+        repeatedHeaders: <String, List<String>>{
+          'Origin': <String>[
+            metadataOrigin,
+            'https://rejected.example',
+          ],
+        },
+      );
+      expect(repeatedOrigin.statusCode, HttpStatus.forbidden);
+      expect(
+        repeatedOrigin.json?['error'],
+        containsPair('message', 'Invalid Origin for MCP endpoint'),
+      );
+      expect(
+        repeatedOrigin.headers,
+        isNot(contains('access-control-allow-origin')),
+      );
+      expect(repeatedOrigin.headers, isNot(contains('mcp-session-id')));
+      expect(repeatedOrigin.headers, isNot(contains('www-authenticate')));
+
       final repeatedAuthorization = await _postJson(
         client,
         listener.port,

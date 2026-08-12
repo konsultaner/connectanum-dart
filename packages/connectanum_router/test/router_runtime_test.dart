@@ -4894,6 +4894,41 @@ void main() {
     }
 
     enqueueMcpRequest(
+      connectionId: 60,
+      handle: 19,
+      method: 'POST',
+      headers: const {
+        'Origin': 'https://agent.example',
+        'origin': 'https://rejected.example',
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+      },
+      body: Uint8List.fromList(
+        utf8.encode(
+          '{"jsonrpc":"2.0","id":"repeated-origin","method":"tools/list","params":{}}',
+        ),
+      ),
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[60]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final repeatedOrigin = runtime.httpResponses[60]!.single;
+    expect(repeatedOrigin.status, HttpStatus.forbidden);
+    expect(
+      repeatedOrigin.headers,
+      isNot(contains('Access-Control-Allow-Origin')),
+    );
+    expect(repeatedOrigin.headers, isNot(contains('www-authenticate')));
+    expect(repeatedOrigin.headers, isNot(contains('x-ratelimit-limit')));
+    expect(repeatedOrigin.headers, isNot(contains('MCP-Session-Id')));
+    expect(
+      _jsonResponseBody(repeatedOrigin)['error'],
+      containsPair('message', 'Invalid Origin for MCP endpoint'),
+    );
+
+    enqueueMcpRequest(
       connectionId: 55,
       handle: 14,
       method: 'POST',

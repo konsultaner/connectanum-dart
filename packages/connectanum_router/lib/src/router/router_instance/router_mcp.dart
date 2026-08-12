@@ -877,6 +877,9 @@ bool _mcpOriginAllowed(
   RouterHttpRequest request,
   HttpRouteSettings route,
 ) {
+  if (request.duplicateHeaderNames.contains('origin')) {
+    return false;
+  }
   final origin = _mcpHeaderValue(binding, request, 'origin');
   if (origin == null) {
     return true;
