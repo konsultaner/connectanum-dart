@@ -9781,6 +9781,11 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
       authId: _otherTicketAuthId,
       ticket: _otherTicketSecret,
     );
+    await _smokeMcpAuthorizationHeaderMultiplicity(
+      binding,
+      grant,
+      otherGrant,
+    );
     await _smokeMcpOriginPolicy(binding, grant);
     await _smokeMcpCorsPreflight(binding, serviceSession, grant);
     await _smokeSecureJsonPostMcpRoute(
@@ -12575,6 +12580,36 @@ Future<void> _smokeRateLimitedMcpRoute(RouterBinding binding) async {
       );
     }
 
+    final repeatedAuthorization = await _mcpRawDirectJsonRpcResponse(
+      client,
+      endpoint,
+      const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'rate-limited-repeated-authorization',
+        'method': 'tools/list',
+      },
+      repeatedHeaders: const <String, List<String>>{
+        'Authorization': <String>[
+          'Bearer repeated-first',
+          'Bearer repeated-second',
+        ],
+      },
+    );
+    _assertMcpCorsErrorResponse(
+      repeatedAuthorization,
+      expectedStatus: HttpStatus.badRequest,
+      label: 'rate-limited repeated Authorization',
+      expectNoSession: true,
+      bodyContains: 'Invalid Authorization header',
+    );
+    if (repeatedAuthorization.header('x-ratelimit-limit') != null ||
+        repeatedAuthorization.header('www-authenticate') != null) {
+      throw StateError(
+        'MCP repeated Authorization rejection reached rate-limit or '
+        'authentication state.',
+      );
+    }
+
     final toolsId = 'rate-limited-direct-tools';
     final tools = await _mcpRawDirectJsonRpc(
       client,
@@ -12728,6 +12763,70 @@ Future<void> _smokeRateLimitedMcpRoute(RouterBinding binding) async {
     if (deleteSession.header('x-ratelimit-limit') != null) {
       throw StateError(
         'MCP rate-limited Streamable DELETE was still rate limited.',
+      );
+    }
+  } finally {
+    client.close(force: true);
+  }
+}
+
+Future<void> _smokeMcpAuthorizationHeaderMultiplicity(
+  RouterBinding binding,
+  ConnectanumHttpAuthGrant grant,
+  ConnectanumHttpAuthGrant otherGrant,
+) async {
+  final client = HttpClient();
+  final endpoint = _mcpEndpoint(binding, secure: true);
+  try {
+    final repeatedAuthorization = await _mcpRawDirectJsonRpcResponse(
+      client,
+      endpoint,
+      const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'secure-repeated-authorization',
+        'method': 'tools/list',
+      },
+      repeatedHeaders: <String, List<String>>{
+        'Authorization': <String>[
+          'Bearer ${grant.accessToken}',
+          'Bearer ${otherGrant.accessToken}',
+        ],
+      },
+    );
+    _assertMcpCorsErrorResponse(
+      repeatedAuthorization,
+      expectedStatus: HttpStatus.badRequest,
+      label: 'secure repeated Authorization',
+      expectNoSession: true,
+      bodyContains: 'Invalid Authorization header',
+    );
+    if (repeatedAuthorization.header('www-authenticate') != null) {
+      throw StateError(
+        'MCP repeated Authorization rejection selected an authentication '
+        'challenge.',
+      );
+    }
+
+    const recoveryId = 'secure-repeated-authorization-recovery';
+    final recovery = await _mcpRawDirectJsonRpc(
+      client,
+      endpoint,
+      const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': recoveryId,
+        'method': 'tools/list',
+      },
+      label: 'secure repeated Authorization recovery',
+      bearerToken: grant.accessToken,
+    );
+    final tools = _jsonRpcResult(
+      recovery,
+      id: recoveryId,
+      label: 'MCP secure repeated Authorization recovery',
+    )['tools'];
+    if (tools is! List || tools.isEmpty) {
+      throw StateError(
+        'MCP repeated Authorization rejection damaged valid direct access.',
       );
     }
   } finally {
@@ -14564,6 +14663,8 @@ Future<_McpRawHttpResponse> _mcpRawDirectJsonRpcResponse(
   Object? message, {
   String? sessionId,
   String? bearerToken,
+  Map<String, List<String>> repeatedHeaders =
+      const <String, List<String>>{},
 }) async {
   final request = await client.postUrl(endpoint);
   request.headers.set('Accept', 'application/json');
@@ -14573,6 +14674,12 @@ Future<_McpRawHttpResponse> _mcpRawDirectJsonRpcResponse(
   }
   if (bearerToken != null) {
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $bearerToken');
+  }
+  for (final MapEntry(:key, :value) in repeatedHeaders.entries) {
+    request.headers.noFolding(key);
+    for (final headerValue in value) {
+      request.headers.add(key, headerValue, preserveHeaderCase: true);
+    }
   }
   request.headers.contentType = ContentType.json;
   final body = utf8.encode(jsonEncode(message));

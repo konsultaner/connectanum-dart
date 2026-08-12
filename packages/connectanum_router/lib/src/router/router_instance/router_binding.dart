@@ -1926,6 +1926,18 @@ class RouterBinding {
       }
       return;
     }
+    final authorizationHeaderMultiplicityError = mcpRoute != null
+        ? _mcpAuthorizationHeaderMultiplicityError(this, request, mcpRoute)
+        : null;
+    if (authorizationHeaderMultiplicityError != null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: authorizationHeaderMultiplicityError,
+      );
+      retainedHandshake?.release();
+      return;
+    }
     final rateLimitDecision = mcpRoute != null && httpMethod == 'DELETE'
         ? null
         : _evaluateHttpRouteRateLimit(

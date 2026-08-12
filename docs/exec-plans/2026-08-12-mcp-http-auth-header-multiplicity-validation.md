@@ -1,6 +1,6 @@
 # MCP HTTP-Auth Header Multiplicity Validation
 
-Status: implementation complete; local verification green; publication pending
+Status: complete; local and exact-head hosted verification green
 
 ## Goal
 
@@ -65,5 +65,17 @@ fail closed.
 - 2026-08-12: Post-change `bin/verify` passes the complete matrix at 436 router
   tests, 360 core tests, 101 MCP tests, 280 client/MCP tests, all 96 benchmark
   cases and 36 live WAMP workloads, six remote-auth integrations, all neutral
-  and installed consumers, native follow-ups, and Chrome/Dart2Wasm. Publication
-  and exact-head hosted evidence remain.
+  and installed consumers, native follow-ups, and Chrome/Dart2Wasm.
+- 2026-08-12: Implementation commit `1a83ae305e8a` reached both maintained
+  `master` branches. The clean-commit strict package gate passes all seven
+  synchronized `3.0.0-beta` archives with zero warnings. Exact-head CI
+  `31591904139`, package dry run `31591904132`, WAMP profile benchmarks
+  `31591904162`, and Router Image dry run `31591960069` all pass. CI uploaded
+  coverage artifact `9140003339`, WAMP uploaded artifact `9139674308`, and
+  Router Image uploaded preview artifact `9139488545` plus Docker build records
+  `9139608841` and `9139608203`. The comprehensive strict deployment-chain
+  audit exits zero with clean exact-head CI logs and every required branch,
+  workflow, public package, unchanged native-release relevance, loaded-image
+  MCP, multi-architecture image, package-publish, and benchmark gate clean. The
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation head.

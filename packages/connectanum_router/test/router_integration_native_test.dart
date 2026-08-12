@@ -12982,6 +12982,43 @@ void main() {
         ),
       );
 
+      final metadataOrigin = 'http://127.0.0.1:${listener.port}';
+      final repeatedAuthorization = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure',
+        const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'secure-repeated-authorization',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: <String, String>{
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'origin': metadataOrigin,
+        },
+        repeatedHeaders: const <String, List<String>>{
+          'Authorization': <String>[
+            'Bearer repeated-first',
+            'Bearer repeated-second',
+          ],
+        },
+      );
+      expect(repeatedAuthorization.statusCode, HttpStatus.badRequest);
+      expect(
+        repeatedAuthorization.json?['error'],
+        containsPair('message', 'Invalid Authorization header'),
+      );
+      expect(
+        repeatedAuthorization.headers['access-control-allow-origin'],
+        metadataOrigin,
+      );
+      expect(repeatedAuthorization.headers, isNot(contains('mcp-session-id')));
+      expect(
+        repeatedAuthorization.headers,
+        isNot(contains('www-authenticate')),
+      );
+
       final metadataRequest = await client.get(
         '127.0.0.1',
         listener.port,
@@ -12991,7 +13028,6 @@ void main() {
         HttpHeaders.acceptHeader,
         ContentType.json.mimeType,
       );
-      final metadataOrigin = 'http://127.0.0.1:${listener.port}';
       metadataRequest.headers.set('origin', metadataOrigin);
       final metadataResponse = await _readJsonHttpResponse(
         await metadataRequest.close(),
@@ -16607,10 +16643,17 @@ _postJson(
   String path,
   Map<String, Object?> payload, {
   Map<String, String> headers = const <String, String>{},
+  Map<String, List<String>> repeatedHeaders = const <String, List<String>>{},
 }) async {
   final request = await client.post('127.0.0.1', port, path);
   request.headers.contentType = ContentType.json;
   headers.forEach(request.headers.set);
+  for (final MapEntry(:key, :value) in repeatedHeaders.entries) {
+    request.headers.noFolding(key);
+    for (final headerValue in value) {
+      request.headers.add(key, headerValue, preserveHeaderCase: true);
+    }
+  }
   final bodyBytes = utf8.encode(jsonEncode(payload));
   request.contentLength = bodyBytes.length;
   request.add(bodyBytes);

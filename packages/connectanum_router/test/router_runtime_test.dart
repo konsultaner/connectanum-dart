@@ -4875,6 +4875,7 @@ void main() {
       int connectionId,
       int handle, {
       String origin = 'https://agent.example',
+      bool repeatedAuthorization = false,
     }) {
       enqueueMcpRequest(
         connectionId: connectionId,
@@ -4884,6 +4885,10 @@ void main() {
           'origin': origin,
           'access-control-request-method': 'POST',
           'access-control-request-headers': 'MCP-Protocol-Version',
+          if (repeatedAuthorization) ...const <String, String>{
+            'Authorization': 'Bearer preflight-first',
+            'authorization': 'Bearer preflight-second',
+          },
         },
       );
     }
@@ -4897,6 +4902,8 @@ void main() {
         'accept': 'application/json, text/event-stream',
         'content-type': 'application/json',
         'mcp-protocol-version': '2025-11-25',
+        'Authorization': 'Bearer rejected-origin-first',
+        'authorization': 'Bearer rejected-origin-second',
       },
     );
     await _waitUntil(
@@ -4908,6 +4915,63 @@ void main() {
     expect(rejectedBeforeAuth.headers, isNot(contains('www-authenticate')));
     expect(rejectedBeforeAuth.headers, isNot(contains('x-ratelimit-limit')));
 
+    const repeatedAuthorizationMethods = <String>['POST', 'GET', 'DELETE'];
+    for (var index = 0; index < repeatedAuthorizationMethods.length; index++) {
+      final method = repeatedAuthorizationMethods[index];
+      final connectionId = 56 + index;
+      enqueueMcpRequest(
+        connectionId: connectionId,
+        handle: 15 + index,
+        method: method,
+        headers: <String, String>{
+          'origin': 'https://agent.example',
+          'accept': method == 'GET'
+              ? 'text/event-stream'
+              : 'application/json, text/event-stream',
+          if (method == 'POST') 'content-type': 'application/json',
+          'mcp-session-id': 'caller-repeated-authorization-$method',
+          'mcp-protocol-version': '2025-11-25',
+          'Authorization': 'Bearer duplicate-first',
+          'authorization': 'Bearer duplicate-second',
+        },
+      );
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 2),
+      );
+      final repeatedAuthorization = runtime.httpResponses[connectionId]!.single;
+      expect(
+        repeatedAuthorization.status,
+        HttpStatus.badRequest,
+        reason: '$method repeated Authorization status',
+      );
+      expect(
+        repeatedAuthorization.headers['Access-Control-Allow-Origin'],
+        'https://agent.example',
+        reason: '$method repeated Authorization CORS origin',
+      );
+      expect(
+        repeatedAuthorization.headers,
+        isNot(contains('www-authenticate')),
+        reason: '$method repeated Authorization challenge',
+      );
+      expect(
+        repeatedAuthorization.headers,
+        isNot(contains('x-ratelimit-limit')),
+        reason: '$method repeated Authorization rate-limit mutation',
+      );
+      expect(
+        repeatedAuthorization.headers,
+        isNot(contains('MCP-Session-Id')),
+        reason: '$method repeated Authorization session reflection',
+      );
+      expect(
+        _jsonResponseBody(repeatedAuthorization)['error'],
+        containsPair('message', 'Invalid Authorization header'),
+        reason: '$method repeated Authorization payload',
+      );
+    }
+
     enqueuePreflight(53, 12, origin: 'https://rejected.example');
     await _waitUntil(
       () => runtime.httpResponses[53]?.isNotEmpty ?? false,
@@ -4918,12 +4982,34 @@ void main() {
     expect(rejectedBeforeLimit.headers, isNot(contains('x-ratelimit-limit')));
     expect(rejectedBeforeLimit.headers, isNot(contains('MCP-Session-Id')));
 
-    enqueuePreflight(48, 7);
+    enqueuePreflight(48, 7, repeatedAuthorization: true);
     await _waitUntil(
       () => runtime.httpResponses[48]?.isNotEmpty ?? false,
       timeout: const Duration(seconds: 2),
     );
-    expect(runtime.httpResponses[48]!.single.status, HttpStatus.noContent);
+    final repeatedPreflight = runtime.httpResponses[48]!.single;
+    expect(repeatedPreflight.status, HttpStatus.badRequest);
+    expect(
+      repeatedPreflight.headers['Access-Control-Allow-Origin'],
+      'https://agent.example',
+    );
+    expect(
+      repeatedPreflight.headers['Access-Control-Allow-Methods'],
+      contains('POST'),
+    );
+    expect(
+      repeatedPreflight.headers['Access-Control-Allow-Headers'],
+      'MCP-Protocol-Version',
+    );
+    expect(repeatedPreflight.headers, isNot(contains('x-ratelimit-limit')));
+    expect(repeatedPreflight.headers, isNot(contains('MCP-Session-Id')));
+
+    enqueuePreflight(59, 18);
+    await _waitUntil(
+      () => runtime.httpResponses[59]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    expect(runtime.httpResponses[59]!.single.status, HttpStatus.noContent);
 
     enqueuePreflight(54, 13, origin: 'https://rejected.example');
     await _waitUntil(

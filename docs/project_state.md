@@ -24998,7 +24998,36 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- Active now, the implementation plan is:
+- The active implementation plan is
+  `docs/exec-plans/2026-08-12-mcp-authorization-header-multiplicity-validation.md`.
+  Native HTTP now retains normalized duplicate-header-name evidence, but
+  router-hosted MCP still selects a scalar Authorization value before
+  bearer-keyed rate limiting, transport authentication, and MCP
+  principal/session creation. This checkpoint will reject repeated
+  Authorization before those mutations while preserving invalid Origin
+  precedence and bearer-free OPTIONS and Protected Resource Metadata access.
+  The required workflow, Serena, overlap, completed-plan,
+  and both-roadmap preflights passed. Pre-change `bin/test-fast` passes the
+  complete core, MCP, client/auth, benchmark, router-hosted consumer,
+  packaging, installed-command, and native follow-up matrix, including all 96
+  benchmark cases and 36 live WAMP workloads. A fail-first router regression
+  observed HTTP 401 instead of generic HTTP 400 for a case-variant repeated
+  Authorization request. Router-hosted MCP now rejects repeated Authorization
+  after Origin policy and before rate limiting, transport authentication, or
+  principal/session resolution for POST, GET, DELETE, and OPTIONS. Focused
+  synthetic and real native HTTP regressions, router analysis, shell syntax,
+  diff hygiene, the full router runtime suite, and the isolated generated
+  consumer pass. The consumer proves bearer-bucket isolation, mixed-principal
+  rejection without challenge or session state, immediate valid-grant
+  recovery, and unchanged bearer-free Protected Resource Metadata access.
+  Post-change `bin/verify` passes with zero formatting changes, 114 Rust core
+  tests, 52 Rust FFI tests, 360 core tests, 101 MCP tests, the complete
+  280-case client/MCP suite, all 96 benchmark cases and 36 live WAMP workloads,
+  all 436 router tests, six remote-auth integrations, 13 native follow-ups,
+  every generated and installed consumer smoke, and Chrome/Dart2Wasm. The
+  implementation is ready to publish; exact-head hosted workflows and the
+  strict deployment-chain audit remain.
+- Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-header-multiplicity-validation.md`.
   Native HTTP retains every request-header entry, but the Dart handshake
   decoder currently collapses those entries into a scalar map before
@@ -25023,8 +25052,19 @@ at the older `47bbf9c` commit.
   complete matrix at 436 router tests, 360 core tests, 101 MCP tests, 280
   client/MCP tests, all 96 benchmark cases and 36 live WAMP workloads, six
   remote-auth integrations, all neutral and installed consumers, native
-  follow-ups, and Chrome/Dart2Wasm. Publication and exact-head hosted evidence
-  remain.
+  follow-ups, and Chrome/Dart2Wasm. Implementation commit `1a83ae305e8a`
+  reached both maintained `master` branches. The clean-commit strict package
+  gate passes all seven synchronized `3.0.0-beta` archives with zero warnings.
+  Exact-head CI `31591904139`, package dry run `31591904132`, WAMP profile
+  benchmarks `31591904162`, and Router Image dry run `31591960069` all pass. CI
+  uploaded coverage artifact `9140003339`, WAMP uploaded artifact `9139674308`,
+  and Router Image uploaded preview artifact `9139488545` plus Docker build
+  records `9139608841` and `9139608203`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head CI logs and every
+  required branch, workflow, public package, unchanged native-release
+  relevance, loaded-image MCP, multi-architecture image, package-publish, and
+  benchmark gate clean. Its non-gating RC summary remains intentionally not
+  ready because no approved numeric RC tag points at this implementation head.
 - Completed immediately before that, the implementation plan is:
   `docs/exec-plans/2026-08-12-mcp-http-auth-nested-object-duplicate-validation.md`.
   Router-provided HTTP authentication previously let `jsonDecode` collapse

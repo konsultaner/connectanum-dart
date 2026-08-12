@@ -371,6 +371,29 @@ bool _mcpProtectedResourceMetadataRequest(
           _mcpAcceptAllowsMediaType(accepted, _mcpJsonContentType));
 }
 
+NativeHttpResponse? _mcpAuthorizationHeaderMultiplicityError(
+  RouterBinding binding,
+  RouterHttpRequest request,
+  HttpRouteSettings route,
+) {
+  if (!request.duplicateHeaderNames.contains(
+    HttpHeaders.authorizationHeader,
+  )) {
+    return null;
+  }
+  return _mcpJsonRpcHttpError(
+    status: HttpStatus.badRequest,
+    code: mcp.McpErrorCodes.invalidRequest,
+    message: 'Invalid Authorization header',
+    extraHeaders: _mcpCorsResponseHeaders(
+      binding,
+      request,
+      route,
+      preflight: binding._isCorsPreflight(request),
+    ),
+  );
+}
+
 Map<String, String> _mcpUnauthorizedHeaders(
   RouterBinding binding, {
   required HttpRouteSettings route,
