@@ -145,12 +145,18 @@ async function runClient(endpoint, label, options, transportOptions) {
   let summary;
   try {
     await client.connect(transport);
+    const instructions = client.getInstructions();
     const tools = await client.listTools();
     const prompts = await client.listPrompts();
     const resources = await client.listResources();
     const templates = await client.listResourceTemplates();
     const read = await client.readResource({
       uri: 'connectanum://router-image/context',
+    });
+    const promptSubject = `official client ${label}`;
+    const prompt = await client.getPrompt({
+      name: 'inspect-router-image',
+      arguments: { subject: promptSubject },
     });
     const call = await client.callTool({
       name: 'wamp.session.count',
@@ -185,7 +191,21 @@ async function runClient(endpoint, label, options, transportOptions) {
       ),
       `${label} client did not discover the packaged resource template`,
     );
+    requireCondition(
+      typeof instructions === 'string' &&
+        instructions.includes('router image MCP'),
+      `${label} client did not receive the router instructions`,
+    );
     requireCondition(read.contents.length > 0, `${label} resource read was empty`);
+    requireCondition(
+      prompt.messages.some(
+        (message) =>
+          message.role === 'user' &&
+          message.content?.type === 'text' &&
+          message.content.text.includes(promptSubject),
+      ),
+      `${label} prompt did not render its subject argument`,
+    );
     requireCondition(call.isError !== true, `${label} tool call returned an error`);
     requireCondition(
       pubSubToolNames.every((name) =>
@@ -204,6 +224,8 @@ async function runClient(endpoint, label, options, transportOptions) {
       resourceCount: resources.resources.length,
       resourceTemplateCount: templates.resourceTemplates.length,
       resourceContentCount: read.contents.length,
+      instructionsReceived: true,
+      promptRendered: true,
       toolCallSucceeded: true,
       ...pubSub,
     };

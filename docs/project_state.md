@@ -25026,7 +25026,25 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- There is no active implementation plan. The most recently completed plan is
+- The active implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-official-sdk-agent-context-smoke.md`. It
+  extends the pinned official TypeScript SDK Router Image gate from prompt
+  enumeration to argument-bearing prompt rendering and validates that
+  router-provided instructions reach a neutral agent host. The evidence will
+  cover public and bearer-protected legacy and modern endpoints without
+  exposing instruction text, rendered prompt contents, credentials, handles,
+  or event payloads. Repository, Serena, overlap, both-roadmap, and pre-change
+  `bin/test-fast` checks pass. The fail-first contract reproduces the five
+  missing source/evidence assertions, all 30 focused Router Image contracts
+  pass after implementation, and an independent live native-router probe
+  passes all four protocol and authorization combinations while keeping
+  contextual payloads out of output. Final `bin/verify` passes the complete
+  Rust, Dart, native, browser, generated-consumer, benchmark, and router matrix;
+  post-verification focused contracts, syntax, privacy, and diff checks pass.
+  Strict release-ready dry-runs validate all seven synchronized `3.0.0-beta`
+  archives with zero warnings and no private workspace dependency blockers.
+  Publication and exact-head hosted evidence remain.
+- The most recently completed plan is
   `docs/exec-plans/2026-08-13-mcp-official-sdk-pubsub-smoke.md`. It extends the
   pinned official TypeScript SDK Router Image gate through router-provided WAMP
   pub/sub on public and bearer-protected legacy and modern endpoints. The smoke
@@ -25042,7 +25060,15 @@ at the older `47bbf9c` commit.
   Dart, native, browser, generated-consumer, benchmark, and router matrix.
   Strict release-ready dry-runs validate all seven synchronized `3.0.0-beta`
   archives with zero warnings, and public-artifact, credential-output, and diff
-  checks pass. Publication and exact-head hosted evidence remain.
+  checks pass. Commit `b57668eb` is published to GitLab and GitHub. Exact-head
+  CI `31719005477` passes every job with clean logs and retains coverage
+  artifact `9189120295`. Router Image dry run `31719034460` passes with explicit
+  public/protected SDK 2.0.0 pub/sub, structured-result, explicit-handle,
+  bearer-retry, legacy-termination, and modern-sessionless evidence; retained
+  artifacts are preview `9188496807` and Docker build records `9188512032` and
+  `9188511313`. The comprehensive strict deployment-chain audit exits zero;
+  the prior package, WAMP, and Native Artifacts runs remain clean and relevant
+  because their sensitive inputs did not change.
 - The preceding completed plan is
   `docs/exec-plans/2026-08-13-mcp-official-sdk-protected-session-smoke.md`.
   It extends independent official TypeScript SDK evidence

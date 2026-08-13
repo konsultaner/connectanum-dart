@@ -68,4 +68,18 @@ References:
   consumer smokes, the 97-case benchmark suite, and all 439 router tests.
   Strict release-ready dry-runs validate all seven synchronized `3.0.0-beta`
   archives with zero warnings. Public-artifact, credential-output, and diff
-  checks pass. Publication and exact-head hosted evidence remain.
+  checks pass.
+- 2026-08-13: Commit `b57668eb` is published to GitLab and GitHub. Exact-head
+  CI `31719005477` passes Fast Checks, Full Verify, Dart VM Coverage, Codecov,
+  and coverage artifact `9189120295`. Router Image dry run `31719034460`
+  passes on its first attempt with preview artifact `9188496807` and Docker
+  build records `9188512032` and `9188511313`; its loaded-image log explicitly
+  reports public/protected SDK 2.0.0 pub/sub, explicit-handle, structured-result,
+  bearer-retry, legacy-termination, and modern-sessionless evidence.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI logs and every required package, Router Image, WAMP,
+  relevant Native Artifacts, protected-branch, workflow-visibility, and public
+  router-package gate ready. The last Dart Package Publish Dry Run
+  `31705829385`, WAMP Profile Benchmarks `31705829401`, and Native Artifacts
+  `31221315902` remain relevant because this checkpoint changed none of their
+  sensitive inputs.
