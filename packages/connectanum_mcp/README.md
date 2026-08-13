@@ -604,6 +604,7 @@ options: {
       'uri_template': 'app://example/task/{taskId}',
       'name': 'task',
       'read_procedure': 'app.context.read',
+      'update_topic': 'app.events.context.updated',
     },
   ],
   'prompts': [
@@ -630,19 +631,23 @@ positional WAMP argument. Template reads additionally receive percent-decoded
 template variables as keyword arguments. Its final result is returned as
 `application/json` text with
 lossless `arguments`, `argumentsKeywords`, and `details` fields. An optional
-`update_topic` enables both session-era Streamable HTTP resource subscriptions
-and modern `subscriptions/listen` resource filters. Each authorized WAMP event
-delivers `notifications/resources/updated` with the resource URI, and the
-consumer reads the procedure-backed resource again. Update event payloads are
-not treated as resource contents. Ordinary direct JSON remains lifecycle-free;
-the modern listener is the dedicated long-lived request.
+`update_topic` on a procedure-backed resource or readable resource template
+enables both session-era Streamable HTTP resource subscriptions and modern
+`subscriptions/listen` resource filters. Template subscriptions use the
+concrete URI selected by the consumer, not the URI-template expression. Each
+authorized WAMP event delivers `notifications/resources/updated` with that
+concrete resource URI, and the consumer reads the procedure-backed resource
+again. Update event payloads are not treated as resource contents. Ordinary
+direct JSON remains lifecycle-free; the modern listener is the dedicated
+long-lived request.
 
 Both the dynamic read procedure and update-topic subscription are checked
 against the route-authenticated principal's WAMP permissions. Static resources
-cannot declare `update_topic`, and dynamic resources cannot combine
-`read_procedure` with static `text`, `content`, or `blob`. Resource and prompt
-auto-discovery remains intentionally separate so applications keep explicit
-control over context and prompt surface area.
+and templates without `read_procedure` cannot declare `update_topic`, and
+dynamic resources cannot combine `read_procedure` with static `text`,
+`content`, or `blob`. Resource and prompt auto-discovery remains intentionally
+separate so applications keep explicit control over context and prompt surface
+area.
 
 Dynamic-resource and readable-template catalog visibility follows the
 principal's current permission to call `read_procedure`, while update ownership

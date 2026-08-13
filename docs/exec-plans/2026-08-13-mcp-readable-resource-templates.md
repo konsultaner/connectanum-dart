@@ -1,6 +1,6 @@
 # MCP Readable Resource Templates
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -83,5 +83,16 @@ References:
   Dart2Wasm smoke. Formatting changes zero files.
 - 2026-08-13: Clean strict release-ready dry-runs validate all seven
   synchronized `3.0.0-beta` package archives with zero warnings and no private
-  workspace dependency blockers. Publication, exact-head hosted evidence, and
-  the strict deployment-chain audit remain.
+  workspace dependency blockers.
+- 2026-08-13: Implementation commit `456191a1` is published to both maintained
+  `master` branches. Exact-head CI `31735296937` passes every job with clean
+  logs and retains coverage artifact `9195429732`; Dart Package Publish Dry Run
+  `31735296979` passes; and WAMP Profile Benchmarks `31735296901` passes with
+  artifact `9195112599`.
+- 2026-08-13: Router Image dry run `31736853476` passes the built-image smoke
+  with official SDK 2.0.0 evidence including
+  `resource_template_read=true` across public/protected legacy/modern clients.
+  It skips GHCR login and retains preview artifact `9195470268` plus Docker
+  build records `9195647546` and `9195646426`. The comprehensive strict
+  deployment-chain audit exits zero with every required gate ready; RC
+  publication remains intentionally ungated because no release was requested.

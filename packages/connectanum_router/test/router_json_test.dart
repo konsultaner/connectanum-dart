@@ -667,6 +667,21 @@ void main() {
       expect(router.buildNativeConfigJson, returnsNormally);
     });
 
+    test('accepts explicit MCP readable template update mappings', () {
+      final router = _routerWithMcpOptions({
+        'resource_templates': [
+          {
+            'uri_template': 'app://context/task/{taskId}',
+            'name': 'task-context',
+            'read_procedure': 'app.safe.context.read',
+            'update_topic': 'app.events.context.updated',
+          },
+        ],
+      });
+
+      expect(router.buildNativeConfigJson, returnsNormally);
+    });
+
     test('requires dynamic reads for MCP resource update topics', () {
       final router = _routerWithMcpOptions({
         'resources': [
@@ -674,6 +689,29 @@ void main() {
             'uri': 'app://context/static',
             'name': 'static-context',
             'text': 'context',
+            'update_topic': 'app.events.context.updated',
+          },
+        ],
+      });
+
+      expect(
+        router.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('update_topic requires read_procedure'),
+          ),
+        ),
+      );
+    });
+
+    test('requires readable templates for MCP resource update topics', () {
+      final router = _routerWithMcpOptions({
+        'resource_templates': [
+          {
+            'uri_template': 'app://context/task/{taskId}',
+            'name': 'task-context',
             'update_topic': 'app.events.context.updated',
           },
         ],
@@ -1212,6 +1250,23 @@ void main() {
           {'uriTemplate': 7, 'name': 'task-template'},
         ],
       }, 'MCP resourceTemplates[0].uriTemplate must be a string');
+      _expectInvalidMcpOptions({
+        'resourceTemplates': [
+          {
+            'uriTemplate': 'app://task/{taskId}',
+            'readProcedure': 7,
+          },
+        ],
+      }, 'MCP resourceTemplates[0].readProcedure must be a string');
+      _expectInvalidMcpOptions({
+        'resourceTemplates': [
+          {
+            'uriTemplate': 'app://task/{taskId}',
+            'readProcedure': 'app.task.read',
+            'updateTopic': 7,
+          },
+        ],
+      }, 'MCP resourceTemplates[0].updateTopic must be a string');
       _expectInvalidMcpOptions({
         'prompts': [
           {'name': 'summarize', 'text': 'Summarize', 'arguments': 'taskId'},

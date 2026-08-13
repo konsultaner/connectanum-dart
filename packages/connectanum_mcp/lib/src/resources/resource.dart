@@ -137,6 +137,17 @@ class McpResourceTemplate {
   }
 }
 
+/// A readable resource-template match for a concrete resource URI.
+class McpResourceTemplateMatch {
+  McpResourceTemplateMatch({
+    required this.template,
+    required Map<String, String> variables,
+  }) : variables = Map<String, String>.unmodifiable(variables);
+
+  final McpResourceTemplate template;
+  final Map<String, String> variables;
+}
+
 class _McpResourceTemplatePattern {
   const _McpResourceTemplatePattern({
     required this.literals,
@@ -547,19 +558,19 @@ class McpResourceRegistry {
     );
   }
 
-  Future<List<McpResourceContent>> read(McpResourceRequest request) async {
-    final resource = _resources[request.uri];
-    if (resource != null) {
-      return resource.read(request);
-    }
-
+  /// Matches [uri] against registered templates that can be read.
+  ///
+  /// When multiple templates match, the template with the most literal
+  /// characters wins. Lexical template order breaks ties, matching
+  /// [read]'s deterministic resolution.
+  McpResourceTemplateMatch? matchReadableTemplate(String uri) {
     McpResourceTemplate? selectedTemplate;
     Map<String, String>? selectedVariables;
     for (final template in _templates.values) {
       if (template.read == null) {
         continue;
       }
-      final variables = template._matchUri(request.uri);
+      final variables = template._matchUri(uri);
       if (variables == null) {
         continue;
       }
@@ -574,16 +585,31 @@ class McpResourceRegistry {
       }
     }
 
-    final template = selectedTemplate;
-    final reader = template?.read;
-    if (template == null || reader == null || selectedVariables == null) {
+    if (selectedTemplate == null || selectedVariables == null) {
+      return null;
+    }
+    return McpResourceTemplateMatch(
+      template: selectedTemplate,
+      variables: selectedVariables,
+    );
+  }
+
+  Future<List<McpResourceContent>> read(McpResourceRequest request) async {
+    final resource = _resources[request.uri];
+    if (resource != null) {
+      return resource.read(request);
+    }
+
+    final match = matchReadableTemplate(request.uri);
+    final reader = match?.template.read;
+    if (match == null || reader == null) {
       throw McpException(
         McpErrorCodes.resourceNotFound,
         'Resource not found',
         data: <String, Object?>{'uri': request.uri},
       );
     }
-    return reader(request, selectedVariables);
+    return reader(request, match.variables);
   }
 
   McpResource? operator [](String uri) => _resources[uri];

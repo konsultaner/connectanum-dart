@@ -243,6 +243,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "public=true protected=true bearer_retry=true",
             "legacy_session=true legacy_terminated=true modern_sessionless=true",
             "resource_template_read=true",
+            "resource_template_subscribe=true resource_template_update=true",
+            "resource_template_unsubscribe=true",
             "instructions=true prompt_get=true",
             "pubsub=true explicit_handle=true structured_content=true",
             "OFFICIAL_MCP_AUTH_TICKET=image-smoke-ticket",
@@ -270,6 +272,17 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "await client.listResourceTemplates()",
             "await client.readResource(",
             "resourceTemplateRead: true",
+            "async function runResourceTemplateSubscription(",
+            "await client.subscribeResource({ uri: resourceUri })",
+            "await client.listen({",
+            "resourceSubscriptions: [resourceUri]",
+            "modernSubscription.honoredFilter.resourceSubscriptions",
+            "'notifications/resources/updated'",
+            "await client.unsubscribeResource({ uri: resourceUri })",
+            "await modernSubscription.close()",
+            "resourceTemplateSubscribed: true",
+            "resourceTemplateUpdateReceived: true",
+            "resourceTemplateUnsubscribed: true",
             "client.getInstructions()",
             "await client.getPrompt(",
             "await client.callTool(",
@@ -402,7 +415,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
 
         self.assertEqual(config.count("uri: connectanum://router-image/live-context"), 3)
         self.assertEqual(config.count("read_procedure: wamp.session.count"), 6)
-        self.assertEqual(config.count("update_topic: image.smoke.events"), 3)
+        self.assertEqual(config.count("update_topic: image.smoke.events"), 6)
 
     def test_smoke_contract_covers_modern_and_streamable_mcp(self) -> None:
         client = CLIENT.read_text(encoding="utf-8")
@@ -1595,6 +1608,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             3,
         )
         self.assertEqual(config.count("read_procedure: wamp.session.count"), 6)
+        self.assertEqual(config.count("update_topic: image.smoke.events"), 6)
         self.assertEqual(config.count("name: inspect-router-image"), 3)
 
     def test_workflow_smokes_loaded_image_before_multiarch_build(self) -> None:

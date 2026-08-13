@@ -414,6 +414,10 @@
     direct JSON APIs with bounded Level 1 URI matching, exact-resource
     precedence, decoded variables, and authorization-filtered WAMP procedure
     delegation.
+  - [x] Let legacy and modern MCP clients subscribe to concrete URIs resolved
+    from readable router resource templates, including exact-resource
+    precedence, route-principal update-topic authorization, revocation cleanup,
+    and pinned official-client Router Image evidence.
   - [x] Add explicit WAMP-procedure-backed dynamic resources and
     Streamable-session-scoped resource update subscriptions, including route
     principal authorization, resumable SSE notifications, typed client

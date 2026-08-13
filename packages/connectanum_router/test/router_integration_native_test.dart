@@ -6948,7 +6948,7 @@ void main() {
     );
 
     test(
-      'revokes router-hosted MCP resource update owners when visibility is lost',
+      'revokes router-hosted MCP template resource owners when visibility is lost',
       () async {
         final provider = _ToggleAuthorizationProvider(
           action: AuthorizationAction.call,
@@ -7002,24 +7002,53 @@ void main() {
         final compatibilitySessionId = compatibilityClient.sessionId;
         expect(compatibilitySessionId, isNotNull);
         await compatibilityClient.subscribeResource(
-          'app://mcp/live-context',
+          'app://mcp/task/A%20B',
           id: 'resource-visibility-revocation-compatibility-subscribe',
         );
 
         final modernSubscription = await modernClient.listen(
           id: 'resource-visibility-revocation-modern-listen',
           resourcesListChanged: true,
-          resourceSubscriptions: const <String>['app://mcp/live-context'],
+          resourceSubscriptions: const <String>['app://mcp/task/A%20B'],
         );
         addTearDown(modernSubscription.close);
         expect(
           modernSubscription.acknowledgedNotifications.resourceSubscriptions,
-          equals(const <String>['app://mcp/live-context']),
+          equals(const <String>['app://mcp/task/A%20B']),
         );
         final modernNotifications = StreamIterator<Map<String, Object?>>(
           modernSubscription.notifications,
         );
         addTearDown(modernNotifications.cancel);
+
+        final modernTemplateUpdate = modernNotifications.moveNext().timeout(
+          const Duration(seconds: 5),
+        );
+        await serviceSession.publish(
+          'app.events.resource.context',
+          argumentsKeywords: const <String, Object?>{
+            'via': 'resource-template-visibility-update',
+          },
+          options: core.PublishOptions(acknowledge: true),
+        );
+        expect(await modernTemplateUpdate, isTrue);
+        expect(
+          modernNotifications.current['method'],
+          equals('notifications/resources/updated'),
+        );
+        expect(
+          (modernNotifications.current['params'] as Map)['uri'],
+          equals('app://mcp/task/A%20B'),
+        );
+        final compatibilityTemplateUpdate =
+            await _pollStreamableMcpUntilResourceUpdate(
+              compatibilityClient,
+              'app://mcp/task/A%20B',
+            );
+        expect(
+          compatibilityTemplateUpdate['method'],
+          equals('notifications/resources/updated'),
+        );
 
         final subscriptionLookup = await modernClient
             .lookupWampSubscriptionDirect(
@@ -7104,7 +7133,7 @@ void main() {
         expect(compatibilityClient.sessionId, equals(compatibilitySessionId));
 
         await compatibilityClient.subscribeResource(
-          'app://mcp/live-context',
+          'app://mcp/task/A%20B',
           id: 'resource-visibility-revocation-restored-subscribe',
         );
         final restoredSubscriptionLookup = await modernClient
@@ -7121,7 +7150,7 @@ void main() {
             );
         expect(restoredSubscriberCount.arguments.single, equals(1));
         await compatibilityClient.unsubscribeResource(
-          'app://mcp/live-context',
+          'app://mcp/task/A%20B',
           id: 'resource-visibility-revocation-restored-unsubscribe',
         );
         final subscribersAfterExplicitUnsubscribe = await modernClient
@@ -17097,6 +17126,7 @@ RouterSettings _buildMcpSmokeSettings({
         'description': 'Template for task resources exposed by the MCP route.',
         'mime_type': 'application/json',
         'read_procedure': 'app.safe.resource.read',
+        'update_topic': 'app.events.resource.context',
       },
     ],
     'prompts': [

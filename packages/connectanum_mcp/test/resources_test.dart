@@ -402,6 +402,35 @@ void main() {
       },
     );
 
+    test(
+      'resource registry exposes its deterministic readable template match',
+      () {
+        final generic = McpResourceTemplate(
+          uriTemplate: 'app://tasks/{taskId}',
+          name: 'generic-task',
+          read: (request, variables) => const [],
+        );
+        final specific = McpResourceTemplate(
+          uriTemplate: 'app://tasks/prefix-{taskId}',
+          name: 'prefixed-task',
+          read: (request, variables) => const [],
+        );
+        final registry = McpResourceRegistry(templates: [generic, specific]);
+
+        final match = registry.matchReadableTemplate(
+          'app://tasks/prefix-A%20B',
+        );
+
+        expect(match, isNotNull);
+        expect(match!.template, same(specific));
+        expect(match.variables, const <String, String>{'taskId': 'A B'});
+        expect(
+          () => match.variables['taskId'] = 'changed',
+          throwsUnsupportedError,
+        );
+      },
+    );
+
     test('resources/read prefers an exact resource over a template', () async {
       final server = McpServer(
         serverInfo: const McpServerInfo(

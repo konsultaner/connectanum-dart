@@ -8,6 +8,8 @@
 - Let readable resource templates resolve concrete Level 1 URI expressions,
   pass decoded variables to their callbacks, and preserve exact-resource
   precedence.
+- Expose deterministic readable-template matches so router hosts can apply the
+  same concrete-URI resolution to reads and resource subscriptions.
 - Add MCP 2026 form-elicitation MRTR requests, scoped capability enforcement,
   WAMP detail bridging, bounded client retries, and direct JSON support.
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,

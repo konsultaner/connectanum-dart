@@ -295,6 +295,7 @@ RouterSettings _buildSettings() {
         'description': 'Template URI shape for task context.',
         'mime_type': 'application/json',
         'read_procedure': _dynamicResourceReadProcedure,
+        'update_topic': _dynamicResourceUpdateTopic,
       },
     ],
     'prompts': [

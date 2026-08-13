@@ -186,6 +186,7 @@ const HttpRouteSettings(
           'uri_template': 'app://example/task/{taskId}',
           'name': 'task',
           'read_procedure': 'app.context.read',
+          'update_topic': 'app.events.context.updated',
         },
       ],
       'prompts': [
@@ -211,7 +212,10 @@ Configured resources, resource templates, and prompts are served by the
 standard MCP `resources/*` and `prompts/*` methods. A resource template with a
 `read_procedure` resolves concrete resource URIs and passes percent-decoded
 template variables as WAMP keyword arguments; the concrete URI remains the
-first positional argument.
+first positional argument. Adding `update_topic` to that readable template
+also lets legacy `resources/subscribe` and modern `subscriptions/listen`
+subscribe to a concrete matching URI; update notifications preserve that
+concrete URI.
 
 Compatibility Streamable HTTP sessions expire after 10 minutes without MCP
 traffic by default. Set `session_idle_timeout_ms` (or
@@ -289,13 +293,15 @@ already attached to the call and clamps longer or disabled timeouts to the
 route bound; established request-scoped SSE streams are not timed out by this
 setting.
 
-Procedure-backed resources call the configured WAMP procedure with the
-resource URI as the first positional argument and return its final result as
-lossless JSON text. When `update_topic` is present, Streamable HTTP clients can
-use `subscribeResource(...)`, receive `notifications/resources/updated` over
-GET/SSE, re-read the resource, and later call `unsubscribeResource(...)`.
-Authorization uses the route principal for both the procedure call and topic
-subscription. Direct JSON supports resource list/read but not subscriptions.
+Procedure-backed resources and readable templates call the configured WAMP
+procedure with the concrete resource URI as the first positional argument and
+return its final result as lossless JSON text. When `update_topic` is present,
+Streamable HTTP clients can use `subscribeResource(...)`, receive
+`notifications/resources/updated` over GET/SSE, re-read the resource, and later
+call `unsubscribeResource(...)`. Modern clients use `subscriptions/listen`
+with the same concrete URI. Authorization uses the route principal for both
+the procedure call and topic subscription. Direct JSON supports resource
+list/read but not subscriptions.
 
 The same endpoint also accepts direct JSON-RPC calls for frontend clients
 without the MCP `initialize` lifecycle:

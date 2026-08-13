@@ -1,6 +1,7 @@
 .git
 .github
 .dart_tool
+.serena
 out
 coverage
 
@@ -11,6 +12,7 @@ coverage
 
 native/transport/target
 native/transport/**/target
+native/bench/target
 
 deploy/docker/tls
 deploy/docker/router.yaml

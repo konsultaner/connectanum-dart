@@ -9,6 +9,8 @@
   isolation, pub/sub, Streamable HTTP compatibility, and operational metrics.
 - Let router resource templates use authorized WAMP read procedures through
   standard Streamable HTTP and direct JSON resource reads.
+- Let legacy and modern MCP clients subscribe to concrete URIs produced by
+  readable router resource templates with authorization-safe cleanup.
 - Preserve every case-insensitive native HTTP header field value on router
   requests and negotiate split `Accept` fields as one list for router-hosted
   MCP JSON/SSE and Streamable HTTP selection.

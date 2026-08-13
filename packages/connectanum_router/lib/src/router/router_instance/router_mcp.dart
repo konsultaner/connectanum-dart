@@ -4134,10 +4134,7 @@ class _RouterMcpEndpoint {
     binding._reserveMcpRequestScopedListener(this);
     try {
       for (final uri in requested.resourceSubscriptions) {
-        if (server.resources[uri] == null) {
-          continue;
-        }
-        final config = _configuredResourceForUri(route.action.options, uri);
+        final config = _configuredResourceSubscriptionForUri(uri);
         if (config == null) {
           continue;
         }
@@ -4504,7 +4501,7 @@ class _RouterMcpEndpoint {
 
   Future<void> _reconcileResourceSubscriptionAuthorization(
     Map<String, Future<bool>> authorizationDecisions,
-    Set<String> visibleResourceUris,
+    mcp.McpResourceRegistry visibleResources,
   ) async {
     for (final preparation in _resourceSubscriptionPreparations.toList(
       growable: false,
@@ -4512,7 +4509,14 @@ class _RouterMcpEndpoint {
       if (preparation.released || preparation.revoked) {
         continue;
       }
-      if (!visibleResourceUris.contains(preparation.uri) ||
+      final config = _configuredResourceSubscriptionForUri(
+        preparation.uri,
+        visibleResources: visibleResources,
+      );
+      final updateTopic = config == null
+          ? null
+          : _configuredResourceUpdateTopic(config);
+      if (updateTopic != preparation.topic ||
           !await _isCatalogAuthorized(
             authorizationDecisions,
             AuthorizationAction.subscribe,
@@ -4529,10 +4533,10 @@ class _RouterMcpEndpoint {
     };
     final authorizedResourceUris = <String>{};
     for (final uri in ownedResourceUris) {
-      if (!visibleResourceUris.contains(uri)) {
-        continue;
-      }
-      final config = _configuredResourceForUri(route.action.options, uri);
+      final config = _configuredResourceSubscriptionForUri(
+        uri,
+        visibleResources: visibleResources,
+      );
       final updateTopic = config == null
           ? null
           : _configuredResourceUpdateTopic(config);
@@ -4653,9 +4657,27 @@ class _RouterMcpEndpoint {
     ];
   }
 
+  Map<String, Object?>? _configuredResourceSubscriptionForUri(
+    String uri, {
+    mcp.McpResourceRegistry? visibleResources,
+  }) {
+    final resources = visibleResources ?? server.resources;
+    if (resources[uri] != null) {
+      return _configuredResourceForUri(route.action.options, uri);
+    }
+    final template = resources.matchReadableTemplate(uri)?.template;
+    if (template == null) {
+      return null;
+    }
+    return _configuredResourceTemplateForUriTemplate(
+      route.action.options,
+      template.uriTemplate,
+    );
+  }
+
   Future<void> _subscribeResource(mcp.McpResourceRequest request) async {
-    final config = _configuredResourceForUri(route.action.options, request.uri);
-    if (config == null || server.resources[request.uri] == null) {
+    final config = _configuredResourceSubscriptionForUri(request.uri);
+    if (config == null) {
       throw mcp.McpException(
         mcp.McpErrorCodes.resourceNotFound,
         'Resource not found',
@@ -4700,7 +4722,7 @@ class _RouterMcpEndpoint {
     if (!_streamableResourceSubscriptions.contains(request.uri)) {
       return;
     }
-    final config = _configuredResourceForUri(route.action.options, request.uri);
+    final config = _configuredResourceSubscriptionForUri(request.uri);
     final updateTopic = config == null
         ? null
         : _configuredResourceUpdateTopic(config);
@@ -5065,9 +5087,13 @@ class _RouterMcpEndpoint {
     final resourcesChanged = resourceSignature != _resourceSignature;
     final resourceTemplatesChanged =
         resourceTemplateSignature != _resourceTemplateSignature;
-    await _reconcileResourceSubscriptionAuthorization(authorizationDecisions, {
-      for (final resource in resources) resource.uri,
-    });
+    await _reconcileResourceSubscriptionAuthorization(
+      authorizationDecisions,
+      mcp.McpResourceRegistry(
+        resources: resources,
+        templates: resourceTemplates,
+      ),
+    );
     if (!apiChanged && !resourcesChanged && !resourceTemplatesChanged) {
       return;
     }
@@ -6339,6 +6365,10 @@ void _validateMcpResourceRouteOptionShapes(Map<String, Object?> options) {
         'description',
         'mime_type',
         'mimeType',
+        'read_procedure',
+        'readProcedure',
+        'update_topic',
+        'updateTopic',
       ]) {
         _validateMcpStringConfigOption(config, label, key);
       }
@@ -6765,14 +6795,20 @@ String? _configuredResourceUpdateTopic(Map<String, Object?> config) =>
     _stringFrom(config['update_topic']) ?? _stringFrom(config['updateTopic']);
 
 bool _hasConfiguredResourceSubscriptions(Map<String, Object?> options) {
-  final entries = options['resources'];
-  if (entries is! List) {
-    return false;
+  for (final entries in <Object?>[
+    options['resources'],
+    options['resource_templates'] ?? options['resourceTemplates'],
+  ]) {
+    if (entries is List &&
+        entries.whereType<Map>().any(
+          (entry) =>
+              _configuredResourceUpdateTopic(entry.cast<String, Object?>()) !=
+              null,
+        )) {
+      return true;
+    }
   }
-  return entries.whereType<Map>().any(
-    (entry) =>
-        _configuredResourceUpdateTopic(entry.cast<String, Object?>()) != null,
-  );
+  return false;
 }
 
 bool _hasConfiguredDynamicResources(Map<String, Object?> options) {
@@ -6960,6 +6996,14 @@ mcp.McpResourceTemplate _resourceTemplateFromConfig(
   final readProcedure =
       _stringFrom(config['read_procedure']) ??
       _stringFrom(config['readProcedure']);
+  final updateTopic =
+      _stringFrom(config['update_topic']) ?? _stringFrom(config['updateTopic']);
+  if (updateTopic != null && readProcedure == null) {
+    throw FormatException(
+      'MCP resource template config for $uriTemplate update_topic requires '
+      'read_procedure',
+    );
+  }
   return mcp.McpResourceTemplate(
     uriTemplate: uriTemplate,
     name: name,

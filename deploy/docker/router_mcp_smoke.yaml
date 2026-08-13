@@ -83,6 +83,7 @@ router:
                     description: Template for neutral packaged-router items.
                     mime_type: application/json
                     read_procedure: wamp.session.count
+                    update_topic: image.smoke.events
                 prompts:
                   - name: inspect-router-image
                     title: Inspect Router Image
@@ -138,6 +139,7 @@ router:
                     description: Template for neutral packaged-router items.
                     mime_type: application/json
                     read_procedure: wamp.session.count
+                    update_topic: image.smoke.events
                 prompts:
                   - name: inspect-router-image
                     title: Inspect Router Image
@@ -194,6 +196,7 @@ router:
                     description: Template for neutral packaged-router items.
                     mime_type: application/json
                     read_procedure: wamp.session.count
+                    update_topic: image.smoke.events
                 prompts:
                   - name: inspect-router-image
                     title: Inspect Router Image

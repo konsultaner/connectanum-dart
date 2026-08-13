@@ -133,6 +133,77 @@ async function runPubSubLifecycle(client, label) {
   }
 }
 
+async function runResourceTemplateSubscription(client, label, resourceUri) {
+  let legacySubscribed = false;
+  let modernSubscription;
+  let timeout;
+  const update = new Promise((resolve, reject) => {
+    timeout = setTimeout(
+      () => reject(new Error(`${label} resource-template update timed out`)),
+      5000,
+    );
+    client.setNotificationHandler(
+      'notifications/resources/updated',
+      async (notification) => {
+        if (notification.params?.uri === resourceUri) {
+          clearTimeout(timeout);
+          resolve(notification);
+        }
+      },
+    );
+  });
+
+  try {
+    if (client.getProtocolEra() === 'legacy') {
+      await client.subscribeResource({ uri: resourceUri });
+      legacySubscribed = true;
+    } else {
+      modernSubscription = await client.listen({
+        resourceSubscriptions: [resourceUri],
+      });
+      requireCondition(
+        modernSubscription.honoredFilter.resourceSubscriptions?.includes(
+          resourceUri,
+        ),
+        `${label} modern listen did not honor its resource-template URI`,
+      );
+    }
+
+    const publish = requireStructuredToolResult(
+      await client.callTool({
+        name: 'connectanum.pubsub.publish',
+        arguments: {
+          topic: 'image.smoke.events',
+          argumentsKeywords: { source: `resource-template-${label}` },
+          acknowledge: true,
+          options: { exclude_me: false },
+        },
+      }),
+      label,
+      'connectanum.pubsub.publish',
+    );
+    requireCondition(
+      publish.acknowledged === true,
+      `${label} resource-template update publication was not acknowledged`,
+    );
+    await update;
+
+    return {
+      resourceTemplateSubscribed: true,
+      resourceTemplateUpdateReceived: true,
+      resourceTemplateUnsubscribed: true,
+    };
+  } finally {
+    clearTimeout(timeout);
+    if (legacySubscribed) {
+      await client.unsubscribeResource({ uri: resourceUri });
+    }
+    if (modernSubscription !== undefined) {
+      await modernSubscription.close();
+    }
+  }
+}
+
 async function runClient(endpoint, label, options, transportOptions) {
   const transport = new StreamableHTTPClientTransport(
     endpoint,
@@ -225,6 +296,12 @@ async function runClient(endpoint, label, options, transportOptions) {
       ),
       `${label} client did not discover the complete pub/sub tool lifecycle`,
     );
+    const resourceTemplateSubscription =
+      await runResourceTemplateSubscription(
+        client,
+        label,
+        resourceTemplateUri,
+      );
     const pubSub = await runPubSubLifecycle(client, label);
 
     summary = {
@@ -238,6 +315,7 @@ async function runClient(endpoint, label, options, transportOptions) {
       resourceContentCount: read.contents.length,
       resourceTemplateContentCount: templateRead.contents.length,
       resourceTemplateRead: true,
+      ...resourceTemplateSubscription,
       instructionsReceived: true,
       promptRendered: true,
       toolCallSucceeded: true,
