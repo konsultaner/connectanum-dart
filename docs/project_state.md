@@ -25026,6 +25026,30 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
+- The active implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-request-metadata-header-multiplicity-validation.md`.
+  Native ingress exposes normalized duplicate-name evidence, but router-hosted
+  MCP still selects one scalar `Mcp-Method`, `Mcp-Name`, or
+  `Mcp-Param-*` value when validating the direct JSON and Streamable HTTP
+  header/body integrity contract. This checkpoint will reject those repeated
+  singleton metadata fields after authentication and before catalog refresh
+  or WAMP dispatch, with protected raw-wire, active-session reuse, and neutral
+  installed-consumer evidence. Repository, Serena, overlap, both-roadmap, and
+  worktree preflights passed, and pre-change `bin/test-fast` is green across
+  the complete fast matrix. Fail-first synthetic and raw native requests
+  returned 200 when a selected scalar matched the body while another wire
+  value conflicted. Normalized duplicates now fail closed before endpoint
+  creation, catalog refresh, or WAMP dispatch while preserving missing-bearer
+  401 and unknown-session 404 precedence. Synthetic/native regressions, all 19
+  package-boundary contracts, and the neutral installed-router smoke pass and
+  prove active-session reuse. Full `bin/verify` passes 114 Rust core tests, 52
+  FFI tests, 360 Dart core tests, all 101 MCP tests, the 280-case client/MCP
+  matrix, 97 benchmark cases plus 37 live WAMP workloads, all 437 router tests,
+  six isolated remote-auth integrations, 13 native follow-ups, every consumer
+  smoke, and Chrome/Dart2Wasm. The implementation is ready to commit; clean
+  exact-commit package validation, publication, hosted workflows, and the
+  strict audit remain. The prior Accept checkpoint's final hosted-evidence
+  notes will be bundled with this implementation.
 - The most recently completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-accept-field-value-preservation.md`.
   Fail-first synthetic and raw native HTTP requests proved that separate JSON
@@ -25046,8 +25070,18 @@ at the older `47bbf9c` commit.
   follow-ups, every consumer/package command smoke, and Chrome/Dart2Wasm.
   Clean strict release-ready validation also passes all seven synchronized
   `3.0.0-beta` package archives with zero warnings and no private dependency
-  blockers. Publication, exact-head hosted workflows, and the strict
-  deployment-chain audit remain follow-up evidence. The prior content-type
+  blockers. Commit `35dfa2b` is published to GitLab and GitHub. Exact-head CI
+  `31648579876`, Dart Package Publish Dry Run `31648579896`, WAMP Profile
+  Benchmarks `31648579875`, and Router Image dry run `31648598339` all pass.
+  Retained artifacts are Dart VM coverage `9162111875`, WAMP profile evidence
+  `9161868924`, Router Image preview `9161714182`, and Docker build records
+  `9161835557` and `9161834894`. The comprehensive strict deployment-chain
+  audit exits zero with clean exact-head CI jobs and logs, clean and relevant
+  package/router-image/WAMP gates, and Native Artifacts dry run `31221315902`
+  remains relevant because no native-release-sensitive path changed. A
+  follow-up numeric RC tag still requires release approval and was not created.
+  These final hosted-evidence notes are bundled with this implementation
+  checkpoint, as required. The prior content-type
   checkpoint's final hosted-evidence notes are bundled with this implementation
   checkpoint.
 - The most recently completed implementation and deployment-repair plan is

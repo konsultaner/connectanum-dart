@@ -1333,6 +1333,55 @@ int _mcpHeaderMismatchErrorCode(String protocolVersion) {
       : mcp.McpErrorCodes.legacyHeaderMismatch;
 }
 
+NativeHttpResponse? _mcpRequestMetadataHeaderMultiplicityError(
+  RouterHttpRequest request, {
+  required Object? rawMessage,
+  String? sessionId,
+  String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
+  Map<String, String> extraHeaders = const <String, String>{},
+}) {
+  final methodHeader = _mcpMethodHeader.toLowerCase();
+  final nameHeader = _mcpNameHeader.toLowerCase();
+  final parameterPrefix = _mcpParameterHeaderPrefix.toLowerCase();
+  String? duplicateHeaderName;
+  if (request.duplicateHeaderNames.contains(methodHeader)) {
+    duplicateHeaderName = methodHeader;
+  } else if (request.duplicateHeaderNames.contains(nameHeader)) {
+    duplicateHeaderName = nameHeader;
+  } else {
+    final duplicateParameterHeaders =
+        request.duplicateHeaderNames
+            .where((name) => name.startsWith(parameterPrefix))
+            .toList()
+          ..sort();
+    if (duplicateParameterHeaders.isNotEmpty) {
+      duplicateHeaderName = duplicateParameterHeaders.first;
+    }
+  }
+  if (duplicateHeaderName == null) {
+    return null;
+  }
+
+  final displayHeaderName = switch (duplicateHeaderName) {
+    final name when name == methodHeader => _mcpMethodHeader,
+    final name when name == nameHeader => _mcpNameHeader,
+    _ => request.headers.keys.firstWhere(
+      (name) => name.toLowerCase() == duplicateHeaderName,
+      orElse: () =>
+          '$_mcpParameterHeaderPrefix${duplicateHeaderName!.substring(parameterPrefix.length)}',
+    ),
+  };
+  return _mcpJsonRpcHttpError(
+    status: HttpStatus.badRequest,
+    code: _mcpHeaderMismatchErrorCode(protocolVersion),
+    message: 'Invalid $displayHeaderName header',
+    id: _recoverDirectJsonRequestId(rawMessage),
+    sessionId: sessionId,
+    protocolVersion: protocolVersion,
+    extraHeaders: extraHeaders,
+  );
+}
+
 NativeHttpResponse? _mcpToolParameterHeaderValidationError(
   RouterBinding binding, {
   required RouterHttpRequest request,
@@ -2613,6 +2662,22 @@ Future<void> _handleMcpHttpRequestForBinding(
         protocolVersion: effectiveResponseMcpProtocolVersion,
         extraHeaders: corsHeaders,
       ),
+    );
+    return;
+  }
+  final requestMetadataHeaderMultiplicityError =
+      _mcpRequestMetadataHeaderMultiplicityError(
+        request,
+        rawMessage: rawMessage,
+        sessionId: responseMcpSessionId,
+        protocolVersion: effectiveResponseMcpProtocolVersion,
+        extraHeaders: corsHeaders,
+      );
+  if (requestMetadataHeaderMultiplicityError != null) {
+    await binding._sendImmediateHttpResponse(
+      request: request,
+      handshake: handshake,
+      response: requestMetadataHeaderMultiplicityError,
     );
     return;
   }

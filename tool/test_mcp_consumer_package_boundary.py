@@ -1452,6 +1452,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"sessionHeaderMultiplicityValidation":true,'
             '"lastEventIdHeaderMultiplicityValidation":true,'
             '"contentTypeHeaderMultiplicityValidation":true,'
+            '"requestMetadataHeaderMultiplicityValidation":true,'
             '"acceptFieldValuePreservation":true,'
             '"authPendingCapacity":true,'
             '"authLockout":true,'
@@ -1485,6 +1486,17 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "repeated Content-Type header did not preserve auth and session "
             "precedence",
+            body,
+        )
+        self.assertIn("_expectRepeatedRequestMetadataHeadersRejected", body)
+        self.assertIn("Mcp-Param-TaskId: conflicting-task", body)
+        self.assertIn("Invalid ${testCase.label} header", body)
+        self.assertIn(
+            "repeated ${testCase.label} header did not fail closed",
+            body,
+        )
+        self.assertIn(
+            "repeated MCP request metadata isolation before WAMP dispatch",
             body,
         )
         self.assertIn("_expectSplitAcceptHeadersNegotiated", body)

@@ -10,6 +10,9 @@
 - Preserve every case-insensitive native HTTP header field value on router
   requests and negotiate split `Accept` fields as one list for router-hosted
   MCP JSON/SSE and Streamable HTTP selection.
+- Reject repeated case-insensitive `Mcp-Method`, `Mcp-Name`, and
+  `Mcp-Param-*` request metadata fields before router-hosted MCP catalog refresh
+  or WAMP dispatch while preserving auth and session-validation precedence.
 - Preserve router-hosted MCP sessions across HTTP-auth access and refresh-token
   rotation while continuing to reject the rotated credentials.
 - Enforce positive realm `max_pending_auth` limits on router HTTP-auth

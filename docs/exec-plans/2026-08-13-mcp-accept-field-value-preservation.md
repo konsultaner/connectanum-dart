@@ -71,5 +71,14 @@ authentication, protocol, session, and singleton-header precedence rules.
   consumer smoke, and Chrome/Dart2Wasm.
 - 2026-08-13: Clean strict release-ready validation passes all seven
   synchronized `3.0.0-beta` package archives with zero warnings and no private
-  workspace dependency blockers. The implementation is ready to publish;
-  exact-head hosted workflows and the strict deployment-chain audit remain.
+  workspace dependency blockers. Commit `35dfa2b` is published to GitLab and
+  GitHub. Exact-head CI `31648579876`, Dart Package Publish Dry Run
+  `31648579896`, WAMP Profile Benchmarks `31648579875`, and Router Image dry
+  run `31648598339` all pass. Retained artifacts are Dart VM coverage
+  `9162111875`, WAMP profile evidence `9161868924`, Router Image preview
+  `9161714182`, and Docker build records `9161835557` and `9161834894`. The
+  comprehensive strict deployment-chain audit exits zero with clean exact-head
+  CI jobs and logs, clean and relevant package/router-image/WAMP gates, and the
+  previously accepted Native Artifacts dry run `31221315902` still relevant
+  because no native-release-sensitive path changed. A follow-up numeric RC tag
+  remains release-approval work and was not created.

@@ -5919,6 +5919,160 @@ void main() {
     expect(disabledDelete.status, HttpStatus.accepted);
   });
 
+  test('rejects repeated MCP request metadata headers', () async {
+    final runtime = _HandleRuntime();
+    final settings = RouterSettingsBuilder()
+      ..addAuthenticator(
+        'anonymous',
+        const AuthenticatorDefinition(type: 'anonymous'),
+      )
+      ..addRealmFromBuilder(
+        RealmSettingsBuilder('router.http')
+          ..addAuthMethod('anonymous')
+          ..addRoleFromBuilder(
+            RoleSettingsBuilder('anonymous')..addPermissionFromBuilder(
+              PermissionSettingsBuilder('')
+                ..setMatchPolicy(PermissionMatchPolicy.prefix)
+                ..allowOperations(const ['call']),
+            ),
+          ),
+      )
+      ..addListenerFromBuilder(
+        ListenerSettingsBuilder('http', '127.0.0.1:0')
+          ..addProtocol(ListenerProtocol.http)
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              routes: <HttpRouteSettings>[
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'router.http',
+                    options: <String, Object?>{
+                      'post_response_transport': 'json',
+                      'resources': <Object?>[
+                        <String, Object?>{
+                          'uri': 'app://mcp/context',
+                          'name': 'context',
+                          'text': 'consumer context',
+                        },
+                      ],
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+      );
+    final router = Router(
+      RouterConfig(
+        endpoints: <Endpoint>[
+          Endpoint(
+            host: '127.0.0.1',
+            port: 0,
+            tlsMode: TlsMode.native,
+            maxRawSocketSizeExponent: 16,
+            sniCertificates: <SniCertificate>[_cert('localhost')],
+          ),
+        ],
+      ),
+      settings: settings.build(),
+    );
+    final binding = router.start(runtime);
+    addTearDown(binding.dispose);
+
+    await Future<void>.delayed(Duration.zero);
+    final listenerId = binding.listeners.single.listenerId;
+    var connectionId = 180;
+    var handle = 40;
+
+    Future<NativeHttpResponse> post(
+      Object body,
+      Map<String, String> metadataHeaders,
+    ) async {
+      final requestConnectionId = connectionId++;
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: requestConnectionId,
+        handle: handle++,
+        method: 'POST',
+        target: '/mcp',
+        headers: <String, String>{
+          HttpHeaders.acceptHeader: 'application/json',
+          HttpHeaders.contentTypeHeader: 'application/json',
+          'MCP-Protocol-Version': '2025-11-25',
+          ...metadataHeaders,
+        },
+        body: body,
+        realm: 'router.http',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(
+        () => runtime.httpResponses[requestConnectionId]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 2),
+      );
+      return runtime.httpResponses[requestConnectionId]!.single;
+    }
+
+    final repeatedMethod = await post(
+      const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'repeated-method',
+        'method': 'tools/list',
+        'params': <String, Object?>{},
+      },
+      const <String, String>{
+        'Mcp-Method': 'tools/list',
+        'mcp-method': 'resources/list',
+      },
+    );
+    expect(repeatedMethod.status, HttpStatus.badRequest);
+    expect(
+      jsonEncode(_jsonResponseBody(repeatedMethod)),
+      contains('Invalid Mcp-Method header'),
+    );
+    expect(repeatedMethod.headers, isNot(contains('MCP-Session-Id')));
+
+    final repeatedName = await post(
+      const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'repeated-name',
+        'method': 'resources/read',
+        'params': <String, Object?>{'uri': 'app://mcp/context'},
+      },
+      const <String, String>{
+        'Mcp-Method': 'resources/read',
+        'Mcp-Name': 'app://mcp/context',
+        'mcp-name': 'app://mcp/other',
+      },
+    );
+    expect(repeatedName.status, HttpStatus.badRequest);
+    expect(
+      jsonEncode(_jsonResponseBody(repeatedName)),
+      contains('Invalid Mcp-Name header'),
+    );
+    expect(repeatedName.headers, isNot(contains('MCP-Session-Id')));
+
+    final validResponse = await post(
+      const <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': 'valid-after-repeated-metadata',
+        'method': 'resources/read',
+        'params': <String, Object?>{'uri': 'app://mcp/context'},
+      },
+      const <String, String>{
+        'Mcp-Method': 'resources/read',
+        'Mcp-Name': 'app://mcp/context',
+      },
+    );
+    expect(validResponse.status, HttpStatus.ok);
+    expect(
+      jsonEncode(_jsonResponseBody(validResponse)),
+      contains('consumer context'),
+    );
+  });
+
   test('creates internal sessions from session profile defaults', () async {
     final runtime = _HandleRuntime();
     final router = Router(

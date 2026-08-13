@@ -1024,6 +1024,82 @@ void main() {
         contains('direct-standard'),
       );
 
+      final repeatedMethodHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'direct-repeated-method-header',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        repeatedHeaders: const <String, List<String>>{
+          'Mcp-Method': <String>['resources/list', 'tools/list'],
+        },
+      );
+      expect(repeatedMethodHeader.statusCode, HttpStatus.badRequest);
+      expect(repeatedMethodHeader.body, contains('Invalid Mcp-Method header'));
+      expect(repeatedMethodHeader.headers, isNot(contains('mcp-session-id')));
+
+      final repeatedNameHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'direct-repeated-name-header',
+          'method': 'tools/call',
+          'params': <String, Object?>{
+            'name': 'app.echo',
+            'arguments': <String, Object?>{'message': 'repeated-name'},
+          },
+        },
+        headers: const <String, String>{'Mcp-Method': 'tools/call'},
+        repeatedHeaders: const <String, List<String>>{
+          'Mcp-Name': <String>['app.other', 'app.echo'],
+        },
+      );
+      expect(repeatedNameHeader.statusCode, HttpStatus.badRequest);
+      expect(repeatedNameHeader.body, contains('Invalid Mcp-Name header'));
+      expect(repeatedNameHeader.headers, isNot(contains('mcp-session-id')));
+
+      final repeatedParameterHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'direct-repeated-parameter-header',
+          'method': 'tools/call',
+          'params': <String, Object?>{
+            'name': 'app.echo',
+            'arguments': <String, Object?>{
+              'message': 'direct-repeated-parameter',
+            },
+          },
+        },
+        headers: const <String, String>{
+          'Mcp-Method': 'tools/call',
+          'Mcp-Name': 'app.echo',
+        },
+        repeatedHeaders: const <String, List<String>>{
+          'Mcp-Param-Message': <String>[
+            'conflicting-parameter',
+            'direct-repeated-parameter',
+          ],
+        },
+      );
+      expect(repeatedParameterHeader.statusCode, HttpStatus.badRequest);
+      expect(
+        repeatedParameterHeader.body,
+        contains('Invalid Mcp-Param-Message header'),
+      );
+      expect(
+        repeatedParameterHeader.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
       final directToolCallWithHeaderWhitespace = await _postJson(
         client,
         listener.port,
@@ -13987,6 +14063,99 @@ void main() {
           caseSensitive: false,
           multiLine: true,
         ).hasMatch(repeatedContentType),
+        isTrue,
+      );
+
+      Future<String> postRepeatedMcpMethod({
+        required bool authenticated,
+        required String sessionId,
+      }) async {
+        final body = utf8.encode(
+          jsonEncode(const <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'secure-json-post-repeated-method',
+            'method': 'tools/list',
+            'params': <String, Object?>{},
+          }),
+        );
+        final socket = await Socket.connect('127.0.0.1', listener.port);
+        try {
+          socket.add(
+            utf8.encode(
+              'POST /mcp/secure-json-post HTTP/1.1\r\n'
+              'Host: 127.0.0.1:${listener.port}\r\n'
+              'Connection: close\r\n'
+              'Accept: application/json, text/event-stream\r\n'
+              '${authenticated ? 'Authorization: Bearer ${grant.accessToken}\r\n' : ''}'
+              'MCP-Session-Id: $sessionId\r\n'
+              'MCP-Protocol-Version: 2025-11-25\r\n'
+              'Mcp-Method: tools/list\r\n'
+              'mcp-method: resources/list\r\n'
+              'Content-Type: application/json\r\n'
+              'Content-Length: ${body.length}\r\n'
+              '\r\n',
+            ),
+          );
+          socket.add(body);
+          await socket.flush();
+          return await _readHttpResponse(socket);
+        } finally {
+          socket.destroy();
+        }
+      }
+
+      final repeatedMethodMissingBearer = await postRepeatedMcpMethod(
+        authenticated: false,
+        sessionId: activeSecureJsonSessionId,
+      );
+      expect(
+        repeatedMethodMissingBearer,
+        startsWith('HTTP/1.1 ${HttpStatus.unauthorized}'),
+      );
+      expect(
+        RegExp(
+          r'^mcp-session-id:',
+          caseSensitive: false,
+          multiLine: true,
+        ).hasMatch(repeatedMethodMissingBearer),
+        isFalse,
+      );
+
+      final repeatedMethodUnknownSession = await postRepeatedMcpMethod(
+        authenticated: true,
+        sessionId: 'unknown-secure-json-session',
+      );
+      expect(
+        repeatedMethodUnknownSession,
+        startsWith('HTTP/1.1 ${HttpStatus.notFound}'),
+      );
+      expect(
+        RegExp(
+          r'^mcp-session-id:',
+          caseSensitive: false,
+          multiLine: true,
+        ).hasMatch(repeatedMethodUnknownSession),
+        isFalse,
+      );
+
+      final repeatedMethodActiveSession = await postRepeatedMcpMethod(
+        authenticated: true,
+        sessionId: activeSecureJsonSessionId,
+      );
+      expect(
+        repeatedMethodActiveSession,
+        startsWith('HTTP/1.1 ${HttpStatus.badRequest}'),
+      );
+      expect(
+        repeatedMethodActiveSession,
+        contains('Invalid Mcp-Method header'),
+      );
+      expect(
+        RegExp(
+          '^mcp-session-id:\\s*${RegExp.escape(activeSecureJsonSessionId)}\\s*\$',
+          caseSensitive: false,
+          multiLine: true,
+        ).hasMatch(repeatedMethodActiveSession),
         isTrue,
       );
 
