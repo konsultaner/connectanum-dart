@@ -393,15 +393,7 @@ class McpServer {
       params['uri'],
       'resources/read.params.uri',
     );
-    final resource = resources[uri];
-    if (resource == null) {
-      throw McpException(
-        McpErrorCodes.resourceNotFound,
-        'Resource not found',
-        data: <String, Object?>{'uri': uri},
-      );
-    }
-    final contents = await resource.read(McpResourceRequest(uri: uri));
+    final contents = await resources.read(McpResourceRequest(uri: uri));
     return <String, Object?>{
       'contents': [for (final content in contents) content.toJson()],
     };

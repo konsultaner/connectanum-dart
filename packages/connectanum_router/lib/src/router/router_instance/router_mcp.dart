@@ -3549,7 +3549,10 @@ class _RouterMcpEndpoint {
         options,
         procedureReader: _readConfiguredResource,
       ),
-      resourceTemplates: _configuredResourceTemplates(options),
+      resourceTemplates: _configuredResourceTemplates(
+        options,
+        procedureReader: _readConfiguredResource,
+      ),
       prompts: _configuredPrompts(options),
       instructions: _mcpInstructionsForOptions(options),
       onSubscribeResource: resourceSubscriptionsEnabled
@@ -3597,6 +3600,7 @@ class _RouterMcpEndpoint {
   String? _toolSignature;
   String? _wampApiSignature;
   String? _resourceSignature;
+  String? _resourceTemplateSignature;
   final mcp.McpWampPubSubState _wampPubSubState = mcp.McpWampPubSubState();
   Future<void> _catalogRefreshTail = Future<void>.value();
   final List<_RouterMcpSseEvent> _sseHistory = <_RouterMcpSseEvent>[];
@@ -4589,6 +4593,7 @@ class _RouterMcpEndpoint {
   Future<List<mcp.McpResourceContent>> _readConfiguredResource(
     Map<String, Object?> config,
     mcp.McpResourceRequest request,
+    Map<String, String> templateVariables,
   ) async {
     final procedure =
         _stringFrom(config['read_procedure']) ??
@@ -4609,9 +4614,17 @@ class _RouterMcpEndpoint {
       procedure: procedure,
       request: mcp.McpToolRequest(
         name: 'resources/read',
-        arguments: <String, Object?>{'uri': request.uri},
+        arguments: <String, Object?>{
+          'uri': request.uri,
+          if (templateVariables.isNotEmpty) 'variables': templateVariables,
+        },
       ),
-      payload: mcp.McpWampCallPayload(arguments: <Object?>[request.uri]),
+      payload: mcp.McpWampCallPayload(
+        arguments: <Object?>[request.uri],
+        argumentsKeywords: templateVariables.isEmpty
+            ? null
+            : <String, Object?>{...templateVariables},
+      ),
     );
     final payload = await _callAuthorized(call);
     final body = <String, Object?>{};
@@ -4889,15 +4902,9 @@ class _RouterMcpEndpoint {
       params['uri'],
       'resources/read.params.uri',
     );
-    final resource = server.resources[uri];
-    if (resource == null) {
-      throw mcp.McpException(
-        mcp.McpErrorCodes.resourceNotFound,
-        'Resource not found',
-        data: <String, Object?>{'uri': uri},
-      );
-    }
-    final contents = await resource.read(mcp.McpResourceRequest(uri: uri));
+    final contents = await server.resources.read(
+      mcp.McpResourceRequest(uri: uri),
+    );
     return <String, Object?>{
       'contents': [for (final content in contents) content.toJson()],
     };
@@ -5017,6 +5024,9 @@ class _RouterMcpEndpoint {
     final authorizationDecisions = <String, Future<bool>>{};
     final api = await _buildApi(authorizationDecisions);
     final resources = await _visibleConfiguredResources(authorizationDecisions);
+    final resourceTemplates = await _visibleConfiguredResourceTemplates(
+      authorizationDecisions,
+    );
     final tools = api.toTools(
       call: _call,
       publish: _publish,
@@ -5037,6 +5047,9 @@ class _RouterMcpEndpoint {
     final resourceSignature = jsonEncode([
       for (final resource in resources) resource.toJson(),
     ]);
+    final resourceTemplateSignature = jsonEncode([
+      for (final template in resourceTemplates) template.toJson(),
+    ]);
     final procedures = [...api.procedures]
       ..sort((left, right) => left.procedure.compareTo(right.procedure));
     final topics = [...api.topics]
@@ -5050,10 +5063,12 @@ class _RouterMcpEndpoint {
     });
     final apiChanged = apiSignature != _wampApiSignature;
     final resourcesChanged = resourceSignature != _resourceSignature;
+    final resourceTemplatesChanged =
+        resourceTemplateSignature != _resourceTemplateSignature;
     await _reconcileResourceSubscriptionAuthorization(authorizationDecisions, {
       for (final resource in resources) resource.uri,
     });
-    if (!apiChanged && !resourcesChanged) {
+    if (!apiChanged && !resourcesChanged && !resourceTemplatesChanged) {
       return;
     }
     if (apiChanged) {
@@ -5067,15 +5082,24 @@ class _RouterMcpEndpoint {
       _toolSignature = toolSignature;
       _wampApiSignature = apiSignature;
     }
-    if (resourcesChanged) {
-      server.resources.replaceAll(resources);
-      if (_resourceSignature != null) {
+    if (resourcesChanged || resourceTemplatesChanged) {
+      final hadPreviousCatalog =
+          (resourcesChanged && _resourceSignature != null) ||
+          (resourceTemplatesChanged && _resourceTemplateSignature != null);
+      if (resourcesChanged) {
+        server.resources.replaceAll(resources);
+        _resourceSignature = resourceSignature;
+      }
+      if (resourceTemplatesChanged) {
+        server.resources.replaceTemplates(resourceTemplates);
+        _resourceTemplateSignature = resourceTemplateSignature;
+      }
+      if (hadPreviousCatalog) {
         if (server.state == mcp.McpServerState.initialized) {
           _enqueueServerNotification('notifications/resources/list_changed');
         }
         _sendModernNotification('notifications/resources/list_changed');
       }
-      _resourceSignature = resourceSignature;
     }
   }
 
@@ -5100,6 +5124,35 @@ class _RouterMcpEndpoint {
             readProcedure,
           )) {
         visible.add(resource);
+      }
+    }
+    return visible;
+  }
+
+  Future<List<mcp.McpResourceTemplate>> _visibleConfiguredResourceTemplates(
+    Map<String, Future<bool>> authorizationDecisions,
+  ) async {
+    final options = route.action.options;
+    final visible = <mcp.McpResourceTemplate>[];
+    for (final template in _configuredResourceTemplates(
+      options,
+      procedureReader: _readConfiguredResource,
+    )) {
+      final config = _configuredResourceTemplateForUriTemplate(
+        options,
+        template.uriTemplate,
+      );
+      final readProcedure = config == null
+          ? null
+          : _stringFrom(config['read_procedure']) ??
+                _stringFrom(config['readProcedure']);
+      if (readProcedure == null ||
+          await _isCatalogAuthorized(
+            authorizationDecisions,
+            AuthorizationAction.call,
+            readProcedure,
+          )) {
+        visible.add(template);
       }
     }
     return visible;
@@ -6615,6 +6668,7 @@ typedef _ConfiguredResourceProcedureReader =
     Future<List<mcp.McpResourceContent>> Function(
       Map<String, Object?> config,
       mcp.McpResourceRequest request,
+      Map<String, String> templateVariables,
     );
 
 List<mcp.McpResource> _configuredResources(
@@ -6636,8 +6690,9 @@ List<mcp.McpResource> _configuredResources(
 }
 
 List<mcp.McpResourceTemplate> _configuredResourceTemplates(
-  Map<String, Object?> options,
-) {
+  Map<String, Object?> options, {
+  _ConfiguredResourceProcedureReader? procedureReader,
+}) {
   final entries = options['resource_templates'] ?? options['resourceTemplates'];
   if (entries is! List) {
     return const [];
@@ -6645,7 +6700,10 @@ List<mcp.McpResourceTemplate> _configuredResourceTemplates(
   return [
     for (final entry in entries)
       if (entry is Map)
-        _resourceTemplateFromConfig(entry.cast<String, Object?>()),
+        _resourceTemplateFromConfig(
+          entry.cast<String, Object?>(),
+          procedureReader: procedureReader,
+        ),
   ];
 }
 
@@ -6674,6 +6732,29 @@ Map<String, Object?>? _configuredResourceForUri(
     }
     final config = entry.cast<String, Object?>();
     if (_stringFrom(config['uri']) == uri) {
+      return config;
+    }
+  }
+  return null;
+}
+
+Map<String, Object?>? _configuredResourceTemplateForUriTemplate(
+  Map<String, Object?> options,
+  String uriTemplate,
+) {
+  final entries = options['resource_templates'] ?? options['resourceTemplates'];
+  if (entries is! List) {
+    return null;
+  }
+  for (final entry in entries) {
+    if (entry is! Map) {
+      continue;
+    }
+    final config = entry.cast<String, Object?>();
+    final configuredUriTemplate =
+        _stringFrom(config['uri_template']) ??
+        _stringFrom(config['uriTemplate']);
+    if (configuredUriTemplate == uriTemplate) {
       return config;
     }
   }
@@ -6857,14 +6938,15 @@ mcp.McpResource _resourceFromConfig(
                 'MCP dynamic resource $uri has no procedure reader',
               );
             }
-            return reader(config, request);
+            return reader(config, request, const <String, String>{});
           },
   );
 }
 
 mcp.McpResourceTemplate _resourceTemplateFromConfig(
-  Map<String, Object?> config,
-) {
+  Map<String, Object?> config, {
+  _ConfiguredResourceProcedureReader? procedureReader,
+}) {
   final uriTemplate =
       _stringFrom(config['uri_template']) ??
       _stringFrom(config['uriTemplate']) ??
@@ -6875,6 +6957,9 @@ mcp.McpResourceTemplate _resourceTemplateFromConfig(
       _stringFrom(config['name']) ??
       _stringFrom(config['title']) ??
       uriTemplate;
+  final readProcedure =
+      _stringFrom(config['read_procedure']) ??
+      _stringFrom(config['readProcedure']);
   return mcp.McpResourceTemplate(
     uriTemplate: uriTemplate,
     name: name,
@@ -6882,6 +6967,17 @@ mcp.McpResourceTemplate _resourceTemplateFromConfig(
     description: _stringFrom(config['description']),
     mimeType:
         _stringFrom(config['mime_type']) ?? _stringFrom(config['mimeType']),
+    read: readProcedure == null
+        ? null
+        : (request, variables) {
+            final reader = procedureReader;
+            if (reader == null) {
+              throw StateError(
+                'MCP resource template $uriTemplate has no procedure reader',
+              );
+            }
+            return reader(config, request, variables);
+          },
   );
 }
 

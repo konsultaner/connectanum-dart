@@ -223,6 +223,13 @@ final server = McpServer(
       uriTemplate: 'app://tasks/{id}',
       name: 'task',
       mimeType: 'application/json',
+      read: (request, variables) => [
+        McpTextResourceContent(
+          uri: request.uri,
+          mimeType: 'application/json',
+          text: '{"taskId":"${variables['id']}"}',
+        ),
+      ],
     ),
   ],
   onSubscribeResource: (request) async {
@@ -239,7 +246,11 @@ When resources or templates are configured, the server advertises the MCP
 `resources/templates/list` support optional cursor pagination through
 `resourceListPageSize` and `resourceTemplateListPageSize`. `resources/read`
 returns text or base64-encoded binary content and reports unknown URIs with the
-MCP resource-not-found error code.
+MCP resource-not-found error code. A template with `read` resolves concrete
+URIs through simple RFC 6570 Level 1 `{variable}` expressions and passes
+percent-decoded variables to its callback. Exact resources take precedence
+over matching templates. Metadata-only templates remain listable but do not
+handle reads.
 
 Providing both resource subscription handlers advertises
 `resources.subscribe: true` and enables `resources/subscribe` plus
@@ -589,7 +600,11 @@ options: {
     },
   ],
   'resource_templates': [
-    {'uri_template': 'app://example/task/{taskId}', 'name': 'task'},
+    {
+      'uri_template': 'app://example/task/{taskId}',
+      'name': 'task',
+      'read_procedure': 'app.context.read',
+    },
   ],
   'prompts': [
     {
@@ -606,11 +621,14 @@ options: {
 ```
 
 Configured resources are served by `resources/list` and `resources/read`;
-templates are served by `resources/templates/list`; prompts are served by
-`prompts/list` and `prompts/get`. Prompt text replaces `{{argumentName}}`
-placeholders with string arguments supplied by the MCP client. A
-`read_procedure` receives the configured resource URI as its first positional
-WAMP argument. Its final result is returned as `application/json` text with
+templates are served by `resources/templates/list`, and templates with a
+`read_procedure` also resolve concrete `resources/read` URIs. Prompts are
+served by `prompts/list` and `prompts/get`. Prompt text replaces
+`{{argumentName}}` placeholders with string arguments supplied by the MCP
+client. A `read_procedure` receives the concrete resource URI as its first
+positional WAMP argument. Template reads additionally receive percent-decoded
+template variables as keyword arguments. Its final result is returned as
+`application/json` text with
 lossless `arguments`, `argumentsKeywords`, and `details` fields. An optional
 `update_topic` enables both session-era Streamable HTTP resource subscriptions
 and modern `subscriptions/listen` resource filters. Each authorized WAMP event
@@ -626,9 +644,10 @@ cannot declare `update_topic`, and dynamic resources cannot combine
 auto-discovery remains intentionally separate so applications keep explicit
 control over context and prompt surface area.
 
-Dynamic-resource catalog visibility follows the principal's current permission
-to call `read_procedure`, while update ownership follows current permission to
-subscribe to `update_topic`. Each successful catalog refresh revokes existing
+Dynamic-resource and readable-template catalog visibility follows the
+principal's current permission to call `read_procedure`, while update ownership
+follows current permission to subscribe to `update_topic`. Each successful
+catalog refresh revokes existing
 Streamable and modern update grants when either permission is lost and releases
 the shared WAMP update-topic subscription when it is no longer used. Losing
 only update-topic access leaves the resource listed and readable.

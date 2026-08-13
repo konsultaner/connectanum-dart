@@ -294,6 +294,7 @@ RouterSettings _buildSettings() {
         'name': 'Example task template',
         'description': 'Template URI shape for task context.',
         'mime_type': 'application/json',
+        'read_procedure': _dynamicResourceReadProcedure,
       },
     ],
     'prompts': [
@@ -543,6 +544,8 @@ Future<void> _registerExampleApi(RouterSession serviceSession) async {
         'title': 'Router-hosted MCP example live context',
         'readCount': liveContextReadCount,
         'source': 'router-hosted-mcp-example',
+        if (invocation.argumentsKeywords != null)
+          'templateVariables': invocation.argumentsKeywords,
       },
     );
   });

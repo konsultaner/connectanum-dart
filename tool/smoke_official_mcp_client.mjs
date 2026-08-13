@@ -153,6 +153,11 @@ async function runClient(endpoint, label, options, transportOptions) {
     const read = await client.readResource({
       uri: 'connectanum://router-image/context',
     });
+    const resourceTemplateUri =
+      'connectanum://router-image/item/official%20client';
+    const templateRead = await client.readResource({
+      uri: resourceTemplateUri,
+    });
     const promptSubject = `official client ${label}`;
     const prompt = await client.getPrompt({
       name: 'inspect-router-image',
@@ -198,6 +203,13 @@ async function runClient(endpoint, label, options, transportOptions) {
     );
     requireCondition(read.contents.length > 0, `${label} resource read was empty`);
     requireCondition(
+      templateRead.contents.length > 0 &&
+        templateRead.contents.every(
+          (content) => content.uri === resourceTemplateUri,
+        ),
+      `${label} concrete resource-template read was empty or changed its URI`,
+    );
+    requireCondition(
       prompt.messages.some(
         (message) =>
           message.role === 'user' &&
@@ -224,6 +236,8 @@ async function runClient(endpoint, label, options, transportOptions) {
       resourceCount: resources.resources.length,
       resourceTemplateCount: templates.resourceTemplates.length,
       resourceContentCount: read.contents.length,
+      resourceTemplateContentCount: templateRead.contents.length,
+      resourceTemplateRead: true,
       instructionsReceived: true,
       promptRendered: true,
       toolCallSucceeded: true,

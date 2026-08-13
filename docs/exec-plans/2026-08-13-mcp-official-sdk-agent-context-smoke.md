@@ -1,6 +1,6 @@
 # MCP Official SDK Agent Context Smoke
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -68,5 +68,16 @@ References:
   post-verification 30-case Router Image contract, Node/shell syntax, privacy,
   and diff checks pass. Strict release-ready dry-runs validate all seven
   synchronized `3.0.0-beta` archives with zero warnings and no private
-  workspace dependency blockers. Publication and exact-head hosted evidence
-  remain.
+  workspace dependency blockers.
+- 2026-08-13: Implementation commit `954d690e` is published to both maintained
+  `master` branches. Exact-head CI run `31725427710` passes Fast Checks, Full
+  Verify, and Dart VM Coverage with clean logs and retained coverage artifact
+  `9191626378`. Router Image dry run `31727009974` passes the local image smoke
+  and multi-architecture dry-run build; its official SDK 2.0.0 marker confirms
+  public and protected legacy and modern lifecycles with
+  `instructions=true prompt_get=true` while retaining auth, session, catalog,
+  resource, tool, structured-result, and pub/sub evidence. Retained artifacts
+  are preview `9191664813` and Docker build records `9191682089` and
+  `9191681420`. The comprehensive strict deployment-chain audit exits zero;
+  the prior package, Native Artifacts, and WAMP benchmark runs remain clean and
+  relevant because their sensitive inputs did not change.

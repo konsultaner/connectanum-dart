@@ -182,7 +182,11 @@ const HttpRouteSettings(
         },
       ],
       'resource_templates': [
-        {'uri_template': 'app://example/task/{taskId}', 'name': 'task'},
+        {
+          'uri_template': 'app://example/task/{taskId}',
+          'name': 'task',
+          'read_procedure': 'app.context.read',
+        },
       ],
       'prompts': [
         {
@@ -204,7 +208,10 @@ Exact WAMP registrations become MCP tools automatically. WAMP meta API tools
 and `connectanum.pubsub.*` helpers are enabled by default, then filtered by the
 route-authenticated principal's realm permissions before they are advertised.
 Configured resources, resource templates, and prompts are served by the
-standard MCP `resources/*` and `prompts/*` methods.
+standard MCP `resources/*` and `prompts/*` methods. A resource template with a
+`read_procedure` resolves concrete resource URIs and passes percent-decoded
+template variables as WAMP keyword arguments; the concrete URI remains the
+first positional argument.
 
 Compatibility Streamable HTTP sessions expire after 10 minutes without MCP
 traffic by default. Set `session_idle_timeout_ms` (or

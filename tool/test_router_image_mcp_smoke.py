@@ -192,6 +192,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"activeDirectJson"',
             '"streamable"',
             '"resourceTemplates"',
+            '"resourceTemplateRead":true',
             '"resourceContent"',
             '"prompts"',
             '"prompt"',
@@ -241,6 +242,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"sdk":"@modelcontextprotocol/client@2.0.0"',
             "public=true protected=true bearer_retry=true",
             "legacy_session=true legacy_terminated=true modern_sessionless=true",
+            "resource_template_read=true",
             "instructions=true prompt_get=true",
             "pubsub=true explicit_handle=true structured_content=true",
             "OFFICIAL_MCP_AUTH_TICKET=image-smoke-ticket",
@@ -267,6 +269,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "await client.listResources()",
             "await client.listResourceTemplates()",
             "await client.readResource(",
+            "resourceTemplateRead: true",
             "client.getInstructions()",
             "await client.getPrompt(",
             "await client.callTool(",
@@ -398,7 +401,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 self.assertIn(expected, runner)
 
         self.assertEqual(config.count("uri: connectanum://router-image/live-context"), 3)
-        self.assertEqual(config.count("read_procedure: wamp.session.count"), 3)
+        self.assertEqual(config.count("read_procedure: wamp.session.count"), 6)
         self.assertEqual(config.count("update_topic: image.smoke.events"), 3)
 
     def test_smoke_contract_covers_modern_and_streamable_mcp(self) -> None:
@@ -1591,6 +1594,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             config.count("uri_template: connectanum://router-image/item/{itemId}"),
             3,
         )
+        self.assertEqual(config.count("read_procedure: wamp.session.count"), 6)
         self.assertEqual(config.count("name: inspect-router-image"), 3)
 
     def test_workflow_smokes_loaded_image_before_multiarch_build(self) -> None:

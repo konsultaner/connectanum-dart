@@ -410,6 +410,10 @@
   - [x] Add configured router-hosted MCP resources, resource templates, and
     prompts so a router route can advertise read-only context and prompt
     templates without starting a separate MCP server.
+  - [x] Make configured resource templates readable through standard MCP and
+    direct JSON APIs with bounded Level 1 URI matching, exact-resource
+    precedence, decoded variables, and authorization-filtered WAMP procedure
+    delegation.
   - [x] Add explicit WAMP-procedure-backed dynamic resources and
     Streamable-session-scoped resource update subscriptions, including route
     principal authorization, resumable SSE notifications, typed client

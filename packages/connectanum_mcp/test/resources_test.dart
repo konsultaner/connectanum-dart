@@ -360,6 +360,171 @@ void main() {
     });
 
     test(
+      'resources/read resolves concrete resource-template URIs',
+      () async {
+        final server = McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          resourceTemplates: [
+            McpResourceTemplate(
+              uriTemplate: 'app://tasks/{taskId}',
+              name: 'task',
+              read: (request, variables) => [
+                McpTextResourceContent(
+                  uri: request.uri,
+                  mimeType: 'text/plain',
+                  text: variables['taskId']!,
+                ),
+              ],
+            ),
+          ],
+        );
+        await _initializeAndStart(server);
+
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'template-read',
+          'method': 'resources/read',
+          'params': {'uri': 'app://tasks/A%20B'},
+        });
+
+        expect(response?['result'], {
+          'contents': [
+            {
+              'uri': 'app://tasks/A%20B',
+              'mimeType': 'text/plain',
+              'text': 'A B',
+            },
+          ],
+        });
+      },
+    );
+
+    test('resources/read prefers an exact resource over a template', () async {
+      final server = McpServer(
+        serverInfo: const McpServerInfo(
+          name: 'connectanum-test',
+          version: '0.1.0',
+        ),
+        resources: [
+          McpResource(
+            uri: 'app://tasks/fixed',
+            name: 'fixed',
+            read: (request) => [
+              McpTextResourceContent(uri: request.uri, text: 'exact'),
+            ],
+          ),
+        ],
+        resourceTemplates: [
+          McpResourceTemplate(
+            uriTemplate: 'app://tasks/{taskId}',
+            name: 'task',
+            read: (request, variables) => [
+              McpTextResourceContent(uri: request.uri, text: 'template'),
+            ],
+          ),
+        ],
+      );
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'exact-read',
+        'method': 'resources/read',
+        'params': {'uri': 'app://tasks/fixed'},
+      });
+
+      final result = response?['result'] as Map<String, Object?>;
+      final contents = result['contents'] as List<Object?>;
+      expect(contents.single, containsPair('text', 'exact'));
+    });
+
+    test('resource-template reads support a literal suffix', () async {
+      final server = McpServer(
+        serverInfo: const McpServerInfo(
+          name: 'connectanum-test',
+          version: '0.1.0',
+        ),
+        resourceTemplates: [
+          McpResourceTemplate(
+            uriTemplate: 'app://tasks/{taskId}.json',
+            name: 'task-json',
+            read: (request, variables) => [
+              McpTextResourceContent(
+                uri: request.uri,
+                text: variables['taskId']!,
+              ),
+            ],
+          ),
+        ],
+      );
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'suffix-read',
+        'method': 'resources/read',
+        'params': {'uri': 'app://tasks/A.B.json'},
+      });
+
+      final result = response?['result'] as Map<String, Object?>;
+      final contents = result['contents'] as List<Object?>;
+      expect(contents.single, containsPair('text', 'A.B'));
+    });
+
+    test('resource templates reject ambiguous or unsupported expressions', () {
+      for (final uriTemplate in [
+        'app://tasks/{first}{second}',
+        'app://tasks/{id:2}',
+        'app://tasks/{+id}',
+        'app://tasks/{first}-{second}',
+        'app://tasks/{id}/{id}',
+        'relative/{id}',
+      ]) {
+        expect(
+          () => McpResourceTemplate(
+            uriTemplate: uriTemplate,
+            name: 'invalid',
+          ),
+          throwsArgumentError,
+          reason: uriTemplate,
+        );
+      }
+    });
+
+    test(
+      'resources/read does not let Level 1 variables consume a path',
+      () async {
+        final server = McpServer(
+          serverInfo: const McpServerInfo(
+            name: 'connectanum-test',
+            version: '0.1.0',
+          ),
+          resourceTemplates: [
+            McpResourceTemplate(
+              uriTemplate: 'app://tasks/{taskId}',
+              name: 'task',
+              read: (request, variables) => const [],
+            ),
+          ],
+        );
+        await _initializeAndStart(server);
+
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 'reserved-read',
+          'method': 'resources/read',
+          'params': {'uri': 'app://tasks/parent/child'},
+        });
+
+        final error = response?['error'] as Map<String, Object?>;
+        expect(error['code'], McpErrorCodes.resourceNotFound);
+      },
+    );
+
+    test(
       'resources/read reports missing resources as resource errors',
       () async {
         final server = _server();

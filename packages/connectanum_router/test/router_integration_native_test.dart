@@ -937,6 +937,17 @@ void main() {
           argumentsKeywords: {'received': invocation.argumentsKeywords},
         );
       });
+      final resourceTemplateRegistration = await serviceSession.register(
+        'app.example.task.read',
+      );
+      resourceTemplateRegistration.onInvoke((invocation) {
+        invocation.respondWith(
+          argumentsKeywords: <String, Object?>{
+            'uri': invocation.arguments?.single,
+            'variables': invocation.argumentsKeywords,
+          },
+        );
+      });
 
       final listener = binding.listeners.single;
       final client = HttpClient();
@@ -1192,6 +1203,31 @@ void main() {
         contains('router-hosted MCP'),
       );
 
+      final directTemplateRead = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-resource-template-read',
+          'method': 'resources/read',
+          'params': {'uri': 'app://example/task/T%20direct'},
+        },
+      );
+      expect(directTemplateRead.statusCode, equals(HttpStatus.ok));
+      expect(
+        jsonDecode(
+          ((((directTemplateRead.json?['result'] as Map)['contents'] as List)
+                      .single
+                  as Map)['text']
+              as String),
+        ),
+        containsPair(
+          'argumentsKeywords',
+          containsPair('variables', containsPair('taskId', 'T direct')),
+        ),
+      );
+
       final directPrompt = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
         'id': 'direct-prompts-get',
@@ -1301,6 +1337,25 @@ void main() {
       expect(
         templateList.map((template) => template['uriTemplate']),
         contains('app://example/task/{taskId}'),
+      );
+
+      final templateRead = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'resources-template-read',
+        'method': 'resources/read',
+        'params': {'uri': 'app://example/task/T%20streamable'},
+      });
+      expect(templateRead.statusCode, equals(HttpStatus.ok));
+      expect(
+        jsonDecode(
+          ((((templateRead.json?['result'] as Map)['contents'] as List).single
+                  as Map)['text']
+              as String),
+        ),
+        containsPair(
+          'argumentsKeywords',
+          containsPair('variables', containsPair('taskId', 'T streamable')),
+        ),
       );
 
       final prompts = await _postJson(client, listener.port, '/mcp', {
@@ -6567,6 +6622,7 @@ void main() {
             argumentsKeywords: <String, Object?>{
               'uri': invocation.arguments?.single,
               'invocation': invocationCount,
+              'variables': invocation.argumentsKeywords,
             },
           );
         });
@@ -6601,6 +6657,21 @@ void main() {
           deniedDirectResources.resources.map((resource) => resource['uri']),
           isNot(contains('app://mcp/live-context')),
         );
+        final deniedDirectTemplateRequests = provider.matchingRequestCount;
+        final deniedDirectTemplates = await directClient.listResourceTemplates(
+          id: 'resource-template-catalog-authorization-direct-denied-list',
+          directJson: true,
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(deniedDirectTemplateRequests + 1),
+        );
+        expect(
+          deniedDirectTemplates.resourceTemplates.map(
+            (template) => template['uriTemplate'],
+          ),
+          isNot(contains('app://mcp/task/{taskId}')),
+        );
 
         final deniedDirectReadRequests = provider.matchingRequestCount;
         await expectLater(
@@ -6620,6 +6691,27 @@ void main() {
         expect(
           provider.matchingRequestCount,
           equals(deniedDirectReadRequests + 1),
+        );
+        expect(invocationCount, isZero);
+
+        final deniedDirectTemplateReadRequests = provider.matchingRequestCount;
+        await expectLater(
+          directClient.readResource(
+            'app://mcp/task/blocked',
+            id: 'resource-template-authorization-direct-denied-read',
+            directJson: true,
+          ),
+          throwsA(
+            isA<McpJsonRpcException>().having(
+              (error) => error.error['code'],
+              'code',
+              McpErrorCodes.resourceNotFound,
+            ),
+          ),
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(deniedDirectTemplateReadRequests + 1),
         );
         expect(invocationCount, isZero);
 
@@ -6665,6 +6757,21 @@ void main() {
           allowedDirectResources.resources.map((resource) => resource['uri']),
           contains('app://mcp/live-context'),
         );
+        final allowedDirectTemplateRequests = provider.matchingRequestCount;
+        final allowedDirectTemplates = await directClient.listResourceTemplates(
+          id: 'resource-template-catalog-authorization-direct-allowed-list',
+          directJson: true,
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(allowedDirectTemplateRequests + 1),
+        );
+        expect(
+          allowedDirectTemplates.resourceTemplates.map(
+            (template) => template['uriTemplate'],
+          ),
+          contains('app://mcp/task/{taskId}'),
+        );
         expect(await listChanged, isTrue);
         expect(
           modernNotifications.current['method'],
@@ -6684,6 +6791,29 @@ void main() {
         expect(
           jsonDecode(directContents.single['text'] as String),
           containsPair('argumentsKeywords', containsPair('invocation', 1)),
+        );
+        expect(directClient.sessionId, isNull);
+        expect(directClient.lastEventId, isNull);
+
+        final allowedDirectTemplateReadRequests = provider.matchingRequestCount;
+        final directTemplateContents = await directClient.readResource(
+          'app://mcp/task/A%20B',
+          id: 'resource-template-authorization-direct-allowed-read',
+          directJson: true,
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(allowedDirectTemplateReadRequests + 2),
+        );
+        expect(
+          jsonDecode(directTemplateContents.single['text'] as String),
+          containsPair(
+            'argumentsKeywords',
+            allOf(
+              containsPair('invocation', 2),
+              containsPair('variables', containsPair('taskId', 'A B')),
+            ),
+          ),
         );
         expect(directClient.sessionId, isNull);
         expect(directClient.lastEventId, isNull);
@@ -6724,6 +6854,21 @@ void main() {
           ),
           isNot(contains('app://mcp/live-context')),
         );
+        final deniedStreamableTemplateRequests = provider.matchingRequestCount;
+        final deniedStreamableTemplates = await streamableClient
+            .listResourceTemplates(
+              id: 'resource-template-catalog-authorization-streamable-denied-list',
+            );
+        expect(
+          provider.matchingRequestCount,
+          equals(deniedStreamableTemplateRequests + 1),
+        );
+        expect(
+          deniedStreamableTemplates.resourceTemplates.map(
+            (template) => template['uriTemplate'],
+          ),
+          isNot(contains('app://mcp/task/{taskId}')),
+        );
         await expectLater(
           streamableClient.subscribeResource(
             'app://mcp/live-context',
@@ -6761,6 +6906,21 @@ void main() {
           ),
           contains('app://mcp/live-context'),
         );
+        final allowedStreamableTemplateRequests = provider.matchingRequestCount;
+        final allowedStreamableTemplates = await streamableClient
+            .listResourceTemplates(
+              id: 'resource-template-catalog-authorization-streamable-allowed-list',
+            );
+        expect(
+          provider.matchingRequestCount,
+          equals(allowedStreamableTemplateRequests + 1),
+        );
+        expect(
+          allowedStreamableTemplates.resourceTemplates.map(
+            (template) => template['uriTemplate'],
+          ),
+          contains('app://mcp/task/{taskId}'),
+        );
         expect(streamableClient.sessionId, equals(sessionId));
         expect(streamableClient.lastEventId, startsWith('$sessionId:'));
         expect(
@@ -6779,7 +6939,7 @@ void main() {
         );
         expect(
           jsonDecode(streamableContents.single['text'] as String),
-          containsPair('argumentsKeywords', containsPair('invocation', 2)),
+          containsPair('argumentsKeywords', containsPair('invocation', 3)),
         );
         expect(streamableClient.sessionId, equals(sessionId));
         await streamableClient.deleteSession();
@@ -16351,6 +16511,7 @@ RouterSettings _buildRouterSettings({
               'description':
                   'Template for task resources exposed by the router.',
               'mime_type': 'application/json',
+              'read_procedure': 'app.example.task.read',
             },
           ],
           'prompts': [
@@ -16935,6 +17096,7 @@ RouterSettings _buildMcpSmokeSettings({
         'title': 'MCP task resource',
         'description': 'Template for task resources exposed by the MCP route.',
         'mime_type': 'application/json',
+        'read_procedure': 'app.safe.resource.read',
       },
     ],
     'prompts': [

@@ -5,6 +5,9 @@
 - Join the synchronized Connectanum 3.0 beta package graph.
 - Complete router-hosted MCP support for authenticated Streamable HTTP,
   direct JSON tools and Meta APIs, resources, prompts, and WAMP pub/sub.
+- Let readable resource templates resolve concrete Level 1 URI expressions,
+  pass decoded variables to their callbacks, and preserve exact-resource
+  precedence.
 - Add MCP 2026 form-elicitation MRTR requests, scoped capability enforcement,
   WAMP detail bridging, bounded client retries, and direct JSON support.
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,

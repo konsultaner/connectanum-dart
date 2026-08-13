@@ -195,6 +195,7 @@ run_official_mcp_client_smoke() {
     '"instructionsReceived":true' \
     '"promptRendered":true' \
     '"toolCallSucceeded":true' \
+    '"resourceTemplateRead":true' \
     '"pubSubHandleReturned":true' \
     '"pubSubPublishAcknowledged":true' \
     '"pubSubEventReceived":true' \
@@ -218,7 +219,7 @@ run_official_mcp_client_smoke() {
     fi
   done
 
-  printf 'Official MCP client Router Image evidence: sdk=@modelcontextprotocol/client@%s public=true protected=true bearer_retry=true legacy_session=true legacy_terminated=true modern_sessionless=true catalogs=true resource_read=true instructions=true prompt_get=true tool_call=true pubsub=true explicit_handle=true structured_content=true.\n' \
+  printf 'Official MCP client Router Image evidence: sdk=@modelcontextprotocol/client@%s public=true protected=true bearer_retry=true legacy_session=true legacy_terminated=true modern_sessionless=true catalogs=true resource_read=true resource_template_read=true instructions=true prompt_get=true tool_call=true pubsub=true explicit_handle=true structured_content=true.\n' \
     "$official_mcp_client_version"
   printf 'Official MCP client Router Image smoke passed.\n'
 }

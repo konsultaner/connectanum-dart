@@ -24374,6 +24374,45 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-13: Router-advertised MCP resource templates are now readable through
+  standard `resources/read` and the direct JSON resource API. Core resolution
+  provides bounded Level 1 URI-template matching, exact-resource precedence,
+  percent-decoded variables, and deterministic selection. Router
+  `read_procedure` delegation sends the concrete URI positionally and decoded
+  variables as WAMP keyword arguments, while route-principal call authorization
+  filters catalogs, reads, and list-change visibility. Native regressions prove
+  direct and compatibility Streamable reads, allowed and denied principals,
+  and sessionless behavior. The pinned official TypeScript SDK Router Image
+  smoke now reads a concrete template URI for public and bearer-protected legacy
+  and modern clients with bounded evidence output. Core, focused native,
+  30-case Router Image contract, Node/shell syntax, privacy, diff, pre-change
+  and post-change `bin/test-fast`, and full `bin/verify` checks pass. The full
+  matrix includes 114 Rust core, 52 Rust FFI, 360 Dart core, 106 MCP, 280
+  client/MCP, 97 benchmark, 37 live WAMP workload, 439 router, six remote-auth,
+  and 13 native follow-up tests plus all maintained consumer and Chrome
+  Dart2Wasm smokes. Clean strict release-ready dry-runs validate all seven
+  synchronized `3.0.0-beta` archives with zero warnings and no private
+  workspace dependency blockers. Publication, exact-head hosted evidence, and
+  the strict deployment-chain audit remain.
+- 2026-08-13: The pinned official TypeScript SDK Router Image gate now proves
+  agent-context consumption in addition to its existing auth, session,
+  catalog, static-resource, WAMP tool, structured-result, and pub/sub
+  lifecycle. Public and bearer-protected legacy and modern clients receive the
+  negotiated router instructions and render `inspect-router-image` with a
+  client-selected argument, while the bounded evidence output exposes neither
+  contextual content nor credentials, handles, or event payloads. The
+  fail-first contract reproduced five missing source/evidence assertions; the
+  30-case Router Image contract, independent live native-router SDK 2.0.0
+  probe, Node/shell syntax, privacy, diff, pre-change `bin/test-fast`, and full
+  `bin/verify` all pass. Strict release-ready dry-runs validate all seven
+  synchronized `3.0.0-beta` archives with zero warnings. Commit `954d690e` is
+  published to both maintained `master` branches. Exact-head CI
+  `31725427710` passes with clean logs and coverage artifact `9191626378`.
+  Router Image dry run `31727009974` passes with explicit
+  `instructions=true prompt_get=true` evidence and retains preview artifact
+  `9191664813` plus Docker build records `9191682089` and `9191681420`. The
+  comprehensive strict deployment-chain audit exits zero; prior package,
+  Native Artifacts, and WAMP benchmark evidence remains clean and relevant.
 - 2026-08-12: Router-hosted MCP now rejects normalized repeated
   `MCP-Protocol-Version` field names after protected-route authentication and
   before protocol or session validation, lookup, dispatch, or deletion. A
@@ -25027,6 +25066,19 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-readable-resource-templates.md`. Router-hosted
+  MCP currently advertises configured URI templates, but ordinary and direct
+  JSON `resources/read` resolve exact resources only. This checkpoint adds a
+  bounded RFC 6570 Level 1 matcher, decoded template variables, WAMP procedure
+  delegation, route-principal authorization filtering, and neutral consumer
+  plus official SDK evidence across public/protected legacy/modern endpoints.
+  Repository, Serena, overlap, both-roadmap, exact-head, pre-change and
+  post-change `bin/test-fast`, focused regressions, Router Image contracts, and
+  full `bin/verify` checks pass. Implementation and local verification are
+  complete, and clean strict release-ready dry-runs validate all seven package
+  archives with zero warnings. Publication, exact-head hosted Router Image
+  evidence, and the strict deployment-chain audit remain.
+- The most recently completed plan is
   `docs/exec-plans/2026-08-13-mcp-official-sdk-agent-context-smoke.md`. It
   extends the pinned official TypeScript SDK Router Image gate from prompt
   enumeration to argument-bearing prompt rendering and validates that
@@ -25043,8 +25095,17 @@ at the older `47bbf9c` commit.
   post-verification focused contracts, syntax, privacy, and diff checks pass.
   Strict release-ready dry-runs validate all seven synchronized `3.0.0-beta`
   archives with zero warnings and no private workspace dependency blockers.
-  Publication and exact-head hosted evidence remain.
-- The most recently completed plan is
+  Commit `954d690e` is published to GitLab and GitHub. Exact-head CI
+  `31725427710` passes every job with clean logs and retains coverage artifact
+  `9191626378`. Router Image dry run `31727009974` passes with explicit
+  public/protected official SDK 2.0.0 instructions, prompt rendering,
+  auth-retry, legacy-termination, modern-sessionless, catalog, resource, tool,
+  structured-result, and pub/sub evidence; retained artifacts are preview
+  `9191664813` and Docker build records `9191682089` and `9191681420`. The
+  comprehensive strict deployment-chain audit exits zero; the prior package,
+  WAMP, and Native Artifacts runs remain clean and relevant because their
+  sensitive inputs did not change.
+- The preceding completed plan is
   `docs/exec-plans/2026-08-13-mcp-official-sdk-pubsub-smoke.md`. It extends the
   pinned official TypeScript SDK Router Image gate through router-provided WAMP
   pub/sub on public and bearer-protected legacy and modern endpoints. The smoke
