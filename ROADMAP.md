@@ -390,6 +390,11 @@
     `2026-07-28` cacheable-result contract, and gate the packaged Router Image
     with the pinned official TypeScript client across legacy session and modern
     sessionless negotiation plus a real WAMP-backed tool call.
+  - [x] Extend that pinned official-client Router Image gate through the
+    protected endpoint: obtain a router-issued bearer without exposing it,
+    recover once from an intentional HTTP 401 through the SDK authentication
+    provider, explicitly terminate legacy sessions, and keep modern requests
+    sessionless across catalogs, resource reads, and WAMP-backed tool calls.
   - [x] Add modern `subscriptions/listen` request-scoped SSE delivery and
     cancellation with filtered acknowledgment, correlated notifications,
     multiple concurrent listeners, shared authorized resource-update

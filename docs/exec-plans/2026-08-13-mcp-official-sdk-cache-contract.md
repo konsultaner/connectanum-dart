@@ -1,6 +1,6 @@
 # MCP Official SDK Cache Contract
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -68,3 +68,20 @@ References:
   strict package audit reaches the changed router archive with only its
   expected pre-commit dirty-worktree warning; clean exact-commit validation,
   publication, and hosted Router Image evidence remain.
+- 2026-08-13: Commit `d2ae33dd` is published to GitLab and GitHub. Clean
+  exact-commit strict validation passes all seven synchronized `3.0.0-beta`
+  archives with zero warnings and no private workspace dependency blockers.
+- 2026-08-13: Exact-head CI `31705829438`, Dart Package Publish Dry Run
+  `31705829385`, WAMP Profile Benchmarks `31705829401`, and Router Image dry
+  run `31705855519` pass on their first attempts. The Router Image log
+  explicitly proves the official 2.0.0 SDK's legacy sessionful and modern
+  sessionless flows plus catalogs, resource read, and WAMP-backed tool call.
+  Retained artifacts are Dart VM coverage `9183769722`, WAMP profile evidence
+  `9183380866`, Router Image preview `9183142629`, and Docker build records
+  `9183296408` and `9183295793`.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head jobs/logs and every required package, Router Image, WAMP,
+  relevant Native Artifacts, protected-branch, workflow-visibility, and
+  public-router-package gate ready. Native Artifacts run `31221315902` remains
+  relevant because no native-release-sensitive input changed. A numeric RC tag
+  remains release-approval work and was not created.

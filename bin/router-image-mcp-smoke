@@ -157,7 +157,9 @@ EOF
 }
 
 run_official_mcp_client_smoke() {
-  local endpoint="$1"
+  local public_endpoint="$1"
+  local protected_endpoint="$2"
+  local auth_endpoint="$3"
   local summary
 
   official_mcp_client_workspace="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-official-mcp-client.XXXXXX")"
@@ -172,8 +174,13 @@ run_official_mcp_client_smoke() {
 
   summary="$(
     OFFICIAL_MCP_CLIENT_VERSION="$official_mcp_client_version" \
+    OFFICIAL_MCP_AUTH_REALM=image.smoke \
+    OFFICIAL_MCP_AUTH_ID=image-smoke-agent \
+    OFFICIAL_MCP_AUTH_TICKET=image-smoke-ticket \
       node "$official_mcp_client_workspace/smoke_official_mcp_client.mjs" \
-      "$endpoint"
+      "$public_endpoint" \
+      "$protected_endpoint" \
+      "$auth_endpoint"
   )"
   for marker in \
     '"officialMcpClientSummary"' \
@@ -181,6 +188,10 @@ run_official_mcp_client_smoke() {
     '"era":"legacy"' \
     '"era":"modern"' \
     '"sessionId":null' \
+    '"sessionTerminated":true' \
+    '"protected"' \
+    '"authRetrySucceeded":true' \
+    '"unauthorizedCalls":1' \
     '"toolCallSucceeded":true'; do
     if [[ "$summary" != *"$marker"* ]]; then
       printf 'Official MCP client smoke omitted required evidence: %s\n' \
@@ -189,8 +200,17 @@ run_official_mcp_client_smoke() {
       return 1
     fi
   done
+  for forbidden_marker in \
+    'image-smoke-ticket' \
+    'router-image-rejected-official-client-token' \
+    '"access_token"'; do
+    if [[ "$summary" == *"$forbidden_marker"* ]]; then
+      printf 'Official MCP client smoke exposed credential material.\n' >&2
+      return 1
+    fi
+  done
 
-  printf 'Official MCP client Router Image evidence: sdk=@modelcontextprotocol/client@%s legacy_session=true modern_sessionless=true catalogs=true resource_read=true tool_call=true.\n' \
+  printf 'Official MCP client Router Image evidence: sdk=@modelcontextprotocol/client@%s public=true protected=true bearer_retry=true legacy_session=true legacy_terminated=true modern_sessionless=true catalogs=true resource_read=true tool_call=true.\n' \
     "$official_mcp_client_version"
   printf 'Official MCP client Router Image smoke passed.\n'
 }
@@ -377,7 +397,10 @@ python3 "$smoke_client" \
   --json-response-endpoint "http://127.0.0.1:$host_port/mcp/secure-json" \
   --auth-endpoint "http://127.0.0.1:$host_port/auth"
 
-run_official_mcp_client_smoke "http://127.0.0.1:$host_port/mcp"
+run_official_mcp_client_smoke \
+  "http://127.0.0.1:$host_port/mcp" \
+  "http://127.0.0.1:$host_port/mcp/secure" \
+  "http://127.0.0.1:$host_port/auth"
 
 prepare_isolated_package_client
 

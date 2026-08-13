@@ -25027,15 +25027,41 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-official-sdk-protected-session-smoke.md`.
+  The current checkpoint extends independent official TypeScript SDK evidence
+  from the public Router Image endpoint to the protected boundary, including
+  router-issued bearer use, one rejected-token refresh/retry, explicit legacy
+  session termination, and modern sessionlessness without exposing
+  credentials. The tracked client and Router Image gate now implement that
+  lifecycle for both maintained protocol eras while retaining every catalog,
+  resource-read, and WAMP-backed tool-call assertion. The 30-case smoke
+  contract, independent live native-router probe, pre-change `bin/test-fast`,
+  final `bin/verify`, public-artifact reference check, and strict release-ready
+  dry-runs for all seven synchronized package archives pass locally.
+  Publication and exact-head hosted evidence remain.
+- The most recently completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-official-sdk-cache-contract.md`.
   Router-hosted MCP's modern negotiation reaches the official TypeScript SDK,
   whose strict result validation exposed missing 2026-07-28 cache hints. The
   implementation now covers all six modern cacheable complete-result methods
   with authorization-safe defaults and adds independent official-client
-  evidence to the packaged Router Image smoke. Focused verification and the
-  full `bin/verify` matrix pass; clean exact-commit package validation,
-  publication, and hosted evidence remain.
-- The most recently completed implementation plan is
+  evidence to the packaged Router Image smoke. Focused verification, the full
+  `bin/verify` matrix, and clean exact-commit strict validation of all seven
+  synchronized `3.0.0-beta` archives pass. Commit `d2ae33dd` is published to
+  GitLab and GitHub. Exact-head CI `31705829438`, Dart Package Publish Dry Run
+  `31705829385`, WAMP Profile Benchmarks `31705829401`, and Router Image dry
+  run `31705855519` all pass on their first attempts. The Router Image log
+  explicitly proves the official 2.0.0 SDK's legacy sessionful and modern
+  sessionless flows plus catalogs, resource read, and WAMP-backed tool call.
+  Retained artifacts are Dart VM coverage `9183769722`, WAMP profile evidence
+  `9183380866`, Router Image preview `9183142629`, and Docker build records
+  `9183296408` and `9183295793`. The comprehensive strict deployment-chain
+  audit exits zero with every required package, Router Image, WAMP, relevant
+  Native Artifacts, branch, workflow, and public-router-package gate ready.
+  Native Artifacts run `31221315902` remains relevant because no native-
+  release-sensitive input changed. A numeric RC tag remains approval-gated and
+  was not created.
+- The preceding completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-protocol-version-header-fallback.md`.
   Router-hosted MCP supports all maintained protocol revisions, rejects
   unsupported explicit headers, and aligns initialize response headers with

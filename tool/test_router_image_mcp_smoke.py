@@ -235,9 +235,14 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'official_mcp_client_version="2.0.0"',
             '"@modelcontextprotocol/client@$official_mcp_client_version"',
             "--ignore-scripts",
-            'run_official_mcp_client_smoke "http://127.0.0.1:$host_port/mcp"',
+            "run_official_mcp_client_smoke \\",
+            '"http://127.0.0.1:$host_port/mcp/secure"',
+            '"http://127.0.0.1:$host_port/auth"',
             '"sdk":"@modelcontextprotocol/client@2.0.0"',
-            "legacy_session=true modern_sessionless=true catalogs=true",
+            "public=true protected=true bearer_retry=true",
+            "legacy_session=true legacy_terminated=true modern_sessionless=true",
+            "OFFICIAL_MCP_AUTH_TICKET=image-smoke-ticket",
+            "Official MCP client smoke exposed credential material.",
             'rm -rf -- "$official_mcp_client_workspace"',
         ]:
             with self.subTest(runner_expected=expected):
@@ -245,8 +250,14 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
 
         for expected in [
             "from '@modelcontextprotocol/client'",
-            "new StreamableHTTPClientTransport(endpoint)",
+            "new StreamableHTTPClientTransport(",
             "versionNegotiation: { mode: 'auto' }",
+            "async function issueTicketGrant(",
+            "async function runProtectedClient(",
+            "onUnauthorized: async ({ response }) =>",
+            "authState.currentToken = accessToken",
+            "process.env.OFFICIAL_MCP_AUTH_TICKET",
+            "await transport.terminateSession()",
             "await client.listTools()",
             "await client.listPrompts()",
             "await client.listResources()",
@@ -254,6 +265,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "await client.readResource(",
             "await client.callTool(",
             "legacy negotiation did not establish a Streamable HTTP session",
+            "legacy Streamable HTTP session was not terminated",
             "modern negotiation unexpectedly established a compatibility session",
         ]:
             with self.subTest(client_expected=expected):
