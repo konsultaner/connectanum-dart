@@ -1,6 +1,6 @@
 # MCP Allowed-Origin Configuration Validation
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -72,3 +72,19 @@ custom-scheme origins.
   warning for its two modified package files, with no content, archive-shape,
   version, or dependency blocker. Clean exact-commit package validation,
   publication, and hosted deployment-chain evidence remain.
+- 2026-08-13: Commit `05fd1f21` is published to GitLab and GitHub. Clean
+  exact-commit strict validation passes all seven synchronized `3.0.0-beta`
+  package archives with zero warnings and no private workspace dependency
+  blockers.
+- 2026-08-13: Exact-head CI `31678516989`, Dart Package Publish Dry Run
+  `31678516966`, WAMP Profile Benchmarks `31678517003`, and Router Image dry
+  run `31678534781` all pass on their first attempts. Retained artifacts are
+  Dart VM coverage `9173011647`, WAMP profile evidence `9172653678`, Router
+  Image preview `9172511624`, and Docker build records `9172657803` and
+  `9172656933`.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs and every required package, Router Image,
+  WAMP, relevant Native Artifacts, protected-branch, workflow-visibility, and
+  public-router-package gate ready. Native Artifacts run `31221315902` remains
+  relevant because no native-release-sensitive input changed. A numeric RC tag
+  remains release-approval work and was not created.

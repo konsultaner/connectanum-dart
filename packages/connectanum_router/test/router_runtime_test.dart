@@ -4831,6 +4831,17 @@ void main() {
                     options: <String, Object?>{'require_bearer': true},
                   ),
                 ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp-normalized-origin'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'router.http',
+                    options: <String, Object?>{
+                      'allowed_origins': ['HTTPS://AGENT.EXAMPLE:443'],
+                      'require_bearer': true,
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -4981,6 +4992,70 @@ void main() {
     expect(validOriginReuse.headers, contains('www-authenticate'));
     expect(validOriginReuse.headers, isNot(contains('x-ratelimit-limit')));
     expect(validOriginReuse.headers, isNot(contains('MCP-Session-Id')));
+
+    enqueueMcpRequest(
+      connectionId: 98,
+      handle: 98,
+      method: 'POST',
+      target: '/mcp-normalized-origin',
+      headers: const {
+        'host': 'router.example',
+        'origin': 'https://agent.example',
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+      },
+      body: Uint8List.fromList(
+        utf8.encode(
+          '{"jsonrpc":"2.0","id":"normalized-origin","method":"tools/list","params":{}}',
+        ),
+      ),
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[98]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final normalizedOrigin = runtime.httpResponses[98]!.single;
+    expect(normalizedOrigin.status, HttpStatus.unauthorized);
+    expect(
+      normalizedOrigin.headers['Access-Control-Allow-Origin'],
+      'https://agent.example',
+    );
+    expect(normalizedOrigin.headers, contains('www-authenticate'));
+    expect(normalizedOrigin.headers, isNot(contains('x-ratelimit-limit')));
+    expect(normalizedOrigin.headers, isNot(contains('MCP-Session-Id')));
+
+    enqueueMcpRequest(
+      connectionId: 99,
+      handle: 99,
+      method: 'POST',
+      target: '/mcp-normalized-origin',
+      headers: const {
+        'host': 'router.example',
+        'origin': 'https://agent.example:444',
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+      },
+      body: Uint8List.fromList(
+        utf8.encode(
+          '{"jsonrpc":"2.0","id":"different-origin-port","method":"tools/list","params":{}}',
+        ),
+      ),
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[99]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final differentOriginPort = runtime.httpResponses[99]!.single;
+    expect(differentOriginPort.status, HttpStatus.forbidden);
+    expect(
+      differentOriginPort.headers,
+      isNot(contains('Access-Control-Allow-Origin')),
+    );
+    expect(differentOriginPort.headers, isNot(contains('www-authenticate')));
+    expect(differentOriginPort.headers, isNot(contains('x-ratelimit-limit')));
+    expect(differentOriginPort.headers, isNot(contains('MCP-Session-Id')));
 
     enqueueMcpRequest(
       connectionId: 60,

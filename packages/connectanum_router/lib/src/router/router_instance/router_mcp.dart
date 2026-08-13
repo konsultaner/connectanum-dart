@@ -1031,6 +1031,12 @@ Uri? _mcpSerializedOrigin(String value) {
   return uri;
 }
 
+bool _mcpOriginsMatch(Uri first, Uri second) {
+  return first.scheme == second.scheme &&
+      first.host == second.host &&
+      first.port == second.port;
+}
+
 bool _mcpOriginAllowed(
   RouterBinding binding,
   RouterHttpRequest request,
@@ -1048,7 +1054,12 @@ bool _mcpOriginAllowed(
     return false;
   }
   final allowedOrigins = _mcpAllowedOrigins(route.action.options);
-  if (allowedOrigins.contains('*') || allowedOrigins.contains(origin)) {
+  if (allowedOrigins.contains('*') ||
+      allowedOrigins.any((allowedOrigin) {
+        final allowedOriginUri = _mcpSerializedOrigin(allowedOrigin);
+        return allowedOriginUri != null &&
+            _mcpOriginsMatch(allowedOriginUri, originUri);
+      })) {
     return true;
   }
   if (allowedOrigins.isNotEmpty) {
