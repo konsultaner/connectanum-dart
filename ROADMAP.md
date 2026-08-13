@@ -386,6 +386,10 @@
     router-hosted tool/resource/prompt/WAMP operations, bearer-protected
     requests, and isolated public consumer smoke evidence with no protocol
     session or resume state.
+  - [x] Make modern discovery, catalog, and resource-read results satisfy the
+    `2026-07-28` cacheable-result contract, and gate the packaged Router Image
+    with the pinned official TypeScript client across legacy session and modern
+    sessionless negotiation plus a real WAMP-backed tool call.
   - [x] Add modern `subscriptions/listen` request-scoped SSE delivery and
     cancellation with filtered acknowledgment, correlated notifications,
     multiple concurrent listeners, shared authorized resource-update

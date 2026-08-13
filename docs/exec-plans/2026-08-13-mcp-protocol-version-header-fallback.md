@@ -1,6 +1,6 @@
 # MCP Protocol-Version Header Fallback
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -82,3 +82,18 @@ References:
   report only the expected pre-commit dirty-worktree warning for their three
   and four modified package files. Clean exact-commit validation, publication,
   and hosted deployment-chain evidence remain.
+- 2026-08-13: Commit `85b65cf4` is published to GitLab and GitHub. Clean
+  exact-commit strict validation passes all seven synchronized `3.0.0-beta`
+  archives with zero warnings and no private workspace dependency blockers.
+- 2026-08-13: Exact-head CI `31697806204`, Dart Package Publish Dry Run
+  `31697806184`, WAMP Profile Benchmarks `31697806183`, and Router Image dry
+  run `31699279379` pass on their first attempts. Retained artifacts are Dart
+  VM coverage `9180546119`, WAMP profile evidence `9180224919`, Router Image
+  preview `9180571495`, and Docker build records `9180725208` and
+  `9180724181`.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head jobs/logs and every required package, Router Image, WAMP,
+  relevant Native Artifacts, protected-branch, workflow-visibility, and
+  public-router-package gate ready. Native Artifacts run `31221315902` remains
+  relevant because no native-release-sensitive input changed. A numeric RC tag
+  remains release-approval work and was not created.

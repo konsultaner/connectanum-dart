@@ -61,6 +61,15 @@ const int _mcpDefaultMaxWampSubscriptionQueueBytes = 256 * 1024;
 
 const int _mcpDefaultWampCallTimeoutMs = 30000;
 
+const Set<String> _mcpModernCacheableResultMethods = <String>{
+  'server/discover',
+  'tools/list',
+  'prompts/list',
+  'resources/list',
+  'resources/templates/list',
+  'resources/read',
+};
+
 int _mcpMaxRequestBytesForRoute(HttpRouteSettings route) {
   return _intOptionAny(route.action.options, const <String>[
         'max_request_bytes',
@@ -3019,7 +3028,10 @@ Future<void> _handleMcpHttpRequestForBinding(
       return;
     }
     final response = statelessHttpRequest
-        ? endpoint.modernizeResponse(rawResponse)
+        ? endpoint.modernizeResponse(
+            rawResponse,
+            requestMethod: requestMethod,
+          )
         : rawResponse;
     final responseJson = response == null ? null : jsonEncode(response);
     final responseBytes = responseJson == null
@@ -3743,7 +3755,10 @@ class _RouterMcpEndpoint {
     );
   }
 
-  Object? modernizeResponse(Object? response) {
+  Object? modernizeResponse(
+    Object? response, {
+    String? requestMethod,
+  }) {
     if (response is! Map || response['result'] is! Map) {
       return response;
     }
@@ -3751,6 +3766,10 @@ class _RouterMcpEndpoint {
       for (final entry in (response['result'] as Map).entries)
         if (entry.key is String) entry.key as String: entry.value,
     };
+    final resultType = result['resultType'] ?? 'complete';
+    final isCacheableCompleteResult =
+        resultType == 'complete' &&
+        _mcpModernCacheableResultMethods.contains(requestMethod);
     final rawMetadata = result['_meta'];
     final metadata = <String, Object?>{
       if (rawMetadata is Map)
@@ -3763,7 +3782,11 @@ class _RouterMcpEndpoint {
         if (entry.key is String) entry.key as String: entry.value,
       'result': <String, Object?>{
         ...result,
-        'resultType': result['resultType'] ?? 'complete',
+        'resultType': resultType,
+        if (isCacheableCompleteResult) ...<String, Object?>{
+          'ttlMs': result['ttlMs'] ?? 0,
+          'cacheScope': result['cacheScope'] ?? 'private',
+        },
         '_meta': metadata,
       },
     };

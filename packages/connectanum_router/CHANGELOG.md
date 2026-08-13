@@ -25,6 +25,9 @@
 - Label legacy router-hosted MCP requests that omit `MCP-Protocol-Version` as
   `2025-03-26` while preserving initialize negotiation, authentication, and
   claimed-session lookup.
+- Add authorization-safe cache hints to every cacheable router-hosted MCP
+  `2026-07-28` complete result, enabling strict official SDK clients to validate
+  discovery, catalogs, resource reads, and ordinary WAMP-backed tool use.
 - Preserve router-hosted MCP sessions across HTTP-auth access and refresh-token
   rotation while continuing to reject the rotated credentials.
 - Enforce positive realm `max_pending_auth` limits on router HTTP-auth

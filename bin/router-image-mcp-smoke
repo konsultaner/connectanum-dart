@@ -5,6 +5,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 smoke_config="$repo_root/deploy/docker/router_mcp_smoke.yaml"
 smoke_client="$repo_root/tool/smoke_router_image_mcp.py"
+official_mcp_client_smoke="$repo_root/tool/smoke_official_mcp_client.mjs"
+official_mcp_client_version="2.0.0"
 mcp_client_command="router_hosted_client"
 mcp_compatibility_protocol_version="2025-11-25"
 mcp_modern_protocol_version="2026-07-28"
@@ -25,7 +27,7 @@ if [[ "$#" -ne 1 || -z "$1" ]]; then
   exit 2
 fi
 
-for command_name in docker python3 dart; do
+for command_name in docker python3 dart node npm; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     printf 'Required command is unavailable: %s\n' "$command_name" >&2
     exit 1
@@ -37,6 +39,7 @@ container_name="connectanum-router-mcp-smoke-$$"
 container_id=''
 mcp_client_workspace=''
 mcp_client_pub_cache=''
+official_mcp_client_workspace=''
 
 cleanup() {
   local status=$?
@@ -53,6 +56,9 @@ cleanup() {
   fi
   if [[ -n "$mcp_client_pub_cache" && -d "$mcp_client_pub_cache" ]]; then
     rm -rf -- "$mcp_client_pub_cache" || true
+  fi
+  if [[ -n "$official_mcp_client_workspace" && -d "$official_mcp_client_workspace" ]]; then
+    rm -rf -- "$official_mcp_client_workspace" || true
   fi
   exit "$status"
 }
@@ -148,6 +154,45 @@ EOF
   fi
 
   printf 'Router Image package client activated in an isolated pub cache.\n'
+}
+
+run_official_mcp_client_smoke() {
+  local endpoint="$1"
+  local summary
+
+  official_mcp_client_workspace="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-official-mcp-client.XXXXXX")"
+  cp "$official_mcp_client_smoke" \
+    "$official_mcp_client_workspace/smoke_official_mcp_client.mjs"
+  npm install \
+    --prefix "$official_mcp_client_workspace" \
+    --no-audit \
+    --no-fund \
+    --ignore-scripts \
+    "@modelcontextprotocol/client@$official_mcp_client_version" >&2
+
+  summary="$(
+    OFFICIAL_MCP_CLIENT_VERSION="$official_mcp_client_version" \
+      node "$official_mcp_client_workspace/smoke_official_mcp_client.mjs" \
+      "$endpoint"
+  )"
+  for marker in \
+    '"officialMcpClientSummary"' \
+    '"sdk":"@modelcontextprotocol/client@2.0.0"' \
+    '"era":"legacy"' \
+    '"era":"modern"' \
+    '"sessionId":null' \
+    '"toolCallSucceeded":true'; do
+    if [[ "$summary" != *"$marker"* ]]; then
+      printf 'Official MCP client smoke omitted required evidence: %s\n' \
+        "$marker" >&2
+      printf '%s\n' "$summary" >&2
+      return 1
+    fi
+  done
+
+  printf 'Official MCP client Router Image evidence: sdk=@modelcontextprotocol/client@%s legacy_session=true modern_sessionless=true catalogs=true resource_read=true tool_call=true.\n' \
+    "$official_mcp_client_version"
+  printf 'Official MCP client Router Image smoke passed.\n'
 }
 
 print_package_client_evidence() {
@@ -331,6 +376,8 @@ python3 "$smoke_client" \
   --secure-endpoint "http://127.0.0.1:$host_port/mcp/secure" \
   --json-response-endpoint "http://127.0.0.1:$host_port/mcp/secure-json" \
   --auth-endpoint "http://127.0.0.1:$host_port/auth"
+
+run_official_mcp_client_smoke "http://127.0.0.1:$host_port/mcp"
 
 prepare_isolated_package_client
 

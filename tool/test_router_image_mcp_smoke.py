@@ -14,6 +14,7 @@ from unittest import mock
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUNNER = REPO_ROOT / "bin" / "router-image-mcp-smoke"
 CLIENT = REPO_ROOT / "tool" / "smoke_router_image_mcp.py"
+OFFICIAL_CLIENT = REPO_ROOT / "tool" / "smoke_official_mcp_client.mjs"
 CONFIG = REPO_ROOT / "deploy" / "docker" / "router_mcp_smoke.yaml"
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "router-image.yml"
 DOCKERFILE = REPO_ROOT / "deploy" / "docker" / "Dockerfile"
@@ -164,7 +165,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
     def test_shell_runner_exercises_public_package_client_against_image(self) -> None:
         runner = RUNNER.read_text(encoding="utf-8")
         for expected in [
-            "for command_name in docker python3 dart; do",
+            "for command_name in docker python3 dart node npm; do",
             'mcp_client_command="router_hosted_client"',
             'mcp_compatibility_protocol_version="2025-11-25"',
             'mcp_modern_protocol_version="2026-07-28"',
@@ -216,6 +217,47 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 self.assertIn(expected, runner)
 
         self.assertEqual(runner.count("--auth-lifecycle-smoke"), 4)
+
+    def test_shell_runner_uses_pinned_official_mcp_client(self) -> None:
+        syntax = subprocess.run(
+            ["node", "--check", str(OFFICIAL_CLIENT)],
+            cwd=REPO_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(syntax.returncode, 0, syntax.stdout)
+
+        runner = RUNNER.read_text(encoding="utf-8")
+        client = OFFICIAL_CLIENT.read_text(encoding="utf-8")
+        for expected in [
+            'official_mcp_client_version="2.0.0"',
+            '"@modelcontextprotocol/client@$official_mcp_client_version"',
+            "--ignore-scripts",
+            'run_official_mcp_client_smoke "http://127.0.0.1:$host_port/mcp"',
+            '"sdk":"@modelcontextprotocol/client@2.0.0"',
+            "legacy_session=true modern_sessionless=true catalogs=true",
+            'rm -rf -- "$official_mcp_client_workspace"',
+        ]:
+            with self.subTest(runner_expected=expected):
+                self.assertIn(expected, runner)
+
+        for expected in [
+            "from '@modelcontextprotocol/client'",
+            "new StreamableHTTPClientTransport(endpoint)",
+            "versionNegotiation: { mode: 'auto' }",
+            "await client.listTools()",
+            "await client.listPrompts()",
+            "await client.listResources()",
+            "await client.listResourceTemplates()",
+            "await client.readResource(",
+            "await client.callTool(",
+            "legacy negotiation did not establish a Streamable HTTP session",
+            "modern negotiation unexpectedly established a compatibility session",
+        ]:
+            with self.subTest(client_expected=expected):
+                self.assertIn(expected, client)
 
     def test_shell_runner_exercises_protected_json_response_package_client(
         self,
@@ -302,7 +344,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]
         self.assertEqual(
             summary_prints,
-            ['printf \'%s\\n\' "$summary" >&2'] * 4,
+            ['printf \'%s\\n\' "$summary" >&2'] * 5,
         )
 
     def test_shell_runner_exercises_modern_resource_listener(self) -> None:

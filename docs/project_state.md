@@ -25027,6 +25027,15 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-official-sdk-cache-contract.md`.
+  Router-hosted MCP's modern negotiation reaches the official TypeScript SDK,
+  whose strict result validation exposed missing 2026-07-28 cache hints. The
+  implementation now covers all six modern cacheable complete-result methods
+  with authorization-safe defaults and adds independent official-client
+  evidence to the packaged Router Image smoke. Focused verification and the
+  full `bin/verify` matrix pass; clean exact-commit package validation,
+  publication, and hosted evidence remain.
+- The most recently completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-protocol-version-header-fallback.md`.
   Router-hosted MCP supports all maintained protocol revisions, rejects
   unsupported explicit headers, and aligns initialize response headers with
@@ -25054,9 +25063,20 @@ at the older `47bbf9c` commit.
   and diff checks are clean. Publish dry-runs reach all seven synchronized
   `3.0.0-beta` archives: the first five report zero warnings, and the changed
   MCP and router archives report only their expected pre-commit dirty-worktree
-  warnings. Clean exact-commit package validation, publication, and hosted
-  deployment-chain evidence remain.
-- The most recently completed implementation plan is
+  warnings. Clean exact-commit strict validation passes all seven archives with
+  zero warnings and no private workspace dependency blockers. Commit
+  `85b65cf4` is published to GitLab and GitHub. Exact-head CI `31697806204`,
+  Dart Package Publish Dry Run `31697806184`, WAMP Profile Benchmarks
+  `31697806183`, and Router Image dry run `31699279379` all pass on their first
+  attempts. Retained artifacts are Dart VM coverage `9180546119`, WAMP profile
+  evidence `9180224919`, Router Image preview `9180571495`, and Docker build
+  records `9180725208` and `9180724181`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head jobs/logs and every
+  required package, Router Image, WAMP, relevant Native Artifacts, branch,
+  workflow, and public-router-package gate ready. Native Artifacts run
+  `31221315902` remains relevant because no native-release-sensitive input
+  changed. A numeric RC tag remains approval-gated and was not created.
+- The preceding completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-post-content-type-presence-validation.md`.
   Router-hosted MCP already rejects repeated and explicit non-JSON
   `Content-Type` fields, but its media-type helper previously treated an absent
@@ -25090,7 +25110,7 @@ at the older `47bbf9c` commit.
   workflow, and public-router-package gate ready. Native Artifacts run
   `31221315902` remains relevant because no native-release-sensitive input
   changed. A numeric RC tag remains approval-gated and was not created.
-- The preceding completed implementation plan is
+- The earlier completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-allowed-origin-tuple-matching.md`.
   Explicit router-hosted MCP allow lists previously compared valid configured
   and request Origin values as raw strings even though RFC 6454 origin

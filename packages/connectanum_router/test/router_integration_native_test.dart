@@ -3267,37 +3267,63 @@ void main() {
         );
         expect(unsupported.headers, isNot(contains('mcp-session-id')));
 
-        final rawModern = await _postJson(
-          rawClient,
-          listener.port,
-          '/mcp',
-          {
-            'jsonrpc': '2.0',
-            'id': 'raw-modern-tools',
-            'method': 'tools/list',
-            'params': {
-              '_meta': {
-                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
-                'io.modelcontextprotocol/clientCapabilities':
-                    <String, Object?>{},
+        final modernCacheableRequests = <String, Map<String, Object?>>{
+          'server/discover': const <String, Object?>{},
+          'tools/list': const <String, Object?>{},
+          'prompts/list': const <String, Object?>{},
+          'resources/list': const <String, Object?>{},
+          'resources/templates/list': const <String, Object?>{},
+          'resources/read': const <String, Object?>{
+            'uri': 'app://example/context',
+          },
+        };
+        final modernCacheableResults = <String, Map<String, Object?>>{};
+        for (final entry in modernCacheableRequests.entries) {
+          final rawModern = await _postJson(
+            rawClient,
+            listener.port,
+            '/mcp',
+            {
+              'jsonrpc': '2.0',
+              'id': 'raw-modern-${entry.key}',
+              'method': entry.key,
+              'params': {
+                ...entry.value,
+                '_meta': {
+                  'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                  'io.modelcontextprotocol/clientCapabilities':
+                      <String, Object?>{},
+                },
               },
             },
-          },
-          headers: {
-            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
-            'MCP-Protocol-Version': '2026-07-28',
-            'Mcp-Method': 'tools/list',
-          },
-        );
-        expect(rawModern.statusCode, equals(HttpStatus.ok));
-        final rawModernResult = (rawModern.json?['result'] as Map)
-            .cast<String, Object?>();
-        expect(rawModernResult['resultType'], equals('complete'));
+            headers: {
+              HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+              'MCP-Protocol-Version': '2026-07-28',
+              'Mcp-Method': entry.key,
+              if (entry.key == 'resources/read')
+                'Mcp-Name': entry.value['uri']! as String,
+            },
+          );
+          expect(
+            rawModern.statusCode,
+            equals(HttpStatus.ok),
+            reason:
+                '${entry.key} should return a modern complete result: '
+                '${rawModern.json}',
+          );
+          final result = (rawModern.json?['result'] as Map)
+              .cast<String, Object?>();
+          expect(result['resultType'], equals('complete'));
+          expect(result['ttlMs'], equals(0), reason: entry.key);
+          expect(result['cacheScope'], equals('private'), reason: entry.key);
+          expect(rawModern.headers, isNot(contains('mcp-session-id')));
+          modernCacheableResults[entry.key] = result;
+        }
+        final rawModernResult = modernCacheableResults['tools/list']!;
         expect(
           (rawModernResult['_meta'] as Map),
           contains('io.modelcontextprotocol/serverInfo'),
         );
-        expect(rawModern.headers, isNot(contains('mcp-session-id')));
 
         final rawModernBatch = await _postJsonValue(
           rawClient,
