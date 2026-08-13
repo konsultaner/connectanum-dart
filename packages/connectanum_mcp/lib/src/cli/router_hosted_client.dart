@@ -361,6 +361,10 @@ void _printDryRunSummary(IOSink sink, _Options options) {
     _ => 'none',
   };
   final stateless = _isStatelessProtocolVersion(options.protocolVersion);
+  final resourceTemplate = options.resourceTemplate;
+  final expandedResourceTemplateUri = resourceTemplate?.expand(
+    options.resourceTemplateVariables,
+  );
 
   sink.writeln(
     jsonEncode({
@@ -387,6 +391,12 @@ void _printDryRunSummary(IOSink sink, _Options options) {
             'updateEvent': options.resourceUpdateEvent,
           },
       },
+      if (resourceTemplate != null)
+        'resourceTemplateExpansion': <String, Object?>{
+          'uriTemplate': resourceTemplate.template,
+          'variableNames': resourceTemplate.variables,
+          'uri': expandedResourceTemplateUri,
+        },
       if (options.promptName != null)
         'prompt': {
           'name': options.promptName,
@@ -1141,6 +1151,49 @@ Future<void> _expectDirectJsonStaleSessionIdIgnored(
   );
 }
 
+Future<({McpResourceUriTemplate template, int pagesRead})>
+_advertisedResourceTemplate(
+  McpResourceUriTemplate requested, {
+  required Future<McpStreamableResourceTemplateListPage> Function(
+    String? cursor,
+  )
+  listPage,
+  required String label,
+}) async {
+  final seenCursors = <String>{};
+  String? cursor;
+  var pagesRead = 0;
+  while (true) {
+    final page = await listPage(cursor);
+    pagesRead += 1;
+    for (final entry in page.resourceTemplates) {
+      final uriTemplate = entry['uriTemplate'];
+      if (uriTemplate == requested.template) {
+        try {
+          return (
+            template: McpResourceUriTemplate(uriTemplate as String),
+            pagesRead: pagesRead,
+          );
+        } on ArgumentError catch (error) {
+          throw StateError('$label advertised an unusable template: $error');
+        }
+      }
+    }
+
+    final nextCursor = page.nextCursor;
+    if (nextCursor == null) {
+      break;
+    }
+    if (!seenCursors.add(nextCursor)) {
+      throw StateError('$label repeated resource-template cursor.');
+    }
+    cursor = nextCursor;
+  }
+  throw StateError(
+    '$label did not advertise resource template ${requested.template}.',
+  );
+}
+
 Future<void> _runDirectJsonExample(
   McpStreamableHttpClient client,
   _Options options,
@@ -1297,6 +1350,38 @@ Future<void> _runDirectJsonExample(
         'directResourceMethodTemplates':
             methodResourceTemplates['resourceTemplates'],
         'directResourceMethodContent': methodContent,
+      }),
+    );
+  }
+
+  final requestedResourceTemplate = options.resourceTemplate;
+  if (requestedResourceTemplate != null) {
+    var pageIndex = 0;
+    final advertised = await _advertisedResourceTemplate(
+      requestedResourceTemplate,
+      listPage: (cursor) => client.listResourceTemplatesDirect(
+        id: 'direct-resource-template-expansion-list-${pageIndex++}',
+        cursor: cursor,
+      ),
+      label: 'Direct JSON resource template expansion',
+    );
+    final advertisedResourceTemplate = advertised.template;
+    final expandedUri = advertisedResourceTemplate.expand(
+      options.resourceTemplateVariables,
+    );
+    final content = await client.readResourceDirect(
+      expandedUri,
+      id: 'direct-resource-template-expansion-read',
+    );
+    stdout.writeln(
+      jsonEncode({
+        'directResourceTemplateExpansion': <String, Object?>{
+          'uriTemplate': advertisedResourceTemplate.template,
+          'variableNames': advertisedResourceTemplate.variables,
+          'uri': expandedUri,
+          'content': content,
+          'pagesRead': advertised.pagesRead,
+        },
       }),
     );
   }
@@ -5045,6 +5130,40 @@ Future<void> _runStreamableSessionExample(
     };
   }
 
+  final requestedResourceTemplate = options.resourceTemplate;
+  if (requestedResourceTemplate != null) {
+    var pageIndex = 0;
+    final advertised = await _advertisedResourceTemplate(
+      requestedResourceTemplate,
+      listPage: (cursor) => client.listResourceTemplates(
+        id: 'streamable-resource-template-expansion-list-${pageIndex++}',
+        cursor: cursor,
+      ),
+      label: 'Streamable resource template expansion',
+    );
+    final advertisedResourceTemplate = advertised.template;
+    final expandedUri = advertisedResourceTemplate.expand(
+      options.resourceTemplateVariables,
+    );
+    final content = await client.readResource(
+      expandedUri,
+      id: 'streamable-resource-template-expansion-read',
+    );
+    streamable['resourceTemplateExpansion'] = <String, Object?>{
+      'uriTemplate': advertisedResourceTemplate.template,
+      'variableNames': advertisedResourceTemplate.variables,
+      'uri': expandedUri,
+      'content': content,
+      'pagesRead': advertised.pagesRead,
+      'sessionUnchanged': client.sessionId == streamableSessionId,
+    };
+    if (client.sessionId != streamableSessionId) {
+      throw StateError(
+        'Resource template expansion changed Streamable session.',
+      );
+    }
+  }
+
   final promptName = options.promptName;
   if (promptName != null) {
     streamableBatchMessages.add({
@@ -5553,6 +5672,7 @@ final class _Options {
     required this.endpoint,
     required this.protocolVersion,
     required this.toolArguments,
+    required this.resourceTemplateVariables,
     required this.resourceUpdateEvent,
     required this.promptArguments,
     required this.pubsubEvent,
@@ -5566,6 +5686,7 @@ final class _Options {
     this.rejectedOrigin,
     this.toolName,
     this.resourceUri,
+    this.resourceTemplate,
     this.resourceUpdateTopic,
     this.promptName,
     this.wampProcedure,
@@ -5584,6 +5705,8 @@ final class _Options {
   final String? toolName;
   final McpJsonMap toolArguments;
   final String? resourceUri;
+  final McpResourceUriTemplate? resourceTemplate;
+  final Map<String, String> resourceTemplateVariables;
   final String? resourceUpdateTopic;
   final McpJsonMap resourceUpdateEvent;
   final String? promptName;
@@ -5606,6 +5729,16 @@ final class _Options {
     final ticket = _nonEmptyStringOption(values, '--ticket');
     final rejectedOrigin = _optionalUri(values, '--rejected-origin');
     final authLifecycleSmoke = values.containsKey('--auth-lifecycle-smoke');
+    final resourceUri = _mcpResourceUriOption(values, '--resource-uri');
+    final resourceTemplate = _mcpResourceUriTemplateOption(
+      values,
+      '--resource-template',
+    );
+    final resourceTemplateVariables = _jsonStringMapOption(
+      values,
+      '--resource-template-variables',
+      const <String, String>{},
+    );
 
     if (bearerToken != null && authEndpoint != null) {
       throw const FormatException(
@@ -5635,8 +5768,20 @@ final class _Options {
         !values.containsKey('--tool')) {
       throw const FormatException('Use --tool-arguments together with --tool.');
     }
-    if (values.containsKey('--resource-update-topic') &&
-        !values.containsKey('--resource-uri')) {
+    if (values.containsKey('--resource-template-variables') &&
+        resourceTemplate == null) {
+      throw const FormatException(
+        'Use --resource-template-variables together with --resource-template.',
+      );
+    }
+    if (resourceTemplate != null) {
+      try {
+        resourceTemplate.expand(resourceTemplateVariables);
+      } on ArgumentError catch (error) {
+        throw FormatException(error.message.toString());
+      }
+    }
+    if (values.containsKey('--resource-update-topic') && resourceUri == null) {
       throw const FormatException(
         'Use --resource-update-topic together with --resource-uri.',
       );
@@ -5675,7 +5820,9 @@ final class _Options {
         '--tool-arguments',
         const <String, Object?>{},
       ),
-      resourceUri: _mcpResourceUriOption(values, '--resource-uri'),
+      resourceUri: resourceUri,
+      resourceTemplate: resourceTemplate,
+      resourceTemplateVariables: resourceTemplateVariables,
       resourceUpdateTopic: _mcpSelectorOption(
         values,
         '--resource-update-topic',
@@ -5792,6 +5939,21 @@ String? _mcpResourceUriOption(Map<String, String> values, String option) {
   return value;
 }
 
+McpResourceUriTemplate? _mcpResourceUriTemplateOption(
+  Map<String, String> values,
+  String option,
+) {
+  final value = _nonEmptyStringOption(values, option);
+  if (value == null) {
+    return null;
+  }
+  try {
+    return McpResourceUriTemplate(value);
+  } on ArgumentError catch (error) {
+    throw FormatException(error.message.toString());
+  }
+}
+
 bool _containsMcpWhitespaceOrControl(String value) {
   for (final rune in value.runes) {
     if (_isMcpWhitespaceOrControlRune(rune)) {
@@ -5828,6 +5990,8 @@ Map<String, String> _parseOptions(List<String> args) {
     '--tool',
     '--tool-arguments',
     '--resource-uri',
+    '--resource-template',
+    '--resource-template-variables',
     '--resource-update-topic',
     '--resource-update-event',
     '--prompt',
@@ -5970,6 +6134,9 @@ Options:
   --tool NAME                       Call this direct JSON tool.
   --tool-arguments JSON_OBJECT      Arguments for --tool.
   --resource-uri URI                Read this resource and list templates through direct JSON and compatibility Streamable HTTP.
+  --resource-template URI_TEMPLATE  Expand and read this advertised Level 1 resource template.
+  --resource-template-variables JSON_OBJECT
+                                    String values for --resource-template variables.
   --resource-update-topic TOPIC     Listen request-scoped in modern mode or subscribe in compatibility mode, publish, and reread.
   --resource-update-event JSON      Event kwargs for --resource-update-topic.
   --prompt NAME                     Get this prompt through direct JSON and Streamable HTTP.

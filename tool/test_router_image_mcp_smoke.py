@@ -172,6 +172,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'mcp_procedure="wamp.session.count"',
             'mcp_topic="image.smoke.events"',
             'mcp_resource_uri="connectanum://router-image/context"',
+            'mcp_resource_template="connectanum://router-image/item/{itemId}"',
+            'mcp_resource_template_variables=',
+            'mcp_expanded_resource_template_uri=',
             'mcp_prompt_name="inspect-router-image"',
             'mcp_prompt_arguments=',
             'CONNECTANUM_SKIP_NATIVE_BUILD=true',
@@ -179,11 +182,14 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '--wamp-procedure "$mcp_procedure"',
             '--wamp-topic "$mcp_topic"',
             '--resource-uri "$mcp_resource_uri"',
+            '--resource-template "$mcp_resource_template"',
+            '--resource-template-variables "$mcp_resource_template_variables"',
             '--prompt "$mcp_prompt_name"',
             '--prompt-arguments "$mcp_prompt_arguments"',
             '--pubsub-topic "$mcp_topic"',
             '"directResources"',
             '"directResourceTemplates"',
+            '"directResourceTemplateExpansion"',
             '"directPrompts"',
             '"directPrompt"',
             '"directWampMetadata"',
@@ -192,6 +198,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"activeDirectJson"',
             '"streamable"',
             '"resourceTemplates"',
+            '"resourceTemplateExpansion"',
+            "pagesRead",
             '"resourceTemplateRead":true',
             '"resourceContent"',
             '"prompts"',
@@ -367,12 +375,14 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "print_package_client_evidence() {",
             "Router Image package evidence: protocol=%s mode=%s auth=%s",
             "direct_json=true resources=true resource_templates=true",
+            "resource_template_expansion=true",
+            "resource_template_pages=",
             "prompts=true wamp_meta=true pubsub=true",
             "resource_uri=%s prompt=%s",
             '"sessionless=true request_listener=true"',
             "modern_batch_unsupported=true",
             "refreshed_grant_listener=true",
-            '"streamable_http=true session_delete=true"',
+            '"streamable_http=true session_delete=true resource_template_expansion=true"',
             'lifecycle_evidence+=" auth_lifecycle=true"',
             "%s Router Image package client smoke passed.",
             "%s Router Image stateless package client smoke passed.",
@@ -390,7 +400,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]
         self.assertEqual(
             summary_prints,
-            ['printf \'%s\\n\' "$summary" >&2'] * 5,
+            ['printf \'%s\\n\' "$summary" >&2'] * 6,
         )
 
     def test_shell_runner_exercises_modern_resource_listener(self) -> None:
@@ -1591,9 +1601,11 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "topic: image.smoke.events",
             "resource_list_page_size: 10",
             "resource_template_list_page_size: 10",
+            "resource_template_list_page_size: 1",
             "prompt_list_page_size: 10",
             "uri: connectanum://router-image/context",
             "uri_template: connectanum://router-image/item/{itemId}",
+            "uri_template: connectanum://router-image/archive/{itemId}",
             "name: inspect-router-image",
             "text: Inspect {{subject}} using router image context.",
         ]:
@@ -1606,6 +1618,10 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         self.assertEqual(
             config.count("uri_template: connectanum://router-image/item/{itemId}"),
             3,
+        )
+        self.assertEqual(
+            config.count("uri_template: connectanum://router-image/archive/{itemId}"),
+            1,
         )
         self.assertEqual(config.count("read_procedure: wamp.session.count"), 6)
         self.assertEqual(config.count("update_topic: image.smoke.events"), 6)

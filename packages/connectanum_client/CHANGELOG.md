@@ -5,6 +5,8 @@
   payload E2EE profile, and native/Dart transport parity.
 - Add typed Streamable HTTP and direct JSON helpers for router-hosted MCP,
   authentication, tool/meta APIs, resources, prompts, and pub/sub.
+- Re-export the shared MCP resource-URI-template utility so client-only
+  consumers can expand advertised templates without duplicating escaping.
 - Add bounded MCP 2026 form-elicitation helpers for Streamable HTTP and direct
   JSON calls with typed request/response validation and opaque-state replay.
 - Bound buffered Streamable HTTP POST, GET, DELETE, and listener setup response

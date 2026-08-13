@@ -13,6 +13,9 @@ mcp_modern_protocol_version="2026-07-28"
 mcp_procedure="wamp.session.count"
 mcp_topic="image.smoke.events"
 mcp_resource_uri="connectanum://router-image/context"
+mcp_resource_template="connectanum://router-image/item/{itemId}"
+mcp_resource_template_variables='{"itemId":"package client/✓"}'
+mcp_expanded_resource_template_uri="connectanum://router-image/item/package%20client%2F%E2%9C%93"
 mcp_dynamic_resource_uri="connectanum://router-image/live-context"
 mcp_resource_update_topic="image.smoke.events"
 mcp_prompt_name="inspect-router-image"
@@ -260,6 +263,8 @@ run_package_client_smoke() {
       --wamp-procedure "$mcp_procedure" \
       --wamp-topic "$mcp_topic" \
       --resource-uri "$mcp_resource_uri" \
+      --resource-template "$mcp_resource_template" \
+      --resource-template-variables "$mcp_resource_template_variables" \
       --prompt "$mcp_prompt_name" \
       --prompt-arguments "$mcp_prompt_arguments" \
       --pubsub-topic "$mcp_topic" \
@@ -271,6 +276,7 @@ run_package_client_smoke() {
     '"directStandardTools"' \
     '"directResources"' \
     '"directResourceTemplates"' \
+    '"directResourceTemplateExpansion"' \
     '"directPrompts"' \
     '"directPrompt"' \
     '"directWampMetadata"' \
@@ -280,6 +286,8 @@ run_package_client_smoke() {
     '"streamable"' \
     '"initializedNotification":{"accepted":true}' \
     '"resourceTemplates"' \
+    '"resourceTemplateExpansion"' \
+    "$mcp_expanded_resource_template_uri" \
     '"resourceContent"' \
     '"prompts"' \
     '"prompt"' \
@@ -299,8 +307,20 @@ run_package_client_smoke() {
     return 1
   fi
 
+  local resource_template_pages=1
+  if [[ "$label" == "Protected JSON-response" ]]; then
+    resource_template_pages=2
+  fi
+  if [[ "$summary" != *"\"pagesRead\":$resource_template_pages"* ]]; then
+    printf '%s package client smoke did not traverse %s resource-template page(s).\n' \
+      "$label" "$resource_template_pages" >&2
+    printf '%s\n' "$summary" >&2
+    return 1
+  fi
+
   local auth_evidence="anonymous"
-  local lifecycle_evidence="streamable_http=true session_delete=true"
+  local lifecycle_evidence="streamable_http=true session_delete=true resource_template_expansion=true"
+  lifecycle_evidence+=" resource_template_pages=$resource_template_pages"
   if [[ "$label" == Protected* ]]; then
     auth_evidence="router-issued"
     lifecycle_evidence+=" auth_lifecycle=true"

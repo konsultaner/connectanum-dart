@@ -526,6 +526,8 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     --tool example.task.lookup \
     --tool-arguments '{"taskId":"T-public-example-dry-run"}' \
     --resource-uri app://example/context/live \
+    --resource-template 'app://example/task/{taskId}' \
+    --resource-template-variables '{"taskId":"T public/✓"}' \
     --resource-update-topic example.events.context.updated \
     --resource-update-event '{"source":"public-example-dry-run"}' \
     --prompt summarize-task \
@@ -545,6 +547,10 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
   if [[ "$dry_run_summary" != *'"resourceTemplates":true'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report resource-template discovery.\n'
+    return 1
+  fi
+  if [[ "$dry_run_summary" != *'"resourceTemplateExpansion":{"uriTemplate":"app://example/task/{taskId}","variableNames":["taskId"],"uri":"app://example/task/T%20public%2F%E2%9C%93"}'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report bounded resource-template expansion.\n'
     return 1
   fi
   if [[ "$dry_run_summary" != *'"resourceSubscription":{"updateTopic":"example.events.context.updated"'* ]]; then
@@ -874,6 +880,47 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
   fi
   if [[ "$dangling_tool_arguments_output" != *'Use --tool-arguments together with --tool.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the dangling tool arguments error.\n'
+    return 1
+  fi
+
+  local dangling_resource_template_variables_output
+  if dangling_resource_template_variables_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --resource-template-variables '{"taskId":"T-dangling"}' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted template variables without a template.\n'
+    return 1
+  fi
+  if [[ "$dangling_resource_template_variables_output" != *'Use --resource-template-variables together with --resource-template.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report dangling template variables.\n'
+    return 1
+  fi
+
+  local missing_resource_template_variable_output
+  if missing_resource_template_variable_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --resource-template 'app://example/task/{taskId}' \
+    --resource-template-variables '{}' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted a missing template variable.\n'
+    return 1
+  fi
+  if [[ "$missing_resource_template_variable_output" != *'MCP resource URI template variable "taskId" is required.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the missing template variable.\n'
+    return 1
+  fi
+
+  local invalid_resource_template_output
+  if invalid_resource_template_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp \
+    --resource-template 'app://example/task/{+taskId}' \
+    --resource-template-variables '{"taskId":"T-invalid"}' \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted an unsupported template expression.\n'
+    return 1
+  fi
+  if [[ "$invalid_resource_template_output" != *'support simple RFC 6570 Level 1 expressions only'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the unsupported template expression.\n'
     return 1
   fi
 

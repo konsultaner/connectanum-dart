@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:connectanum_core/connectanum_core.dart'
+    show McpResourceUriTemplate;
+
 import '../protocol/errors.dart';
 import '../protocol/icons.dart';
 import '../protocol/pagination.dart';
@@ -90,7 +93,7 @@ class McpResourceTemplate {
     this.annotations,
     Iterable<McpIcon> icons = const [],
   }) : icons = List<McpIcon>.unmodifiable(icons),
-       _pattern = _McpResourceTemplatePattern.parse(uriTemplate) {
+       _uriTemplate = McpResourceUriTemplate(uriTemplate) {
     if (name.isEmpty) {
       throw ArgumentError.value(
         name,
@@ -108,11 +111,15 @@ class McpResourceTemplate {
   final String? mimeType;
   final McpResourceAnnotations? annotations;
   final List<McpIcon> icons;
-  final _McpResourceTemplatePattern _pattern;
+  final McpResourceUriTemplate _uriTemplate;
 
-  Map<String, String>? _matchUri(String uri) => _pattern.match(uri);
+  /// Expands decoded values into a concrete URI for this template.
+  String expandUri(Map<String, String> variables) =>
+      _uriTemplate.expand(variables);
 
-  int get _literalLength => _pattern.literalLength;
+  Map<String, String>? _matchUri(String uri) => _uriTemplate.match(uri);
+
+  int get _literalLength => _uriTemplate.literalLength;
 
   Map<String, Object?> toJson() {
     final json = <String, Object?>{'uriTemplate': uriTemplate, 'name': name};
@@ -147,184 +154,6 @@ class McpResourceTemplateMatch {
   final McpResourceTemplate template;
   final Map<String, String> variables;
 }
-
-class _McpResourceTemplatePattern {
-  const _McpResourceTemplatePattern({
-    required this.literals,
-    required this.variables,
-    required this.literalLength,
-  });
-
-  factory _McpResourceTemplatePattern.parse(String uriTemplate) {
-    Never invalid(String reason) {
-      throw ArgumentError.value(
-        uriTemplate,
-        'uriTemplate',
-        'MCP resource templates support simple RFC 6570 Level 1 '
-            'expressions only: $reason',
-      );
-    }
-
-    if (uriTemplate.isEmpty) {
-      invalid('the template is empty.');
-    }
-
-    final literals = <String>[];
-    final variables = <String>[];
-    final seenVariables = <String>{};
-    var cursor = 0;
-    while (cursor < uriTemplate.length) {
-      final open = uriTemplate.indexOf('{', cursor);
-      final strayClose = uriTemplate.indexOf('}', cursor);
-      if (open == -1) {
-        if (strayClose != -1) {
-          invalid('the template contains an unmatched closing brace.');
-        }
-        literals.add(uriTemplate.substring(cursor));
-        cursor = uriTemplate.length;
-        break;
-      }
-      if (strayClose != -1 && strayClose < open) {
-        invalid('the template contains an unmatched closing brace.');
-      }
-
-      literals.add(uriTemplate.substring(cursor, open));
-      final close = uriTemplate.indexOf('}', open + 1);
-      if (close == -1) {
-        invalid('the template contains an unmatched opening brace.');
-      }
-      final variable = uriTemplate.substring(open + 1, close);
-      if (variable.contains('{') ||
-          !_resourceTemplateVariable.hasMatch(variable)) {
-        invalid('"$variable" is not a supported simple variable name.');
-      }
-      if (!seenVariables.add(variable)) {
-        invalid('the variable "$variable" is repeated.');
-      }
-      variables.add(variable);
-      cursor = close + 1;
-    }
-    if (literals.length == variables.length) {
-      literals.add('');
-    }
-
-    for (var index = 1; index < literals.length - 1; index += 1) {
-      if (literals[index].isEmpty) {
-        invalid('adjacent variable expressions are ambiguous.');
-      }
-    }
-    for (var index = 1; index < literals.length - 1; index += 1) {
-      final literal = literals[index];
-      if (literal.isNotEmpty &&
-          _isResourceTemplateExpansionCodeUnit(literal.codeUnitAt(0))) {
-        invalid(
-          'a literal following a variable must begin with a reserved '
-          'delimiter.',
-        );
-      }
-    }
-
-    final sampleUri = StringBuffer();
-    for (var index = 0; index < variables.length; index += 1) {
-      sampleUri
-        ..write(literals[index])
-        ..write('x');
-    }
-    sampleUri.write(literals.last);
-    _validateResourceUri(sampleUri.toString(), 'uriTemplate');
-
-    return _McpResourceTemplatePattern(
-      literals: List<String>.unmodifiable(literals),
-      variables: List<String>.unmodifiable(variables),
-      literalLength: literals.fold<int>(
-        0,
-        (total, part) => total + part.length,
-      ),
-    );
-  }
-
-  final List<String> literals;
-  final List<String> variables;
-  final int literalLength;
-
-  Map<String, String>? match(String uri) {
-    if (variables.isEmpty) {
-      return uri == literals.single ? const <String, String>{} : null;
-    }
-
-    final values = <String, String>{};
-    var cursor = 0;
-    for (var index = 0; index < variables.length; index += 1) {
-      final literal = literals[index];
-      if (!uri.startsWith(literal, cursor)) {
-        return null;
-      }
-      cursor += literal.length;
-
-      final nextLiteral = literals[index + 1];
-      final end = nextLiteral.isEmpty
-          ? uri.length
-          : index == variables.length - 1
-          ? uri.lastIndexOf(nextLiteral)
-          : uri.indexOf(nextLiteral, cursor);
-      if (end < cursor) {
-        return null;
-      }
-      final encodedValue = uri.substring(cursor, end);
-      if (!_isResourceTemplateLevelOneExpansion(encodedValue)) {
-        return null;
-      }
-      try {
-        values[variables[index]] = Uri.decodeComponent(encodedValue);
-      } on FormatException {
-        return null;
-      }
-      cursor = end;
-    }
-
-    final trailingLiteral = literals.last;
-    if (!uri.startsWith(trailingLiteral, cursor) ||
-        cursor + trailingLiteral.length != uri.length) {
-      return null;
-    }
-    return Map<String, String>.unmodifiable(values);
-  }
-}
-
-final RegExp _resourceTemplateVariable = RegExp(
-  r'^[A-Za-z0-9_][A-Za-z0-9_.]*$',
-);
-
-bool _isResourceTemplateLevelOneExpansion(String value) {
-  for (var index = 0; index < value.length; index += 1) {
-    final codeUnit = value.codeUnitAt(index);
-    if (_isResourceTemplateExpansionCodeUnit(codeUnit)) {
-      continue;
-    }
-    if (codeUnit != 0x25 ||
-        index + 2 >= value.length ||
-        !_isHexCodeUnit(value.codeUnitAt(index + 1)) ||
-        !_isHexCodeUnit(value.codeUnitAt(index + 2))) {
-      return false;
-    }
-    index += 2;
-  }
-  return true;
-}
-
-bool _isResourceTemplateExpansionCodeUnit(int codeUnit) =>
-    (codeUnit >= 0x41 && codeUnit <= 0x5a) ||
-    (codeUnit >= 0x61 && codeUnit <= 0x7a) ||
-    (codeUnit >= 0x30 && codeUnit <= 0x39) ||
-    codeUnit == 0x2d ||
-    codeUnit == 0x2e ||
-    codeUnit == 0x5f ||
-    codeUnit == 0x7e;
-
-bool _isHexCodeUnit(int codeUnit) =>
-    (codeUnit >= 0x30 && codeUnit <= 0x39) ||
-    (codeUnit >= 0x41 && codeUnit <= 0x46) ||
-    (codeUnit >= 0x61 && codeUnit <= 0x66);
 
 class McpResourceAnnotations {
   const McpResourceAnnotations({

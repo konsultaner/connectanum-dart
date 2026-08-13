@@ -2044,6 +2044,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "methodDescription",
             "listResourcesDirect",
             "listResourceTemplatesDirect",
+            "McpResourceUriTemplate",
+            "--resource-template",
+            "--resource-template-variables",
+            "resourceTemplateExpansion",
             "readResourceDirect",
             "listPromptsDirect",
             "getPromptDirect",
@@ -2576,6 +2580,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--tool example.task.lookup", body)
         self.assertIn("--tool-arguments", body)
         self.assertIn("--resource-uri app://example/context", body)
+        self.assertIn("--resource-template 'app://example/task/{taskId}'", body)
+        self.assertIn("--resource-template-variables", body)
         self.assertIn("--prompt summarize-task", body)
         self.assertIn("--prompt-arguments", body)
         self.assertIn("--wamp-procedure example.task.configured.lookup", body)
@@ -2597,6 +2603,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"updateTopic":"example.events.context.updated"', body)
         self.assertIn('"resourceTemplates":true', body)
         self.assertIn("resource-template discovery", body)
+        self.assertIn('"resourceTemplateExpansion"', body)
+        self.assertIn("bounded resource-template expansion", body)
+        self.assertIn("dangling_resource_template_variables_output", body)
+        self.assertIn("missing_resource_template_variable_output", body)
+        self.assertIn("invalid_resource_template_output", body)
         self.assertIn('"configuredSubscriptionMetadata":true', body)
         self.assertIn("configured subscription metadata lookup", body)
         self.assertIn('"configuredRegistrationMetadata":true', body)

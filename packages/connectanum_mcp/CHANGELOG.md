@@ -10,6 +10,9 @@
   precedence.
 - Expose deterministic readable-template matches so router hosts can apply the
   same concrete-URI resolution to reads and resource subscriptions.
+- Share one public Level 1 resource-URI-template parser between server matching
+  and consumer expansion, and exercise advertised-template reads from the
+  packaged router-hosted client.
 - Add MCP 2026 form-elicitation MRTR requests, scoped capability enforcement,
   WAMP detail bridging, bounded client retries, and direct JSON support.
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,

@@ -1,6 +1,6 @@
 # MCP Resource Template Subscriptions
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -95,3 +95,15 @@ References:
   `bin/dart-package-publish-dry-run --strict-release-ready`: all seven
   synchronized `3.0.0-beta` archives validate with zero warnings, no private
   workspace dependency blockers, and every declared executable present.
+- 2026-08-13: Implementation commit `3ab636ed` is published to both maintained
+  `master` branches. Exact-head CI `31745550079` passes every expected job with
+  clean logs and retains coverage artifact `9199364031`; Dart Package Publish
+  Dry Run `31745550076` passes; and WAMP Profile Benchmarks `31745550075`
+  passes with artifact `9199037390`.
+- 2026-08-13: Router Image dry run `31745588742` passes the loaded-image smoke
+  with official SDK 2.0.0 evidence for concrete-template subscribe, update,
+  and unsubscribe across public/protected legacy/modern clients. It skips GHCR
+  login and retains preview artifact `9198847546` plus Docker build records
+  `9199010201` and `9199009250`. The comprehensive strict deployment-chain
+  audit exits zero with every required gate ready; RC publication remains
+  intentionally ungated because no release was requested.

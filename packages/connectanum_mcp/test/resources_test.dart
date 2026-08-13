@@ -402,6 +402,24 @@ void main() {
       },
     );
 
+    test('resource templates expose shared concrete URI expansion', () {
+      final template = McpResourceTemplate(
+        uriTemplate: 'app://tasks/{taskId}',
+        name: 'task',
+      );
+
+      expect(
+        template.expandUri(const {'taskId': 'A B/✓'}),
+        'app://tasks/A%20B%2F%E2%9C%93',
+      );
+      expect(
+        McpResourceUriTemplate(template.uriTemplate).match(
+          'app://tasks/A%20B%2F%E2%9C%93',
+        ),
+        const {'taskId': 'A B/✓'},
+      );
+    });
+
     test(
       'resource registry exposes its deterministic readable template match',
       () {

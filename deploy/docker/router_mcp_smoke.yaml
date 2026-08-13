@@ -173,7 +173,7 @@ router:
                 include_standard_meta_api: true
                 include_pubsub_tools: true
                 resource_list_page_size: 10
-                resource_template_list_page_size: 10
+                resource_template_list_page_size: 1
                 prompt_list_page_size: 10
                 resources:
                   - uri: connectanum://router-image/context
@@ -190,6 +190,11 @@ router:
                     read_procedure: wamp.session.count
                     update_topic: image.smoke.events
                 resource_templates:
+                  - uri_template: connectanum://router-image/archive/{itemId}
+                    name: router-image-archive-item
+                    title: Router Image Archive Item
+                    description: Metadata-only pagination sentinel for packaged-router items.
+                    mime_type: application/json
                   - uri_template: connectanum://router-image/item/{itemId}
                     name: router-image-item
                     title: Router Image Item

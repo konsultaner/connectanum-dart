@@ -252,6 +252,24 @@ percent-decoded variables to its callback. Exact resources take precedence
 over matching templates. Metadata-only templates remain listable but do not
 handle reads.
 
+The IO client keeps catalog entries as extension-friendly JSON maps, while the
+shared `McpResourceUriTemplate` handles the security-sensitive parsing and
+escaping needed to construct a concrete URI from an advertised template:
+
+```dart
+final page = await client.listResourceTemplates();
+final entry = page.resourceTemplates.firstWhere(
+  (template) => template['name'] == 'task',
+);
+final template = McpResourceUriTemplate(entry['uriTemplate']! as String);
+final uri = template.expand({'id': 'task 7/primary'});
+final contents = await client.readResource(uri);
+```
+
+Expansion requires every declared variable and percent-encodes decoded string
+values as UTF-8. The bounded helper deliberately rejects RFC 6570 operators and
+modifiers beyond simple Level 1 expressions.
+
 Providing both resource subscription handlers advertises
 `resources.subscribe: true` and enables `resources/subscribe` plus
 `resources/unsubscribe`. The handlers own the application subscription
@@ -373,6 +391,12 @@ channel for `notifications/resources/updated`, read changed resource content,
 and unsubscribe. Use `--resource-update-event` to replace the default JSON
 event kwargs. The update topic must be declared by the route and authorized for
 the route principal.
+
+Use `--resource-template URI_TEMPLATE` with
+`--resource-template-variables JSON_OBJECT` to require that the endpoint
+advertises a selected Level 1 template, expand its decoded string variables,
+and read the resulting URI through both direct JSON and compatibility
+Streamable HTTP.
 
 ## WAMP Tool Delegation
 

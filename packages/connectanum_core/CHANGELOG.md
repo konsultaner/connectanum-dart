@@ -7,6 +7,8 @@
   an explicit UTF-16 compatibility mode for legacy peers.
 - Preserve binary SCRAM channel-binding data without an invalid byte-to-string
   cast.
+- Add a public bounded RFC 6570 Level 1 MCP resource-URI-template utility with
+  decoded matching and UTF-8 percent-encoded expansion.
 
 ## 0.1.0
 
