@@ -1,6 +1,6 @@
 # MCP CORS Request-Method Header Multiplicity Validation
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -63,3 +63,15 @@ session isolation.
   worktree warning before the implementation commit. Clean exact-commit
   validation then passes all seven synchronized `3.0.0-beta` package archives
   with zero warnings and no private workspace dependency blockers.
+- 2026-08-13: Commit `766078bb` is published to GitLab and GitHub. Exact-head
+  CI `31662333628`, Dart Package Publish Dry Run `31662333632`, WAMP Profile
+  Benchmarks `31662333623`, and Router Image dry run `31662349666` all pass on
+  their first attempts. Retained artifacts are Dart VM coverage `9166997543`,
+  WAMP profile evidence `9166766587`, Router Image preview `9166633482`, and
+  Docker build records `9166746764` and `9166746163`.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs and all required package, Router Image,
+  WAMP, relevant Native Artifacts, branch, workflow, and package-visibility
+  gates ready. Native Artifacts run `31221315902` remains relevant because no
+  native-release-sensitive input changed. A numeric RC tag remains approval-
+  gated and was not created.

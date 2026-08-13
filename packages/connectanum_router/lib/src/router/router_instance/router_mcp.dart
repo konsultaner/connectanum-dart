@@ -401,6 +401,22 @@ NativeHttpResponse? _mcpCorsRequestMethodHeaderMultiplicityError(
   );
 }
 
+NativeHttpResponse? _mcpHostHeaderMultiplicityError(
+  RouterHttpRequest request,
+  HttpRouteSettings? route,
+) {
+  if (route == null ||
+      !_mcpRouteProvidesMcp(route) ||
+      !request.duplicateHeaderNames.contains(HttpHeaders.hostHeader)) {
+    return null;
+  }
+  return _mcpJsonRpcHttpError(
+    status: HttpStatus.badRequest,
+    code: mcp.McpErrorCodes.invalidRequest,
+    message: 'Invalid Host header',
+  );
+}
+
 NativeHttpResponse? _mcpAuthorizationHeaderMultiplicityError(
   RouterBinding binding,
   RouterHttpRequest request,

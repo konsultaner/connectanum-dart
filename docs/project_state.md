@@ -25027,10 +25027,44 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-host-header-multiplicity-validation.md`.
+  Native ingress preserves duplicate HTTP header-name evidence, but
+  router-hosted MCP still selects one scalar `Host` value for default
+  origin/authority validation. This checkpoint will reject conflicting
+  case-insensitive field lines on MCP-providing routes before origin policy,
+  rate limiting, bearer authentication, or MCP session state, while proving
+  raw native and neutral installed-consumer endpoint reuse. Repository,
+  Serena, overlap, completed-plan, both-roadmap, and worktree preflights pass;
+  pre-change `bin/test-fast` passes against exact local, GitLab, and GitHub
+  head `766078bb`, including all 97 benchmark cases and 37 live WAMP workloads
+  plus the complete consumer/package and focused router/native smoke matrix.
+  The fail-first synthetic MCP regression receives HTTP 401 for conflicting
+  case-insensitive `Host` fields, proving that scalar selection reaches bearer
+  authentication. Router binding now rejects the ambiguity immediately after
+  effective MCP route selection and before origin policy, route mismatch
+  handling, rate limiting, bearer authentication, or session state. Focused
+  synthetic and raw native HTTP regressions pass with a sessionless HTTP 400
+  and no CORS, rate-limit, or authentication state. The neutral installed-
+  router consumer reports `hostHeaderMultiplicityValidation: true` and
+  completes the subsequent direct JSON, pub/sub, Streamable HTTP, auth, and
+  endpoint-reuse matrix. Shell syntax and all 19 consumer-boundary contracts
+  pass. The first full verification attempt caught and led to a generator-
+  contract fix for the new consumer diagnostic; the corrected generated
+  program passes analysis and its live matrix. Clean full `bin/verify` passes
+  114 Rust core tests, 52 FFI tests, 360 Dart core tests, all 101 MCP tests,
+  the 280-case client/MCP matrix, 97 benchmark cases plus 37 live WAMP
+  workloads, all 438 router tests, six isolated remote-auth integrations, 13
+  native follow-ups, every consumer and installed-command smoke, and
+  Chrome/Dart2Wasm. Strict release-ready package validation reaches all seven
+  synchronized `3.0.0-beta` archives: six have zero warnings, and the changed
+  router archive has only the expected pre-commit dirty-worktree warning with
+  no content or dependency blocker. Clean exact-commit validation,
+  publication, and exact-head hosted evidence remain.
+- The most recently completed plan is
   `docs/exec-plans/2026-08-13-mcp-cors-request-method-header-multiplicity-validation.md`.
   Native ingress preserves duplicate HTTP header-name evidence, but router
   preflight routing and bearerless-preflight authorization still select one
-  scalar `Access-Control-Request-Method` value. This checkpoint will reject
+  scalar `Access-Control-Request-Method` value. This checkpoint rejects
   conflicting case-insensitive field lines before MCP method-action selection,
   auth/rate mutation, or session state while retaining valid preflight and
   endpoint-reuse behavior. Repository, Serena, overlap, both-roadmap, and
@@ -25046,13 +25080,24 @@ at the older `47bbf9c` commit.
   matrix, 97 benchmark cases plus 37 live WAMP workloads, all 438 router tests,
   six isolated remote-auth integrations, 13 native follow-ups, every consumer
   and installed-command smoke, and Chrome/Dart2Wasm. The prior CORS request-
-  header checkpoint's final hosted-evidence notes will be bundled with this
+  header checkpoint's final hosted-evidence notes were bundled with this
   implementation. Strict release-ready package validation reaches the changed
   router archive with zero content warnings and only the expected pre-commit
   dirty-worktree warning. Clean exact-commit validation then passes all seven
   synchronized `3.0.0-beta` package archives with zero warnings and no private
-  workspace dependency blockers. Publication remains.
-- The most recently completed plan is
+  workspace dependency blockers.
+  Commit `766078bb` is published to GitLab and GitHub. Exact-head CI
+  `31662333628`, Dart Package Publish Dry Run `31662333632`, WAMP Profile
+  Benchmarks `31662333623`, and Router Image dry run `31662349666` all pass on
+  their first attempts. Retained artifacts are Dart VM coverage `9166997543`,
+  WAMP profile evidence `9166766587`, Router Image preview `9166633482`, and
+  Docker build records `9166746764` and `9166746163`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head jobs and logs and
+  all required package, Router Image, WAMP, relevant Native Artifacts, branch,
+  workflow, and package-visibility gates ready. Native Artifacts run
+  `31221315902` remains relevant because no native-release-sensitive input
+  changed. A numeric RC tag remains approval-gated and was not created.
+- The preceding completed plan is
   `docs/exec-plans/2026-08-13-mcp-cors-request-header-field-value-preservation.md`.
   Native ingress preserves case-insensitive HTTP field-value lists, but the
   router-hosted MCP CORS path still reflects one scalar

@@ -4795,7 +4795,7 @@ void main() {
     );
   });
 
-  test('rate limited MCP routes validate origins before limits', () async {
+  test('rate limited MCP routes validate authority and origins first', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()
       ..addListenerFromBuilder(
@@ -4926,6 +4926,42 @@ void main() {
     expect(
       _jsonResponseBody(repeatedOrigin)['error'],
       containsPair('message', 'Invalid Origin for MCP endpoint'),
+    );
+
+    enqueueMcpRequest(
+      connectionId: 61,
+      handle: 20,
+      method: 'POST',
+      headers: const {
+        'Host': 'agent.example',
+        'host': 'rejected.example',
+        'origin': 'https://agent.example',
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+      },
+      body: Uint8List.fromList(
+        utf8.encode(
+          '{"jsonrpc":"2.0","id":"repeated-host","method":"tools/list","params":{}}',
+        ),
+      ),
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[61]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final repeatedHost = runtime.httpResponses[61]!.single;
+    expect(repeatedHost.status, HttpStatus.badRequest);
+    expect(
+      repeatedHost.headers,
+      isNot(contains('Access-Control-Allow-Origin')),
+    );
+    expect(repeatedHost.headers, isNot(contains('www-authenticate')));
+    expect(repeatedHost.headers, isNot(contains('x-ratelimit-limit')));
+    expect(repeatedHost.headers, isNot(contains('MCP-Session-Id')));
+    expect(
+      _jsonResponseBody(repeatedHost)['error'],
+      containsPair('message', 'Invalid Host header'),
     );
 
     enqueueMcpRequest(

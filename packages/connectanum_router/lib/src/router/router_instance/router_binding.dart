@@ -1887,6 +1887,19 @@ class RouterBinding {
     final mcpRoute = responseRoute?.action.type == HttpRouteActionType.mcp
         ? responseRoute
         : null;
+    final hostHeaderMultiplicityError = _mcpHostHeaderMultiplicityError(
+      request,
+      mcpRoute,
+    );
+    if (hostHeaderMultiplicityError != null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: hostHeaderMultiplicityError,
+      );
+      retainedHandshake?.release();
+      return;
+    }
     final mcpRouteMismatch =
         mcpRoute != null &&
         (routeMatch.isMethodNotAllowed || routeMatch.isProtocolNotAllowed);

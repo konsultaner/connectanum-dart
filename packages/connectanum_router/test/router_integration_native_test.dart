@@ -13154,6 +13154,61 @@ void main() {
       expect(repeatedOrigin.headers, isNot(contains('mcp-session-id')));
       expect(repeatedOrigin.headers, isNot(contains('www-authenticate')));
 
+      final repeatedHostBody = utf8.encode(
+        jsonEncode(const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'secure-repeated-host',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        }),
+      );
+      final repeatedHostSocket = await Socket.connect(
+        '127.0.0.1',
+        listener.port,
+      );
+      late final String repeatedHostResponse;
+      try {
+        repeatedHostSocket.add(
+          utf8.encode(
+            'POST /mcp/secure HTTP/1.1\r\n'
+            'Host: 127.0.0.1:${listener.port}\r\n'
+            'host: rejected.example\r\n'
+            'Connection: close\r\n'
+            'Origin: $metadataOrigin\r\n'
+            'Accept: application/json, text/event-stream\r\n'
+            'Content-Type: application/json\r\n'
+            'Content-Length: ${repeatedHostBody.length}\r\n'
+            '\r\n',
+          ),
+        );
+        repeatedHostSocket.add(repeatedHostBody);
+        await repeatedHostSocket.flush();
+        repeatedHostResponse = await _readHttpResponse(repeatedHostSocket);
+      } finally {
+        repeatedHostSocket.destroy();
+      }
+      expect(
+        repeatedHostResponse,
+        startsWith('HTTP/1.1 ${HttpStatus.badRequest}'),
+      );
+      expect(repeatedHostResponse, contains('Invalid Host header'));
+      expect(
+        repeatedHostResponse.toLowerCase(),
+        isNot(contains('access-control-allow-origin:')),
+      );
+      expect(
+        repeatedHostResponse.toLowerCase(),
+        isNot(contains('mcp-session-id:')),
+      );
+      expect(
+        repeatedHostResponse.toLowerCase(),
+        isNot(contains('www-authenticate:')),
+      );
+      expect(
+        repeatedHostResponse.toLowerCase(),
+        isNot(contains('x-ratelimit-limit:')),
+      );
+
       final repeatedAuthorization = await _postJson(
         client,
         listener.port,

@@ -1412,6 +1412,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("routerCliConsumerSummary", body)
         self.assertIn("McpStreamableHttpClient.stateless", body)
         self.assertIn("McpStreamableHttpClient.statelessWithAuthGrant", body)
+        self.assertIn("'$repeatedHostResponse'", script)
         self.assertIn("dart-consumer-public-stateless-discover", body)
         self.assertIn("dart-consumer-secure-stateless-discover", body)
         self.assertIn("dart-consumer-public-stateless-publish", body)
@@ -1419,6 +1420,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("resourceSubscriptions: <String>[resourceUri]", body)
         self.assertIn(
             '"public":{"originHeaderMultiplicityValidation":true,'
+            '"hostHeaderMultiplicityValidation":true,'
             '"stateless2026":true,"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
             '"resourceSubscriptionSessionDeleteCoexistence":true,'
