@@ -371,6 +371,36 @@ bool _mcpProtectedResourceMetadataRequest(
           _mcpAcceptAllowsMediaType(accepted, _mcpJsonContentType));
 }
 
+bool _mcpRouteProvidesMcp(HttpRouteSettings route) {
+  return route.action.type == HttpRouteActionType.mcp ||
+      route.methodActions.values.any(
+        (action) => action.type == HttpRouteActionType.mcp,
+      );
+}
+
+NativeHttpResponse? _mcpCorsRequestMethodHeaderMultiplicityError(
+  RouterHttpRequest request,
+  HttpRouteSettings? route,
+) {
+  if (route == null ||
+      request.method.trim().toUpperCase() != 'OPTIONS' ||
+      !_mcpRouteProvidesMcp(route) ||
+      !request.duplicateHeaderNames.contains(
+        'access-control-request-method',
+      )) {
+    return null;
+  }
+  final origins = request.headerValues['origin'];
+  if (origins == null || origins.every((origin) => origin.trim().isEmpty)) {
+    return null;
+  }
+  return _mcpJsonRpcHttpError(
+    status: HttpStatus.badRequest,
+    code: mcp.McpErrorCodes.invalidRequest,
+    message: 'Invalid Access-Control-Request-Method header',
+  );
+}
+
 NativeHttpResponse? _mcpAuthorizationHeaderMultiplicityError(
   RouterBinding binding,
   RouterHttpRequest request,

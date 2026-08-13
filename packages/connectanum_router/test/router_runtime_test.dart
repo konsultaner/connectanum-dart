@@ -5324,6 +5324,128 @@ void main() {
     expect(runtime.httpResponses[64]!.single.status, HttpStatus.noContent);
   });
 
+  test(
+    'rejects repeated MCP CORS request methods before action selection',
+    () async {
+      final runtime = _HandleRuntime();
+      final settings = RouterSettingsBuilder()
+        ..addListenerFromBuilder(
+          ListenerSettingsBuilder('http', '127.0.0.1:0')
+            ..addProtocol(ListenerProtocol.http)
+            ..setHttpOptions(
+              const HttpListenerSettings(
+                routes: [
+                  HttpRouteSettings(
+                    match: HttpRouteMatch(path: '/mcp', methods: ['GET']),
+                    action: HttpRouteAction(
+                      type: HttpRouteActionType.rpc,
+                      realm: 'router.http',
+                      procedure: 'com.example.http.health',
+                    ),
+                    methodActions: <String, HttpRouteAction>{
+                      'POST': HttpRouteAction(
+                        type: HttpRouteActionType.mcp,
+                        realm: 'router.http',
+                        options: <String, Object?>{
+                          'allowed_origins': ['https://agent.example'],
+                        },
+                      ),
+                    },
+                  ),
+                ],
+              ),
+            ),
+        );
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: settings.build(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      void enqueuePreflight(
+        int connectionId,
+        int handle,
+        Map<String, String> headers,
+      ) {
+        runtime.setConnectionProtocol(
+          connectionId,
+          NativeConnectionProtocol.http,
+        );
+        runtime.enqueueHttpHandshake(
+          listenerId,
+          connectionId,
+          NativeHttpHandshake.synthetic(
+            handle: handle,
+            method: 'OPTIONS',
+            target: '/mcp',
+            path: '/mcp',
+            protocol: 'http/1.1',
+            headers: headers,
+            body: Uint8List(0),
+            realm: 'router.http',
+            procedure: 'router.http.mcp',
+          ),
+        );
+      }
+
+      enqueuePreflight(65, 24, const <String, String>{
+        'origin': 'https://agent.example',
+        'access-control-request-method': 'POST',
+        'Access-Control-Request-Method': 'DELETE',
+        'access-control-request-headers': 'Content-Type, MCP-Protocol-Version',
+      });
+      await _waitUntil(
+        () => runtime.httpResponses[65]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 2),
+      );
+      final rejected = runtime.httpResponses[65]!.single;
+      expect(rejected.status, HttpStatus.badRequest);
+      expect(
+        _jsonResponseBody(rejected)['error'],
+        containsPair(
+          'message',
+          'Invalid Access-Control-Request-Method header',
+        ),
+      );
+      expect(
+        rejected.headers,
+        isNot(contains('Access-Control-Allow-Methods')),
+      );
+      expect(rejected.headers, isNot(contains('MCP-Session-Id')));
+
+      enqueuePreflight(66, 25, const <String, String>{
+        'origin': 'https://agent.example',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': 'Content-Type, MCP-Protocol-Version',
+      });
+      await _waitUntil(
+        () => runtime.httpResponses[66]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 2),
+      );
+      final valid = runtime.httpResponses[66]!.single;
+      expect(valid.status, HttpStatus.noContent);
+      expect(
+        valid.headers['Access-Control-Allow-Methods'],
+        contains('POST'),
+      );
+      expect(valid.headers, isNot(contains('MCP-Session-Id')));
+    },
+  );
+
   test('MCP wildcard CORS preflights vary by requested headers', () async {
     final runtime = _HandleRuntime();
     final settings = RouterSettingsBuilder()

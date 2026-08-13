@@ -1847,6 +1847,20 @@ class RouterBinding {
     _cleanupExpiredHttpAuthState();
     final listenerSettings = _listenerConfigById[request.listenerId];
     final routeMatch = _matchHttpRoute(listenerSettings?.http, request);
+    final corsRequestMethodMultiplicityError =
+        _mcpCorsRequestMethodHeaderMultiplicityError(
+          request,
+          routeMatch.route ?? routeMatch.errorRoute,
+        );
+    if (corsRequestMethodMultiplicityError != null) {
+      await _sendImmediateHttpResponse(
+        request: request,
+        handshake: retainedHandshake,
+        response: corsRequestMethodMultiplicityError,
+      );
+      retainedHandshake?.release();
+      return;
+    }
     final httpMethod = request.method.trim().toUpperCase();
     final corsPreflightMethod = _isCorsPreflight(request)
         ? _headerValue(

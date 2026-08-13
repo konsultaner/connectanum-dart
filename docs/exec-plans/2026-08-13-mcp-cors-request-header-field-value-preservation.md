@@ -1,6 +1,6 @@
 # MCP CORS Request-Header Field-Value Preservation
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -70,3 +70,16 @@ and the absence of MCP session state.
   worktree warning before the implementation commit. Clean exact-commit
   validation then passes all seven synchronized `3.0.0-beta` package archives
   with zero warnings and no private workspace dependency blockers.
+- 2026-08-13: Commit `11a4f321` is published to GitLab and GitHub. Exact-head
+  CI `31658474930`, Dart Package Publish Dry Run `31658474924`, WAMP Profile
+  Benchmarks `31658474954`, and Router Image dry run `31658496081` all pass on
+  their first attempts. Retained artifacts are Dart VM coverage `9165584530`,
+  WAMP profile evidence `9165430379`, Router Image preview `9165297412`, and
+  Docker build records `9165402035` and `9165401451`.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs, clean and relevant package, Router Image,
+  WAMP, and Native Artifacts evidence, protected default-branch requirements,
+  visible workflows, and public router-package metadata. Native Artifacts dry
+  run `31221315902` remains relevant because no native-release-sensitive input
+  changed. A new numeric RC tag remains release-approval work and was not
+  created.

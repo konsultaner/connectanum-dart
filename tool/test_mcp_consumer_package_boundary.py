@@ -1454,6 +1454,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"contentTypeHeaderMultiplicityValidation":true,'
             '"requestMetadataHeaderMultiplicityValidation":true,'
             '"acceptFieldValuePreservation":true,'
+            '"corsRequestMethodHeaderMultiplicityValidation":true,'
             '"corsRequestHeaderFieldValuePreservation":true,'
             '"authPendingCapacity":true,'
             '"authLockout":true,'
@@ -1515,6 +1516,18 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "split CORS request-header fields were not combined without "
             "session state",
+            body,
+        )
+        self.assertIn("_expectRepeatedCorsRequestMethodRejected", body)
+        self.assertIn("access-control-request-method: DELETE", body)
+        self.assertIn(
+            "repeated CORS request-method fields did not fail closed before "
+            "session state",
+            body,
+        )
+        self.assertIn(
+            "repeated CORS request-method isolation before method-specific "
+            "MCP action selection",
             body,
         )
         self.assertIn(

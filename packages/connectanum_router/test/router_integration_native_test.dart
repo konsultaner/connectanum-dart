@@ -3017,9 +3017,51 @@ void main() {
         addTearDown(harness.dispose);
 
         final listener = harness.binding.listeners.single;
+        final origin = 'http://127.0.0.1:${listener.port}';
+        final repeatedMethodSocket = await Socket.connect(
+          '127.0.0.1',
+          listener.port,
+        );
+        late final String repeatedMethodResponse;
+        try {
+          repeatedMethodSocket.write(
+            'OPTIONS /mcp HTTP/1.1\r\n'
+            'Host: 127.0.0.1:${listener.port}\r\n'
+            'Connection: close\r\n'
+            'Origin: $origin\r\n'
+            'Access-Control-Request-Method: POST\r\n'
+            'access-control-request-method: DELETE\r\n'
+            'Access-Control-Request-Headers: Content-Type, '
+            'MCP-Protocol-Version\r\n'
+            '\r\n',
+          );
+          await repeatedMethodSocket.flush();
+          repeatedMethodResponse = await _readHttpResponse(
+            repeatedMethodSocket,
+          );
+        } finally {
+          repeatedMethodSocket.destroy();
+        }
+
+        expect(
+          repeatedMethodResponse,
+          startsWith('HTTP/1.1 ${HttpStatus.badRequest}'),
+        );
+        expect(
+          repeatedMethodResponse,
+          contains('Invalid Access-Control-Request-Method header'),
+        );
+        expect(
+          repeatedMethodResponse.toLowerCase(),
+          isNot(contains('access-control-allow-methods:')),
+        );
+        expect(
+          repeatedMethodResponse.toLowerCase(),
+          isNot(contains('mcp-session-id:')),
+        );
+
         final client = HttpClient();
         addTearDown(() => client.close(force: true));
-        final origin = 'http://127.0.0.1:${listener.port}';
         final request = await client.open(
           'OPTIONS',
           '127.0.0.1',
