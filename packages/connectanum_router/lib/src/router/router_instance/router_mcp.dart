@@ -1010,7 +1010,7 @@ bool _mcpContentTypeAllowsJsonBody(
     HttpHeaders.contentTypeHeader,
   );
   if (contentType == null) {
-    return true;
+    return false;
   }
   final mimeType = contentType.split(';').first.trim().toLowerCase();
   return mimeType == _mcpJsonContentType || mimeType.endsWith('+json');

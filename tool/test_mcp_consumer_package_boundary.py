@@ -1443,6 +1443,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             '"public":{"originHeaderMultiplicityValidation":true,'
             '"originSerializationValidation":true,'
+            '"originTupleMatching":true,'
             '"hostHeaderMultiplicityValidation":true,'
             '"stateless2026":true,"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'
@@ -1477,6 +1478,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"sessionHeaderMultiplicityValidation":true,'
             '"lastEventIdHeaderMultiplicityValidation":true,'
             '"contentTypeHeaderMultiplicityValidation":true,'
+            '"contentTypePresenceValidation":true,'
             '"requestMetadataHeaderMultiplicityValidation":true,'
             '"acceptFieldValuePreservation":true,'
             '"corsRequestMethodHeaderMultiplicityValidation":true,'
@@ -1513,6 +1515,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn(
             "repeated Content-Type header did not preserve auth and session "
             "precedence",
+            body,
+        )
+        self.assertIn("_expectMissingContentTypeHeaderRejected", body)
+        self.assertIn(
+            "missing Content-Type header did not preserve auth and session "
+            "precedence",
+            body,
+        )
+        self.assertIn(
+            "MCP POST requests must use a JSON content type",
             body,
         )
         self.assertIn("_expectRepeatedRequestMetadataHeadersRejected", body)

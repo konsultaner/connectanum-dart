@@ -25027,8 +25027,31 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-post-content-type-presence-validation.md`.
+  Router-hosted MCP already rejects repeated and explicit non-JSON
+  `Content-Type` fields, but its media-type helper previously treated an absent
+  field as valid and allowed an untyped JSON body to reach later validation or
+  dispatch. It now requires a JSON-compatible media type on every MCP POST
+  while retaining authentication and compatibility-session precedence.
+  Focused native HTTP coverage passes for public and protected `2025-11-25`
+  compatibility traffic and `2026-07-28` stateless traffic. The freshly
+  sourced neutral generated consumer smoke proves bearer-free HTTP 401,
+  authenticated HTTP 415 with active-session reflection, unchanged client
+  session/resume state, and continued session use after rejection. Pre-change
+  `bin/test-fast`, router analysis, shell syntax, and all 20 consumer-boundary
+  contracts pass. Full `bin/verify` passes formatting and analysis, 114 Rust
+  core tests, 52 FFI tests, 360 Dart core tests, all 101 MCP tests, the complete
+  280-case client/MCP matrix, all 97 benchmark tests and 37 live WAMP workloads,
+  all 439 router tests, isolated remote-auth and native follow-ups, every
+  neutral consumer and installed-command smoke, and Chrome/Dart2Wasm coverage.
+  Strict release-ready validation reaches all seven synchronized `3.0.0-beta`
+  archives: six report zero warnings, and the changed router archive reports
+  only the expected pre-commit dirty-worktree warning for its three modified
+  package files. Clean exact-commit package validation, publication, and hosted
+  deployment-chain evidence remain.
+- The most recently completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-allowed-origin-tuple-matching.md`.
-  Explicit router-hosted MCP allow lists currently compare valid configured
+  Explicit router-hosted MCP allow lists previously compared valid configured
   and request Origin values as raw strings even though RFC 6454 origin
   identity normalizes the scheme, host, and effective port. This checkpoint
   adds a fail-first interoperability regression, compares only already-
@@ -25057,9 +25080,20 @@ at the older `47bbf9c` commit.
   `3.0.0-beta` archives: six report zero warnings, and the changed router
   archive reports only the expected pre-commit dirty-worktree warning for its
   two modified package files, with no content, archive-shape, version, or
-  dependency blocker. Clean exact-commit package validation, publication, and
-  hosted deployment-chain evidence remain.
-- The most recently completed plan is
+  dependency blocker. Clean exact-commit strict validation passes all seven
+  archives with zero warnings and no private workspace dependency blockers.
+  Commit `d31febc9` is published to GitLab and GitHub. Exact-head CI
+  `31684775311`, Dart Package Publish Dry Run `31684775324`, WAMP Profile
+  Benchmarks `31684775292`, and Router Image dry run `31686273931` all pass on
+  their first attempts. Retained artifacts are Dart VM coverage `9175486246`,
+  WAMP profile evidence `9175157981`, Router Image preview `9175535189`, and
+  Docker build records `9175682169` and `9175681355`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head jobs/logs and every
+  required package, Router Image, WAMP, relevant Native Artifacts, branch,
+  workflow, and public-router-package gate ready. Native Artifacts run
+  `31221315902` remains relevant because no native-release-sensitive input
+  changed. A numeric RC tag remains approval-gated and was not created.
+- The preceding completed plan is
   `docs/exec-plans/2026-08-13-mcp-allowed-origin-config-validation.md`.
   Router-hosted MCP request ingress now rejects malformed serialized Origin
   values, but route configuration previously accepted malformed
@@ -25108,7 +25142,7 @@ at the older `47bbf9c` commit.
   gate ready. Native Artifacts run `31221315902` remains relevant because no
   native-release-sensitive input changed. A numeric RC tag remains approval-
   gated and was not created.
-- The preceding completed plan is
+- The earlier completed plan is
   `docs/exec-plans/2026-08-13-mcp-origin-serialization-validation.md`.
   Router-hosted MCP rejects repeated `Origin` fields, but the default
   same-authority guard still accepts a single URL carrying user info,

@@ -13520,7 +13520,7 @@ void main() {
             <
               ({
                 String accept,
-                String contentType,
+                String? contentType,
                 String label,
                 String message,
                 String method,
@@ -13586,6 +13586,24 @@ void main() {
                 statusCode: HttpStatus.unsupportedMediaType,
                 message: 'MCP POST requests must use a JSON content type',
               ),
+              (
+                label: 'compatibility-post-missing-content-type',
+                method: 'POST',
+                accept: 'application/json, text/event-stream',
+                contentType: null,
+                protocolVersion: '2025-11-25',
+                statusCode: HttpStatus.unsupportedMediaType,
+                message: 'MCP POST requests must use a JSON content type',
+              ),
+              (
+                label: 'stateless-post-missing-content-type',
+                method: 'POST',
+                accept: 'application/json, text/event-stream',
+                contentType: null,
+                protocolVersion: '2026-07-28',
+                statusCode: HttpStatus.unsupportedMediaType,
+                message: 'MCP POST requests must use a JSON content type',
+              ),
             ];
 
         for (final probe in probes) {
@@ -13609,7 +13627,9 @@ void main() {
             ),
           );
           request.headers.set(HttpHeaders.acceptHeader, probe.accept);
-          request.headers.set(HttpHeaders.contentTypeHeader, probe.contentType);
+          if (probe.contentType case final contentType?) {
+            request.headers.set(HttpHeaders.contentTypeHeader, contentType);
+          }
           request.headers.set('MCP-Protocol-Version', probe.protocolVersion);
           request.headers.set('Mcp-Method', 'tools/list');
           if (authorization != null) {

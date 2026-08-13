@@ -19,6 +19,9 @@
 - Reject repeated case-insensitive `Mcp-Method`, `Mcp-Name`, and
   `Mcp-Param-*` request metadata fields before router-hosted MCP catalog refresh
   or WAMP dispatch while preserving auth and session-validation precedence.
+- Require a JSON-compatible `Content-Type` on every router-hosted MCP POST,
+  returning HTTP 415 for untyped bodies while preserving protected-route
+  authentication and compatibility-session precedence.
 - Preserve router-hosted MCP sessions across HTTP-auth access and refresh-token
   rotation while continuing to reject the rotated credentials.
 - Enforce positive realm `max_pending_auth` limits on router HTTP-auth

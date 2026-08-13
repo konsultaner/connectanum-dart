@@ -1,6 +1,6 @@
 # MCP Allowed-Origin Tuple Matching
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -79,3 +79,19 @@ the request's valid Origin value unless the configured wildcard applies.
   warning for its two modified package files, with no content, archive-shape,
   version, or dependency blocker. Clean exact-commit package validation,
   publication, and hosted deployment-chain evidence remain.
+- 2026-08-13: Commit `d31febc9` is published to GitLab and GitHub. Clean
+  exact-commit strict validation passes all seven synchronized `3.0.0-beta`
+  package archives with zero warnings and no private workspace dependency
+  blockers.
+- 2026-08-13: Exact-head CI `31684775311`, Dart Package Publish Dry Run
+  `31684775324`, WAMP Profile Benchmarks `31684775292`, and Router Image dry
+  run `31686273931` all pass on their first attempts. Retained artifacts are
+  Dart VM coverage `9175486246`, WAMP profile evidence `9175157981`, Router
+  Image preview `9175535189`, and Docker build records `9175682169` and
+  `9175681355`.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs and every required package, Router Image,
+  WAMP, relevant Native Artifacts, protected-branch, workflow-visibility, and
+  public-router-package gate ready. Native Artifacts run `31221315902` remains
+  relevant because no native-release-sensitive input changed. A numeric RC tag
+  remains release-approval work and was not created.
