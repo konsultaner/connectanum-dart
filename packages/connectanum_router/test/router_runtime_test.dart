@@ -5380,8 +5380,9 @@ void main() {
         headers: const {
           'origin': 'https://consumer.example',
           'access-control-request-method': 'POST',
-          'access-control-request-headers':
-              'Authorization, Content-Type, Mcp-Method, Mcp-Name, '
+          'access-control-request-headers': 'Authorization, Content-Type',
+          'Access-Control-Request-Headers':
+              'Mcp-Method, Mcp-Name, '
               'MCP-Protocol-Version, MCP-Session-Id',
         },
         body: Uint8List(0),

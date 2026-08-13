@@ -431,13 +431,15 @@ Map<String, String> _mcpCorsResponseHeaders(
 
   final allowedOrigins = _mcpAllowedOrigins(route.action.options);
   final allowOrigin = allowedOrigins.contains('*') ? '*' : origin;
-  final requestHeaders = _mcpHeaderValueRaw(
+  final requestedHeaderValues = _mcpHeaderValues(
     binding,
     request,
     _mcpCorsRequestHeadersHeader,
-  )?.trim();
-  final reflectsRequestHeaders =
-      preflight && requestHeaders != null && requestHeaders.isNotEmpty;
+  );
+  final requestHeaders = requestedHeaderValues.isEmpty
+      ? null
+      : requestedHeaderValues.join(', ');
+  final reflectsRequestHeaders = preflight && requestHeaders != null;
   final varyHeaders = <String>[
     if (allowOrigin != '*') 'Origin',
     if (reflectsRequestHeaders) _mcpCorsRequestHeadersHeader,

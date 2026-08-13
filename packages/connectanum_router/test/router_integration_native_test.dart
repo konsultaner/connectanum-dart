@@ -2930,31 +2930,46 @@ void main() {
         addTearDown(harness.dispose);
 
         final listener = harness.binding.listeners.single;
-        final client = HttpClient();
-        addTearDown(() => client.close(force: true));
         final origin = 'http://127.0.0.1:${listener.port}';
-        final request = await client.open(
-          'OPTIONS',
-          '127.0.0.1',
-          listener.port,
-          '/mcp',
-        );
-        request.headers.set('Origin', origin);
-        request.headers.set('Access-Control-Request-Method', 'POST');
-        request.headers.set(
-          'Access-Control-Request-Headers',
-          'Authorization, Content-Type, MCP-Protocol-Version',
-        );
+        final socket = await Socket.connect('127.0.0.1', listener.port);
+        late final String preflight;
+        try {
+          socket.write(
+            'OPTIONS /mcp HTTP/1.1\r\n'
+            'Host: 127.0.0.1:${listener.port}\r\n'
+            'Connection: close\r\n'
+            'Origin: $origin\r\n'
+            'Access-Control-Request-Method: POST\r\n'
+            'Access-Control-Request-Headers: Authorization, Content-Type\r\n'
+            'access-control-request-headers: MCP-Protocol-Version\r\n'
+            '\r\n',
+          );
+          await socket.flush();
+          preflight = await _readHttpResponse(socket);
+        } finally {
+          socket.destroy();
+        }
 
-        final preflight = await _readJsonHttpResponse(await request.close());
-
-        expect(preflight.statusCode, equals(HttpStatus.noContent));
+        expect(preflight, startsWith('HTTP/1.1 ${HttpStatus.noContent}'));
         expect(
-          preflight.headers['access-control-allow-origin'],
-          equals(origin),
+          preflight.toLowerCase(),
+          contains('access-control-allow-origin: $origin'),
         );
+        final allowedMethods =
+            RegExp(
+                  r'^access-control-allow-methods:\s*(.+?)\s*$',
+                  caseSensitive: false,
+                  multiLine: true,
+                )
+                .firstMatch(preflight)
+                ?.group(1)
+                ?.toUpperCase()
+                .split(',')
+                .map(
+                  (method) => method.trim(),
+                );
         expect(
-          preflight.headers['access-control-allow-methods'],
+          allowedMethods,
           allOf(
             contains('GET'),
             contains('POST'),
@@ -2962,15 +2977,16 @@ void main() {
             contains('OPTIONS'),
           ),
         );
+        final allowedHeaders = RegExp(
+          r'^access-control-allow-headers:\s*(.+?)\s*$',
+          caseSensitive: false,
+          multiLine: true,
+        ).firstMatch(preflight)?.group(1)?.toLowerCase();
         expect(
-          preflight.headers['access-control-allow-headers']?.toLowerCase(),
-          allOf(
-            contains('authorization'),
-            contains('content-type'),
-            contains('mcp-protocol-version'),
-          ),
+          allowedHeaders,
+          equals('authorization, content-type, mcp-protocol-version'),
         );
-        expect(preflight.headers, isNot(contains('mcp-session-id')));
+        expect(preflight.toLowerCase(), isNot(contains('mcp-session-id:')));
       },
       skip: skipReason,
     );

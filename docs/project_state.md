@@ -25027,6 +25027,32 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-cors-request-header-field-value-preservation.md`.
+  Native ingress preserves case-insensitive HTTP field-value lists, but the
+  router-hosted MCP CORS path still reflects one scalar
+  `Access-Control-Request-Headers` value. This checkpoint will make split and
+  comma-joined preflights produce the same allow-list while preserving origin,
+  unauthenticated preflight, route-method, `Vary`, and MCP session-isolation
+  behavior. Repository, Serena, overlap, both-roadmap, and worktree preflights
+  passed, and pre-change `bin/test-fast` is green across the complete fast
+  matrix. Fail-first synthetic and raw native preflights discarded the second
+  case-insensitive field value. Router-hosted MCP now joins all preserved
+  request-header field values, and the synthetic/native regressions plus the
+  neutral installed-router smoke prove the complete allow-list, origin/method/
+  `Vary` behavior, and absence of MCP session state. Focused router analysis,
+  shell syntax, and all 19 package-boundary contracts pass. Full `bin/verify`
+  passes 114 Rust core tests, 52 FFI tests, 360 Dart core tests, all 101 MCP
+  tests, the 280-case client/MCP matrix, 97 benchmark cases plus 37 live WAMP
+  workloads, all 437 router tests, six isolated remote-auth integrations, 13
+  native follow-ups, every consumer and installed-command smoke, and Chrome/
+  Dart2Wasm. Strict release-ready package validation reaches the changed
+  router archive with zero content warnings and only the expected pre-commit
+  dirty-worktree warning; clean exact-commit validation then passes all seven
+  synchronized `3.0.0-beta` archives with zero warnings and no private
+  workspace dependency blockers. Publication and exact-head hosted evidence
+  remain. The prior request-metadata checkpoint's final hosted-evidence notes
+  are bundled with this implementation.
+- The most recently completed plan is
   `docs/exec-plans/2026-08-13-mcp-request-metadata-header-multiplicity-validation.md`.
   Native ingress exposes normalized duplicate-name evidence, but router-hosted
   MCP still selects one scalar `Mcp-Method`, `Mcp-Name`, or
@@ -25046,11 +25072,21 @@ at the older `47bbf9c` commit.
   FFI tests, 360 Dart core tests, all 101 MCP tests, the 280-case client/MCP
   matrix, 97 benchmark cases plus 37 live WAMP workloads, all 437 router tests,
   six isolated remote-auth integrations, 13 native follow-ups, every consumer
-  smoke, and Chrome/Dart2Wasm. The implementation is ready to commit; clean
-  exact-commit package validation, publication, hosted workflows, and the
-  strict audit remain. The prior Accept checkpoint's final hosted-evidence
-  notes will be bundled with this implementation.
-- The most recently completed implementation plan is
+  smoke, and Chrome/Dart2Wasm. Clean exact-commit strict validation passes all
+  seven package archives with zero warnings. Commit `f6892ded` is published to
+  GitLab and GitHub. Exact-head CI `31653905691`, Dart Package Publish Dry Run
+  `31653905690`, Router Image dry run `31653917021`, and WAMP Profile
+  Benchmarks `31653905684` all pass. The first WAMP attempt completed every
+  workload but marginally missed four unchanged E2EE gates; its same-SHA
+  failed-job rerun passed. Retained artifacts are Dart VM coverage
+  `9163999336`, successful WAMP evidence `9163953399`, Router Image preview
+  `9163615829`, and Docker build records `9163731977` and `9163731347`. The
+  strict deployment-chain audit exits zero with clean exact-head jobs and logs
+  and all required package, Router Image, WAMP, native-artifact, branch,
+  workflow, and package-visibility gates ready. A numeric RC tag remains
+  approval-gated and was not created. The prior Accept checkpoint's final
+  hosted-evidence notes are bundled with this implementation.
+- The preceding completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-accept-field-value-preservation.md`.
   Fail-first synthetic and raw native HTTP requests proved that separate JSON
   and SSE `Accept` field values could lose Streamable HTTP opt-in or return

@@ -1,6 +1,6 @@
 # MCP Request-Metadata Header Multiplicity Validation
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -70,3 +70,20 @@ session, or unknown-session precedence.
   Strict package validation reaches the changed router archive with only the
   expected dirty-worktree warning; clean exact-commit validation remains
   before publication.
+- 2026-08-13: Commit `f6892ded` is published to GitLab and GitHub. Clean
+  exact-commit strict release-ready validation passes all seven synchronized
+  `3.0.0-beta` package archives with zero warnings and no private workspace
+  dependency blockers.
+- 2026-08-13: Exact-head CI `31653905691`, Dart Package Publish Dry Run
+  `31653905690`, Router Image dry run `31653917021`, and WAMP Profile
+  Benchmarks `31653905684` all pass. The first WAMP attempt completed every
+  workload but marginally missed four unchanged E2EE performance thresholds;
+  its one same-SHA failed-job rerun passed, confirming hosted runner variance.
+  Retained artifacts are Dart VM coverage `9163999336`, successful WAMP
+  profile evidence `9163953399`, Router Image preview `9163615829`, and Docker
+  build records `9163731977` and `9163731347`.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and log scan, clean and relevant package,
+  Router Image, WAMP, and Native Artifacts evidence, protected default-branch
+  requirements, visible workflows, and public router-package metadata. A new
+  numeric RC tag remains release-approval work and was not created.

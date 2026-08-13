@@ -1454,6 +1454,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"contentTypeHeaderMultiplicityValidation":true,'
             '"requestMetadataHeaderMultiplicityValidation":true,'
             '"acceptFieldValuePreservation":true,'
+            '"corsRequestHeaderFieldValuePreservation":true,'
             '"authPendingCapacity":true,'
             '"authLockout":true,'
             '"authFailureCapacity":true,'
@@ -1504,6 +1505,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("Accept: text/event-stream\\r\\n", body)
         self.assertIn(
             "split Accept fields were not negotiated as one field value",
+            body,
+        )
+        self.assertIn("_expectSplitCorsRequestHeadersNegotiated", body)
+        self.assertIn(
+            "access-control-request-headers: Mcp-Method, MCP-Protocol-Version",
+            body,
+        )
+        self.assertIn(
+            "split CORS request-header fields were not combined without "
+            "session state",
             body,
         )
         self.assertIn(

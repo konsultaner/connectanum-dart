@@ -10,6 +10,9 @@
 - Preserve every case-insensitive native HTTP header field value on router
   requests and negotiate split `Accept` fields as one list for router-hosted
   MCP JSON/SSE and Streamable HTTP selection.
+- Combine split case-insensitive `Access-Control-Request-Headers` field values
+  when answering router-hosted MCP CORS preflights, preserving the complete
+  browser-requested allow-list without creating MCP session state.
 - Reject repeated case-insensitive `Mcp-Method`, `Mcp-Name`, and
   `Mcp-Param-*` request metadata fields before router-hosted MCP catalog refresh
   or WAMP dispatch while preserving auth and session-validation precedence.
