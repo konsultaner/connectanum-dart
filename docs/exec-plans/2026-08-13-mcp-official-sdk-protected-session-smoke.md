@@ -1,6 +1,6 @@
 # MCP Official SDK Protected Session Smoke
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -70,3 +70,17 @@ References:
   matrix. Strict release-ready dry-runs validate all seven synchronized
   `3.0.0-beta` archives with zero warnings, and the public-artifact reference
   and diff checks pass. Publication and exact-head hosted evidence remain.
+- 2026-08-13: Commit `2f7b4b13` is published to GitLab and GitHub. Exact-head
+  CI `31712403688` passes Fast Checks, Full Verify, Dart VM Coverage, Codecov,
+  and coverage artifact `9186471498`. Router Image dry run `31712410969`
+  passes on its first attempt with preview artifact `9185824668` and Docker
+  build records `9185845897` and `9185845065`; its loaded-image log explicitly
+  proves SDK 2.0.0 public/protected use, bearer retry, legacy session creation
+  and termination, modern sessionlessness, all catalogs, resource read, and
+  WAMP-backed tool use.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI logs and every required package, Router Image, WAMP,
+  relevant Native Artifacts, protected-branch, workflow-visibility, and public
+  router-package gate ready. The last Dart Package Publish Dry Run
+  `31705829385` and WAMP Profile Benchmarks `31705829401` remain relevant
+  because this checkpoint changed no package or benchmark-sensitive inputs.

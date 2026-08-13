@@ -395,6 +395,10 @@
     recover once from an intentional HTTP 401 through the SDK authentication
     provider, explicitly terminate legacy sessions, and keep modern requests
     sessionless across catalogs, resource reads, and WAMP-backed tool calls.
+  - [x] Extend the same pinned official-client gate through router-provided
+    WAMP pub/sub: carry the opaque handle from structured subscribe results
+    through acknowledged self-delivered publish, poll, and unsubscribe on
+    public and protected legacy and modern endpoints without exposing state.
   - [x] Add modern `subscriptions/listen` request-scoped SSE delivery and
     cancellation with filtered acknowledgment, correlated notifications,
     multiple concurrent listeners, shared authorized resource-update

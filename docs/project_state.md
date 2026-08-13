@@ -25026,9 +25026,26 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active implementation plan is
+- There is no active implementation plan. The most recently completed plan is
+  `docs/exec-plans/2026-08-13-mcp-official-sdk-pubsub-smoke.md`. It extends the
+  pinned official TypeScript SDK Router Image gate through router-provided WAMP
+  pub/sub on public and bearer-protected legacy and modern endpoints. The smoke
+  will carry the explicit subscription handle returned in `structuredContent`
+  through acknowledged self-delivered publish, event poll, and unsubscribe,
+  proving that a consumer application can use stateful tools without relying on
+  a modern protocol session or private project assumptions. Repository,
+  Serena, overlap, both-roadmap, exact-head CI, and pre-change `bin/test-fast`
+  checks pass. The fail-first contract reproduces the missing gate, all 30
+  focused Router Image contracts pass after implementation, and an independent
+  live native-router probe passes the complete lifecycle in all four protocol
+  and authorization combinations. Final `bin/verify` passes the complete Rust,
+  Dart, native, browser, generated-consumer, benchmark, and router matrix.
+  Strict release-ready dry-runs validate all seven synchronized `3.0.0-beta`
+  archives with zero warnings, and public-artifact, credential-output, and diff
+  checks pass. Publication and exact-head hosted evidence remain.
+- The preceding completed plan is
   `docs/exec-plans/2026-08-13-mcp-official-sdk-protected-session-smoke.md`.
-  The current checkpoint extends independent official TypeScript SDK evidence
+  It extends independent official TypeScript SDK evidence
   from the public Router Image endpoint to the protected boundary, including
   router-issued bearer use, one rejected-token refresh/retry, explicit legacy
   session termination, and modern sessionlessness without exposing
@@ -25037,9 +25054,17 @@ at the older `47bbf9c` commit.
   resource-read, and WAMP-backed tool-call assertion. The 30-case smoke
   contract, independent live native-router probe, pre-change `bin/test-fast`,
   final `bin/verify`, public-artifact reference check, and strict release-ready
-  dry-runs for all seven synchronized package archives pass locally.
-  Publication and exact-head hosted evidence remain.
-- The most recently completed implementation plan is
+  dry-runs for all seven synchronized package archives pass locally. Commit
+  `2f7b4b13` is published to GitLab and GitHub. Exact-head CI `31712403688`
+  passes every job and retains coverage artifact `9186471498`. Router Image dry
+  run `31712410969` passes with explicit public/protected official SDK 2.0.0,
+  bearer-retry, legacy-termination, modern-sessionless, catalog,
+  resource-read, and WAMP-backed tool evidence; retained artifacts are preview
+  `9185824668` and Docker build records `9185845897` and `9185845065`. The
+  comprehensive strict deployment-chain audit exits zero; the prior package,
+  WAMP, and Native Artifacts runs remain clean and relevant because their
+  sensitive inputs did not change.
+- The preceding completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-official-sdk-cache-contract.md`.
   Router-hosted MCP's modern negotiation reaches the official TypeScript SDK,
   whose strict result validation exposed missing 2026-07-28 cache hints. The
@@ -25061,7 +25086,7 @@ at the older `47bbf9c` commit.
   Native Artifacts run `31221315902` remains relevant because no native-
   release-sensitive input changed. A numeric RC tag remains approval-gated and
   was not created.
-- The preceding completed implementation plan is
+- The implementation plan completed before that is
   `docs/exec-plans/2026-08-13-mcp-protocol-version-header-fallback.md`.
   Router-hosted MCP supports all maintained protocol revisions, rejects
   unsupported explicit headers, and aligns initialize response headers with

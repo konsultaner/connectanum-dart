@@ -11,6 +11,128 @@ function requireCondition(condition, message) {
   }
 }
 
+function requireStructuredToolResult(result, label, toolName) {
+  requireCondition(
+    result.isError !== true,
+    `${label} ${toolName} returned an error`,
+  );
+  requireCondition(
+    result.structuredContent !== null &&
+      typeof result.structuredContent === 'object' &&
+      !Array.isArray(result.structuredContent),
+    `${label} ${toolName} omitted structured content`,
+  );
+  return result.structuredContent;
+}
+
+async function runPubSubLifecycle(client, label) {
+  const topic = 'image.smoke.events';
+  const eventSource = `official-client-${label}`;
+  let handle;
+  try {
+    const subscribe = requireStructuredToolResult(
+      await client.callTool({
+        name: 'connectanum.pubsub.subscribe',
+        arguments: { topic, queueLimit: 4 },
+      }),
+      label,
+      'connectanum.pubsub.subscribe',
+    );
+    requireCondition(
+      typeof subscribe.handle === 'string' && subscribe.handle.length > 0,
+      `${label} subscribe omitted its explicit handle`,
+    );
+    requireCondition(
+      subscribe.topic === topic,
+      `${label} subscribe returned the wrong topic`,
+    );
+    handle = subscribe.handle;
+
+    const publish = requireStructuredToolResult(
+      await client.callTool({
+        name: 'connectanum.pubsub.publish',
+        arguments: {
+          topic,
+          argumentsKeywords: { source: eventSource },
+          acknowledge: true,
+          options: { exclude_me: false },
+        },
+      }),
+      label,
+      'connectanum.pubsub.publish',
+    );
+    requireCondition(
+      publish.topic === topic && publish.acknowledged === true,
+      `${label} publish was not acknowledged on the requested topic`,
+    );
+
+    let receivedEvent;
+    for (
+      let attempt = 0;
+      attempt < 40 && receivedEvent === undefined;
+      attempt += 1
+    ) {
+      const poll = requireStructuredToolResult(
+        await client.callTool({
+          name: 'connectanum.pubsub.poll',
+          arguments: { handle, limit: 4 },
+        }),
+        label,
+        'connectanum.pubsub.poll',
+      );
+      requireCondition(
+        poll.handle === handle && poll.topic === topic,
+        `${label} poll did not preserve its explicit handle and topic`,
+      );
+      requireCondition(
+        Array.isArray(poll.events) && poll.dropped === 0,
+        `${label} poll returned invalid or dropped event evidence`,
+      );
+      receivedEvent = poll.events.find(
+        (event) => event.argumentsKeywords?.source === eventSource,
+      );
+      if (receivedEvent === undefined) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+    requireCondition(
+      receivedEvent !== undefined,
+      `${label} did not receive its self-delivered publication`,
+    );
+
+    const unsubscribe = requireStructuredToolResult(
+      await client.callTool({
+        name: 'connectanum.pubsub.unsubscribe',
+        arguments: { handle },
+      }),
+      label,
+      'connectanum.pubsub.unsubscribe',
+    );
+    requireCondition(
+      unsubscribe.handle === handle && unsubscribe.unsubscribed === true,
+      `${label} unsubscribe did not release its explicit handle`,
+    );
+    handle = undefined;
+    return {
+      pubSubHandleReturned: true,
+      pubSubPublishAcknowledged: true,
+      pubSubEventReceived: true,
+      pubSubUnsubscribed: true,
+    };
+  } finally {
+    if (handle !== undefined) {
+      const cleanup = await client.callTool({
+        name: 'connectanum.pubsub.unsubscribe',
+        arguments: { handle },
+      });
+      requireCondition(
+        cleanup.isError !== true,
+        `${label} failed to clean up its pub/sub handle`,
+      );
+    }
+  }
+}
+
 async function runClient(endpoint, label, options, transportOptions) {
   const transport = new StreamableHTTPClientTransport(
     endpoint,
@@ -35,6 +157,13 @@ async function runClient(endpoint, label, options, transportOptions) {
       arguments: {},
     });
 
+    const pubSubToolNames = [
+      'connectanum.pubsub.subscribe',
+      'connectanum.pubsub.publish',
+      'connectanum.pubsub.poll',
+      'connectanum.pubsub.unsubscribe',
+    ];
+
     requireCondition(
       tools.tools.some((tool) => tool.name === 'wamp.session.count'),
       `${label} client did not discover wamp.session.count`,
@@ -58,6 +187,13 @@ async function runClient(endpoint, label, options, transportOptions) {
     );
     requireCondition(read.contents.length > 0, `${label} resource read was empty`);
     requireCondition(call.isError !== true, `${label} tool call returned an error`);
+    requireCondition(
+      pubSubToolNames.every((name) =>
+        tools.tools.some((tool) => tool.name === name),
+      ),
+      `${label} client did not discover the complete pub/sub tool lifecycle`,
+    );
+    const pubSub = await runPubSubLifecycle(client, label);
 
     summary = {
       era: client.getProtocolEra(),
@@ -69,6 +205,7 @@ async function runClient(endpoint, label, options, transportOptions) {
       resourceTemplateCount: templates.resourceTemplates.length,
       resourceContentCount: read.contents.length,
       toolCallSucceeded: true,
+      ...pubSub,
     };
     if (transport.sessionId !== undefined) {
       await transport.terminateSession();
