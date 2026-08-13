@@ -1,6 +1,6 @@
 # MCP POST Content-Type Presence Validation
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -76,3 +76,19 @@ References:
   router archive reports only the expected pre-commit dirty-worktree warning
   for its changelog, implementation, and test files. Clean exact-commit package
   validation, publication, and hosted deployment-chain evidence remain.
+- 2026-08-13: Commit `5c3770fc` is published to GitLab and GitHub. Clean
+  exact-commit strict validation passes all seven synchronized `3.0.0-beta`
+  package archives with zero warnings and no private workspace dependency
+  blockers.
+- 2026-08-13: Exact-head CI `31690871951`, Dart Package Publish Dry Run
+  `31690871889`, WAMP Profile Benchmarks `31690871910`, and Router Image dry
+  run `31692403752` all pass on their first attempts. Retained artifacts are
+  Dart VM coverage `9177863065`, WAMP profile evidence `9177544050`, Router
+  Image preview `9177926983`, and Docker build records `9178049495` and
+  `9178049055`.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head jobs/logs and every required package, Router Image, WAMP,
+  relevant Native Artifacts, protected-branch, workflow-visibility, and
+  public-router-package gate ready. Native Artifacts run `31221315902` remains
+  relevant because no native-release-sensitive input changed. A numeric RC tag
+  remains release-approval work and was not created.

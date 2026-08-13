@@ -25027,6 +25027,36 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-13-mcp-protocol-version-header-fallback.md`.
+  Router-hosted MCP supports all maintained protocol revisions, rejects
+  unsupported explicit headers, and aligns initialize response headers with
+  body negotiation. A non-initialize request without
+  `MCP-Protocol-Version`, however, currently receives a `2025-11-25` response
+  label even though official compatibility guidance assigns missing-header
+  traffic to `2025-03-26`. This checkpoint will add the shared fallback and
+  prove public, protected, claimed-session, direct JSON, and Streamable
+  boundaries without weakening strict MCP `2026-07-28` metadata validation.
+  The fail-first native regression received `2025-11-25` on a successful
+  headerless direct request. The public MCP package now exports one fallback
+  constant; router response/error construction, including pre-route
+  rate-limit and transport-auth failures, uses an explicit supported header or
+  the fallback without trusting claimed session state. Focused lifecycle and
+  native-router tests, router/MCP analysis, shell syntax, all 20 consumer-
+  boundary contracts, and the freshly sourced neutral installed-router smoke
+  pass. The smoke proves missing-bearer HTTP 401 and authenticated HTTP 200
+  with the `2025-03-26` response header, active-session reflection only after
+  authentication, unchanged client session/resume state, and continued use.
+  Full `bin/verify` passes formatting and analysis, 114 Rust core tests, 52 FFI
+  tests, 360 Dart core tests, all 101 MCP tests, the complete 280-case
+  client/MCP matrix, all 97 benchmark tests with 37 live WAMP workloads, all
+  439 router tests, 6 remote-auth cases, 13 native follow-ups, every neutral
+  consumer and installed-command smoke, and Chrome/Dart2Wasm coverage. Privacy
+  and diff checks are clean. Publish dry-runs reach all seven synchronized
+  `3.0.0-beta` archives: the first five report zero warnings, and the changed
+  MCP and router archives report only their expected pre-commit dirty-worktree
+  warnings. Clean exact-commit package validation, publication, and hosted
+  deployment-chain evidence remain.
+- The most recently completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-post-content-type-presence-validation.md`.
   Router-hosted MCP already rejects repeated and explicit non-JSON
   `Content-Type` fields, but its media-type helper previously treated an absent
@@ -25047,9 +25077,20 @@ at the older `47bbf9c` commit.
   Strict release-ready validation reaches all seven synchronized `3.0.0-beta`
   archives: six report zero warnings, and the changed router archive reports
   only the expected pre-commit dirty-worktree warning for its three modified
-  package files. Clean exact-commit package validation, publication, and hosted
-  deployment-chain evidence remain.
-- The most recently completed implementation plan is
+  package files. Clean exact-commit strict validation passes all seven archives
+  with zero warnings and no private workspace dependency blockers. Commit
+  `5c3770fc` is published to GitLab and GitHub. Exact-head CI `31690871951`,
+  Dart Package Publish Dry Run `31690871889`, WAMP Profile Benchmarks
+  `31690871910`, and Router Image dry run `31692403752` all pass on their first
+  attempts. Retained artifacts are Dart VM coverage `9177863065`, WAMP profile
+  evidence `9177544050`, Router Image preview `9177926983`, and Docker build
+  records `9178049495` and `9178049055`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head jobs/logs and every
+  required package, Router Image, WAMP, relevant Native Artifacts, branch,
+  workflow, and public-router-package gate ready. Native Artifacts run
+  `31221315902` remains relevant because no native-release-sensitive input
+  changed. A numeric RC tag remains approval-gated and was not created.
+- The preceding completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-allowed-origin-tuple-matching.md`.
   Explicit router-hosted MCP allow lists previously compared valid configured
   and request Origin values as raw strings even though RFC 6454 origin

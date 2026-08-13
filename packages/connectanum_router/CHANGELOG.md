@@ -22,6 +22,9 @@
 - Require a JSON-compatible `Content-Type` on every router-hosted MCP POST,
   returning HTTP 415 for untyped bodies while preserving protected-route
   authentication and compatibility-session precedence.
+- Label legacy router-hosted MCP requests that omit `MCP-Protocol-Version` as
+  `2025-03-26` while preserving initialize negotiation, authentication, and
+  claimed-session lookup.
 - Preserve router-hosted MCP sessions across HTTP-auth access and refresh-token
   rotation while continuing to reject the rotated credentials.
 - Enforce positive realm `max_pending_auth` limits on router HTTP-auth

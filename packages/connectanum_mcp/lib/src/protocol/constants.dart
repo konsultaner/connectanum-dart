@@ -7,8 +7,12 @@ const String mcpLatestSessionProtocolVersion = '2025-11-25';
 /// Stateless per-request metadata revision supported by router-hosted HTTP.
 const String mcpLatestStatelessProtocolVersion = mcpLatestProtocolVersion;
 
+/// Protocol revision assumed for supported legacy HTTP requests that omit
+/// `MCP-Protocol-Version`.
+const String mcpMissingProtocolVersionFallback = '2025-03-26';
+
 const Set<String> mcpSupportedProtocolVersions = <String>{
-  '2025-03-26',
+  mcpMissingProtocolVersionFallback,
   '2025-06-18',
   mcpLatestSessionProtocolVersion,
   mcpLatestStatelessProtocolVersion,

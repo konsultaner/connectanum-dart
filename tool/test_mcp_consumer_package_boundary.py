@@ -1475,6 +1475,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"authNestedObjectMultiplicityValidation":true,'
             '"authHeaderMultiplicityValidation":true,'
             '"protocolHeaderMultiplicityValidation":true,'
+            '"protocolVersionFallback":true,'
             '"sessionHeaderMultiplicityValidation":true,'
             '"lastEventIdHeaderMultiplicityValidation":true,'
             '"contentTypeHeaderMultiplicityValidation":true,'
@@ -1525,6 +1526,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             "MCP POST requests must use a JSON content type",
+            body,
+        )
+        self.assertIn("_expectMissingProtocolVersionHeaderFallback", body)
+        self.assertIn("mcpMissingProtocolVersionFallback", body)
+        self.assertIn(
+            "missing MCP protocol header did not use the legacy fallback "
+            "with auth and session precedence",
             body,
         )
         self.assertIn("_expectRepeatedRequestMetadataHeadersRejected", body)

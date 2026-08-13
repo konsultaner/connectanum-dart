@@ -17,6 +17,8 @@
 - Re-export in-place router HTTP-auth grant replacement for refreshes that
   continue on an established Streamable HTTP session.
 - Add isolated server, client, executable, and consumer application smokes.
+- Export the `2025-03-26` compatibility fallback for legacy HTTP requests that
+  omit `MCP-Protocol-Version`.
 - Let the public router-hosted client executable run either the session-era
   Streamable HTTP lifecycle or the `2026-07-28` stateless discovery lifecycle,
   including direct JSON tools, WAMP metadata, and pub/sub coverage.

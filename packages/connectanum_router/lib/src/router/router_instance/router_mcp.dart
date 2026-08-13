@@ -508,7 +508,7 @@ Map<String, String> _mcpCorsResponseHeaders(
 Map<String, String> _mcpHttpResponseHeaders({
   bool json = true,
   String? sessionId,
-  String protocolVersion = mcp.mcpLatestSessionProtocolVersion,
+  String protocolVersion = mcp.mcpMissingProtocolVersionFallback,
   Map<String, String> extra = const <String, String>{},
 }) {
   return <String, String>{
@@ -758,6 +758,21 @@ bool _mcpProtocolVersionHeaderSupported(
 ) {
   final value = _mcpHeaderValue(binding, request, _mcpProtocolVersionHeader);
   return value == null || _mcpSupportedHttpProtocolVersions.contains(value);
+}
+
+String _mcpResponseProtocolVersionForRequest(
+  RouterBinding binding,
+  RouterHttpRequest request,
+) {
+  final requested = _mcpHeaderValue(
+    binding,
+    request,
+    _mcpProtocolVersionHeader,
+  );
+  return requested != null &&
+          _mcpSupportedHttpProtocolVersions.contains(requested)
+      ? requested
+      : mcp.mcpMissingProtocolVersionFallback;
 }
 
 String? _mcpNegotiatedInitializeProtocolVersion(Object? rawMessage) {
@@ -1894,11 +1909,10 @@ Future<void> _handleMcpHttpRequestForBinding(
     request,
     _mcpProtocolVersionHeader,
   );
-  final responseMcpProtocolVersion =
-      requestMcpProtocolVersion != null &&
-          _mcpSupportedHttpProtocolVersions.contains(requestMcpProtocolVersion)
-      ? requestMcpProtocolVersion
-      : mcp.mcpLatestSessionProtocolVersion;
+  final responseMcpProtocolVersion = _mcpResponseProtocolVersionForRequest(
+    binding,
+    request,
+  );
   final statelessHttpRequest =
       requestMcpProtocolVersion == mcp.mcpLatestStatelessProtocolVersion;
   final streamableHttpRequest =

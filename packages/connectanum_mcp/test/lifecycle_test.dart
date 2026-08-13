@@ -7,6 +7,11 @@ void main() {
       expect(mcpLatestProtocolVersion, '2026-07-28');
       expect(mcpLatestStatelessProtocolVersion, mcpLatestProtocolVersion);
       expect(mcpLatestSessionProtocolVersion, '2025-11-25');
+      expect(mcpMissingProtocolVersionFallback, '2025-03-26');
+      expect(
+        mcpSupportedProtocolVersions,
+        contains(mcpMissingProtocolVersionFallback),
+      );
       expect(
         mcpNegotiateProtocolVersion(mcpLatestProtocolVersion),
         mcpLatestSessionProtocolVersion,

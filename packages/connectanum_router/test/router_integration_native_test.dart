@@ -1635,6 +1635,24 @@ void main() {
       );
       expect(invalidVersion.statusCode, equals(HttpStatus.badRequest));
 
+      final missingVersionHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'missing-version-header',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: {HttpHeaders.acceptHeader: 'application/json'},
+      );
+      expect(missingVersionHeader.statusCode, equals(HttpStatus.ok));
+      expect(
+        missingVersionHeader.headers['mcp-protocol-version'],
+        equals('2025-03-26'),
+      );
+
       final nullJsonRpcId = await _postJson(
         client,
         listener.port,
@@ -2202,6 +2220,64 @@ void main() {
           'Mcp-Name': ?name,
         };
       }
+
+      final activeSessionMissingVersionHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'active-session-missing-version-header',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: {
+          'MCP-Session-Id': mcpSessionId,
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'Mcp-Method': 'tools/list',
+        },
+      );
+      expect(
+        activeSessionMissingVersionHeader.statusCode,
+        equals(HttpStatus.ok),
+      );
+      expect(
+        activeSessionMissingVersionHeader.headers['mcp-protocol-version'],
+        equals('2025-03-26'),
+      );
+      expect(
+        activeSessionMissingVersionHeader.headers['mcp-session-id'],
+        equals(mcpSessionId),
+      );
+
+      final unknownSessionMissingVersionHeader = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'unknown-session-missing-version-header',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: {
+          'MCP-Session-Id': 'unknown-session',
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'Mcp-Method': 'tools/list',
+        },
+      );
+      expect(
+        unknownSessionMissingVersionHeader.statusCode,
+        equals(HttpStatus.notFound),
+      );
+      expect(
+        unknownSessionMissingVersionHeader.headers['mcp-protocol-version'],
+        equals('2025-03-26'),
+      );
+      expect(
+        unknownSessionMissingVersionHeader.headers,
+        isNot(contains('mcp-session-id')),
+      );
 
       final rejectedOriginPost = await _postJson(
         client,
@@ -13722,6 +13798,10 @@ void main() {
         },
       );
       expect(unauthorizedJsonPost.statusCode, equals(HttpStatus.unauthorized));
+      expect(
+        unauthorizedJsonPost.headers['mcp-protocol-version'],
+        equals('2025-03-26'),
+      );
       expect(unauthorizedJsonPost.headers, isNot(contains('mcp-session-id')));
 
       final unknownBearerJsonPost = await _postJson(
@@ -13737,6 +13817,10 @@ void main() {
         headers: {'authorization': 'Bearer unknown-access-token'},
       );
       expect(unknownBearerJsonPost.statusCode, equals(HttpStatus.unauthorized));
+      expect(
+        unknownBearerJsonPost.headers['mcp-protocol-version'],
+        equals('2025-03-26'),
+      );
       expect(unknownBearerJsonPost.headers, isNot(contains('mcp-session-id')));
       expect(
         unknownBearerJsonPost.headers['www-authenticate'],

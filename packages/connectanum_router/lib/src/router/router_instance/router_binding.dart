@@ -2011,6 +2011,10 @@ class RouterBinding {
               // Rate limiting runs before MCP authentication and session
               // resolution, so a request header is not yet a trusted session.
               sessionId: null,
+              protocolVersion: _mcpResponseProtocolVersionForRequest(
+                this,
+                request,
+              ),
               extra: <String, String>{
                 ...rateLimitHeaders,
                 ..._mcpCorsResponseHeaders(
@@ -2083,6 +2087,10 @@ class RouterBinding {
           ? authHeaders
           : _mcpHttpResponseHeaders(
               sessionId: null,
+              protocolVersion: _mcpResponseProtocolVersionForRequest(
+                this,
+                request,
+              ),
               extra: <String, String>{
                 ...authHeaders,
                 ..._mcpCorsResponseHeaders(this, request, mcpRoute),
