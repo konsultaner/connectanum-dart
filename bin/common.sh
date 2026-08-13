@@ -9638,6 +9638,7 @@ final _consumerProcedureTaskIds = <String>[];
 var _consumerMrtrInvocationCount = 0;
 
 Future<void> main() async {
+  _smokeMcpAllowedOriginConfigValidation();
   final nativeLibraryPath = Platform.environment['CONNECTANUM_NATIVE_LIB'];
   if (nativeLibraryPath == null || nativeLibraryPath.isEmpty) {
     _runApiOnlySmoke();
@@ -9651,18 +9652,20 @@ Future<void> main() async {
   await _runRouterHostedMcpSmoke(nativeLibraryPath);
 }
 
+RouterConfig _consumerRouterConfig() => RouterConfig(
+  endpoints: [
+    Endpoint(
+      host: '127.0.0.1',
+      port: 0,
+      tlsMode: TlsMode.disabled,
+      maxRawSocketSizeExponent: 16,
+    ),
+  ],
+);
+
 void _runApiOnlySmoke() {
   final client = McpStreamableHttpClient(Uri.parse('http://127.0.0.1:1/mcp'));
-  final config = RouterConfig(
-    endpoints: [
-      Endpoint(
-        host: '127.0.0.1',
-        port: 0,
-        tlsMode: TlsMode.disabled,
-        maxRawSocketSizeExponent: 16,
-      ),
-    ],
-  );
+  final config = _consumerRouterConfig();
   final tool = McpTool(
     name: 'consumer.echo',
     description: 'Consumer API check',
@@ -9678,6 +9681,35 @@ void _runApiOnlySmoke() {
   client.close();
 }
 
+void _smokeMcpAllowedOriginConfigValidation() {
+  final router = Router(
+    _consumerRouterConfig(),
+    settings: _consumerRouterSettings(
+      rateLimitedAllowedOrigins: const [
+        '$_allowedOrigin/untrusted-path',
+      ],
+    ),
+  );
+
+  try {
+    router.buildNativeConfigJson();
+  } on StateError catch (error) {
+    final message = error.message.toString();
+    if (message.contains('Invalid MCP route options') &&
+        message.contains('serialized origin') &&
+        !message.contains('untrusted-path')) {
+      return;
+    }
+    throw StateError(
+      'Malformed MCP allowed-origin configuration produced an unexpected '
+      'startup error: $message',
+    );
+  }
+  throw StateError(
+    'Malformed MCP allowed-origin configuration was accepted at startup.',
+  );
+}
+
 Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
   late final NativeTransportRuntime runtime;
   try {
@@ -9688,16 +9720,7 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
 
   runtime.start();
   final router = Router(
-    RouterConfig(
-      endpoints: [
-        Endpoint(
-          host: '127.0.0.1',
-          port: 0,
-          tlsMode: TlsMode.disabled,
-          maxRawSocketSizeExponent: 16,
-        ),
-      ],
-    ),
+    _consumerRouterConfig(),
     settings: _consumerRouterSettings(),
   );
 
@@ -9829,7 +9852,9 @@ Future<void> _runRouterHostedMcpSmoke(String nativeLibraryPath) async {
   }
 }
 
-RouterSettings _consumerRouterSettings() {
+RouterSettings _consumerRouterSettings({
+  List<String> rateLimitedAllowedOrigins = const [_allowedOrigin],
+}) {
   final realm = RealmSettingsBuilder(_realm)
     ..addAuthMethod('anonymous')
     ..addAuthMethod('ticket', options: const {'authenticator': 'ticket-demo'})
@@ -9891,7 +9916,7 @@ RouterSettings _consumerRouterSettings() {
     ..addProtocol(ListenerProtocol.http)
     ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
     ..setHttpOptions(
-      const HttpListenerSettings(
+      HttpListenerSettings(
         sessionProfile: 'public-http',
         routes: [
           HttpRouteSettings(
@@ -10302,10 +10327,7 @@ RouterSettings _consumerRouterSettings() {
               ),
               options: {
                 'include_registered_procedures': true,
-                'allowed_origins': [
-                  _allowedOrigin,
-                  '$_allowedOrigin/untrusted-path',
-                ],
+                'allowed_origins': rateLimitedAllowedOrigins,
               },
             ),
           ),
@@ -12607,7 +12629,7 @@ Future<void> _smokeRateLimitedMcpRoute(RouterBinding binding) async {
         malformedOrigin.header('www-authenticate') != null ||
         !malformedOrigin.body.contains('Invalid Origin')) {
       throw StateError(
-        'MCP rate-limited route did not reject a configured malformed Origin '
+        'MCP rate-limited route did not reject a malformed Origin '
         'before rate-limit, authentication, and session handling: '
         '${malformedOrigin.statusCode} ${malformedOrigin.body}',
       );

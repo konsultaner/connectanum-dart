@@ -6083,13 +6083,36 @@ void _validateMcpAllowedOriginsRouteOption(Map<String, Object?> options) {
     'origins',
   ]) {
     final value = options[key];
-    if (value == null || value is String) {
+    if (value == null) {
       continue;
     }
-    if (value is Iterable && value.every((origin) => origin is String)) {
-      continue;
+
+    late final List<String> origins;
+    final isScalar = value is String;
+    if (isScalar) {
+      origins = [value];
+    } else if (value is Iterable) {
+      final entries = value.toList();
+      if (!entries.every((origin) => origin is String)) {
+        throw FormatException(
+          'MCP $key must be a string or list of strings',
+        );
+      }
+      origins = entries.cast<String>();
+    } else {
+      throw FormatException('MCP $key must be a string or list of strings');
     }
-    throw FormatException('MCP $key must be a string or list of strings');
+
+    for (var index = 0; index < origins.length; index += 1) {
+      final origin = origins[index].trim();
+      if (origin == '*' || _mcpSerializedOrigin(origin) != null) {
+        continue;
+      }
+      final optionPath = isScalar ? key : '$key[$index]';
+      throw FormatException(
+        'MCP $optionPath must be "*" or a serialized origin',
+      );
+    }
   }
 }
 

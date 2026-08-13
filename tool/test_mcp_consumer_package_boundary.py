@@ -271,13 +271,21 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
 
-    def test_mcp_consumer_smoke_validates_origin_serialization(self) -> None:
+    def test_mcp_consumer_smoke_validates_allowed_origin_configuration(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
         body = _function_body(script, "run_mcp_consumer_package_smoke")
 
+        self.assertIn("_smokeMcpAllowedOriginConfigValidation();", body)
+        self.assertIn("rateLimitedAllowedOrigins", body)
+        self.assertIn("message.contains('serialized origin')", body)
+        self.assertIn("!message.contains('untrusted-path')", body)
+        self.assertIn(
+            "Malformed MCP allowed-origin configuration was accepted at startup.",
+            body,
+        )
         self.assertIn("rate-limited-malformed-origin", body)
         self.assertIn("'$_allowedOrigin/untrusted-path'", body)
-        self.assertIn("a configured malformed Origin", body)
+        self.assertIn("a malformed Origin", body)
 
     def test_router_cli_consumer_smoke_uses_checkout_command_alias(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")

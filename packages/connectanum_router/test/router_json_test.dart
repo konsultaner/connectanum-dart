@@ -848,6 +848,62 @@ void main() {
       );
     });
 
+    test('rejects malformed MCP allowed-origin configuration', () {
+      const malformedPath = 'https://agent.example/untrusted-path';
+      final router = _routerWithMcpOptions(const {
+        'allowed_origins': [malformedPath],
+      });
+      expect(
+        router.buildNativeConfigJson,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            allOf(
+              contains('Invalid MCP route options'),
+              contains(
+                'MCP allowed_origins[0] must be "*" or a serialized origin',
+              ),
+              isNot(contains(malformedPath)),
+            ),
+          ),
+        ),
+      );
+      _expectInvalidMcpOptions({
+        'allowedOrigin': '',
+      }, 'MCP allowedOrigin must be "*" or a serialized origin');
+      _expectInvalidMcpOptions({
+        'allowedOrigins': 'https://user@agent.example',
+      }, 'MCP allowedOrigins must be "*" or a serialized origin');
+      _expectInvalidMcpOptions({
+        'allowed_origin': 'https://agent.example?scope=tasks',
+      }, 'MCP allowed_origin must be "*" or a serialized origin');
+      _expectInvalidMcpOptions({
+        'origins': 'https://agent.example#fragment',
+      }, 'MCP origins must be "*" or a serialized origin');
+      _expectInvalidMcpOptions({
+        'allowed_origins': ['https://agent.example', 'agent.example'],
+      }, 'MCP allowed_origins[1] must be "*" or a serialized origin');
+
+      expect(
+        _routerWithMcpOptions(const {
+          'allowed_origins': [
+            '*',
+            'https://agent.example',
+            'https://agent.example:8443',
+            'consumer-app://agent.example',
+          ],
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      expect(
+        _routerWithMcpOptions(const {
+          'allowedOrigin': ' consumer-app://agent.example ',
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+    });
+
     test('validates MCP route option shapes while building native config', () {
       _expectInvalidMcpOptions({'name': 7}, 'MCP route.name must be a string');
       _expectInvalidMcpOptions({
