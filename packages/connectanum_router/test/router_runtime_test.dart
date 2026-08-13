@@ -4819,6 +4819,18 @@ void main() {
                     },
                   ),
                 ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp-default-origin'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'router.http',
+                    rateLimit: HttpRouteRateLimitSettings(
+                      maxRequests: 1,
+                      windowMs: 60000,
+                    ),
+                    options: <String, Object?>{'require_bearer': true},
+                  ),
+                ),
               ],
             ),
           ),
@@ -4848,6 +4860,7 @@ void main() {
       required int handle,
       required String method,
       required Map<String, String> headers,
+      String target = '/mcp',
       Uint8List? body,
     }) {
       runtime.setConnectionProtocol(
@@ -4860,8 +4873,8 @@ void main() {
         NativeHttpHandshake.synthetic(
           handle: handle,
           method: method,
-          target: '/mcp',
-          path: '/mcp',
+          target: target,
+          path: target,
           protocol: 'http/1.1',
           headers: headers,
           body: body ?? Uint8List(0),
@@ -4892,6 +4905,82 @@ void main() {
         },
       );
     }
+
+    const malformedOrigins = <String>[
+      'https://agent.example/untrusted-path',
+      'https://user@agent.example',
+      'https://agent.example?untrusted=query',
+      'https://agent.example#untrusted-fragment',
+      'https://agent.example:invalid',
+      '//agent.example',
+      'https://agent.example https://other.example',
+    ];
+    for (var index = 0; index < malformedOrigins.length; index++) {
+      final connectionId = 90 + index;
+      enqueueMcpRequest(
+        connectionId: connectionId,
+        handle: connectionId,
+        method: 'POST',
+        target: '/mcp-default-origin',
+        headers: <String, String>{
+          'host': 'agent.example',
+          'origin': malformedOrigins[index],
+          'accept': 'application/json',
+          'content-type': 'application/json',
+          'mcp-protocol-version': '2025-11-25',
+        },
+        body: Uint8List.fromList(
+          utf8.encode(
+            '{"jsonrpc":"2.0","id":"malformed-origin-$index","method":"tools/list","params":{}}',
+          ),
+        ),
+      );
+      await _waitUntil(
+        () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        timeout: const Duration(seconds: 2),
+      );
+      final malformedOrigin = runtime.httpResponses[connectionId]!.single;
+      expect(malformedOrigin.status, HttpStatus.forbidden);
+      expect(
+        malformedOrigin.headers,
+        isNot(contains('Access-Control-Allow-Origin')),
+      );
+      expect(malformedOrigin.headers, isNot(contains('www-authenticate')));
+      expect(malformedOrigin.headers, isNot(contains('x-ratelimit-limit')));
+      expect(malformedOrigin.headers, isNot(contains('MCP-Session-Id')));
+      expect(
+        _jsonResponseBody(malformedOrigin)['error'],
+        containsPair('message', 'Invalid Origin for MCP endpoint'),
+      );
+    }
+
+    enqueueMcpRequest(
+      connectionId: 97,
+      handle: 97,
+      method: 'POST',
+      target: '/mcp-default-origin',
+      headers: const {
+        'host': 'agent.example',
+        'origin': 'app://agent.example',
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+      },
+      body: Uint8List.fromList(
+        utf8.encode(
+          '{"jsonrpc":"2.0","id":"valid-origin-reuse","method":"tools/list","params":{}}',
+        ),
+      ),
+    );
+    await _waitUntil(
+      () => runtime.httpResponses[97]?.isNotEmpty ?? false,
+      timeout: const Duration(seconds: 2),
+    );
+    final validOriginReuse = runtime.httpResponses[97]!.single;
+    expect(validOriginReuse.status, HttpStatus.unauthorized);
+    expect(validOriginReuse.headers, contains('www-authenticate'));
+    expect(validOriginReuse.headers, isNot(contains('x-ratelimit-limit')));
+    expect(validOriginReuse.headers, isNot(contains('MCP-Session-Id')));
 
     enqueueMcpRequest(
       connectionId: 60,

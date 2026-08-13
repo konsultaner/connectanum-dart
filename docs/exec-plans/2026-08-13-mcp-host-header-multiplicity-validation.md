@@ -1,6 +1,6 @@
 # MCP Host Header Multiplicity Validation
 
-Status: active
+Status: completed
 
 ## Goal
 
@@ -74,3 +74,21 @@ reflecting CORS, authentication, rate-limit, or session state.
   router archive has only the expected pre-commit dirty-worktree warning and
   no content or dependency blocker. Clean exact-commit validation,
   publication, and hosted evidence remain.
+- 2026-08-13: Commit `aa3a3c42` is published to GitLab and GitHub. Clean
+  exact-commit strict validation passes all seven synchronized `3.0.0-beta`
+  package archives with zero warnings and no private workspace dependency
+  blockers.
+- 2026-08-13: Exact-head CI `31667837052`, Dart Package Publish Dry Run
+  `31667837203`, WAMP Profile Benchmarks `31667836418` attempt 2, and Router
+  Image dry run `31668762449` all pass. The first WAMP attempt completed every
+  workload but marginally missed two unchanged Dart AES pub/sub throughput
+  floors; its same-SHA failed-job rerun passed without relaxing the gate.
+  Retained artifacts are Dart VM coverage `9168963754`, successful WAMP
+  profile evidence `9168906521`, Router Image preview `9168937692`, and Docker
+  build records `9169038724` and `9169038124`.
+- 2026-08-13: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs and all required package, Router Image,
+  WAMP, relevant Native Artifacts, protected-branch, workflow-visibility, and
+  public-router-package gates ready. Native Artifacts run `31221315902`
+  remains relevant because no native-release-sensitive input changed. A new
+  numeric RC tag remains release-approval work and was not created.

@@ -13122,6 +13122,34 @@ void main() {
       );
 
       final metadataOrigin = 'http://127.0.0.1:${listener.port}';
+      final malformedOrigin = await _postJson(
+        client,
+        listener.port,
+        '/mcp/secure',
+        const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'secure-malformed-origin',
+          'method': 'tools/list',
+          'params': <String, Object?>{},
+        },
+        headers: <String, String>{
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          'origin': '$metadataOrigin/untrusted-path',
+        },
+      );
+      expect(malformedOrigin.statusCode, HttpStatus.forbidden);
+      expect(
+        malformedOrigin.json?['error'],
+        containsPair('message', 'Invalid Origin for MCP endpoint'),
+      );
+      expect(
+        malformedOrigin.headers,
+        isNot(contains('access-control-allow-origin')),
+      );
+      expect(malformedOrigin.headers, isNot(contains('mcp-session-id')));
+      expect(malformedOrigin.headers, isNot(contains('www-authenticate')));
+      expect(malformedOrigin.headers, isNot(contains('x-ratelimit-limit')));
+
       final repeatedOrigin = await _postJson(
         client,
         listener.port,

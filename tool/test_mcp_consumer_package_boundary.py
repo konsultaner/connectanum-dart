@@ -271,6 +271,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
 
+    def test_mcp_consumer_smoke_validates_origin_serialization(self) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(script, "run_mcp_consumer_package_smoke")
+
+        self.assertIn("rate-limited-malformed-origin", body)
+        self.assertIn("'$_allowedOrigin/untrusted-path'", body)
+        self.assertIn("a configured malformed Origin", body)
+
     def test_router_cli_consumer_smoke_uses_checkout_command_alias(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
         body = _function_body(script, "run_router_cli_consumer_package_smoke")
@@ -1413,6 +1421,12 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("McpStreamableHttpClient.stateless", body)
         self.assertIn("McpStreamableHttpClient.statelessWithAuthGrant", body)
         self.assertIn("'$repeatedHostResponse'", script)
+        self.assertIn("_expectMalformedOriginRejected", body)
+        self.assertIn("dart-consumer-malformed-origin", body)
+        self.assertIn(
+            "await _expectMalformedOriginRejected(endpoint: publicEndpoint);",
+            body,
+        )
         self.assertIn("dart-consumer-public-stateless-discover", body)
         self.assertIn("dart-consumer-secure-stateless-discover", body)
         self.assertIn("dart-consumer-public-stateless-publish", body)
@@ -1420,6 +1434,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("resourceSubscriptions: <String>[resourceUri]", body)
         self.assertIn(
             '"public":{"originHeaderMultiplicityValidation":true,'
+            '"originSerializationValidation":true,'
             '"hostHeaderMultiplicityValidation":true,'
             '"stateless2026":true,"subscriptionsListen":true,'
             '"resourceSubscriptionCoexistence":true,'

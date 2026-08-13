@@ -1016,6 +1016,21 @@ bool _mcpContentTypeAllowsJsonBody(
   return mimeType == _mcpJsonContentType || mimeType.endsWith('+json');
 }
 
+Uri? _mcpSerializedOrigin(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null ||
+      uri.scheme.isEmpty ||
+      uri.host.isEmpty ||
+      uri.authority.contains('@') ||
+      uri.userInfo.isNotEmpty ||
+      uri.path.isNotEmpty ||
+      uri.hasQuery ||
+      uri.hasFragment) {
+    return null;
+  }
+  return uri;
+}
+
 bool _mcpOriginAllowed(
   RouterBinding binding,
   RouterHttpRequest request,
@@ -1028,6 +1043,10 @@ bool _mcpOriginAllowed(
   if (origin == null) {
     return true;
   }
+  final originUri = _mcpSerializedOrigin(origin);
+  if (originUri == null) {
+    return false;
+  }
   final allowedOrigins = _mcpAllowedOrigins(route.action.options);
   if (allowedOrigins.contains('*') || allowedOrigins.contains(origin)) {
     return true;
@@ -1037,14 +1056,10 @@ bool _mcpOriginAllowed(
   }
 
   final host = _mcpHeaderValue(binding, request, HttpHeaders.hostHeader);
-  final originUri = Uri.tryParse(origin);
-  if (host == null || originUri == null || originUri.host.isEmpty) {
+  if (host == null) {
     return false;
   }
-  final originHost = originUri.hasPort
-      ? '${originUri.host}:${originUri.port}'
-      : originUri.host;
-  return host.toLowerCase() == originHost.toLowerCase();
+  return host.toLowerCase() == originUri.authority.toLowerCase();
 }
 
 Set<String> _mcpAllowedOrigins(Map<String, Object?> options) {
