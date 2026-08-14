@@ -24374,6 +24374,27 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-14: The shipped router-hosted MCP client now resolves a caller-
+  selected tool across opaque catalog cursors before invoking it through
+  standard, Connectanum alias, or raw JSON-RPC APIs. The same bounded,
+  repeated-cursor-safe discovery runs in sessionless direct JSON,
+  active-session direct JSON, and compatibility Streamable HTTP; batch catalog
+  samples accept a later-page continuation only while sequential paths still
+  require the exact tool. The neutral Router Image fixture selects
+  `connectanum.api.list`, which is page two on its one-entry protected
+  JSON-response tool catalog, and requires page-count evidence from all seven
+  typed/raw paths. Fail-first contracts reproduced the missing behavior; 51
+  focused Python contracts, MCP package analysis, shell syntax, diff checks,
+  108 MCP package tests, and post-change `bin/test-fast` pass. Full
+  `bin/verify` passes with zero formatting changes: 114 Rust core, 52 Rust FFI,
+  364 Dart core, 108 MCP, 280 client/MCP, 97 benchmark, 37 live WAMP workload,
+  441 router, six remote-auth, and 13 native follow-up tests plus every
+  maintained isolated consumer and Chrome Dart2Wasm smoke. Local Docker image
+  construction stalls before its first build step in both available builder
+  modes, so exact-head hosted Router Image evidence remains required. A
+  pre-commit strict package dry-run reports zero warnings for the first five
+  archives before the expected dirty-git warning on `connectanum_mcp`; clean-
+  commit package validation and hosted evidence remain.
 - 2026-08-14: Downstream Dart consumers can now parse, validate, match, and
   expand advertised MCP resource URI templates through the public bounded
   `McpResourceUriTemplate` API. Server-side resource matching delegates to the
@@ -25126,6 +25147,17 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-selected-tool-pagination.md`. It removes the
+  shipped router-hosted client's remaining first-page assumption for
+  caller-selected tools across direct JSON, active-session direct JSON, and
+  compatibility Streamable HTTP. The protected JSON-response Router Image
+  fixture will place the selected WAMP tool after page one and record explicit
+  typed and raw JSON-RPC page-count evidence. Pre-change and post-change
+  `bin/test-fast`, 51 focused Python contracts, package analysis, shell syntax,
+  the 108-test MCP package suite, and full `bin/verify` pass. Local Docker
+  builders stall before their first build step, so clean-commit package
+  validation and exact-head hosted Router Image/deployment evidence remain.
+- The most recently completed implementation plan is
   `docs/exec-plans/2026-08-14-mcp-selected-catalog-pagination.md`. It removes
   the shipped router-hosted client's remaining first-page assumption for
   caller-selected resources and prompts across direct JSON, active-session
@@ -25139,8 +25171,20 @@ at the older `47bbf9c` commit.
   routes and two pages on the protected JSON-response route; the modern
   stateless flow also resolves its dynamic resource on page three. Clean
   strict release-ready dry-runs validate all seven synchronized package
-  archives with zero warnings and all declared executables present.
-- The most recently completed implementation plan is
+  archives with zero warnings and all declared executables present. Commit
+  `4f81b29f` is on both maintained `master` branches. Exact-head CI
+  `31760005206`, Dart Package Publish Dry Run `31760005209`, and Router Image
+  dry run `31760098489` all passed on their first attempts. CI uploaded
+  coverage artifact `9204612297`; Router Image uploaded preview artifact
+  `9204261409` and Docker build records `9204331407` and `9204331109`. Hosted
+  loaded-image evidence reports two resource, template, and prompt pages for
+  the protected JSON-response compatibility endpoint. The comprehensive
+  strict deployment-chain audit exits zero with exact-head jobs and logs plus
+  every required package, Router Image, retained native/WAMP, workflow,
+  registry, and branch-protection gate clean. Its non-gating release-candidate
+  summary remains intentionally not ready because no approved RC tag points
+  at this implementation commit.
+- The preceding completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-resource-template-expansion.md`. It adds one
   shared public bounded Level 1 URI-template representation so downstream Dart
   consumers can validate and correctly percent-encode advertised template

@@ -1222,6 +1222,20 @@ _CatalogPage _catalogPageFromResult(
   return (entries: entries, nextCursor: rawNextCursor as String?);
 }
 
+Future<_AdvertisedCatalogEntry> _advertisedTool(
+  String toolName, {
+  required Future<McpStreamableToolListPage> Function(String? cursor) listPage,
+  required String label,
+}) => _advertisedCatalogEntry(
+  field: 'name',
+  value: toolName,
+  listPage: (cursor) async {
+    final page = await listPage(cursor);
+    return (entries: page.tools, nextCursor: page.nextCursor);
+  },
+  label: label,
+);
+
 Future<_AdvertisedCatalogEntry> _advertisedResource(
   String resourceUri, {
   required Future<McpStreamableResourceListPage> Function(String? cursor)
@@ -1347,27 +1361,31 @@ Future<void> _runDirectJsonExample(
 
   final toolName = options.toolName;
   if (toolName != null) {
-    _expectCatalogContainsValue(
-      catalog: catalog.tools,
-      field: 'name',
-      value: toolName,
-      label: 'Direct tool',
-    );
-    _expectCatalogContainsValue(
-      catalog: standardCatalog.tools,
-      field: 'name',
-      value: toolName,
+    var standardToolPageIndex = 0;
+    final advertisedStandardTools = await _advertisedTool(
+      toolName,
+      listPage: (cursor) => client.listToolsDirect(
+        id: 'direct-standard-tools-${standardToolPageIndex++}',
+        cursor: cursor,
+      ),
       label: 'Direct standard tool',
     );
-    final methodCatalog = await client.callConnectanumMethodDirect(
-      'connectanum.tools.list',
-      id: 'direct-tools-method',
+    var toolPageIndex = 0;
+    final advertisedTools = await _advertisedTool(
+      toolName,
+      listPage: (cursor) => client.listConnectanumToolsDirect(
+        id: 'direct-tools-${toolPageIndex++}',
+        cursor: cursor,
+      ),
+      label: 'Direct tool',
     );
-    final methodToolCatalog = methodCatalog['tools'];
-    _expectCatalogContainsValue(
-      catalog: methodToolCatalog,
+    final methodTools = await _advertisedJsonRpcCatalogEntry(
+      method: 'connectanum.tools.list',
+      catalogKey: 'tools',
       field: 'name',
       value: toolName,
+      idPrefix: 'direct-tools-method',
+      post: (request) => client.postDirect(request),
       label: 'Direct tool method list',
     );
     final result = _expectToolResultSucceeded(
@@ -1401,7 +1419,10 @@ Future<void> _runDirectJsonExample(
       jsonEncode({
         'directToolResult': result,
         'directStandardToolResult': standardResult,
-        'directToolMethodCatalog': methodToolCatalog,
+        'directStandardToolPagesRead': advertisedStandardTools.pagesRead,
+        'directToolPagesRead': advertisedTools.pagesRead,
+        'directToolMethodCatalog': methodTools.entries,
+        'directToolMethodPagesRead': methodTools.pagesRead,
         'directToolMethodResult': methodResult,
       }),
     );
@@ -1752,7 +1773,7 @@ Future<void> _runDirectBatchExample(
     for (final message in messages) message['id']! as String,
   ], label: 'Direct JSON');
   if (toolName != null) {
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'direct-batch-standard-tools',
       catalogKey: 'tools',
@@ -1760,7 +1781,7 @@ Future<void> _runDirectBatchExample(
       value: toolName,
       label: 'Direct JSON batch standard tool',
     );
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'direct-batch-tools',
       catalogKey: 'tools',
@@ -2069,23 +2090,6 @@ void _expectBatchCatalogPageCanReachValue(
     return;
   }
   throw StateError('$label did not advertise $value or a continuation cursor.');
-}
-
-void _expectBatchCatalogContains(
-  List<McpJsonMap>? responses, {
-  required String id,
-  required String catalogKey,
-  required String field,
-  required String value,
-  required String label,
-}) {
-  final result = _batchResult(responses, id, label: label);
-  _expectCatalogContainsValue(
-    catalog: result[catalogKey],
-    field: field,
-    value: value,
-    label: label,
-  );
 }
 
 McpJsonMap _batchResult(
@@ -3253,17 +3257,6 @@ bool _wampCatalogContainsUri(Object? catalog, String uri) {
   return _catalogContainsValue(catalog: catalog, field: 'uri', value: uri);
 }
 
-void _expectCatalogContainsValue({
-  required Object? catalog,
-  required String field,
-  required String value,
-  required String label,
-}) {
-  if (!_catalogContainsValue(catalog: catalog, field: field, value: value)) {
-    throw StateError('$label catalog did not include $value.');
-  }
-}
-
 void _expectWampSubscription(
   McpStreamableWampSubscriptionResult subscription, {
   required String topic,
@@ -3399,12 +3392,27 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
 
   final toolName = options.toolName;
   if (toolName != null) {
-    _expectCatalogContainsValue(
-      catalog: tools.tools,
-      field: 'name',
-      value: toolName,
+    var toolPageIndex = 0;
+    final advertisedTools = await _advertisedTool(
+      toolName,
+      listPage: (cursor) => client.listToolsDirect(
+        id: 'streamable-active-direct-tools-${toolPageIndex++}',
+        cursor: cursor,
+      ),
       label: 'Streamable active direct JSON tool',
     );
+    final methodTools = await _advertisedJsonRpcCatalogEntry(
+      method: 'connectanum.tools.list',
+      catalogKey: 'tools',
+      field: 'name',
+      value: toolName,
+      idPrefix: 'streamable-active-direct-tools-method',
+      post: (request) => client.postDirect(request),
+      label: 'Streamable active direct JSON tool method list',
+    );
+    details['activeDirectToolPagesRead'] = advertisedTools.pagesRead;
+    details['activeDirectToolMethodCatalog'] = methodTools.entries;
+    details['activeDirectToolMethodPagesRead'] = methodTools.pagesRead;
     batchMessages.add(
       _toolCallBatchRequest(
         id: 'streamable-active-direct-batch-tool-call',
@@ -3829,7 +3837,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
     for (final message in batchMessages) message['id']! as String,
   ], label: 'Streamable active direct JSON');
   if (toolName != null) {
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'streamable-active-direct-batch-tools',
       catalogKey: 'tools',
@@ -5116,10 +5124,13 @@ Future<void> _runStreamableSessionExample(
     },
   ];
   if (toolName != null) {
-    _expectCatalogContainsValue(
-      catalog: tools.tools,
-      field: 'name',
-      value: toolName,
+    var toolPageIndex = 0;
+    final advertisedTools = await _advertisedTool(
+      toolName,
+      listPage: (cursor) => client.listTools(
+        id: 'streamable-tools-${toolPageIndex++}',
+        cursor: cursor,
+      ),
       label: 'Streamable tool',
     );
     streamableBatchMessages.add(
@@ -5130,17 +5141,17 @@ Future<void> _runStreamableSessionExample(
         directJson: false,
       ),
     );
-    final methodCatalog = await client.callConnectanumMethod(
-      'connectanum.tools.list',
-      id: 'streamable-tools-method',
-    );
-    final methodToolCatalog = methodCatalog['tools'];
-    _expectCatalogContainsValue(
-      catalog: methodToolCatalog,
+    final methodTools = await _advertisedJsonRpcCatalogEntry(
+      method: 'connectanum.tools.list',
+      catalogKey: 'tools',
       field: 'name',
       value: toolName,
+      idPrefix: 'streamable-tools-method',
+      post: (request) => client.post(request),
       label: 'Streamable tool method list',
     );
+    streamable['streamableToolPagesRead'] = advertisedTools.pagesRead;
+    streamable['streamableToolMethodPagesRead'] = methodTools.pagesRead;
     streamable['toolResult'] = _expectToolResultSucceeded(
       await client.callTool(
         toolName,
@@ -5149,7 +5160,7 @@ Future<void> _runStreamableSessionExample(
       ),
       label: 'Streamable tool call',
     );
-    streamable['toolMethodCatalog'] = methodToolCatalog;
+    streamable['toolMethodCatalog'] = methodTools.entries;
     streamable['toolMethodResult'] = _expectToolResultSucceeded(
       await client.callConnectanumMethod(
         'connectanum.tool.call',
@@ -5401,7 +5412,7 @@ Future<void> _runStreamableSessionExample(
     for (final message in streamableBatchMessages) message['id']! as String,
   ], label: 'Streamable');
   if (toolName != null) {
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'streamable-batch-tools',
       catalogKey: 'tools',

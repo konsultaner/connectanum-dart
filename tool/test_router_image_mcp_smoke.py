@@ -169,6 +169,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'mcp_client_command="router_hosted_client"',
             'mcp_compatibility_protocol_version="2025-11-25"',
             'mcp_modern_protocol_version="2026-07-28"',
+            'mcp_tool="connectanum.api.list"',
+            'mcp_tool_arguments=\'{"kind":"procedure"}\'',
             'mcp_procedure="wamp.session.count"',
             'mcp_topic="image.smoke.events"',
             'mcp_resource_uri="connectanum://router-image/context"',
@@ -179,6 +181,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'mcp_prompt_arguments=',
             'CONNECTANUM_SKIP_NATIVE_BUILD=true',
             'PUB_CACHE="$mcp_client_pub_cache" "$mcp_client_command"',
+            '--tool "$mcp_tool"',
+            '--tool-arguments "$mcp_tool_arguments"',
             '--wamp-procedure "$mcp_procedure"',
             '--wamp-topic "$mcp_topic"',
             '--resource-uri "$mcp_resource_uri"',
@@ -200,6 +204,13 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"resourceTemplates"',
             '"resourceTemplateExpansion"',
             "pagesRead",
+            '\\"directStandardToolPagesRead\\":$tool_pages',
+            '\\"directToolPagesRead\\":$tool_pages',
+            '\\"directToolMethodPagesRead\\":$tool_pages',
+            '\\"activeDirectToolPagesRead\\":$tool_pages',
+            '\\"activeDirectToolMethodPagesRead\\":$tool_pages',
+            '\\"streamableToolPagesRead\\":$tool_pages',
+            '\\"streamableToolMethodPagesRead\\":$tool_pages',
             '\\"directResourcePagesRead\\":$resource_pages',
             '\\"directPromptPagesRead\\":$prompt_pages',
             '\\"streamableResourcePagesRead\\":$resource_pages',
@@ -381,6 +392,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "direct_json=true resources=true resource_templates=true",
             "resource_template_expansion=true",
             "resource_template_pages=",
+            "tool_pages=",
             "resource_pages=",
             "prompt_pages=",
             "prompts=true wamp_meta=true pubsub=true",
@@ -1604,6 +1616,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "allow_insecure_transport: true",
             "include_standard_meta_api: true",
             "include_pubsub_tools: true",
+            "tool_list_page_size: 10",
+            "tool_list_page_size: 1",
             "topic: image.smoke.events",
             "resource_list_page_size: 10",
             "resource_list_page_size: 1",
@@ -1640,6 +1654,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             config.count("uri: connectanum://router-image/archive-context"), 1
         )
         self.assertEqual(config.count("name: archive-router-image"), 1)
+        self.assertEqual(config.count("tool_list_page_size: 10"), 2)
+        self.assertEqual(config.count("tool_list_page_size: 1\n"), 1)
 
     def test_workflow_smokes_loaded_image_before_multiarch_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

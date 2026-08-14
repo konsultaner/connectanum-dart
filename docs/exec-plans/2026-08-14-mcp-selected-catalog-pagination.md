@@ -1,6 +1,6 @@
 # Exec Plan: MCP Selected Catalog Pagination
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -81,3 +81,17 @@ router endpoint.
   dry-runs for all seven synchronized `3.0.0-beta` package archives with zero
   warnings, no private workspace dependency blockers, and every declared
   executable present.
+- 2026-08-14: Commit `4f81b29f` is on both maintained `master` branches.
+  Exact-head CI `31760005206`, Dart Package Publish Dry Run `31760005209`, and
+  Router Image dry run `31760098489` all passed on their first attempts. CI
+  uploaded coverage artifact `9204612297`; Router Image uploaded preview
+  artifact `9204261409` and Docker build records `9204331407` and
+  `9204331109`. The hosted loaded-image log records one-page public and
+  standard protected resource/template/prompt discovery, then two-page
+  protected JSON-response discovery for every catalog before selection.
+- 2026-08-14: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI jobs and logs, package and Router Image gates, retained
+  relevant Native Artifacts and WAMP benchmark evidence, workflow visibility,
+  public router-package metadata, and default-branch protection all clean.
+  Its non-gating release-candidate summary remains intentionally not ready
+  because no approved RC tag points at this implementation commit.

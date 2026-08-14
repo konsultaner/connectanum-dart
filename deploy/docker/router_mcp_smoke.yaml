@@ -59,6 +59,7 @@ router:
                 instructions: Neutral router image MCP runtime smoke endpoint.
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                tool_list_page_size: 10
                 resource_list_page_size: 10
                 resource_template_list_page_size: 10
                 prompt_list_page_size: 10
@@ -115,6 +116,7 @@ router:
                 allow_insecure_transport: true
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                tool_list_page_size: 10
                 resource_list_page_size: 10
                 resource_template_list_page_size: 10
                 prompt_list_page_size: 10
@@ -172,6 +174,7 @@ router:
                 post_response_transport: json
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                tool_list_page_size: 1
                 resource_list_page_size: 1
                 resource_template_list_page_size: 1
                 prompt_list_page_size: 1

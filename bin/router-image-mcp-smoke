@@ -10,6 +10,8 @@ official_mcp_client_version="2.0.0"
 mcp_client_command="router_hosted_client"
 mcp_compatibility_protocol_version="2025-11-25"
 mcp_modern_protocol_version="2026-07-28"
+mcp_tool="connectanum.api.list"
+mcp_tool_arguments='{"kind":"procedure"}'
 mcp_procedure="wamp.session.count"
 mcp_topic="image.smoke.events"
 mcp_resource_uri="connectanum://router-image/context"
@@ -260,6 +262,8 @@ run_package_client_smoke() {
       PUB_CACHE="$mcp_client_pub_cache" "$mcp_client_command" \
       --endpoint "$endpoint" \
       --protocol-version "$mcp_compatibility_protocol_version" \
+      --tool "$mcp_tool" \
+      --tool-arguments "$mcp_tool_arguments" \
       --wamp-procedure "$mcp_procedure" \
       --wamp-topic "$mcp_topic" \
       --resource-uri "$mcp_resource_uri" \
@@ -308,10 +312,12 @@ run_package_client_smoke() {
   fi
 
   local resource_template_pages=1
+  local tool_pages=1
   local resource_pages=1
   local prompt_pages=1
   if [[ "$label" == "Protected JSON-response" ]]; then
     resource_template_pages=2
+    tool_pages=2
     resource_pages=2
     prompt_pages=2
   fi
@@ -323,6 +329,13 @@ run_package_client_smoke() {
   fi
 
   for marker in \
+    "\"directStandardToolPagesRead\":$tool_pages" \
+    "\"directToolPagesRead\":$tool_pages" \
+    "\"directToolMethodPagesRead\":$tool_pages" \
+    "\"activeDirectToolPagesRead\":$tool_pages" \
+    "\"activeDirectToolMethodPagesRead\":$tool_pages" \
+    "\"streamableToolPagesRead\":$tool_pages" \
+    "\"streamableToolMethodPagesRead\":$tool_pages" \
     "\"directResourcePagesRead\":$resource_pages" \
     "\"directResourceMethodPagesRead\":$resource_pages" \
     "\"directPromptPagesRead\":$prompt_pages" \
@@ -346,7 +359,8 @@ run_package_client_smoke() {
   local auth_evidence="anonymous"
   local lifecycle_evidence="streamable_http=true session_delete=true resource_template_expansion=true"
   lifecycle_evidence+=" resource_template_pages=$resource_template_pages"
-  lifecycle_evidence+=" resource_pages=$resource_pages prompt_pages=$prompt_pages"
+  lifecycle_evidence+=" tool_pages=$tool_pages resource_pages=$resource_pages"
+  lifecycle_evidence+=" prompt_pages=$prompt_pages"
   if [[ "$label" == Protected* ]]; then
     auth_evidence="router-issued"
     lifecycle_evidence+=" auth_lifecycle=true"
