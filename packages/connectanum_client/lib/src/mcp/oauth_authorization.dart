@@ -296,6 +296,59 @@ McpAuthorizationRequest createMcpAuthorizationRequest({
   );
 }
 
+/// Creates an OAuth authorization request bound to validated MCP discovery.
+///
+/// The selected [authorizationServer] must be advertised by
+/// [protectedResource] for [resource]. Discovery-required scopes are used
+/// first, followed by ordered, deduplicated [additionalScopes]. Issuer
+/// selection and client registration remain caller-owned.
+McpAuthorizationRequest createMcpDiscoveredAuthorizationRequest({
+  required McpProtectedResourceDiscovery protectedResource,
+  required McpAuthorizationServerDiscovery authorizationServer,
+  required Uri resource,
+  required String clientId,
+  required Uri redirectUri,
+  Iterable<String> additionalScopes = const <String>[],
+  McpPkcePair? pkce,
+}) {
+  final discoveredResource = protectedResource.metadata.resource;
+  if (discoveredResource.scheme.toLowerCase() !=
+          resource.scheme.toLowerCase() ||
+      discoveredResource.host.toLowerCase() != resource.host.toLowerCase() ||
+      discoveredResource.hasPort != resource.hasPort ||
+      (discoveredResource.hasPort &&
+          discoveredResource.port != resource.port) ||
+      discoveredResource.userInfo != resource.userInfo ||
+      discoveredResource.path != resource.path ||
+      discoveredResource.query != resource.query ||
+      discoveredResource.fragment != resource.fragment) {
+    throw const McpAuthorizationFlowException(
+      'Protected-resource discovery belongs to a different MCP resource.',
+    );
+  }
+
+  final issuer = authorizationServer.metadata.issuerIdentifier;
+  if (!protectedResource.metadata.authorizationServers.any(
+    (candidate) => candidate.toString() == issuer,
+  )) {
+    throw const McpAuthorizationFlowException(
+      'Authorization server was not advertised for this MCP resource.',
+    );
+  }
+
+  return createMcpAuthorizationRequest(
+    authorizationServer: authorizationServer.metadata,
+    resource: resource,
+    clientId: clientId,
+    redirectUri: redirectUri,
+    scopes: <String>[
+      ...protectedResource.requiredScopes,
+      ...additionalScopes,
+    ],
+    pkce: pkce,
+  );
+}
+
 McpAuthorizationRequest _restoreMcpAuthorizationRequest({
   required McpAuthorizationServerMetadata authorizationServer,
   required Uri resource,

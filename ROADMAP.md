@@ -450,6 +450,11 @@
   - [x] Add OAuth authorization-server metadata discovery with the MCP-required
     RFC 8414 and OpenID Connect well-known fallback order under the same total
     discovery deadline.
+  - [x] Bind initial OAuth authorization-request construction to the canonical
+    MCP resource, its validated Protected Resource Metadata, and a selected
+    advertised authorization server, with challenge-first scopes,
+    ordered explicit additions, redacted mismatch failures, and unchanged
+    Streamable HTTP client state.
   - [x] Add public Dart PKCE authorization-request preparation and redirect
     validation with canonical MCP resource binding.
   - [x] Add fail-closed runtime OAuth step-up request preparation from one HTTP

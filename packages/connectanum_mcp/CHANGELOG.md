@@ -42,6 +42,9 @@
 - Re-export the fail-closed OAuth step-up authorization-request builder and
   exercise it against a live insufficient-scope response through the public IO
   and isolated installed-package boundaries.
+- Re-export discovery-bound initial OAuth authorization requests and exercise
+  issuer/resource binding plus active-session isolation through the public IO
+  and isolated installed-package boundaries.
 - Re-export the native OAuth loopback callback listener through the IO
   entrypoint and exercise it in the public authorization lifecycle.
 - Re-export validated in-place OAuth grant replacement so consumers can retry

@@ -2917,8 +2917,10 @@ Future<void> _smokeProtectedResourceDiscovery(
     'dynamic client registration omitted metadata or leaked session state',
   );
 
-  final authorizationRequest = registration.createAuthorizationRequest(
-    resource: endpoint.uri,
+  final authorizationRequest = client.createDiscoveredAuthorizationRequest(
+    protectedResource: discovery,
+    authorizationServer: authorizationServer,
+    clientId: registration.clientId,
     redirectUri: redirectUri,
     pkce: McpPkcePair.fromVerifier(
       'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',

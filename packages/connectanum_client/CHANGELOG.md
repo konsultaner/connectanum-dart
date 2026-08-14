@@ -16,6 +16,10 @@
 - Build fail-closed, resource-bound OAuth step-up authorization requests from
   live MCP `insufficient_scope` challenges while preserving active Streamable
   HTTP session state and leaving retries under consumer control.
+- Bind initial MCP OAuth authorization requests to validated protected-resource
+  discovery and a selected advertised authorization server, preferring live
+  challenge scopes with redacted mismatch failures and unchanged Streamable
+  HTTP client state.
 - Let typed Streamable HTTP and direct JSON WAMP API-list helpers send validated
   opaque cursors and reject malformed continuation cursors.
 - Re-export the shared MCP resource-URI-template utility so client-only

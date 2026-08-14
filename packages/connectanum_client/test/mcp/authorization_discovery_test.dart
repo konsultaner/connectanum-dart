@@ -63,7 +63,10 @@ void main() {
           if (request.uri.path == metadataUri.path) {
             await _writeJson(request.response, <String, Object?>{
               'resource': endpoint.toString(),
-              'authorization_servers': <String>['https://auth.example/tenant'],
+              'authorization_servers': <String>[
+                'https://secondary.example',
+                'https://auth.example/tenant',
+              ],
               'scopes_supported': <String>['tools:read'],
               'resource_name': 'Router MCP',
               'bearer_methods_supported': <String>['header'],
@@ -74,10 +77,13 @@ void main() {
           await request.response.close();
         });
 
-        final client = McpStreamableHttpClient.withBearerToken(
-          endpoint,
-          'secret-token',
-        )..sessionId = 'active-session';
+        final client =
+            McpStreamableHttpClient.withBearerToken(
+                endpoint,
+                'secret-token',
+              )
+              ..sessionId = 'active-session'
+              ..lastEventId = 'active-session:cursor';
         addTearDown(client.close);
 
         final discovery = await client.discoverProtectedResourceMetadata();
@@ -89,10 +95,101 @@ void main() {
         expect(discovery.metadataUri, metadataUri);
         expect(discovery.metadata.resource, endpoint);
         expect(discovery.metadata.authorizationServers, <Uri>[
+          Uri.parse('https://secondary.example'),
           Uri.parse('https://auth.example/tenant'),
         ]);
         expect(discovery.metadata.resourceName, 'Router MCP');
         expect(discovery.requiredScopes, <String>['tools:read', 'tools:call']);
+
+        final authorizationServer = McpAuthorizationServerDiscovery(
+          metadataUri: Uri.parse(
+            'https://auth.example/.well-known/'
+            'oauth-authorization-server/tenant',
+          ),
+          metadata: McpAuthorizationServerMetadata.fromJson(
+            <String, Object?>{
+              'issuer': 'https://auth.example/tenant',
+              'authorization_endpoint': 'https://auth.example/tenant/authorize',
+              'token_endpoint': 'https://auth.example/tenant/token',
+              'response_types_supported': <String>['code'],
+              'code_challenge_methods_supported': <String>['S256'],
+            },
+          ),
+        );
+        final request = client.createDiscoveredAuthorizationRequest(
+          protectedResource: discovery,
+          authorizationServer: authorizationServer,
+          clientId: 'consumer-client',
+          redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+          additionalScopes: const <String>['tools:read', 'offline_access'],
+          pkce: McpPkcePair.fromVerifier(
+            'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
+          ),
+        );
+
+        expect(request.resource, endpoint);
+        expect(
+          request.authorizationServer.issuerIdentifier,
+          'https://auth.example/tenant',
+        );
+        expect(request.scopes, <String>[
+          'tools:read',
+          'tools:call',
+          'offline_access',
+        ]);
+        expect(
+          request.uri.queryParameters['scope'],
+          'tools:read tools:call offline_access',
+        );
+        expect(client.sessionId, 'active-session');
+        expect(client.lastEventId, 'active-session:cursor');
+
+        final unrelatedAuthorizationServer = McpAuthorizationServerDiscovery(
+          metadataUri: Uri.parse(
+            'https://unrelated.example/.well-known/oauth-authorization-server',
+          ),
+          metadata: McpAuthorizationServerMetadata.fromJson(
+            <String, Object?>{
+              'issuer': 'https://unrelated.example',
+              'authorization_endpoint': 'https://unrelated.example/authorize',
+              'token_endpoint': 'https://unrelated.example/token',
+              'response_types_supported': <String>['code'],
+              'code_challenge_methods_supported': <String>['S256'],
+            },
+          ),
+        );
+        expect(
+          () => client.createDiscoveredAuthorizationRequest(
+            protectedResource: discovery,
+            authorizationServer: unrelatedAuthorizationServer,
+            clientId: 'consumer-client',
+            redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+          ),
+          throwsA(
+            isA<McpAuthorizationFlowException>().having(
+              (error) => error.message,
+              'message',
+              allOf(
+                contains('not advertised'),
+                isNot(contains('unrelated.example')),
+              ),
+            ),
+          ),
+        );
+
+        final otherResourceClient = McpStreamableHttpClient(
+          endpoint.replace(path: '/other-mcp'),
+        );
+        addTearDown(otherResourceClient.close);
+        expect(
+          () => otherResourceClient.createDiscoveredAuthorizationRequest(
+            protectedResource: discovery,
+            authorizationServer: authorizationServer,
+            clientId: 'consumer-client',
+            redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+          ),
+          throwsA(isA<McpAuthorizationFlowException>()),
+        );
       },
     );
 
@@ -143,6 +240,27 @@ void main() {
       expect(discovery.metadataUri.path, root);
       expect(discovery.challenge?.realm, 'router');
       expect(discovery.requiredScopes, <String>['tools:read']);
+
+      final request = client.createDiscoveredAuthorizationRequest(
+        protectedResource: discovery,
+        authorizationServer: McpAuthorizationServerDiscovery(
+          metadataUri: Uri.parse(
+            'https://auth.example/.well-known/oauth-authorization-server',
+          ),
+          metadata: McpAuthorizationServerMetadata.fromJson(
+            <String, Object?>{
+              'issuer': 'https://auth.example',
+              'authorization_endpoint': 'https://auth.example/authorize',
+              'token_endpoint': 'https://auth.example/token',
+              'response_types_supported': <String>['code'],
+              'code_challenge_methods_supported': <String>['S256'],
+            },
+          ),
+        ),
+        clientId: 'consumer-client',
+        redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+      );
+      expect(request.scopes, <String>['tools:read']);
     });
 
     test(

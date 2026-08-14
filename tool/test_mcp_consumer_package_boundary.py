@@ -132,6 +132,12 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "client.discoverProtectedResourceMetadata(",
             body,
         )
+        self.assertIn(
+            "client.createDiscoveredAuthorizationRequest(",
+            body,
+        )
+        self.assertIn("protectedResource: discovery", body)
+        self.assertIn("authorizationServer: authorizationServer", body)
         self.assertIn("await _smokeClientCloseOAuthRequest();", body)
         self.assertIn("OAuth HTTP request was pending", body)
         self.assertIn("await _smokeHttpAuthClientCloseRequest();", body)

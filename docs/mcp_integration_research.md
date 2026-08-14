@@ -35,6 +35,14 @@ Driving use case: downstream application integrations
   https://modelcontextprotocol.io/specification/2025-11-25/server/prompts
 - MCP authorization:
   https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization
+- MCP 2026 authorization:
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization
+- MCP 2026 authorization-server discovery:
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/authorization-server-discovery
+- MCP 2026 client registration:
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/client-registration
+- MCP 2026 authorization security considerations:
+  https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization/security-considerations
 
 ## Current External Shape
 
@@ -176,6 +184,26 @@ Driving use case: downstream application integrations
   resume-, or grant-bearing MCP and router HTTP-auth requests do not follow
   redirects: a 3xx response remains a typed failure from the configured
   endpoint and cannot replace client session or resume state.
+- Protected Resource Metadata may advertise multiple authorization servers.
+  The client chooses one and keeps issuer-specific credentials, while the
+  selected server's metadata `issuer` must exactly match its advertised issuer
+  identifier. Initial authorization scopes come from the live Bearer challenge
+  when present, otherwise from Protected Resource Metadata.
+
+## MCP OAuth Discovery Direction
+
+- Keep authorization-server selection and client-registration policy with the
+  consumer application. The package validates a caller-selected discovery
+  pair rather than silently choosing an issuer or registration mechanism.
+- Build initial OAuth requests only after binding the selected authorization
+  server to the canonical MCP resource and its validated Protected Resource
+  Metadata. Reject an unrelated issuer before generating a browser-facing URL.
+- Carry the discovery-selected scopes into the initial request, preserve their
+  order while deduplicating caller additions, and continue requiring S256 PKCE.
+- Discovery-bound request construction is pure with respect to the Streamable
+  HTTP client: it must not replace credentials, protocol revision, session ID,
+  or resume cursor, and validation errors must not echo untrusted issuer or
+  resource values.
 
 ## MCP 2026 Implementation Direction
 

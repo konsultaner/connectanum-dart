@@ -136,7 +136,9 @@ void main() {
       await request.response.close();
     });
 
-    final client = McpStreamableHttpClient(endpoint);
+    final client = McpStreamableHttpClient(endpoint)
+      ..sessionId = 'consumer-session'
+      ..lastEventId = 'consumer-session:cursor';
     addTearDown(client.close);
     final discovery = await client.discoverProtectedResourceMetadata(
       timeout: const Duration(seconds: 3),
@@ -182,13 +184,17 @@ void main() {
     );
     expect(registration.clientId, issuedRegistration.clientId);
     expect(registration.redirectUris, issuedRegistration.redirectUris);
-    final authorizationRequest = registration.createAuthorizationRequest(
-      resource: endpoint,
+    final authorizationRequest = client.createDiscoveredAuthorizationRequest(
+      protectedResource: discovery,
+      authorizationServer: authorizationServer,
+      clientId: registration.clientId,
       redirectUri: redirectUri,
       pkce: McpPkcePair.fromVerifier(
         'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk',
       ),
     );
+    expect(client.sessionId, 'consumer-session');
+    expect(client.lastEventId, 'consumer-session:cursor');
     final storedTransaction = jsonEncode(
       McpOAuthAuthorizationTransaction.capture(
         authorizationRequest,
@@ -284,7 +290,8 @@ void main() {
     expect(registrationRequestCount, 1);
     expect(tokenRequestCount, 2);
     expect(revocationRequestCount, 1);
-    expect(client.sessionId, isNull);
+    expect(client.sessionId, 'consumer-session');
+    expect(client.lastEventId, 'consumer-session:cursor');
   });
 
   test('IO entrypoint exposes refresh-aware Client ID metadata', () {

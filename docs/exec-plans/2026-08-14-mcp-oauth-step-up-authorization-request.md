@@ -1,6 +1,6 @@
 # Exec Plan: MCP OAuth Step-Up Authorization Request
 
-Status: implementation complete; local verification green; hosted evidence pending
+Status: complete; implementation, local verification, and hosted evidence green
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -92,5 +92,15 @@ request without reconstructing challenge validation or scope-union rules.
   suite, 97 benchmark tests including all 37 live WAMP workloads, the 442-case
   router suite, six remote-auth tests, 13 native follow-ups, every maintained
   consumer smoke, Chrome, and Dart2Wasm green.
-- Commit, push, exact-head hosted workflows, and the strict deployment-chain
-  audit remain pending.
+- Commit `a27be47e` is published to both maintained `master` branches.
+  Exact-head CI `31838314806`, Dart Package Publish Dry Run `31838314825`,
+  WAMP Profile Benchmarks `31838314801`, and Router Image dry run
+  `31838358184` all pass. CI retains coverage artifact `9233814644`; WAMP
+  retains benchmark artifact `9233507415`; Router Image retains preview
+  artifact `9233338677` and Docker build records `9233444885` and
+  `9233444329`.
+- The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI logs, relevant package evidence, the loaded-image MCP smoke,
+  skipped GHCR login, relevant retained native-release evidence, WAMP
+  artifacts, and every required package, workflow, registry, and protected-
+  branch gate clean. No RC tag was selected.

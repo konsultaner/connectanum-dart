@@ -121,6 +121,28 @@ listener setup bodies have a 16 MiB raw-byte limit by default. Set
 bound. Long-lived listener streams remain incremental; the same limit applies
 separately to each complete SSE event, not to the total lifetime response.
 
+For an initial OAuth authorization, bind the browser-facing request to both
+validated discovery results:
+
+```dart
+final protectedResource = await client.discoverProtectedResourceMetadata();
+final selectedIssuer = protectedResource.metadata.authorizationServers.single;
+final authorizationServer =
+    await client.discoverAuthorizationServerMetadata(selectedIssuer);
+final request = client.createDiscoveredAuthorizationRequest(
+  protectedResource: protectedResource,
+  authorizationServer: authorizationServer,
+  clientId: registeredClientId,
+  redirectUri: loopbackRedirectUri,
+);
+```
+
+When metadata advertises multiple issuers, the consumer application selects
+one and keeps issuer-specific credentials. The helper rejects an unadvertised
+issuer or another MCP resource, prefers scopes from the live Bearer challenge,
+and otherwise uses Protected Resource Metadata scopes. It does not change the
+client's credentials, session, or resume cursor.
+
 For a bearer-protected operation that returns HTTP 403 with an MCP
 `insufficient_scope` challenge, build the next authorization request from the
 validated current grant and the actual HTTP failure:

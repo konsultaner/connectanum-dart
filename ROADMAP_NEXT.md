@@ -50,9 +50,12 @@ Fresh state:
   Router HTTP-auth requests likewise reject redirects before request headers
   or JSON are written. Consumers can discover validated OAuth Protected
   Resource and authorization-server metadata without forwarding credentials
-  and under one configurable total deadline, prepare and validate PKCE
-  authorization requests, and redeem codes into resource-bound bearer grants
-  without mutating active MCP session state. Public consumers
+  and under one configurable total deadline. Initial PKCE authorization
+  requests now bind the canonical resource and selected authorization server
+  back to that discovery result, prefer live challenge scopes, reject an
+  unadvertised issuer with redacted failures, and leave active MCP session
+  state unchanged. Consumers can validate callbacks and redeem codes into
+  resource-bound bearer grants without mutating that state. Public consumers
   validate RFC 9207 authorization-response issuers before consuming codes or
   OAuth error data, requiring `iss` when advertised and comparing every
   present value exactly against persisted authorization-server metadata.

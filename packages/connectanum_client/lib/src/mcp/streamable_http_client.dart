@@ -2025,6 +2025,30 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Creates an initial OAuth request bound to validated MCP discovery.
+  ///
+  /// The protected resource must match [endpoint], and the selected
+  /// authorization server must be one of its advertised issuers. This method
+  /// does not mutate credentials, protocol, session, or resume state.
+  McpAuthorizationRequest createDiscoveredAuthorizationRequest({
+    required McpProtectedResourceDiscovery protectedResource,
+    required McpAuthorizationServerDiscovery authorizationServer,
+    required String clientId,
+    required Uri redirectUri,
+    Iterable<String> additionalScopes = const <String>[],
+    McpPkcePair? pkce,
+  }) {
+    return createMcpDiscoveredAuthorizationRequest(
+      protectedResource: protectedResource,
+      authorizationServer: authorizationServer,
+      resource: endpoint,
+      clientId: clientId,
+      redirectUri: redirectUri,
+      additionalScopes: additionalScopes,
+      pkce: pkce,
+    );
+  }
+
   /// Builds a resource-bound OAuth request for an MCP scope challenge.
   ///
   /// This validates one HTTP 403 Bearer `insufficient_scope` challenge,
