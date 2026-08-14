@@ -452,6 +452,10 @@
     discovery deadline.
   - [x] Add public Dart PKCE authorization-request preparation and redirect
     validation with canonical MCP resource binding.
+  - [x] Validate RFC 9207 authorization-response issuers before consuming MCP
+    OAuth success or error callbacks, including advertised-required and
+    unadvertised-present behavior, exact string comparison, redacted failures,
+    persisted metadata, and public consumer-package loopback evidence.
   - [x] Add bounded authorization-code exchange for pre-registered public
     clients and the standard client-secret methods, returning a resource-bound
     bearer grant suitable for a fresh Streamable HTTP client.

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Completion Readiness
 
-Status: active; implementation and local verification complete; hosted evidence pending
+Status: complete; local and hosted deployment-chain evidence clean
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -99,5 +99,16 @@ JSON access and neutral installed-package evidence.
   suite, 97 benchmark tests including all 37 live WAMP workloads, the 442-case
   router suite, 6 remote-auth tests, 13 native follow-ups, all generated and
   globally activated consumer smokes, Chrome, and Dart2Wasm green.
-- Commit/push, exact-head hosted workflows, and the strict deployment-chain
-  audit remain.
+- Commit `a92c301b` is published to both maintained `master` branches.
+  Exact-head CI `31817869200`, Dart Package Publish Dry Run `31817869066`,
+  WAMP Profile Benchmarks `31817869094`, and Router Image dry run
+  `31819418982` all pass. CI retains coverage artifact `9226309746`; WAMP
+  retains benchmark artifact `9225876722`; Router Image retains preview
+  artifact `9226339372` and Docker build records `9226488356` and
+  `9226487661`.
+- Loaded-image evidence reports router completion support and pinned official
+  `@modelcontextprotocol/client@2.0.0` prompt/resource-template completion on
+  public and protected endpoints. The comprehensive strict deployment-chain
+  audit exits zero with clean exact-head CI logs and all required package,
+  retained native-release, Router Image, WAMP, workflow, registry, and
+  protected-branch gates clean. No RC tag was selected.

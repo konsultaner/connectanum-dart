@@ -28,6 +28,7 @@ const _authorizationCallbackParameters = <String>{
   'error',
   'error_description',
   'error_uri',
+  'iss',
   'state',
 };
 
@@ -368,9 +369,10 @@ McpAuthorizationCode parseMcpAuthorizationCallback(
   Uri callbackUri, {
   required McpAuthorizationRequest request,
 }) {
+  final parameters = callbackUri.queryParametersAll;
+  _validateAuthorizationResponseIssuer(parameters, request);
   _validateAuthorizationCallbackTarget(callbackUri, request.redirectUri);
 
-  final parameters = callbackUri.queryParametersAll;
   for (final name in _authorizationCallbackParameters) {
     final values = parameters[name];
     if (values != null && values.length != 1) {
@@ -436,6 +438,36 @@ McpAuthorizationCode parseMcpAuthorizationCallback(
     callbackUri: callbackUri,
     request: request,
   );
+}
+
+void _validateAuthorizationResponseIssuer(
+  Map<String, List<String>> parameters,
+  McpAuthorizationRequest request,
+) {
+  final issuerValues = parameters['iss'];
+  if (issuerValues != null && issuerValues.length != 1) {
+    throw const McpAuthorizationFlowException(
+      'Authorization response issuer must occur exactly once.',
+    );
+  }
+
+  if (issuerValues == null) {
+    if (request
+            .authorizationServer
+            .authorizationResponseIssParameterSupported ==
+        true) {
+      throw const McpAuthorizationFlowException(
+        'Authorization response issuer is required by server metadata.',
+      );
+    }
+    return;
+  }
+
+  if (issuerValues.single != request.authorizationServer.issuerIdentifier) {
+    throw const McpAuthorizationFlowException(
+      'Authorization response issuer does not match the authorization server.',
+    );
+  }
 }
 
 String _secureRandomBase64Url(int byteCount) {

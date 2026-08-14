@@ -407,6 +407,142 @@ void main() {
       expect(code.callbackUri, callback);
     });
 
+    test('requires an advertised authorization response issuer', () {
+      final issuerAwareAuthorizationServer =
+          McpAuthorizationServerMetadata.fromJson(<String, Object?>{
+            ...authorizationServer.toJson(),
+            'authorization_response_iss_parameter_supported': true,
+          });
+      final request = createMcpAuthorizationRequest(
+        authorizationServer: issuerAwareAuthorizationServer,
+        resource: issuer.replace(path: '/mcp'),
+        clientId: 'consumer-client',
+        redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+      );
+      final matching = request.redirectUri.replace(
+        queryParameters: <String, String>{
+          'code': 'authorization-code',
+          'iss': issuerAwareAuthorizationServer.issuerIdentifier,
+          'state': request.state,
+        },
+      );
+
+      expect(
+        parseMcpAuthorizationCallback(matching, request: request).code,
+        'authorization-code',
+      );
+      expect(
+        () => parseMcpAuthorizationCallback(
+          request.redirectUri.replace(
+            queryParameters: <String, String>{
+              'code': 'authorization-code',
+              'state': request.state,
+            },
+          ),
+          request: request,
+        ),
+        throwsA(
+          isA<McpAuthorizationFlowException>()
+              .having(
+                (error) => error.message,
+                'message',
+                contains('issuer is required'),
+              )
+              .having((error) => error.uri, 'uri', isNull),
+        ),
+      );
+    });
+
+    test('validates an unadvertised response issuer when present', () {
+      final request = createMcpAuthorizationRequest(
+        authorizationServer: authorizationServer,
+        resource: issuer.replace(path: '/mcp'),
+        clientId: 'consumer-client',
+        redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+      );
+      final matching = request.redirectUri.replace(
+        queryParameters: <String, String>{
+          'code': 'authorization-code',
+          'iss': authorizationServer.issuerIdentifier,
+          'state': request.state,
+        },
+      );
+      final differentlySerializedIssuer = authorizationServer.issuerIdentifier
+          .replaceFirst('http:', 'HTTP:');
+
+      expect(
+        parseMcpAuthorizationCallback(matching, request: request).code,
+        'authorization-code',
+      );
+      expect(
+        () => parseMcpAuthorizationCallback(
+          request.redirectUri.replace(
+            queryParameters: <String, String>{
+              'code': 'authorization-code',
+              'iss': differentlySerializedIssuer,
+              'state': request.state,
+            },
+          ),
+          request: request,
+        ),
+        throwsA(
+          isA<McpAuthorizationFlowException>()
+              .having(
+                (error) => error.message,
+                'message',
+                contains('issuer does not match'),
+              )
+              .having((error) => error.uri, 'uri', isNull),
+        ),
+      );
+    });
+
+    test('rejects issuer mismatches before surfacing OAuth errors', () {
+      final issuerAwareAuthorizationServer =
+          McpAuthorizationServerMetadata.fromJson(<String, Object?>{
+            ...authorizationServer.toJson(),
+            'authorization_response_iss_parameter_supported': true,
+          });
+      final request = createMcpAuthorizationRequest(
+        authorizationServer: issuerAwareAuthorizationServer,
+        resource: issuer.replace(path: '/mcp'),
+        clientId: 'consumer-client',
+        redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+      );
+      const attackerDescription = 'attacker-controlled details';
+      final callback = request.redirectUri.replace(
+        queryParameters: <String, String>{
+          'error': 'access_denied',
+          'error_description': attackerDescription,
+          'iss': 'https://attacker.example',
+          'state': request.state,
+        },
+      );
+
+      expect(
+        () => parseMcpAuthorizationCallback(callback, request: request),
+        throwsA(
+          isA<McpAuthorizationFlowException>()
+              .having(
+                (error) => error.message,
+                'message',
+                allOf(
+                  contains('issuer does not match'),
+                  isNot(contains(attackerDescription)),
+                ),
+              )
+              .having((error) => error.uri, 'uri', isNull)
+              .having((error) => error.oauthError, 'oauthError', isNull)
+              .having(
+                (error) => error.errorDescription,
+                'errorDescription',
+                isNull,
+              )
+              .having((error) => error.errorUri, 'errorUri', isNull),
+        ),
+      );
+    });
+
     test('rejects mismatched state and redirect targets', () {
       final request = createMcpAuthorizationRequest(
         authorizationServer: authorizationServer,
@@ -528,6 +664,26 @@ void main() {
           request: request,
         ),
         throwsA(isA<McpAuthorizationFlowException>()),
+      );
+      expect(
+        () => parseMcpAuthorizationCallback(
+          Uri.parse(
+            '${request.redirectUri}?code=authorization-code'
+            '&state=${request.state}'
+            '&iss=${Uri.encodeQueryComponent(authorizationServer.issuerIdentifier)}'
+            '&iss=${Uri.encodeQueryComponent(authorizationServer.issuerIdentifier)}',
+          ),
+          request: request,
+        ),
+        throwsA(
+          isA<McpAuthorizationFlowException>()
+              .having(
+                (error) => error.message,
+                'message',
+                contains('issuer must occur exactly once'),
+              )
+              .having((error) => error.uri, 'uri', isNull),
+        ),
       );
       expect(
         () => parseMcpAuthorizationCallback(

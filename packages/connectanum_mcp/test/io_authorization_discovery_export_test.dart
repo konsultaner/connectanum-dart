@@ -46,6 +46,7 @@ void main() {
             'token_endpoint_auth_methods_supported': <String>['none'],
             'revocation_endpoint_auth_methods_supported': <String>['none'],
             'client_id_metadata_document_supported': true,
+            'authorization_response_iss_parameter_supported': true,
           }),
         );
         await request.response.close();
@@ -149,6 +150,11 @@ void main() {
     expect(discovery.metadata.resource, endpoint);
     expect(discovery.requiredScopes, <String>['tools:read']);
     expect(authorizationServer.metadata.issuer, issuer);
+    expect(authorizationServer.metadata.issuerIdentifier, issuer.toString());
+    expect(
+      authorizationServer.metadata.authorizationResponseIssParameterSupported,
+      isTrue,
+    );
     expect(
       authorizationServer.metadata.authorizationEndpoint.path,
       '/authorize',
@@ -196,6 +202,7 @@ void main() {
     final callback = restoredAuthorizationRequest.redirectUri.replace(
       queryParameters: <String, String>{
         'code': 'authorization-code',
+        'iss': authorizationServer.metadata.issuerIdentifier,
         'state': restoredAuthorizationRequest.state,
       },
     );

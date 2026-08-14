@@ -25169,6 +25169,24 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-authorization-response-issuer.md`. A stable
+  MCP `2026-07-28` authorization audit found that the client did not yet
+  enforce the RFC 9207 authorization-response `iss` contract. The metadata
+  flag, exact validated issuer identifier, advertised-required and optional-
+  present callback matrix, duplicate rejection, and pre-error redaction are
+  now implemented with fail-first discovery/callback regressions and a passing
+  public IO loopback lifecycle. The pre-change `bin/test-fast` gate exits zero;
+  focused client VM and public IO tests pass. The generated path-dependency and
+  globally activated client smoke passes with advertised issuer support,
+  persisted metadata, and a matching loopback callback. Affected package
+  analysis, verification-script tests, package dry-run policy tests, and shell
+  validation pass. Full `bin/verify` exits zero with formatting unchanged, 114
+  Rust core tests, all 52 FFI tests, 366 Dart core tests, 115 MCP tests, the
+  287-case MCP/client suite, 97 benchmark tests including all 37 live WAMP
+  workloads, the 442-case router suite, 6 remote-auth tests, 13 native
+  follow-ups, every consumer smoke, Chrome, and Dart2Wasm green. Commit/push,
+  exact-head hosted workflows, and the strict deployment-chain audit remain.
+- The most recently completed plan is
   `docs/exec-plans/2026-08-14-mcp-completion-readiness.md`. A stable MCP
   `2026-07-28` schema audit found `completion/complete` is the remaining
   non-deprecated core client request after the implemented discovery, tools,
@@ -25185,10 +25203,19 @@ at the older `47bbf9c` commit.
   verification covers 114 Rust core tests, all 52 FFI tests, 366 Dart core
   tests, 115 MCP tests, the 283-case MCP/client suite, 97 benchmark tests with
   all 37 live WAMP workloads, the 442-case router suite, 6 remote-auth tests,
-  13 native follow-ups, all consumer smokes, Chrome, and Dart2Wasm. Commit,
-  push, exact-head hosted workflows, and the strict deployment-chain audit
-  remain.
-- The most recently completed plan is
+  13 native follow-ups, all consumer smokes, Chrome, and Dart2Wasm. Commit
+  `a92c301b` is published to both maintained `master` branches. Exact-head CI
+  `31817869200`, Dart Package Publish Dry Run `31817869066`, WAMP Profile
+  Benchmarks `31817869094`, and Router Image dry run `31819418982` all pass.
+  CI retains coverage artifact `9226309746`; WAMP retains benchmark artifact
+  `9225876722`; Router Image retains preview artifact `9226339372` and Docker
+  build records `9226488356` and `9226487661`. Loaded-image evidence reports
+  router completions plus pinned official-client prompt and resource-template
+  completion on public and protected routes. The comprehensive strict audit
+  exits zero with clean exact-head CI logs and all required package, retained
+  native-release, Router Image, WAMP, workflow, registry, and protected-branch
+  gates clean. No RC tag was selected.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-14-mcp-arbitrary-structured-content.md`. It closes
   the next stable MCP downstream-integration gap by accepting every JSON value
   in tool-result `structuredContent`, including explicit null while preserving

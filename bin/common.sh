@@ -2802,7 +2802,14 @@ Future<void> _smokeProtectedResourceDiscovery(
         authorizationServer.metadata.codeChallengeMethodsSupported.contains(
           'S256',
         ) &&
-        authorizationServer.metadata.clientIdMetadataDocumentSupported == true,
+        authorizationServer.metadata.clientIdMetadataDocumentSupported ==
+            true &&
+        authorizationServer
+                .metadata
+                .authorizationResponseIssParameterSupported ==
+            true &&
+        authorizationServer.metadata.issuerIdentifier ==
+            endpoint.authorizationServerIssuer.toString(),
     'authorization-server discovery returned incomplete OAuth endpoints',
   );
   _expect(
@@ -2913,6 +2920,9 @@ Future<void> _smokeProtectedResourceDiscovery(
   final callback = restoredAuthorizationRequest.redirectUri.replace(
     queryParameters: <String, String>{
       'code': 'consumer-authorization-code',
+      'iss': restoredAuthorizationRequest
+          .authorizationServer
+          .issuerIdentifier,
       'state': restoredAuthorizationRequest.state,
     },
   );
@@ -8185,6 +8195,7 @@ final class _AgentMcpEndpoint {
       'token_endpoint_auth_methods_supported': <String>['none'],
       'revocation_endpoint_auth_methods_supported': <String>['none'],
       'client_id_metadata_document_supported': true,
+      'authorization_response_iss_parameter_supported': true,
     });
   }
 

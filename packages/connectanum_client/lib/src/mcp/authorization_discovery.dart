@@ -122,6 +122,7 @@ final class McpAuthorizationServerMetadata {
     required List<String>? tokenEndpointAuthMethodsSupported,
     required List<String>? revocationEndpointAuthMethodsSupported,
     required this.clientIdMetadataDocumentSupported,
+    required this.authorizationResponseIssParameterSupported,
     required Map<String, Object?> raw,
   }) : scopesSupported = scopesSupported == null
            ? null
@@ -162,6 +163,13 @@ final class McpAuthorizationServerMetadata {
   }
 
   final Uri issuer;
+
+  /// The exact validated issuer identifier from the metadata document.
+  ///
+  /// Use this value for RFC 9207 authorization-response comparisons. URI
+  /// normalization is deliberately not applied.
+  String get issuerIdentifier => raw['issuer']! as String;
+
   final Uri authorizationEndpoint;
   final Uri tokenEndpoint;
   final Uri? revocationEndpoint;
@@ -174,6 +182,10 @@ final class McpAuthorizationServerMetadata {
   final List<String>? tokenEndpointAuthMethodsSupported;
   final List<String>? revocationEndpointAuthMethodsSupported;
   final bool? clientIdMetadataDocumentSupported;
+
+  /// Whether RFC 9207 authorization-response issuer parameters are advertised.
+  final bool? authorizationResponseIssParameterSupported;
+
   final Map<String, Object?> raw;
 
   /// Returns the validated JSON metadata document.
@@ -719,6 +731,11 @@ McpAuthorizationServerMetadata _authorizationServerMetadataFromJson(
     'client_id_metadata_document_supported',
     documentLabel: documentLabel,
   );
+  final authorizationResponseIssParameterSupported = _optionalBool(
+    json,
+    'authorization_response_iss_parameter_supported',
+    documentLabel: documentLabel,
+  );
 
   return McpAuthorizationServerMetadata._(
     issuer: issuer,
@@ -735,6 +752,8 @@ McpAuthorizationServerMetadata _authorizationServerMetadataFromJson(
     revocationEndpointAuthMethodsSupported:
         revocationEndpointAuthMethodsSupported,
     clientIdMetadataDocumentSupported: clientIdMetadataDocumentSupported,
+    authorizationResponseIssParameterSupported:
+        authorizationResponseIssParameterSupported,
     raw: json,
   );
 }

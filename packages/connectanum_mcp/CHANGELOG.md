@@ -35,6 +35,8 @@
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,
   dynamic client registration, token refresh, and revocation lifecycle through
   the IO entrypoint.
+- Exercise RFC 9207 authorization-response issuer validation through the
+  public IO OAuth loopback lifecycle.
 - Re-export the native OAuth loopback callback listener through the IO
   entrypoint and exercise it in the public authorization lifecycle.
 - Re-export validated in-place OAuth grant replacement so consumers can retry

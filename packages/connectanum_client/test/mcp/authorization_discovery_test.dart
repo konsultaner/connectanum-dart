@@ -292,6 +292,7 @@ void main() {
               'token_endpoint_auth_methods_supported': <String>['none'],
               'revocation_endpoint_auth_methods_supported': <String>['none'],
               'client_id_metadata_document_supported': true,
+              'authorization_response_iss_parameter_supported': true,
               'custom_capability': <String, Object?>{'enabled': true},
             });
             return;
@@ -326,6 +327,7 @@ void main() {
         expect(client.sessionId, 'active-session');
         expect(discovery.metadataUri.path, openIdAppendedPath);
         expect(discovery.metadata.issuer, issuer);
+        expect(discovery.metadata.issuerIdentifier, issuer.toString());
         expect(
           discovery.metadata.authorizationEndpoint.path,
           '/oauth/authorize',
@@ -357,11 +359,35 @@ void main() {
           <String>['none'],
         );
         expect(discovery.metadata.clientIdMetadataDocumentSupported, isTrue);
+        expect(
+          discovery.metadata.authorizationResponseIssParameterSupported,
+          isTrue,
+        );
         expect(discovery.metadata.raw['custom_capability'], <String, Object?>{
           'enabled': true,
         });
       },
     );
+
+    test('rejects a non-boolean authorization response issuer flag', () {
+      expect(
+        () => McpAuthorizationServerMetadata.fromJson(<String, Object?>{
+          'issuer': 'https://auth.example',
+          'authorization_endpoint': 'https://auth.example/authorize',
+          'token_endpoint': 'https://auth.example/token',
+          'response_types_supported': <String>['code'],
+          'code_challenge_methods_supported': <String>['S256'],
+          'authorization_response_iss_parameter_supported': 'true',
+        }),
+        throwsA(
+          isA<McpAuthorizationDiscoveryException>().having(
+            (error) => error.message,
+            'message',
+            contains('authorization_response_iss_parameter_supported'),
+          ),
+        ),
+      );
+    });
 
     test('discovers a root issuer through the OpenID fallback', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);

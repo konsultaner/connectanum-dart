@@ -53,9 +53,12 @@ Fresh state:
   and under one configurable total deadline, prepare and validate PKCE
   authorization requests, and redeem codes into resource-bound bearer grants
   without mutating active MCP session state. Public consumers
-  can also refresh and revoke those grants through discovered endpoints while
-  retaining the canonical MCP resource and isolating active Streamable HTTP
-  state. They can publish and reuse validated public Client ID Metadata
+  validate RFC 9207 authorization-response issuers before consuming codes or
+  OAuth error data, requiring `iss` when advertised and comparing every
+  present value exactly against persisted authorization-server metadata.
+  They can also refresh and revoke those grants through discovered endpoints
+  while retaining the canonical MCP resource and isolating active Streamable
+  HTTP state. They can publish and reuse validated public Client ID Metadata
   Documents when the authorization server advertises that MCP-preferred
   registration mechanism, or use bounded RFC 7591 Dynamic Client Registration
   when a registration endpoint is advertised. Dynamic registrations enforce
