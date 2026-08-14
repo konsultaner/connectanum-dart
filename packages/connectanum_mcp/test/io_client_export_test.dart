@@ -1173,9 +1173,14 @@ void main() {
       final endpoint = await _AuthBackedMcpEndpoint.bind();
       addTearDown(endpoint.close);
 
-      final client = McpStreamableHttpClient.withBearerToken(
+      final narrowGrant = _testOAuthGrant(
         endpoint.mcpUri,
-        _ioAccessToken,
+        accessToken: _ioAccessToken,
+        scopes: const <String>['tools:read'],
+      );
+      final client = McpStreamableHttpClient.withOAuthToken(
+        endpoint.mcpUri,
+        narrowGrant,
       );
       addTearDown(() => client.close(force: true));
 
@@ -1190,26 +1195,21 @@ void main() {
         },
       );
 
-      await expectLater(
-        ping(),
-        throwsA(
-          isA<McpStreamableHttpException>()
-              .having(
-                (error) => error.statusCode,
-                'statusCode',
-                HttpStatus.forbidden,
-              )
-              .having(
-                (error) => error.bearerChallenges.single.error,
-                'Bearer error',
-                'insufficient_scope',
-              )
-              .having(
-                (error) => error.bearerChallenges.single.scopes,
-                'authoritative scopes',
-                ['tools:call'],
-              ),
-        ),
+      late McpStreamableHttpException authorizationFailure;
+      try {
+        await ping();
+        fail('narrow IO OAuth grant unexpectedly satisfied the request');
+      } on McpStreamableHttpException catch (error) {
+        authorizationFailure = error;
+      }
+      expect(authorizationFailure.statusCode, HttpStatus.forbidden);
+      expect(
+        authorizationFailure.bearerChallenges.single.error,
+        'insufficient_scope',
+      );
+      expect(
+        authorizationFailure.bearerChallenges.single.scopes,
+        ['tools:call'],
       );
 
       expect(client.sessionId, _ioAuthSessionId);
@@ -1218,6 +1218,22 @@ void main() {
       expect(endpoint.mcpRequests.last.sessionId, _ioAuthSessionId);
       expect(endpoint.mcpRequests.last.body['method'], 'ping');
       expect(endpoint.mcpRequests.last.authorization, 'Bearer $_ioAccessToken');
+
+      final stepUpRequest = client.createStepUpAuthorizationRequest(
+        currentGrant: narrowGrant,
+        authorizationFailure: authorizationFailure,
+        redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+        previouslyRequestedScopes: const <String>['resources:read'],
+        pkce: McpPkcePair.fromVerifier('a' * 43),
+      );
+      expect(stepUpRequest.resource, endpoint.mcpUri);
+      expect(stepUpRequest.clientId, narrowGrant.clientId);
+      expect(
+        stepUpRequest.scopes,
+        const <String>['tools:read', 'resources:read', 'tools:call'],
+      );
+      expect(client.sessionId, _ioAuthSessionId);
+      expect(client.lastEventId, '$_ioAuthSessionId:get:kept');
 
       final broaderGrant = _testOAuthGrant(
         endpoint.mcpUri,

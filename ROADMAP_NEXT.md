@@ -56,6 +56,11 @@ Fresh state:
   validate RFC 9207 authorization-response issuers before consuming codes or
   OAuth error data, requiring `iss` when advertised and comparing every
   present value exactly against persisted authorization-server metadata.
+  Runtime scope step-up can now derive a new resource-bound authorization
+  request from one validated HTTP 403 Bearer `insufficient_scope` response,
+  unioning prior and authoritative scopes without changing the active grant or
+  Streamable session; user interaction, token exchange, and bounded retries
+  remain consumer-owned.
   They can also refresh and revoke those grants through discovered endpoints
   while retaining the canonical MCP resource and isolating active Streamable
   HTTP state. They can publish and reuse validated public Client ID Metadata

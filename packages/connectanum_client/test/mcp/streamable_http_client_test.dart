@@ -3477,26 +3477,21 @@ void main() {
           headers: const <String, String>{'x-test-oauth-step-up': '1'},
         );
 
-        await expectLater(
-          ping(),
-          throwsA(
-            isA<McpStreamableHttpException>()
-                .having(
-                  (error) => error.statusCode,
-                  'statusCode',
-                  HttpStatus.forbidden,
-                )
-                .having(
-                  (error) => error.bearerChallenges.single.error,
-                  'Bearer error',
-                  'insufficient_scope',
-                )
-                .having(
-                  (error) => error.bearerChallenges.single.scopes,
-                  'authoritative scopes',
-                  ['tools:call'],
-                ),
-          ),
+        late McpStreamableHttpException authorizationFailure;
+        try {
+          await ping();
+          fail('narrow OAuth grant unexpectedly satisfied the request');
+        } on McpStreamableHttpException catch (error) {
+          authorizationFailure = error;
+        }
+        expect(authorizationFailure.statusCode, HttpStatus.forbidden);
+        expect(
+          authorizationFailure.bearerChallenges.single.error,
+          'insufficient_scope',
+        );
+        expect(
+          authorizationFailure.bearerChallenges.single.scopes,
+          ['tools:call'],
         );
         expect(client.sessionId, 'session-1');
         expect(client.lastEventId, 'session-1:step-up:kept');
@@ -3504,6 +3499,37 @@ void main() {
           endpoint.requests.last.authorization,
           'Bearer narrow-step-up-token',
         );
+
+        final stepUpRequest = client.createStepUpAuthorizationRequest(
+          currentGrant: narrowGrant,
+          authorizationFailure: authorizationFailure,
+          redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+          previouslyRequestedScopes: const <String>[
+            'resources:read',
+            'tools:read',
+          ],
+        );
+        expect(stepUpRequest.resource, endpoint.uri);
+        expect(stepUpRequest.clientId, narrowGrant.clientId);
+        expect(
+          stepUpRequest.authorizationServer.issuer,
+          narrowGrant.authorizationServer.issuer,
+        );
+        expect(
+          stepUpRequest.scopes,
+          const <String>['tools:read', 'resources:read', 'tools:call'],
+        );
+        expect(
+          stepUpRequest.uri.queryParameters['scope'],
+          'tools:read resources:read tools:call',
+        );
+        expect(stepUpRequest.pkce.method, 'S256');
+        expect(
+          stepUpRequest.uri.queryParameters['code_challenge'],
+          stepUpRequest.pkce.challenge,
+        );
+        expect(client.sessionId, 'session-1');
+        expect(client.lastEventId, 'session-1:step-up:kept');
 
         final broaderGrant = _testOAuthGrant(
           endpoint.uri,
@@ -3550,6 +3576,132 @@ void main() {
           endpoint.requests.last.authorization,
           'Bearer broad-step-up-token',
         );
+      },
+    );
+
+    test(
+      'rejects unsafe OAuth step-up response context without disclosure',
+      () {
+        final endpoint = Uri.parse('https://router.example/mcp');
+        final client = McpStreamableHttpClient(endpoint);
+        addTearDown(() => client.close(force: true));
+        final grant = _testOAuthGrant(
+          endpoint,
+          accessToken: 'step-up-context-token',
+          scopes: const <String>['tools:read'],
+        );
+        final redirectUri = Uri.parse('http://127.0.0.1:34891/callback');
+
+        McpStreamableHttpException failure({
+          int statusCode = HttpStatus.forbidden,
+          List<McpBearerChallenge> challenges = const <McpBearerChallenge>[],
+        }) => McpStreamableHttpException(
+          statusCode: statusCode,
+          reasonPhrase: 'redacted test response',
+          body: '',
+          bearerChallenges: challenges,
+        );
+
+        McpBearerChallenge challenge({
+          String error = 'insufficient_scope',
+          String? scope = 'tools:call',
+          String? resourceMetadata =
+              'https://router.example/.well-known/oauth-protected-resource/mcp',
+        }) => McpBearerChallenge(<String, String>{
+          'error': error,
+          'scope': ?scope,
+          'resource_metadata': ?resourceMetadata,
+        });
+
+        void expectRejected(
+          McpStreamableHttpException authorizationFailure, {
+          McpOAuthTokenGrant? currentGrant,
+          Iterable<String> previouslyRequestedScopes = const <String>[],
+        }) {
+          expect(
+            () => client.createStepUpAuthorizationRequest(
+              currentGrant: currentGrant ?? grant,
+              authorizationFailure: authorizationFailure,
+              redirectUri: redirectUri,
+              previouslyRequestedScopes: previouslyRequestedScopes,
+            ),
+            throwsA(isA<McpOAuthStepUpException>()),
+          );
+        }
+
+        final validChallenge = challenge();
+        expectRejected(
+          failure(
+            statusCode: HttpStatus.unauthorized,
+            challenges: <McpBearerChallenge>[validChallenge],
+          ),
+        );
+        expectRejected(failure());
+        expectRejected(
+          failure(
+            challenges: <McpBearerChallenge>[validChallenge, challenge()],
+          ),
+        );
+        expectRejected(
+          failure(
+            challenges: <McpBearerChallenge>[
+              challenge(error: 'invalid_token'),
+            ],
+          ),
+        );
+        expectRejected(
+          failure(
+            challenges: <McpBearerChallenge>[challenge(scope: null)],
+          ),
+        );
+        expectRejected(
+          failure(
+            challenges: <McpBearerChallenge>[
+              challenge(scope: 'tools:call secret"scope'),
+            ],
+          ),
+        );
+        expectRejected(
+          failure(
+            challenges: <McpBearerChallenge>[
+              challenge(resourceMetadata: null),
+            ],
+          ),
+        );
+        expectRejected(
+          failure(
+            challenges: <McpBearerChallenge>[
+              challenge(resourceMetadata: 'http://router.example/metadata'),
+            ],
+          ),
+        );
+        expectRejected(
+          failure(challenges: <McpBearerChallenge>[validChallenge]),
+          previouslyRequestedScopes: const <String>['secret"scope'],
+        );
+        expectRejected(
+          failure(challenges: <McpBearerChallenge>[validChallenge]),
+          currentGrant: _testOAuthGrant(
+            Uri.parse('https://router.example/other-mcp'),
+            accessToken: 'wrong-resource-step-up-context-token',
+            scopes: const <String>['tools:read'],
+          ),
+        );
+
+        try {
+          client.createStepUpAuthorizationRequest(
+            currentGrant: grant,
+            authorizationFailure: failure(
+              challenges: <McpBearerChallenge>[
+                challenge(scope: 'tools:call secret"scope'),
+              ],
+            ),
+            redirectUri: redirectUri,
+          );
+          fail('malformed challenge unexpectedly produced a request');
+        } on McpOAuthStepUpException catch (error) {
+          expect(error.toString(), isNot(contains('secret')));
+        }
       },
     );
 

@@ -1,6 +1,6 @@
 # Exec Plan: MCP Client Metadata Refresh Grant
 
-Status: active; implementation and local verification complete; hosted evidence pending
+Status: complete; implementation, local verification, and hosted evidence green
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -94,5 +94,15 @@ letting consumers explicitly opt out when they do not want refresh credentials.
   router suite, 6 remote-auth tests, 13 native follow-ups, every consumer
   smoke, Chrome, and Dart2Wasm green. Focused local review found no unresolved
   correctness, compatibility, security, or coverage issue.
-- Publication, exact-head hosted workflows, and the strict deployment-chain
-  audit remain.
+- Commit `499f5bf1` is published to both maintained `master` branches.
+  Exact-head CI `31831522081`, Dart Package Publish Dry Run `31831522055`,
+  WAMP Profile Benchmarks `31831522089`, and Router Image dry run
+  `31831534228` all pass. CI retains coverage artifact `9231342385`; WAMP
+  retains benchmark artifact `9231057664`; Router Image retains preview
+  artifact `9230863401` and Docker build records `9230974632` and
+  `9230974115`.
+- The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI logs, relevant package evidence, the router-hosted MCP runtime
+  smoke, skipped GHCR login, relevant WAMP evidence, and every required
+  package, workflow, registry, and protected-branch gate clean. No RC tag was
+  selected.

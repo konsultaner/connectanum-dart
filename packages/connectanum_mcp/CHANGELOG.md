@@ -39,6 +39,9 @@
   public IO OAuth loopback lifecycle.
 - Exercise refresh-aware Client ID Metadata Documents, including the explicit
   refresh-token opt-out, through the public IO package entrypoint.
+- Re-export the fail-closed OAuth step-up authorization-request builder and
+  exercise it against a live insufficient-scope response through the public IO
+  and isolated installed-package boundaries.
 - Re-export the native OAuth loopback callback listener through the IO
   entrypoint and exercise it in the public authorization lifecycle.
 - Re-export validated in-place OAuth grant replacement so consumers can retry

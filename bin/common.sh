@@ -2628,12 +2628,14 @@ Future<void> _smokeInsufficientScopeStepUp(
       },
     );
 
+    late McpStreamableHttpException authorizationFailure;
     try {
       await ping();
       throw StateError(
         'insufficient-scope MCP request unexpectedly succeeded',
       );
     } on McpStreamableHttpException catch (error) {
+      authorizationFailure = error;
       _expect(
         error.statusCode == HttpStatus.forbidden,
         'insufficient-scope request returned ${error.statusCode}, expected 403',
@@ -2657,6 +2659,33 @@ Future<void> _smokeInsufficientScopeStepUp(
       stepUpClient.sessionId == sessionId &&
           stepUpClient.lastEventId == resumeCursor,
       'insufficient-scope response discarded Streamable session state',
+    );
+
+    final stepUpRequest = stepUpClient.createStepUpAuthorizationRequest(
+      currentGrant: narrowGrant,
+      authorizationFailure: authorizationFailure,
+      redirectUri: Uri.parse('http://127.0.0.1:34891/callback'),
+      previouslyRequestedScopes: const <String>['mcp:resources'],
+      pkce: McpPkcePair.fromVerifier('a' * 43),
+    );
+    _expect(
+      stepUpRequest.resource == endpoint.uri &&
+          stepUpRequest.clientId == narrowGrant.clientId &&
+          stepUpRequest.authorizationServer.issuer ==
+              narrowGrant.authorizationServer.issuer,
+      'step-up request did not retain the validated OAuth trust context',
+    );
+    _expect(
+      stepUpRequest.scopes.length == 3 &&
+          stepUpRequest.scopes[0] == 'mcp:meta' &&
+          stepUpRequest.scopes[1] == 'mcp:resources' &&
+          stepUpRequest.scopes[2] == 'mcp:tools',
+      'step-up request did not union prior and authoritative scopes',
+    );
+    _expect(
+      stepUpClient.sessionId == sessionId &&
+          stepUpClient.lastEventId == resumeCursor,
+      'step-up request construction changed Streamable session state',
     );
 
     final broaderGrant = _smokeOAuthGrant(

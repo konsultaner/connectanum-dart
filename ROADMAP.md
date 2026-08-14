@@ -452,6 +452,10 @@
     discovery deadline.
   - [x] Add public Dart PKCE authorization-request preparation and redirect
     validation with canonical MCP resource binding.
+  - [x] Add fail-closed runtime OAuth step-up request preparation from one HTTP
+    403 Bearer `insufficient_scope` challenge, preserving prior authorization
+    scopes, adding authoritative challenge scopes, binding issuer/client/
+    resource to the validated grant, and leaving retries consumer-owned.
   - [x] Validate RFC 9207 authorization-response issuers before consuming MCP
     OAuth success or error callbacks, including advertised-required and
     unadvertised-present behavior, exact string comparison, redacted failures,

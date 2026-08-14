@@ -49,6 +49,38 @@ bool _sameMcpOAuthResource(Uri expected, Uri candidate) {
       !candidate.hasFragment;
 }
 
+bool _mcpOAuthScopeTokenValid(String value) {
+  if (value.isEmpty) {
+    return false;
+  }
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit != 0x21 &&
+        (codeUnit < 0x23 || codeUnit > 0x5b) &&
+        (codeUnit < 0x5d || codeUnit > 0x7e)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _mcpOAuthMetadataUriValid(Uri? uri) {
+  if (uri == null ||
+      !uri.isAbsolute ||
+      uri.host.isEmpty ||
+      uri.userInfo.isNotEmpty ||
+      uri.hasFragment) {
+    return false;
+  }
+  if (uri.scheme == 'https') {
+    return true;
+  }
+  if (uri.scheme != 'http') {
+    return false;
+  }
+  return uri.host.toLowerCase() == 'localhost' ||
+      (InternetAddress.tryParse(uri.host)?.isLoopback ?? false);
+}
+
 String _validatedMcpToolName(String value, String name) {
   if (_mcpToolNamePattern.hasMatch(value)) {
     return value;
@@ -1987,6 +2019,88 @@ final class McpStreamableHttpClient {
       authorizationServer: authorizationServer,
       resource: endpoint,
       clientId: clientId,
+      redirectUri: redirectUri,
+      scopes: scopes,
+      pkce: pkce,
+    );
+  }
+
+  /// Builds a resource-bound OAuth request for an MCP scope challenge.
+  ///
+  /// This validates one HTTP 403 Bearer `insufficient_scope` challenge,
+  /// preserves the current and previously requested scopes, and adds the
+  /// authoritative challenge scopes. It does not mutate this client's grant,
+  /// session, resume cursor, or negotiated protocol.
+  ///
+  /// Throws [McpOAuthStepUpException] when the response context is ambiguous,
+  /// malformed, missing protected-resource metadata, or bound to another MCP
+  /// resource. Browser interaction, token exchange, grant replacement, and
+  /// retry limits remain caller-owned.
+  McpAuthorizationRequest createStepUpAuthorizationRequest({
+    required McpOAuthTokenGrant currentGrant,
+    required McpStreamableHttpException authorizationFailure,
+    required Uri redirectUri,
+    Iterable<String> previouslyRequestedScopes = const <String>[],
+    McpPkcePair? pkce,
+  }) {
+    if (!currentGrant.isForResource(endpoint)) {
+      throw const McpOAuthStepUpException(
+        'OAuth grant belongs to a different MCP resource.',
+      );
+    }
+    if (authorizationFailure.statusCode != HttpStatus.forbidden) {
+      throw const McpOAuthStepUpException(
+        'OAuth step-up requires an HTTP 403 response.',
+      );
+    }
+
+    final challenges = authorizationFailure.bearerChallenges;
+    if (challenges.length != 1) {
+      throw const McpOAuthStepUpException(
+        'OAuth step-up requires one unambiguous Bearer challenge.',
+      );
+    }
+    final challenge = challenges.single;
+    if (challenge.error != 'insufficient_scope') {
+      throw const McpOAuthStepUpException(
+        'Bearer challenge does not request OAuth scope step-up.',
+      );
+    }
+    if (!_mcpOAuthMetadataUriValid(challenge.resourceMetadata)) {
+      throw const McpOAuthStepUpException(
+        'Bearer challenge has invalid protected-resource metadata.',
+      );
+    }
+    final challengeScopes = challenge.scopes;
+    if (challengeScopes.isEmpty ||
+        challengeScopes.any((scope) => !_mcpOAuthScopeTokenValid(scope))) {
+      throw const McpOAuthStepUpException(
+        'Bearer challenge has invalid OAuth scopes.',
+      );
+    }
+
+    final scopes = <String>[];
+    final seenScopes = <String>{};
+    void addScopes(Iterable<String> candidates) {
+      for (final scope in candidates) {
+        if (!_mcpOAuthScopeTokenValid(scope)) {
+          throw const McpOAuthStepUpException(
+            'OAuth step-up context has invalid scopes.',
+          );
+        }
+        if (seenScopes.add(scope)) {
+          scopes.add(scope);
+        }
+      }
+    }
+
+    addScopes(currentGrant.scopes);
+    addScopes(previouslyRequestedScopes);
+    addScopes(challengeScopes);
+    return createMcpAuthorizationRequest(
+      authorizationServer: currentGrant.authorizationServer,
+      resource: endpoint,
+      clientId: currentGrant.clientId,
       redirectUri: redirectUri,
       scopes: scopes,
       pkce: pkce,
@@ -4875,6 +4989,16 @@ final class McpStreamableHttpException implements Exception {
     final detail = error ?? (body.isEmpty ? reasonPhrase : body);
     return 'McpStreamableHttpException($statusCode): $detail';
   }
+}
+
+/// A redacted failure to derive an OAuth step-up authorization request.
+final class McpOAuthStepUpException implements Exception {
+  const McpOAuthStepUpException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'McpOAuthStepUpException: $message';
 }
 
 final class McpStreamableProtocolException implements Exception {

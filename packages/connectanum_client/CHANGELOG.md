@@ -13,6 +13,9 @@
 - Advertise the supported OAuth `refresh_token` grant in public Client ID
   Metadata Documents by default, with an explicit authorization-code-only
   opt-out and no implicit scope expansion.
+- Build fail-closed, resource-bound OAuth step-up authorization requests from
+  live MCP `insufficient_scope` challenges while preserving active Streamable
+  HTTP session state and leaving retries under consumer control.
 - Let typed Streamable HTTP and direct JSON WAMP API-list helpers send validated
   opaque cursors and reject malformed continuation cursors.
 - Re-export the shared MCP resource-URI-template utility so client-only

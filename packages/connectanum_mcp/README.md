@@ -121,6 +121,26 @@ listener setup bodies have a 16 MiB raw-byte limit by default. Set
 bound. Long-lived listener streams remain incremental; the same limit applies
 separately to each complete SSE event, not to the total lifetime response.
 
+For a bearer-protected operation that returns HTTP 403 with an MCP
+`insufficient_scope` challenge, build the next authorization request from the
+validated current grant and the actual HTTP failure:
+
+```dart
+final request = client.createStepUpAuthorizationRequest(
+  currentGrant: currentGrant,
+  authorizationFailure: failure,
+  redirectUri: loopbackRedirectUri,
+  previouslyRequestedScopes: previousAuthorizationRequest.scopes,
+);
+```
+
+The helper rejects ambiguous or malformed challenge context, preserves prior
+scopes, adds the authoritative challenge scopes, and leaves the client's grant,
+session, and resume cursor unchanged. The consumer application must bound
+attempts, complete user authorization and token exchange, call
+`replaceOAuthToken(...)` with the broader grant, and retry the original
+operation explicitly.
+
 Large tool catalogs can be paged by setting `toolListPageSize`:
 
 ```dart
