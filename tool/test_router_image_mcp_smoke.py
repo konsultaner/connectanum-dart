@@ -340,6 +340,33 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             with self.subTest(client_expected=expected):
                 self.assertIn(expected, client)
 
+    def test_official_client_uses_named_wamp_meta_parameters(self) -> None:
+        runner = RUNNER.read_text(encoding="utf-8")
+        client = OFFICIAL_CLIENT.read_text(encoding="utf-8")
+
+        for expected in [
+            "async function runNamedWampMetaLookup(",
+            "tool.inputSchema",
+            "inputSchema.properties?.procedure?.type === 'string'",
+            "inputSchema.properties?.match?.enum",
+            "name: 'wamp.registration.lookup'",
+            "arguments: { procedure: 'wamp.session.count', match: 'exact' }",
+            "namedWampMetaSchemaValidated: true",
+            "namedWampMetaCallSucceeded: true",
+            "namedWampMetaRegistrationResolved: true",
+        ]:
+            with self.subTest(client_expected=expected):
+                self.assertIn(expected, client)
+
+        for expected in [
+            '"namedWampMetaSchemaValidated":true',
+            '"namedWampMetaCallSucceeded":true',
+            '"namedWampMetaRegistrationResolved":true',
+            "named_wamp_meta=true",
+        ]:
+            with self.subTest(runner_expected=expected):
+                self.assertIn(expected, runner)
+
     def test_shell_runner_exercises_protected_json_response_package_client(
         self,
     ) -> None:

@@ -1,6 +1,6 @@
 # Exec Plan: MCP WAMP Meta JSON Parameters
 
-Status: active
+Status: complete; implementation and exact-head deployment evidence clean
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -109,10 +109,17 @@ WAMP `arguments` and `argumentsKeywords`.
   `McpToolRequest`; standard `tools/call` already performed this separation.
   A fail-first native regression mirrors the packaged modern registration
   lookup and keeps the standard Meta parser strict for ordinary unknown fields.
+- 2026-08-14: Second corrective commit `0b126848` passed exact-head CI
+  `31790478891`, Dart Package Publish Dry Run `31790478885`, WAMP Profile
+  Benchmarks `31790478963`, and Router Image dry run `31791617305`. The loaded
+  image smoke reached the corrected modern direct dispatch boundary, and the
+  comprehensive strict deployment-chain audit passed with clean exact-head
+  logs, package, image, WAMP, retained native-release, workflow, registry, and
+  branch-protection gates.
 
 ## Handoff
 
-- Implementation is complete locally. Pre-change and all post-change
+- Implementation and hosted evidence are complete. Pre-change and all post-change
   `bin/test-fast` runs pass. Focused MCP package, router JSON/native, Router
   Image smoke, package-boundary, Python compile, Bash syntax, Dart analysis,
   and diff-hygiene checks pass. The latest fail-first native case proves a
@@ -140,5 +147,10 @@ WAMP `arguments` and `argumentsKeywords`.
   tests, 111 MCP tests, the 281-case client suite, 97 benchmark tests, the
   441-case router suite, 6 remote-auth tests, 13 native follow-ups, all isolated
   and globally activated consumer smokes, Chrome, and Dart2Wasm green. The
-  second corrective commit/push, replacement exact-head hosted workflows,
-  passing Router Image evidence, and strict deployment-chain audit remain.
+  second corrective commit `0b126848` is published to both maintained
+  `master` branches. Exact-head CI `31790478891`, package dry run
+  `31790478885`, WAMP profile run `31790478963`, Router Image dry run
+  `31791617305`, coverage artifact `9215733177`, WAMP artifact `9215398836`,
+  Router Image preview artifact `9215687465`, both Docker build records, and
+  the comprehensive strict deployment-chain audit all pass. No new RC tag was
+  selected without release approval.

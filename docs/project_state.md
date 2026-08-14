@@ -25169,6 +25169,24 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-official-sdk-named-wamp-meta-smoke.md`. It
+  closes the next neutral agent-readiness boundary by making the pinned
+  official MCP SDK validate the advertised `wamp.registration.lookup` schema
+  and invoke it with canonical `procedure` and `match` inputs across public,
+  protected, compatibility, and modern Router Image endpoints. The existing
+  Dart package and raw direct JSON coverage remain authoritative for the full
+  15-procedure matrix. The source contract failed first, the focused Python,
+  JavaScript, shell, public-reference, and diff checks pass, and pre-change and
+  post-change `bin/test-fast` pass at implementation base `0b126848`. A local
+  Docker build was cancelled while registry metadata resolution remained
+  stalled before the first build step; the hosted Router Image dry run will
+  provide the exact packaged runtime evidence after push. Full `bin/verify`
+  passes on the first attempt with formatting unchanged, 114 Rust core tests,
+  all 52 FFI tests, 364 Dart core tests, 111 MCP tests, the 281-case client
+  suite, 97 benchmark tests including the 37-workload live WAMP matrix, the
+  441-case router suite, 6 remote-auth tests, 13 native follow-ups, all consumer
+  smokes, Chrome, and Dart2Wasm green.
+- The most recently completed implementation plan is
   `docs/exec-plans/2026-08-14-mcp-wamp-meta-json-parameters.md`. It makes all 15
   router-hosted standard WAMP Meta API tools directly usable through
   procedure-specific named JSON parameters and accurate advertised schemas,
@@ -25204,9 +25222,14 @@ at the older `47bbf9c` commit.
   all 52 FFI tests, 364 Dart core tests, 111 MCP tests, the 281-case client
   suite, 97 benchmark tests, the 441-case router suite, 6 remote-auth tests, 13
   native follow-ups, all isolated and globally activated consumer smokes,
-  Chrome, and Dart2Wasm green. The second corrective commit/push, replacement
-  exact-head hosted workflows, passing Router Image evidence, and strict audit
-  remain.
+  Chrome, and Dart2Wasm green. Second corrective commit `0b126848` is published
+  to both maintained branches. Exact-head CI `31790478891`, package dry run
+  `31790478885`, WAMP profile run `31790478963`, and Router Image dry run
+  `31791617305` pass. CI retains coverage artifact `9215733177`; WAMP retains
+  artifact `9215398836`; Router Image retains preview artifact `9215687465`
+  and both Docker build records. The comprehensive strict deployment-chain
+  audit exits zero with all required gates clean. No new RC tag is selected
+  without release approval.
 - The most recently completed plan is
   `docs/exec-plans/2026-08-14-mcp-wamp-api-pagination.md`. It bounds the
   router-provided `connectanum.api.list` catalog behind an optional route page

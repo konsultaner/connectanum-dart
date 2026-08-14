@@ -25,6 +25,66 @@ function requireStructuredToolResult(result, label, toolName) {
   return result.structuredContent;
 }
 
+async function runNamedWampMetaLookup(client, label, tools) {
+  const tool = tools.find(
+    (candidate) => candidate.name === 'wamp.registration.lookup',
+  );
+  requireCondition(
+    tool !== undefined,
+    `${label} client did not discover wamp.registration.lookup`,
+  );
+
+  const inputSchema = tool.inputSchema;
+  requireCondition(
+    inputSchema?.type === 'object' &&
+      inputSchema.properties?.procedure?.type === 'string' &&
+      Array.isArray(inputSchema.properties?.match?.enum) &&
+      ['exact', 'prefix', 'wildcard'].every((value) =>
+        inputSchema.properties.match.enum.includes(value),
+      ) &&
+      Array.isArray(inputSchema.anyOf) &&
+      inputSchema.anyOf.some(
+        (alternative) =>
+          Array.isArray(alternative.required) &&
+          alternative.required.includes('procedure'),
+      ) &&
+      inputSchema.additionalProperties === false,
+    `${label} wamp.registration.lookup advertised an invalid input schema`,
+  );
+
+  const outputSchema = tool.outputSchema;
+  requireCondition(
+    outputSchema?.type === 'object' &&
+      outputSchema.properties?.arguments?.type === 'array' &&
+      outputSchema.properties?.argumentsKeywords?.type === 'object' &&
+      outputSchema.properties?.details?.type === 'object' &&
+      outputSchema.additionalProperties === false,
+    `${label} wamp.registration.lookup advertised an invalid output schema`,
+  );
+
+  const lookup = requireStructuredToolResult(
+    await client.callTool({
+      name: 'wamp.registration.lookup',
+      arguments: { procedure: 'wamp.session.count', match: 'exact' },
+    }),
+    label,
+    'wamp.registration.lookup',
+  );
+  requireCondition(
+    Array.isArray(lookup.arguments) &&
+      lookup.arguments.length === 1 &&
+      Number.isSafeInteger(lookup.arguments[0]) &&
+      lookup.arguments[0] > 0,
+    `${label} named WAMP Meta lookup did not resolve the registration`,
+  );
+
+  return {
+    namedWampMetaSchemaValidated: true,
+    namedWampMetaCallSucceeded: true,
+    namedWampMetaRegistrationResolved: true,
+  };
+}
+
 async function runPubSubLifecycle(client, label) {
   const topic = 'image.smoke.events';
   const eventSource = `official-client-${label}`;
@@ -238,6 +298,11 @@ async function runClient(endpoint, label, options, transportOptions) {
       name: 'wamp.session.count',
       arguments: {},
     });
+    const namedWampMeta = await runNamedWampMetaLookup(
+      client,
+      label,
+      tools.tools,
+    );
 
     const pubSubToolNames = [
       'connectanum.pubsub.subscribe',
@@ -319,6 +384,7 @@ async function runClient(endpoint, label, options, transportOptions) {
       instructionsReceived: true,
       promptRendered: true,
       toolCallSucceeded: true,
+      ...namedWampMeta,
       ...pubSub,
     };
     if (transport.sessionId !== undefined) {
