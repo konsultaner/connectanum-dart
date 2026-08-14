@@ -25169,6 +25169,22 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-wamp-meta-json-parameters.md`. It makes all 15
+  router-hosted standard WAMP Meta API tools directly usable through
+  procedure-specific named JSON parameters and accurate advertised schemas,
+  while preserving an explicit raw WAMP compatibility form. The milestone
+  keeps Meta authorization, visibility, and result semantics unchanged and
+  adds neutral direct JSON plus standard `tools/call` Router Image evidence.
+  Canonical inputs are implemented in the bridge, packaged client, generated
+  consumer templates, and Router Image smoke; raw and documented legacy forms
+  retain explicit compatibility coverage. Pre-change and post-change
+  `bin/test-fast`, focused package/router/Python/shell analysis and tests, and
+  full `bin/verify` pass locally. The first `ct_ffi` attempt hit the known
+  retryable HTTP/3 handshake assertion; the canonical retry passed all 52 FFI
+  tests, and all subsequent suites remained green. The implementation commit,
+  maintained-remote pushes, exact-head hosted workflows, and strict audit
+  remain.
+- The most recently completed plan is
   `docs/exec-plans/2026-08-14-mcp-wamp-api-pagination.md`. It bounds the
   router-provided `connectanum.api.list` catalog behind an optional route page
   size, adds query/catalog-bound opaque cursors to the shared MCP WAMP API, and
@@ -25181,10 +25197,19 @@ at the older `47bbf9c` commit.
   full `bin/verify` pass from implementation base `d7c040f3`. Full verification
   covers Rust core/FFI, Dart VM/native/browser packages, generated and globally
   activated consumers, live WAMP/benchmarks, the complete router suite, and
-  Chrome Dart2Wasm. The implementation commit and exact-head hosted evidence
-  remain; only the previous milestone's hosted-evidence bookkeeping was already
-  pending locally before this implementation.
-- The most recently completed plan is
+  Chrome Dart2Wasm. Commit `2b21b0d2` is published to both maintained `master`
+  branches. Exact-head CI `31774163560`, Dart Package Publish Dry Run
+  `31774163599`, Router Image dry run `31774192417`, and WAMP Profile Benchmarks
+  `31774163660` pass. CI retains coverage artifact `9209596401`; Router Image
+  retains preview artifact `9209242920` and Docker build records `9209335011`
+  and `9209334616`; WAMP retains artifact `9209365604`. Hosted compatibility
+  evidence reports one procedure/topic page on public and standard protected
+  routes and seven procedure pages plus two topic pages on the protected
+  JSON-response route. The comprehensive strict deployment-chain audit exits
+  zero with exact-head CI/log, package, Router Image, WAMP, retained native
+  release, workflow, registry, and branch-protection gates clean. No new RC tag
+  is selected without release approval.
+- The previously completed plan is
   `docs/exec-plans/2026-08-14-mcp-selected-tool-pagination.md`. It removes the
   shipped router-hosted client's remaining first-page assumption for
   caller-selected tools across direct JSON, active-session direct JSON, and

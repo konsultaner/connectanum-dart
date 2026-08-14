@@ -1,6 +1,6 @@
 # Exec Plan: MCP WAMP API Pagination
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -77,5 +77,19 @@ Streamable HTTP.
   changes across Rust core/FFI, Dart package and native suites, generated and
   globally activated consumer smokes, live WAMP/benchmark coverage, the full
   router suite, Chrome, and Dart2Wasm.
-- The implementation commit, maintained-remote pushes, exact-head CI/package/
-  Router Image evidence, and strict deployment-chain audit remain.
+- Commit `2b21b0d2` is published to both maintained `master` branches.
+  Exact-head CI `31774163560` passes Fast Checks, Full Verify, Dart VM Coverage,
+  Codecov upload, and coverage artifact `9209596401`. Dart Package Publish Dry
+  Run `31774163599` and WAMP Profile Benchmarks `31774163660` pass; WAMP artifact
+  `9209365604` is retained.
+- Router Image dry run `31774192417` passes the loaded-image router-hosted MCP
+  smoke and multi-architecture dry-run build while avoiding GHCR login. Public
+  and standard protected compatibility endpoints report one procedure/topic
+  page. The protected JSON-response endpoint reports seven procedure pages and
+  two topic pages across typed/raw direct JSON, active-session direct JSON, and
+  compatibility Streamable paths. Preview artifact `9209242920` and Docker
+  build records `9209335011` and `9209334616` are retained.
+- The comprehensive strict deployment-chain audit exits zero with exact-head
+  CI/log, package, Router Image, WAMP, retained native release, workflow
+  visibility, registry, and branch-protection gates clean. No release-candidate
+  tag is selected without release approval.

@@ -336,13 +336,131 @@ void main() {
       expect(meta['allowCall'], isFalse);
     });
 
-    test('exposes standard WAMP meta procedures when requested', () async {
-      late McpWampToolCall capturedCall;
+    test('advertises named standard WAMP meta inputs and outputs', () async {
+      final api = McpWampApi(includeStandardMetaApi: true);
+      final server = _server(
+        api.toTools(
+          call: (_) => throw StateError('catalog test must not invoke WAMP'),
+          includePubSubTools: false,
+        ),
+      );
+      await _initializeAndStart(server);
+
+      final response = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 19,
+        'method': 'tools/list',
+        'params': {},
+      });
+      final tools = (response?['result'] as Map)['tools'] as List;
+      final byName = <String, Map>{
+        for (final tool in tools.cast<Map>()) tool['name'] as String: tool,
+      };
+      final expectedNamedInputs = <String, String?>{
+        'wamp.session.count': null,
+        'wamp.session.list': null,
+        'wamp.session.get': 'sessionId',
+        'wamp.registration.list': null,
+        'wamp.registration.lookup': 'procedure',
+        'wamp.registration.match': 'procedure',
+        'wamp.registration.get': 'registrationId',
+        'wamp.registration.list_callees': 'registrationId',
+        'wamp.registration.count_callees': 'registrationId',
+        'wamp.subscription.list': null,
+        'wamp.subscription.lookup': 'topic',
+        'wamp.subscription.match': 'topic',
+        'wamp.subscription.get': 'subscriptionId',
+        'wamp.subscription.list_subscribers': 'subscriptionId',
+        'wamp.subscription.count_subscribers': 'subscriptionId',
+      };
+
+      for (final entry in expectedNamedInputs.entries) {
+        final tool = byName[entry.key]!;
+        final inputSchema = tool['inputSchema'] as Map;
+        final properties = inputSchema['properties'] as Map;
+        expect(
+          properties,
+          containsPair('arguments', isA<Map>()),
+          reason: entry.key,
+        );
+        expect(
+          properties,
+          containsPair('argumentsKeywords', isA<Map>()),
+          reason: entry.key,
+        );
+        expect(inputSchema['additionalProperties'], isFalse, reason: entry.key);
+        if (entry.value != null) {
+          expect(properties, contains(entry.value), reason: entry.key);
+          expect(
+            (inputSchema['anyOf'] as List).map(
+              (alternative) => (alternative as Map)['required'],
+            ),
+            contains(equals(<String>[entry.value!])),
+            reason: entry.key,
+          );
+        }
+        expect(
+          tool['outputSchema'],
+          {
+            'type': 'object',
+            'properties': {
+              'arguments': {'type': 'array'},
+              'argumentsKeywords': {
+                'type': 'object',
+                'additionalProperties': true,
+              },
+              'details': {
+                'type': 'object',
+                'additionalProperties': true,
+              },
+            },
+            'additionalProperties': false,
+          },
+          reason: entry.key,
+        );
+      }
+      expect(
+        (byName['wamp.registration.lookup']!['inputSchema']
+            as Map)['properties'],
+        containsPair(
+          'match',
+          containsPair('enum', ['exact', 'prefix', 'wildcard']),
+        ),
+      );
+      expect(
+        (byName['wamp.subscription.lookup']!['inputSchema']
+            as Map)['properties'],
+        containsPair(
+          'match',
+          containsPair('enum', ['exact', 'prefix', 'wildcard']),
+        ),
+      );
+      expect(
+        (byName['wamp.session.get']!['inputSchema'] as Map)['properties'],
+        allOf(contains('id'), contains('session')),
+      );
+      expect(
+        (byName['wamp.registration.lookup']!['inputSchema']
+            as Map)['properties'],
+        contains('uri'),
+      );
+      expect(
+        (byName['wamp.registration.get']!['inputSchema'] as Map)['properties'],
+        allOf(contains('id'), contains('registration')),
+      );
+      expect(
+        (byName['wamp.subscription.get']!['inputSchema'] as Map)['properties'],
+        allOf(contains('id'), contains('subscription')),
+      );
+    });
+
+    test('maps named standard WAMP meta inputs to standard payloads', () async {
+      final capturedCalls = <McpWampToolCall>[];
       final api = McpWampApi(includeStandardMetaApi: true);
       final server = _server(
         api.toTools(
           call: (call) {
-            capturedCall = call;
+            capturedCalls.add(call);
             return (
               callRequestId: 2,
               progress: false,
@@ -362,21 +480,200 @@ void main() {
       );
       await _initializeAndStart(server);
 
-      final response = await server.handleMessage({
+      final cases = <(String, Map<String, Object?>, List<Object?>, JsonMap?)>[
+        ('wamp.session.get', {'sessionId': 123}, [123], null),
+        (
+          'wamp.registration.lookup',
+          {'procedure': 'app.echo', 'match': 'prefix'},
+          ['app.echo'],
+          {'match': 'prefix'},
+        ),
+        (
+          'wamp.registration.match',
+          {'procedure': 'app.echo'},
+          ['app.echo'],
+          null,
+        ),
+        ('wamp.registration.get', {'registrationId': 123}, [123], null),
+        (
+          'wamp.registration.list_callees',
+          {'registrationId': 123},
+          [123],
+          null,
+        ),
+        (
+          'wamp.registration.count_callees',
+          {'registrationId': 123},
+          [123],
+          null,
+        ),
+        (
+          'wamp.subscription.lookup',
+          {'topic': 'app.events', 'match': 'wildcard'},
+          ['app.events'],
+          {'match': 'wildcard'},
+        ),
+        (
+          'wamp.subscription.match',
+          {'topic': 'app.events'},
+          ['app.events'],
+          null,
+        ),
+        ('wamp.subscription.get', {'subscriptionId': 456}, [456], null),
+        (
+          'wamp.subscription.list_subscribers',
+          {'subscriptionId': 456},
+          [456],
+          null,
+        ),
+        (
+          'wamp.subscription.count_subscribers',
+          {'subscriptionId': 456},
+          [456],
+          null,
+        ),
+      ];
+
+      for (final (index, testCase) in cases.indexed) {
+        final (procedure, arguments, _, _) = testCase;
+        final response = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 20 + index,
+          'method': 'tools/call',
+          'params': {'name': procedure, 'arguments': arguments},
+        });
+        expect(response?['result'], isA<Map<String, Object?>>());
+      }
+
+      for (final (index, capturedCall) in capturedCalls.indexed) {
+        final (procedure, _, positional, keywords) = cases[index];
+        expect(capturedCall.procedure, procedure);
+        expect(capturedCall.payload.arguments, positional, reason: procedure);
+        expect(
+          capturedCall.payload.argumentsKeywords,
+          keywords,
+          reason: procedure,
+        );
+      }
+    });
+
+    test('preserves raw standard WAMP meta payload compatibility', () async {
+      final capturedCalls = <McpWampToolCall>[];
+      final api = McpWampApi(includeStandardMetaApi: true);
+      final server = _server(
+        api.toTools(
+          call: (call) {
+            capturedCalls.add(call);
+            return (
+              callRequestId: 3,
+              progress: false,
+              pptScheme: null,
+              pptSerializer: null,
+              pptCipher: null,
+              pptKeyId: null,
+              customDetails: null,
+              arguments: const <Object?>[],
+              argumentsKeywords: null,
+            );
+          },
+          includePubSubTools: false,
+        ),
+      );
+      await _initializeAndStart(server);
+
+      final rawResponse = await server.handleMessage({
         'jsonrpc': '2.0',
-        'id': 20,
+        'id': 31,
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.registration.lookup',
+          'arguments': {
+            'arguments': ['app.echo'],
+            'argumentsKeywords': {'match': 'exact'},
+          },
+        },
+      });
+      expect((rawResponse?['result'] as Map)['isError'], isFalse);
+      expect(capturedCalls.single.payload.arguments, ['app.echo']);
+      expect(capturedCalls.single.payload.argumentsKeywords, {
+        'match': 'exact',
+      });
+
+      final aliasResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 32,
+        'method': 'tools/call',
+        'params': {
+          'name': 'wamp.registration.get',
+          'arguments': {'id': 789},
+        },
+      });
+      expect((aliasResponse?['result'] as Map)['isError'], isFalse);
+      expect(capturedCalls.last.payload.arguments, [789]);
+
+      final mixedResponse = await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 33,
         'method': 'tools/call',
         'params': {
           'name': 'wamp.registration.get',
           'arguments': {
-            'arguments': [123],
+            'registrationId': 123,
+            'arguments': [456],
           },
         },
       });
-
-      expect(capturedCall.procedure, 'wamp.registration.get');
-      expect(capturedCall.payload.arguments, [123]);
-      expect(response?['result'], isA<Map<String, Object?>>());
+      final mixedResult = mixedResponse?['result'] as Map<String, Object?>;
+      expect(mixedResult['isError'], isTrue);
+      expect(
+        mixedResult['content'],
+        contains(
+          containsPair(
+            'text',
+            contains('cannot combine named and raw WAMP arguments'),
+          ),
+        ),
+      );
+      final invalidCases = <(String, JsonMap, String)>[
+        (
+          'wamp.registration.get',
+          {'registrationId': 0},
+          'must be a positive integer',
+        ),
+        (
+          'wamp.registration.get',
+          {'registrationId': 123, 'id': 123},
+          'cannot combine standard WAMP Meta parameter aliases',
+        ),
+        (
+          'wamp.registration.lookup',
+          {'procedure': 'app.echo', 'match': 'glob'},
+          'must be exact, prefix, or wildcard',
+        ),
+        (
+          'wamp.session.count',
+          {'unexpected': true},
+          'unsupported standard WAMP Meta fields',
+        ),
+      ];
+      for (final (index, invalidCase) in invalidCases.indexed) {
+        final (toolName, arguments, message) = invalidCase;
+        final invalidResponse = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 34 + index,
+          'method': 'tools/call',
+          'params': {'name': toolName, 'arguments': arguments},
+        });
+        final invalidResult =
+            invalidResponse?['result'] as Map<String, Object?>;
+        expect(invalidResult['isError'], isTrue, reason: toolName);
+        expect(
+          invalidResult['content'],
+          contains(containsPair('text', contains(message))),
+          reason: toolName,
+        );
+      }
+      expect(capturedCalls, hasLength(2));
     });
 
     test('publishes and polls declared WAMP topics through MCP', () async {

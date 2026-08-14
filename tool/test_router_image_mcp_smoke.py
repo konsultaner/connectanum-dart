@@ -995,15 +995,20 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "_modern_call",
             side_effect=responses,
         ) as modern_call:
-            tool_names = CLIENT_MODULE._modern_tool_names(
+            tools_by_name = CLIENT_MODULE._modern_tools_by_name(
                 "http://router/mcp/secure",
                 label="Protected",
                 authorization_headers=authorization_headers,
             )
 
         self.assertEqual(
-            tool_names,
-            {"connectanum.api.list", "wamp.subscription.match"},
+            tools_by_name,
+            {
+                "connectanum.api.list": {"name": "connectanum.api.list"},
+                "wamp.subscription.match": {
+                    "name": "wamp.subscription.match"
+                },
+            },
         )
         self.assertEqual(
             modern_call.call_args_list,
@@ -1022,6 +1027,72 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                     headers=authorization_headers,
                 ),
             ],
+        )
+
+    def test_modern_standard_meta_tool_schemas_are_agent_friendly(self) -> None:
+        named_inputs = {
+            "wamp.session.count": None,
+            "wamp.session.list": None,
+            "wamp.session.get": "sessionId",
+            "wamp.registration.list": None,
+            "wamp.registration.lookup": "procedure",
+            "wamp.registration.match": "procedure",
+            "wamp.registration.get": "registrationId",
+            "wamp.registration.list_callees": "registrationId",
+            "wamp.registration.count_callees": "registrationId",
+            "wamp.subscription.list": None,
+            "wamp.subscription.lookup": "topic",
+            "wamp.subscription.match": "topic",
+            "wamp.subscription.get": "subscriptionId",
+            "wamp.subscription.list_subscribers": "subscriptionId",
+            "wamp.subscription.count_subscribers": "subscriptionId",
+        }
+        output_schema = {
+            "type": "object",
+            "properties": {
+                "arguments": {"type": "array"},
+                "argumentsKeywords": {
+                    "type": "object",
+                    "additionalProperties": True,
+                },
+                "details": {
+                    "type": "object",
+                    "additionalProperties": True,
+                },
+            },
+            "additionalProperties": False,
+        }
+        tools_by_name = {}
+        for tool_name, named_input in named_inputs.items():
+            properties = {
+                "arguments": {"type": "array"},
+                "argumentsKeywords": {"type": "object"},
+            }
+            schema = {
+                "type": "object",
+                "properties": properties,
+                "additionalProperties": False,
+            }
+            if named_input is not None:
+                properties[named_input] = {"type": "string"}
+                schema["anyOf"] = [
+                    {"required": [named_input]},
+                    {"required": ["arguments"]},
+                    {"required": ["argumentsKeywords"]},
+                ]
+            if tool_name.endswith(".lookup"):
+                properties["match"] = {
+                    "enum": ["exact", "prefix", "wildcard"]
+                }
+            tools_by_name[tool_name] = {
+                "name": tool_name,
+                "inputSchema": schema,
+                "outputSchema": output_schema,
+            }
+
+        CLIENT_MODULE._expect_modern_standard_meta_tool_schemas(
+            tools_by_name,
+            label="Protected",
         )
 
     def test_modern_tools_call_routes_with_tool_name_header(self) -> None:
@@ -1119,12 +1190,12 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 expected_methods,
             )
             expected_arguments = [
-                {"arguments": [CLIENT_MODULE.TOPIC]},
-                {"arguments": [subscription_id]},
-                {"arguments": [CLIENT_MODULE.TOPIC]},
+                {"topic": CLIENT_MODULE.TOPIC},
+                {"subscriptionId": subscription_id},
+                {"topic": CLIENT_MODULE.TOPIC},
                 {},
-                {"arguments": [subscription_id]},
-                {"arguments": [subscription_id]},
+                {"subscriptionId": subscription_id},
+                {"subscriptionId": subscription_id},
             ]
             if call_mode == "standard":
                 expected_arguments = [
@@ -1258,15 +1329,15 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
                 expected_methods,
             )
             expected_arguments = [
-                {"arguments": [CLIENT_MODULE.PROCEDURE]},
-                {"arguments": [registration_id]},
+                {"procedure": CLIENT_MODULE.PROCEDURE},
+                {"registrationId": registration_id},
                 {},
                 {},
-                {"arguments": [session_id]},
-                {"arguments": [CLIENT_MODULE.PROCEDURE]},
+                {"sessionId": session_id},
+                {"procedure": CLIENT_MODULE.PROCEDURE},
                 {},
-                {"arguments": [registration_id]},
-                {"arguments": [registration_id]},
+                {"registrationId": registration_id},
+                {"registrationId": registration_id},
             ]
             if call_mode == "standard":
                 expected_arguments = [

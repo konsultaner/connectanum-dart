@@ -2556,6 +2556,40 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)
 
+    def test_consumer_smokes_use_named_wamp_meta_json_parameters(self) -> None:
+        runner = ROUTER_HOSTED_CLIENT_RUNNER.read_text(encoding="utf-8")
+        common = COMMON_SH.read_text(encoding="utf-8")
+
+        for expected in (
+            "'params': {'sessionId': selectedSessionId}",
+            "'procedure': wampProcedure",
+            "'topic': wampTopic",
+            "'registrationId': registrationId",
+            "'subscriptionId': subscriptionId",
+        ):
+            with self.subTest(source="package client", expected=expected):
+                self.assertIn(expected, runner)
+        for expected in (
+            "params: {'sessionId': visibleSessionId}",
+            "params: {'procedure': _procedure}",
+            "'procedure': _procedure",
+            "'topic': _topic",
+            "'registrationId': registrationId",
+            "'subscriptionId': subscriptionId",
+        ):
+            with self.subTest(source="generated consumer", expected=expected):
+                self.assertIn(expected, common)
+        for raw_argument in (
+            "'arguments': [wampProcedure]",
+            "'arguments': [wampTopic]",
+            "'arguments': [registrationId]",
+            "'arguments': [subscriptionId]",
+            "'arguments': [visibleSessionId]",
+        ):
+            with self.subTest(raw_argument=raw_argument):
+                self.assertNotIn(raw_argument, runner)
+                self.assertNotIn(raw_argument, common)
+
     def test_public_router_hosted_server_example_publishes_task_lookup_events(
         self,
     ) -> None:

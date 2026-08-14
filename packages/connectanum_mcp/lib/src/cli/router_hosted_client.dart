@@ -1713,8 +1713,8 @@ Future<void> _runDirectBatchExample(
         'id': 'direct-batch-wamp-configured-registration-lookup',
         'method': 'wamp.registration.lookup',
         'params': {
-          'arguments': [wampProcedure],
-          'argumentsKeywords': {'match': 'exact'},
+          'procedure': wampProcedure,
+          'match': 'exact',
         },
       },
       {
@@ -1722,7 +1722,7 @@ Future<void> _runDirectBatchExample(
         'id': 'direct-batch-wamp-configured-registration-match',
         'method': 'wamp.registration.match',
         'params': {
-          'arguments': [wampProcedure],
+          'procedure': wampProcedure,
         },
       },
       {
@@ -1753,8 +1753,8 @@ Future<void> _runDirectBatchExample(
         'id': 'direct-batch-wamp-configured-subscription-lookup',
         'method': 'wamp.subscription.lookup',
         'params': {
-          'arguments': [wampTopic],
-          'argumentsKeywords': {'match': 'exact'},
+          'topic': wampTopic,
+          'match': 'exact',
         },
       },
       {
@@ -1762,7 +1762,7 @@ Future<void> _runDirectBatchExample(
         'id': 'direct-batch-wamp-configured-subscription-match',
         'method': 'wamp.subscription.match',
         'params': {
-          'arguments': [wampTopic],
+          'topic': wampTopic,
         },
       },
       {
@@ -1888,7 +1888,7 @@ Future<void> _runDirectBatchExample(
         'jsonrpc': '2.0',
         'id': sessionGetId,
         'method': 'wamp.session.get',
-        'params': {'id': selectedSessionId},
+        'params': {'sessionId': selectedSessionId},
       },
     ];
     final detailExpectedIds = <String>[sessionGetId];
@@ -1901,7 +1901,7 @@ Future<void> _runDirectBatchExample(
           'id': 'direct-batch-wamp-configured-registration-get',
           'method': 'wamp.registration.get',
           'params': {
-            'arguments': [registrationId],
+            'registrationId': registrationId,
           },
         },
         {
@@ -1909,7 +1909,7 @@ Future<void> _runDirectBatchExample(
           'id': 'direct-batch-wamp-configured-registration-callees',
           'method': 'wamp.registration.list_callees',
           'params': {
-            'arguments': [registrationId],
+            'registrationId': registrationId,
           },
         },
         {
@@ -1917,7 +1917,7 @@ Future<void> _runDirectBatchExample(
           'id': 'direct-batch-wamp-configured-registration-callee-count',
           'method': 'wamp.registration.count_callees',
           'params': {
-            'arguments': [registrationId],
+            'registrationId': registrationId,
           },
         },
       ]);
@@ -1936,7 +1936,7 @@ Future<void> _runDirectBatchExample(
           'id': 'direct-batch-wamp-configured-subscription-get',
           'method': 'wamp.subscription.get',
           'params': {
-            'arguments': [subscriptionId],
+            'subscriptionId': subscriptionId,
           },
         },
         {
@@ -1944,7 +1944,7 @@ Future<void> _runDirectBatchExample(
           'id': 'direct-batch-wamp-configured-subscription-subscribers',
           'method': 'wamp.subscription.list_subscribers',
           'params': {
-            'arguments': [subscriptionId],
+            'subscriptionId': subscriptionId,
           },
         },
         {
@@ -1952,7 +1952,7 @@ Future<void> _runDirectBatchExample(
           'id': 'direct-batch-wamp-configured-subscription-subscriber-count',
           'method': 'wamp.subscription.count_subscribers',
           'params': {
-            'arguments': [subscriptionId],
+            'subscriptionId': subscriptionId,
           },
         },
       ]);
@@ -3701,8 +3701,8 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-registration-lookup',
           'method': 'wamp.registration.lookup',
           'params': {
-            'arguments': [wampProcedure],
-            'argumentsKeywords': {'match': 'exact'},
+            'procedure': wampProcedure,
+            'match': 'exact',
           },
         },
         {
@@ -3711,7 +3711,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-registration-match',
           'method': 'wamp.registration.match',
           'params': {
-            'arguments': [wampProcedure],
+            'procedure': wampProcedure,
           },
         },
         {
@@ -3814,8 +3814,8 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-subscription-lookup',
           'method': 'wamp.subscription.lookup',
           'params': {
-            'arguments': [wampTopic],
-            'argumentsKeywords': {'match': 'exact'},
+            'topic': wampTopic,
+            'match': 'exact',
           },
         },
         {
@@ -3824,7 +3824,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-subscription-match',
           'method': 'wamp.subscription.match',
           'params': {
-            'arguments': [wampTopic],
+            'topic': wampTopic,
           },
         },
         {
@@ -4032,7 +4032,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         'jsonrpc': '2.0',
         'id': sessionGetId,
         'method': 'wamp.session.get',
-        'params': {'id': selectedSessionId},
+        'params': {'sessionId': selectedSessionId},
       },
     ];
     final detailExpectedIds = <String>[sessionGetId];
@@ -4045,7 +4045,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-registration-get',
           'method': 'wamp.registration.get',
           'params': {
-            'arguments': [registrationId],
+            'registrationId': registrationId,
           },
         },
         {
@@ -4054,7 +4054,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-registration-callees',
           'method': 'wamp.registration.list_callees',
           'params': {
-            'arguments': [registrationId],
+            'registrationId': registrationId,
           },
         },
         {
@@ -4063,7 +4063,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-registration-callee-count',
           'method': 'wamp.registration.count_callees',
           'params': {
-            'arguments': [registrationId],
+            'registrationId': registrationId,
           },
         },
       ]);
@@ -4082,7 +4082,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-subscription-get',
           'method': 'wamp.subscription.get',
           'params': {
-            'arguments': [subscriptionId],
+            'subscriptionId': subscriptionId,
           },
         },
         {
@@ -4091,7 +4091,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-subscription-subscribers',
           'method': 'wamp.subscription.list_subscribers',
           'params': {
-            'arguments': [subscriptionId],
+            'subscriptionId': subscriptionId,
           },
         },
         {
@@ -4100,7 +4100,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
               'streamable-active-direct-batch-wamp-configured-subscription-subscriber-count',
           'method': 'wamp.subscription.count_subscribers',
           'params': {
-            'arguments': [subscriptionId],
+            'subscriptionId': subscriptionId,
           },
         },
       ]);

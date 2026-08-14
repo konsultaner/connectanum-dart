@@ -723,6 +723,8 @@ configured resource and prompt methods can be used the same way:
 {"jsonrpc":"2.0","id":5,"method":"connectanum.pubsub.publish","params":{"topic":"app.task.changed","argumentsKeywords":{"id":"T-1"},"acknowledge":true}}
 {"jsonrpc":"2.0","id":6,"method":"resources/list","params":{}}
 {"jsonrpc":"2.0","id":7,"method":"prompts/get","params":{"name":"summarize-task","arguments":{"taskId":"T-1"}}}
+{"jsonrpc":"2.0","id":8,"method":"wamp.registration.lookup","params":{"procedure":"app.task.create","match":"exact"}}
+{"jsonrpc":"2.0","id":9,"method":"wamp.registration.get","params":{"registrationId":123}}
 ```
 
 `connectanum.tools.list` returns the current tool definitions. Dotted tool
@@ -733,6 +735,16 @@ generic by-name form. Direct calls return the same MCP tool result JSON shape as
 `tools/call`, including `structuredContent` and `isError`. Direct
 `resources/*` and `prompts/*` calls return the same JSON result shapes as the
 standard MCP methods, without creating or requiring an `MCP-Session-Id`.
+
+When standard WAMP Meta APIs are enabled, `tools/list` advertises their named
+parameters: `sessionId`, `procedure`, `registrationId`, `topic`, and
+`subscriptionId`, with `match` on lookup operations. The same parameters work
+as direct JSON-RPC method `params` and as `tools/call.arguments`. Existing raw
+`arguments`/`argumentsKeywords` payloads remain supported, as do the legacy
+`id`, `uri`, `session`, `registration`, and `subscription` aliases. A call must
+select one identifier form rather than supplying conflicting aliases or both a
+named identifier and raw WAMP arguments. Results use the advertised lossless
+`arguments`, `argumentsKeywords`, and `details` envelope.
 
 ## Compatibility Notes
 

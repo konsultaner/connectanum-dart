@@ -835,6 +835,7 @@ class McpWampStandardMetaApi {
           'wamp.session.get',
           'Returns details for one session.',
           tags: const ['wamp', 'meta', 'session'],
+          namedArgument: 'sessionId',
         ),
         _metaProcedure(
           'wamp.registration.list',
@@ -843,28 +844,34 @@ class McpWampStandardMetaApi {
         ),
         _metaProcedure(
           'wamp.registration.lookup',
-          'Looks up an exact procedure registration.',
+          'Looks up a procedure registration by URI and match policy.',
           tags: const ['wamp', 'meta', 'registration'],
+          namedArgument: 'procedure',
+          allowMatch: true,
         ),
         _metaProcedure(
           'wamp.registration.match',
           'Matches a procedure URI against registered procedures.',
           tags: const ['wamp', 'meta', 'registration'],
+          namedArgument: 'procedure',
         ),
         _metaProcedure(
           'wamp.registration.get',
           'Returns details for one registration.',
           tags: const ['wamp', 'meta', 'registration'],
+          namedArgument: 'registrationId',
         ),
         _metaProcedure(
           'wamp.registration.list_callees',
           'Lists sessions currently attached to a registration.',
           tags: const ['wamp', 'meta', 'registration'],
+          namedArgument: 'registrationId',
         ),
         _metaProcedure(
           'wamp.registration.count_callees',
           'Counts sessions currently attached to a registration.',
           tags: const ['wamp', 'meta', 'registration'],
+          namedArgument: 'registrationId',
         ),
         _metaProcedure(
           'wamp.subscription.list',
@@ -873,28 +880,34 @@ class McpWampStandardMetaApi {
         ),
         _metaProcedure(
           'wamp.subscription.lookup',
-          'Looks up an exact topic subscription.',
+          'Looks up a topic subscription by URI and match policy.',
           tags: const ['wamp', 'meta', 'subscription'],
+          namedArgument: 'topic',
+          allowMatch: true,
         ),
         _metaProcedure(
           'wamp.subscription.match',
           'Matches a topic URI against subscriptions.',
           tags: const ['wamp', 'meta', 'subscription'],
+          namedArgument: 'topic',
         ),
         _metaProcedure(
           'wamp.subscription.get',
           'Returns details for one subscription.',
           tags: const ['wamp', 'meta', 'subscription'],
+          namedArgument: 'subscriptionId',
         ),
         _metaProcedure(
           'wamp.subscription.list_subscribers',
           'Lists sessions currently attached to a subscription.',
           tags: const ['wamp', 'meta', 'subscription'],
+          namedArgument: 'subscriptionId',
         ),
         _metaProcedure(
           'wamp.subscription.count_subscribers',
           'Counts sessions currently attached to a subscription.',
           tags: const ['wamp', 'meta', 'subscription'],
+          namedArgument: 'subscriptionId',
         ),
       ]);
 
@@ -1295,24 +1308,123 @@ const Map<String, Object?> _defaultObjectSchema = <String, Object?>{
   'additionalProperties': true,
 };
 
+const Map<String, Object?> _standardMetaOutputSchema = {
+  'type': 'object',
+  'properties': {
+    'arguments': {'type': 'array'},
+    'argumentsKeywords': {
+      'type': 'object',
+      'additionalProperties': true,
+    },
+    'details': {
+      'type': 'object',
+      'additionalProperties': true,
+    },
+  },
+  'additionalProperties': false,
+};
+
+List<String> _standardMetaLegacyAliases(String namedArgument) {
+  return switch (namedArgument) {
+    'sessionId' => const ['id', 'session'],
+    'registrationId' => const ['id', 'registration'],
+    'subscriptionId' => const ['id', 'subscription'],
+    'procedure' || 'topic' => const ['uri'],
+    _ => throw StateError(
+      'Unknown standard WAMP Meta argument: $namedArgument',
+    ),
+  };
+}
+
+Map<String, Object?> _standardMetaInputSchema(
+  String? namedArgument, {
+  required bool allowMatch,
+}) {
+  final legacyAliases = namedArgument == null
+      ? const <String>[]
+      : _standardMetaLegacyAliases(namedArgument);
+  final properties = <String, Object?>{
+    ?namedArgument: _standardMetaNamedArgumentSchema(namedArgument),
+    for (final alias in legacyAliases)
+      alias: <String, Object?>{
+        ..._standardMetaNamedArgumentSchema(namedArgument!),
+        'description': 'Legacy direct JSON alias; prefer $namedArgument.',
+      },
+    if (allowMatch)
+      'match': const {
+        'type': 'string',
+        'enum': ['exact', 'prefix', 'wildcard'],
+        'description':
+            'Optional WAMP registration or subscription match policy.',
+      },
+    'arguments': const {
+      'type': 'array',
+      'description': 'Raw positional WAMP arguments compatibility form.',
+    },
+    'argumentsKeywords': const {
+      'type': 'object',
+      'additionalProperties': true,
+      'description': 'Raw keyword WAMP arguments compatibility form.',
+    },
+  };
+  return <String, Object?>{
+    'type': 'object',
+    'properties': properties,
+    if (namedArgument != null)
+      'anyOf': [
+        {
+          'required': [namedArgument],
+        },
+        for (final alias in legacyAliases)
+          {
+            'required': [alias],
+          },
+        const {
+          'required': ['arguments'],
+        },
+        const {
+          'required': ['argumentsKeywords'],
+        },
+      ],
+    'additionalProperties': false,
+  };
+}
+
+Map<String, Object?> _standardMetaNamedArgumentSchema(String argument) {
+  return switch (argument) {
+    'sessionId' || 'registrationId' || 'subscriptionId' => <String, Object?>{
+      'type': 'integer',
+      'minimum': 1,
+    },
+    'procedure' || 'topic' => <String, Object?>{
+      'type': 'string',
+      'minLength': 1,
+    },
+    _ => throw StateError('Unknown standard WAMP Meta argument: $argument'),
+  };
+}
+
 McpWampProcedure _metaProcedure(
   String procedure,
   String description, {
   required List<String> tags,
+  String? namedArgument,
+  bool allowMatch = false,
 }) {
   return McpWampProcedure(
     procedure: procedure,
     title: procedure,
     description: description,
-    inputSchema: const {
-      'type': 'object',
-      'properties': {
-        'arguments': {'type': 'array'},
-        'argumentsKeywords': {'type': 'object', 'additionalProperties': true},
-      },
-      'additionalProperties': true,
-    },
-    argumentsBuilder: _standardMetaArgumentsBuilder,
+    inputSchema: _standardMetaInputSchema(
+      namedArgument,
+      allowMatch: allowMatch,
+    ),
+    outputSchema: _standardMetaOutputSchema,
+    argumentsBuilder: (request) => _standardMetaArgumentsBuilder(
+      request,
+      namedArgument: namedArgument,
+      allowMatch: allowMatch,
+    ),
     metadata: McpWampApiMetadata(
       shortDescription: description,
       domain: 'wamp',
@@ -1323,23 +1435,108 @@ McpWampProcedure _metaProcedure(
   );
 }
 
-McpWampCallPayload _standardMetaArgumentsBuilder(McpToolRequest request) {
-  final positional = _optionalList(request.arguments, 'arguments');
-  final explicitKeywords = _optionalDynamicMap(
-    request.arguments,
+McpWampCallPayload _standardMetaArgumentsBuilder(
+  McpToolRequest request, {
+  required String? namedArgument,
+  required bool allowMatch,
+}) {
+  final arguments = request.arguments;
+  final legacyAliases = namedArgument == null
+      ? const <String>[]
+      : _standardMetaLegacyAliases(namedArgument);
+  final suppliedNamedKeys = <String>[
+    if (namedArgument != null && arguments.containsKey(namedArgument))
+      namedArgument,
+    for (final alias in legacyAliases)
+      if (arguments.containsKey(alias)) alias,
+  ];
+  if (suppliedNamedKeys.length > 1) {
+    throw ArgumentError(
+      'arguments cannot combine standard WAMP Meta parameter aliases',
+    );
+  }
+
+  final hasRawArguments = arguments.containsKey('arguments');
+  final hasRawKeywords = arguments.containsKey('argumentsKeywords');
+  if (suppliedNamedKeys.isNotEmpty && (hasRawArguments || hasRawKeywords)) {
+    throw ArgumentError(
+      'arguments cannot combine named and raw WAMP arguments',
+    );
+  }
+
+  final supportedKeys = <String>{
+    ?namedArgument,
+    ...legacyAliases,
+    if (allowMatch) 'match',
+    'arguments',
     'argumentsKeywords',
-  );
-  final inlineKeywords = <String, dynamic>{
-    for (final entry in request.arguments.entries)
-      if (entry.key != 'arguments' && entry.key != 'argumentsKeywords')
-        entry.key: entry.value,
+  };
+  final unknownKeys = arguments.keys
+      .where((key) => !supportedKeys.contains(key))
+      .toList(growable: false);
+  if (unknownKeys.isNotEmpty) {
+    throw ArgumentError(
+      'arguments contains unsupported standard WAMP Meta fields: '
+      '${unknownKeys.join(', ')}',
+    );
+  }
+
+  final match = allowMatch ? _optionalStandardMetaMatch(arguments) : null;
+  if (hasRawArguments || hasRawKeywords) {
+    final positional = _optionalList(arguments, 'arguments');
+    final explicitKeywords = _optionalDynamicMap(
+      arguments,
+      'argumentsKeywords',
+    );
+    return McpWampCallPayload(
+      arguments: positional,
+      argumentsKeywords: match == null
+          ? explicitKeywords
+          : <String, dynamic>{...?explicitKeywords, 'match': match},
+    );
+  }
+
+  if (namedArgument == null) {
+    return const McpWampCallPayload();
+  }
+  final inputKey = suppliedNamedKeys.isEmpty
+      ? namedArgument
+      : suppliedNamedKeys.single;
+  final positional = switch (namedArgument) {
+    'sessionId' || 'registrationId' || 'subscriptionId' => [
+      _requiredPositiveInt(arguments, inputKey),
+    ],
+    'procedure' || 'topic' => [_requiredString(arguments, inputKey)],
+    _ => throw StateError(
+      'Unknown standard WAMP Meta argument: $namedArgument',
+    ),
   };
   return McpWampCallPayload(
     arguments: positional,
-    argumentsKeywords: inlineKeywords.isNotEmpty
-        ? <String, dynamic>{...?explicitKeywords, ...inlineKeywords}
-        : explicitKeywords,
+    argumentsKeywords: match == null ? null : <String, dynamic>{'match': match},
   );
+}
+
+int _requiredPositiveInt(JsonMap arguments, String key) {
+  final value = _optionalPositiveInt(arguments, key);
+  if (value != null) {
+    return value;
+  }
+  throw ArgumentError('arguments.$key must be a positive integer');
+}
+
+String? _optionalStandardMetaMatch(JsonMap arguments) {
+  final match = _optionalString(arguments, 'match');
+  if (match == null) {
+    return null;
+  }
+  const policies = {'exact', 'prefix', 'wildcard'};
+  if (!policies.contains(match)) {
+    throw ArgumentError(
+      'arguments.match must be exact, prefix, or wildcard',
+    );
+  }
+  return match;
 }
 
 McpWampTopic _metaTopic(String topic, String description) {

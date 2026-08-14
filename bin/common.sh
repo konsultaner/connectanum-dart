@@ -19673,7 +19673,7 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   final sessionGet = await client.requestDirect(
     'wamp.session.get',
     id: sessionGetId,
-    params: {'id': visibleSessionId},
+    params: {'sessionId': visibleSessionId},
   );
   final sessionGetContent = _jsonRpcStructuredContent(
     sessionGet,
@@ -19698,7 +19698,7 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   final registrationLookup = await client.requestDirect(
     'wamp.registration.lookup',
     id: registrationLookupId,
-    params: {'uri': _procedure},
+    params: {'procedure': _procedure},
   );
   final registrationLookupContent = _jsonRpcStructuredContent(
     registrationLookup,
@@ -19726,7 +19726,7 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   final registrationMatch = await client.requestDirect(
     'wamp.registration.match',
     id: registrationMatchId,
-    params: {'uri': _procedure},
+    params: {'procedure': _procedure},
   );
   final registrationMatchContent = _jsonRpcStructuredContent(
     registrationMatch,
@@ -19778,7 +19778,7 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   final registrationGet = await client.requestDirect(
     'wamp.registration.get',
     id: registrationGetId,
-    params: {'id': registrationId},
+    params: {'registrationId': registrationId},
   );
   final registrationGetContent = _jsonRpcStructuredContent(
     registrationGet,
@@ -19799,7 +19799,7 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   final registrationCallees = await client.requestDirect(
     'wamp.registration.list_callees',
     id: registrationCalleesId,
-    params: {'id': registrationId},
+    params: {'registrationId': registrationId},
   );
   final registrationCalleesContent = _jsonRpcStructuredContent(
     registrationCallees,
@@ -19828,7 +19828,7 @@ Future<void> _smokeGenericDirectJsonRpcWampRegistrationSessionMeta(
   final registrationCalleeCount = await client.requestDirect(
     'wamp.registration.count_callees',
     id: registrationCalleeCountId,
-    params: {'id': registrationId},
+    params: {'registrationId': registrationId},
   );
   final registrationCalleeCountContent = _jsonRpcStructuredContent(
     registrationCalleeCount,
@@ -20463,7 +20463,7 @@ Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
   final subscriptionGet = await client.requestDirect(
     'wamp.subscription.get',
     id: subscriptionGetId,
-    params: {'id': subscriptionId},
+    params: {'subscriptionId': subscriptionId},
   );
   final subscriptionGetContent = _jsonRpcStructuredContent(
     subscriptionGet,
@@ -20484,7 +20484,7 @@ Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
   final subscribers = await client.requestDirect(
     'wamp.subscription.list_subscribers',
     id: subscribersId,
-    params: {'id': subscriptionId},
+    params: {'subscriptionId': subscriptionId},
   );
   final subscribersContent = _jsonRpcStructuredContent(
     subscribers,
@@ -20519,7 +20519,7 @@ Future<void> _smokeGenericDirectJsonRpcWampSubscriptionMeta(
   final subscriberCount = await client.requestDirect(
     'wamp.subscription.count_subscribers',
     id: subscriberCountId,
-    params: {'id': subscriptionId},
+    params: {'subscriptionId': subscriptionId},
   );
   final subscriberCountContent = _jsonRpcStructuredContent(
     subscriberCount,
@@ -20601,19 +20601,19 @@ Future<void> _smokeDirectJsonBatchWampSubscriptionMeta(
         'jsonrpc': '2.0',
         'id': subscriptionGetId,
         'method': 'wamp.subscription.get',
-        'params': {'id': subscriptionId},
+        'params': {'subscriptionId': subscriptionId},
       },
       {
         'jsonrpc': '2.0',
         'id': subscribersId,
         'method': 'wamp.subscription.list_subscribers',
-        'params': {'id': subscriptionId},
+        'params': {'subscriptionId': subscriptionId},
       },
       {
         'jsonrpc': '2.0',
         'id': subscriberCountId,
         'method': 'wamp.subscription.count_subscribers',
-        'params': {'id': subscriptionId},
+        'params': {'subscriptionId': subscriptionId},
       },
     ],
   );
@@ -21156,7 +21156,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       'params': {
         'name': 'wamp.session.get',
         'arguments': {
-          'arguments': [visibleSessionId],
+          'sessionId': visibleSessionId,
         },
       },
     }),
@@ -21191,7 +21191,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       'params': {
         'name': 'wamp.registration.lookup',
         'arguments': {
-          'arguments': [_procedure],
+          'procedure': _procedure,
         },
       },
     }),
@@ -21229,7 +21229,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       'params': {
         'name': 'wamp.registration.match',
         'arguments': {
-          'arguments': [_procedure],
+          'procedure': _procedure,
         },
       },
     }),
@@ -21300,7 +21300,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       'params': {
         'name': 'wamp.registration.get',
         'arguments': {
-          'arguments': [registrationId],
+          'registrationId': registrationId,
         },
       },
     }),
@@ -21332,7 +21332,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       'params': {
         'name': 'wamp.registration.list_callees',
         'arguments': {
-          'arguments': [registrationId],
+          'registrationId': registrationId,
         },
       },
     }),
@@ -21372,7 +21372,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
       'params': {
         'name': 'wamp.registration.count_callees',
         'arguments': {
-          'arguments': [registrationId],
+          'registrationId': registrationId,
         },
       },
     }),
@@ -21677,7 +21677,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
         'params': {
           'name': 'wamp.subscription.lookup',
           'arguments': {
-            'arguments': [_topic],
+            'topic': _topic,
           },
         },
       }),
@@ -21719,7 +21719,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
         'params': {
           'name': 'wamp.subscription.match',
           'arguments': {
-            'arguments': [_topic],
+            'topic': _topic,
           },
         },
       }),
@@ -21792,7 +21792,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
         'params': {
           'name': 'wamp.subscription.get',
           'arguments': {
-            'arguments': [subscriptionId],
+            'subscriptionId': subscriptionId,
           },
         },
       }),
@@ -21823,7 +21823,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
         'params': {
           'name': 'wamp.subscription.list_subscribers',
           'arguments': {
-            'arguments': [subscriptionId],
+            'subscriptionId': subscriptionId,
           },
         },
       }),
@@ -21869,7 +21869,7 @@ Future<void> _smokeGenericStreamableJsonRpcAccess(
         'params': {
           'name': 'wamp.subscription.count_subscribers',
           'arguments': {
-            'arguments': [subscriptionId],
+            'subscriptionId': subscriptionId,
           },
         },
       }),
@@ -23421,13 +23421,13 @@ Future<void> _smokeDirectJsonBatchWampMeta(
         'jsonrpc': '2.0',
         'id': registrationLookupId,
         'method': 'wamp.registration.lookup',
-        'params': {'uri': _procedure},
+        'params': {'procedure': _procedure},
       },
       {
         'jsonrpc': '2.0',
         'id': registrationMatchId,
         'method': 'wamp.registration.match',
-        'params': {'uri': _procedure},
+        'params': {'procedure': _procedure},
       },
       {
         'jsonrpc': '2.0',
@@ -23465,25 +23465,25 @@ Future<void> _smokeDirectJsonBatchWampMeta(
         'jsonrpc': '2.0',
         'id': sessionGetId,
         'method': 'wamp.session.get',
-        'params': {'id': visibleSessionId},
+        'params': {'sessionId': visibleSessionId},
       },
       {
         'jsonrpc': '2.0',
         'id': registrationGetId,
         'method': 'wamp.registration.get',
-        'params': {'id': registrationId},
+        'params': {'registrationId': registrationId},
       },
       {
         'jsonrpc': '2.0',
         'id': registrationCalleesId,
         'method': 'wamp.registration.list_callees',
-        'params': {'id': registrationId},
+        'params': {'registrationId': registrationId},
       },
       {
         'jsonrpc': '2.0',
         'id': registrationCalleeCountId,
         'method': 'wamp.registration.count_callees',
-        'params': {'id': registrationId},
+        'params': {'registrationId': registrationId},
       },
     ],
   );
@@ -23840,7 +23840,7 @@ Future<void> _smokeStreamableBatchWampMeta(
       'params': {
         'name': 'wamp.registration.lookup',
         'arguments': {
-          'arguments': [_procedure],
+          'procedure': _procedure,
         },
       },
     },
@@ -23851,7 +23851,7 @@ Future<void> _smokeStreamableBatchWampMeta(
       'params': {
         'name': 'wamp.registration.match',
         'arguments': {
-          'arguments': [_procedure],
+          'procedure': _procedure,
         },
       },
     },
@@ -23893,7 +23893,7 @@ Future<void> _smokeStreamableBatchWampMeta(
       'params': {
         'name': 'wamp.session.get',
         'arguments': {
-          'arguments': [visibleSessionId],
+          'sessionId': visibleSessionId,
         },
       },
     },
@@ -23904,7 +23904,7 @@ Future<void> _smokeStreamableBatchWampMeta(
       'params': {
         'name': 'wamp.registration.get',
         'arguments': {
-          'arguments': [registrationId],
+          'registrationId': registrationId,
         },
       },
     },
@@ -23915,7 +23915,7 @@ Future<void> _smokeStreamableBatchWampMeta(
       'params': {
         'name': 'wamp.registration.list_callees',
         'arguments': {
-          'arguments': [registrationId],
+          'registrationId': registrationId,
         },
       },
     },
@@ -23926,7 +23926,7 @@ Future<void> _smokeStreamableBatchWampMeta(
       'params': {
         'name': 'wamp.registration.count_callees',
         'arguments': {
-          'arguments': [registrationId],
+          'registrationId': registrationId,
         },
       },
     },
@@ -24028,7 +24028,7 @@ Future<void> _smokeStreamableBatchWampSubscriptionMeta(
       'params': {
         'name': 'wamp.subscription.lookup',
         'arguments': {
-          'arguments': [_topic],
+          'topic': _topic,
         },
       },
     },
@@ -24039,7 +24039,7 @@ Future<void> _smokeStreamableBatchWampSubscriptionMeta(
       'params': {
         'name': 'wamp.subscription.match',
         'arguments': {
-          'arguments': [_topic],
+          'topic': _topic,
         },
       },
     },
@@ -24078,7 +24078,7 @@ Future<void> _smokeStreamableBatchWampSubscriptionMeta(
       'params': {
         'name': 'wamp.subscription.get',
         'arguments': {
-          'arguments': [subscriptionId],
+          'subscriptionId': subscriptionId,
         },
       },
     },
@@ -24089,7 +24089,7 @@ Future<void> _smokeStreamableBatchWampSubscriptionMeta(
       'params': {
         'name': 'wamp.subscription.list_subscribers',
         'arguments': {
-          'arguments': [subscriptionId],
+          'subscriptionId': subscriptionId,
         },
       },
     },
@@ -24100,7 +24100,7 @@ Future<void> _smokeStreamableBatchWampSubscriptionMeta(
       'params': {
         'name': 'wamp.subscription.count_subscribers',
         'arguments': {
-          'arguments': [subscriptionId],
+          'subscriptionId': subscriptionId,
         },
       },
     },

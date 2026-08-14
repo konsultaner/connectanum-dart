@@ -214,13 +214,13 @@ def _modern_call(
     return response
 
 
-def _modern_tool_names(
+def _modern_tools_by_name(
     endpoint: str,
     *,
     label: str,
     authorization_headers: dict[str, str] | None = None,
-) -> set[str]:
-    tool_names: set[str] = set()
+) -> dict[str, dict[str, Any]]:
+    tools_by_name: dict[str, dict[str, Any]] = {}
     seen_cursors: set[str] = set()
     cursor: str | None = None
     pages_read = 0
@@ -248,16 +248,15 @@ def _modern_tool_names(
         tools = result.get("tools")
         if not isinstance(tools, list):
             raise AssertionError(f"{label} tools/list result missed tools")
-        tool_names.update(
-            name
-            for tool in tools
-            if isinstance(tool, dict)
-            and isinstance((name := tool.get("name")), str)
-        )
+        for tool in tools:
+            if isinstance(tool, dict) and isinstance(
+                (name := tool.get("name")), str
+            ):
+                tools_by_name[name] = tool
 
         next_cursor = result.get("nextCursor")
         if next_cursor is None:
-            return tool_names
+            return tools_by_name
         if not isinstance(next_cursor, str) or not next_cursor:
             raise AssertionError(f"{label} tools/list returned an invalid cursor")
         if pages_read >= MAX_CATALOG_PAGES:
@@ -268,6 +267,102 @@ def _modern_tool_names(
             raise AssertionError(f"{label} tools/list repeated a cursor")
         seen_cursors.add(next_cursor)
         cursor = next_cursor
+
+
+def _expect_modern_standard_meta_tool_schemas(
+    tools_by_name: dict[str, dict[str, Any]],
+    *,
+    label: str,
+) -> None:
+    expected_named_inputs = {
+        "wamp.session.count": None,
+        "wamp.session.list": None,
+        "wamp.session.get": "sessionId",
+        "wamp.registration.list": None,
+        "wamp.registration.lookup": "procedure",
+        "wamp.registration.match": "procedure",
+        "wamp.registration.get": "registrationId",
+        "wamp.registration.list_callees": "registrationId",
+        "wamp.registration.count_callees": "registrationId",
+        "wamp.subscription.list": None,
+        "wamp.subscription.lookup": "topic",
+        "wamp.subscription.match": "topic",
+        "wamp.subscription.get": "subscriptionId",
+        "wamp.subscription.list_subscribers": "subscriptionId",
+        "wamp.subscription.count_subscribers": "subscriptionId",
+    }
+    named_fields = {
+        "sessionId",
+        "registrationId",
+        "subscriptionId",
+        "procedure",
+        "topic",
+    }
+    expected_output_schema = {
+        "type": "object",
+        "properties": {
+            "arguments": {"type": "array"},
+            "argumentsKeywords": {
+                "type": "object",
+                "additionalProperties": True,
+            },
+            "details": {
+                "type": "object",
+                "additionalProperties": True,
+            },
+        },
+        "additionalProperties": False,
+    }
+    for tool_name, named_input in expected_named_inputs.items():
+        tool = tools_by_name.get(tool_name)
+        if not isinstance(tool, dict):
+            raise AssertionError(f"{label} tools/list missed {tool_name}")
+        input_schema = tool.get("inputSchema")
+        if not isinstance(input_schema, dict):
+            raise AssertionError(f"{label} {tool_name} missed its input schema")
+        properties = input_schema.get("properties")
+        if not isinstance(properties, dict):
+            raise AssertionError(
+                f"{label} {tool_name} input schema missed properties"
+            )
+        if not {"arguments", "argumentsKeywords"}.issubset(properties):
+            raise AssertionError(
+                f"{label} {tool_name} missed raw WAMP compatibility inputs"
+            )
+        expected_named_fields = {named_input} if named_input is not None else set()
+        if named_fields.intersection(properties) != expected_named_fields:
+            raise AssertionError(
+                f"{label} {tool_name} exposed unexpected named inputs: {properties}"
+            )
+        if input_schema.get("additionalProperties") is not False:
+            raise AssertionError(
+                f"{label} {tool_name} accepted undocumented input fields"
+            )
+        if named_input is not None:
+            alternatives = input_schema.get("anyOf")
+            required_alternatives = {
+                tuple(alternative.get("required", []))
+                for alternative in alternatives or []
+                if isinstance(alternative, dict)
+            }
+            if (named_input,) not in required_alternatives:
+                raise AssertionError(
+                    f"{label} {tool_name} did not require a named or raw input"
+                )
+        if tool_name.endswith(".lookup"):
+            match_schema = properties.get("match")
+            if not isinstance(match_schema, dict) or match_schema.get("enum") != [
+                "exact",
+                "prefix",
+                "wildcard",
+            ]:
+                raise AssertionError(
+                    f"{label} {tool_name} missed the WAMP match policy schema"
+                )
+        if tool.get("outputSchema") != expected_output_schema:
+            raise AssertionError(
+                f"{label} {tool_name} exposed an unexpected result schema"
+            )
 
 
 def _expect_modern_batch_rejected(
@@ -691,7 +786,7 @@ def _run_modern_wamp_registration_session_meta(
     match = call(
         "registration-match",
         "wamp.registration.match",
-        {"arguments": [PROCEDURE]},
+        {"procedure": PROCEDURE},
     )
     match_content = _structured_content(
         match, label=f"{label} {call_mode} registration match"
@@ -711,7 +806,7 @@ def _run_modern_wamp_registration_session_meta(
     details = call(
         "registration-get",
         "wamp.registration.get",
-        {"arguments": [registration_id]},
+        {"registrationId": registration_id},
     )
     details_content = _structured_content(
         details, label=f"{label} {call_mode} registration details"
@@ -764,7 +859,7 @@ def _run_modern_wamp_registration_session_meta(
     session_get = call(
         "session-get",
         "wamp.session.get",
-        {"arguments": [session_id]},
+        {"sessionId": session_id},
     )
     session_get_content = _structured_content(
         session_get, label=f"{label} {call_mode} session details"
@@ -790,7 +885,7 @@ def _run_modern_wamp_registration_session_meta(
     lookup = call(
         "registration-lookup",
         "wamp.registration.lookup",
-        {"arguments": [PROCEDURE]},
+        {"procedure": PROCEDURE},
     )
     lookup_content = _structured_content(
         lookup, label=f"{label} {call_mode} registration lookup"
@@ -820,7 +915,7 @@ def _run_modern_wamp_registration_session_meta(
     callees = call(
         "registration-list-callees",
         "wamp.registration.list_callees",
-        {"arguments": [registration_id]},
+        {"registrationId": registration_id},
     )
     callees_content = _structured_content(
         callees, label=f"{label} {call_mode} registration callees"
@@ -834,7 +929,7 @@ def _run_modern_wamp_registration_session_meta(
     callee_count = call(
         "registration-count-callees",
         "wamp.registration.count_callees",
-        {"arguments": [registration_id]},
+        {"registrationId": registration_id},
     )
     callee_count_content = _structured_content(
         callee_count, label=f"{label} {call_mode} registration callee count"
@@ -877,7 +972,7 @@ def _run_modern_wamp_subscription_meta(
     match = call(
         "subscription-match",
         "wamp.subscription.match",
-        {"arguments": [TOPIC]},
+        {"topic": TOPIC},
     )
     match_content = _structured_content(
         match, label=f"{label} {call_mode} subscription match"
@@ -897,7 +992,7 @@ def _run_modern_wamp_subscription_meta(
     details = call(
         "subscription-get",
         "wamp.subscription.get",
-        {"arguments": [subscription_id]},
+        {"subscriptionId": subscription_id},
     )
     details_content = _structured_content(
         details, label=f"{label} {call_mode} subscription details"
@@ -921,7 +1016,7 @@ def _run_modern_wamp_subscription_meta(
     lookup = call(
         "subscription-lookup",
         "wamp.subscription.lookup",
-        {"arguments": [TOPIC]},
+        {"topic": TOPIC},
     )
     lookup_content = _structured_content(
         lookup, label=f"{label} {call_mode} subscription lookup"
@@ -951,7 +1046,7 @@ def _run_modern_wamp_subscription_meta(
     subscribers = call(
         "subscription-list-subscribers",
         "wamp.subscription.list_subscribers",
-        {"arguments": [subscription_id]},
+        {"subscriptionId": subscription_id},
     )
     subscribers_content = _structured_content(
         subscribers, label=f"{label} {call_mode} subscription subscribers"
@@ -965,7 +1060,7 @@ def _run_modern_wamp_subscription_meta(
     subscriber_count = call(
         "subscription-count-subscribers",
         "wamp.subscription.count_subscribers",
-        {"arguments": [subscription_id]},
+        {"subscriptionId": subscription_id},
     )
     subscriber_count_content = _structured_content(
         subscriber_count,
@@ -1634,7 +1729,8 @@ def run_smoke(
         raise AssertionError(f"Modern discovery missed {MODERN_PROTOCOL}: {discovery}")
     _expect_modern_batch_rejected(endpoint, label="Public")
 
-    tool_names = _modern_tool_names(endpoint, label="Public")
+    tools_by_name = _modern_tools_by_name(endpoint, label="Public")
+    tool_names = set(tools_by_name)
     for expected in {
         "connectanum.api.list",
         "connectanum.pubsub.subscribe",
@@ -1659,6 +1755,10 @@ def run_smoke(
     }:
         if expected not in tool_names:
             raise AssertionError(f"Modern tools/list missed {expected}")
+    _expect_modern_standard_meta_tool_schemas(
+        tools_by_name,
+        label="Public",
+    )
 
     catalog = _modern_call(endpoint, "modern-catalog", "connectanum.api.list")
     catalog_content = _structured_content(catalog, label="Modern direct API catalog")
