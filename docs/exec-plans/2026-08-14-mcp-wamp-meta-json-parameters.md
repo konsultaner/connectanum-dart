@@ -99,13 +99,25 @@ WAMP `arguments` and `argumentsKeywords`.
   whenever `includeStandardMetaApi` is enabled. A fail-first native regression
   mirrors the configured-URI collision and verifies the canonical no-argument,
   named-argument, and output schemas.
+- 2026-08-14: Corrective commit `2d6a8783` made exact-head CI
+  `31785778102`, package dry run `31785778099`, and WAMP profile run
+  `31785778190` pass. Replacement Router Image run `31787122560` then reached
+  the runtime smoke and exposed a second boundary defect: modern exact-name
+  direct JSON requests forwarded reserved `params._meta` into the selected
+  tool's input arguments. The router now separates that protocol metadata
+  before exact-name dispatch and retains its client capabilities on the
+  `McpToolRequest`; standard `tools/call` already performed this separation.
+  A fail-first native regression mirrors the packaged modern registration
+  lookup and keeps the standard Meta parser strict for ordinary unknown fields.
 
 ## Handoff
 
-- Implementation is complete locally. Pre-change and post-change
-  `bin/test-fast` pass. Focused MCP package, router JSON, Router Image smoke,
-  package-boundary, Python compile, Bash syntax, Dart analysis, and diff-hygiene
-  checks pass.
+- Implementation is complete locally. Pre-change and all post-change
+  `bin/test-fast` runs pass. Focused MCP package, router JSON/native, Router
+  Image smoke, package-boundary, Python compile, Bash syntax, Dart analysis,
+  and diff-hygiene checks pass. The latest fail-first native case proves a
+  modern exact-name direct Meta call consumes its named tool input without
+  forwarding reserved request metadata.
 - Full `bin/verify` exits zero across formatting, Rust core/FFI, Dart
   package/native/browser suites, generated and globally activated consumer
   smokes, live WAMP and benchmark coverage, the complete router suite, Chrome,
@@ -117,8 +129,16 @@ WAMP `arguments` and `argumentsKeywords`.
   `31781038421`, and WAMP Profile Benchmarks `31781038434` pass on their first
   attempts. Router Image `31782248716` failed only its new schema assertion and
   supplied the configured-URI collision reproduced by the native regression.
-- Post-fix focused tests, package/router analysis, shell/Python hygiene, and
-  `bin/test-fast` pass. A second full `bin/verify` passes with all 52 FFI tests
-  green on the first attempt and the expanded 441-case router suite green.
-  The corrective commit/push, replacement exact-head hosted workflows, passing
-  Router Image evidence, and strict deployment-chain audit remain.
+- Post-catalog-fix focused tests, package/router analysis, shell/Python
+  hygiene, and `bin/test-fast` pass. A second full `bin/verify` passes with all
+  52 FFI tests green on the first attempt and the expanded 441-case router
+  suite green. Corrective commit `2d6a8783` is published to both maintained
+  `master` branches; its exact-head CI, package, and WAMP workflows pass, while
+  Router Image `31787122560` supplied the reserved-metadata regression now fixed
+  locally. Final `bin/verify` also passes cleanly on the first attempt with
+  formatting unchanged, 114 Rust core tests, all 52 FFI tests, 364 Dart core
+  tests, 111 MCP tests, the 281-case client suite, 97 benchmark tests, the
+  441-case router suite, 6 remote-auth tests, 13 native follow-ups, all isolated
+  and globally activated consumer smokes, Chrome, and Dart2Wasm green. The
+  second corrective commit/push, replacement exact-head hosted workflows,
+  passing Router Image evidence, and strict deployment-chain audit remain.

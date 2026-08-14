@@ -25191,8 +25191,22 @@ at the older `47bbf9c` commit.
   fail-first native regression mirrors the Router Image collision. Post-fix
   focused checks, `bin/test-fast`, and a second full `bin/verify` pass; the
   latter runs all 52 FFI tests on the first attempt and passes the expanded
-  441-case router suite. The corrective commit/push, replacement exact-head
-  hosted workflows, passing Router Image evidence, and strict audit remain.
+  441-case router suite. Corrective commit `2d6a8783` is published to both
+  maintained branches; exact-head CI `31785778102`, package dry run
+  `31785778099`, and WAMP profile run `31785778190` pass. Replacement Router
+  Image `31787122560` reached the runtime smoke and exposed reserved modern
+  `params._meta` leaking into exact-name direct tool inputs. The router now
+  separates that request metadata at the direct dispatch boundary, preserves
+  its client capabilities for result serialization, and has a fail-first
+  native regression for the packaged registration lookup. Focused checks and
+  another complete `bin/test-fast` pass locally. Final `bin/verify` passes
+  cleanly on the first attempt with formatting unchanged, 114 Rust core tests,
+  all 52 FFI tests, 364 Dart core tests, 111 MCP tests, the 281-case client
+  suite, 97 benchmark tests, the 441-case router suite, 6 remote-auth tests, 13
+  native follow-ups, all isolated and globally activated consumer smokes,
+  Chrome, and Dart2Wasm green. The second corrective commit/push, replacement
+  exact-head hosted workflows, passing Router Image evidence, and strict audit
+  remain.
 - The most recently completed plan is
   `docs/exec-plans/2026-08-14-mcp-wamp-api-pagination.md`. It bounds the
   router-provided `connectanum.api.list` catalog behind an optional route page

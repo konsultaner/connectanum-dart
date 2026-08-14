@@ -4860,7 +4860,21 @@ class _RouterMcpEndpoint {
       default:
         final tool = server.tools[method];
         if (tool != null && method.contains('.')) {
-          return _callDirectJsonToolByName(method, params);
+          final request = mcp.McpToolRequest.fromCallParams(
+            name: method,
+            params: <String, Object?>{
+              'arguments': <String, Object?>{
+                for (final entry in params.entries)
+                  if (entry.key != '_meta') entry.key: entry.value,
+              },
+              if (params.containsKey('_meta')) '_meta': params['_meta'],
+            },
+          );
+          return _callDirectJsonToolByName(
+            method,
+            request.arguments,
+            clientCapabilities: request.clientCapabilities,
+          );
         }
         throw mcp.McpException(
           mcp.McpErrorCodes.methodNotFound,

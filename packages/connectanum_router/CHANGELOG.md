@@ -11,6 +11,8 @@
   all router-hosted standard WAMP Meta API tools without changing authorization
   visibility or existing raw-call compatibility, and keep those canonical
   descriptors authoritative when a route also configures the same Meta URI.
+- Keep MCP `2026-07-28` request `_meta` separate from exact-name direct JSON
+  tool inputs while retaining its client capabilities for result serialization.
 - Add a bounded `wamp_api_list_page_size` route option for deterministic,
   authorization-filtered WAMP procedure/topic catalog pagination.
 - Let router resource templates use authorized WAMP read procedures through

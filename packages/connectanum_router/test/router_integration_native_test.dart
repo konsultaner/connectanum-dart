@@ -11727,6 +11727,29 @@ void main() {
         containsPair('additionalProperties', false),
       );
 
+      final statelessDirectRegistrationMatch = await statelessPublicMcpClient
+          .requestDirect(
+            'wamp.registration.match',
+            id: 'stateless-public-direct-registration-match',
+            params: const <String, Object?>{'procedure': 'app.safe.lookup'},
+          );
+      final statelessDirectRegistrationMatchResult =
+          (statelessDirectRegistrationMatch['result'] as Map)
+              .cast<String, Object?>();
+      expect(
+        statelessDirectRegistrationMatchResult['isError'],
+        isFalse,
+        reason:
+            'Modern request metadata must not be forwarded as WAMP Meta '
+            'tool arguments: $statelessDirectRegistrationMatchResult',
+      );
+      expect(
+        ((statelessDirectRegistrationMatchResult['structuredContent']
+                as Map)['arguments']
+            as List),
+        isNotEmpty,
+      );
+
       await expectLater(
         statelessPublicMcpClient.callTool(
           'app.safe.deploy',
