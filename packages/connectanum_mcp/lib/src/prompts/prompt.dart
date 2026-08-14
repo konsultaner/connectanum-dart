@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:connectanum_core/connectanum_core.dart'
+    show McpCompletionHandler;
+
 import '../protocol/errors.dart';
 import '../protocol/icons.dart';
 import '../protocol/pagination.dart';
@@ -12,6 +15,7 @@ class McpPrompt {
   McpPrompt({
     required this.name,
     required this.handler,
+    this.complete,
     this.title,
     this.description,
     Iterable<McpPromptArgument> arguments = const [],
@@ -37,6 +41,7 @@ class McpPrompt {
   final List<McpPromptArgument> arguments;
   final List<McpIcon> icons;
   final McpPromptHandler handler;
+  final McpCompletionHandler? complete;
 
   Map<String, Object?> toJson() {
     final json = <String, Object?>{'name': name};
@@ -170,6 +175,8 @@ class McpPromptRegistry {
   int _revision = 0;
 
   bool get isNotEmpty => _prompts.isNotEmpty;
+  bool get hasCompletions =>
+      _prompts.values.any((prompt) => prompt.complete != null);
 
   void register(McpPrompt prompt) {
     if (_prompts.containsKey(prompt.name)) {

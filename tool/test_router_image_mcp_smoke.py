@@ -280,7 +280,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "resource_template_read=true",
             "resource_template_subscribe=true resource_template_update=true",
             "resource_template_unsubscribe=true",
-            "instructions=true prompt_get=true",
+            "instructions=true prompt_get=true prompt_completion=true",
+            "resource_template_completion=true",
             "pubsub=true explicit_handle=true structured_content=true",
             "OFFICIAL_MCP_AUTH_TICKET=image-smoke-ticket",
             "'using router image context'",
@@ -306,6 +307,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "await client.listResources()",
             "await client.listResourceTemplates()",
             "await client.readResource(",
+            "await client.complete({",
+            "promptCompletion: true",
+            "resourceTemplateCompletion: true",
             "resourceTemplateRead: true",
             "async function runResourceTemplateSubscription(",
             "await client.subscribeResource({ uri: resourceUri })",
@@ -526,6 +530,10 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             'AUTH_TICKET = "image-smoke-ticket"',
             'OTHER_AUTH_ID = "image-smoke-peer"',
             'OTHER_AUTH_TICKET = "image-smoke-peer-ticket"',
+            'RESOURCE_TEMPLATE = "connectanum://router-image/item/{itemId}"',
+            'PROMPT = "inspect-router-image"',
+            '"completion/complete"',
+            '_expect_modern_completions(endpoint, label="Public")',
             '"Authorization": f"Bearer {access_token}"',
             '"grant_type": "revoke"',
             "verify_missing_bearer=True",
@@ -557,7 +565,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"streamable_pubsub=true owner_preserved=true "',
             '"compatibility_session_preserved=true "',
             '"initialize_notification_sessionless=true "',
-            '"session_header_echoed=false public=true protected=true."',
+            '"session_header_echoed=false completions=true "',
+            '"public=true protected=true."',
         ]:
             with self.subTest(expected=expected):
                 self.assertIn(expected, client)
@@ -1813,6 +1822,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         self.assertEqual(config.count("read_procedure: wamp.session.count"), 6)
         self.assertEqual(config.count("update_topic: image.smoke.events"), 6)
         self.assertEqual(config.count("name: inspect-router-image"), 3)
+        self.assertEqual(config.count("completions:"), 6)
+        self.assertEqual(config.count("- package-client"), 3)
+        self.assertEqual(config.count("- package client"), 3)
         self.assertEqual(
             config.count("uri: connectanum://router-image/archive-context"), 1
         )

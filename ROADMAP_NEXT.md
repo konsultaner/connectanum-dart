@@ -35,8 +35,10 @@ Fresh state:
   operations, form-mode MRTR with scoped capability enforcement and bounded
   direct/Streamable retries, lossless tool-result `_meta` across WAMP details
   and complete or `input_required` responses, arbitrary JSON structured tool
-  results with explicit null/absence preservation, and explicit absence of
-  protocol session/resume state. The `2025-*` initialize/GET/SSE/DELETE path
+  results with explicit null/absence preservation, typed prompt and
+  resource-template completion over standard/direct/stateless requests with
+  authorization-filtered router candidates, and explicit absence of protocol
+  session/resume state. The `2025-*` initialize/GET/SSE/DELETE path
   remains an explicit compatibility era. Additional MCP 2026 extensions
   remain demand-driven.
   Dart IO consumers can use
@@ -107,7 +109,8 @@ Priority override:
 - **For MCP feature work, finish concrete 2026 protocol layers before extending
   the legacy session model.** Stateless discovery, ordinary requests,
   `subscriptions/listen` request-scoped SSE/cancellation, and form-mode MRTR
-  are complete. Add further extensions only for a concrete downstream need.
+  plus prompt/resource-template completion are complete. Add further
+  extensions only for a concrete downstream need.
 - **The broader WAMP conformance expansion remains blocked on upstream**
   vector/runner stabilization. Do not reopen it unless the vendored upstream
   snapshot changes.

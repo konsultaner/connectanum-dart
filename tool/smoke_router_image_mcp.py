@@ -15,6 +15,8 @@ MODERN_PROTOCOL = "2026-07-28"
 COMPATIBILITY_PROTOCOL = "2025-11-25"
 TOPIC = "image.smoke.events"
 PROCEDURE = "wamp.session.count"
+RESOURCE_TEMPLATE = "connectanum://router-image/item/{itemId}"
+PROMPT = "inspect-router-image"
 AUTH_REALM = "image.smoke"
 AUTH_ID = "image-smoke-agent"
 AUTH_TICKET = "image-smoke-ticket"
@@ -212,6 +214,51 @@ def _modern_call(
     if response_headers.get("mcp-session-id") is not None:
         raise AssertionError("Modern stateless response unexpectedly created a session")
     return response
+
+
+def _expect_modern_completions(
+    endpoint: str,
+    *,
+    label: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> None:
+    prompt_response = _modern_call(
+        endpoint,
+        f"{label.lower()}-prompt-completion",
+        "completion/complete",
+        {
+            "ref": {"type": "ref/prompt", "name": PROMPT},
+            "argument": {"name": "subject", "value": "packaged"},
+        },
+        headers=authorization_headers,
+    )
+    prompt_result = prompt_response.get("result", {})
+    if prompt_result.get("completion", {}).get("values") != ["packaged runtime"]:
+        raise AssertionError(
+            f"{label} prompt completion returned {prompt_response}"
+        )
+    if prompt_result.get("resultType") != "complete" or "ttlMs" in prompt_result:
+        raise AssertionError(
+            f"{label} prompt completion missed modern non-cacheable metadata: "
+            f"{prompt_response}"
+        )
+
+    resource_response = _modern_call(
+        endpoint,
+        f"{label.lower()}-resource-completion",
+        "completion/complete",
+        {
+            "ref": {"type": "ref/resource", "uri": RESOURCE_TEMPLATE},
+            "argument": {"name": "itemId", "value": "package-"},
+        },
+        headers=authorization_headers,
+    )
+    if resource_response.get("result", {}).get("completion", {}).get(
+        "values"
+    ) != ["package-client"]:
+        raise AssertionError(
+            f"{label} resource-template completion returned {resource_response}"
+        )
 
 
 def _modern_tools_by_name(
@@ -1628,6 +1675,15 @@ def _run_protected_smoke(
         raise AssertionError(
             f"Protected modern discovery missed {MODERN_PROTOCOL}: {secure_discovery}"
         )
+    if "completions" not in secure_discovery.get("result", {}).get(
+        "capabilities", {}
+    ):
+        raise AssertionError("Protected modern discovery missed completions")
+    _expect_modern_completions(
+        secure_endpoint,
+        label="Protected",
+        authorization_headers=authorization_headers,
+    )
     _expect_modern_batch_rejected(
         secure_endpoint,
         label="Protected",
@@ -1727,6 +1783,9 @@ def run_smoke(
         discovery_result, dict
     ) or MODERN_PROTOCOL not in discovery_result.get("supportedVersions", []):
         raise AssertionError(f"Modern discovery missed {MODERN_PROTOCOL}: {discovery}")
+    if "completions" not in discovery_result.get("capabilities", {}):
+        raise AssertionError("Modern discovery missed completions")
+    _expect_modern_completions(endpoint, label="Public")
     _expect_modern_batch_rejected(endpoint, label="Public")
 
     tools_by_name = _modern_tools_by_name(endpoint, label="Public")
@@ -1813,7 +1872,8 @@ def run_smoke(
         "streamable_pubsub=true owner_preserved=true "
         "compatibility_session_preserved=true "
         "initialize_notification_sessionless=true "
-        "session_header_echoed=false public=true protected=true."
+        "session_header_echoed=false completions=true "
+        "public=true protected=true."
     )
 
 

@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
-    show McpResourceUriTemplate;
+    show McpCompletionHandler, McpResourceUriTemplate;
 
 import '../protocol/errors.dart';
 import '../protocol/icons.dart';
@@ -87,6 +87,7 @@ class McpResourceTemplate {
     required this.uriTemplate,
     required this.name,
     this.read,
+    this.complete,
     this.title,
     this.description,
     this.mimeType,
@@ -106,12 +107,16 @@ class McpResourceTemplate {
   final String uriTemplate;
   final String name;
   final McpResourceTemplateReader? read;
+  final McpCompletionHandler? complete;
   final String? title;
   final String? description;
   final String? mimeType;
   final McpResourceAnnotations? annotations;
   final List<McpIcon> icons;
   final McpResourceUriTemplate _uriTemplate;
+
+  /// Declared URI-template variables in protocol order.
+  List<String> get variables => _uriTemplate.variables;
 
   /// Expands decoded values into a concrete URI for this template.
   String expandUri(Map<String, String> variables) =>
@@ -263,6 +268,8 @@ class McpResourceRegistry {
   int _revision = 0;
 
   bool get isNotEmpty => _resources.isNotEmpty || _templates.isNotEmpty;
+  bool get hasCompletions =>
+      _templates.values.any((template) => template.complete != null);
 
   void register(McpResource resource) {
     if (_resources.containsKey(resource.uri)) {
@@ -440,6 +447,9 @@ class McpResourceRegistry {
     }
     return reader(request, match.variables);
   }
+
+  /// Returns the template advertised with the exact [uriTemplate].
+  McpResourceTemplate? template(String uriTemplate) => _templates[uriTemplate];
 
   McpResource? operator [](String uri) => _resources[uri];
 }

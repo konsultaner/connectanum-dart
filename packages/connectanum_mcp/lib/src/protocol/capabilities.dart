@@ -35,11 +35,13 @@ class McpServerCapabilities {
     this.tools = const McpToolCapabilities(),
     this.prompts,
     this.resources,
+    this.completions,
   });
 
   final McpToolCapabilities? tools;
   final McpPromptCapabilities? prompts;
   final McpResourceCapabilities? resources;
+  final McpCompletionCapabilities? completions;
 
   Map<String, Object?> toJson() {
     final json = <String, Object?>{};
@@ -55,8 +57,19 @@ class McpServerCapabilities {
     if (resources != null) {
       json['resources'] = resources.toJson();
     }
+    final completions = this.completions;
+    if (completions != null) {
+      json['completions'] = completions.toJson();
+    }
     return json;
   }
+}
+
+/// Advertises support for `completion/complete`.
+class McpCompletionCapabilities {
+  const McpCompletionCapabilities();
+
+  Map<String, Object?> toJson() => <String, Object?>{};
 }
 
 class McpToolCapabilities {

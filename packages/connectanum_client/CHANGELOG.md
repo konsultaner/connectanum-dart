@@ -5,6 +5,8 @@
   payload E2EE profile, and native/Dart transport parity.
 - Add typed Streamable HTTP and direct JSON helpers for router-hosted MCP,
   authentication, tool/meta APIs, resources, prompts, and pub/sub.
+- Add typed Streamable HTTP and lifecycle-free direct JSON helpers for MCP
+  prompt and resource-template argument completion.
 - Let typed Streamable HTTP and direct JSON WAMP API-list helpers send validated
   opaque cursors and reject malformed continuation cursors.
 - Re-export the shared MCP resource-URI-template utility so client-only

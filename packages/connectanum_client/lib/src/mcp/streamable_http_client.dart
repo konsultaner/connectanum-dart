@@ -4,7 +4,10 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart'
-    show containsMcpWhitespaceOrControl;
+    show
+        McpCompletionRequest,
+        McpCompletionResult,
+        containsMcpWhitespaceOrControl;
 
 import 'authorization_discovery.dart';
 import 'http_auth_client.dart';
@@ -3221,6 +3224,45 @@ final class McpStreamableHttpClient {
       name,
       id: id,
       arguments: arguments,
+      directJson: true,
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
+  }
+
+  /// Requests typed suggestions for a prompt or resource-template argument.
+  Future<McpCompletionResult> complete(
+    McpCompletionRequest completionRequest, {
+    Object? id,
+    bool streamable = true,
+    bool directJson = false,
+    String? protocolVersion,
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    final response = await request(
+      'completion/complete',
+      id: id,
+      params: completionRequest.toJson(),
+      streamable: directJson ? false : streamable,
+      includeSession: !directJson,
+      protocolVersion: protocolVersion,
+      headers: headers,
+    );
+    return McpCompletionResult.fromJson(
+      _jsonRpcResultFrom(response, method: 'completion/complete'),
+    );
+  }
+
+  /// Requests completion without reading or mutating Streamable session state.
+  Future<McpCompletionResult> completeDirect(
+    McpCompletionRequest completionRequest, {
+    Object? id,
+    String? protocolVersion,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return complete(
+      completionRequest,
+      id: id,
       directJson: true,
       protocolVersion: protocolVersion,
       headers: headers,

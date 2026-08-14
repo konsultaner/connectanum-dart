@@ -1984,6 +1984,10 @@ Future<void> _smokeServerHandleMessage() async {
     jsonEncode(initializeResult['capabilities']).contains('subscribe'),
     'initialize did not advertise resource subscriptions',
   );
+  _expect(
+    jsonEncode(initializeResult['capabilities']).contains('completions'),
+    'initialize did not advertise completions',
+  );
 
   final initialized = await server.handleMessage({
     'jsonrpc': '2.0',
@@ -2040,11 +2044,20 @@ Future<void> _smokeServerHandleMessage() async {
           'arguments': {'text': 'ready'},
         },
       },
+      {
+        'jsonrpc': '2.0',
+        'id': 'completion',
+        'method': 'completion/complete',
+        'params': {
+          'ref': {'type': 'ref/prompt', 'name': _promptName},
+          'argument': {'name': 'text', 'value': 'con'},
+        },
+      },
       {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
     ]),
     label: 'server batch response',
   );
-  _expect(batch.length == 8, 'batch returned unexpected response count');
+  _expect(batch.length == 9, 'batch returned unexpected response count');
   _expect(jsonEncode(batch[0]).contains(_toolName), 'tools/list missed tool');
   _expect(jsonEncode(batch[1]).contains('ready'), 'tools/call missed echo');
   _expect(
@@ -2062,6 +2075,13 @@ Future<void> _smokeServerHandleMessage() async {
   _expect(
     jsonEncode(batch[7]).contains('Summarize consumer text: ready'),
     'prompts/get missed prompt content',
+  );
+  final completionResponse = batch
+      .whereType<Map<Object?, Object?>>()
+      .singleWhere((response) => response['id'] == 'completion');
+  _expect(
+    jsonEncode(completionResponse).contains('consumer context'),
+    'completion/complete missed prompt candidates',
   );
   _expect(
     _subscribedResourceUris.single == _resourceUri &&
@@ -2216,6 +2236,10 @@ McpServer _server() => McpServer(
       title: 'Consumer task',
       description: 'Template for consumer task context.',
       mimeType: 'application/json',
+      complete: (request) => McpCompletionResult(
+        values: ['consumer-task-100', 'consumer-task-101']
+            .where((value) => value.startsWith(request.argument.value)),
+      ),
     ),
   ],
   prompts: [
@@ -2230,6 +2254,10 @@ McpServer _server() => McpServer(
           required: true,
         ),
       ],
+      complete: (request) => McpCompletionResult(
+        values: ['consumer context', 'consumer task']
+            .where((value) => value.startsWith(request.argument.value)),
+      ),
       handler: (request) {
         final text = request.arguments['text'] ?? '';
         return McpPromptResult.text(
@@ -10107,6 +10135,9 @@ RouterSettings _consumerRouterSettings({
                     'description':
                         'Template for consumer task context resources.',
                     'mimeType': 'application/json',
+                    'completions': {
+                      'taskId': ['T-public-100', 'T-secure-100', 'X-900'],
+                    },
                   },
                   {
                     'uriTemplate': _pagedResourceTemplateUri,
@@ -10129,6 +10160,9 @@ RouterSettings _consumerRouterSettings({
                         'required': true,
                       },
                     ],
+                    'completions': {
+                      'taskId': ['T-public-100', 'T-secure-100', 'X-900'],
+                    },
                     'messages': [
                       {
                         'role': 'user',
@@ -10232,6 +10266,9 @@ RouterSettings _consumerRouterSettings({
                     'description':
                         'Template for consumer task context resources.',
                     'mime_type': 'application/json',
+                    'completions': {
+                      'taskId': ['T-public-100', 'T-secure-100', 'X-900'],
+                    },
                   },
                   {
                     'uri_template': _pagedResourceTemplateUri,
@@ -10254,6 +10291,9 @@ RouterSettings _consumerRouterSettings({
                         'required': true,
                       },
                     ],
+                    'completions': {
+                      'taskId': ['T-public-100', 'T-secure-100', 'X-900'],
+                    },
                     'messages': [
                       {
                         'role': 'user',
@@ -18633,6 +18673,7 @@ Future<void> _smokeDirectJson(
     label: label,
   );
   await _smokeResourcesAndPrompts(client, label: label, directJson: true);
+  await _smokeCompletions(client, label: label, directJson: true);
   await _smokeWampMetaDiscovery(
     client,
     serviceSession,
@@ -18754,6 +18795,54 @@ Future<void> _smokeDirectJson(
 
   if (client.sessionId != null || client.lastEventId != null) {
     throw StateError('Direct JSON MCP helpers captured Streamable state.');
+  }
+}
+
+Future<void> _smokeCompletions(
+  McpStreamableHttpClient client, {
+  required String label,
+  required bool directJson,
+}) async {
+  final promptRequest = McpCompletionRequest(
+    reference: McpPromptReference(name: _promptName),
+    argument: McpCompletionArgument(name: 'taskId', value: 'T-'),
+  );
+  final promptCompletion = directJson
+      ? await client.completeDirect(
+          promptRequest,
+          id: '$label-direct-prompt-completion',
+        )
+      : await client.complete(
+          promptRequest,
+          id: '$label-streamable-prompt-completion',
+        );
+  if (jsonEncode(promptCompletion.values) !=
+      '["T-public-100","T-secure-100"]') {
+    throw StateError(
+      '$label MCP prompt completion returned '
+      '${jsonEncode(promptCompletion.values)}.',
+    );
+  }
+
+  final resourceRequest = McpCompletionRequest(
+    reference: McpResourceTemplateReference(uri: _resourceTemplateUri),
+    argument: McpCompletionArgument(name: 'taskId', value: 'T-'),
+  );
+  final resourceCompletion = directJson
+      ? await client.completeDirect(
+          resourceRequest,
+          id: '$label-direct-resource-completion',
+        )
+      : await client.complete(
+          resourceRequest,
+          id: '$label-streamable-resource-completion',
+        );
+  if (jsonEncode(resourceCompletion.values) !=
+      '["T-public-100","T-secure-100"]') {
+    throw StateError(
+      '$label MCP resource-template completion returned '
+      '${jsonEncode(resourceCompletion.values)}.',
+    );
   }
 }
 
@@ -22509,6 +22598,7 @@ Future<void> _smokeStreamableMcp(
   await _smokeStreamableSingleError(client, label: label);
   await _smokeStreamableBatch(client, serviceSession, label: label);
   await _smokeResourcesAndPrompts(client, label: label);
+  await _smokeCompletions(client, label: label, directJson: false);
   await _smokeStreamableResourcePromptErrors(client, label: label);
   await _smokeWampMetaDiscovery(client, serviceSession, label: label);
 

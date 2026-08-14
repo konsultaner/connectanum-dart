@@ -21,6 +21,7 @@ The implementation intentionally keeps a narrow, stable subset:
 - `tools/list`, including optional cursor pagination for large tool catalogs
 - `tools/call`, including structured tool results
 - `prompts/list` and `prompts/get` for user-selected prompt templates
+- `completion/complete` for prompt arguments and resource-template variables
 - `resources/list`, `resources/read`, and `resources/templates/list` for
   read-only application context
 - icon metadata for implementations, tools, prompts, resources, and resource
@@ -35,8 +36,8 @@ The implementation intentionally keeps a narrow, stable subset:
 - bounded form-mode `elicitation/create` retries for tools that need
   non-sensitive consumer input
 
-The package itself does not ship prompt argument completions, sampling, or
-tasks yet. Network MCP endpoints are hosted by `connectanum_router` routes with
+The package does not ship sampling or tasks yet. Network MCP endpoints are
+hosted by `connectanum_router` routes with
 `type: mcp`; they support Streamable HTTP `POST`, optional SSE responses,
 `GET`/SSE polling, `DELETE` session teardown, and direct JSON-RPC tool/meta API
 calls for frontend clients that do not need the MCP `initialize` lifecycle.
@@ -321,6 +322,15 @@ final server = McpServer(
           required: true,
         ),
       ],
+      complete: (request) {
+        const taskIds = ['TASK-100', 'TASK-101', 'ARCHIVE-900'];
+        final prefix = request.argument.value.toLowerCase();
+        return McpCompletionResult(
+          values: taskIds.where(
+            (taskId) => taskId.toLowerCase().startsWith(prefix),
+          ),
+        );
+      },
       handler: (request) {
         final taskId = request.arguments['task_id']!;
         return McpPromptResult.text(
@@ -338,6 +348,25 @@ capability during `initialize`. `prompts/list` supports optional cursor
 pagination through `promptListPageSize`. `prompts/get` accepts string-valued
 arguments, validates required prompt arguments before calling the handler, and
 returns prompt messages with typed MCP content blocks.
+
+Prompt arguments and resource-template variables can opt into
+`completion/complete` with an `McpCompletionHandler`. The server advertises
+`completions` when at least one configured prompt or resource template has a
+handler. Completion results are limited to 100 values and can report `total`
+and `hasMore` when a larger candidate set exists.
+
+An IO consumer uses the same typed request for session-backed Streamable HTTP
+or lifecycle-free direct JSON:
+
+```dart
+final request = McpCompletionRequest(
+  reference: McpPromptReference(name: 'task.summary'),
+  argument: McpCompletionArgument(name: 'task_id', value: 'TASK-1'),
+  context: McpCompletionContext(arguments: {'project': 'active'}),
+);
+final sessionResult = await client.complete(request);
+final directResult = await client.completeDirect(request);
+```
 
 ## Stdio Example
 
@@ -637,6 +666,9 @@ options: {
       'mime_type': 'application/json',
       'read_procedure': 'app.context.read',
       'update_topic': 'app.events.context.updated',
+      'completions': {
+        'taskId': ['TASK-100', 'TASK-101', 'ARCHIVE-900'],
+      },
     },
   ],
   'resource_templates': [
@@ -653,6 +685,9 @@ options: {
       'arguments': [
         {'name': 'taskId', 'required': true},
       ],
+      'completions': {
+        'taskId': ['TASK-100', 'TASK-101', 'ARCHIVE-900'],
+      },
       'messages': [
         {'role': 'user', 'text': 'Summarize task {{taskId}}.'},
       ],
@@ -666,7 +701,14 @@ templates are served by `resources/templates/list`, and templates with a
 `read_procedure` also resolve concrete `resources/read` URIs. Prompts are
 served by `prompts/list` and `prompts/get`. Prompt text replaces
 `{{argumentName}}` placeholders with string arguments supplied by the MCP
-client. A `read_procedure` receives the concrete resource URI as its first
+client. A prompt or resource template can also declare explicit `completions`
+for its argument or URI-template variable names. The router filters those
+candidates by case-insensitive prefix, accepts at most 1000 configured values
+per argument, returns at most 100 values, and exposes them through standard
+Streamable HTTP, modern stateless requests, and direct
+JSON without creating a session. Completion access follows the same catalog
+refresh and route-principal authorization as the referenced prompt or readable
+resource template. A `read_procedure` receives the concrete resource URI as its first
 positional WAMP argument. Template reads additionally receive percent-decoded
 template variables as keyword arguments. Its final result is returned as
 `application/json` text with

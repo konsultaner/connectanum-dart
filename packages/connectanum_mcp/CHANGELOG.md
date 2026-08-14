@@ -5,6 +5,9 @@
 - Join the synchronized Connectanum 3.0 beta package graph.
 - Complete router-hosted MCP support for authenticated Streamable HTTP,
   direct JSON tools and Meta APIs, resources, prompts, and WAMP pub/sub.
+- Add typed prompt/resource-template `completion/complete` support with bounded
+  results, server capability advertisement, router-configured candidates, and
+  authorization-safe standard/direct/stateless dispatch.
 - Advertise procedure-specific named JSON parameters and lossless result
   schemas for all standard WAMP Meta API tools while retaining raw WAMP and
   legacy direct-JSON compatibility forms.

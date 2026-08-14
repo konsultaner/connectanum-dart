@@ -296,6 +296,9 @@ RouterSettings _buildSettings() {
         'mime_type': 'application/json',
         'read_procedure': _dynamicResourceReadProcedure,
         'update_topic': _dynamicResourceUpdateTopic,
+        'completions': {
+          'taskId': ['TASK-100', 'TASK-101', 'ARCHIVE-900'],
+        },
       },
     ],
     'prompts': [
@@ -310,6 +313,9 @@ RouterSettings _buildSettings() {
             'required': true,
           },
         ],
+        'completions': {
+          'taskId': ['TASK-100', 'TASK-101', 'ARCHIVE-900'],
+        },
         'messages': [
           {
             'role': 'user',

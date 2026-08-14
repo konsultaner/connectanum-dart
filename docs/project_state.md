@@ -25169,6 +25169,26 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-completion-readiness.md`. A stable MCP
+  `2026-07-28` schema audit found `completion/complete` is the remaining
+  non-deprecated core client request after the implemented discovery, tools,
+  resources, prompts, and subscription layers. This slice adds typed public
+  server/client contracts, truthful capability advertisement, router-
+  configured prompt/resource-template suggestions on standard and direct JSON
+  paths, and neutral installed-package evidence. Implementation and local
+  verification are complete: configured candidates are bounded to 1000 per
+  argument, responses are bounded to 100, standard/direct/modern and
+  authorization-filtered router paths pass focused regressions, the neutral
+  server/consumer and official-client Router Image smoke contracts pass, and
+  affected package analysis plus shell/JavaScript/Python checks are clean.
+  The pre-change `bin/test-fast` and final `bin/verify` gates exit zero. Full
+  verification covers 114 Rust core tests, all 52 FFI tests, 366 Dart core
+  tests, 115 MCP tests, the 283-case MCP/client suite, 97 benchmark tests with
+  all 37 live WAMP workloads, the 442-case router suite, 6 remote-auth tests,
+  13 native follow-ups, all consumer smokes, Chrome, and Dart2Wasm. Commit,
+  push, exact-head hosted workflows, and the strict deployment-chain audit
+  remain.
+- The most recently completed plan is
   `docs/exec-plans/2026-08-14-mcp-arbitrary-structured-content.md`. It closes
   the next stable MCP downstream-integration gap by accepting every JSON value
   in tool-result `structuredContent`, including explicit null while preserving
@@ -25181,9 +25201,18 @@ at the older `47bbf9c` commit.
   114 Rust core tests, all 52 FFI tests, 364 Dart core tests, 113 MCP tests,
   the 282-case client MCP suite, 97 benchmark tests including all 37 live WAMP
   workloads, the 442-case router suite, 6 remote-auth tests, 13 native
-  follow-ups, all consumer smokes, Chrome, and Dart2Wasm green. Commit/push and
-  exact-head hosted evidence remain.
-- The most recently completed implementation plan is
+  follow-ups, all consumer smokes, Chrome, and Dart2Wasm green. Commit
+  `f27eceb6` is published to both maintained `master` branches. Exact-head CI
+  `31808640915`, Dart Package Publish Dry Run `31808640909`, WAMP Profile
+  Benchmarks `31808640890`, and Router Image dry run `31808679325` all pass.
+  CI retains coverage artifact
+  `9222805375`; WAMP retains benchmark artifact `9222423757`; Router Image
+  retains preview artifact `9222215444` and Docker build records `9222362010`
+  and `9222361434`. The comprehensive strict deployment-chain audit exits zero
+  with exact-head CI/log, package, retained native-release, loaded-image MCP,
+  multi-architecture Router Image, WAMP, workflow, registry, and protected-
+  branch gates clean. No new RC tag is selected without release approval.
+- The previously completed implementation plan is
   `docs/exec-plans/2026-08-14-mcp-tool-result-metadata.md`. It closes the next
   MCP 2026 downstream-integration boundary by preserving result `_meta` across
   public tool results, lossless WAMP result details, Streamable HTTP client

@@ -1,7 +1,16 @@
 library;
 
 export 'package:connectanum_core/connectanum_core.dart'
-    show McpResourceUriTemplate;
+    show
+        McpCompletionArgument,
+        McpCompletionContext,
+        McpCompletionHandler,
+        McpCompletionReference,
+        McpCompletionRequest,
+        McpCompletionResult,
+        McpPromptReference,
+        McpResourceTemplateReference,
+        McpResourceUriTemplate;
 export 'src/protocol/capabilities.dart';
 export 'src/protocol/constants.dart';
 export 'src/protocol/errors.dart';

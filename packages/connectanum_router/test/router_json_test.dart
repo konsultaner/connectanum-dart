@@ -1279,11 +1279,44 @@ void main() {
           },
         ],
       }, 'MCP resourceTemplates[0].updateTopic must be a string');
+      _expectInvalidMcpOptions(
+        {
+          'resourceTemplates': [
+            {
+              'uriTemplate': 'app://task/{taskId}',
+              'completions': {'taskId': 'T-100'},
+            },
+          ],
+        },
+        'MCP resourceTemplates[0].completions.taskId must be a list of strings',
+      );
+      _expectInvalidMcpOptions(
+        {
+          'resourceTemplates': [
+            {
+              'uriTemplate': 'app://task/{taskId}',
+              'completions': {
+                'taskId': List<String>.filled(1001, 'T-100'),
+              },
+            },
+          ],
+        },
+        'MCP resourceTemplates[0].completions.taskId must contain at most 1000 candidates',
+      );
       _expectInvalidMcpOptions({
         'prompts': [
           {'name': 'summarize', 'text': 'Summarize', 'arguments': 'taskId'},
         ],
       }, 'MCP prompts[0].arguments must be a list of objects');
+      _expectInvalidMcpOptions({
+        'prompts': [
+          {
+            'name': 'summarize',
+            'text': 'Summarize',
+            'completions': ['T-100'],
+          },
+        ],
+      }, 'MCP prompts[0].completions must be an object');
       _expectInvalidMcpOptions({
         'prompts': [
           {'name': 'summarize', 'text': 7},

@@ -86,6 +86,10 @@ router:
                     mime_type: application/json
                     read_procedure: wamp.session.count
                     update_topic: image.smoke.events
+                    completions:
+                      itemId:
+                        - package-client
+                        - packaged-runtime
                 prompts:
                   - name: inspect-router-image
                     title: Inspect Router Image
@@ -94,6 +98,10 @@ router:
                       - name: subject
                         description: Subject to inspect.
                         required: true
+                    completions:
+                      subject:
+                        - package client
+                        - packaged runtime
                     messages:
                       - role: user
                         text: Inspect {{subject}} using router image context.
@@ -144,6 +152,10 @@ router:
                     mime_type: application/json
                     read_procedure: wamp.session.count
                     update_topic: image.smoke.events
+                    completions:
+                      itemId:
+                        - package-client
+                        - packaged-runtime
                 prompts:
                   - name: inspect-router-image
                     title: Inspect Router Image
@@ -152,6 +164,10 @@ router:
                       - name: subject
                         description: Subject to inspect.
                         required: true
+                    completions:
+                      subject:
+                        - package client
+                        - packaged runtime
                     messages:
                       - role: user
                         text: Inspect {{subject}} using router image context.
@@ -214,6 +230,10 @@ router:
                     mime_type: application/json
                     read_procedure: wamp.session.count
                     update_topic: image.smoke.events
+                    completions:
+                      itemId:
+                        - package-client
+                        - packaged-runtime
                 prompts:
                   - name: archive-router-image
                     title: Archive Router Image
@@ -228,6 +248,10 @@ router:
                       - name: subject
                         description: Subject to inspect.
                         required: true
+                    completions:
+                      subject:
+                        - package client
+                        - packaged runtime
                     messages:
                       - role: user
                         text: Inspect {{subject}} using router image context.

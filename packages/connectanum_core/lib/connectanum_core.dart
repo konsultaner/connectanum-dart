@@ -36,6 +36,7 @@ export 'src/message/uri_pattern.dart';
 export 'src/message/welcome.dart';
 export 'src/message/yield.dart';
 export 'src/message/e2ee_payload.dart';
+export 'src/mcp/completion.dart';
 export 'src/mcp/text_validation.dart';
 export 'src/mcp/resource_uri_template.dart';
 export 'src/serializer/abstract_serializer.dart';

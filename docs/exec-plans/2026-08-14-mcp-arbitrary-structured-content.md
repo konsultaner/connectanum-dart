@@ -1,6 +1,6 @@
 # Exec Plan: MCP Arbitrary Structured Content
 
-Status: implementation complete; local verification clean; commit and hosted evidence pending
+Status: complete; local and hosted deployment-chain evidence clean
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -89,6 +89,10 @@ preserving the distinction between an omitted field and a present null value.
   request-scoped SSE, and lifecycle-free direct JSON. The installed-package
   smoke exercises list and explicit-null results through `McpServer` using
   only the public package entrypoint.
+- 2026-08-14: Commit `f27eceb6` is published to both maintained `master`
+  branches. Exact-head CI `31808640915`, Dart Package Publish Dry Run
+  `31808640909`, WAMP Profile Benchmarks `31808640890`, and Router Image dry
+  run `31808679325` all pass. No RC tag is selected without release approval.
 
 ## Handoff
 
@@ -100,5 +104,12 @@ preserving the distinction between an omitted field and a present null value.
   52 FFI tests, 364 Dart core tests, 113 MCP tests, the 282-case client MCP
   suite, 97 benchmark tests including all 37 live WAMP workloads, the 442-case
   router suite, 6 remote-auth tests, 13 native follow-ups, all consumer smokes,
-  Chrome, and Dart2Wasm green. Commit/push and exact-head hosted evidence
-  remain.
+  Chrome, and Dart2Wasm green.
+- Exact-head CI retains coverage artifact `9222805375`; WAMP retains benchmark
+  artifact `9222423757`; Router Image retains preview artifact `9222215444`
+  and Docker build records `9222362010` and `9222361434`. The Router Image run
+  passes its loaded-image MCP runtime smoke and multi-architecture build while
+  avoiding GHCR login. The comprehensive strict deployment-chain audit exits
+  zero with clean exact-head CI logs and all required package, retained native-
+  release, Router Image, WAMP, workflow, registry, and protected-branch gates
+  clean.

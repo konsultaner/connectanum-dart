@@ -1228,6 +1228,35 @@ void main() {
         ),
       );
 
+      final directPromptCompletion = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'direct-prompt-completion',
+          'method': 'completion/complete',
+          'params': {
+            'ref': {'type': 'ref/prompt', 'name': 'summarize-task'},
+            'argument': {'name': 'taskId', 'value': 'T-1'},
+            'context': {
+              'arguments': {'project': 'alpha'},
+            },
+          },
+        },
+        headers: const {'Mcp-Method': 'completion/complete'},
+      );
+      expect(directPromptCompletion.statusCode, equals(HttpStatus.ok));
+      expect(
+        ((directPromptCompletion.json?['result'] as Map)['completion']
+            as Map)['values'],
+        <String>['T-100', 'T-101'],
+      );
+      expect(
+        directPromptCompletion.headers,
+        isNot(contains('mcp-session-id')),
+      );
+
       final directPrompt = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
         'id': 'direct-prompts-get',
@@ -1276,6 +1305,7 @@ void main() {
           initializeResult['capabilities'] as Map<String, Object?>;
       expect(capabilities['resources'], isA<Map<String, Object?>>());
       expect(capabilities['prompts'], isA<Map<String, Object?>>());
+      expect(capabilities['completions'], isA<Map<String, Object?>>());
 
       final initialized = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
@@ -1389,6 +1419,30 @@ void main() {
       final promptContent =
           promptMessages.single['content'] as Map<String, Object?>;
       expect(promptContent['text'], contains('T-100'));
+
+      final resourceCompletion = await _postJson(
+        client,
+        listener.port,
+        '/mcp',
+        {
+          'jsonrpc': '2.0',
+          'id': 'resource-completion',
+          'method': 'completion/complete',
+          'params': {
+            'ref': {
+              'type': 'ref/resource',
+              'uri': 'app://example/task/{taskId}',
+            },
+            'argument': {'name': 'taskId', 'value': 'T-2'},
+          },
+        },
+      );
+      expect(resourceCompletion.statusCode, equals(HttpStatus.ok));
+      expect(
+        ((resourceCompletion.json?['result'] as Map)['completion']
+            as Map)['values'],
+        <String>['T-200', 'T-201'],
+      );
 
       final tools = await _postJson(client, listener.port, '/mcp', {
         'jsonrpc': '2.0',
@@ -3412,6 +3466,41 @@ void main() {
           expect(rawModern.headers, isNot(contains('mcp-session-id')));
           modernCacheableResults[entry.key] = result;
         }
+        final rawModernCompletion = await _postJson(
+          rawClient,
+          listener.port,
+          '/mcp',
+          {
+            'jsonrpc': '2.0',
+            'id': 'raw-modern-completion',
+            'method': 'completion/complete',
+            'params': {
+              'ref': {'type': 'ref/prompt', 'name': 'summarize-task'},
+              'argument': {'name': 'taskId', 'value': 'T-10'},
+              '_meta': {
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+            },
+          },
+          headers: {
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2026-07-28',
+            'Mcp-Method': 'completion/complete',
+          },
+        );
+        expect(rawModernCompletion.statusCode, equals(HttpStatus.ok));
+        final modernCompletionResult =
+            (rawModernCompletion.json?['result'] as Map)
+                .cast<String, Object?>();
+        expect(modernCompletionResult['resultType'], equals('complete'));
+        expect(
+          (modernCompletionResult['completion'] as Map)['values'],
+          <String>['T-100', 'T-101'],
+        );
+        expect(modernCompletionResult, isNot(contains('ttlMs')));
+        expect(rawModernCompletion.headers, isNot(contains('mcp-session-id')));
         final rawModernResult = modernCacheableResults['tools/list']!;
         expect(
           (rawModernResult['_meta'] as Map),
@@ -6798,6 +6887,29 @@ void main() {
           ),
           isNot(contains('app://mcp/task/{taskId}')),
         );
+        final deniedDirectCompletionRequests = provider.matchingRequestCount;
+        await expectLater(
+          directClient.completeDirect(
+            McpCompletionRequest(
+              reference: McpResourceTemplateReference(
+                uri: 'app://mcp/task/{taskId}',
+              ),
+              argument: McpCompletionArgument(name: 'taskId', value: 'T-'),
+            ),
+            id: 'resource-template-authorization-direct-denied-completion',
+          ),
+          throwsA(
+            isA<McpJsonRpcException>().having(
+              (error) => error.error['code'],
+              'code',
+              McpErrorCodes.invalidParams,
+            ),
+          ),
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(deniedDirectCompletionRequests + 1),
+        );
 
         final deniedDirectReadRequests = provider.matchingRequestCount;
         await expectLater(
@@ -6898,6 +7010,21 @@ void main() {
           ),
           contains('app://mcp/task/{taskId}'),
         );
+        final allowedDirectCompletionRequests = provider.matchingRequestCount;
+        final allowedDirectCompletion = await directClient.completeDirect(
+          McpCompletionRequest(
+            reference: McpResourceTemplateReference(
+              uri: 'app://mcp/task/{taskId}',
+            ),
+            argument: McpCompletionArgument(name: 'taskId', value: 'T-1'),
+          ),
+          id: 'resource-template-authorization-direct-allowed-completion',
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(allowedDirectCompletionRequests + 1),
+        );
+        expect(allowedDirectCompletion.values, <String>['T-100', 'T-101']);
         expect(await listChanged, isTrue);
         expect(
           modernNotifications.current['method'],
@@ -6995,6 +7122,30 @@ void main() {
           ),
           isNot(contains('app://mcp/task/{taskId}')),
         );
+        final deniedStreamableCompletionRequests =
+            provider.matchingRequestCount;
+        await expectLater(
+          streamableClient.complete(
+            McpCompletionRequest(
+              reference: McpResourceTemplateReference(
+                uri: 'app://mcp/task/{taskId}',
+              ),
+              argument: McpCompletionArgument(name: 'taskId', value: 'T-'),
+            ),
+            id: 'resource-template-authorization-streamable-denied-completion',
+          ),
+          throwsA(
+            isA<McpJsonRpcException>().having(
+              (error) => error.error['code'],
+              'code',
+              McpErrorCodes.invalidParams,
+            ),
+          ),
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(deniedStreamableCompletionRequests + 1),
+        );
         await expectLater(
           streamableClient.subscribeResource(
             'app://mcp/live-context',
@@ -7047,6 +7198,22 @@ void main() {
           ),
           contains('app://mcp/task/{taskId}'),
         );
+        final allowedStreamableCompletionRequests =
+            provider.matchingRequestCount;
+        final allowedStreamableCompletion = await streamableClient.complete(
+          McpCompletionRequest(
+            reference: McpResourceTemplateReference(
+              uri: 'app://mcp/task/{taskId}',
+            ),
+            argument: McpCompletionArgument(name: 'taskId', value: 'T-2'),
+          ),
+          id: 'resource-template-authorization-streamable-allowed-completion',
+        );
+        expect(
+          provider.matchingRequestCount,
+          equals(allowedStreamableCompletionRequests + 1),
+        );
+        expect(allowedStreamableCompletion.values, <String>['T-200']);
         expect(streamableClient.sessionId, equals(sessionId));
         expect(streamableClient.lastEventId, startsWith('$sessionId:'));
         expect(
@@ -16715,6 +16882,9 @@ RouterSettings _buildRouterSettings({
                   'Template for task resources exposed by the router.',
               'mime_type': 'application/json',
               'read_procedure': 'app.example.task.read',
+              'completions': {
+                'taskId': ['T-200', 'T-201', 'X-900'],
+              },
             },
           ],
           'prompts': [
@@ -16729,6 +16899,9 @@ RouterSettings _buildRouterSettings({
                   'required': true,
                 },
               ],
+              'completions': {
+                'taskId': ['T-100', 'T-101', 'X-900'],
+              },
               'messages': [
                 {
                   'role': 'user',
@@ -17307,6 +17480,9 @@ RouterSettings _buildMcpSmokeSettings({
         'mime_type': 'application/json',
         'read_procedure': 'app.safe.resource.read',
         'update_topic': 'app.events.resource.context',
+        'completions': {
+          'taskId': ['T-100', 'T-101', 'T-200', 'X-900'],
+        },
       },
     ],
     'prompts': [

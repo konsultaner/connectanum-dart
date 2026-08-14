@@ -417,6 +417,11 @@
   - [x] Add configured router-hosted MCP resources, resource templates, and
     prompts so a router route can advertise read-only context and prompt
     templates without starting a separate MCP server.
+  - [x] Add typed `completion/complete` for prompt arguments and
+    resource-template variables, including bounded public server/client
+    models, router-configured candidates, authorization-safe catalog refresh,
+    direct JSON and Streamable HTTP access, and official-client Router Image
+    evidence.
   - [x] Make configured resource templates readable through standard MCP and
     direct JSON APIs with bounded Level 1 URI matching, exact-resource
     precedence, decoded variables, and authorization-filtered WAMP procedure

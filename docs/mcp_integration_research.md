@@ -15,6 +15,8 @@ Driving use case: downstream application integrations
   https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning
 - MCP 2026 TypeScript schema, including `CallToolResult`:
   https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2026-07-28/schema.ts
+- MCP argument completion:
+  https://modelcontextprotocol.io/specification/2026-07-28/server/utilities/completion
 - MCP Tasks extension overview:
   https://modelcontextprotocol.io/extensions/tasks/overview
 - Legacy MCP lifecycle retained for compatibility:
@@ -83,8 +85,8 @@ Driving use case: downstream application integrations
   but the override does not replace the session's negotiated version.
 - Servers advertise capabilities through `server/discover` in the modern era
   and during `initialize` in the legacy era. The relevant server surfaces for
-  Connectanum are `tools`, `resources`, `prompts`, `logging`, and eventually
-  tasks or completions.
+  Connectanum are `tools`, `resources`, `prompts`, and `completions`. Tasks
+  remain an opt-in extension; logging is deprecated in the stable 2026 core.
 - The standard transports remain `stdio` and Streamable HTTP. The older
   HTTP+SSE transport remains a compatibility concern for older clients, but it
   is not a primary new design target.
@@ -111,8 +113,10 @@ Driving use case: downstream application integrations
 - `prompts/list` and `prompts/get` expose user-selectable prompt templates.
   `prompts/list` supports cursor pagination, `prompts/get` accepts
   string-valued arguments, and prompt messages use `user` or `assistant` roles
-  with typed MCP content blocks. Prompt list-change notifications and argument
-  completion are optional.
+  with typed MCP content blocks. `completion/complete` can target either a
+  prompt argument (`ref/prompt`) or a resource-template variable
+  (`ref/resource`); returned values are bounded to 100 and can report `total`
+  plus `hasMore`. Prompt list-change notifications remain optional.
 - MCP `icons` metadata can be attached to server/client implementations, tools,
   prompts, resources, and resource templates. Icon entries carry a required
   source URI plus optional MIME type, size strings, and a light/dark theme hint.
@@ -280,14 +284,20 @@ Driving use case: downstream application integrations
     `prompts/get`, required string-argument validation, prompt messages using
     existing typed content blocks, and stdio example coverage. The
     router-hosted endpoint now serves explicitly configured static prompt
-    templates from route options. Prompt list-change notifications,
-    completions, sampling, tasks, and automatic prompt projection remain future
-    slices.
+    templates from route options. Prompt list-change notifications, sampling,
+    tasks, and automatic prompt projection remain future slices.
 13. Add package-local icon metadata after tools/resources/prompts are stable.
    Done for transport-independent `icons` serialization on `McpServerInfo`,
    tools, prompts, resources, and resource templates; icon fetching/rendering,
-   WAMP catalog metadata projection, tasks, sampling, and completions remain
-   future slices.
+   WAMP catalog metadata projection, tasks, and sampling remain future slices.
+14. Add package-local completion after prompts and resource templates are
+    stable. Done for typed prompt/resource references, arguments, context,
+    bounded results, server capability/dispatch, standard and direct HTTP
+    client helpers, and router-configured static candidate sets. Router
+    completions reuse authorization-filtered catalog visibility and are
+    covered by neutral installed-package plus pinned official-client Router
+    Image smokes. Dynamic ranking and application-data projection remain
+    consumer-owned.
 
 ## Open Decisions for Application Integrations
 

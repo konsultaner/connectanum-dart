@@ -1,7 +1,12 @@
 import 'dart:async';
 
 import 'package:connectanum_core/connectanum_core.dart'
-    show containsMcpWhitespaceOrControl;
+    show
+        McpCompletionRequest,
+        McpCompletionResult,
+        McpPromptReference,
+        McpResourceTemplateReference,
+        containsMcpWhitespaceOrControl;
 
 import '../protocol/capabilities.dart';
 import '../protocol/constants.dart';
@@ -117,6 +122,13 @@ class McpServer {
                          onUnsubscribeResource != null,
                    )
                  : null,
+             completions:
+                 prompts.any((prompt) => prompt.complete != null) ||
+                     resourceTemplates.any(
+                       (template) => template.complete != null,
+                     )
+                 ? const McpCompletionCapabilities()
+                 : null,
            ) {
     final hasSubscribeHandler = onSubscribeResource != null;
     final hasUnsubscribeHandler = onUnsubscribeResource != null;
@@ -128,6 +140,20 @@ class McpServer {
     if (capabilities?.resources?.subscribe == true && !hasSubscribeHandler) {
       throw ArgumentError(
         'MCP resource subscribe capability requires subscribe and unsubscribe handlers',
+      );
+    }
+    final hasCompletionHandler =
+        this.prompts.hasCompletions || this.resources.hasCompletions;
+    if (capabilities?.completions != null && !hasCompletionHandler) {
+      throw ArgumentError(
+        'MCP completion capability requires at least one completion handler',
+      );
+    }
+    if (capabilities != null &&
+        capabilities.completions == null &&
+        hasCompletionHandler) {
+      throw ArgumentError(
+        'MCP completion handlers require the completion capability',
       );
     }
   }
@@ -250,6 +276,9 @@ class McpServer {
       case 'prompts/get':
         _requireInitialized(method);
         return _getPrompt(params);
+      case 'completion/complete':
+        _requireInitialized(method);
+        return _complete(params);
       case 'resources/list':
         _requireInitialized(method);
         return _listResources(params);
@@ -370,6 +399,65 @@ class McpServer {
       McpPromptRequest(name: name, arguments: arguments),
     );
     return result.toJson();
+  }
+
+  Future<JsonMap> _complete(JsonMap params) async {
+    final McpCompletionRequest request;
+    try {
+      request = McpCompletionRequest.fromJson(params);
+    } on FormatException catch (error) {
+      throw McpException(McpErrorCodes.invalidParams, error.message);
+    } on ArgumentError catch (error) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        error.message?.toString() ?? 'Invalid MCP completion request',
+      );
+    }
+    return (await complete(request)).toJson();
+  }
+
+  /// Resolves a typed completion request against the registered definition.
+  Future<McpCompletionResult> complete(McpCompletionRequest request) async {
+    final reference = request.reference;
+    final argumentName = request.argument.name;
+    if (reference is McpPromptReference) {
+      final prompt = prompts[reference.name];
+      final handler = prompt?.complete;
+      if (prompt == null || handler == null) {
+        throw McpException(
+          McpErrorCodes.invalidParams,
+          'Unknown MCP completion prompt: ${reference.name}',
+        );
+      }
+      if (!prompt.arguments.any((argument) => argument.name == argumentName)) {
+        throw McpException(
+          McpErrorCodes.invalidParams,
+          'Unknown MCP prompt completion argument: $argumentName',
+        );
+      }
+      return handler(request);
+    }
+    if (reference is McpResourceTemplateReference) {
+      final template = resources.template(reference.uri);
+      final handler = template?.complete;
+      if (template == null || handler == null) {
+        throw McpException(
+          McpErrorCodes.invalidParams,
+          'Unknown MCP completion resource template: ${reference.uri}',
+        );
+      }
+      if (!template.variables.contains(argumentName)) {
+        throw McpException(
+          McpErrorCodes.invalidParams,
+          'Unknown MCP resource-template completion argument: $argumentName',
+        );
+      }
+      return handler(request);
+    }
+    throw McpException(
+      McpErrorCodes.invalidParams,
+      'Unsupported MCP completion reference',
+    );
   }
 
   JsonMap _listResources(JsonMap params) {

@@ -1,7 +1,16 @@
 library;
 
 export 'package:connectanum_core/connectanum_core.dart'
-    show McpResourceUriTemplate;
+    show
+        McpCompletionArgument,
+        McpCompletionContext,
+        McpCompletionHandler,
+        McpCompletionReference,
+        McpCompletionRequest,
+        McpCompletionResult,
+        McpPromptReference,
+        McpResourceTemplateReference,
+        McpResourceUriTemplate;
 export 'src/mcp/authorization_discovery.dart';
 export 'src/mcp/http_auth_client.dart';
 export 'src/mcp/oauth_authorization.dart';

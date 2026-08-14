@@ -294,6 +294,17 @@ async function runClient(endpoint, label, options, transportOptions) {
       name: 'inspect-router-image',
       arguments: { subject: promptSubject },
     });
+    const promptCompletion = await client.complete({
+      ref: { type: 'ref/prompt', name: 'inspect-router-image' },
+      argument: { name: 'subject', value: 'packaged' },
+    });
+    const resourceCompletion = await client.complete({
+      ref: {
+        type: 'ref/resource',
+        uri: 'connectanum://router-image/item/{itemId}',
+      },
+      argument: { name: 'itemId', value: 'package-' },
+    });
     const call = await client.callTool({
       name: 'wamp.session.count',
       arguments: {},
@@ -354,6 +365,16 @@ async function runClient(endpoint, label, options, transportOptions) {
       ),
       `${label} prompt did not render its subject argument`,
     );
+    requireCondition(
+      JSON.stringify(promptCompletion.completion.values) ===
+        '["packaged runtime"]',
+      `${label} client did not complete the packaged prompt argument`,
+    );
+    requireCondition(
+      JSON.stringify(resourceCompletion.completion.values) ===
+        '["package-client"]',
+      `${label} client did not complete the resource-template argument`,
+    );
     requireCondition(call.isError !== true, `${label} tool call returned an error`);
     requireCondition(
       pubSubToolNames.every((name) =>
@@ -383,6 +404,8 @@ async function runClient(endpoint, label, options, transportOptions) {
       ...resourceTemplateSubscription,
       instructionsReceived: true,
       promptRendered: true,
+      promptCompletion: true,
+      resourceTemplateCompletion: true,
       toolCallSucceeded: true,
       ...namedWampMeta,
       ...pubSub,

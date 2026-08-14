@@ -4824,6 +4824,7 @@ class _RouterMcpEndpoint {
         method == 'resources/templates/list' ||
         method == 'prompts/list' ||
         method == 'prompts/get' ||
+        method == 'completion/complete' ||
         (method.contains('.') && server.tools[method] != null);
   }
 
@@ -4857,6 +4858,8 @@ class _RouterMcpEndpoint {
         return _listDirectJsonPrompts(params);
       case 'prompts/get':
         return _getDirectJsonPrompt(params);
+      case 'completion/complete':
+        return _completeDirectJson(params);
       default:
         final tool = server.tools[method];
         if (tool != null && method.contains('.')) {
@@ -4998,6 +5001,23 @@ class _RouterMcpEndpoint {
       mcp.McpPromptRequest(name: name, arguments: arguments),
     );
     return result.toJson();
+  }
+
+  Future<mcp.JsonMap> _completeDirectJson(mcp.JsonMap params) async {
+    try {
+      final request = mcp.McpCompletionRequest.fromJson(params);
+      return (await server.complete(request)).toJson();
+    } on FormatException catch (error) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        error.message,
+      );
+    } on ArgumentError catch (error) {
+      throw mcp.McpException(
+        mcp.McpErrorCodes.invalidParams,
+        (error.message ?? error).toString(),
+      );
+    }
   }
 
   Map<String, String> _directJsonPromptArgumentsFrom(Object? value) {
@@ -6394,6 +6414,7 @@ void _validateMcpResourceRouteOptionShapes(Map<String, Object?> options) {
       ]) {
         _validateMcpStringConfigOption(config, label, key);
       }
+      _validateMcpCompletionConfigOption(config, label);
     }
   }
 }
@@ -6419,6 +6440,7 @@ void _validateMcpPromptRouteOptionShapes(Map<String, Object?> options) {
     }
     _validateMcpNestedObjectListConfigOption(config, label, 'arguments');
     _validateMcpNestedObjectListConfigOption(config, label, 'messages');
+    _validateMcpCompletionConfigOption(config, label);
 
     final arguments = config['arguments'];
     if (arguments is List) {
@@ -6547,6 +6569,81 @@ void _validateMcpStringListConfigOption(
       throw FormatException('MCP $label.$key[$i] must be a string');
     }
   }
+}
+
+const _maxMcpConfiguredCompletionCandidates = 1000;
+
+void _validateMcpCompletionConfigOption(
+  Map<String, Object?> config,
+  String label,
+) {
+  final value = config['completions'];
+  if (value == null) {
+    return;
+  }
+  if (value is! Map) {
+    throw FormatException('MCP $label.completions must be an object');
+  }
+  for (final entry in value.entries) {
+    final key = entry.key;
+    if (key is! String || key.isEmpty || containsMcpWhitespaceOrControl(key)) {
+      throw FormatException(
+        'MCP $label.completions keys must be non-empty strings without '
+        'whitespace or control characters',
+      );
+    }
+    final candidates = entry.value;
+    if (candidates is! List ||
+        candidates.any((candidate) => candidate is! String)) {
+      throw FormatException(
+        'MCP $label.completions.$key must be a list of strings',
+      );
+    }
+    if (candidates.length > _maxMcpConfiguredCompletionCandidates) {
+      throw FormatException(
+        'MCP $label.completions.$key must contain at most '
+        '$_maxMcpConfiguredCompletionCandidates candidates',
+      );
+    }
+  }
+}
+
+Map<String, List<String>> _mcpCompletionCandidatesFromConfig(
+  Map<String, Object?> config,
+) {
+  final value = config['completions'];
+  if (value is! Map) {
+    return const <String, List<String>>{};
+  }
+  return <String, List<String>>{
+    for (final entry in value.entries)
+      entry.key! as String: List<String>.unmodifiable(
+        (entry.value! as List).cast<String>(),
+      ),
+  };
+}
+
+mcp.McpCompletionHandler? _mcpCompletionHandlerFromConfig(
+  Map<String, Object?> config,
+) {
+  final candidates = _mcpCompletionCandidatesFromConfig(config);
+  if (candidates.isEmpty) {
+    return null;
+  }
+  return (request) {
+    final available = candidates[request.argument.name] ?? const <String>[];
+    final prefix = request.argument.value.toLowerCase();
+    final matches = [
+      for (final candidate in available)
+        if (candidate.toLowerCase().startsWith(prefix)) candidate,
+    ];
+    final values = matches.take(100).toList(growable: false);
+    return mcp.McpCompletionResult(
+      values: values,
+      total: matches.length,
+      hasMore: matches.length > values.length,
+    );
+  };
 }
 
 void _validateMcpMetadataAnnotationsConfigOption(
@@ -6833,6 +6930,23 @@ bool _hasConfiguredResourceSubscriptions(Map<String, Object?> options) {
   return false;
 }
 
+bool _hasConfiguredCompletions(Map<String, Object?> options) {
+  for (final entries in <Object?>[
+    options['prompts'],
+    options['resource_templates'] ?? options['resourceTemplates'],
+  ]) {
+    if (entries is List &&
+        entries.whereType<Map>().any(
+          (entry) => _mcpCompletionCandidatesFromConfig(
+            entry.cast<String, Object?>(),
+          ).isNotEmpty,
+        )) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool _hasConfiguredDynamicResources(Map<String, Object?> options) {
   final entries = options['resources'];
   if (entries is! List) {
@@ -6861,6 +6975,9 @@ mcp.McpServerCapabilities _mcpServerCapabilitiesForOptions(
             subscribe: _hasConfiguredResourceSubscriptions(options),
             listChanged: _hasConfiguredDynamicResources(options),
           )
+        : null,
+    completions: _hasConfiguredCompletions(options)
+        ? const mcp.McpCompletionCapabilities()
         : null,
   );
 }
@@ -7026,6 +7143,17 @@ mcp.McpResourceTemplate _resourceTemplateFromConfig(
       'read_procedure',
     );
   }
+  final variables = mcp.McpResourceUriTemplate(uriTemplate).variables;
+  final completionCandidates = _mcpCompletionCandidatesFromConfig(config);
+  final unknownCompletionArguments = completionCandidates.keys
+      .where((argument) => !variables.contains(argument))
+      .toList(growable: false);
+  if (unknownCompletionArguments.isNotEmpty) {
+    throw FormatException(
+      'MCP resource template config for $uriTemplate has completions for '
+      'undeclared variables: ${unknownCompletionArguments.join(', ')}',
+    );
+  }
   return mcp.McpResourceTemplate(
     uriTemplate: uriTemplate,
     name: name,
@@ -7033,6 +7161,7 @@ mcp.McpResourceTemplate _resourceTemplateFromConfig(
     description: _stringFrom(config['description']),
     mimeType:
         _stringFrom(config['mime_type']) ?? _stringFrom(config['mimeType']),
+    complete: _mcpCompletionHandlerFromConfig(config),
     read: readProcedure == null
         ? null
         : (request, variables) {
@@ -7058,11 +7187,24 @@ mcp.McpPrompt _promptFromConfig(Map<String, Object?> config) {
       'MCP prompt config for $name requires messages, text, or content',
     );
   }
+  final arguments = _configuredPromptArguments(config);
+  final argumentNames = {for (final argument in arguments) argument.name};
+  final completionCandidates = _mcpCompletionCandidatesFromConfig(config);
+  final unknownCompletionArguments = completionCandidates.keys
+      .where((argument) => !argumentNames.contains(argument))
+      .toList(growable: false);
+  if (unknownCompletionArguments.isNotEmpty) {
+    throw FormatException(
+      'MCP prompt config for $name has completions for undeclared arguments: '
+      '${unknownCompletionArguments.join(', ')}',
+    );
+  }
   return mcp.McpPrompt(
     name: name,
     title: _stringFrom(config['title']),
     description: _stringFrom(config['description']),
-    arguments: _configuredPromptArguments(config),
+    arguments: arguments,
+    complete: _mcpCompletionHandlerFromConfig(config),
     handler: (request) async {
       if (messages.isNotEmpty) {
         return mcp.McpPromptResult(

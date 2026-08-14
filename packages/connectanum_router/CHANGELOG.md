@@ -7,6 +7,9 @@
   statistics Meta APIs, lifecycle events, and router-opaque payload E2EE.
 - Add production router-hosted MCP endpoints, direct JSON access, auth/session
   isolation, pub/sub, Streamable HTTP compatibility, and operational metrics.
+- Let route-configured prompts and resource templates expose bounded completion
+  candidates over standard, direct JSON, and modern stateless MCP while
+  preserving authorization-filtered resource-template visibility.
 - Expose agent-friendly named JSON parameters and accurate result schemas for
   all router-hosted standard WAMP Meta API tools without changing authorization
   visibility or existing raw-call compatibility, and keep those canonical
