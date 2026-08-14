@@ -411,6 +411,9 @@
     complete and `input_required` client validation, lossless WAMP result
     details, and modern router-hosted responses with authoritative server
     identity.
+  - [x] Accept arbitrary JSON tool-result `structuredContent` across the public
+    server API and standard/direct Streamable HTTP clients, including arrays,
+    scalars, and explicit null with omission preserved separately.
   - [x] Add configured router-hosted MCP resources, resource templates, and
     prompts so a router route can advertise read-only context and prompt
     templates without starting a separate MCP server.

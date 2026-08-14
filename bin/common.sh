@@ -1937,6 +1937,7 @@ import 'dart:convert';
 import 'package:connectanum_mcp/connectanum_mcp.dart';
 
 const _toolName = 'consumer.echo';
+const _structuredToolName = 'consumer.structured';
 const _resourceUri = 'consumer://mcp/context';
 const _resourceTemplateUri = 'consumer://mcp/task/{taskId}';
 const _promptName = 'consumer.summary';
@@ -2068,6 +2069,46 @@ Future<void> _smokeServerHandleMessage() async {
     'resource subscription handlers missed the configured URI',
   );
 
+  final listResult = _jsonObjectFrom(
+    (_jsonObjectFrom(
+      await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'structured-list',
+        'method': 'tools/call',
+        'params': {
+          'name': _structuredToolName,
+          'arguments': {'shape': 'list'},
+        },
+      }),
+      label: 'structured list response',
+    ))['result'],
+    label: 'structured list result',
+  );
+  _expect(
+    jsonEncode(listResult['structuredContent']) == '["item",7]',
+    'tools/call missed list structured content',
+  );
+  final nullResult = _jsonObjectFrom(
+    (_jsonObjectFrom(
+      await server.handleMessage({
+        'jsonrpc': '2.0',
+        'id': 'structured-null',
+        'method': 'tools/call',
+        'params': {
+          'name': _structuredToolName,
+          'arguments': {'shape': 'null'},
+        },
+      }),
+      label: 'structured null response',
+    ))['result'],
+    label: 'structured null result',
+  );
+  _expect(
+    nullResult.containsKey('structuredContent') &&
+        nullResult['structuredContent'] == null,
+    'tools/call missed explicit null structured content',
+  );
+
   server.shutdown();
   _expect(server.state == McpServerState.closed, 'server did not close');
 }
@@ -2132,6 +2173,18 @@ McpServer _server() => McpServer(
           structuredContent: {'echo': text},
         );
       },
+    ),
+    McpTool(
+      name: _structuredToolName,
+      description: 'Returns structured content in the requested JSON shape.',
+      handler: (request) => McpToolResult.text(
+        'structured',
+        structuredContent: switch (request.arguments['shape']) {
+          'list' => <Object?>['item', 7],
+          'null' => null,
+          _ => <String, Object?>{'ok': true},
+        },
+      ),
     ),
   ],
   resources: [

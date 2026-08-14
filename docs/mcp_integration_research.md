@@ -1,6 +1,6 @@
 # MCP Integration Research
 
-Last checked: 2026-08-04
+Last checked: 2026-08-14
 Driving use case: downstream application integrations
 
 ## Sources
@@ -13,6 +13,10 @@ Driving use case: downstream application integrations
   https://modelcontextprotocol.io/specification/2026-07-28/server/discover
 - MCP 2026 versioning and compatibility:
   https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning
+- MCP 2026 TypeScript schema, including `CallToolResult`:
+  https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2026-07-28/schema.ts
+- MCP Tasks extension overview:
+  https://modelcontextprotocol.io/extensions/tasks/overview
 - Legacy MCP lifecycle retained for compatibility:
   https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle
 - Legacy Streamable HTTP transport retained for compatibility:
@@ -87,6 +91,11 @@ Driving use case: downstream application integrations
 - `tools/list` discovers tools and `tools/call` invokes them. Tool definitions
   carry JSON Schema input metadata, and tool results can include text, media,
   resource links, embedded resources, and structured JSON content.
+- In the 2026 schema, `CallToolResult.structuredContent` may contain any JSON
+  value, including an explicit null. Field presence therefore cannot be
+  inferred from a nullable value alone. A tool's `outputSchema` defines its
+  application-specific contract; a generic transport must not impose an
+  object-only result shape.
 - `tools/list` supports cursor pagination. The server chooses page size,
   clients treat returned cursors as opaque tokens, and invalid cursors should
   fail with `invalidParams`.
@@ -261,8 +270,11 @@ Driving use case: downstream application integrations
    text annotations, image, audio, resource links, and embedded resources.
    Optional result `_meta` is also implemented for ordinary, error, and
    `input_required` results, with lossless WAMP detail projection, typed client
-   validation, and router-authoritative modern server identity. Tasks and
-   router-hosted resource projection remain future slices.
+   validation, and router-authoritative modern server identity. Arbitrary JSON
+   `structuredContent`, including explicit null with separate field-presence
+   semantics, is implemented across the public result API, installed-package
+   smoke, and standard/direct Streamable HTTP client paths. Tasks remain a
+   demand-driven opt-in extension.
 12. Add package-local prompt support after resources/tool result content blocks
     are stable. Done for transport-independent `prompts/list` and
     `prompts/get`, required string-argument validation, prompt messages using

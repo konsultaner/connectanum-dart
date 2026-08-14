@@ -314,18 +314,25 @@ class McpEmbeddedResourceContent extends McpContent {
   }
 }
 
+const _mcpStructuredContentAbsent = _McpStructuredContentAbsent();
+
+final class _McpStructuredContentAbsent {
+  const _McpStructuredContentAbsent();
+}
+
 class McpToolResult {
   const McpToolResult({
     required this.content,
-    this.structuredContent,
+    Object? structuredContent = _mcpStructuredContentAbsent,
     this.isError = false,
     this.meta,
-  }) : inputRequests = null,
+  }) : _structuredContent = structuredContent,
+       inputRequests = null,
        requestState = null;
 
   McpToolResult.text(
     String text, {
-    Map<String, Object?>? structuredContent,
+    Object? structuredContent = _mcpStructuredContentAbsent,
     bool isError = false,
     McpContentAnnotations? annotations,
     Map<String, Object?>? meta,
@@ -380,17 +387,27 @@ class McpToolResult {
     required this.requestState,
     required this.meta,
   }) : content = const <McpContent>[],
-       structuredContent = null,
+       _structuredContent = _mcpStructuredContentAbsent,
        isError = false;
 
   final List<McpContent> content;
-  final Map<String, Object?>? structuredContent;
+  final Object? _structuredContent;
   final bool isError;
   final Map<String, Object?>? inputRequests;
   final String? requestState;
 
   /// Optional protocol metadata carried with this result.
   final Map<String, Object?>? meta;
+
+  /// Whether [structuredContent] was supplied, including an explicit null.
+  bool get hasStructuredContent =>
+      _structuredContent is! _McpStructuredContentAbsent;
+
+  /// Arbitrary JSON-compatible structured content supplied by the tool.
+  ///
+  /// Use [hasStructuredContent] to distinguish an explicit null from omission.
+  Object? get structuredContent =>
+      hasStructuredContent ? _structuredContent : null;
 
   bool get isInputRequired => inputRequests != null || requestState != null;
 
@@ -422,9 +439,8 @@ class McpToolResult {
       'isError': isError,
       '_meta': ?meta,
     };
-    final structuredContent = this.structuredContent;
-    if (structuredContent != null) {
-      json['structuredContent'] = structuredContent;
+    if (hasStructuredContent) {
+      json['structuredContent'] = _structuredContent;
     }
     return json;
   }

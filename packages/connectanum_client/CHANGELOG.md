@@ -13,6 +13,8 @@
   JSON calls with typed request/response validation and opaque-state replay.
 - Validate optional tool-result `_meta` objects on complete and
   `input_required` Streamable HTTP and direct JSON responses.
+- Accept unrestricted JSON `structuredContent` values in standard Streamable
+  HTTP and direct JSON tool results instead of requiring an object envelope.
 - Bound buffered Streamable HTTP POST, GET, DELETE, and listener setup response
   bodies to a configurable raw-byte limit. Long-lived request-scoped listeners
   remain incremental while bounding each complete SSE event separately.

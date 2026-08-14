@@ -25169,6 +25169,21 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-arbitrary-structured-content.md`. It closes
+  the next stable MCP downstream-integration gap by accepting every JSON value
+  in tool-result `structuredContent`, including explicit null while preserving
+  omitted-field semantics. The pre-change `bin/test-fast` gate exits zero.
+  Implementation and local verification are complete: fail-first package and
+  client regressions captured the object-only restrictions; focused MCP and
+  client suites, modern standard JSON/SSE/direct JSON paths, the neutral
+  installed-package server smoke, shell validation, diff checks, and affected
+  package analysis pass. `bin/verify` exits zero with formatting unchanged,
+  114 Rust core tests, all 52 FFI tests, 364 Dart core tests, 113 MCP tests,
+  the 282-case client MCP suite, 97 benchmark tests including all 37 live WAMP
+  workloads, the 442-case router suite, 6 remote-auth tests, 13 native
+  follow-ups, all consumer smokes, Chrome, and Dart2Wasm green. Commit/push and
+  exact-head hosted evidence remain.
+- The most recently completed implementation plan is
   `docs/exec-plans/2026-08-14-mcp-tool-result-metadata.md`. It closes the next
   MCP 2026 downstream-integration boundary by preserving result `_meta` across
   public tool results, lossless WAMP result details, Streamable HTTP client
@@ -25180,9 +25195,17 @@ at the older `47bbf9c` commit.
   tests, 364 Dart core tests, 112 MCP tests, the 281-case client MCP suite, 97
   benchmark tests including all 37 live WAMP workloads, the 442-case router
   suite, 6 remote-auth tests, 13 native follow-ups, all consumer smokes,
-  Chrome, and Dart2Wasm green. Commit/push and exact-head hosted evidence are
-  pending.
-- The most recently completed implementation plan is
+  Chrome, and Dart2Wasm green. Commit `d3777842` is published to both
+  maintained `master` branches. Exact-head CI `31802081048`, Dart Package
+  Publish Dry Run `31802081107`, WAMP Profile Benchmarks `31802081038`, and
+  Router Image dry run `31802189834` all pass. CI retains coverage artifact
+  `9220142460`; WAMP retains benchmark artifact `9219868268`; Router Image
+  retains preview artifact `9219712404` and Docker build records `9219857274`
+  and `9219856678`. The comprehensive strict deployment-chain audit exits zero
+  with exact-head CI/log, package, retained native-release, loaded-image MCP,
+  multi-architecture Router Image, WAMP, workflow, registry, and protected-
+  branch gates clean. No new RC tag is selected without release approval.
+- The previously completed implementation plan is
   `docs/exec-plans/2026-08-14-mcp-official-sdk-named-wamp-meta-smoke.md`. It
   closes the next neutral agent-readiness boundary by making the pinned
   official MCP SDK validate the advertised `wamp.registration.lookup` schema

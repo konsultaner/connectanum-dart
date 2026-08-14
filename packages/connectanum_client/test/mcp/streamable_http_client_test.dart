@@ -8024,6 +8024,60 @@ void main() {
       );
     });
 
+    test('accepts every JSON structured tool result shape', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(client.close);
+
+      final values = <String, Object?>{
+        'object': <String, Object?>{'ok': true},
+        'array': <Object?>['item', 7],
+        'string': 'plain text',
+        'number': 7,
+        'boolean': true,
+        'null': null,
+      };
+
+      for (final entry in values.entries) {
+        final headers = <String, String>{
+          'x-test-tool-result-structured-content': entry.key,
+        };
+        final standard = await client.callTool(
+          'app.echo',
+          id: 'structured-json-${entry.key}',
+          streamable: false,
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          headers: headers,
+        );
+        final streamable = await client.callTool(
+          'app.echo',
+          id: 'structured-sse-${entry.key}',
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          headers: headers,
+        );
+        final direct = await client.callToolDirect(
+          'app.echo',
+          id: 'structured-direct-${entry.key}',
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          headers: headers,
+        );
+
+        expect(standard, containsPair('structuredContent', entry.value));
+        expect(streamable, containsPair('structuredContent', entry.value));
+        expect(direct, containsPair('structuredContent', entry.value));
+      }
+
+      final omitted = await client.callToolDirect(
+        'app.echo',
+        id: 'structured-direct-absent',
+        headers: const <String, String>{
+          'x-test-tool-result-structured-content': 'absent',
+        },
+      );
+      expect(omitted, isNot(contains('structuredContent')));
+    });
+
     test('uses Connectanum WAMP tool helpers for API and pubsub', () async {
       final endpoint = await _FakeMcpEndpoint.bind();
       addTearDown(endpoint.close);
@@ -10920,6 +10974,41 @@ final class _FakeMcpEndpoint {
             '_meta': <Object?>['not an object'],
           },
         });
+        return;
+      }
+      final structuredContentShape = request.headers.value(
+        'x-test-tool-result-structured-content',
+      );
+      if (structuredContentShape != null) {
+        final result = <String, Object?>{
+          'content': <Object?>[],
+          'isError': false,
+        };
+        if (structuredContentShape != 'absent') {
+          result['structuredContent'] = switch (structuredContentShape) {
+            'object' => <String, Object?>{'ok': true},
+            'array' => <Object?>['item', 7],
+            'string' => 'plain text',
+            'number' => 7,
+            'boolean' => true,
+            'null' => null,
+            _ => throw StateError(
+              'unsupported structured content shape $structuredContentShape',
+            ),
+          };
+        }
+        final response = <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': result,
+        };
+        if ((request.headers.value(HttpHeaders.acceptHeader) ?? '').contains(
+          'text/event-stream',
+        )) {
+          _writeSse(request, 'data: ${jsonEncode(response)}\n\n');
+        } else {
+          _writeJson(request, response);
+        }
         return;
       }
       if (params['name'] == 'app.fail') {

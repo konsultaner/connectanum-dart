@@ -26,6 +26,9 @@
   WAMP detail bridging, bounded client retries, and direct JSON support.
 - Preserve optional MCP result `_meta` across ordinary, error, text, and
   `input_required` results, including JSON-compatible WAMP result details.
+- Accept every JSON-compatible `structuredContent` value in public tool
+  results, including arrays, scalars, and explicit null, and expose field
+  presence separately from its value.
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,
   dynamic client registration, token refresh, and revocation lifecycle through
   the IO entrypoint.

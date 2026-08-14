@@ -195,11 +195,14 @@ McpToolResult(
 The package serializes MCP text, image, audio, resource-link, and embedded
 resource content blocks. `McpImageContent.bytes(...)`,
 `McpAudioContent.bytes(...)`, and `McpBlobResourceContent.bytes(...)` encode
-binary payloads as base64. Use `structuredContent` for JSON-shaped output that
-should be validated against a tool `outputSchema`. Use `meta` for optional MCP
-result `_meta`; it is also available on the text, error, and `inputRequired`
-constructors. The lossless WAMP mapper mirrors JSON-compatible WAMP result
-details into `_meta` while retaining them under `structuredContent.details`.
+binary payloads as base64. `structuredContent` accepts any JSON-compatible
+value: an object, array, string, number, boolean, or explicit null. Use
+`hasStructuredContent` when explicit null must be distinguished from an
+omitted field, and validate the value against the tool's `outputSchema`. Use
+`meta` for optional MCP result `_meta`; it is also available on the text,
+error, and `inputRequired` constructors. The lossless WAMP mapper mirrors
+JSON-compatible WAMP result details into `_meta` while retaining them under
+`structuredContent.details`.
 
 ## Resources
 

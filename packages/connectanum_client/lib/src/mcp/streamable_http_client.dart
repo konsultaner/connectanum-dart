@@ -5050,11 +5050,6 @@ McpJsonMap _validatedToolCallResult(
     _validateContentBlock(block, label: '$label.content');
   }
 
-  final structuredContent = result['structuredContent'];
-  if (structuredContent != null) {
-    _jsonMapFrom(structuredContent, label: '$label.structuredContent');
-  }
-
   final isError = result['isError'];
   if (isError != null && isError is! bool) {
     throw FormatException('$label.isError must be a boolean');

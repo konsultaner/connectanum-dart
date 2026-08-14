@@ -477,6 +477,32 @@ void main() {
       );
     });
 
+    test('tool results serialize every JSON structured content shape', () {
+      final values = <Object?>[
+        <String, Object?>{'ok': true},
+        <Object?>['item', 7],
+        'plain text',
+        7,
+        true,
+        null,
+      ];
+
+      for (final value in values) {
+        final result = McpToolResult.text(
+          'ok',
+          structuredContent: value,
+        );
+
+        expect(result.hasStructuredContent, isTrue);
+        expect(result.structuredContent, value);
+        expect(result.toJson(), containsPair('structuredContent', value));
+      }
+
+      final omitted = McpToolResult.text('ok');
+      expect(omitted.hasStructuredContent, isFalse);
+      expect(omitted.toJson(), isNot(contains('structuredContent')));
+    });
+
     test('tool content validates required content fields', () {
       expect(
         () => McpImageContent(data: 'AQID', mimeType: ''),
