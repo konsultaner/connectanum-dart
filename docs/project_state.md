@@ -25181,9 +25181,18 @@ at the older `47bbf9c` commit.
   `bin/test-fast`, focused package/router/Python/shell analysis and tests, and
   full `bin/verify` pass locally. The first `ct_ffi` attempt hit the known
   retryable HTTP/3 handshake assertion; the canonical retry passed all 52 FFI
-  tests, and all subsequent suites remained green. The implementation commit,
-  maintained-remote pushes, exact-head hosted workflows, and strict audit
-  remain.
+  tests, and all subsequent suites remained green. Implementation commit
+  `d77fc83b` is published to both maintained `master` branches; exact-head CI
+  `31781038469`, package dry run `31781038421`, and WAMP profile run
+  `31781038434` pass. Router Image `31782248716` then exposed a real catalog
+  merge defect because a generic configured `wamp.session.count` descriptor
+  displaced the canonical schema. The router now makes standard Meta procedure
+  descriptors authoritative whenever the standard API is enabled, and a
+  fail-first native regression mirrors the Router Image collision. Post-fix
+  focused checks, `bin/test-fast`, and a second full `bin/verify` pass; the
+  latter runs all 52 FFI tests on the first attempt and passes the expanded
+  441-case router suite. The corrective commit/push, replacement exact-head
+  hosted workflows, passing Router Image evidence, and strict audit remain.
 - The most recently completed plan is
   `docs/exec-plans/2026-08-14-mcp-wamp-api-pagination.md`. It bounds the
   router-provided `connectanum.api.list` catalog behind an optional route page

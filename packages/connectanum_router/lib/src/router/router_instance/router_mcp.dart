@@ -5286,7 +5286,9 @@ class _RouterMcpEndpoint {
     ], defaultValue: true);
     if (includeStandardMetaApi) {
       for (final procedure in mcp.McpWampStandardMetaApi.procedures) {
-        procedures.putIfAbsent(procedure.procedure, () => procedure);
+        // Standard Meta procedures need their canonical schemas and argument
+        // builders even when the same URI was configured or discovered first.
+        procedures[procedure.procedure] = procedure;
       }
       for (final topic in mcp.McpWampStandardMetaApi.topics) {
         topics.putIfAbsent(topic.topic, () => topic);

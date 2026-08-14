@@ -91,6 +91,14 @@ WAMP `arguments` and `argumentsKeywords`.
   The packaged router-hosted client, generated consumer templates, and Router
   Image smoke now use canonical named inputs while dedicated tests retain the
   raw and legacy compatibility evidence.
+- 2026-08-14: Exact-head Router Image dry run `31782248716` exposed a catalog
+  merge defect after the local gates passed: the smoke fixture explicitly
+  configures `wamp.session.count`, so its generic descriptor was retained before
+  the canonical standard Meta descriptor and erased `inputSchema.properties`.
+  The router now makes canonical standard procedure descriptors authoritative
+  whenever `includeStandardMetaApi` is enabled. A fail-first native regression
+  mirrors the configured-URI collision and verifies the canonical no-argument,
+  named-argument, and output schemas.
 
 ## Handoff
 
@@ -104,5 +112,13 @@ WAMP `arguments` and `argumentsKeywords`.
   and Dart2Wasm. The first `ct_ffi` attempt hit the known retryable HTTP/3
   handshake assertion; the canonical verifier retried automatically and all
   52 FFI tests passed on the second attempt.
-- The implementation commit, maintained-remote pushes, exact-head CI/package/
-  Router Image/WAMP evidence, and strict deployment-chain audit remain.
+- Implementation commit `d77fc83b` is published to both maintained `master`
+  branches. Exact-head CI `31781038469`, Dart Package Publish Dry Run
+  `31781038421`, and WAMP Profile Benchmarks `31781038434` pass on their first
+  attempts. Router Image `31782248716` failed only its new schema assertion and
+  supplied the configured-URI collision reproduced by the native regression.
+- Post-fix focused tests, package/router analysis, shell/Python hygiene, and
+  `bin/test-fast` pass. A second full `bin/verify` passes with all 52 FFI tests
+  green on the first attempt and the expanded 441-case router suite green.
+  The corrective commit/push, replacement exact-head hosted workflows, passing
+  Router Image evidence, and strict deployment-chain audit remain.

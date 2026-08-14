@@ -9,7 +9,8 @@
   isolation, pub/sub, Streamable HTTP compatibility, and operational metrics.
 - Expose agent-friendly named JSON parameters and accurate result schemas for
   all router-hosted standard WAMP Meta API tools without changing authorization
-  visibility or existing raw-call compatibility.
+  visibility or existing raw-call compatibility, and keep those canonical
+  descriptors authoritative when a route also configures the same Meta URI.
 - Add a bounded `wamp_api_list_page_size` route option for deterministic,
   authorization-filtered WAMP procedure/topic catalog pagination.
 - Let router resource templates use authorized WAMP read procedures through

@@ -11701,6 +11701,31 @@ void main() {
         statelessDiscovery.capabilities['resources'],
         containsPair('subscribe', true),
       );
+      final statelessTools = await statelessPublicMcpClient.listTools(
+        id: 'stateless-public-standard-meta-schemas',
+      );
+      final standardSessionCountTool = statelessTools.tools.singleWhere(
+        (tool) => tool['name'] == 'wamp.session.count',
+      );
+      final standardSessionGetTool = statelessTools.tools.singleWhere(
+        (tool) => tool['name'] == 'wamp.session.get',
+      );
+      final standardSessionCountInputSchema =
+          standardSessionCountTool['inputSchema'] as Map<String, Object?>;
+      final standardSessionGetInputSchema =
+          standardSessionGetTool['inputSchema'] as Map<String, Object?>;
+      expect(
+        standardSessionCountInputSchema['properties'],
+        containsPair('arguments', isA<Map<String, Object?>>()),
+      );
+      expect(
+        standardSessionGetInputSchema['properties'],
+        containsPair('sessionId', isA<Map<String, Object?>>()),
+      );
+      expect(
+        standardSessionGetTool['outputSchema'],
+        containsPair('additionalProperties', false),
+      );
 
       await expectLater(
         statelessPublicMcpClient.callTool(
@@ -17049,6 +17074,12 @@ RouterSettings _buildMcpSmokeSettings({
     'max_sse_history_bytes': ?maxSseHistoryBytes,
     'call_timeout_ms': ?callTimeoutMs,
     'procedures': [
+      {
+        'procedure': 'wamp.session.count',
+        'title': 'Configured standard Meta procedure',
+        'description':
+            'Exercises the Router Image catalog collision with canonical Meta.',
+      },
       {
         'procedure': 'app.documented.only',
         'title': 'Documented but not callable',
