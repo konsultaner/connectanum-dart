@@ -24,6 +24,8 @@
   method, batch, direct JSON, and compatibility Streamable HTTP paths.
 - Add MCP 2026 form-elicitation MRTR requests, scoped capability enforcement,
   WAMP detail bridging, bounded client retries, and direct JSON support.
+- Preserve optional MCP result `_meta` across ordinary, error, text, and
+  `input_required` results, including JSON-compatible WAMP result details.
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,
   dynamic client registration, token refresh, and revocation lifecycle through
   the IO entrypoint.

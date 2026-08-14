@@ -11,6 +11,8 @@
   consumers can expand advertised templates without duplicating escaping.
 - Add bounded MCP 2026 form-elicitation helpers for Streamable HTTP and direct
   JSON calls with typed request/response validation and opaque-state replay.
+- Validate optional tool-result `_meta` objects on complete and
+  `input_required` Streamable HTTP and direct JSON responses.
 - Bound buffered Streamable HTTP POST, GET, DELETE, and listener setup response
   bodies to a configurable raw-byte limit. Long-lived request-scoped listeners
   remain incremental while bounding each complete SSE event separately.

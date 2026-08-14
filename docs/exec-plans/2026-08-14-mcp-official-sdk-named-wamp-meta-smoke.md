@@ -1,6 +1,6 @@
 # Exec Plan: Official SDK Named WAMP Meta Smoke
 
-Status: active
+Status: complete; implementation and exact-head deployment evidence clean
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -74,6 +74,11 @@ Router Image endpoints.
   it exercises both a required canonical string and an optional constrained
   match policy, and resolves a real router-provided registration without
   requiring private application procedures.
+- 2026-08-14: Exact-head Router Image evidence is mandatory for this slice
+  because the implementation changes the packaged smoke boundary and the local
+  Docker attempt did not progress past registry metadata resolution. Hosted run
+  `31796333675` built and loaded the image, emitted `named_wamp_meta=true`, and
+  completed its multi-architecture dry run.
 
 ## Handoff
 
@@ -95,4 +100,14 @@ Router Image endpoints.
   281-case client suite, 97 benchmark tests including the 37-workload live WAMP
   matrix, the 441-case router suite, 6 remote-auth tests, 13 native follow-ups,
   all consumer smokes, Chrome, and Dart2Wasm green.
-- Commit/push and hosted evidence remain.
+- Commit `a50e9bc3` is published to both maintained `master` branches.
+  Exact-head CI `31796325817` passes Fast Checks, Dart VM Coverage, and Full
+  Verify and retains coverage artifact `9217890744`. Exact-head Router Image
+  dry run `31796333675` passes the build, loaded-image official SDK smoke, and
+  multi-architecture dry run; it retains preview artifact `9217509258` and
+  Docker build records `9217522969` and `9217522593`.
+- The comprehensive strict deployment-chain audit exits zero. It confirms the
+  latest package dry run `31790478885`, native release dry run `31221315902`,
+  and WAMP profile run `31790478963` remain clean and relevant because no
+  sensitive inputs for those workflows changed. No RC tag was selected without
+  release approval.

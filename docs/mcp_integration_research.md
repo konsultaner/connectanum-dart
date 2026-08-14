@@ -258,8 +258,11 @@ Driving use case: downstream application integrations
    Streamable HTTP. Automatic resource discovery and implicit application-data
    projection remain future slices.
 11. Add full package-local `CallToolResult.content` block helpers. Done for
-   text annotations, image, audio, resource links, and embedded resources;
-   `_meta`, tasks, and router-hosted resource projection remain future slices.
+   text annotations, image, audio, resource links, and embedded resources.
+   Optional result `_meta` is also implemented for ordinary, error, and
+   `input_required` results, with lossless WAMP detail projection, typed client
+   validation, and router-authoritative modern server identity. Tasks and
+   router-hosted resource projection remain future slices.
 12. Add package-local prompt support after resources/tool result content blocks
     are stable. Done for transport-independent `prompts/list` and
     `prompts/get`, required string-argument validation, prompt messages using
@@ -269,10 +272,10 @@ Driving use case: downstream application integrations
     completions, sampling, tasks, and automatic prompt projection remain future
     slices.
 13. Add package-local icon metadata after tools/resources/prompts are stable.
-    Done for transport-independent `icons` serialization on `McpServerInfo`,
-    tools, prompts, resources, and resource templates; icon fetching/rendering,
-    WAMP metadata projection, `_meta`, tasks, sampling, and completions remain
-    future slices.
+   Done for transport-independent `icons` serialization on `McpServerInfo`,
+   tools, prompts, resources, and resource templates; icon fetching/rendering,
+   WAMP catalog metadata projection, tasks, sampling, and completions remain
+   future slices.
 
 ## Open Decisions for Application Integrations
 

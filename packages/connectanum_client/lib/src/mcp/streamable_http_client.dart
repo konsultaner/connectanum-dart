@@ -439,6 +439,10 @@ _McpInputRequiredRound? _mcpInputRequiredRoundFrom(
       '$label.resultType must be complete or input_required',
     );
   }
+  final metadata = result['_meta'];
+  if (metadata != null) {
+    _jsonMapFrom(metadata, label: '$label._meta');
+  }
   final rawInputRequests = result['inputRequests'];
   final inputRequests = rawInputRequests == null
       ? const <String, Object?>{}
@@ -5054,6 +5058,11 @@ McpJsonMap _validatedToolCallResult(
   final isError = result['isError'];
   if (isError != null && isError is! bool) {
     throw FormatException('$label.isError must be a boolean');
+  }
+
+  final metadata = result['_meta'];
+  if (metadata != null) {
+    _jsonMapFrom(metadata, label: '$label._meta');
   }
 
   return result;

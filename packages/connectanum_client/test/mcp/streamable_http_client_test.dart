@@ -7988,6 +7988,31 @@ void main() {
         'tools/call result.isError',
       );
       await expectToolFormatError(
+        () => client.callToolDirect(
+          'app.echo',
+          id: 'invalid-tool-result-meta',
+          headers: const <String, String>{
+            'x-test-invalid-tool-result-meta': '1',
+          },
+        ),
+        'tools/call result._meta',
+      );
+      await expectToolFormatError(
+        () => client.callToolDirectWithFormElicitation(
+          'app.deploy',
+          id: 'invalid-input-required-result-meta',
+          protocolVersion: McpStreamableHttpClient.latestProtocolVersion,
+          headers: const <String, String>{
+            'x-test-mrtr-form': '1',
+            'x-test-invalid-input-required-result-meta': '1',
+          },
+          onElicitation: (_) => fail(
+            'invalid input-required metadata must fail before elicitation',
+          ),
+        ),
+        'tools/call result._meta',
+      );
+      await expectToolFormatError(
         () => client.callConnectanumToolDirect(
           'app.echo',
           id: 'invalid-connectanum-tool-result-content',
@@ -10821,6 +10846,11 @@ final class _FakeMcpEndpoint {
                 },
               },
               'requestState': 'opaque-round-1',
+              if (request.headers.value(
+                    'x-test-invalid-input-required-result-meta',
+                  ) ==
+                  '1')
+                '_meta': <Object?>['not an object'],
             },
           });
           return;
@@ -10876,6 +10906,18 @@ final class _FakeMcpEndpoint {
           'result': <String, Object?>{
             'content': <Object?>[],
             'isError': 'false',
+          },
+        });
+        return;
+      }
+      if (request.headers.value('x-test-invalid-tool-result-meta') == '1') {
+        _writeJson(request, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestBody['id'],
+          'result': <String, Object?>{
+            'content': <Object?>[],
+            'isError': false,
+            '_meta': <Object?>['not an object'],
           },
         });
         return;

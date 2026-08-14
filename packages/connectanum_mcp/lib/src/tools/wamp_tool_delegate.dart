@@ -159,13 +159,23 @@ McpToolResult mcpWampLosslessJsonResultMapper(
     if (requestState != null && requestState is! String) {
       throw const FormatException('WAMP MCP request state must be a string');
     }
+    final metadata = <String, Object?>{
+      if (customDetails != null)
+        for (final entry in customDetails.entries)
+          if (entry.key != McpWampMrtrFields.resultType &&
+              entry.key != McpWampMrtrFields.inputRequests &&
+              entry.key != McpWampMrtrFields.requestState)
+            entry.key.toString(): mcpWampJsonCompatible(entry.value),
+    };
     return McpToolResult.inputRequired(
       inputRequests: inputRequests,
       requestState: requestState as String?,
+      meta: metadata.isEmpty ? null : metadata,
     );
   }
 
   final structuredContent = <String, Object?>{};
+  Map<String, Object?>? metadata;
   final arguments = result.arguments;
   if (arguments != null) {
     structuredContent['arguments'] = mcpWampJsonCompatible(arguments);
@@ -177,7 +187,14 @@ McpToolResult mcpWampLosslessJsonResultMapper(
     );
   }
   if (customDetails != null) {
-    structuredContent['details'] = mcpWampJsonCompatible(customDetails);
+    final jsonDetails = <String, Object?>{
+      for (final entry in customDetails.entries)
+        entry.key.toString(): mcpWampJsonCompatible(entry.value),
+    };
+    structuredContent['details'] = jsonDetails;
+    if (jsonDetails.isNotEmpty) {
+      metadata = jsonDetails;
+    }
   }
   if (structuredContent.isEmpty) {
     return McpToolResult.text('');
@@ -185,6 +202,7 @@ McpToolResult mcpWampLosslessJsonResultMapper(
   return McpToolResult.text(
     jsonEncode(structuredContent),
     structuredContent: structuredContent,
+    meta: metadata,
   );
 }
 

@@ -33,9 +33,11 @@ Fresh state:
   result/error envelopes, filtered `subscriptions/listen` SSE with explicit
   close cancellation, public and bearer-protected tool/resource/WAMP
   operations, form-mode MRTR with scoped capability enforcement and bounded
-  direct/Streamable retries, and explicit absence of protocol session/resume
-  state. The `2025-*` initialize/GET/SSE/DELETE path remains an explicit
-  compatibility era. Additional MCP 2026 extensions remain demand-driven.
+  direct/Streamable retries, lossless tool-result `_meta` across WAMP details
+  and complete or `input_required` responses, and explicit absence of protocol
+  session/resume state. The `2025-*` initialize/GET/SSE/DELETE path remains an
+  explicit compatibility era. Additional MCP 2026 extensions remain
+  demand-driven.
   Dart IO consumers can use
   `package:connectanum_mcp/connectanum_mcp_io.dart` to negotiate Streamable
   HTTP sessions, send authenticated JSON-RPC requests, consume POST/SSE

@@ -20,7 +20,10 @@ void main() {
             pptSerializer: null,
             pptCipher: null,
             pptKeyId: null,
-            customDetails: null,
+            customDetails: <String, dynamic>{
+              'com.example/trace': <String, dynamic>{'id': 'trace-1'},
+              'attempt': 2,
+            },
             arguments: const ['ok'],
             argumentsKeywords: {'received': call.payload.argumentsKeywords},
           );
@@ -49,6 +52,14 @@ void main() {
         'argumentsKeywords': {
           'received': {'text': 'hello'},
         },
+        'details': {
+          'com.example/trace': {'id': 'trace-1'},
+          'attempt': 2,
+        },
+      });
+      expect(result['_meta'], {
+        'com.example/trace': {'id': 'trace-1'},
+        'attempt': 2,
       });
     });
 
@@ -139,6 +150,7 @@ void main() {
                   },
                 },
                 McpWampMrtrFields.requestState: 'opaque-round-1',
+                'com.example/formRound': <String, dynamic>{'round': 1},
               },
               arguments: null,
               argumentsKeywords: null,
@@ -200,6 +212,9 @@ void main() {
           },
         },
         'requestState': 'opaque-round-1',
+        '_meta': {
+          'com.example/formRound': {'round': 1},
+        },
       });
 
       final completed = await server.handleMessage({

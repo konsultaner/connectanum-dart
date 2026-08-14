@@ -186,6 +186,9 @@ McpToolResult(
     ),
   ],
   structuredContent: {'count': 0},
+  meta: {
+    'com.example/trace': {'id': 'trace-1'},
+  },
 );
 ```
 
@@ -193,7 +196,10 @@ The package serializes MCP text, image, audio, resource-link, and embedded
 resource content blocks. `McpImageContent.bytes(...)`,
 `McpAudioContent.bytes(...)`, and `McpBlobResourceContent.bytes(...)` encode
 binary payloads as base64. Use `structuredContent` for JSON-shaped output that
-should be validated against a tool `outputSchema`.
+should be validated against a tool `outputSchema`. Use `meta` for optional MCP
+result `_meta`; it is also available on the text, error, and `inputRequired`
+constructors. The lossless WAMP mapper mirrors JSON-compatible WAMP result
+details into `_meta` while retaining them under `structuredContent.details`.
 
 ## Resources
 

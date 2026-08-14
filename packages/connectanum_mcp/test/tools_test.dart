@@ -247,6 +247,9 @@ void main() {
                       'deployment-region': inputRequest,
                     },
                     requestState: 'opaque-round-1',
+                    meta: const <String, Object?>{
+                      'com.example/formRound': 1,
+                    },
                   );
                 }
                 return McpToolResult.text(
@@ -299,6 +302,7 @@ void main() {
           'resultType': 'input_required',
           'inputRequests': <String, Object?>{'deployment-region': inputRequest},
           'requestState': 'opaque-round-1',
+          '_meta': <String, Object?>{'com.example/formRound': 1},
         });
 
         final completed = await server.handleMessage({
@@ -393,6 +397,9 @@ void main() {
                 ),
               ],
               structuredContent: {'uri': 'app://example/context'},
+              meta: const <String, Object?>{
+                'com.example/contextSource': 'router',
+              },
             ),
           ),
         ],
@@ -409,6 +416,9 @@ void main() {
       final result = response?['result'] as Map<String, Object?>;
       expect(result['isError'], isFalse);
       expect(result['structuredContent'], {'uri': 'app://example/context'});
+      expect(result['_meta'], {
+        'com.example/contextSource': 'router',
+      });
       expect(result['content'], [
         {
           'type': 'text',
@@ -439,6 +449,32 @@ void main() {
           },
         },
       ]);
+    });
+
+    test('tool result convenience constructors serialize metadata', () {
+      const metadata = <String, Object?>{
+        'com.example/trace': <String, Object?>{'id': 'trace-1'},
+      };
+
+      expect(
+        McpToolResult.text('ok', meta: metadata).toJson()['_meta'],
+        metadata,
+      );
+      expect(
+        McpToolResult.error('failed', meta: metadata).toJson()['_meta'],
+        metadata,
+      );
+      expect(
+        McpToolResult.inputRequired(
+          requestState: 'opaque-state',
+          meta: metadata,
+        ).toJson(
+          clientCapabilities: const <String, Object?>{
+            'elicitation': <String, Object?>{'form': <String, Object?>{}},
+          },
+        )['_meta'],
+        metadata,
+      );
     });
 
     test('tool content validates required content fields', () {

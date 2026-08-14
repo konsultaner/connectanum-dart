@@ -3597,6 +3597,94 @@ void main() {
     );
 
     test(
+      'preserves WAMP result metadata on modern router-hosted tool calls',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9169,
+          nativeLib: nativeLib,
+          settings: _buildRouterSettings(
+            enableHttp3: false,
+            enableMcp: true,
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final serviceSession = await harness.binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'mcp-result-metadata-service',
+          authRole: 'internal',
+        );
+        addTearDown(serviceSession.close);
+        final registration = await serviceSession.register(
+          'app.metadata.lookup',
+          options: core.RegisterOptions(
+            custom: const <String, Object?>{
+              '_ai_meta_data': <String, Object?>{
+                'short_description': 'Return metadata with a lookup result',
+                'read_only_hint': true,
+                'destructive_hint': false,
+                'idempotent_hint': true,
+                'open_world_hint': false,
+              },
+            },
+          ),
+        );
+        addTearDown(
+          () => serviceSession.unregister(registration.registrationId),
+        );
+        registration.onInvoke((invocation) {
+          invocation.respondWith(
+            argumentsKeywords: const <String, Object?>{'status': 'ready'},
+            options: core.YieldOptions(
+              custom: const <String, Object?>{
+                'com.example/trace': <String, Object?>{'id': 'trace-1'},
+                'io.modelcontextprotocol/serverInfo': <String, Object?>{
+                  'name': 'callee-supplied',
+                  'version': '0.0.0',
+                },
+              },
+            ),
+          );
+        });
+
+        final listener = harness.binding.listeners.single;
+        final client = McpStreamableHttpClient.stateless(
+          Uri(
+            scheme: 'http',
+            host: '127.0.0.1',
+            port: listener.port,
+            path: '/mcp',
+          ),
+          clientInfo: const <String, Object?>{
+            'name': 'result-metadata-test',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => client.close(force: true));
+
+        final result = await client.callToolDirect(
+          'app.metadata.lookup',
+          id: 'modern-result-metadata',
+        );
+        final metadata = (result['_meta'] as Map).cast<String, Object?>();
+        expect(metadata['com.example/trace'], <String, Object?>{
+          'id': 'trace-1',
+        });
+        expect(
+          (metadata['io.modelcontextprotocol/serverInfo'] as Map)['name'],
+          equals('connectanum-router'),
+        );
+        expect(
+          (result['structuredContent'] as Map)['details'],
+          containsPair('com.example/trace', <String, Object?>{'id': 'trace-1'}),
+        );
+        expect(client.sessionId, isNull);
+        expect(client.lastEventId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
       'keeps MCP response envelope on route-level method rejection',
       () async {
         final harness = await _RouterHarness.start(

@@ -25169,6 +25169,20 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-tool-result-metadata.md`. It closes the next
+  MCP 2026 downstream-integration boundary by preserving result `_meta` across
+  public tool results, lossless WAMP result details, Streamable HTTP client
+  validation, and router-hosted responses while keeping canonical router
+  server identity authoritative. Implementation and local verification are
+  complete: the pre-change fast gate, focused fail-first regressions, affected
+  MCP/client suites, native router integration, package analysis, and full
+  `bin/verify` pass. The full verifier reports 114 Rust core tests, all 52 FFI
+  tests, 364 Dart core tests, 112 MCP tests, the 281-case client MCP suite, 97
+  benchmark tests including all 37 live WAMP workloads, the 442-case router
+  suite, 6 remote-auth tests, 13 native follow-ups, all consumer smokes,
+  Chrome, and Dart2Wasm green. Commit/push and exact-head hosted evidence are
+  pending.
+- The most recently completed implementation plan is
   `docs/exec-plans/2026-08-14-mcp-official-sdk-named-wamp-meta-smoke.md`. It
   closes the next neutral agent-readiness boundary by making the pinned
   official MCP SDK validate the advertised `wamp.registration.lookup` schema
@@ -25185,8 +25199,17 @@ at the older `47bbf9c` commit.
   all 52 FFI tests, 364 Dart core tests, 111 MCP tests, the 281-case client
   suite, 97 benchmark tests including the 37-workload live WAMP matrix, the
   441-case router suite, 6 remote-auth tests, 13 native follow-ups, all consumer
-  smokes, Chrome, and Dart2Wasm green.
-- The most recently completed implementation plan is
+  smokes, Chrome, and Dart2Wasm green. Commit `a50e9bc3` is published to both
+  maintained `master` branches. Exact-head CI `31796325817` and Router Image
+  dry run `31796333675` pass; the image log emits bounded
+  `named_wamp_meta=true` evidence from the pinned official SDK 2.0.0 across all
+  endpoint modes. CI retains coverage artifact `9217890744`; Router Image
+  retains preview artifact `9217509258` and Docker build records `9217522969`
+  and `9217522593`. The comprehensive strict deployment-chain audit exits zero
+  and confirms the prior package, native-release, and WAMP workflow evidence
+  remains clean and relevant because their sensitive inputs did not change. No
+  RC tag was selected without release approval.
+- The preceding completed implementation plan is
   `docs/exec-plans/2026-08-14-mcp-wamp-meta-json-parameters.md`. It makes all 15
   router-hosted standard WAMP Meta API tools directly usable through
   procedure-specific named JSON parameters and accurate advertised schemas,

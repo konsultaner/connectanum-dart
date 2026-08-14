@@ -407,6 +407,10 @@
   - [x] Add MCP 2026 MRTR input requests and responses for the client features
     Connectanum elects to support, with explicit capability enforcement and
     the reserved missing-capability error.
+  - [x] Preserve optional tool-result `_meta` across public result helpers,
+    complete and `input_required` client validation, lossless WAMP result
+    details, and modern router-hosted responses with authoritative server
+    identity.
   - [x] Add configured router-hosted MCP resources, resource templates, and
     prompts so a router route can advertise read-only context and prompt
     templates without starting a separate MCP server.

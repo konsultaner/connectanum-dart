@@ -319,6 +319,7 @@ class McpToolResult {
     required this.content,
     this.structuredContent,
     this.isError = false,
+    this.meta,
   }) : inputRequests = null,
        requestState = null;
 
@@ -327,18 +328,27 @@ class McpToolResult {
     Map<String, Object?>? structuredContent,
     bool isError = false,
     McpContentAnnotations? annotations,
+    Map<String, Object?>? meta,
   }) : this(
          content: [McpTextContent(text, annotations: annotations)],
          structuredContent: structuredContent,
          isError: isError,
+         meta: meta,
        );
 
-  McpToolResult.error(String message)
-    : this(content: [McpTextContent(message)], isError: true);
+  McpToolResult.error(
+    String message, {
+    Map<String, Object?>? meta,
+  }) : this(
+         content: [McpTextContent(message)],
+         isError: true,
+         meta: meta,
+       );
 
   factory McpToolResult.inputRequired({
     Map<String, Object?> inputRequests = const <String, Object?>{},
     String? requestState,
+    Map<String, Object?>? meta,
   }) {
     if (inputRequests.isEmpty && requestState == null) {
       throw ArgumentError(
@@ -361,12 +371,14 @@ class McpToolResult {
     return McpToolResult._inputRequired(
       inputRequests: Map<String, Object?>.unmodifiable(inputRequests),
       requestState: requestState,
+      meta: meta,
     );
   }
 
   const McpToolResult._inputRequired({
     required this.inputRequests,
     required this.requestState,
+    required this.meta,
   }) : content = const <McpContent>[],
        structuredContent = null,
        isError = false;
@@ -376,6 +388,9 @@ class McpToolResult {
   final bool isError;
   final Map<String, Object?>? inputRequests;
   final String? requestState;
+
+  /// Optional protocol metadata carried with this result.
+  final Map<String, Object?>? meta;
 
   bool get isInputRequired => inputRequests != null || requestState != null;
 
@@ -398,12 +413,14 @@ class McpToolResult {
         'resultType': 'input_required',
         'inputRequests': ?inputRequests,
         'requestState': ?requestState,
+        '_meta': ?meta,
       };
     }
 
     final json = <String, Object?>{
       'content': [for (final item in content) item.toJson()],
       'isError': isError,
+      '_meta': ?meta,
     };
     final structuredContent = this.structuredContent;
     if (structuredContent != null) {
