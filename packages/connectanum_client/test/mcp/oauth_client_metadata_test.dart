@@ -36,12 +36,13 @@ void main() {
       expect(document.clientId, clientId);
       expect(document.clientAuthentication.clientId, clientId.toString());
       expect(document.clientAuthentication.method, 'none');
+      expect(document.requestsRefreshTokens, isTrue);
       expect(document.toJson(), <String, Object?>{
         'client_id': clientId.toString(),
         'client_name': 'Consumer application',
         'redirect_uris': <String>[redirect.toString()],
         'token_endpoint_auth_method': 'none',
-        'grant_types': <String>['authorization_code'],
+        'grant_types': <String>['authorization_code', 'refresh_token'],
         'response_types': <String>['code'],
         'client_uri': 'https://consumer.example/application',
         'logo_uri': 'https://consumer.example/application/logo.png',
@@ -57,7 +58,35 @@ void main() {
         () => document.scopes.add('resource/write'),
         throwsUnsupportedError,
       );
+      expect(
+        () => (document.toJson()['grant_types']! as List<String>).add(
+          'client_credentials',
+        ),
+        throwsUnsupportedError,
+      );
+      final roundTripped = (jsonDecode(jsonEncode(document.toJson())) as Map)
+          .cast<String, Object?>();
+      expect(roundTripped['grant_types'], <Object?>[
+        'authorization_code',
+        'refresh_token',
+      ]);
       expect(document.toJson().keys, isNot(contains('client_secret')));
+    });
+
+    test('can opt out of refresh-token grant advertisement', () {
+      final document = McpOAuthClientMetadataDocument.publicClient(
+        clientId: Uri.parse(
+          'https://consumer.example/oauth/client-metadata.json',
+        ),
+        clientName: 'Consumer application',
+        redirectUris: <Uri>[
+          Uri.parse('http://127.0.0.1:34891/callback'),
+        ],
+        requestRefreshTokens: false,
+      );
+
+      expect(document.requestsRefreshTokens, isFalse);
+      expect(document.toJson()['grant_types'], <String>['authorization_code']);
     });
 
     test('creates an authorization request with exact registered identity', () {

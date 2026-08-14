@@ -286,4 +286,35 @@ void main() {
     expect(revocationRequestCount, 1);
     expect(client.sessionId, isNull);
   });
+
+  test('IO entrypoint exposes refresh-aware Client ID metadata', () {
+    final document = McpOAuthClientMetadataDocument.publicClient(
+      clientId: Uri.parse(
+        'https://consumer.example/oauth/client-metadata.json',
+      ),
+      clientName: 'Consumer application',
+      redirectUris: <Uri>[
+        Uri.parse('http://127.0.0.1:34891/callback'),
+      ],
+    );
+
+    expect(document.requestsRefreshTokens, isTrue);
+    expect(document.toJson()['grant_types'], <String>[
+      'authorization_code',
+      'refresh_token',
+    ]);
+
+    final optOut = McpOAuthClientMetadataDocument.publicClient(
+      clientId: Uri.parse(
+        'https://consumer.example/oauth/client-metadata.json',
+      ),
+      clientName: 'Consumer application',
+      redirectUris: <Uri>[
+        Uri.parse('http://127.0.0.1:34891/callback'),
+      ],
+      requestRefreshTokens: false,
+    );
+    expect(optOut.requestsRefreshTokens, isFalse);
+    expect(optOut.toJson()['grant_types'], <String>['authorization_code']);
+  });
 }

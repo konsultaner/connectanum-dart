@@ -25169,6 +25169,31 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-client-metadata-refresh-grant.md`. A stable
+  MCP `2026-07-28` authorization audit found that the preferred public Client
+  ID Metadata Document path publishes only the `authorization_code` grant even
+  though the client and fallback Dynamic Client Registration path support
+  refresh-token exchange, persistence, rotation, and revocation. This slice
+  will advertise `refresh_token` by default with an explicit opt-out, retain
+  consumer-owned least-privilege scope selection, and prove the shape through
+  focused and installed-package coverage. The pre-change `bin/test-fast` gate
+  exits zero, including 366 core tests, 115 MCP tests, the 287-case MCP/client
+  suite, 97 benchmark tests with all 37 live WAMP workloads, and maintained
+  consumer/router package smokes. The public metadata type now advertises
+  `authorization_code` plus `refresh_token` by default, exposes immutable
+  refresh-request state, and can explicitly publish authorization-code-only
+  metadata without changing scopes. Fail-first coverage captured the missing
+  API; focused client and public IO tests, affected package analysis, shell
+  validation, all 15 verification-script regressions, all 20 package publish-
+  policy regressions, and the generated path/global client smoke pass. Full
+  `bin/verify` exits zero with formatting unchanged, 114 Rust core tests, all
+  52 FFI tests, 366 Dart core tests, 116 MCP tests, the 288-case MCP/client
+  suite, 97 benchmark tests including all 37 live WAMP workloads, the 442-case
+  router suite, 6 remote-auth tests, 13 native follow-ups, every consumer
+  smoke, Chrome, and Dart2Wasm green. Focused local review found no unresolved
+  issue. Publication, exact-head hosted workflows, and the strict deployment-
+  chain audit remain.
+- The most recently completed plan is
   `docs/exec-plans/2026-08-14-mcp-authorization-response-issuer.md`. A stable
   MCP `2026-07-28` authorization audit found that the client did not yet
   enforce the RFC 9207 authorization-response `iss` contract. The metadata
@@ -25184,9 +25209,17 @@ at the older `47bbf9c` commit.
   Rust core tests, all 52 FFI tests, 366 Dart core tests, 115 MCP tests, the
   287-case MCP/client suite, 97 benchmark tests including all 37 live WAMP
   workloads, the 442-case router suite, 6 remote-auth tests, 13 native
-  follow-ups, every consumer smoke, Chrome, and Dart2Wasm green. Commit/push,
-  exact-head hosted workflows, and the strict deployment-chain audit remain.
-- The most recently completed plan is
+  follow-ups, every consumer smoke, Chrome, and Dart2Wasm green. Commit
+  `89d5d8f5` is published to both maintained `master` branches. Exact-head CI
+  `31824845618`, Dart Package Publish Dry Run `31824845617`, WAMP Profile
+  Benchmarks `31824845665`, and Router Image dry run `31826360753` all pass. CI
+  retains coverage artifact `9228921010`; WAMP retains benchmark artifact
+  `9228552936`; Router Image retains preview artifact `9228957601` and Docker
+  build records `9229061881` and `9229061289`. The comprehensive strict audit
+  exits zero with clean exact-head CI logs and all required package,
+  Router Image, WAMP, workflow, registry, and protected-branch gates clean. No
+  RC tag was selected.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-14-mcp-completion-readiness.md`. A stable MCP
   `2026-07-28` schema audit found `completion/complete` is the remaining
   non-deprecated core client request after the implemented discovery, tools,

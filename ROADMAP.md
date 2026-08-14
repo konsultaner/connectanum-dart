@@ -476,6 +476,9 @@
     authorization server advertises support, including HTTPS client identity,
     exact redirect registration, public token-endpoint authentication, and
     package-boundary lifecycle coverage.
+  - [x] Make public Client ID Metadata Documents advertise the supported
+    `refresh_token` grant by default with an explicit authorization-code-only
+    opt-out, immutable metadata, and no implicit scope expansion.
   - [x] Add RFC 7591 Dynamic Client Registration as the bounded fallback when
     the authorization server advertises a registration endpoint, including
     explicit native/web application types, public-client enforcement, optional

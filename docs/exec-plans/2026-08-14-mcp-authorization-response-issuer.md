@@ -1,6 +1,6 @@
 # Exec Plan: MCP Authorization Response Issuer
 
-Status: active; implementation and local verification complete; hosted evidence pending
+Status: complete; implementation, local verification, and hosted evidence green
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -89,5 +89,15 @@ or surfacing authorization-server callback errors.
   suite, 97 benchmark tests including all 37 live WAMP workloads, the 442-case
   router suite, 6 remote-auth tests, 13 native follow-ups, every consumer
   smoke, Chrome, and Dart2Wasm green.
-- Commit/push, exact-head hosted workflows, and the strict deployment-chain
-  audit remain.
+- Commit `89d5d8f5` is published to both maintained `master` branches.
+  Exact-head CI `31824845618`, Dart Package Publish Dry Run `31824845617`,
+  WAMP Profile Benchmarks `31824845665`, and Router Image dry run
+  `31826360753` all pass. CI retains coverage artifact `9228921010`; WAMP
+  retains benchmark artifact `9228552936`; Router Image retains preview
+  artifact `9228957601` and Docker build records `9229061881` and
+  `9229061289`.
+- The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI logs, issuer-aware package evidence, the router-hosted MCP
+  runtime smoke, skipped GHCR login, relevant WAMP evidence, and every required
+  package, workflow, registry, and protected-branch gate clean. No RC tag was
+  selected.

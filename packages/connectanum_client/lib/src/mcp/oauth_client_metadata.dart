@@ -6,6 +6,7 @@ import 'oauth_token_exchange.dart';
 
 const _noClientAuthentication = 'none';
 const _authorizationCodeGrant = 'authorization_code';
+const _refreshTokenGrant = 'refresh_token';
 const _authorizationCodeResponse = 'code';
 
 final class McpOAuthClientMetadataDocument {
@@ -16,6 +17,7 @@ final class McpOAuthClientMetadataDocument {
     Uri? clientUri,
     Uri? logoUri,
     Iterable<String> scopes = const <String>[],
+    bool requestRefreshTokens = true,
   }) {
     _validateClientId(clientId);
     _validateClientName(clientName);
@@ -35,6 +37,7 @@ final class McpOAuthClientMetadataDocument {
       clientUri: clientUri,
       logoUri: logoUri,
       scopes: validatedScopes,
+      requestsRefreshTokens: requestRefreshTokens,
     );
   }
 
@@ -45,6 +48,7 @@ final class McpOAuthClientMetadataDocument {
     required this.clientUri,
     required this.logoUri,
     required List<String> scopes,
+    required this.requestsRefreshTokens,
   }) : redirectUris = List<Uri>.unmodifiable(redirectUris),
        scopes = List<String>.unmodifiable(scopes);
 
@@ -54,6 +58,7 @@ final class McpOAuthClientMetadataDocument {
   final Uri? clientUri;
   final Uri? logoUri;
   final List<String> scopes;
+  final bool requestsRefreshTokens;
 
   McpOAuthClientAuthentication get clientAuthentication =>
       McpOAuthClientAuthentication.none(clientId.toString());
@@ -66,7 +71,10 @@ final class McpOAuthClientMetadataDocument {
         redirectUris.map((uri) => uri.toString()),
       ),
       'token_endpoint_auth_method': _noClientAuthentication,
-      'grant_types': const <String>[_authorizationCodeGrant],
+      'grant_types': List<String>.unmodifiable(<String>[
+        _authorizationCodeGrant,
+        if (requestsRefreshTokens) _refreshTokenGrant,
+      ]),
       'response_types': const <String>[_authorizationCodeResponse],
       if (clientUri != null) 'client_uri': clientUri.toString(),
       if (logoUri != null) 'logo_uri': logoUri.toString(),

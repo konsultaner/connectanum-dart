@@ -2827,9 +2827,16 @@ Future<void> _smokeProtectedResourceDiscovery(
   );
   final publishedClientMetadata = clientMetadata.toJson();
   _expect(
-    publishedClientMetadata['client_id'] == _oauthClientId &&
+    clientMetadata.requestsRefreshTokens &&
+        publishedClientMetadata['client_id'] == _oauthClientId &&
         publishedClientMetadata['client_name'] == 'Consumer application' &&
         publishedClientMetadata['token_endpoint_auth_method'] == 'none' &&
+        publishedClientMetadata['grant_types'] is List<Object?> &&
+        (publishedClientMetadata['grant_types']! as List<Object?>).length == 2 &&
+        (publishedClientMetadata['grant_types']! as List<Object?>)[0] ==
+            'authorization_code' &&
+        (publishedClientMetadata['grant_types']! as List<Object?>)[1] ==
+            'refresh_token' &&
         publishedClientMetadata['scope'] == 'mcp:tools mcp:meta' &&
         !publishedClientMetadata.containsKey('client_secret'),
     'Client ID Metadata Document omitted public-client metadata',

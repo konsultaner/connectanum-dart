@@ -60,10 +60,13 @@ Fresh state:
   while retaining the canonical MCP resource and isolating active Streamable
   HTTP state. They can publish and reuse validated public Client ID Metadata
   Documents when the authorization server advertises that MCP-preferred
-  registration mechanism, or use bounded RFC 7591 Dynamic Client Registration
-  when a registration endpoint is advertised. Dynamic registrations enforce
-  explicit native/web application types and remain isolated from active MCP
-  session state. Native consumers can bind an RFC 8252 loopback IP-literal
+  registration mechanism. Those documents advertise the supported
+  `refresh_token` grant by default, allow an explicit authorization-code-only
+  opt-out, and never broaden scopes implicitly. Consumers can instead use
+  bounded RFC 7591 Dynamic Client Registration when a registration endpoint is
+  advertised. Dynamic registrations enforce explicit native/web application
+  types and remain isolated from active MCP session state. Native consumers can
+  bind an RFC 8252 loopback IP-literal
   redirect on an ephemeral port, reject unrelated local traffic without
   trusting `Host`, and receive one state-validated authorization response.
   They can now coordinate that callback with a caller-supplied external

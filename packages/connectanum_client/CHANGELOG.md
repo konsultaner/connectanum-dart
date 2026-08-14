@@ -10,6 +10,9 @@
 - Validate RFC 9207 authorization-response issuers for MCP OAuth callbacks,
   including advertised-required, optional-present, exact-string, and redacted
   error-response handling.
+- Advertise the supported OAuth `refresh_token` grant in public Client ID
+  Metadata Documents by default, with an explicit authorization-code-only
+  opt-out and no implicit scope expansion.
 - Let typed Streamable HTTP and direct JSON WAMP API-list helpers send validated
   opaque cursors and reject malformed continuation cursors.
 - Re-export the shared MCP resource-URI-template utility so client-only
