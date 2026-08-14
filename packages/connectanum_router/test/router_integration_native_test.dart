@@ -1520,6 +1520,7 @@ void main() {
             'description': 'Route metadata visible to MCP clients.',
             'instructions': 'Use this endpoint with route-scoped credentials.',
             'toolListPageSize': 1,
+            'wampApiListPageSize': 1,
             'includePubsubTools': false,
             'includeStandardMetaApi': false,
             'includeRegisteredProcedures': false,
@@ -1579,6 +1580,43 @@ void main() {
         toolList.map((tool) => tool['name']),
         isNot(contains('wamp.registration.list')),
       );
+
+      final firstApiPage = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'api-list-aliases-first',
+        'method': 'connectanum.api.list',
+        'params': {'kind': 'procedure'},
+      });
+      expect(firstApiPage.statusCode, equals(HttpStatus.ok));
+      final firstApiResult =
+          (firstApiPage.json?['result']
+                  as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      expect(
+        ((firstApiResult['procedures'] as List).single as Map)['uri'],
+        equals('app.alpha'),
+      );
+      expect(firstApiResult['nextCursor'], isA<String>());
+
+      final secondApiPage = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'api-list-aliases-second',
+        'method': 'connectanum.api.list',
+        'params': {
+          'kind': 'procedure',
+          'cursor': firstApiResult['nextCursor'],
+        },
+      });
+      expect(secondApiPage.statusCode, equals(HttpStatus.ok));
+      final secondApiResult =
+          (secondApiPage.json?['result']
+                  as Map<String, Object?>)['structuredContent']
+              as Map<String, Object?>;
+      expect(
+        ((secondApiResult['procedures'] as List).single as Map)['uri'],
+        equals('app.beta'),
+      );
+      expect(secondApiResult, isNot(contains('nextCursor')));
     }, skip: skipReason);
 
     test('guards MCP Streamable HTTP ingress and sessions', () async {

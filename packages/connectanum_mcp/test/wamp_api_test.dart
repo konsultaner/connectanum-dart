@@ -133,6 +133,121 @@ void main() {
       ]);
     });
 
+    test(
+      'connectanum.api.list paginates deterministic filtered catalogs',
+      () async {
+        expect(
+          () => McpWampApi(listPageSize: 0),
+          throwsArgumentError,
+        );
+
+        final api = McpWampApi(
+          listPageSize: 2,
+          procedures: [
+            McpWampProcedure(procedure: 'app.gamma', allowCall: false),
+            McpWampProcedure(procedure: 'app.alpha', allowCall: false),
+            McpWampProcedure(procedure: 'app.beta', allowCall: false),
+          ],
+          topics: [
+            McpWampTopic(topic: 'app.topic.beta'),
+            McpWampTopic(topic: 'app.topic.alpha'),
+          ],
+        );
+        final server = _server(api.toTools(includePubSubTools: false));
+        await _initializeAndStart(server);
+
+        Future<Map<String, Object?>> listPage({
+          required int id,
+          String? kind,
+          String? cursor,
+        }) async {
+          final response = await server.handleMessage({
+            'jsonrpc': '2.0',
+            'id': id,
+            'method': 'tools/call',
+            'params': {
+              'name': 'connectanum.api.list',
+              'arguments': {
+                'kind': ?kind,
+                'cursor': ?cursor,
+              },
+            },
+          });
+          final result = response?['result'] as Map<String, Object?>;
+          return result['structuredContent'] as Map<String, Object?>;
+        }
+
+        final first = await listPage(id: 14, kind: 'procedure');
+        expect(_catalogUris(first['procedures']), ['app.alpha', 'app.beta']);
+        expect(first['nextCursor'], isA<String>());
+
+        final procedureCursor = first['nextCursor']! as String;
+        final second = await listPage(
+          id: 15,
+          kind: 'procedure',
+          cursor: procedureCursor,
+        );
+        expect(_catalogUris(second['procedures']), ['app.gamma']);
+        expect(second, isNot(contains('nextCursor')));
+
+        final combinedFirst = await listPage(id: 16);
+        expect(_catalogUris(combinedFirst['procedures']), [
+          'app.alpha',
+          'app.beta',
+        ]);
+        expect(_catalogUris(combinedFirst['topics']), isEmpty);
+
+        final combinedSecond = await listPage(
+          id: 17,
+          cursor: combinedFirst['nextCursor']! as String,
+        );
+        expect(_catalogUris(combinedSecond['procedures']), ['app.gamma']);
+        expect(_catalogUris(combinedSecond['topics']), ['app.topic.alpha']);
+
+        final mismatchedQuery = await server.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 18,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.api.list',
+            'arguments': {'kind': 'topic', 'cursor': procedureCursor},
+          },
+        });
+        expect(
+          mismatchedQuery?['error'],
+          containsPair('code', McpErrorCodes.invalidParams),
+        );
+
+        final refreshedServer = _server(
+          McpWampApi(
+            listPageSize: 2,
+            procedures: [
+              McpWampProcedure(procedure: 'app.alpha', allowCall: false),
+              McpWampProcedure(procedure: 'app.beta', allowCall: false),
+              McpWampProcedure(procedure: 'app.gamma', allowCall: false),
+            ],
+          ).toTools(includePubSubTools: false),
+        );
+        await _initializeAndStart(refreshedServer);
+        final staleCatalog = await refreshedServer.handleMessage({
+          'jsonrpc': '2.0',
+          'id': 19,
+          'method': 'tools/call',
+          'params': {
+            'name': 'connectanum.api.list',
+            'arguments': {
+              'kind': 'procedure',
+              'cursor': procedureCursor,
+            },
+          },
+        });
+        expect(
+          staleCatalog?['error'],
+          containsPair('code', McpErrorCodes.invalidParams),
+        );
+      },
+    );
+
     test('maps WAMP safety metadata to MCP tool annotations', () async {
       final api = McpWampApi(
         procedures: [

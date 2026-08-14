@@ -211,6 +211,18 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '\\"activeDirectToolMethodPagesRead\\":$tool_pages',
             '\\"streamableToolPagesRead\\":$tool_pages',
             '\\"streamableToolMethodPagesRead\\":$tool_pages',
+            '\\"directWampProcedurePagesRead\\":$wamp_procedure_pages',
+            '\\"directWampProcedureMethodPagesRead\\":$wamp_procedure_pages',
+            '\\"directWampTopicPagesRead\\":$wamp_topic_pages',
+            '\\"directWampTopicMethodPagesRead\\":$wamp_topic_pages',
+            '\\"activeDirectWampProcedurePagesRead\\":$wamp_procedure_pages',
+            '\\"activeDirectWampProcedureMethodPagesRead\\":$wamp_procedure_pages',
+            '\\"activeDirectWampTopicPagesRead\\":$wamp_topic_pages',
+            '\\"activeDirectWampTopicMethodPagesRead\\":$wamp_topic_pages',
+            '\\"streamableWampProcedurePagesRead\\":$wamp_procedure_pages',
+            '\\"streamableWampProcedureMethodPagesRead\\":$wamp_procedure_pages',
+            '\\"streamableWampTopicPagesRead\\":$wamp_topic_pages',
+            '\\"streamableWampTopicMethodPagesRead\\":$wamp_topic_pages',
             '\\"directResourcePagesRead\\":$resource_pages',
             '\\"directPromptPagesRead\\":$prompt_pages',
             '\\"streamableResourcePagesRead\\":$resource_pages',
@@ -1668,7 +1680,10 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "include_pubsub_tools: true",
             "tool_list_page_size: 10",
             "tool_list_page_size: 1",
+            "wamp_api_list_page_size: 100",
+            "wamp_api_list_page_size: 1",
             "topic: image.smoke.events",
+            "topic: archive.image.smoke.events",
             "resource_list_page_size: 10",
             "resource_list_page_size: 1",
             "resource_template_list_page_size: 10",
@@ -1706,6 +1721,9 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         self.assertEqual(config.count("name: archive-router-image"), 1)
         self.assertEqual(config.count("tool_list_page_size: 10"), 2)
         self.assertEqual(config.count("tool_list_page_size: 1\n"), 1)
+        self.assertEqual(config.count("wamp_api_list_page_size: 100"), 2)
+        self.assertEqual(config.count("wamp_api_list_page_size: 1\n"), 1)
+        self.assertEqual(config.count("topic: archive.image.smoke.events"), 1)
 
     def test_workflow_smokes_loaded_image_before_multiarch_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

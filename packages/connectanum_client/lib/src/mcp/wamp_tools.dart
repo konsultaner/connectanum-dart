@@ -90,21 +90,28 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     String? kind,
     String? tag,
+    String? cursor,
     bool streamable = true,
     bool directJson = false,
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
-  }) {
-    return _callStructuredTool(
+  }) async {
+    final result = await _callStructuredTool(
       this,
       _apiListTool,
       id: id,
-      arguments: <String, Object?>{'kind': ?kind, 'tag': ?tag},
+      arguments: <String, Object?>{
+        'kind': ?kind,
+        'tag': ?tag,
+        if (cursor != null) 'cursor': _validatedWampApiCursor(cursor),
+      },
       streamable: streamable,
       directJson: directJson,
       protocolVersion: protocolVersion,
       headers: headers,
     );
+    _validateWampApiNextCursor(result);
+    return result;
   }
 
   Future<McpJsonMap> describeWampApi(
@@ -627,6 +634,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
     Object? id,
     String? kind,
     String? tag,
+    String? cursor,
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
   }) {
@@ -634,6 +642,7 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
       id: id,
       kind: kind,
       tag: tag,
+      cursor: cursor,
       directJson: true,
       protocolVersion: protocolVersion,
       headers: headers,
@@ -997,6 +1006,32 @@ extension McpStreamableConnectanumWampTools on McpStreamableHttpClient {
 void _putWampOption(McpJsonMap options, String key, Object? value) {
   if (value != null) {
     options[key] = value;
+  }
+}
+
+String _validatedWampApiCursor(String value) {
+  if (value.isNotEmpty && !containsMcpWhitespaceOrControl(value)) {
+    return value;
+  }
+  throw ArgumentError.value(
+    value,
+    'cursor',
+    'must be a non-empty string without whitespace or control characters',
+  );
+}
+
+void _validateWampApiNextCursor(McpJsonMap result) {
+  final nextCursor = result['nextCursor'];
+  if (nextCursor == null) {
+    return;
+  }
+  if (nextCursor is! String ||
+      nextCursor.isEmpty ||
+      containsMcpWhitespaceOrControl(nextCursor)) {
+    throw const FormatException(
+      'connectanum.api.list result.nextCursor must be a non-empty string '
+      'without whitespace or control characters',
+    );
   }
 }
 

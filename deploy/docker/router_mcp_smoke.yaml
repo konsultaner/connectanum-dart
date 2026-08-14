@@ -59,6 +59,7 @@ router:
                 instructions: Neutral router image MCP runtime smoke endpoint.
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                wamp_api_list_page_size: 100
                 tool_list_page_size: 10
                 resource_list_page_size: 10
                 resource_template_list_page_size: 10
@@ -116,6 +117,7 @@ router:
                 allow_insecure_transport: true
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                wamp_api_list_page_size: 100
                 tool_list_page_size: 10
                 resource_list_page_size: 10
                 resource_template_list_page_size: 10
@@ -174,6 +176,7 @@ router:
                 post_response_transport: json
                 include_standard_meta_api: true
                 include_pubsub_tools: true
+                wamp_api_list_page_size: 1
                 tool_list_page_size: 1
                 resource_list_page_size: 1
                 resource_template_list_page_size: 1
@@ -233,6 +236,9 @@ router:
                     title: Router Image Smoke Session Count
                     description: Counts the WAMP session visible to this MCP route.
                 topics:
+                  - topic: archive.image.smoke.events
+                    title: Router Image Archive Events
+                    description: Metadata-only pagination sentinel for packaged-router topics.
                   - topic: image.smoke.events
                     title: Router Image Smoke Events
                     description: Events used to validate the packaged router runtime.

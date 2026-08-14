@@ -2537,7 +2537,21 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "streamablePromptMethodPagesRead",
             "streamableToolPagesRead",
             "streamableToolMethodPagesRead",
+            "directWampProcedurePagesRead",
+            "directWampProcedureMethodPagesRead",
+            "directWampTopicPagesRead",
+            "directWampTopicMethodPagesRead",
+            "activeDirectWampProcedurePagesRead",
+            "activeDirectWampProcedureMethodPagesRead",
+            "activeDirectWampTopicPagesRead",
+            "activeDirectWampTopicMethodPagesRead",
+            "streamableWampProcedurePagesRead",
+            "streamableWampProcedureMethodPagesRead",
+            "streamableWampTopicPagesRead",
+            "streamableWampTopicMethodPagesRead",
+            "_advertisedWampApiEntry",
             "_expectBatchCatalogPageCanReachValue",
+            "_expectBatchWampApiPageCanReachUri",
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)

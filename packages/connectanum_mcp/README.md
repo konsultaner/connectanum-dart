@@ -473,6 +473,7 @@ WAMP surface instead of hand-registering each MCP tool:
 ```dart
 final api = McpWampApi(
   name: 'app',
+  listPageSize: 50,
   procedures: [
     McpWampProcedure(
       procedure: 'app.task.create',
@@ -509,7 +510,10 @@ final tools = api.toSessionTools(session: session);
 Declared procedures become normal MCP tools backed by WAMP `CALL`. The helper
 also adds `connectanum.api.list` and `connectanum.api.describe` so MCP clients
 can inspect procedure/topic metadata, schemas, tags, and descriptions before
-calling application-specific tools.
+calling application-specific tools. When `listPageSize` is configured,
+`connectanum.api.list` returns an opaque `nextCursor`; pass it back as
+`cursor` with the same `kind` and `tag` filters. Unfiltered pages order
+procedures first and topics second, with each catalog sorted by URI.
 
 Procedure metadata can also declare topics through
 `McpWampApiMetadata.publishesEvents`. Those topics are added to the declared
@@ -560,6 +564,7 @@ const HttpRouteSettings(
       'include_subscribed_topics': true,
       'include_standard_meta_api': true,
       'include_pubsub_tools': true,
+      'wamp_api_list_page_size': 50,
     },
   ),
 );
@@ -712,11 +717,12 @@ configured resource and prompt methods can be used the same way:
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"connectanum.api.list","params":{"kind":"procedure"}}
-{"jsonrpc":"2.0","id":2,"method":"app.task.create","params":{"title":"Ship docs"}}
-{"jsonrpc":"2.0","id":3,"method":"connectanum.tool.call","params":{"name":"app.task.create","arguments":{"title":"Ship docs"}}}
-{"jsonrpc":"2.0","id":4,"method":"connectanum.pubsub.publish","params":{"topic":"app.task.changed","argumentsKeywords":{"id":"T-1"},"acknowledge":true}}
-{"jsonrpc":"2.0","id":5,"method":"resources/list","params":{}}
-{"jsonrpc":"2.0","id":6,"method":"prompts/get","params":{"name":"summarize-task","arguments":{"taskId":"T-1"}}}
+{"jsonrpc":"2.0","id":2,"method":"connectanum.api.list","params":{"kind":"procedure","cursor":"opaque-next-cursor"}}
+{"jsonrpc":"2.0","id":3,"method":"app.task.create","params":{"title":"Ship docs"}}
+{"jsonrpc":"2.0","id":4,"method":"connectanum.tool.call","params":{"name":"app.task.create","arguments":{"title":"Ship docs"}}}
+{"jsonrpc":"2.0","id":5,"method":"connectanum.pubsub.publish","params":{"topic":"app.task.changed","argumentsKeywords":{"id":"T-1"},"acknowledge":true}}
+{"jsonrpc":"2.0","id":6,"method":"resources/list","params":{}}
+{"jsonrpc":"2.0","id":7,"method":"prompts/get","params":{"name":"summarize-task","arguments":{"taskId":"T-1"}}}
 ```
 
 `connectanum.tools.list` returns the current tool definitions. Dotted tool

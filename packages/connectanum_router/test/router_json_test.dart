@@ -963,6 +963,18 @@ void main() {
         'toolListPageSize': 0,
       }, 'MCP toolListPageSize must be a positive integer');
       _expectInvalidMcpOptions({
+        'wamp_api_list_page_size': 0,
+      }, 'MCP wamp_api_list_page_size must be a positive integer');
+      _expectInvalidMcpOptions({
+        'wampApiListPageSize': '2',
+      }, 'MCP wampApiListPageSize must be a positive integer');
+      expect(
+        _routerWithMcpOptions(const {
+          'wamp_api_list_page_size': 1,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      _expectInvalidMcpOptions({
         'max_request_bytes': 0,
       }, 'MCP max_request_bytes must be a positive integer');
       _expectInvalidMcpOptions({

@@ -315,11 +315,15 @@ run_package_client_smoke() {
   local tool_pages=1
   local resource_pages=1
   local prompt_pages=1
+  local wamp_procedure_pages=1
+  local wamp_topic_pages=1
   if [[ "$label" == "Protected JSON-response" ]]; then
     resource_template_pages=2
     tool_pages=2
     resource_pages=2
     prompt_pages=2
+    wamp_procedure_pages=7
+    wamp_topic_pages=2
   fi
   if [[ "$summary" != *"\"pagesRead\":$resource_template_pages"* ]]; then
     printf '%s package client smoke did not traverse %s resource-template page(s).\n' \
@@ -347,7 +351,19 @@ run_package_client_smoke() {
     "\"streamableResourcePagesRead\":$resource_pages" \
     "\"streamableResourceMethodPagesRead\":$resource_pages" \
     "\"streamablePromptPagesRead\":$prompt_pages" \
-    "\"streamablePromptMethodPagesRead\":$prompt_pages"; do
+    "\"streamablePromptMethodPagesRead\":$prompt_pages" \
+    "\"directWampProcedurePagesRead\":$wamp_procedure_pages" \
+    "\"directWampProcedureMethodPagesRead\":$wamp_procedure_pages" \
+    "\"directWampTopicPagesRead\":$wamp_topic_pages" \
+    "\"directWampTopicMethodPagesRead\":$wamp_topic_pages" \
+    "\"activeDirectWampProcedurePagesRead\":$wamp_procedure_pages" \
+    "\"activeDirectWampProcedureMethodPagesRead\":$wamp_procedure_pages" \
+    "\"activeDirectWampTopicPagesRead\":$wamp_topic_pages" \
+    "\"activeDirectWampTopicMethodPagesRead\":$wamp_topic_pages" \
+    "\"streamableWampProcedurePagesRead\":$wamp_procedure_pages" \
+    "\"streamableWampProcedureMethodPagesRead\":$wamp_procedure_pages" \
+    "\"streamableWampTopicPagesRead\":$wamp_topic_pages" \
+    "\"streamableWampTopicMethodPagesRead\":$wamp_topic_pages"; do
     if [[ "$summary" != *"$marker"* ]]; then
       printf '%s package client smoke omitted catalog pagination evidence: %s\n' \
         "$label" "$marker" >&2
@@ -361,6 +377,8 @@ run_package_client_smoke() {
   lifecycle_evidence+=" resource_template_pages=$resource_template_pages"
   lifecycle_evidence+=" tool_pages=$tool_pages resource_pages=$resource_pages"
   lifecycle_evidence+=" prompt_pages=$prompt_pages"
+  lifecycle_evidence+=" wamp_procedure_pages=$wamp_procedure_pages"
+  lifecycle_evidence+=" wamp_topic_pages=$wamp_topic_pages"
   if [[ "$label" == Protected* ]]; then
     auth_evidence="router-issued"
     lifecycle_evidence+=" auth_lifecycle=true"

@@ -7,6 +7,8 @@
   statistics Meta APIs, lifecycle events, and router-opaque payload E2EE.
 - Add production router-hosted MCP endpoints, direct JSON access, auth/session
   isolation, pub/sub, Streamable HTTP compatibility, and operational metrics.
+- Add a bounded `wamp_api_list_page_size` route option for deterministic,
+  authorization-filtered WAMP procedure/topic catalog pagination.
 - Let router resource templates use authorized WAMP read procedures through
   standard Streamable HTTP and direct JSON resource reads.
 - Let legacy and modern MCP clients subscribe to concrete URIs produced by

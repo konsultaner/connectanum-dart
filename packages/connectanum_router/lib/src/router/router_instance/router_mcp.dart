@@ -5343,6 +5343,10 @@ class _RouterMcpEndpoint {
       topics: filteredTopics,
       includeStandardMetaApi: false,
       includePublishedEventTopics: false,
+      listPageSize: _intOptionAny(options, const [
+        'wamp_api_list_page_size',
+        'wampApiListPageSize',
+      ]),
       metadata: <String, Object?>{
         'realm': session.realmUri,
         'routerHosted': true,
@@ -6088,6 +6092,8 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
   }
 
   for (final key in const <String>[
+    'wamp_api_list_page_size',
+    'wampApiListPageSize',
     'tool_list_page_size',
     'toolListPageSize',
     'prompt_list_page_size',

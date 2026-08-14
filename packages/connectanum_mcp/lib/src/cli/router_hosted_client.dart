@@ -1198,6 +1198,25 @@ Future<_AdvertisedCatalogEntry> _advertisedCatalogEntry({
   throw StateError('$label did not advertise $value.');
 }
 
+Future<_AdvertisedCatalogEntry> _advertisedWampApiEntry({
+  required String kind,
+  required String uri,
+  required Future<McpJsonMap> Function(String? cursor) listPage,
+  required String label,
+}) {
+  final catalogKey = kind == 'procedure' ? 'procedures' : 'topics';
+  return _advertisedCatalogEntry(
+    field: 'uri',
+    value: uri,
+    listPage: (cursor) async => _catalogPageFromResult(
+      await listPage(cursor),
+      catalogKey: catalogKey,
+      label: label,
+    ),
+    label: label,
+  );
+}
+
 _CatalogPage _catalogPageFromResult(
   McpJsonMap result, {
   required String catalogKey,
@@ -1216,7 +1235,9 @@ _CatalogPage _catalogPageFromResult(
   }
   final rawNextCursor = result['nextCursor'];
   if (rawNextCursor != null &&
-      (rawNextCursor is! String || rawNextCursor.isEmpty)) {
+      (rawNextCursor is! String ||
+          rawNextCursor.isEmpty ||
+          _containsMcpWhitespaceOrControl(rawNextCursor))) {
     throw StateError('$label returned an invalid next cursor.');
   }
   return (entries: entries, nextCursor: rawNextCursor as String?);
@@ -1810,6 +1831,24 @@ Future<void> _runDirectBatchExample(
       label: 'Direct JSON batch prompt',
     );
   }
+  if (wampProcedure != null) {
+    _expectBatchWampApiPageCanReachUri(
+      batchResponses,
+      id: 'direct-batch-wamp-procedure-api-list',
+      kind: 'procedure',
+      uri: wampProcedure,
+      label: 'Direct JSON batch WAMP procedure',
+    );
+  }
+  if (wampTopic != null) {
+    _expectBatchWampApiPageCanReachUri(
+      batchResponses,
+      id: 'direct-batch-wamp-topic-api-list',
+      kind: 'topic',
+      uri: wampTopic,
+      label: 'Direct JSON batch WAMP topic',
+    );
+  }
   Map<String, Object?>? batchWampSessionMetadata;
   Map<String, Object?>? batchConfiguredRegistrationMetadata;
   Map<String, Object?>? batchConfiguredSubscriptionMetadata;
@@ -2092,6 +2131,29 @@ void _expectBatchCatalogPageCanReachValue(
   throw StateError('$label did not advertise $value or a continuation cursor.');
 }
 
+void _expectBatchWampApiPageCanReachUri(
+  List<McpJsonMap>? responses, {
+  required String id,
+  required String kind,
+  required String uri,
+  required String label,
+}) {
+  final catalogKey = kind == 'procedure' ? 'procedures' : 'topics';
+  final page = _catalogPageFromResult(
+    _structuredContentFromToolResult(
+      _batchResult(responses, id, label: label),
+      label: label,
+    ),
+    catalogKey: catalogKey,
+    label: label,
+  );
+  if (page.entries.any((entry) => entry['uri'] == uri) ||
+      page.nextCursor != null) {
+    return;
+  }
+  throw StateError('$label did not advertise $uri or a continuation cursor.');
+}
+
 McpJsonMap _batchResult(
   List<McpJsonMap>? responses,
   String id, {
@@ -2184,30 +2246,38 @@ Future<void> _runDirectWampMetadataExample(
   metadata['sessionMetadata'] = sessionMetadata;
 
   if (procedure != null) {
-    final procedures = await client.listWampApiDirect(
-      id: 'direct-wamp-procedure-api-list',
+    var procedurePageIndex = 0;
+    final advertisedProcedures = await _advertisedWampApiEntry(
       kind: 'procedure',
-    );
-    final procedureCatalog = procedures['procedures'];
-    _expectWampCatalogContains(
-      catalog: procedureCatalog,
       uri: procedure,
+      listPage: (cursor) => client.listWampApiDirect(
+        id: 'direct-wamp-procedure-api-list-${procedurePageIndex++}',
+        kind: 'procedure',
+        cursor: cursor,
+      ),
       label: 'Direct WAMP procedure',
     );
-    final methodProcedures = _structuredContentFromToolResult(
-      await client.callConnectanumMethodDirect(
-        'connectanum.api.list',
-        id: 'direct-wamp-procedure-api-list-method',
-        params: const <String, Object?>{'kind': 'procedure'},
-      ),
-      label: 'Direct WAMP procedure method list',
-    );
-    final methodProcedureCatalog = methodProcedures['procedures'];
-    _expectWampCatalogContains(
-      catalog: methodProcedureCatalog,
+    var methodProcedurePageIndex = 0;
+    final methodProcedures = await _advertisedWampApiEntry(
+      kind: 'procedure',
       uri: procedure,
+      listPage: (cursor) async => _structuredContentFromToolResult(
+        await client.callConnectanumMethodDirect(
+          'connectanum.api.list',
+          id: 'direct-wamp-procedure-api-list-method-${methodProcedurePageIndex++}',
+          params: <String, Object?>{
+            'kind': 'procedure',
+            'cursor': ?cursor,
+          },
+        ),
+        label: 'Direct WAMP procedure method list',
+      ),
       label: 'Direct WAMP procedure method',
     );
+    metadata['directWampProcedurePagesRead'] = advertisedProcedures.pagesRead;
+    metadata['directWampProcedureMethodPagesRead'] = methodProcedures.pagesRead;
+    final procedureCatalog = advertisedProcedures.entries;
+    final methodProcedureCatalog = methodProcedures.entries;
     final description = await client.describeWampApiDirect(
       procedure,
       id: 'direct-wamp-procedure-api-describe',
@@ -2244,30 +2314,35 @@ Future<void> _runDirectWampMetadataExample(
   }
 
   if (topic != null) {
-    final topics = await client.listWampApiDirect(
-      id: 'direct-wamp-topic-api-list',
+    var topicPageIndex = 0;
+    final advertisedTopics = await _advertisedWampApiEntry(
       kind: 'topic',
-    );
-    final topicCatalog = topics['topics'];
-    _expectWampCatalogContains(
-      catalog: topicCatalog,
       uri: topic,
+      listPage: (cursor) => client.listWampApiDirect(
+        id: 'direct-wamp-topic-api-list-${topicPageIndex++}',
+        kind: 'topic',
+        cursor: cursor,
+      ),
       label: 'Direct WAMP topic',
     );
-    final methodTopics = _structuredContentFromToolResult(
-      await client.callConnectanumMethodDirect(
-        'connectanum.api.list',
-        id: 'direct-wamp-topic-api-list-method',
-        params: const <String, Object?>{'kind': 'topic'},
-      ),
-      label: 'Direct WAMP topic method list',
-    );
-    final methodTopicCatalog = methodTopics['topics'];
-    _expectWampCatalogContains(
-      catalog: methodTopicCatalog,
+    var methodTopicPageIndex = 0;
+    final methodTopics = await _advertisedWampApiEntry(
+      kind: 'topic',
       uri: topic,
+      listPage: (cursor) async => _structuredContentFromToolResult(
+        await client.callConnectanumMethodDirect(
+          'connectanum.api.list',
+          id: 'direct-wamp-topic-api-list-method-${methodTopicPageIndex++}',
+          params: <String, Object?>{'kind': 'topic', 'cursor': ?cursor},
+        ),
+        label: 'Direct WAMP topic method list',
+      ),
       label: 'Direct WAMP topic method',
     );
+    metadata['directWampTopicPagesRead'] = advertisedTopics.pagesRead;
+    metadata['directWampTopicMethodPagesRead'] = methodTopics.pagesRead;
+    final topicCatalog = advertisedTopics.entries;
+    final methodTopicCatalog = methodTopics.entries;
     final description = await client.describeWampApiDirect(
       topic,
       id: 'direct-wamp-topic-api-describe',
@@ -3653,30 +3728,40 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
           directJson: true,
         ),
       ]);
-      final procedures = await client.listWampApiDirect(
-        id: 'streamable-active-direct-wamp-procedure-api-list',
+      var procedurePageIndex = 0;
+      final advertisedProcedures = await _advertisedWampApiEntry(
         kind: 'procedure',
-      );
-      final procedureCatalog = procedures['procedures'];
-      _expectWampCatalogContains(
-        catalog: procedureCatalog,
         uri: wampProcedure,
+        listPage: (cursor) => client.listWampApiDirect(
+          id: 'streamable-active-direct-wamp-procedure-api-list-${procedurePageIndex++}',
+          kind: 'procedure',
+          cursor: cursor,
+        ),
         label: 'Streamable active direct JSON WAMP procedure',
       );
-      final methodProcedures = _structuredContentFromToolResult(
-        await client.callConnectanumMethodDirect(
-          'connectanum.api.list',
-          id: 'streamable-active-direct-wamp-procedure-api-list-method',
-          params: const <String, Object?>{'kind': 'procedure'},
+      var methodProcedurePageIndex = 0;
+      final methodProcedures = await _advertisedWampApiEntry(
+        kind: 'procedure',
+        uri: wampProcedure,
+        listPage: (cursor) async => _structuredContentFromToolResult(
+          await client.callConnectanumMethodDirect(
+            'connectanum.api.list',
+            id: 'streamable-active-direct-wamp-procedure-api-list-method-${methodProcedurePageIndex++}',
+            params: <String, Object?>{
+              'kind': 'procedure',
+              'cursor': ?cursor,
+            },
+          ),
+          label: 'Streamable active direct JSON WAMP procedure method list',
         ),
         label: 'Streamable active direct JSON WAMP procedure method list',
       );
-      final methodProcedureCatalog = methodProcedures['procedures'];
-      _expectWampCatalogContains(
-        catalog: methodProcedureCatalog,
-        uri: wampProcedure,
-        label: 'Streamable active direct JSON WAMP procedure method list',
-      );
+      metadata['activeDirectWampProcedurePagesRead'] =
+          advertisedProcedures.pagesRead;
+      metadata['activeDirectWampProcedureMethodPagesRead'] =
+          methodProcedures.pagesRead;
+      final procedureCatalog = advertisedProcedures.entries;
+      final methodProcedureCatalog = methodProcedures.entries;
       final description = await client.describeWampApiDirect(
         wampProcedure,
         id: 'streamable-active-direct-wamp-procedure-api-describe',
@@ -3756,30 +3841,35 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
           directJson: true,
         ),
       ]);
-      final topics = await client.listWampApiDirect(
-        id: 'streamable-active-direct-wamp-topic-api-list',
+      var topicPageIndex = 0;
+      final advertisedTopics = await _advertisedWampApiEntry(
         kind: 'topic',
-      );
-      final topicCatalog = topics['topics'];
-      _expectWampCatalogContains(
-        catalog: topicCatalog,
         uri: wampTopic,
+        listPage: (cursor) => client.listWampApiDirect(
+          id: 'streamable-active-direct-wamp-topic-api-list-${topicPageIndex++}',
+          kind: 'topic',
+          cursor: cursor,
+        ),
         label: 'Streamable active direct JSON WAMP topic',
       );
-      final methodTopics = _structuredContentFromToolResult(
-        await client.callConnectanumMethodDirect(
-          'connectanum.api.list',
-          id: 'streamable-active-direct-wamp-topic-api-list-method',
-          params: const <String, Object?>{'kind': 'topic'},
+      var methodTopicPageIndex = 0;
+      final methodTopics = await _advertisedWampApiEntry(
+        kind: 'topic',
+        uri: wampTopic,
+        listPage: (cursor) async => _structuredContentFromToolResult(
+          await client.callConnectanumMethodDirect(
+            'connectanum.api.list',
+            id: 'streamable-active-direct-wamp-topic-api-list-method-${methodTopicPageIndex++}',
+            params: <String, Object?>{'kind': 'topic', 'cursor': ?cursor},
+          ),
+          label: 'Streamable active direct JSON WAMP topic method list',
         ),
         label: 'Streamable active direct JSON WAMP topic method list',
       );
-      final methodTopicCatalog = methodTopics['topics'];
-      _expectWampCatalogContains(
-        catalog: methodTopicCatalog,
-        uri: wampTopic,
-        label: 'Streamable active direct JSON WAMP topic method list',
-      );
+      metadata['activeDirectWampTopicPagesRead'] = advertisedTopics.pagesRead;
+      metadata['activeDirectWampTopicMethodPagesRead'] = methodTopics.pagesRead;
+      final topicCatalog = advertisedTopics.entries;
+      final methodTopicCatalog = methodTopics.entries;
       final description = await client.describeWampApiDirect(
         wampTopic,
         id: 'streamable-active-direct-wamp-topic-api-describe',
@@ -3878,6 +3968,24 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       field: 'name',
       value: promptName,
       label: 'Streamable active direct JSON batch prompt',
+    );
+  }
+  if (wampProcedure != null) {
+    _expectBatchWampApiPageCanReachUri(
+      batchResponses,
+      id: 'streamable-active-direct-batch-wamp-procedure-api-list',
+      kind: 'procedure',
+      uri: wampProcedure,
+      label: 'Streamable active direct JSON batch WAMP procedure',
+    );
+  }
+  if (wampTopic != null) {
+    _expectBatchWampApiPageCanReachUri(
+      batchResponses,
+      id: 'streamable-active-direct-batch-wamp-topic-api-list',
+      kind: 'topic',
+      uri: wampTopic,
+      label: 'Streamable active direct JSON batch WAMP topic',
     );
   }
   if (wampProcedure != null || wampTopic != null) {
@@ -5441,6 +5549,24 @@ Future<void> _runStreamableSessionExample(
       label: 'Streamable batch prompt',
     );
   }
+  if (wampProcedure != null) {
+    _expectBatchWampApiPageCanReachUri(
+      batchResponses,
+      id: 'streamable-batch-wamp-procedure-api-list',
+      kind: 'procedure',
+      uri: wampProcedure,
+      label: 'Streamable batch WAMP procedure',
+    );
+  }
+  if (wampTopic != null) {
+    _expectBatchWampApiPageCanReachUri(
+      batchResponses,
+      id: 'streamable-batch-wamp-topic-api-list',
+      kind: 'topic',
+      uri: wampTopic,
+      label: 'Streamable batch WAMP topic',
+    );
+  }
   streamable['batch'] = <String, Object?>{'responseIds': responseIds};
   if (client.sessionId != streamableSessionId) {
     throw StateError('Streamable batch changed session id.');
@@ -5455,29 +5581,40 @@ Future<void> _runStreamableSessionExample(
     metadata['sessionCount'] = _wampMetaResultJson(sessionCount);
 
     if (wampProcedure != null) {
-      final procedures = await client.listWampApi(
-        id: 'streamable-wamp-procedure-api-list',
+      var procedurePageIndex = 0;
+      final advertisedProcedures = await _advertisedWampApiEntry(
         kind: 'procedure',
-      );
-      final procedureCatalog = procedures['procedures'];
-      _expectWampCatalogContains(
-        catalog: procedureCatalog,
         uri: wampProcedure,
+        listPage: (cursor) => client.listWampApi(
+          id: 'streamable-wamp-procedure-api-list-${procedurePageIndex++}',
+          kind: 'procedure',
+          cursor: cursor,
+        ),
         label: 'Streamable WAMP procedure',
       );
-      final methodProcedureCatalog = _structuredContentFromToolResult(
-        await client.callConnectanumMethod(
-          'connectanum.api.list',
-          id: 'streamable-wamp-procedure-api-list-method',
-          params: const <String, Object?>{'kind': 'procedure'},
+      var methodProcedurePageIndex = 0;
+      final methodProcedures = await _advertisedWampApiEntry(
+        kind: 'procedure',
+        uri: wampProcedure,
+        listPage: (cursor) async => _structuredContentFromToolResult(
+          await client.callConnectanumMethod(
+            'connectanum.api.list',
+            id: 'streamable-wamp-procedure-api-list-method-${methodProcedurePageIndex++}',
+            params: <String, Object?>{
+              'kind': 'procedure',
+              'cursor': ?cursor,
+            },
+          ),
+          label: 'Streamable WAMP procedure method list',
         ),
         label: 'Streamable WAMP procedure method list',
-      )['procedures'];
-      _expectWampCatalogContains(
-        catalog: methodProcedureCatalog,
-        uri: wampProcedure,
-        label: 'Streamable WAMP procedure method list',
       );
+      metadata['streamableWampProcedurePagesRead'] =
+          advertisedProcedures.pagesRead;
+      metadata['streamableWampProcedureMethodPagesRead'] =
+          methodProcedures.pagesRead;
+      final procedureCatalog = advertisedProcedures.entries;
+      final methodProcedureCatalog = methodProcedures.entries;
       final description = await client.describeWampApi(
         wampProcedure,
         id: 'streamable-wamp-procedure-api-describe',
@@ -5512,29 +5649,35 @@ Future<void> _runStreamableSessionExample(
     }
 
     if (wampTopic != null) {
-      final topics = await client.listWampApi(
-        id: 'streamable-wamp-topic-api-list',
+      var topicPageIndex = 0;
+      final advertisedTopics = await _advertisedWampApiEntry(
         kind: 'topic',
-      );
-      final topicCatalog = topics['topics'];
-      _expectWampCatalogContains(
-        catalog: topicCatalog,
         uri: wampTopic,
+        listPage: (cursor) => client.listWampApi(
+          id: 'streamable-wamp-topic-api-list-${topicPageIndex++}',
+          kind: 'topic',
+          cursor: cursor,
+        ),
         label: 'Streamable WAMP topic',
       );
-      final methodTopicCatalog = _structuredContentFromToolResult(
-        await client.callConnectanumMethod(
-          'connectanum.api.list',
-          id: 'streamable-wamp-topic-api-list-method',
-          params: const <String, Object?>{'kind': 'topic'},
+      var methodTopicPageIndex = 0;
+      final methodTopics = await _advertisedWampApiEntry(
+        kind: 'topic',
+        uri: wampTopic,
+        listPage: (cursor) async => _structuredContentFromToolResult(
+          await client.callConnectanumMethod(
+            'connectanum.api.list',
+            id: 'streamable-wamp-topic-api-list-method-${methodTopicPageIndex++}',
+            params: <String, Object?>{'kind': 'topic', 'cursor': ?cursor},
+          ),
+          label: 'Streamable WAMP topic method list',
         ),
         label: 'Streamable WAMP topic method list',
-      )['topics'];
-      _expectWampCatalogContains(
-        catalog: methodTopicCatalog,
-        uri: wampTopic,
-        label: 'Streamable WAMP topic method list',
       );
+      metadata['streamableWampTopicPagesRead'] = advertisedTopics.pagesRead;
+      metadata['streamableWampTopicMethodPagesRead'] = methodTopics.pagesRead;
+      final topicCatalog = advertisedTopics.entries;
+      final methodTopicCatalog = methodTopics.entries;
       final description = await client.describeWampApi(
         wampTopic,
         id: 'streamable-wamp-topic-api-describe',

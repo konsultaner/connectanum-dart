@@ -1,6 +1,6 @@
 # Exec Plan: MCP Selected Tool Pagination
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -97,5 +97,20 @@ endpoint.
   the complete catalog with repeated-cursor and 1,024-page guards, and all 31
   focused Router Image smoke contracts pass. Follow-up `bin/test-fast` and
   full `bin/verify` pass with zero formatting changes across the complete Rust,
-  Dart, generated-consumer, router, and Chrome Dart2Wasm matrix. The follow-up
-  commit and replacement exact-head hosted evidence remain.
+  Dart, generated-consumer, router, and Chrome Dart2Wasm matrix.
+- 2026-08-14: Follow-up commit `d7c040f3` is published to both maintained
+  `master` branches. Clean strict release-ready validation passes all seven
+  synchronized package archives with zero warnings. Exact-head CI
+  `31768420445` passes Fast Checks, Full Verify, and Dart VM Coverage with
+  coverage artifact `9207547535`; Dart Package Publish Dry Run `31768456461`
+  also passes. Replacement Router Image dry run `31768425969` passes the
+  loaded-image smoke, official MCP SDK 2.0.0 smoke, isolated globally
+  activated package client, and multi-architecture dry-run build while
+  avoiding GHCR login. Its compatibility evidence reports one tool page on
+  public and standard protected routes and two pages on the protected
+  JSON-response route. It retains preview artifact `9207202759` and Docker
+  build records `9207272132` and `9207272575`. The comprehensive strict
+  deployment-chain audit exits zero with exact-head CI/log, package, Router
+  Image, retained native/WAMP, workflow, registry, and branch-protection gates
+  clean. Release-candidate publication remains intentionally unselected
+  because no new RC tag was approved.

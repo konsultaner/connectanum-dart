@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:connectanum_client/connectanum.dart';
 
+import '../protocol/errors.dart';
 import '../protocol/json_rpc.dart';
+import '../protocol/pagination.dart';
 import 'tool.dart';
 import 'wamp_tool_delegate.dart';
 
@@ -75,6 +78,20 @@ final class McpWampPubSubState {
   }
 }
 
+const String _wampApiCursorPrefix = 'wampApi:';
+var _nextWampApiCursorRevision = 0;
+
+int? _validatedWampApiListPageSize(int? value) {
+  if (value != null && value <= 0) {
+    throw ArgumentError.value(
+      value,
+      'listPageSize',
+      'must be a positive integer',
+    );
+  }
+  return value;
+}
+
 class McpWampApi {
   McpWampApi({
     this.name,
@@ -82,6 +99,7 @@ class McpWampApi {
     Iterable<McpWampTopic> topics = const [],
     bool includeStandardMetaApi = false,
     bool includePublishedEventTopics = true,
+    int? listPageSize,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) : procedures = List<McpWampProcedure>.unmodifiable([
          ...procedures,
@@ -94,12 +112,15 @@ class McpWampApi {
              ..._publishedEventTopicsFor(procedure),
          if (includeStandardMetaApi) ...McpWampStandardMetaApi.topics,
        ]),
+       listPageSize = _validatedWampApiListPageSize(listPageSize),
        metadata = Map<String, Object?>.unmodifiable(metadata);
 
   final String? name;
   final List<McpWampProcedure> procedures;
   final List<McpWampTopic> topics;
+  final int? listPageSize;
   final Map<String, Object?> metadata;
+  final int _cursorRevision = _nextWampApiCursorRevision++;
 
   List<McpTool> toTools({
     McpWampCallInvoker? call,
@@ -254,6 +275,7 @@ class McpWampApi {
               'enum': ['procedure', 'topic'],
             },
             'tag': {'type': 'string'},
+            'cursor': {'type': 'string'},
           },
           'additionalProperties': false,
         },
@@ -409,28 +431,67 @@ class McpWampApi {
   Future<McpToolResult> _handleApiList(McpToolRequest request) async {
     final kind = _optionalString(request.arguments, 'kind');
     final tag = _optionalString(request.arguments, 'tag');
+    final cursor = _optionalString(request.arguments, 'cursor');
     final includeProcedures = kind == null || kind == 'procedure';
     final includeTopics = kind == null || kind == 'topic';
+    final visibleProcedures = <McpWampProcedure>[
+      if (includeProcedures)
+        for (final procedure in procedures)
+          if (tag == null || procedure.metadata.tags.contains(tag)) procedure,
+    ]..sort((left, right) => left.procedure.compareTo(right.procedure));
+    final visibleTopics = <McpWampTopic>[
+      if (includeTopics)
+        for (final topic in topics)
+          if (tag == null || topic.metadata.tags.contains(tag)) topic,
+    ]..sort((left, right) => left.topic.compareTo(right.topic));
+
+    final entries = <({String kind, Map<String, Object?> value})>[
+      for (final procedure in visibleProcedures)
+        (kind: 'procedure', value: procedure.toJson()),
+      for (final topic in visibleTopics) (kind: 'topic', value: topic.toJson()),
+    ];
+    final pageSize = listPageSize;
+    if (pageSize == null && cursor != null) {
+      throw McpException(
+        McpErrorCodes.invalidParams,
+        'connectanum.api.list.arguments.cursor is invalid or stale',
+      );
+    }
+
+    final start = pageSize == null
+        ? 0
+        : decodeMcpCursor(
+            cursor,
+            prefix: _wampApiCursorPrefix,
+            expectedRevision: Object.hash(_cursorRevision, kind, tag),
+            maxOffset: entries.length,
+            errorMessage:
+                'connectanum.api.list.arguments.cursor is invalid or stale',
+          );
+    final end = pageSize == null
+        ? entries.length
+        : math.min(start + pageSize, entries.length);
+    final page = entries.sublist(start, end);
     final result = <String, Object?>{
       if (name != null) 'name': name,
       if (metadata.isNotEmpty) 'metadata': mcpWampJsonCompatible(metadata),
+      if (includeProcedures)
+        'procedures': [
+          for (final entry in page)
+            if (entry.kind == 'procedure') entry.value,
+        ],
+      if (includeTopics)
+        'topics': [
+          for (final entry in page)
+            if (entry.kind == 'topic') entry.value,
+        ],
+      if (pageSize != null && end < entries.length)
+        'nextCursor': encodeMcpCursor(
+          prefix: _wampApiCursorPrefix,
+          revision: Object.hash(_cursorRevision, kind, tag),
+          offset: end,
+        ),
     };
-    if (includeProcedures) {
-      final visibleProcedures = [
-        for (final procedure in procedures)
-          if (tag == null || procedure.metadata.tags.contains(tag)) procedure,
-      ]..sort((left, right) => left.procedure.compareTo(right.procedure));
-      result['procedures'] = [
-        for (final procedure in visibleProcedures) procedure.toJson(),
-      ];
-    }
-    if (includeTopics) {
-      final visibleTopics = [
-        for (final topic in topics)
-          if (tag == null || topic.metadata.tags.contains(tag)) topic,
-      ]..sort((left, right) => left.topic.compareTo(right.topic));
-      result['topics'] = [for (final topic in visibleTopics) topic.toJson()];
-    }
     return _jsonToolResult(result);
   }
 

@@ -16,6 +16,9 @@
 - Make the packaged router-hosted client traverse opaque catalog cursors when
   selecting tools, resources, prompts, and resource templates through typed
   and raw direct JSON or compatibility Streamable HTTP calls.
+- Add bounded, filter-bound pagination for `connectanum.api.list` and make the
+  packaged client traverse WAMP procedure/topic pages through typed, raw
+  method, batch, direct JSON, and compatibility Streamable HTTP paths.
 - Add MCP 2026 form-elicitation MRTR requests, scoped capability enforcement,
   WAMP detail bridging, bounded client retries, and direct JSON support.
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,

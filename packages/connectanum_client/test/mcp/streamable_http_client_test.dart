@@ -8196,6 +8196,68 @@ void main() {
       );
     });
 
+    test('validates WAMP API catalog cursors through typed helpers', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = McpStreamableHttpClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize();
+      await client.notifyInitialized();
+
+      final requestCount = endpoint.requests.length;
+      await expectLater(
+        client.listWampApi(
+          id: 'wamp-api-invalid-cursor',
+          kind: 'topic',
+          cursor: 'bad cursor',
+          streamable: false,
+        ),
+        throwsArgumentError,
+      );
+      expect(endpoint.requests, hasLength(requestCount));
+
+      final page = await client.listWampApi(
+        id: 'wamp-api-page',
+        kind: 'topic',
+        cursor: 'page-cursor',
+        streamable: false,
+      );
+      expect(page['nextCursor'], 'page-next');
+      final pageBody = _jsonMapFrom(
+        endpoint.requests.last.body,
+        label: 'WAMP API page request',
+      );
+      final pageParams = _jsonMapFrom(
+        pageBody['params'],
+        label: 'WAMP API page params',
+      );
+      expect(
+        _jsonMapFrom(
+          pageParams['arguments'],
+          label: 'WAMP API page arguments',
+        ),
+        {'kind': 'topic', 'cursor': 'page-cursor'},
+      );
+
+      final directPage = await client.listWampApiDirect(
+        id: 'wamp-api-direct-page',
+        kind: 'topic',
+        cursor: 'direct-page-cursor',
+      );
+      expect(directPage['nextCursor'], 'direct-page-next');
+
+      await expectLater(
+        client.listWampApi(
+          id: 'wamp-api-malformed-next-cursor',
+          kind: 'topic',
+          streamable: false,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('rejects invalid WAMP helper result fields', () {
       expect(
         () => McpStreamableWampMetaCallResult.fromJson(
@@ -10628,6 +10690,11 @@ final class _FakeMcpEndpoint {
               'title': 'Audit Events',
             },
           ],
+          if (requestBody['id'] == 'wamp-api-page') 'nextCursor': 'page-next',
+          if (requestBody['id'] == 'wamp-api-direct-page')
+            'nextCursor': 'direct-page-next',
+          if (requestBody['id'] == 'wamp-api-malformed-next-cursor')
+            'nextCursor': 7,
         });
         return;
       }
@@ -10839,6 +10906,11 @@ final class _FakeMcpEndpoint {
               'title': 'Audit Events',
             },
           ],
+          if (requestBody['id'] == 'wamp-api-page') 'nextCursor': 'page-next',
+          if (requestBody['id'] == 'wamp-api-direct-page')
+            'nextCursor': 'direct-page-next',
+          if (requestBody['id'] == 'wamp-api-malformed-next-cursor')
+            'nextCursor': 7,
         });
         return;
       }

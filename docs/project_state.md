@@ -24401,8 +24401,22 @@ at the older `47bbf9c` commit.
   traversal; the smoke has repeated-cursor and 1,024-page guards, and all 31
   focused Router Image contracts pass. Follow-up `bin/test-fast` and full
   `bin/verify` pass with zero formatting changes across the complete Rust,
-  Dart, generated-consumer, router, and Chrome Dart2Wasm matrix. The follow-up
-  commit and replacement hosted Router Image/deployment evidence remain.
+  Dart, generated-consumer, router, and Chrome Dart2Wasm matrix. Follow-up
+  commit `d7c040f3` is published to both maintained `master` branches, and its
+  clean strict release-ready dry-run validates all seven synchronized archives
+  with zero warnings. Exact-head CI `31768420445` passes Fast Checks, Full
+  Verify, and Dart VM Coverage with coverage artifact `9207547535`; Dart
+  Package Publish Dry Run `31768456461` also passes. Replacement Router Image
+  dry run `31768425969` passes the loaded-image smoke, official MCP SDK 2.0.0
+  smoke, isolated globally activated package client, and multi-architecture
+  dry-run build while avoiding GHCR login. It reports one tool page on public
+  and standard protected compatibility endpoints and two pages on the
+  protected JSON-response endpoint, retaining preview artifact `9207202759`
+  and Docker build records `9207272132` and `9207272575`. The comprehensive
+  strict deployment-chain audit exits zero with exact-head CI/log, package,
+  Router Image, retained native/WAMP, workflow, registry, and branch-protection
+  gates clean. Release-candidate publication remains intentionally unselected
+  because no new RC tag was approved.
 - 2026-08-14: Downstream Dart consumers can now parse, validate, match, and
   expand advertised MCP resource URI templates through the public bounded
   `McpResourceUriTemplate` API. Server-side resource matching delegates to the
@@ -25155,6 +25169,22 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-wamp-api-pagination.md`. It bounds the
+  router-provided `connectanum.api.list` catalog behind an optional route page
+  size, adds query/catalog-bound opaque cursors to the shared MCP WAMP API, and
+  makes the shipped public client traverse typed and raw procedure/topic pages
+  through direct JSON, active-session direct JSON, and compatibility
+  Streamable HTTP. Package and Router Image evidence will place selected
+  neutral entries after page one while preserving authorization and pub/sub
+  ownership. Pre-change and post-change `bin/test-fast`, focused package
+  analysis/tests and native router integration, shell/Python/diff hygiene, and
+  full `bin/verify` pass from implementation base `d7c040f3`. Full verification
+  covers Rust core/FFI, Dart VM/native/browser packages, generated and globally
+  activated consumers, live WAMP/benchmarks, the complete router suite, and
+  Chrome Dart2Wasm. The implementation commit and exact-head hosted evidence
+  remain; only the previous milestone's hosted-evidence bookkeeping was already
+  pending locally before this implementation.
+- The most recently completed plan is
   `docs/exec-plans/2026-08-14-mcp-selected-tool-pagination.md`. It removes the
   shipped router-hosted client's remaining first-page assumption for
   caller-selected tools across direct JSON, active-session direct JSON, and
@@ -25166,10 +25196,14 @@ at the older `47bbf9c` commit.
   builders stall before their first build step. Clean-commit package validation
   and exact-head package workflow pass at implementation commit `2abf431f`.
   The first Router Image run exposed and reproduced a first-page-only
-  assumption in the Python black-box smoke; its cursor-aware fix passes all 31
-  focused contracts plus follow-up `bin/test-fast` and full `bin/verify`. The
-  follow-up commit and replacement exact-head Router Image/deployment evidence
-  remain.
+  assumption in the Python black-box smoke; follow-up commit `d7c040f3` makes
+  that smoke cursor-aware with repeated-cursor and 1,024-page guards. All 31
+  focused contracts, follow-up `bin/test-fast`, and full `bin/verify` pass.
+  Exact-head CI `31768420445`, package dry run `31768456461`, and replacement
+  Router Image dry run `31768425969` pass; the hosted compatibility evidence
+  reports two tool pages on the protected JSON-response endpoint. The
+  comprehensive strict deployment-chain audit exits zero with every required
+  gate clean; no follow-up RC tag is selected without release approval.
 - The most recently completed implementation plan is
   `docs/exec-plans/2026-08-14-mcp-selected-catalog-pagination.md`. It removes
   the shipped router-hosted client's remaining first-page assumption for
