@@ -13,6 +13,9 @@
 - Share one public Level 1 resource-URI-template parser between server matching
   and consumer expansion, and exercise advertised-template reads from the
   packaged router-hosted client.
+- Make the packaged router-hosted client traverse opaque catalog cursors when
+  selecting resources, prompts, and resource templates through typed and raw
+  direct JSON or compatibility Streamable HTTP calls.
 - Add MCP 2026 form-elicitation MRTR requests, scoped capability enforcement,
   WAMP detail bridging, bounded client retries, and direct JSON support.
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,

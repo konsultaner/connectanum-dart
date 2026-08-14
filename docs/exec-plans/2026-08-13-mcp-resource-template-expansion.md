@@ -1,6 +1,6 @@
 # Exec Plan: MCP Resource-Template Expansion
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-14
@@ -112,8 +112,19 @@ router-hosted client package.
   commit, `bin/dart-package-publish-dry-run --strict-release-ready` validates
   all seven synchronized `3.0.0-beta` archives with zero warnings, no private
   workspace dependency blockers, and every declared executable present.
+- 2026-08-14: Implementation commit `bd296260` is pushed to GitLab and GitHub.
+  Exact-head CI `31753278926`, Dart Package Publish Dry Run `31753278919`, WAMP
+  Profile Benchmarks `31753278943`, and Router Image dry run `31754449849` all
+  pass on their first attempts. CI uploaded coverage artifact `9202170821`;
+  WAMP uploaded benchmark artifact `9201920877`; Router Image uploaded preview
+  artifact `9202196168` and Docker build records `9202324764` and
+  `9202324101`. Hosted Router Image evidence records
+  `resource_template_expansion=true` with one page for the public and
+  protected standard routes and two pages for the protected JSON-response
+  route. The comprehensive strict deployment-chain audit exits zero.
 
 ## Handoff
 
-- Implementation, local verification, and clean strict package validation are
-  complete. Publication and exact-head hosted evidence remain.
+- Implementation, the commit on both maintained branches, local verification,
+  clean strict package validation, exact-head hosted workflows and artifacts,
+  and the comprehensive strict deployment-chain audit are complete.

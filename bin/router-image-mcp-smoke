@@ -308,8 +308,12 @@ run_package_client_smoke() {
   fi
 
   local resource_template_pages=1
+  local resource_pages=1
+  local prompt_pages=1
   if [[ "$label" == "Protected JSON-response" ]]; then
     resource_template_pages=2
+    resource_pages=2
+    prompt_pages=2
   fi
   if [[ "$summary" != *"\"pagesRead\":$resource_template_pages"* ]]; then
     printf '%s package client smoke did not traverse %s resource-template page(s).\n' \
@@ -318,9 +322,31 @@ run_package_client_smoke() {
     return 1
   fi
 
+  for marker in \
+    "\"directResourcePagesRead\":$resource_pages" \
+    "\"directResourceMethodPagesRead\":$resource_pages" \
+    "\"directPromptPagesRead\":$prompt_pages" \
+    "\"directPromptMethodPagesRead\":$prompt_pages" \
+    "\"activeDirectResourcePagesRead\":$resource_pages" \
+    "\"activeDirectResourceMethodPagesRead\":$resource_pages" \
+    "\"activeDirectPromptPagesRead\":$prompt_pages" \
+    "\"activeDirectPromptMethodPagesRead\":$prompt_pages" \
+    "\"streamableResourcePagesRead\":$resource_pages" \
+    "\"streamableResourceMethodPagesRead\":$resource_pages" \
+    "\"streamablePromptPagesRead\":$prompt_pages" \
+    "\"streamablePromptMethodPagesRead\":$prompt_pages"; do
+    if [[ "$summary" != *"$marker"* ]]; then
+      printf '%s package client smoke omitted catalog pagination evidence: %s\n' \
+        "$label" "$marker" >&2
+      printf '%s\n' "$summary" >&2
+      return 1
+    fi
+  done
+
   local auth_evidence="anonymous"
   local lifecycle_evidence="streamable_http=true session_delete=true resource_template_expansion=true"
   lifecycle_evidence+=" resource_template_pages=$resource_template_pages"
+  lifecycle_evidence+=" resource_pages=$resource_pages prompt_pages=$prompt_pages"
   if [[ "$label" == Protected* ]]; then
     auth_evidence="router-issued"
     lifecycle_evidence+=" auth_lifecycle=true"

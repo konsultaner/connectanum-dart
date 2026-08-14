@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -25126,6 +25126,21 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active implementation plan is
+  `docs/exec-plans/2026-08-14-mcp-selected-catalog-pagination.md`. It removes
+  the shipped router-hosted client's remaining first-page assumption for
+  caller-selected resources and prompts across direct JSON, active-session
+  direct JSON, and compatibility Streamable HTTP. The protected JSON-response
+  Router Image fixture places both selected entries on page two and records
+  explicit typed and raw JSON-RPC page-count evidence. Pre-change and
+  post-change `bin/test-fast`, 51 focused Python contracts, package analysis,
+  shell syntax, a fresh local Router Image build and complete official SDK plus
+  isolated package-client smoke, and full `bin/verify` pass. The local image
+  reports one resource/prompt/template page on public and standard protected
+  routes and two pages on the protected JSON-response route; the modern
+  stateless flow also resolves its dynamic resource on page three. Clean
+  strict release-ready dry-runs validate all seven synchronized package
+  archives with zero warnings and all declared executables present.
+- The most recently completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-resource-template-expansion.md`. It adds one
   shared public bounded Level 1 URI-template representation so downstream Dart
   consumers can validate and correctly percent-encode advertised template
@@ -25134,10 +25149,18 @@ at the older `47bbf9c` commit.
   the isolated globally activated package client on public and protected
   Router Image endpoints. Focused checks, post-change `bin/test-fast`, and full
   `bin/verify` and clean strict validation of all seven package archives pass.
-  Publication and exact-head hosted evidence remain; the predecessor
-  milestone's hosted-evidence edits stay bundled with this implementation
-  commit.
-- The most recently completed implementation plan is
+  Commit `bd296260` is on both maintained branches. Exact-head CI
+  `31753278926`, Dart Package Publish Dry Run `31753278919`, WAMP Profile
+  Benchmarks `31753278943`, and Router Image dry run `31754449849` all pass on
+  their first attempts. CI uploaded coverage artifact `9202170821`; WAMP
+  uploaded benchmark artifact `9201920877`; Router Image uploaded preview
+  artifact `9202196168` and Docker build records `9202324764` and
+  `9202324101`. The fresh-image log records one-page public and protected
+  template discovery plus a two-page protected JSON-response discovery before
+  expansion and read. The comprehensive strict deployment-chain audit exits
+  zero with exact-head jobs, logs, package, Router Image, WAMP, workflow,
+  registry, and branch-protection gates clean.
+- The preceding completed implementation plan is
   `docs/exec-plans/2026-08-13-mcp-resource-template-subscriptions.md`.
   Router-hosted MCP now lets legacy `resources/subscribe` and modern
   `subscriptions/listen` subscribe to concrete URIs produced by readable

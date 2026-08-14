@@ -172,10 +172,16 @@ router:
                 post_response_transport: json
                 include_standard_meta_api: true
                 include_pubsub_tools: true
-                resource_list_page_size: 10
+                resource_list_page_size: 1
                 resource_template_list_page_size: 1
-                prompt_list_page_size: 10
+                prompt_list_page_size: 1
                 resources:
+                  - uri: connectanum://router-image/archive-context
+                    name: router-image-archive-context
+                    title: Router Image Archive Context
+                    description: Metadata-only pagination sentinel for packaged-router resources.
+                    mime_type: text/plain
+                    text: Archived router-hosted context.
                   - uri: connectanum://router-image/context
                     name: router-image-context
                     title: Router Image Context
@@ -203,6 +209,12 @@ router:
                     read_procedure: wamp.session.count
                     update_topic: image.smoke.events
                 prompts:
+                  - name: archive-router-image
+                    title: Archive Router Image
+                    description: Metadata-only pagination sentinel for packaged-router prompts.
+                    messages:
+                      - role: user
+                        text: Archive router image metadata.
                   - name: inspect-router-image
                     title: Inspect Router Image
                     description: Builds a neutral packaged-router inspection prompt.

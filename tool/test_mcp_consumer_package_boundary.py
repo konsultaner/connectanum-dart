@@ -2506,6 +2506,34 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             runner,
         )
 
+    def test_public_router_hosted_client_paginates_selected_catalog_entries(
+        self,
+    ) -> None:
+        runner = ROUTER_HOSTED_CLIENT_RUNNER.read_text(encoding="utf-8")
+
+        for expected in (
+            "_advertisedCatalogEntry",
+            "_catalogPageFromResult",
+            "_maximumAdvertisedCatalogPages = 1024",
+            "catalog pages",
+            "repeated catalog cursor",
+            "directResourcePagesRead",
+            "directResourceMethodPagesRead",
+            "directPromptPagesRead",
+            "directPromptMethodPagesRead",
+            "activeDirectResourcePagesRead",
+            "activeDirectResourceMethodPagesRead",
+            "activeDirectPromptPagesRead",
+            "activeDirectPromptMethodPagesRead",
+            "streamableResourcePagesRead",
+            "streamableResourceMethodPagesRead",
+            "streamablePromptPagesRead",
+            "streamablePromptMethodPagesRead",
+            "_expectBatchCatalogPageCanReachValue",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, runner)
+
     def test_public_router_hosted_server_example_publishes_task_lookup_events(
         self,
     ) -> None:

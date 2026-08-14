@@ -396,7 +396,9 @@ Use `--resource-template URI_TEMPLATE` with
 `--resource-template-variables JSON_OBJECT` to require that the endpoint
 advertises a selected Level 1 template, expand its decoded string variables,
 and read the resulting URI through both direct JSON and compatibility
-Streamable HTTP.
+Streamable HTTP. Selected `--resource-uri`, `--prompt`, and resource-template
+entries are resolved across opaque catalog cursors rather than being limited
+to the first advertised page.
 
 ## WAMP Tool Delegation
 

@@ -1151,6 +1151,142 @@ Future<void> _expectDirectJsonStaleSessionIdIgnored(
   );
 }
 
+typedef _CatalogPage = ({List<McpJsonMap> entries, String? nextCursor});
+
+const _maximumAdvertisedCatalogPages = 1024;
+
+typedef _AdvertisedCatalogEntry = ({
+  List<McpJsonMap> entries,
+  McpJsonMap entry,
+  int pagesRead,
+});
+
+Future<_AdvertisedCatalogEntry> _advertisedCatalogEntry({
+  required String field,
+  required String value,
+  required Future<_CatalogPage> Function(String? cursor) listPage,
+  required String label,
+}) async {
+  final seenCursors = <String>{};
+  final entries = <McpJsonMap>[];
+  String? cursor;
+  var pagesRead = 0;
+  while (true) {
+    final page = await listPage(cursor);
+    pagesRead += 1;
+    entries.addAll(page.entries);
+    for (final entry in page.entries) {
+      if (entry[field] == value) {
+        return (entry: entry, entries: entries, pagesRead: pagesRead);
+      }
+    }
+
+    final nextCursor = page.nextCursor;
+    if (nextCursor == null) {
+      break;
+    }
+    if (pagesRead >= _maximumAdvertisedCatalogPages) {
+      throw StateError(
+        '$label exceeded $_maximumAdvertisedCatalogPages catalog pages.',
+      );
+    }
+    if (!seenCursors.add(nextCursor)) {
+      throw StateError('$label repeated catalog cursor.');
+    }
+    cursor = nextCursor;
+  }
+  throw StateError('$label did not advertise $value.');
+}
+
+_CatalogPage _catalogPageFromResult(
+  McpJsonMap result, {
+  required String catalogKey,
+  required String label,
+}) {
+  final rawEntries = result[catalogKey];
+  if (rawEntries is! List) {
+    throw StateError('$label returned a non-list $catalogKey catalog.');
+  }
+  final entries = <McpJsonMap>[];
+  for (final rawEntry in rawEntries) {
+    if (rawEntry is! Map) {
+      throw StateError('$label returned a non-object catalog entry.');
+    }
+    entries.add(rawEntry.cast<String, Object?>());
+  }
+  final rawNextCursor = result['nextCursor'];
+  if (rawNextCursor != null &&
+      (rawNextCursor is! String || rawNextCursor.isEmpty)) {
+    throw StateError('$label returned an invalid next cursor.');
+  }
+  return (entries: entries, nextCursor: rawNextCursor as String?);
+}
+
+Future<_AdvertisedCatalogEntry> _advertisedResource(
+  String resourceUri, {
+  required Future<McpStreamableResourceListPage> Function(String? cursor)
+  listPage,
+  required String label,
+}) => _advertisedCatalogEntry(
+  field: 'uri',
+  value: resourceUri,
+  listPage: (cursor) async {
+    final page = await listPage(cursor);
+    return (entries: page.resources, nextCursor: page.nextCursor);
+  },
+  label: label,
+);
+
+Future<_AdvertisedCatalogEntry> _advertisedPrompt(
+  String promptName, {
+  required Future<McpStreamablePromptListPage> Function(String? cursor)
+  listPage,
+  required String label,
+}) => _advertisedCatalogEntry(
+  field: 'name',
+  value: promptName,
+  listPage: (cursor) async {
+    final page = await listPage(cursor);
+    return (entries: page.prompts, nextCursor: page.nextCursor);
+  },
+  label: label,
+);
+
+Future<_AdvertisedCatalogEntry> _advertisedJsonRpcCatalogEntry({
+  required String method,
+  required String catalogKey,
+  required String field,
+  required String value,
+  required String idPrefix,
+  required Future<McpJsonMap?> Function(McpJsonMap request) post,
+  required String label,
+}) {
+  var pageIndex = 0;
+  return _advertisedCatalogEntry(
+    field: field,
+    value: value,
+    listPage: (cursor) async {
+      final id = '$idPrefix-${pageIndex++}';
+      final result = _responseResult(
+        await post(<String, Object?>{
+          'jsonrpc': '2.0',
+          'id': id,
+          'method': method,
+          'params': <String, Object?>{'cursor': ?cursor},
+        }),
+        id,
+        label: label,
+      );
+      return _catalogPageFromResult(
+        result,
+        catalogKey: catalogKey,
+        label: label,
+      );
+    },
+    label: label,
+  );
+}
+
 Future<({McpResourceUriTemplate template, int pagesRead})>
 _advertisedResourceTemplate(
   McpResourceUriTemplate requested, {
@@ -1160,38 +1296,27 @@ _advertisedResourceTemplate(
   listPage,
   required String label,
 }) async {
-  final seenCursors = <String>{};
-  String? cursor;
-  var pagesRead = 0;
-  while (true) {
-    final page = await listPage(cursor);
-    pagesRead += 1;
-    for (final entry in page.resourceTemplates) {
-      final uriTemplate = entry['uriTemplate'];
-      if (uriTemplate == requested.template) {
-        try {
-          return (
-            template: McpResourceUriTemplate(uriTemplate as String),
-            pagesRead: pagesRead,
-          );
-        } on ArgumentError catch (error) {
-          throw StateError('$label advertised an unusable template: $error');
-        }
-      }
-    }
-
-    final nextCursor = page.nextCursor;
-    if (nextCursor == null) {
-      break;
-    }
-    if (!seenCursors.add(nextCursor)) {
-      throw StateError('$label repeated resource-template cursor.');
-    }
-    cursor = nextCursor;
-  }
-  throw StateError(
-    '$label did not advertise resource template ${requested.template}.',
+  final advertised = await _advertisedCatalogEntry(
+    field: 'uriTemplate',
+    value: requested.template,
+    listPage: (cursor) async {
+      final page = await listPage(cursor);
+      return (
+        entries: page.resourceTemplates,
+        nextCursor: page.nextCursor,
+      );
+    },
+    label: label,
   );
+  final uriTemplate = advertised.entry['uriTemplate'];
+  try {
+    return (
+      template: McpResourceUriTemplate(uriTemplate as String),
+      pagesRead: advertised.pagesRead,
+    );
+  } on ArgumentError catch (error) {
+    throw StateError('$label advertised an unusable template: $error');
+  }
 }
 
 Future<void> _runDirectJsonExample(
@@ -1284,11 +1409,13 @@ Future<void> _runDirectJsonExample(
 
   final resourceUri = options.resourceUri;
   if (resourceUri != null) {
-    final resources = await client.listResourcesDirect(id: 'direct-resources');
-    _expectCatalogContainsValue(
-      catalog: resources.resources,
-      field: 'uri',
-      value: resourceUri,
+    var resourcePageIndex = 0;
+    final advertisedResources = await _advertisedResource(
+      resourceUri,
+      listPage: (cursor) => client.listResourcesDirect(
+        id: 'direct-resources-${resourcePageIndex++}',
+        cursor: cursor,
+      ),
       label: 'Direct resource',
     );
     final resourceTemplates = await client.listResourceTemplatesDirect(
@@ -1298,20 +1425,13 @@ Future<void> _runDirectJsonExample(
       resourceUri,
       id: 'direct-resource-read',
     );
-    final methodResources = _responseResult(
-      await client.postDirect({
-        'jsonrpc': '2.0',
-        'id': 'direct-resource-list-method',
-        'method': 'resources/list',
-        'params': {},
-      }),
-      'direct-resource-list-method',
-      label: 'Direct JSON resource method list',
-    );
-    _expectCatalogContainsValue(
-      catalog: methodResources['resources'],
+    final methodResources = await _advertisedJsonRpcCatalogEntry(
+      method: 'resources/list',
+      catalogKey: 'resources',
       field: 'uri',
       value: resourceUri,
+      idPrefix: 'direct-resource-list-method',
+      post: (request) => client.postDirect(request),
       label: 'Direct JSON resource method list',
     );
     final methodResourceTemplates = _responseResult(
@@ -1337,8 +1457,9 @@ Future<void> _runDirectJsonExample(
     stdout.writeln(
       jsonEncode({
         'directResources': [
-          for (final resource in resources.resources) resource['uri'],
+          for (final resource in advertisedResources.entries) resource['uri'],
         ],
+        'directResourcePagesRead': advertisedResources.pagesRead,
         'directResourceTemplates': [
           for (final template in resourceTemplates.resourceTemplates)
             template['uriTemplate'],
@@ -1346,7 +1467,8 @@ Future<void> _runDirectJsonExample(
         if (resourceTemplates.nextCursor != null)
           'directResourceTemplateNextCursor': resourceTemplates.nextCursor,
         'directResourceContent': content,
-        'directResourceMethodResources': methodResources['resources'],
+        'directResourceMethodResources': methodResources.entries,
+        'directResourceMethodPagesRead': methodResources.pagesRead,
         'directResourceMethodTemplates':
             methodResourceTemplates['resourceTemplates'],
         'directResourceMethodContent': methodContent,
@@ -1388,11 +1510,13 @@ Future<void> _runDirectJsonExample(
 
   final promptName = options.promptName;
   if (promptName != null) {
-    final prompts = await client.listPromptsDirect(id: 'direct-prompts');
-    _expectCatalogContainsValue(
-      catalog: prompts.prompts,
-      field: 'name',
-      value: promptName,
+    var promptPageIndex = 0;
+    final advertisedPrompts = await _advertisedPrompt(
+      promptName,
+      listPage: (cursor) => client.listPromptsDirect(
+        id: 'direct-prompts-${promptPageIndex++}',
+        cursor: cursor,
+      ),
       label: 'Direct prompt',
     );
     final prompt = await client.getPromptDirect(
@@ -1400,20 +1524,13 @@ Future<void> _runDirectJsonExample(
       id: 'direct-prompt-get',
       arguments: options.promptArguments,
     );
-    final methodPrompts = _responseResult(
-      await client.postDirect({
-        'jsonrpc': '2.0',
-        'id': 'direct-prompts-method',
-        'method': 'prompts/list',
-        'params': {},
-      }),
-      'direct-prompts-method',
-      label: 'Direct JSON prompt method list',
-    );
-    _expectCatalogContainsValue(
-      catalog: methodPrompts['prompts'],
+    final methodPrompts = await _advertisedJsonRpcCatalogEntry(
+      method: 'prompts/list',
+      catalogKey: 'prompts',
       field: 'name',
       value: promptName,
+      idPrefix: 'direct-prompts-method',
+      post: (request) => client.postDirect(request),
       label: 'Direct JSON prompt method list',
     );
     final methodPrompt = _responseResult(
@@ -1428,9 +1545,13 @@ Future<void> _runDirectJsonExample(
     );
     stdout.writeln(
       jsonEncode({
-        'directPrompts': [for (final prompt in prompts.prompts) prompt['name']],
+        'directPrompts': [
+          for (final prompt in advertisedPrompts.entries) prompt['name'],
+        ],
+        'directPromptPagesRead': advertisedPrompts.pagesRead,
         'directPrompt': prompt,
-        'directPromptMethodCatalog': methodPrompts['prompts'],
+        'directPromptMethodCatalog': methodPrompts.entries,
+        'directPromptMethodPagesRead': methodPrompts.pagesRead,
         'directPromptMethod': methodPrompt,
       }),
     );
@@ -1649,7 +1770,7 @@ Future<void> _runDirectBatchExample(
     );
   }
   if (resourceUri != null) {
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'direct-batch-resources',
       catalogKey: 'resources',
@@ -1659,7 +1780,7 @@ Future<void> _runDirectBatchExample(
     );
   }
   if (promptName != null) {
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'direct-batch-prompts',
       catalogKey: 'prompts',
@@ -1928,6 +2049,26 @@ List<String> _expectBatchResponseIds(
     throw StateError('$label batch missed responses for $missingIds.');
   }
   return responseIds;
+}
+
+void _expectBatchCatalogPageCanReachValue(
+  List<McpJsonMap>? responses, {
+  required String id,
+  required String catalogKey,
+  required String field,
+  required String value,
+  required String label,
+}) {
+  final page = _catalogPageFromResult(
+    _batchResult(responses, id, label: label),
+    catalogKey: catalogKey,
+    label: label,
+  );
+  if (page.entries.any((entry) => entry[field] == value) ||
+      page.nextCursor != null) {
+    return;
+  }
+  throw StateError('$label did not advertise $value or a continuation cursor.');
 }
 
 void _expectBatchCatalogContains(
@@ -3315,13 +3456,13 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         'params': {'uri': resourceUri},
       },
     ]);
-    final resources = await client.listResourcesDirect(
-      id: 'streamable-active-direct-resources',
-    );
-    _expectCatalogContainsValue(
-      catalog: resources.resources,
-      field: 'uri',
-      value: resourceUri,
+    var resourcePageIndex = 0;
+    final advertisedResources = await _advertisedResource(
+      resourceUri,
+      listPage: (cursor) => client.listResourcesDirect(
+        id: 'streamable-active-direct-resources-${resourcePageIndex++}',
+        cursor: cursor,
+      ),
       label: 'Streamable active direct JSON resource',
     );
     final resourceTemplates = await client.listResourceTemplatesDirect(
@@ -3331,20 +3472,13 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       resourceUri,
       id: 'streamable-active-direct-resource-read',
     );
-    final methodResources = _responseResult(
-      await client.postDirect({
-        'jsonrpc': '2.0',
-        'id': 'streamable-active-direct-resource-list-method',
-        'method': 'resources/list',
-        'params': {},
-      }),
-      'streamable-active-direct-resource-list-method',
-      label: 'Streamable active direct JSON resource method list',
-    );
-    _expectCatalogContainsValue(
-      catalog: methodResources['resources'],
+    final methodResources = await _advertisedJsonRpcCatalogEntry(
+      method: 'resources/list',
+      catalogKey: 'resources',
       field: 'uri',
       value: resourceUri,
+      idPrefix: 'streamable-active-direct-resource-list-method',
+      post: (request) => client.postDirect(request),
       label: 'Streamable active direct JSON resource method list',
     );
     final methodResourceTemplates = _responseResult(
@@ -3368,7 +3502,10 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       label: 'Streamable active direct JSON resource method read',
     );
     details['resources'] = <String, Object?>{
-      'uris': [for (final resource in resources.resources) resource['uri']],
+      'uris': [
+        for (final resource in advertisedResources.entries) resource['uri'],
+      ],
+      'activeDirectResourcePagesRead': advertisedResources.pagesRead,
       'templates': <String, Object?>{
         'uriTemplates': [
           for (final template in resourceTemplates.resourceTemplates)
@@ -3378,7 +3515,8 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
           'nextCursor': resourceTemplates.nextCursor,
       },
       'content': content,
-      'methodResources': methodResources['resources'],
+      'methodResources': methodResources.entries,
+      'activeDirectResourceMethodPagesRead': methodResources.pagesRead,
       'methodResourceTemplates': methodResourceTemplates['resourceTemplates'],
       'methodContent': methodContent,
     };
@@ -3400,13 +3538,13 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         'params': {'name': promptName, 'arguments': options.promptArguments},
       },
     ]);
-    final prompts = await client.listPromptsDirect(
-      id: 'streamable-active-direct-prompts',
-    );
-    _expectCatalogContainsValue(
-      catalog: prompts.prompts,
-      field: 'name',
-      value: promptName,
+    var promptPageIndex = 0;
+    final advertisedPrompts = await _advertisedPrompt(
+      promptName,
+      listPage: (cursor) => client.listPromptsDirect(
+        id: 'streamable-active-direct-prompts-${promptPageIndex++}',
+        cursor: cursor,
+      ),
       label: 'Streamable active direct JSON prompt',
     );
     final prompt = await client.getPromptDirect(
@@ -3414,20 +3552,13 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       id: 'streamable-active-direct-prompt-get',
       arguments: options.promptArguments,
     );
-    final methodPrompts = _responseResult(
-      await client.postDirect({
-        'jsonrpc': '2.0',
-        'id': 'streamable-active-direct-prompts-method',
-        'method': 'prompts/list',
-        'params': {},
-      }),
-      'streamable-active-direct-prompts-method',
-      label: 'Streamable active direct JSON prompt method list',
-    );
-    _expectCatalogContainsValue(
-      catalog: methodPrompts['prompts'],
+    final methodPrompts = await _advertisedJsonRpcCatalogEntry(
+      method: 'prompts/list',
+      catalogKey: 'prompts',
       field: 'name',
       value: promptName,
+      idPrefix: 'streamable-active-direct-prompts-method',
+      post: (request) => client.postDirect(request),
       label: 'Streamable active direct JSON prompt method list',
     );
     final methodPrompt = _responseResult(
@@ -3441,9 +3572,13 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       label: 'Streamable active direct JSON prompt method get',
     );
     details['prompts'] = <String, Object?>{
-      'names': [for (final prompt in prompts.prompts) prompt['name']],
+      'names': [
+        for (final prompt in advertisedPrompts.entries) prompt['name'],
+      ],
+      'activeDirectPromptPagesRead': advertisedPrompts.pagesRead,
       'prompt': prompt,
-      'methodCatalog': methodPrompts['prompts'],
+      'methodCatalog': methodPrompts.entries,
+      'activeDirectPromptMethodPagesRead': methodPrompts.pagesRead,
       'methodPrompt': methodPrompt,
     };
   }
@@ -3704,7 +3839,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
     );
   }
   if (resourceUri != null) {
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'streamable-active-direct-batch-resources',
       catalogKey: 'resources',
@@ -3728,7 +3863,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
     }
   }
   if (promptName != null) {
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'streamable-active-direct-batch-prompts',
       catalogKey: 'prompts',
@@ -5048,16 +5183,20 @@ Future<void> _runStreamableSessionExample(
       'method': 'resources/read',
       'params': {'uri': resourceUri},
     });
-    final resources = await client.listResources(id: 'streamable-resources');
-    _expectCatalogContainsValue(
-      catalog: resources.resources,
-      field: 'uri',
-      value: resourceUri,
+    var resourcePageIndex = 0;
+    final advertisedResources = await _advertisedResource(
+      resourceUri,
+      listPage: (cursor) => client.listResources(
+        id: 'streamable-resources-${resourcePageIndex++}',
+        cursor: cursor,
+      ),
       label: 'Streamable resource',
     );
     streamable['resources'] = <String, Object?>{
-      'uris': [for (final resource in resources.resources) resource['uri']],
-      if (resources.nextCursor != null) 'nextCursor': resources.nextCursor,
+      'uris': [
+        for (final resource in advertisedResources.entries) resource['uri'],
+      ],
+      'streamableResourcePagesRead': advertisedResources.pagesRead,
     };
     final resourceTemplates = await client.listResourceTemplates(
       id: 'streamable-resource-templates',
@@ -5087,20 +5226,13 @@ Future<void> _runStreamableSessionExample(
             sessionId: streamableSessionId,
           );
     }
-    final methodResources = _responseResult(
-      await client.post({
-        'jsonrpc': '2.0',
-        'id': 'streamable-resource-list-method',
-        'method': 'resources/list',
-        'params': {},
-      }),
-      'streamable-resource-list-method',
-      label: 'Streamable resource method list',
-    );
-    _expectCatalogContainsValue(
-      catalog: methodResources['resources'],
+    final methodResources = await _advertisedJsonRpcCatalogEntry(
+      method: 'resources/list',
+      catalogKey: 'resources',
       field: 'uri',
       value: resourceUri,
+      idPrefix: 'streamable-resource-list-method',
+      post: (request) => client.post(request),
       label: 'Streamable resource method list',
     );
     final methodResourceTemplates = _responseResult(
@@ -5124,7 +5256,8 @@ Future<void> _runStreamableSessionExample(
       label: 'Streamable resource method read',
     );
     streamable['resourceMethods'] = <String, Object?>{
-      'resources': methodResources['resources'],
+      'resources': methodResources.entries,
+      'streamableResourceMethodPagesRead': methodResources.pagesRead,
       'resourceTemplates': methodResourceTemplates['resourceTemplates'],
       'content': methodContent,
     };
@@ -5178,36 +5311,33 @@ Future<void> _runStreamableSessionExample(
       'method': 'prompts/get',
       'params': {'name': promptName, 'arguments': options.promptArguments},
     });
-    final prompts = await client.listPrompts(id: 'streamable-prompts');
-    _expectCatalogContainsValue(
-      catalog: prompts.prompts,
-      field: 'name',
-      value: promptName,
+    var promptPageIndex = 0;
+    final advertisedPrompts = await _advertisedPrompt(
+      promptName,
+      listPage: (cursor) => client.listPrompts(
+        id: 'streamable-prompts-${promptPageIndex++}',
+        cursor: cursor,
+      ),
       label: 'Streamable prompt',
     );
     streamable['prompts'] = <String, Object?>{
-      'names': [for (final prompt in prompts.prompts) prompt['name']],
-      if (prompts.nextCursor != null) 'nextCursor': prompts.nextCursor,
+      'names': [
+        for (final prompt in advertisedPrompts.entries) prompt['name'],
+      ],
+      'streamablePromptPagesRead': advertisedPrompts.pagesRead,
     };
     streamable['prompt'] = await client.getPrompt(
       promptName,
       id: 'streamable-prompt-get',
       arguments: options.promptArguments,
     );
-    final methodPrompts = _responseResult(
-      await client.post({
-        'jsonrpc': '2.0',
-        'id': 'streamable-prompts-method',
-        'method': 'prompts/list',
-        'params': {},
-      }),
-      'streamable-prompts-method',
-      label: 'Streamable prompt method list',
-    );
-    _expectCatalogContainsValue(
-      catalog: methodPrompts['prompts'],
+    final methodPrompts = await _advertisedJsonRpcCatalogEntry(
+      method: 'prompts/list',
+      catalogKey: 'prompts',
       field: 'name',
       value: promptName,
+      idPrefix: 'streamable-prompts-method',
+      post: (request) => client.post(request),
       label: 'Streamable prompt method list',
     );
     final methodPrompt = _responseResult(
@@ -5221,7 +5351,8 @@ Future<void> _runStreamableSessionExample(
       label: 'Streamable prompt method get',
     );
     streamable['promptMethods'] = <String, Object?>{
-      'prompts': methodPrompts['prompts'],
+      'prompts': methodPrompts.entries,
+      'streamablePromptMethodPagesRead': methodPrompts.pagesRead,
       'prompt': methodPrompt,
     };
   }
@@ -5280,7 +5411,7 @@ Future<void> _runStreamableSessionExample(
     );
   }
   if (resourceUri != null) {
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'streamable-batch-resources',
       catalogKey: 'resources',
@@ -5290,7 +5421,7 @@ Future<void> _runStreamableSessionExample(
     );
   }
   if (promptName != null) {
-    _expectBatchCatalogContains(
+    _expectBatchCatalogPageCanReachValue(
       batchResponses,
       id: 'streamable-batch-prompts',
       catalogKey: 'prompts',

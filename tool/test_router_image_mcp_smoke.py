@@ -200,6 +200,10 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             '"resourceTemplates"',
             '"resourceTemplateExpansion"',
             "pagesRead",
+            '\\"directResourcePagesRead\\":$resource_pages',
+            '\\"directPromptPagesRead\\":$prompt_pages',
+            '\\"streamableResourcePagesRead\\":$resource_pages',
+            '\\"streamablePromptPagesRead\\":$prompt_pages',
             '"resourceTemplateRead":true',
             '"resourceContent"',
             '"prompts"',
@@ -377,6 +381,8 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "direct_json=true resources=true resource_templates=true",
             "resource_template_expansion=true",
             "resource_template_pages=",
+            "resource_pages=",
+            "prompt_pages=",
             "prompts=true wamp_meta=true pubsub=true",
             "resource_uri=%s prompt=%s",
             '"sessionless=true request_listener=true"',
@@ -400,7 +406,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         ]
         self.assertEqual(
             summary_prints,
-            ['printf \'%s\\n\' "$summary" >&2'] * 6,
+            ['printf \'%s\\n\' "$summary" >&2'] * 7,
         )
 
     def test_shell_runner_exercises_modern_resource_listener(self) -> None:
@@ -1600,13 +1606,17 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "include_pubsub_tools: true",
             "topic: image.smoke.events",
             "resource_list_page_size: 10",
+            "resource_list_page_size: 1",
             "resource_template_list_page_size: 10",
             "resource_template_list_page_size: 1",
             "prompt_list_page_size: 10",
+            "prompt_list_page_size: 1",
             "uri: connectanum://router-image/context",
+            "uri: connectanum://router-image/archive-context",
             "uri_template: connectanum://router-image/item/{itemId}",
             "uri_template: connectanum://router-image/archive/{itemId}",
             "name: inspect-router-image",
+            "name: archive-router-image",
             "text: Inspect {{subject}} using router image context.",
         ]:
             with self.subTest(expected=expected):
@@ -1626,6 +1636,10 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
         self.assertEqual(config.count("read_procedure: wamp.session.count"), 6)
         self.assertEqual(config.count("update_topic: image.smoke.events"), 6)
         self.assertEqual(config.count("name: inspect-router-image"), 3)
+        self.assertEqual(
+            config.count("uri: connectanum://router-image/archive-context"), 1
+        )
+        self.assertEqual(config.count("name: archive-router-image"), 1)
 
     def test_workflow_smokes_loaded_image_before_multiarch_build(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
