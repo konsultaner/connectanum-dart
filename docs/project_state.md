@@ -24391,10 +24391,18 @@ at the older `47bbf9c` commit.
   441 router, six remote-auth, and 13 native follow-up tests plus every
   maintained isolated consumer and Chrome Dart2Wasm smoke. Local Docker image
   construction stalls before its first build step in both available builder
-  modes, so exact-head hosted Router Image evidence remains required. A
-  pre-commit strict package dry-run reports zero warnings for the first five
-  archives before the expected dirty-git warning on `connectanum_mcp`; clean-
-  commit package validation and hosted evidence remain.
+  modes, so exact-head hosted Router Image evidence remains required. From
+  clean commit `2abf431f`, the strict release-ready dry-run passes all seven
+  synchronized archives with zero warnings; the commit is published to both
+  maintained `master` branches and exact-head package run `31766115393`
+  passes. Router Image run `31766139172` built the image but exposed that its
+  Python black-box smoke inspected only page one of an intentionally paginated
+  public tool catalog. A fail-first unit contract now covers full opaque cursor
+  traversal; the smoke has repeated-cursor and 1,024-page guards, and all 31
+  focused Router Image contracts pass. Follow-up `bin/test-fast` and full
+  `bin/verify` pass with zero formatting changes across the complete Rust,
+  Dart, generated-consumer, router, and Chrome Dart2Wasm matrix. The follow-up
+  commit and replacement hosted Router Image/deployment evidence remain.
 - 2026-08-14: Downstream Dart consumers can now parse, validate, match, and
   expand advertised MCP resource URI templates through the public bounded
   `McpResourceUriTemplate` API. Server-side resource matching delegates to the
@@ -25155,8 +25163,13 @@ at the older `47bbf9c` commit.
   typed and raw JSON-RPC page-count evidence. Pre-change and post-change
   `bin/test-fast`, 51 focused Python contracts, package analysis, shell syntax,
   the 108-test MCP package suite, and full `bin/verify` pass. Local Docker
-  builders stall before their first build step, so clean-commit package
-  validation and exact-head hosted Router Image/deployment evidence remain.
+  builders stall before their first build step. Clean-commit package validation
+  and exact-head package workflow pass at implementation commit `2abf431f`.
+  The first Router Image run exposed and reproduced a first-page-only
+  assumption in the Python black-box smoke; its cursor-aware fix passes all 31
+  focused contracts plus follow-up `bin/test-fast` and full `bin/verify`. The
+  follow-up commit and replacement exact-head Router Image/deployment evidence
+  remain.
 - The most recently completed implementation plan is
   `docs/exec-plans/2026-08-14-mcp-selected-catalog-pagination.md`. It removes
   the shipped router-hosted client's remaining first-page assumption for

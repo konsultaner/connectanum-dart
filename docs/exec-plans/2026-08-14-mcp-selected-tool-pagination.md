@@ -85,5 +85,17 @@ endpoint.
   exact-head hosted Router Image evidence remains required after push.
 - 2026-08-14: A pre-commit strict package dry-run reports zero warnings for
   the first five synchronized archives, then stops on the expected dirty-git
-  warning for the modified `connectanum_mcp` archive. Clean-commit package
-  validation and hosted deployment evidence remain.
+  warning for the modified `connectanum_mcp` archive. From clean commit
+  `2abf431f`, the strict release-ready dry-run passes all seven synchronized
+  archives with zero warnings, and the implementation is published to both
+  maintained `master` branches.
+- 2026-08-14: Exact-head package run `31766115393` passes. Router Image dry run
+  `31766139172` builds the local image, then reproduces a smoke-harness
+  first-page assumption: the intentionally paginated public `tools/list`
+  response does not contain later-page `wamp.subscription.match`. A fail-first
+  unit contract now covers opaque cursor traversal; the black-box smoke reads
+  the complete catalog with repeated-cursor and 1,024-page guards, and all 31
+  focused Router Image smoke contracts pass. Follow-up `bin/test-fast` and
+  full `bin/verify` pass with zero formatting changes across the complete Rust,
+  Dart, generated-consumer, router, and Chrome Dart2Wasm matrix. The follow-up
+  commit and replacement exact-head hosted evidence remain.

@@ -962,6 +962,56 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             headers=authorization_headers,
         )
 
+    def test_modern_tool_catalog_traverses_all_cursor_pages(self) -> None:
+        authorization_headers = {"Authorization": "Bearer issued-token"}
+        responses = [
+            {
+                "result": {
+                    "tools": [{"name": "connectanum.api.list"}],
+                    "nextCursor": "tool-page-2",
+                }
+            },
+            {
+                "result": {
+                    "tools": [{"name": "wamp.subscription.match"}],
+                }
+            },
+        ]
+
+        with mock.patch.object(
+            CLIENT_MODULE,
+            "_modern_call",
+            side_effect=responses,
+        ) as modern_call:
+            tool_names = CLIENT_MODULE._modern_tool_names(
+                "http://router/mcp/secure",
+                label="Protected",
+                authorization_headers=authorization_headers,
+            )
+
+        self.assertEqual(
+            tool_names,
+            {"connectanum.api.list", "wamp.subscription.match"},
+        )
+        self.assertEqual(
+            modern_call.call_args_list,
+            [
+                mock.call(
+                    "http://router/mcp/secure",
+                    "protected-tools-1",
+                    "tools/list",
+                    headers=authorization_headers,
+                ),
+                mock.call(
+                    "http://router/mcp/secure",
+                    "protected-tools-2",
+                    "tools/list",
+                    {"cursor": "tool-page-2"},
+                    headers=authorization_headers,
+                ),
+            ],
+        )
+
     def test_modern_tools_call_routes_with_tool_name_header(self) -> None:
         with mock.patch.object(
             CLIENT_MODULE,

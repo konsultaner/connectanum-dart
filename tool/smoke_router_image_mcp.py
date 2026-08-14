@@ -20,6 +20,7 @@ AUTH_ID = "image-smoke-agent"
 AUTH_TICKET = "image-smoke-ticket"
 OTHER_AUTH_ID = "image-smoke-peer"
 OTHER_AUTH_TICKET = "image-smoke-peer-ticket"
+MAX_CATALOG_PAGES = 1024
 
 
 def _json_payload(body: str) -> Any:
@@ -211,6 +212,62 @@ def _modern_call(
     if response_headers.get("mcp-session-id") is not None:
         raise AssertionError("Modern stateless response unexpectedly created a session")
     return response
+
+
+def _modern_tool_names(
+    endpoint: str,
+    *,
+    label: str,
+    authorization_headers: dict[str, str] | None = None,
+) -> set[str]:
+    tool_names: set[str] = set()
+    seen_cursors: set[str] = set()
+    cursor: str | None = None
+    pages_read = 0
+    while True:
+        pages_read += 1
+        if cursor is None:
+            response = _modern_call(
+                endpoint,
+                f"{label.lower()}-tools-{pages_read}",
+                "tools/list",
+                headers=authorization_headers,
+            )
+        else:
+            response = _modern_call(
+                endpoint,
+                f"{label.lower()}-tools-{pages_read}",
+                "tools/list",
+                {"cursor": cursor},
+                headers=authorization_headers,
+            )
+
+        result = response.get("result")
+        if not isinstance(result, dict):
+            raise AssertionError(f"{label} tools/list result was not an object")
+        tools = result.get("tools")
+        if not isinstance(tools, list):
+            raise AssertionError(f"{label} tools/list result missed tools")
+        tool_names.update(
+            name
+            for tool in tools
+            if isinstance(tool, dict)
+            and isinstance((name := tool.get("name")), str)
+        )
+
+        next_cursor = result.get("nextCursor")
+        if next_cursor is None:
+            return tool_names
+        if not isinstance(next_cursor, str) or not next_cursor:
+            raise AssertionError(f"{label} tools/list returned an invalid cursor")
+        if pages_read >= MAX_CATALOG_PAGES:
+            raise AssertionError(
+                f"{label} tools/list exceeded {MAX_CATALOG_PAGES} pages"
+            )
+        if next_cursor in seen_cursors:
+            raise AssertionError(f"{label} tools/list repeated a cursor")
+        seen_cursors.add(next_cursor)
+        cursor = next_cursor
 
 
 def _expect_modern_batch_rejected(
@@ -1577,11 +1634,7 @@ def run_smoke(
         raise AssertionError(f"Modern discovery missed {MODERN_PROTOCOL}: {discovery}")
     _expect_modern_batch_rejected(endpoint, label="Public")
 
-    tools = _modern_call(endpoint, "modern-tools", "tools/list")
-    tool_list = tools.get("result", {}).get("tools", [])
-    tool_names = {
-        tool.get("name") for tool in tool_list if isinstance(tool, dict)
-    }
+    tool_names = _modern_tool_names(endpoint, label="Public")
     for expected in {
         "connectanum.api.list",
         "connectanum.pubsub.subscribe",
