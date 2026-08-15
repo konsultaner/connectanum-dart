@@ -25217,7 +25217,15 @@ at the older `47bbf9c` commit.
   tests; 116 MCP tests; the complete 293-case MCP/client suite; 97 benchmark
   tests including all 37 live WAMP workloads; the 443-case router suite; six
   remote-auth tests; 13 native follow-ups; every maintained consumer smoke;
-  Chrome; and Dart2Wasm green. Publication and hosted evidence remain pending.
+  Chrome; and Dart2Wasm green. Commit `a99a3c7d` reached both maintained
+  `master` branches, but exact-head CI `31879324869` and Dart Package Publish
+  Dry Run `31879324968` failed because hosted Dart 3.13 enables
+  `unawaited_return_in_try_block` for the Future returned from inside the turn's
+  `try`. The correction explicitly awaits internal-session creation so the
+  `finally` sequencing is visible to the analyzer. Focused analysis and the
+  race regression pass, and the full `bin/verify` matrix exits zero again on
+  the corrective tree. Corrective publication and hosted evidence remain
+  pending.
 - The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-external-bearer-session-context.md`.
   Configured JWT, OIDC, and OAuth introspection providers revalidate every

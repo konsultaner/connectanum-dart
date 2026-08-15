@@ -5308,7 +5308,7 @@ class RouterBinding {
       for (final staleSession in staleSessions) {
         await staleSession.close();
       }
-      return _ensureInternalSession(
+      return await _ensureInternalSession(
         realmUri: realmUri,
         authId: authenticated.authId,
         authRole: authenticated.authRole,

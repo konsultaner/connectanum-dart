@@ -1,6 +1,6 @@
 # Exec Plan: MCP External Bearer Session Concurrency
 
-Status: active; implementation and local verification green, publication pending
+Status: active; hosted analyzer correction locally verified, publication pending
 Owner: Codex
 Created: 2026-08-15
 Last updated: 2026-08-15
@@ -82,7 +82,14 @@ authorization state.
   suite; 97 benchmark tests including all 37 live WAMP workloads; the 443-case
   router suite; six remote-auth tests; 13 native follow-ups; every maintained
   consumer smoke; Chrome; and Dart2Wasm green.
+- 2026-08-15: Commit `a99a3c7d` reached both maintained `master` branches, but
+  exact-head CI `31879324869` and Dart Package Publish Dry Run `31879324968`
+  failed because hosted Dart 3.13 enables `unawaited_return_in_try_block` for
+  the Future returned from inside the turn's `try`. The correction explicitly
+  awaits internal-session creation so the `finally` sequencing is also visible
+  to the analyzer. Focused analysis and the race regression pass, and the full
+  `bin/verify` matrix exits zero again on the corrective tree.
 
 ## Handoff
 
-- Publication and hosted evidence remain pending.
+- Corrective publication and hosted evidence remain pending.
