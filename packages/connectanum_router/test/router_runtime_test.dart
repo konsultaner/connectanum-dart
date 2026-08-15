@@ -1866,6 +1866,70 @@ RouterSettings _buildRouterSettingsWithCollidingHttpOAuthMcpScopes(
   return builder.build();
 }
 
+RouterSettings _buildRouterSettingsWithCollidingAnonymousMcpRouteScopes() {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm')..addAuthMethod('anonymous'),
+    )
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('tenant')..addAuthMethod('anonymous'),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('tenant:shared')
+        ..setRealm('realm')
+        ..setAuthMethods(const ['anonymous']),
+    )
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('shared')
+        ..setRealm('tenant')
+        ..setAuthMethods(const ['anonymous']),
+    )
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addAuthMethod('anonymous')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: <HttpRouteSettings>[
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp/scope'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'realm',
+                    sessionProfile: 'tenant:shared',
+                    options: <String, Object?>{
+                      'post_response_transport': 'json',
+                    },
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp/scope:realm'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'tenant',
+                    sessionProfile: 'shared',
+                    options: <String, Object?>{
+                      'post_response_transport': 'json',
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    )
+    ..addAuthenticator(
+      'anonymous',
+      const AuthenticatorDefinition(type: 'anonymous'),
+    );
+  return builder.build();
+}
+
 RouterSettings _buildRouterSettingsWithHttpMtlsRoute() {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -7748,6 +7812,181 @@ void main() {
         '/mcp/tenant',
         'tenant-call',
         tenantSessionId,
+        'com.example.tenant.echo',
+      );
+      expect(tenantCall.status, HttpStatus.ok);
+      expect(
+        ((_jsonResponseBody(tenantCall)['result']! as Map)['structuredContent']!
+            as Map)['arguments'],
+        const ['tenant-response'],
+      );
+    },
+  );
+
+  test(
+    'isolates anonymous MCP routes across delimiter-colliding session scopes',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithCollidingAnonymousMcpRouteScopes(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      Future<void> registerTool(
+        String realm,
+        String procedure,
+        String response,
+      ) async {
+        final callee = await binding.createInternalSession(
+          realmUri: realm,
+          authId: 'svc-$realm',
+          authRole: 'internal',
+          roles: const {'callee': <String, Object?>{}},
+        );
+        addTearDown(callee.close);
+        final registration = await callee.register(procedure);
+        registration.onInvoke((invocation) {
+          invocation.respondWith(arguments: <Object?>[response]);
+        });
+      }
+
+      await registerTool(
+        'realm',
+        'com.example.realm.echo',
+        'realm-response',
+      );
+      await registerTool(
+        'tenant',
+        'com.example.tenant.echo',
+        'tenant-response',
+      );
+
+      var nextConnectionId = 675;
+      Future<NativeHttpResponse> sendMcp(
+        String path,
+        Map<String, Object?> body,
+      ) async {
+        final connectionId = nextConnectionId++;
+        final method = body['method']! as String;
+        final params = body['params'];
+        final name = params is Map ? params['name'] : null;
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId,
+          method: 'POST',
+          target: path,
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            HttpHeaders.contentTypeHeader: 'application/json',
+            'mcp-protocol-version': '2026-07-28',
+            'mcp-method': method,
+            if (name is String) 'mcp-name': name,
+          },
+          body: body,
+          realm: path == '/mcp/scope' ? 'realm' : 'tenant',
+          procedure: 'router.http.mcp',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        );
+        return runtime.httpResponses[connectionId]!.single;
+      }
+
+      Future<NativeHttpResponse> listTools(String path, String requestId) =>
+          sendMcp(path, <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': requestId,
+            'method': 'tools/list',
+            'params': const <String, Object?>{
+              '_meta': <String, Object?>{
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+            },
+          });
+
+      Future<NativeHttpResponse> callTool(
+        String path,
+        String requestId,
+        String name,
+      ) => sendMcp(path, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestId,
+        'method': 'tools/call',
+        'params': <String, Object?>{
+          'name': name,
+          'arguments': const <String, Object?>{},
+          '_meta': const <String, Object?>{
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+            'io.modelcontextprotocol/clientCapabilities': <String, Object?>{},
+          },
+        },
+      });
+
+      final realmTools = await listTools('/mcp/scope', 'realm-tools');
+      expect(realmTools.status, HttpStatus.ok);
+      expect(realmTools.headers, isNot(contains('MCP-Session-Id')));
+      final realmToolList =
+          (_jsonResponseBody(realmTools)['result']! as Map)['tools']! as List;
+      expect(
+        realmToolList,
+        contains(containsPair('name', 'com.example.realm.echo')),
+      );
+      expect(
+        realmToolList,
+        isNot(contains(containsPair('name', 'com.example.tenant.echo'))),
+      );
+
+      final tenantTools = await listTools(
+        '/mcp/scope:realm',
+        'tenant-tools',
+      );
+      expect(tenantTools.status, HttpStatus.ok);
+      expect(tenantTools.headers, isNot(contains('MCP-Session-Id')));
+      final tenantToolList =
+          (_jsonResponseBody(tenantTools)['result']! as Map)['tools']! as List;
+      expect(
+        tenantToolList,
+        contains(containsPair('name', 'com.example.tenant.echo')),
+      );
+      expect(
+        tenantToolList,
+        isNot(contains(containsPair('name', 'com.example.realm.echo'))),
+      );
+
+      final realmCall = await callTool(
+        '/mcp/scope',
+        'realm-call',
+        'com.example.realm.echo',
+      );
+      expect(realmCall.status, HttpStatus.ok);
+      expect(
+        ((_jsonResponseBody(realmCall)['result']! as Map)['structuredContent']!
+            as Map)['arguments'],
+        const ['realm-response'],
+      );
+
+      final tenantCall = await callTool(
+        '/mcp/scope:realm',
+        'tenant-call',
         'com.example.tenant.echo',
       );
       expect(tenantCall.status, HttpStatus.ok);

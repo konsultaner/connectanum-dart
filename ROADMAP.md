@@ -536,6 +536,10 @@
     provider, realm, and session-profile names with an unambiguous opaque scope
     digest, including public two-route tool catalog and call coverage for
     delimiter-colliding tuples.
+  - [x] Isolate anonymous router-hosted MCP sessions across configurable route
+    paths, realm URIs, and session-profile names with an unambiguous opaque
+    scope digest, including modern sessionless two-route tool catalog and call
+    coverage for delimiter-colliding tuples.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

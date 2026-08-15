@@ -6036,14 +6036,17 @@ String _mcpAnonymousRouteSessionCacheKey({
   required SessionProfileSettings? sessionProfile,
 }) {
   final routeKey = route.match.path ?? route.match.prefix ?? request.path;
-  final profileKey = sessionProfile?.name ?? 'anonymous';
-  return [
-    'http-mcp-anonymous',
-    request.listenerId,
-    routeKey,
-    realmUri,
-    profileKey,
-  ].join(':');
+  final scopeDigest = sha256.convert(
+    utf8.encode(
+      jsonEncode(<Object?>[
+        request.listenerId,
+        routeKey,
+        realmUri,
+        sessionProfile?.name ?? 'anonymous',
+      ]),
+    ),
+  );
+  return 'http-mcp-anonymous:$scopeDigest';
 }
 
 ResultPayload _resultPayload({

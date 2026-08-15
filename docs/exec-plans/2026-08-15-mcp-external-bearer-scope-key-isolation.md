@@ -1,6 +1,6 @@
 # Exec Plan: MCP External Bearer Scope-Key Isolation
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-08-15
 Last updated: 2026-08-15
@@ -89,8 +89,21 @@ names form the same delimiter-joined cache key.
   MCP/client suite; 97 benchmark tests including all 37 live WAMP workloads;
   the 444-case router suite; six remote-auth tests; 13 native follow-ups; every
   maintained consumer smoke; Chrome; and Dart2Wasm green.
+- 2026-08-15: Commit `e444c989` is published to both maintained `master`
+  branches. Exact-head CI `31888094426`, Dart Package Publish Dry Run
+  `31888094454`, WAMP Profile Benchmarks `31888094447`, and Router Image dry
+  run `31888120409` all pass with zero check annotations. Coverage artifact
+  `9247965577`, WAMP artifact `9247884067`, Router Image preview artifact
+  `9247812363`, and Docker build records `9247856745` and `9247856528` are
+  available.
+- 2026-08-15: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and logs, package publishing, reusable native-release evidence,
+  loaded-image MCP smoke, multi-architecture image builds, WAMP artifacts,
+  branch protection, workflows, and package visibility clean. The non-gating
+  RC summary remains intentionally not ready because no approved numeric RC tag
+  points at this implementation commit.
 
 ## Handoff
 
-- Implementation and local verification are complete; publication and
-  exact-head hosted evidence remain.
+- Implementation, local verification, publication, exact-head hosted evidence,
+  and the strict deployment-chain audit are complete.
