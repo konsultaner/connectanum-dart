@@ -532,6 +532,10 @@
     provider explicitly rejects the credential, require a fresh Streamable
     HTTP session after reactivation, and preserve retained state across
     transient provider failures.
+  - [x] Isolate retained external bearer MCP sessions across configurable
+    provider, realm, and session-profile names with an unambiguous opaque scope
+    digest, including public two-route tool catalog and call coverage for
+    delimiter-colliding tuples.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

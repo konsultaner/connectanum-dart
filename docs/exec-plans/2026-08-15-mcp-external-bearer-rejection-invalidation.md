@@ -1,6 +1,6 @@
 # Exec Plan: MCP External Bearer Rejection Invalidation
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-08-15
 Last updated: 2026-08-15
@@ -92,8 +92,21 @@ the session created before rejection.
   MCP/client suite; 97 benchmark tests including all 37 live WAMP workloads;
   the 443-case router suite; six remote-auth tests; 13 native follow-ups; every
   maintained consumer smoke; Chrome; and Dart2Wasm green.
+- 2026-08-15: Commit `c0e5854f` is published to both maintained `master`
+  branches. Exact-head CI `31884675112`, Dart Package Publish Dry Run
+  `31884675096`, WAMP Profile Benchmarks `31884675148`, and Router Image dry
+  run `31884680372` all pass with zero check annotations. Coverage artifact
+  `9247126405`, WAMP artifact `9247000079`, Router Image preview artifact
+  `9246937448`, and Docker build records `9246990293` and `9246990043` are
+  available.
+- 2026-08-15: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and logs, package publishing, reusable native-release evidence,
+  loaded-image MCP smoke, multi-architecture image builds, WAMP artifacts,
+  branch protection, workflows, and package visibility clean. The non-gating
+  RC summary remains intentionally not ready because no approved numeric RC tag
+  points at this implementation commit.
 
 ## Handoff
 
-- Implementation and local verification are complete. Publication and
-  exact-head hosted deployment evidence remain.
+- Implementation, local verification, publication, exact-head hosted evidence,
+  and the strict deployment-chain audit are complete.

@@ -5279,13 +5279,19 @@ class RouterBinding {
     required SessionProfileSettings? sessionProfile,
   }) {
     final credentialDigest = sha256.convert(utf8.encode(token));
-    return <String>[
-      'http-external',
-      configuredProviderName,
-      realmUri,
-      sessionProfile?.name ?? '',
-      credentialDigest.toString(),
-    ].join(':');
+    final scopeDigest = sha256.convert(
+      utf8.encode(
+        // Encode tuple boundaries before hashing because every scope name is
+        // configurable and may contain the old delimiter.
+        jsonEncode(<String>[
+          configuredProviderName,
+          realmUri,
+          sessionProfile?.name ?? '',
+          credentialDigest.toString(),
+        ]),
+      ),
+    );
+    return 'http-external:$scopeDigest';
   }
 
   Future<T> _withExternalHttpAuthSessionTurn<T>({

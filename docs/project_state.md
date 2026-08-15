@@ -25196,6 +25196,28 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP auth/session-readiness plan is
+  `docs/exec-plans/2026-08-15-mcp-external-bearer-scope-key-isolation.md`.
+  Configured external-auth provider names, realm URIs, and session-profile
+  names are unrestricted strings, but the retained-session cache joined those
+  fields with `:`. Distinct route scopes could therefore alias and rotate one
+  internal WAMP session when they used the same opaque bearer. The fail-first
+  public two-route regression initialized both colliding scopes, then received
+  HTTP 404 instead of HTTP 200 when the first route called its tool after the
+  second route initialized. The cache and turn key now hashes an unambiguous
+  JSON tuple of provider, realm, profile, and credential digest. Both routes
+  retain independent sessions, list only their own realm tools, and return
+  realm-specific direct JSON tool-call results while preserving
+  per-credential ordering, terminal rejection cleanup, and raw-bearer
+  non-retention. Pre-change `bin/test-fast` exits zero; router analysis, the
+  focused scope/context regressions, and the complete HTTP-auth provider plus
+  router runtime matrix with all 104 cases are green. Full `bin/verify` exits
+  zero with formatting unchanged; Rust core and FFI green; 366 core tests; 116
+  MCP tests; the complete 293-case MCP/client suite; 97 benchmark tests
+  including all 37 live WAMP workloads; the 444-case router suite; six
+  remote-auth tests; 13 native follow-ups; every maintained consumer smoke;
+  Chrome; and Dart2Wasm green. Publication and exact-head hosted evidence
+  remain.
+- The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-external-bearer-rejection-invalidation.md`.
   Configured external providers revalidate a bearer before every protected MCP
   request, but an explicit provider rejection previously returned HTTP 401
@@ -25217,8 +25239,16 @@ at the older `47bbf9c` commit.
   green; 366 core tests; 116 MCP tests; the complete 293-case MCP/client suite;
   97 benchmark tests including all 37 live WAMP workloads; the 443-case router
   suite; six remote-auth tests; 13 native follow-ups; every maintained consumer
-  smoke; Chrome; and Dart2Wasm green. Publication and exact-head hosted evidence
-  remain.
+  smoke; Chrome; and Dart2Wasm green. Commit `c0e5854f` is published to both
+  maintained `master` branches. Exact-head CI `31884675112`, Dart Package
+  Publish Dry Run `31884675096`, WAMP Profile Benchmarks `31884675148`, and
+  Router Image dry run `31884680372` all pass with zero check annotations.
+  Coverage artifact `9247126405`, WAMP artifact `9247000079`, Router Image
+  preview artifact `9246937448`, and Docker build records `9246990293` and
+  `9246990043` are available. Clean hosted-log scanning and the comprehensive
+  strict deployment-chain audit pass; its non-gating RC summary remains
+  intentionally not ready because no approved numeric RC tag points at this
+  implementation commit.
 - The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-external-bearer-session-concurrency.md`.
   Configured external bearer validation may complete concurrently for the same

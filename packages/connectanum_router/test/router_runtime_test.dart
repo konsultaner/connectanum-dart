@@ -1758,6 +1758,114 @@ RouterSettings _buildRouterSettingsWithHttpOAuthMcpProvider(
   return builder.build();
 }
 
+RouterSettings _buildRouterSettingsWithCollidingHttpOAuthMcpScopes(
+  Uri introspectionEndpoint,
+) {
+  RealmSettingsBuilder realm(String name) => RealmSettingsBuilder(name)
+    ..addAuthMethod('anonymous')
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('member')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('com.example.')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const ['call']),
+      ),
+    )
+    ..addRoleFromBuilder(
+      RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+        PermissionSettingsBuilder('com.example.')
+          ..setMatchPolicy(PermissionMatchPolicy.prefix)
+          ..allowOperations(const ['call', 'register', 'unregister']),
+      ),
+    );
+
+  HttpAuthProviderDefinition oauthProvider() => HttpAuthProviderDefinition(
+    type: 'oauth',
+    options: <String, Object?>{
+      'introspection_url': introspectionEndpoint.toString(),
+      'issuer': 'https://issuer.example',
+      'audience': const <String>['mcp-resource'],
+      'auth_id_claim': 'sub',
+      'auth_role_claim': 'role',
+    },
+  );
+
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(realm('realm'))
+    ..addRealmFromBuilder(realm('tenant'))
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('tenant:shared')
+        ..setRealm('realm')
+        ..setAuthMethods(const ['oauth'])
+        ..setHttpProvider('external'),
+    )
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('shared')
+        ..setRealm('tenant')
+        ..setAuthMethods(const ['oauth'])
+        ..setHttpProvider('external:realm'),
+    )
+    ..addHttpAuthProvider('external', oauthProvider())
+    ..addHttpAuthProvider('external:realm', oauthProvider())
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addAuthMethod('anonymous')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: <HttpRouteSettings>[
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp/realm'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'realm',
+                    sessionProfile: 'tenant:shared',
+                    options: <String, Object?>{
+                      'post_response_transport': 'json',
+                      'protected_resource_metadata': <String, Object?>{
+                        'metadata_url': 'https://mcp.example.test/mcp/realm',
+                        'resource': 'https://mcp.example.test/mcp/realm',
+                        'authorization_servers': <String>[
+                          'https://issuer.example',
+                        ],
+                      },
+                    },
+                  ),
+                ),
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp/tenant'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'tenant',
+                    sessionProfile: 'shared',
+                    options: <String, Object?>{
+                      'post_response_transport': 'json',
+                      'protected_resource_metadata': <String, Object?>{
+                        'metadata_url': 'https://mcp.example.test/mcp/tenant',
+                        'resource': 'https://mcp.example.test/mcp/tenant',
+                        'authorization_servers': <String>[
+                          'https://issuer.example',
+                        ],
+                      },
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    )
+    ..addAuthenticator(
+      'anonymous',
+      const AuthenticatorDefinition(type: 'anonymous'),
+    );
+  return builder.build();
+}
+
 RouterSettings _buildRouterSettingsWithHttpMtlsRoute() {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -7410,6 +7518,244 @@ void main() {
         ),
       );
       expect(introspectionRequests, greaterThanOrEqualTo(19));
+    },
+  );
+
+  test(
+    'isolates protected MCP sessions across delimiter-colliding auth scopes',
+    () async {
+      const bearerToken = 'opaque-colliding-scope-token';
+      final introspectionServer = await HttpServer.bind(
+        InternetAddress.loopbackIPv4,
+        0,
+      );
+      addTearDown(() => introspectionServer.close(force: true));
+      introspectionServer.listen((request) async {
+        final form = Uri.splitQueryString(
+          await utf8.decoder.bind(request).join(),
+        );
+        expect(form['token'], bearerToken);
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode(<String, Object?>{
+            'active': true,
+            'sub': 'scope-user',
+            'role': 'member',
+            'iss': 'https://issuer.example',
+            'aud': const <String>['mcp-resource'],
+            'exp':
+                DateTime.now()
+                    .toUtc()
+                    .add(const Duration(minutes: 5))
+                    .millisecondsSinceEpoch ~/
+                1000,
+          }),
+        );
+        await request.response.close();
+      });
+
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithCollidingHttpOAuthMcpScopes(
+          Uri.parse(
+            'http://${introspectionServer.address.address}:'
+            '${introspectionServer.port}/introspect',
+          ),
+        ),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      Future<void> registerTool(
+        String realm,
+        String procedure,
+        String response,
+      ) async {
+        final callee = await binding.createInternalSession(
+          realmUri: realm,
+          authId: 'svc-$realm',
+          authRole: 'internal',
+          roles: const {'callee': <String, Object?>{}},
+        );
+        addTearDown(callee.close);
+        final registration = await callee.register(procedure);
+        registration.onInvoke((invocation) {
+          invocation.respondWith(arguments: <Object?>[response]);
+        });
+      }
+
+      await registerTool(
+        'realm',
+        'com.example.realm.echo',
+        'realm-response',
+      );
+      await registerTool(
+        'tenant',
+        'com.example.tenant.echo',
+        'tenant-response',
+      );
+
+      var nextConnectionId = 650;
+      Future<NativeHttpResponse> sendMcp(
+        String path,
+        Map<String, Object?> body, {
+        String? sessionId,
+      }) async {
+        final connectionId = nextConnectionId++;
+        final method = body['method']! as String;
+        final params = body['params'];
+        final name = params is Map ? params['name'] : null;
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId,
+          method: 'POST',
+          target: path,
+          headers: <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer $bearerToken',
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            HttpHeaders.contentTypeHeader: 'application/json',
+            'mcp-protocol-version': '2025-11-25',
+            'mcp-method': method,
+            if (name is String) 'mcp-name': name,
+            'mcp-session-id': ?sessionId,
+          },
+          body: body,
+          realm: path == '/mcp/realm' ? 'realm' : 'tenant',
+          procedure: 'router.http.mcp',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        );
+        return runtime.httpResponses[connectionId]!.single;
+      }
+
+      Future<String> initialize(String path, String requestId) async {
+        final response = await sendMcp(path, <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestId,
+          'method': 'initialize',
+          'params': const <String, Object?>{
+            'protocolVersion': '2025-11-25',
+            'capabilities': <String, Object?>{},
+            'clientInfo': <String, Object?>{
+              'name': 'router-runtime-auth-scope-test',
+              'version': '0.1.0',
+            },
+          },
+        });
+        expect(response.status, HttpStatus.ok);
+        return response.headers['MCP-Session-Id']!;
+      }
+
+      Future<NativeHttpResponse> listTools(
+        String path,
+        String requestId,
+        String sessionId,
+      ) => sendMcp(path, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestId,
+        'method': 'tools/list',
+        'params': const <String, Object?>{},
+      }, sessionId: sessionId);
+
+      Future<NativeHttpResponse> callTool(
+        String path,
+        String requestId,
+        String sessionId,
+        String name,
+      ) => sendMcp(path, <String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestId,
+        'method': 'tools/call',
+        'params': <String, Object?>{
+          'name': name,
+          'arguments': const <String, Object?>{},
+        },
+      }, sessionId: sessionId);
+
+      final realmSessionId = await initialize(
+        '/mcp/realm',
+        'realm-initialize',
+      );
+      final realmTools = await listTools(
+        '/mcp/realm',
+        'realm-tools',
+        realmSessionId,
+      );
+      expect(realmTools.status, HttpStatus.ok);
+      final realmToolList =
+          (_jsonResponseBody(realmTools)['result']! as Map)['tools']! as List;
+      expect(
+        realmToolList,
+        contains(containsPair('name', 'com.example.realm.echo')),
+      );
+      expect(
+        realmToolList,
+        isNot(contains(containsPair('name', 'com.example.tenant.echo'))),
+      );
+
+      final tenantSessionId = await initialize(
+        '/mcp/tenant',
+        'tenant-initialize',
+      );
+      final tenantTools = await listTools(
+        '/mcp/tenant',
+        'tenant-tools',
+        tenantSessionId,
+      );
+      expect(tenantTools.status, HttpStatus.ok);
+      final tenantToolList =
+          (_jsonResponseBody(tenantTools)['result']! as Map)['tools']! as List;
+      expect(
+        tenantToolList,
+        contains(containsPair('name', 'com.example.tenant.echo')),
+      );
+      expect(
+        tenantToolList,
+        isNot(contains(containsPair('name', 'com.example.realm.echo'))),
+      );
+
+      final realmCall = await callTool(
+        '/mcp/realm',
+        'realm-call',
+        realmSessionId,
+        'com.example.realm.echo',
+      );
+      expect(realmCall.status, HttpStatus.ok);
+      expect(
+        ((_jsonResponseBody(realmCall)['result']! as Map)['structuredContent']!
+            as Map)['arguments'],
+        const ['realm-response'],
+      );
+
+      final tenantCall = await callTool(
+        '/mcp/tenant',
+        'tenant-call',
+        tenantSessionId,
+        'com.example.tenant.echo',
+      );
+      expect(tenantCall.status, HttpStatus.ok);
+      expect(
+        ((_jsonResponseBody(tenantCall)['result']! as Map)['structuredContent']!
+            as Map)['arguments'],
+        const ['tenant-response'],
+      );
     },
   );
 
