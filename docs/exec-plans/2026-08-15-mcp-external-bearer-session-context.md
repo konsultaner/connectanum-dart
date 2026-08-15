@@ -1,6 +1,6 @@
 # Exec Plan: MCP External Bearer Session Context
 
-Status: active; implementation and local verification green, hosted evidence pending
+Status: complete; implementation, local verification, and hosted evidence green
 Owner: Codex
 Created: 2026-08-15
 Last updated: 2026-08-15
@@ -91,5 +91,19 @@ authorization context no longer matches the provider's current result.
   replacement is reused. That cleanup disposes session-owned router-hosted MCP
   endpoints and subscriptions, so old MCP session IDs fail closed and the
   consumer must initialize a fresh session under the new authorization state.
-- Commit, maintained-remote push, exact-head hosted workflows, and the strict
-  deployment-chain audit remain pending.
+- Commit `27198209` is published to both maintained `master` branches.
+  Exact-head CI `31875859177`, Dart Package Publish Dry Run `31875859209`, and
+  Router Image dry run `31876272534` pass on their first attempts. WAMP Profile
+  Benchmarks `31875859173` passes on one bounded retry after the first attempt
+  completed every workload but measured the unrelated
+  `rawsocket_pubsub_aes_dart_64k` throughput at 1.005 Mbps against its 1.200
+  Mbps floor; the retry measured 1.32 Mbps. Final workflow jobs have zero check
+  annotations.
+- CI retains coverage artifact `9244904560`; the successful WAMP attempt
+  retains benchmark artifact `9244936403`; Router Image retains preview
+  artifact `9244814425` and Docker build records `9244869552` and
+  `9244869253`.
+- The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI logs and all required package, retained native-release,
+  loaded-image MCP, multi-architecture image, WAMP, workflow, registry, and
+  protected-branch gates clean. No RC tag was selected.

@@ -7075,28 +7075,27 @@ void main() {
   );
 
   test(
-    'rotates protected MCP sessions when OAuth authorization context changes',
+    'serializes protected MCP session rotation across concurrent OAuth contexts',
     () async {
       var currentRole = 'member';
       var introspectionRequests = 0;
+      var queuedResponseRoles = <String>[];
+      final queuedRequests = <HttpRequest>[];
+      Completer<void>? queuedResponsesDone;
       const bearerToken = 'opaque-mcp-oauth-token';
       final introspectionServer = await HttpServer.bind(
         InternetAddress.loopbackIPv4,
         0,
       );
       addTearDown(() => introspectionServer.close(force: true));
-      introspectionServer.listen((request) async {
-        final form = Uri.splitQueryString(
-          await utf8.decoder.bind(request).join(),
-        );
-        expect(form['token'], bearerToken);
-        introspectionRequests++;
+
+      Future<void> respondWithRole(HttpRequest request, String role) async {
         request.response.headers.contentType = ContentType.json;
         request.response.write(
           jsonEncode(<String, Object?>{
             'active': true,
             'sub': 'oauth-user',
-            'role': currentRole,
+            'role': role,
             'iss': 'https://issuer.example',
             'aud': const <String>['mcp-resource'],
             'exp':
@@ -7108,6 +7107,34 @@ void main() {
           }),
         );
         await request.response.close();
+      }
+
+      introspectionServer.listen((request) async {
+        final form = Uri.splitQueryString(
+          await utf8.decoder.bind(request).join(),
+        );
+        expect(form['token'], bearerToken);
+        introspectionRequests++;
+        if (queuedResponseRoles.isEmpty) {
+          await respondWithRole(request, currentRole);
+          return;
+        }
+
+        queuedRequests.add(request);
+        final responsesDone = queuedResponsesDone!;
+        if (queuedRequests.length < queuedResponseRoles.length) {
+          await responsesDone.future;
+          return;
+        }
+
+        final requests = List<HttpRequest>.of(queuedRequests);
+        final roles = List<String>.of(queuedResponseRoles);
+        queuedRequests.clear();
+        queuedResponseRoles = <String>[];
+        for (var index = 0; index < requests.length; index++) {
+          await respondWithRole(requests[index], roles[index]);
+        }
+        responsesDone.complete();
       });
 
       final runtime = _HandleRuntime();
@@ -7264,7 +7291,30 @@ void main() {
         (_jsonResponseBody(replacementTools)['result']! as Map)['tools'],
         contains(containsPair('name', 'com.example.oauth.echo')),
       );
-      expect(introspectionRequests, greaterThanOrEqualTo(8));
+
+      queuedResponseRoles = <String>['blocked', 'member'];
+      queuedResponsesDone = Completer<void>();
+      final concurrentlyStaleTools = listTools(
+        'concurrently-stale-tools',
+        replacementSessionId,
+      );
+      final concurrentMemberInitialization = initialize(
+        'concurrent-member-initialize',
+      );
+
+      final staleTools = await concurrentlyStaleTools;
+      expect(staleTools.status, HttpStatus.notFound);
+      final concurrentMemberSessionId = await concurrentMemberInitialization;
+      final concurrentMemberTools = await listTools(
+        'concurrent-member-tools',
+        concurrentMemberSessionId,
+      );
+      expect(concurrentMemberTools.status, HttpStatus.ok);
+      expect(
+        (_jsonResponseBody(concurrentMemberTools)['result']! as Map)['tools'],
+        contains(containsPair('name', 'com.example.oauth.echo')),
+      );
+      expect(introspectionRequests, greaterThanOrEqualTo(11));
     },
   );
 

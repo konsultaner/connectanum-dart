@@ -1047,6 +1047,7 @@ class RouterBinding {
   final Map<String, _HttpAuthTokenRecord> _httpAuthTokens = {};
   final Map<String, _HttpRefreshTokenRecord> _httpRefreshTokens = {};
   final Set<String> _httpRefreshTokensInFlight = {};
+  final Map<String, Future<void>> _externalHttpAuthSessionTurns = {};
   final Map<String, Future<HttpAuthProvider>> _httpAuthProviderCache = {};
   final Map<String, ListenerSettings> _listenerSettingsByEndpoint;
   final Map<int, ListenerSettings?> _listenerConfigById = {};
@@ -5270,41 +5271,63 @@ class RouterBinding {
       sessionProfile?.name ?? '',
       credentialDigest.toString(),
     ].join(':');
-    final contextDigest = sha256.convert(
-      utf8.encode(
-        jsonEncode(<String, Object?>{
-          'authid': authenticated.authId,
-          'authrole': authenticated.authRole,
-          'authmethod': authenticated.authMethod,
-          'authprovider': authenticated.authProvider,
-          'roles': _canonicalExternalHttpAuthContextValue(authenticated.roles),
-        }),
-      ),
-    );
-    final cacheKey = '$credentialCacheKey:$contextDigest';
-    final staleSessions = _internalSessionsByCacheKey.entries
-        .where(
-          (entry) =>
-              entry.key != cacheKey &&
-              entry.key.startsWith('$credentialCacheKey:'),
-        )
-        .map((entry) => entry.value)
-        .toSet()
-        .toList(growable: false);
-    for (final staleSession in staleSessions) {
-      await staleSession.close();
+    // Register the successor before the first await so same-credential calls
+    // form a turn chain while unrelated credentials remain independent.
+    final precedingTurn = _externalHttpAuthSessionTurns[credentialCacheKey];
+    final turnCompleter = Completer<void>();
+    final turn = turnCompleter.future;
+    _externalHttpAuthSessionTurns[credentialCacheKey] = turn;
+
+    try {
+      if (precedingTurn != null) {
+        await precedingTurn;
+      }
+      final contextDigest = sha256.convert(
+        utf8.encode(
+          jsonEncode(<String, Object?>{
+            'authid': authenticated.authId,
+            'authrole': authenticated.authRole,
+            'authmethod': authenticated.authMethod,
+            'authprovider': authenticated.authProvider,
+            'roles': _canonicalExternalHttpAuthContextValue(
+              authenticated.roles,
+            ),
+          }),
+        ),
+      );
+      final cacheKey = '$credentialCacheKey:$contextDigest';
+      final staleSessions = _internalSessionsByCacheKey.entries
+          .where(
+            (entry) =>
+                entry.key != cacheKey &&
+                entry.key.startsWith('$credentialCacheKey:'),
+          )
+          .map((entry) => entry.value)
+          .toSet()
+          .toList(growable: false);
+      for (final staleSession in staleSessions) {
+        await staleSession.close();
+      }
+      return _ensureInternalSession(
+        realmUri: realmUri,
+        authId: authenticated.authId,
+        authRole: authenticated.authRole,
+        authMethod: authenticated.authMethod,
+        authProvider: authenticated.authProvider,
+        roles: authenticated.roles,
+        sessionProfile: sessionProfile?.name,
+        cacheKey: cacheKey,
+        authorizationIsInternal: false,
+      );
+    } finally {
+      turnCompleter.complete();
+      if (identical(
+        _externalHttpAuthSessionTurns[credentialCacheKey],
+        turn,
+      )) {
+        _externalHttpAuthSessionTurns.remove(credentialCacheKey);
+      }
     }
-    return _ensureInternalSession(
-      realmUri: realmUri,
-      authId: authenticated.authId,
-      authRole: authenticated.authRole,
-      authMethod: authenticated.authMethod,
-      authProvider: authenticated.authProvider,
-      roles: authenticated.roles,
-      sessionProfile: sessionProfile?.name,
-      cacheKey: cacheKey,
-      authorizationIsInternal: false,
-    );
   }
 
   Object? _canonicalExternalHttpAuthContextValue(Object? value) {

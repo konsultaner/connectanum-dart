@@ -525,6 +525,9 @@
     opaque credential and effective-authorization-context digests, close stale
     router-hosted MCP state when provider claims change, and require a fresh
     MCP session under the replacement authorization context.
+  - [x] Serialize configured external bearer authorization-context replacement
+    per opaque credential so concurrent provider results cannot reuse a closing
+    router-hosted MCP session, while unrelated credentials remain concurrent.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

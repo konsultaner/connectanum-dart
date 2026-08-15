@@ -25196,6 +25196,29 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP auth/session-readiness plan is
+  `docs/exec-plans/2026-08-15-mcp-external-bearer-session-concurrency.md`.
+  Configured external bearer validation may complete concurrently for the same
+  opaque credential. The current context-rotation path can therefore observe
+  and reuse an internal session while another validated result is closing it,
+  making the later authoritative MCP session unusable. This slice adds a
+  public protected Streamable HTTP regression with controlled OAuth
+  introspection completion order, then serializes authorization-context
+  replacement per credential while leaving unrelated credentials concurrent.
+  Pre-change `bin/test-fast` exits zero across the maintained repository,
+  real-router, executable, and isolated consumer-smoke matrix. The fail-first
+  regression returned HTTP 404 from the concurrently initialized member
+  session because it reused the internal session being closed by the preceding
+  blocked result. A binding-owned per-credential turn chain now orders stale
+  context closure and replacement-session creation, removes itself after the
+  final queued turn, and never retains the raw bearer. The same focused race
+  passes five consecutive runs; router analysis is clean; and the HTTP-auth
+  provider plus router runtime matrix passes all 103 cases. Full `bin/verify`
+  exits zero with formatting unchanged; Rust core and FFI green; 366 core
+  tests; 116 MCP tests; the complete 293-case MCP/client suite; 97 benchmark
+  tests including all 37 live WAMP workloads; the 443-case router suite; six
+  remote-auth tests; 13 native follow-ups; every maintained consumer smoke;
+  Chrome; and Dart2Wasm green. Publication and hosted evidence remain pending.
+- The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-external-bearer-session-context.md`.
   Configured JWT, OIDC, and OAuth introspection providers revalidate every
   protected HTTP request. Their reusable internal sessions are now keyed by an
@@ -25214,9 +25237,21 @@ at the older `47bbf9c` commit.
   green, 366 core tests, the complete MCP/client suite, 97 benchmark tests
   including all 37 live WAMP workloads, the 443-case router suite, six remote-
   auth tests, 13 native follow-ups, every maintained consumer smoke, Chrome,
-  and Dart2Wasm green. Commit, push, exact-head hosted workflows, and the strict
-  deployment-chain audit remain pending.
-- The most recently completed MCP authorization-readiness plan is
+  and Dart2Wasm green. Commit `27198209` is published to both maintained
+  `master` branches. Exact-head CI `31875859177`, Dart Package Publish Dry Run
+  `31875859209`, and Router Image dry run `31876272534` pass on their first
+  attempts. WAMP Profile Benchmarks `31875859173` passes on one bounded retry
+  after an unrelated Dart RawSocket AES 64 KiB pub/sub throughput sample
+  measured 1.005 Mbps against its 1.200 Mbps floor; the retry measured 1.32
+  Mbps. Final workflow jobs have zero check annotations. CI retains coverage
+  artifact `9244904560`; the successful WAMP attempt retains benchmark artifact
+  `9244936403`; Router Image retains preview artifact `9244814425` and Docker
+  build records `9244869552` and `9244869253`. The comprehensive strict
+  deployment-chain audit exits zero with clean exact-head CI logs and all
+  required package, retained native-release, loaded-image MCP, multi-
+  architecture image, WAMP, workflow, registry, and protected-branch gates
+  clean. No RC tag was selected.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-15-mcp-preregistered-client-issuer-binding.md`.
   Stable MCP `2026-07-28` requires pre-registered and persisted dynamically
   registered client credentials to remain bound to the exact validated
