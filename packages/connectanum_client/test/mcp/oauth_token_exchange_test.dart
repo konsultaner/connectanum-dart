@@ -116,8 +116,9 @@ void main() {
 
       final grant = await exchangeMcpAuthorizationCode(
         code,
-        clientAuthentication: McpOAuthClientAuthentication.none(
-          'consumer-client',
+        clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+          clientId: 'consumer-client',
+          authorizationServer: authorizationServer,
         ),
         headers: const <String, String>{'User-Agent': 'consumer-test'},
       );
@@ -161,6 +162,160 @@ void main() {
       });
     });
 
+    test(
+      'rejects unbound and mismatched pre-registered clients before exchange',
+      () async {
+        final code = _authorizationCode(authorizationServer, resource);
+        final otherAuthorizationServer =
+            McpAuthorizationServerMetadata.fromJson(
+              <String, Object?>{
+                ...authorizationServer.toJson(),
+                'issuer': issuer.replace(path: '/other-issuer').toString(),
+              },
+            );
+
+        await expectLater(
+          exchangeMcpAuthorizationCode(
+            code,
+            clientAuthentication: McpOAuthClientAuthentication.none(
+              'consumer-client',
+            ),
+          ),
+          throwsA(isA<McpOAuthTokenException>()),
+        );
+        await expectLater(
+          exchangeMcpAuthorizationCode(
+            code,
+            clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+              clientId: 'consumer-client',
+              authorizationServer: otherAuthorizationServer,
+            ),
+          ),
+          throwsA(
+            isA<McpOAuthTokenException>().having(
+              (error) => error.toString(),
+              'redacted issuer mismatch',
+              allOf(
+                isNot(contains(authorizationServer.issuerIdentifier)),
+                isNot(contains(otherAuthorizationServer.issuerIdentifier)),
+              ),
+            ),
+          ),
+        );
+
+        expect(tokenRequestCount, 0);
+      },
+    );
+
+    test(
+      'rejects mismatched pre-registered clients before refresh and revoke',
+      () async {
+        final grant = await exchangeMcpAuthorizationCode(
+          _authorizationCode(authorizationServer, resource),
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
+          ),
+        );
+        final otherAuthorizationServer =
+            McpAuthorizationServerMetadata.fromJson(
+              <String, Object?>{
+                ...authorizationServer.toJson(),
+                'issuer': issuer.replace(path: '/other-issuer').toString(),
+              },
+            );
+        final mismatchedClient = McpOAuthClientAuthentication.registeredPublic(
+          clientId: 'consumer-client',
+          authorizationServer: otherAuthorizationServer,
+        );
+
+        await expectLater(
+          refreshMcpOAuthToken(
+            grant,
+            clientAuthentication: mismatchedClient,
+          ),
+          throwsA(isA<McpOAuthTokenException>()),
+        );
+        await expectLater(
+          revokeMcpOAuthToken(
+            grant,
+            clientAuthentication: mismatchedClient,
+          ),
+          throwsA(isA<McpOAuthTokenException>()),
+        );
+
+        expect(tokenRequestCount, 1);
+        expect(revocationRequestCount, 0);
+      },
+    );
+
+    test(
+      'never sends a confidential client secret to a mismatched issuer',
+      () async {
+        authMethods = <String>['client_secret_basic'];
+        final otherAuthorizationServer =
+            McpAuthorizationServerMetadata.fromJson(
+              <String, Object?>{
+                ...authorizationServer.toJson(),
+                'issuer': issuer.replace(path: '/other-issuer').toString(),
+                'token_endpoint_auth_methods_supported': <String>[
+                  'client_secret_basic',
+                ],
+              },
+            );
+        final secret = 'must-not-cross-issuer-boundaries';
+
+        await expectLater(
+          exchangeMcpAuthorizationCode(
+            _authorizationCode(authorizationServer, resource),
+            clientAuthentication:
+                McpOAuthClientAuthentication.clientSecretBasic(
+                  clientId: 'consumer-client',
+                  clientSecret: secret,
+                  authorizationServer: otherAuthorizationServer,
+                ),
+          ),
+          throwsA(
+            isA<McpOAuthTokenException>().having(
+              (error) => error.toString(),
+              'redacted issuer mismatch',
+              isNot(contains(secret)),
+            ),
+          ),
+        );
+
+        expect(tokenRequestCount, 0);
+      },
+    );
+
+    test(
+      'keeps HTTPS Client ID Metadata Document identities portable',
+      () async {
+        final portableClientId =
+            'https://consumer.example/oauth/client-metadata.json';
+        final cimdAuthorizationServer = McpAuthorizationServerMetadata.fromJson(
+          <String, Object?>{
+            ...authorizationServer.toJson(),
+            'client_id_metadata_document_supported': true,
+          },
+        );
+
+        final grant = await exchangeMcpAuthorizationCode(
+          _authorizationCode(
+            cimdAuthorizationServer,
+            resource,
+            clientId: portableClientId,
+          ),
+          clientAuthentication: McpOAuthClientAuthentication.none(
+            portableClientId,
+          ),
+        );
+
+        expect(grant.clientId, portableClientId);
+        expect(tokenRequestCount, 1);
+      },
+    );
+
     test('persists and restores a bound OAuth token grant', () async {
       tokenHandler = (request, body) async {
         request.response.headers.contentType = ContentType.json;
@@ -184,8 +339,9 @@ void main() {
       final beforeExchange = DateTime.now().toUtc();
       final grant = await exchangeMcpAuthorizationCode(
         _authorizationCode(authorizationServer, resource),
-        clientAuthentication: McpOAuthClientAuthentication.none(
-          'consumer-client',
+        clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+          clientId: 'consumer-client',
+          authorizationServer: authorizationServer,
         ),
       );
       final afterExchange = DateTime.now().toUtc();
@@ -252,8 +408,9 @@ void main() {
       };
       final grant = await exchangeMcpAuthorizationCode(
         _authorizationCode(authorizationServer, resource),
-        clientAuthentication: McpOAuthClientAuthentication.none(
-          'consumer-client',
+        clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+          clientId: 'consumer-client',
+          authorizationServer: authorizationServer,
         ),
       );
       final stored = grant.toJson();
@@ -276,8 +433,9 @@ void main() {
       () async {
         final grant = await exchangeMcpAuthorizationCode(
           _authorizationCode(authorizationServer, resource),
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
         );
 
@@ -444,6 +602,7 @@ void main() {
           clientAuthentication: McpOAuthClientAuthentication.clientSecretBasic(
             clientId: 'consumer: client',
             clientSecret: 'secret: value',
+            authorizationServer: authorizationServer,
           ),
         );
 
@@ -485,6 +644,7 @@ void main() {
           clientAuthentication: McpOAuthClientAuthentication.clientSecretPost(
             clientId: 'consumer-client',
             clientSecret: 'consumer-secret',
+            authorizationServer: authorizationServer,
           ),
         );
 
@@ -505,8 +665,9 @@ void main() {
         await expectLater(
           exchangeMcpAuthorizationCode(
             code,
-            clientAuthentication: McpOAuthClientAuthentication.none(
-              'other-client',
+            clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+              clientId: 'other-client',
+              authorizationServer: authorizationServer,
             ),
           ),
           throwsA(isA<McpOAuthTokenException>()),
@@ -518,6 +679,7 @@ void main() {
                 McpOAuthClientAuthentication.clientSecretBasic(
                   clientId: 'consumer-client',
                   clientSecret: 'consumer-secret',
+                  authorizationServer: authorizationServer,
                 ),
           ),
           throwsA(isA<McpOAuthTokenException>()),
@@ -525,8 +687,9 @@ void main() {
         await expectLater(
           exchangeMcpAuthorizationCode(
             code,
-            clientAuthentication: McpOAuthClientAuthentication.none(
-              'consumer-client',
+            clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+              clientId: 'consumer-client',
+              authorizationServer: authorizationServer,
             ),
             headers: const <String, String>{
               'Authorization': 'Bearer must-not-forward',
@@ -551,8 +714,9 @@ void main() {
         await expectLater(
           exchangeMcpAuthorizationCode(
             code,
-            clientAuthentication: McpOAuthClientAuthentication.none(
-              'consumer-client',
+            clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+              clientId: 'consumer-client',
+              authorizationServer: authorizationServer,
             ),
           ),
           throwsA(isA<McpOAuthTokenException>()),
@@ -562,6 +726,7 @@ void main() {
           clientAuthentication: McpOAuthClientAuthentication.clientSecretBasic(
             clientId: 'consumer-client',
             clientSecret: 'consumer-secret',
+            authorizationServer: authorizationServer,
           ),
         );
 
@@ -595,6 +760,7 @@ void main() {
         clientAuthentication: McpOAuthClientAuthentication.clientSecretPost(
           clientId: 'consumer-client',
           clientSecret: 'top-secret-client-value',
+          authorizationServer: authorizationServer,
         ),
       );
 
@@ -658,8 +824,9 @@ void main() {
         await expectLater(
           exchangeMcpAuthorizationCode(
             code,
-            clientAuthentication: McpOAuthClientAuthentication.none(
-              'consumer-client',
+            clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+              clientId: 'consumer-client',
+              authorizationServer: authorizationServer,
             ),
           ),
           throwsA(isA<McpOAuthTokenException>()),
@@ -674,8 +841,9 @@ void main() {
       await expectLater(
         exchangeMcpAuthorizationCode(
           code,
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
           maxResponseBytes: 64,
         ),
@@ -696,8 +864,9 @@ void main() {
       await expectLater(
         exchangeMcpAuthorizationCode(
           code,
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
         ),
         throwsA(isA<McpOAuthTokenException>()),
@@ -707,8 +876,9 @@ void main() {
       await expectLater(
         exchangeMcpAuthorizationCode(
           code,
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
           timeout: const Duration(milliseconds: 30),
         ),
@@ -727,8 +897,9 @@ void main() {
       () async {
         final grant = await exchangeMcpAuthorizationCode(
           _authorizationCode(authorizationServer, resource),
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
         );
 
@@ -750,8 +921,9 @@ void main() {
       () async {
         final grant = await exchangeMcpAuthorizationCode(
           _authorizationCode(authorizationServer, resource),
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
         );
         late HttpRequest refreshRequest;
@@ -786,16 +958,18 @@ void main() {
 
         final refreshed = await client.refreshOAuthToken(
           grant,
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
           scopes: const <String>['tools:read'],
           headers: const <String, String>{'x-consumer-trace': 'refresh'},
         );
         await client.revokeOAuthToken(
           refreshed,
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
           headers: const <String, String>{'x-consumer-trace': 'revoke'},
         );
@@ -856,8 +1030,9 @@ void main() {
         )).metadata;
         final grant = await exchangeMcpAuthorizationCode(
           _authorizationCode(authorizationServer, resource),
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
         );
         late HttpRequest revocationRequest;
@@ -875,6 +1050,7 @@ void main() {
           clientAuthentication: McpOAuthClientAuthentication.clientSecretBasic(
             clientId: 'consumer-client',
             clientSecret: 'consumer-secret',
+            authorizationServer: authorizationServer,
           ),
         );
 
@@ -895,16 +1071,18 @@ void main() {
       () async {
         final grant = await exchangeMcpAuthorizationCode(
           _authorizationCode(authorizationServer, resource),
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
         );
 
         await expectLater(
           refreshMcpOAuthToken(
             grant,
-            clientAuthentication: McpOAuthClientAuthentication.none(
-              'consumer-client',
+            clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+              clientId: 'consumer-client',
+              authorizationServer: authorizationServer,
             ),
             scopes: const <String>['admin'],
           ),
@@ -926,8 +1104,9 @@ void main() {
         await expectLater(
           refreshMcpOAuthToken(
             grant,
-            clientAuthentication: McpOAuthClientAuthentication.none(
-              'consumer-client',
+            clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+              clientId: 'consumer-client',
+              authorizationServer: authorizationServer,
             ),
             scopes: const <String>['tools:read'],
           ),
@@ -954,8 +1133,9 @@ void main() {
         };
         final future = refreshMcpOAuthToken(
           grant,
-          clientAuthentication: McpOAuthClientAuthentication.none(
-            'consumer-client',
+          clientAuthentication: McpOAuthClientAuthentication.registeredPublic(
+            clientId: 'consumer-client',
+            authorizationServer: authorizationServer,
           ),
         );
 

@@ -247,7 +247,10 @@ final class McpOAuthDynamicClientRegistration {
   final Map<String, Object?> additionalParameters;
 
   McpOAuthClientAuthentication get clientAuthentication =>
-      McpOAuthClientAuthentication.none(clientId);
+      McpOAuthClientAuthentication.registeredPublic(
+        clientId: clientId,
+        authorizationServer: authorizationServer,
+      );
 
   McpAuthorizationRequest createAuthorizationRequest({
     required Uri resource,

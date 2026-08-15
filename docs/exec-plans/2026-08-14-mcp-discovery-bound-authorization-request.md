@@ -1,6 +1,6 @@
 # Exec Plan: MCP Discovery-Bound Authorization Request
 
-Status: implementation complete; local verification green; hosted evidence pending
+Status: complete; implementation, local verification, and hosted evidence green
 Owner: Codex
 Created: 2026-08-14
 Last updated: 2026-08-15
@@ -86,5 +86,15 @@ without accidentally combining an MCP resource with an unrelated issuer.
   benchmark tests including all 37 live WAMP workloads, the 442-case router
   suite, six remote-auth tests, 13 native follow-ups, every maintained consumer
   smoke, Chrome, and Dart2Wasm green.
-- Commit, push, exact-head hosted workflows, and the strict deployment-chain
-  audit remain pending.
+- Commit `a5088388` is published to both maintained `master` branches.
+  Exact-head CI `31846345005`, Dart Package Publish Dry Run `31846344967`,
+  WAMP Profile Benchmarks `31846344992`, and Router Image dry run
+  `31846383759` all pass. CI retains coverage artifact `9236430048`; WAMP
+  retains benchmark artifact `9236181837`; Router Image retains preview
+  artifact `9236048542` and Docker build records `9236124385` and
+  `9236123961`.
+- The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI logs, relevant package evidence, retained native-release
+  evidence, the loaded-image MCP smoke, skipped GHCR login, WAMP artifacts,
+  and every required package, workflow, registry, and protected-branch gate
+  clean. No RC tag was selected.

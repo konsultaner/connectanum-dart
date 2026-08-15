@@ -22,9 +22,11 @@ void main() {
           endpoint.uri,
         );
         final grant = _grant(authorizationServer, endpoint.uri);
-        final clientAuthentication = McpOAuthClientAuthentication.none(
-          'consumer-client',
-        );
+        final clientAuthentication =
+            McpOAuthClientAuthentication.registeredPublic(
+              clientId: 'consumer-client',
+              authorizationServer: authorizationServer,
+            );
         final registration =
             McpOAuthDynamicClientRegistrationRequest.publicClient(
               clientName: 'Consumer application',

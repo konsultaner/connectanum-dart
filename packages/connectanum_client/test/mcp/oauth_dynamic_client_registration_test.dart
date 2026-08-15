@@ -153,6 +153,10 @@ void main() {
       expect(registration.scopes, <String>['mcp:tools', 'mcp:meta']);
       expect(registration.clientAuthentication.clientId, registration.clientId);
       expect(registration.clientAuthentication.method, 'none');
+      expect(
+        registration.clientAuthentication.authorizationServerIssuer,
+        authorizationServer.issuerIdentifier,
+      );
       expect(registration.additionalParameters, <String, Object?>{
         'server_extension': 'registered',
       });
@@ -232,6 +236,10 @@ void main() {
       expect(restored.additionalParameters, registration.additionalParameters);
       expect(restored.clientAuthentication.clientId, registration.clientId);
       expect(restored.clientAuthentication.method, 'none');
+      expect(
+        restored.clientAuthentication.authorizationServerIssuer,
+        authorizationServer.issuerIdentifier,
+      );
       expect(restored.toString(), isNot(contains(registration.clientId)));
 
       final authorizationRequest = restored.createAuthorizationRequest(

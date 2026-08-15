@@ -36,6 +36,7 @@ void main() {
       expect(document.clientId, clientId);
       expect(document.clientAuthentication.clientId, clientId.toString());
       expect(document.clientAuthentication.method, 'none');
+      expect(document.clientAuthentication.authorizationServerIssuer, isNull);
       expect(document.requestsRefreshTokens, isTrue);
       expect(document.toJson(), <String, Object?>{
         'client_id': clientId.toString(),

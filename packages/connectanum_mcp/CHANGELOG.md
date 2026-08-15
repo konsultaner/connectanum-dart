@@ -35,6 +35,10 @@
 - Re-export the public MCP OAuth authorization, Client ID Metadata Document,
   dynamic client registration, token refresh, and revocation lifecycle through
   the IO entrypoint.
+- Re-export issuer-bound pre-registered and dynamically registered MCP OAuth
+  client authentication so public IO consumers fail before sending an identity
+  or secret to a different authorization server while portable HTTPS Client ID
+  Metadata Document identities remain reusable.
 - Exercise RFC 9207 authorization-response issuer validation through the
   public IO OAuth loopback lifecycle.
 - Exercise refresh-aware Client ID Metadata Documents, including the explicit

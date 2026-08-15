@@ -49,23 +49,46 @@ final class McpOAuthClientAuthentication {
   const McpOAuthClientAuthentication._({
     required this.clientId,
     required this.method,
+    required this.authorizationServerIssuer,
     String? clientSecret,
   }) : _clientSecret = clientSecret;
 
+  /// Creates portable public-client authentication for an HTTPS Client ID
+  /// Metadata Document.
+  ///
+  /// Token operations accept this unbound form only when [clientId] has the
+  /// required HTTPS document shape and the authorization server advertises
+  /// Client ID Metadata Document support. Other registered public clients must
+  /// use [registeredPublic].
   factory McpOAuthClientAuthentication.none(String clientId) {
     return McpOAuthClientAuthentication._(
       clientId: clientId,
       method: _noClientAuthentication,
+      authorizationServerIssuer: null,
+    );
+  }
+
+  /// Creates public-client authentication bound to one validated issuer.
+  factory McpOAuthClientAuthentication.registeredPublic({
+    required String clientId,
+    required McpAuthorizationServerMetadata authorizationServer,
+  }) {
+    return McpOAuthClientAuthentication._(
+      clientId: clientId,
+      method: _noClientAuthentication,
+      authorizationServerIssuer: authorizationServer.issuerIdentifier,
     );
   }
 
   factory McpOAuthClientAuthentication.clientSecretBasic({
     required String clientId,
     required String clientSecret,
+    required McpAuthorizationServerMetadata authorizationServer,
   }) {
     return McpOAuthClientAuthentication._(
       clientId: clientId,
       method: _clientSecretBasic,
+      authorizationServerIssuer: authorizationServer.issuerIdentifier,
       clientSecret: clientSecret,
     );
   }
@@ -73,16 +96,22 @@ final class McpOAuthClientAuthentication {
   factory McpOAuthClientAuthentication.clientSecretPost({
     required String clientId,
     required String clientSecret,
+    required McpAuthorizationServerMetadata authorizationServer,
   }) {
     return McpOAuthClientAuthentication._(
       clientId: clientId,
       method: _clientSecretPost,
+      authorizationServerIssuer: authorizationServer.issuerIdentifier,
       clientSecret: clientSecret,
     );
   }
 
   final String clientId;
   final String method;
+
+  /// Exact validated issuer for registered credentials, or `null` only for a
+  /// portable HTTPS Client ID Metadata Document identity.
+  final String? authorizationServerIssuer;
   final String? _clientSecret;
 
   @override
@@ -451,6 +480,7 @@ Future<McpOAuthTokenGrant> refreshMcpOAuthToken(
   );
   _validateOAuthEndpointInputs(
     expectedClientId: grant.clientId,
+    authorizationServer: authorizationServer,
     clientAuthentication: clientAuthentication,
     supportedMethods:
         authorizationServer.tokenEndpointAuthMethodsSupported ??
@@ -530,6 +560,7 @@ Future<void> revokeMcpOAuthToken(
   }
   _validateOAuthEndpointInputs(
     expectedClientId: grant.clientId,
+    authorizationServer: authorizationServer,
     clientAuthentication: clientAuthentication,
     supportedMethods:
         authorizationServer.revocationEndpointAuthMethodsSupported ??
@@ -735,6 +766,7 @@ void _validateExchangeInputs(
   final request = authorizationCode.request;
   _validateOAuthEndpointInputs(
     expectedClientId: request.clientId,
+    authorizationServer: request.authorizationServer,
     clientAuthentication: clientAuthentication,
     supportedMethods:
         request.authorizationServer.tokenEndpointAuthMethodsSupported ??
@@ -749,6 +781,7 @@ void _validateExchangeInputs(
 
 void _validateOAuthEndpointInputs({
   required String expectedClientId,
+  required McpAuthorizationServerMetadata authorizationServer,
   required McpOAuthClientAuthentication clientAuthentication,
   required List<String> supportedMethods,
   required Uri endpoint,
@@ -766,6 +799,23 @@ void _validateOAuthEndpointInputs({
   if (!_printableNonEmpty(clientAuthentication.clientId)) {
     throw McpOAuthTokenException(
       'OAuth client ID must be non-empty printable text.',
+      endpoint: endpoint,
+    );
+  }
+  final boundIssuer = clientAuthentication.authorizationServerIssuer;
+  if (boundIssuer == null) {
+    if (!_isPortableClientMetadataAuthentication(
+      clientAuthentication,
+      authorizationServer,
+    )) {
+      throw McpOAuthTokenException(
+        'OAuth client identity must be bound to the authorization server.',
+        endpoint: endpoint,
+      );
+    }
+  } else if (boundIssuer != authorizationServer.issuerIdentifier) {
+    throw McpOAuthTokenException(
+      'OAuth client identity belongs to a different authorization server.',
       endpoint: endpoint,
     );
   }
@@ -812,6 +862,29 @@ void _validateOAuthEndpointInputs({
       );
     }
   }
+}
+
+bool _isPortableClientMetadataAuthentication(
+  McpOAuthClientAuthentication clientAuthentication,
+  McpAuthorizationServerMetadata authorizationServer,
+) {
+  if (clientAuthentication.method != _noClientAuthentication ||
+      authorizationServer.clientIdMetadataDocumentSupported != true) {
+    return false;
+  }
+  final clientId = Uri.tryParse(clientAuthentication.clientId);
+  return clientId != null &&
+      clientId.scheme.toLowerCase() == 'https' &&
+      clientId.hasAuthority &&
+      clientId.host.isNotEmpty &&
+      clientId.userInfo.isEmpty &&
+      !clientId.hasQuery &&
+      !clientId.hasFragment &&
+      clientId.path.isNotEmpty &&
+      clientId.path != '/' &&
+      !clientId.pathSegments.any(
+        (segment) => segment == '.' || segment == '..',
+      );
 }
 
 List<String> _validatedRefreshScopes(

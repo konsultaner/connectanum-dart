@@ -166,6 +166,14 @@ void main() {
       authorizationServer.metadata.registrationEndpoint?.path,
       '/register',
     );
+    final preRegisteredClient = McpOAuthClientAuthentication.registeredPublic(
+      clientId: 'pre-registered-consumer',
+      authorizationServer: authorizationServer.metadata,
+    );
+    expect(
+      preRegisteredClient.authorizationServerIssuer,
+      authorizationServer.metadata.issuerIdentifier,
+    );
 
     final issuedRegistration = await client.registerOAuthClient(
       authorizationServer.metadata,
@@ -184,6 +192,10 @@ void main() {
     );
     expect(registration.clientId, issuedRegistration.clientId);
     expect(registration.redirectUris, issuedRegistration.redirectUris);
+    expect(
+      registration.clientAuthentication.authorizationServerIssuer,
+      authorizationServer.metadata.issuerIdentifier,
+    );
     final authorizationRequest = client.createDiscoveredAuthorizationRequest(
       protectedResource: discovery,
       authorizationServer: authorizationServer,
@@ -306,6 +318,7 @@ void main() {
     );
 
     expect(document.requestsRefreshTokens, isTrue);
+    expect(document.clientAuthentication.authorizationServerIssuer, isNull);
     expect(document.toJson()['grant_types'], <String>[
       'authorization_code',
       'refresh_token',

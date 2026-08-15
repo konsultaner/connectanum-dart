@@ -2845,6 +2845,16 @@ Future<void> _smokeProtectedResourceDiscovery(
     endpoint.authorizationServerMetadataRequestCount == 1,
     'authorization-server discovery did not use the RFC 8414 endpoint',
   );
+  final preRegisteredClient = McpOAuthClientAuthentication.registeredPublic(
+    clientId: 'pre-registered-consumer',
+    authorizationServer: authorizationServer.metadata,
+  );
+  _expect(
+    preRegisteredClient.method == 'none' &&
+        preRegisteredClient.authorizationServerIssuer ==
+            authorizationServer.metadata.issuerIdentifier,
+    'pre-registered client authentication lost its issuer binding',
+  );
 
   final callbackListener = await McpOAuthLoopbackCallbackListener.bind();
   final redirectUri = callbackListener.redirectUri;
@@ -2995,6 +3005,11 @@ Future<void> _smokeProtectedResourceDiscovery(
     headers: const <String, String>{
       'x-consumer-trace': 'authorization-token',
     },
+  );
+  _expect(
+    registration.clientAuthentication.authorizationServerIssuer ==
+        authorizationServer.metadata.issuerIdentifier,
+    'dynamic client authentication lost its authorization-server binding',
   );
   final persistedOAuthGrant = jsonEncode(issuedOAuthGrant.toJson());
   final oauthGrant = McpOAuthTokenGrant.fromJson(

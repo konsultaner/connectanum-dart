@@ -39,6 +39,11 @@
 - Add resource-bound MCP OAuth discovery, PKCE authorization-code exchange,
   refresh, revocation, validated Client ID Metadata Documents, and bounded
   RFC 7591 dynamic public-client registration for Dart IO consumers.
+- Bind pre-registered and dynamically registered MCP OAuth client identities
+  to their exact validated authorization-server issuer before code exchange,
+  refresh, or revocation. Pre-registered public and confidential clients now
+  construct authentication with authorization-server metadata; portable HTTPS
+  Client ID Metadata Document identities continue to use `none`.
 - Add an RFC 8252 native loopback callback listener with ephemeral ports,
   exact state and redirect validation, bounded stray-request handling, and
   static redacted browser responses.
