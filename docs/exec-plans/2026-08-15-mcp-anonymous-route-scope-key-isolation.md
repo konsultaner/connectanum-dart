@@ -1,6 +1,6 @@
 # Exec Plan: MCP Anonymous Route Scope-Key Isolation
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-08-15
 Last updated: 2026-08-15
@@ -83,8 +83,21 @@ form the same delimiter-joined cache key.
   MCP/client suite; 97 benchmark tests including all 37 live WAMP workloads;
   the 445-case router suite; six remote-auth tests; 13 native follow-ups; every
   maintained consumer smoke; Chrome; and Dart2Wasm green.
+- 2026-08-15: Commit `dfb9bac9` is published to both maintained `master`
+  branches. Exact-head CI `31891453634`, Dart Package Publish Dry Run
+  `31891453631`, WAMP Profile Benchmarks `31891453637`, and Router Image dry
+  run `31891859970` all pass with zero check annotations. Coverage artifact
+  `9248850860`, WAMP artifact `9248738763`, Router Image preview artifact
+  `9248753343`, and Docker build records `9248826776` and `9248826501` are
+  available.
+- 2026-08-15: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and logs, package publishing, reusable native-release evidence,
+  loaded-image MCP smoke, multi-architecture image builds, WAMP artifacts,
+  branch protection, workflows, and package visibility clean. The non-gating
+  RC summary remains intentionally not ready because no approved numeric RC tag
+  points at this implementation commit.
 
 ## Handoff
 
-- Implementation and local verification are complete; publication and
-  exact-head hosted evidence remain.
+- Implementation, local verification, publication, exact-head hosted evidence,
+  and the strict deployment-chain audit are complete.

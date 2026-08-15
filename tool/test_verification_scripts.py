@@ -114,6 +114,48 @@ class VerificationScriptsTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_dart_pub_with_retry_bounds_and_retries_stalled_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            attempts_path = Path(tmp_dir) / "attempts.txt"
+            script = textwrap.dedent(
+                f"""
+                set -euo pipefail
+                source "{COMMON}"
+
+                export CONNECTANUM_DART_PUB_ATTEMPT_TIMEOUT_SECONDS=1
+                export CONNECTANUM_DART_PUB_RETRY_ATTEMPTS=2
+                export CONNECTANUM_DART_PUB_RETRY_DELAY_SECONDS=0
+                if dart_pub_with_retry "test pub command" \
+                  bash -c '
+                    attempts=0
+                    if [[ -f "$1" ]]; then
+                      attempts="$(cat "$1")"
+                    fi
+                    attempts=$((attempts + 1))
+                    printf "%s" "$attempts" >"$1"
+                    exec sleep 30
+                  ' _ "{attempts_path}"; then
+                  exit 1
+                else
+                  status=$?
+                fi
+                [[ "$status" == "124" ]]
+                [[ "$(cat "{attempts_path}")" == "2" ]]
+                """
+            )
+
+            result = subprocess.run(
+                ["bash", "-c", script],
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=8,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_cargo_sensitive_scripts_use_retry_helper(self) -> None:
         common_script = COMMON.read_text(encoding="utf-8")
         bootstrap_script = BOOTSTRAP.read_text(encoding="utf-8")

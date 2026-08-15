@@ -231,6 +231,18 @@ run_command_with_timeout() {
   return "$status"
 }
 
+dart_pub_with_retry() {
+  local description="$1"
+  local max_attempts="${CONNECTANUM_DART_PUB_RETRY_ATTEMPTS:-3}"
+  local delay_seconds="${CONNECTANUM_DART_PUB_RETRY_DELAY_SECONDS:-5}"
+  local timeout_seconds="${CONNECTANUM_DART_PUB_ATTEMPT_TIMEOUT_SECONDS:-180}"
+
+  shift
+
+  retry_command "$description" "$max_attempts" "$delay_seconds" \
+    run_command_with_timeout "$description" "$timeout_seconds" "$@"
+}
+
 cargo_with_retry() {
   local max_attempts="${CONNECTANUM_CARGO_RETRY_ATTEMPTS:-3}"
   local delay_seconds="${CONNECTANUM_CARGO_RETRY_DELAY_SECONDS:-5}"
@@ -430,7 +442,7 @@ ensure_chrome_env() {
 dart_workspace_bootstrap() {
   require_command dart
   cd_repo_root
-  dart pub get
+  dart_pub_with_retry "Dart workspace dependency resolution" dart pub get
 }
 
 cargo_workspace_check() {
@@ -1566,7 +1578,8 @@ EOF
     fi
   done
 
-  CONNECTANUM_SKIP_NATIVE_BUILD=true \
+  dart_pub_with_retry "MCP global consumer activation" \
+    env CONNECTANUM_SKIP_NATIVE_BUILD=true \
     PATH="$global_pub_cache/bin:$PATH" PUB_CACHE="$global_pub_cache" \
     dart pub global activate --source path \
     "$global_smoke_workspace/packages/connectanum_mcp" >&2
@@ -2298,7 +2311,8 @@ DART
   printf 'Running MCP server-only consumer package smoke from %s.\n' "$smoke_dir"
   (
     cd "$smoke_dir"
-    PUB_CACHE="$pub_cache" dart pub get
+    dart_pub_with_retry "MCP server consumer dependency resolution" \
+      env PUB_CACHE="$pub_cache" dart pub get
     PUB_CACHE="$pub_cache" dart analyze
     PUB_CACHE="$pub_cache" dart run bin/main.dart
   )
@@ -9626,7 +9640,8 @@ DART
   printf 'Running MCP client-only consumer package smoke from %s.\n' "$smoke_dir"
   (
     cd "$smoke_dir"
-    PUB_CACHE="$pub_cache" dart pub get
+    dart_pub_with_retry "MCP client consumer dependency resolution" \
+      env PUB_CACHE="$pub_cache" dart pub get
     executable_help="$(PUB_CACHE="$pub_cache" dart run connectanum_mcp:router_hosted_client --help)"
     if [[ "$executable_help" != *"--endpoint"* ||
       "$executable_help" != *"--protocol-version"* ||
@@ -9695,8 +9710,11 @@ EOF
       cp -R "$package_source/hook" "$package_target/hook"
     fi
   done
-  CONNECTANUM_SKIP_NATIVE_BUILD=true \
-    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_mcp" >&2
+  dart_pub_with_retry "MCP client global activation" \
+    env CONNECTANUM_SKIP_NATIVE_BUILD=true \
+    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
+    dart pub global activate --source path \
+    "$global_smoke_workspace/packages/connectanum_mcp" >&2
   global_mcp_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v router_hosted_client || true)"
   if [[ "$global_mcp_command" != "$pub_cache/bin/router_hosted_client" ]]; then
     printf 'Expected isolated pub-cache router_hosted_client command, got: %s\n' \
@@ -26547,7 +26565,8 @@ DART
   printf 'Running MCP consumer package smoke from %s.\n' "$smoke_dir"
   (
     cd "$smoke_dir"
-    PUB_CACHE="$pub_cache" dart pub get
+    dart_pub_with_retry "MCP consumer dependency resolution" \
+      env PUB_CACHE="$pub_cache" dart pub get
     PUB_CACHE="$pub_cache" dart analyze
     if [[ -n "$hook_native_lib" ]]; then
       CONNECTANUM_NATIVE_LIB="$hook_native_lib" PUB_CACHE="$pub_cache" dart run bin/main.dart
@@ -26659,7 +26678,8 @@ EOF
   printf 'Running bench CLI consumer package smoke from %s.\n' "$smoke_dir"
   (
     cd "$smoke_dir/bench-runner"
-    PUB_CACHE="$pub_cache" dart pub get >&2
+    dart_pub_with_retry "Benchmark consumer dependency resolution" \
+      env PUB_CACHE="$pub_cache" dart pub get >&2
     help_output="$(PUB_CACHE="$pub_cache" dart run connectanum_bench:router_bench --help)"
     grep -F -- '-h, --help' <<<"$help_output" >/dev/null
     grep -F -- 'Print this usage information.' <<<"$help_output" >/dev/null
@@ -26727,10 +26747,16 @@ EOF
     fi
   done
 
-  CONNECTANUM_SKIP_NATIVE_BUILD=true \
-    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_bench" >&2
-  CONNECTANUM_SKIP_NATIVE_BUILD=true \
-    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_router" >&2
+  dart_pub_with_retry "Benchmark global activation" \
+    env CONNECTANUM_SKIP_NATIVE_BUILD=true \
+    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
+    dart pub global activate --source path \
+    "$global_smoke_workspace/packages/connectanum_bench" >&2
+  dart_pub_with_retry "Router global activation for benchmark smoke" \
+    env CONNECTANUM_SKIP_NATIVE_BUILD=true \
+    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
+    dart pub global activate --source path \
+    "$global_smoke_workspace/packages/connectanum_router" >&2
   global_bench_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v router_bench || true)"
   if [[ "$global_bench_command" != "$pub_cache/bin/router_bench" ]]; then
     printf 'Expected isolated pub-cache router_bench command, got: %s\n' \
@@ -27271,7 +27297,8 @@ EOF
 
   (
     cd "$smoke_dir/router-runner"
-    PUB_CACHE="$pub_cache" dart pub get >&2
+    dart_pub_with_retry "Router CLI consumer dependency resolution" \
+      env PUB_CACHE="$pub_cache" dart pub get >&2
     PUB_CACHE="$pub_cache" dart run connectanum_router --help \
       | grep -F 'Usage: connectanum_router --config <path>'
   )
@@ -27318,8 +27345,11 @@ EOF
       cp -R "$package_source/hook" "$package_target/hook"
     fi
   done
-  CONNECTANUM_SKIP_NATIVE_BUILD=true \
-    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" dart pub global activate --source path "$global_smoke_workspace/packages/connectanum_router" >&2
+  dart_pub_with_retry "Router CLI global activation" \
+    env CONNECTANUM_SKIP_NATIVE_BUILD=true \
+    PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \
+    dart pub global activate --source path \
+    "$global_smoke_workspace/packages/connectanum_router" >&2
   global_router_command="$(PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" command -v connectanum_router || true)"
   if [[ "$global_router_command" != "$pub_cache/bin/connectanum_router" ]]; then
     printf 'Expected isolated pub-cache connectanum_router command, got: %s\n' \
@@ -35485,7 +35515,8 @@ DART
   if ! dart_consumer_summary="$(
     set -e
     cd "$smoke_dir/dart-consumer"
-    PUB_CACHE="$pub_cache" dart pub get >&2
+    dart_pub_with_retry "Router CLI Dart MCP consumer dependency resolution" \
+      env PUB_CACHE="$pub_cache" dart pub get >&2
     PUB_CACHE="$pub_cache" dart analyze >&2
     CONNECTANUM_NATIVE_LIB="$native_lib" MCP_PORT="$mcp_port" PUB_CACHE="$pub_cache" \
       dart run bin/main.dart

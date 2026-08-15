@@ -11,7 +11,7 @@ require_command cargo
 printf 'Using Dart: %s\n' "$(dart --version 2>&1 | tail -n 1)"
 printf 'Using Cargo: %s\n' "$(cargo --version)"
 
-dart pub get
+dart_pub_with_retry "Dart workspace dependency resolution" dart pub get
 cargo_workspace_check
 
 if ensure_chrome_env; then

@@ -1031,6 +1031,10 @@ class RouterBinding {
   final Set<RouterSession> _internalSessions = {};
   final Map<String, RouterSession> _internalSessionsByRealm = {};
   final Map<String, RouterSession> _internalSessionsByCacheKey = {};
+  final Map<String, Future<RouterSession>> _internalSessionCreationsByRealm =
+      {};
+  final Map<String, Future<RouterSession>> _internalSessionCreationsByCacheKey =
+      {};
   final Map<int, _PendingHttpCall> _pendingHttpCalls = {};
   final Map<
     HttpRouteSettings,
@@ -3205,7 +3209,28 @@ class RouterBinding {
     if (existing != null) {
       return existing;
     }
-    return createInternalSession(
+
+    final Map<String, Future<RouterSession>>? creationCache;
+    final String? creationKey;
+    if (resolvedCacheKey != null) {
+      creationCache = _internalSessionCreationsByCacheKey;
+      creationKey = resolvedCacheKey;
+    } else if (authorizationIsInternal) {
+      creationCache = _internalSessionCreationsByRealm;
+      creationKey = realmUri;
+    } else {
+      creationCache = null;
+      creationKey = null;
+    }
+
+    if (creationCache != null && creationKey != null) {
+      final pending = creationCache[creationKey];
+      if (pending != null) {
+        return pending;
+      }
+    }
+
+    final creation = createInternalSession(
       realmUri: realmUri,
       authId: authId,
       authRole: authRole,
@@ -3217,6 +3242,18 @@ class RouterBinding {
       authorizationIsInternal: authorizationIsInternal,
       indexByRealm: authorizationIsInternal && resolvedCacheKey == null,
     );
+    if (creationCache == null || creationKey == null) {
+      return creation;
+    }
+
+    creationCache[creationKey] = creation;
+    try {
+      return await creation;
+    } finally {
+      if (identical(creationCache[creationKey], creation)) {
+        creationCache.remove(creationKey);
+      }
+    }
   }
 
   String _externalSessionCacheKey({

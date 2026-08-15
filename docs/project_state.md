@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-15
+Last updated: 2026-08-16
 Current branch: `master`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -25196,6 +25196,37 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP session-readiness plan is
+  `docs/exec-plans/2026-08-15-mcp-anonymous-session-creation-concurrency.md`.
+  Concurrent HTTP handlers could all pass the completed anonymous-session
+  cache check while the first internal WAMP isolate was still starting. The
+  fail-first modern sessionless regression launched 12 simultaneous
+  `tools/list` requests and observed 12 new active WAMP sessions instead of
+  one. Internal-session creation now shares one in-flight future per retained
+  cache key or realm, removes completed and failed futures with
+  identity-checked cleanup, and leaves unrelated scopes independently
+  coordinated. Pre-change `bin/test-fast` exits zero, and the focused
+  regression now returns 12 successful direct JSON responses with exactly one
+  new active WAMP session. Router analysis is clean, the complete 96-case
+  router runtime suite passes, and all 10 HTTP-auth provider tests pass. Four
+  post-change `bin/verify` attempts passed every local stage they reached but
+  stalled for more than 30 minutes at isolated Dart pub downloads; the furthest
+  attempt also passed the server-only and client-only MCP consumer smokes
+  before isolated global activation stalled. Workspace bootstrap and every
+  isolated dependency-resolution or global-activation smoke now use a shared
+  configurable guard with three 180-second attempts and five-second delays by
+  default. Its fail-first regression and complete 16-case verification-script
+  suite pass. One guarded `bin/test-fast` run deterministically exhausted those
+  attempts with status 124 during the outage; a canonical rerun after service
+  recovery exits zero across all package, live-WAMP, router, and consumer-smoke
+  stages. Full local `bin/verify` then exits zero with formatting unchanged;
+  117 Rust core checks; 52 FFI tests plus the metrics feature check; 366 core
+  Dart tests; 116 MCP tests; the complete 293-case MCP/client suite; all 97
+  benchmark tests including 37 live WAMP workloads; all 446 router cases; six
+  remote-auth tests; 13 native follow-ups; every maintained consumer and
+  global-activation smoke; Chrome; and Dart2Wasm green. Commit, publication,
+  and exact-head hosted evidence remain.
+- The most recently completed MCP
+  session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-anonymous-route-scope-key-isolation.md`.
   Public router-hosted MCP routes retain an anonymous internal WAMP session per
   listener, route, realm, and session profile. Those configurable fields were
@@ -25212,8 +25243,16 @@ at the older `47bbf9c` commit.
   MCP tests; the complete 293-case MCP/client suite; 97 benchmark tests
   including all 37 live WAMP workloads; the 445-case router suite; six
   remote-auth tests; 13 native follow-ups; every maintained consumer smoke;
-  Chrome; and Dart2Wasm green. Publication and exact-head hosted evidence
-  remain.
+  Chrome; and Dart2Wasm green. Commit `dfb9bac9` is published to both maintained
+  `master` branches. Exact-head CI `31891453634`, Dart Package Publish Dry Run
+  `31891453631`, WAMP Profile Benchmarks `31891453637`, and Router Image dry
+  run `31891859970` all pass with zero check annotations. Coverage artifact
+  `9248850860`, WAMP artifact `9248738763`, Router Image preview artifact
+  `9248753343`, and Docker build records `9248826776` and `9248826501` are
+  available. Clean hosted-log scanning and the comprehensive strict
+  deployment-chain audit pass; its non-gating RC summary remains intentionally
+  not ready because no approved numeric RC tag points at this implementation
+  commit.
 - The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-external-bearer-scope-key-isolation.md`.
   Configured external-auth provider names, realm URIs, and session-profile

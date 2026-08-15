@@ -540,6 +540,10 @@
     paths, realm URIs, and session-profile names with an unambiguous opaque
     scope digest, including modern sessionless two-route tool catalog and call
     coverage for delimiter-colliding tuples.
+  - [x] Make first-use anonymous MCP session creation linearizable per route
+    scope so simultaneous modern sessionless requests share one internal WAMP
+    session instead of leaking duplicate isolates and session identities, while
+    unrelated cache keys and realms remain independently coordinated.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

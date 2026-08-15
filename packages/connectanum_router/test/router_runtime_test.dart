@@ -7999,6 +7999,82 @@ void main() {
   );
 
   test(
+    'reuses one anonymous MCP WAMP session across concurrent first requests',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithCollidingAnonymousMcpRouteScopes(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      final baselineSessionCount =
+          (await binding.collectMetrics()).sessionCount;
+
+      var nextConnectionId = 690;
+      Future<NativeHttpResponse> listTools(int requestIndex) async {
+        final connectionId = nextConnectionId++;
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId,
+          method: 'POST',
+          target: '/mcp/scope',
+          headers: const <String, String>{
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            HttpHeaders.contentTypeHeader: 'application/json',
+            'mcp-protocol-version': '2026-07-28',
+            'mcp-method': 'tools/list',
+          },
+          body: <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'concurrent-tools-$requestIndex',
+            'method': 'tools/list',
+            'params': const <String, Object?>{
+              '_meta': <String, Object?>{
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                'io.modelcontextprotocol/clientCapabilities':
+                    <String, Object?>{},
+              },
+            },
+          },
+          realm: 'realm',
+          procedure: 'router.http.mcp',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        );
+        return runtime.httpResponses[connectionId]!.single;
+      }
+
+      final responses = await Future.wait(
+        List<Future<NativeHttpResponse>>.generate(12, listTools),
+      );
+      for (final response in responses) {
+        expect(response.status, HttpStatus.ok);
+        expect(response.headers, isNot(contains('MCP-Session-Id')));
+      }
+
+      final sessionCount = (await binding.collectMetrics()).sessionCount;
+      expect(sessionCount, baselineSessionCount + 1);
+    },
+  );
+
+  test(
     'auth bridge rejects mixed challenge and grant selectors without consuming state',
     () async {
       final runtime = _HandleRuntime();
