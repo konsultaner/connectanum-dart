@@ -521,6 +521,10 @@
     overlapping requests, keep the lineage counted against realm capacity
     while refresh is in flight, let concurrent revocation prevent successor
     issuance, and prove the boundary from an installed consumer package.
+  - [x] Bind configured JWT, OIDC, and OAuth bearer-backed router sessions to
+    opaque credential and effective-authorization-context digests, close stale
+    router-hosted MCP state when provider claims change, and require a fresh
+    MCP session under the replacement authorization context.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

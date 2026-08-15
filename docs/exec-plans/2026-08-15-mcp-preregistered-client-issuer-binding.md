@@ -1,6 +1,6 @@
 # Exec Plan: MCP Pre-Registered Client Issuer Binding
 
-Status: implementation complete; local verification green; hosted evidence pending
+Status: complete; implementation, local verification, and hosted evidence green
 Owner: Codex
 Created: 2026-08-15
 Last updated: 2026-08-15
@@ -95,5 +95,15 @@ the client was pre-registered or dynamically registered.
   mismatched bindings before opening an HTTP request. Dynamic Client
   Registration derives the binding from its persisted authorization-server
   metadata.
-- Commit, push, exact-head hosted workflows, and the strict deployment-chain
-  audit remain pending.
+- Commit `054fcd50` is published to both maintained `master` branches.
+  Exact-head CI `31872012735`, Dart Package Publish Dry Run `31872012738`, WAMP
+  Profile Benchmarks `31872012720`, and Router Image dry run `31872857435` all
+  pass on their first attempts with zero check annotations. CI retains coverage
+  artifact `9243900793`; WAMP retains benchmark artifact `9243756014`; Router
+  Image retains preview artifact `9243912725` and Docker build records
+  `9243953962` and `9243953791`.
+- The comprehensive strict deployment-chain audit exits zero with clean
+  exact-head CI logs, relevant package and native-release evidence, the
+  loaded-image MCP smoke, skipped GHCR login, multi-architecture image build,
+  WAMP artifact, visible workflows and registry package, and protected-branch
+  gates clean. No RC tag was selected.

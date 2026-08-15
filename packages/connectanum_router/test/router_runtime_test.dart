@@ -1674,6 +1674,90 @@ RouterSettings _buildRouterSettingsWithHttpJwtProvider() {
   return builder.build();
 }
 
+RouterSettings _buildRouterSettingsWithHttpOAuthMcpProvider(
+  Uri introspectionEndpoint,
+) {
+  final builder = RouterSettingsBuilder()
+    ..addRealmFromBuilder(
+      RealmSettingsBuilder('realm1')
+        ..addAuthMethod('anonymous')
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('member')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call']),
+          ),
+        )
+        ..addRoleFromBuilder(RoleSettingsBuilder('blocked'))
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+            PermissionSettingsBuilder('com.example.')
+              ..setMatchPolicy(PermissionMatchPolicy.prefix)
+              ..allowOperations(const ['call', 'register', 'unregister']),
+          ),
+        ),
+    )
+    ..addSessionProfileFromBuilder(SessionProfileSettingsBuilder('public-http'))
+    ..addSessionProfileFromBuilder(
+      SessionProfileSettingsBuilder('http-oauth')
+        ..setRealm('realm1')
+        ..setAuthMethods(const ['oauth'])
+        ..setHttpProvider('oauth-introspection'),
+    )
+    ..addHttpAuthProvider(
+      'oauth-introspection',
+      HttpAuthProviderDefinition(
+        type: 'oauth',
+        options: <String, Object?>{
+          'introspection_url': introspectionEndpoint.toString(),
+          'issuer': 'https://issuer.example',
+          'audience': const <String>['mcp-resource'],
+          'auth_id_claim': 'sub',
+          'auth_role_claim': 'role',
+        },
+      ),
+    )
+    ..addListenerFromBuilder(
+      (ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
+          ..addAuthMethod('anonymous')
+          ..addProtocol(ListenerProtocol.http)
+          ..setRawSocketOptions(
+            const RawSocketListenerSettings(maxFrameExponent: 16),
+          )
+          ..setHttpOptions(
+            const HttpListenerSettings(
+              sessionProfile: 'public-http',
+              routes: <HttpRouteSettings>[
+                HttpRouteSettings(
+                  match: HttpRouteMatch(path: '/mcp/oauth'),
+                  action: HttpRouteAction(
+                    type: HttpRouteActionType.mcp,
+                    realm: 'realm1',
+                    sessionProfile: 'http-oauth',
+                    options: <String, Object?>{
+                      'post_response_transport': 'json',
+                      'protected_resource_metadata': <String, Object?>{
+                        'metadata_url': 'https://mcp.example.test/mcp/oauth',
+                        'resource': 'https://mcp.example.test/mcp/oauth',
+                        'authorization_servers': <String>[
+                          'https://issuer.example',
+                        ],
+                      },
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ))
+        ..setOptions(const {'max_rawsocket_size_exponent': 16}),
+    )
+    ..addAuthenticator(
+      'anonymous',
+      const AuthenticatorDefinition(type: 'anonymous'),
+    );
+  return builder.build();
+}
+
 RouterSettings _buildRouterSettingsWithHttpMtlsRoute() {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -6987,6 +7071,200 @@ void main() {
       expect(response.status, HttpStatus.ok);
       expect(response.body, isA<NativeHttpResponseText>());
       expect((response.body as NativeHttpResponseText).text, 'jwt-secured');
+    },
+  );
+
+  test(
+    'rotates protected MCP sessions when OAuth authorization context changes',
+    () async {
+      var currentRole = 'member';
+      var introspectionRequests = 0;
+      const bearerToken = 'opaque-mcp-oauth-token';
+      final introspectionServer = await HttpServer.bind(
+        InternetAddress.loopbackIPv4,
+        0,
+      );
+      addTearDown(() => introspectionServer.close(force: true));
+      introspectionServer.listen((request) async {
+        final form = Uri.splitQueryString(
+          await utf8.decoder.bind(request).join(),
+        );
+        expect(form['token'], bearerToken);
+        introspectionRequests++;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode(<String, Object?>{
+            'active': true,
+            'sub': 'oauth-user',
+            'role': currentRole,
+            'iss': 'https://issuer.example',
+            'aud': const <String>['mcp-resource'],
+            'exp':
+                DateTime.now()
+                    .toUtc()
+                    .add(const Duration(minutes: 5))
+                    .millisecondsSinceEpoch ~/
+                1000,
+          }),
+        );
+        await request.response.close();
+      });
+
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpOAuthMcpProvider(
+          Uri.parse(
+            'http://${introspectionServer.address.address}:'
+            '${introspectionServer.port}/introspect',
+          ),
+        ),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      final callee = await binding.createInternalSession(
+        realmUri: 'realm1',
+        authId: 'svc-oauth',
+        authRole: 'internal',
+        roles: const {'callee': <String, Object?>{}},
+      );
+      addTearDown(callee.close);
+      await callee.register(
+        'com.example.oauth.echo',
+        options: RegisterOptions(discloseCaller: true),
+      );
+
+      var nextConnectionId = 640;
+      Future<NativeHttpResponse> sendMcp(
+        Map<String, Object?> body, {
+        String? sessionId,
+      }) async {
+        final connectionId = nextConnectionId++;
+        runtime.setConnectionProtocol(
+          connectionId,
+          NativeConnectionProtocol.http,
+        );
+        final method = body['method']! as String;
+        final params = body['params'];
+        final name = params is Map ? params['name'] : null;
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: connectionId,
+          method: 'POST',
+          target: '/mcp/oauth',
+          headers: <String, String>{
+            HttpHeaders.authorizationHeader: 'Bearer $bearerToken',
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            HttpHeaders.contentTypeHeader: 'application/json',
+            'mcp-protocol-version': '2025-11-25',
+            'mcp-method': method,
+            if (name is String) 'mcp-name': name,
+            'mcp-session-id': ?sessionId,
+          },
+          body: body,
+          realm: 'realm1',
+          procedure: 'router.http.mcp',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        );
+        return runtime.httpResponses[connectionId]!.single;
+      }
+
+      Future<String> initialize(String requestId) async {
+        final response = await sendMcp(<String, Object?>{
+          'jsonrpc': '2.0',
+          'id': requestId,
+          'method': 'initialize',
+          'params': const <String, Object?>{
+            'protocolVersion': '2025-11-25',
+            'capabilities': <String, Object?>{},
+            'clientInfo': <String, Object?>{
+              'name': 'router-runtime-oauth-context-test',
+              'version': '0.1.0',
+            },
+          },
+        });
+        expect(response.status, HttpStatus.ok);
+        return response.headers['MCP-Session-Id']!;
+      }
+
+      Future<NativeHttpResponse> listTools(
+        String requestId,
+        String sessionId,
+      ) => sendMcp(<String, Object?>{
+        'jsonrpc': '2.0',
+        'id': requestId,
+        'method': 'tools/list',
+        'params': const <String, Object?>{},
+      }, sessionId: sessionId);
+
+      final memberSessionId = await initialize('member-initialize');
+      final memberTools = await listTools('member-tools', memberSessionId);
+      expect(memberTools.status, HttpStatus.ok);
+      expect(
+        (_jsonResponseBody(memberTools)['result']! as Map)['tools'],
+        contains(containsPair('name', 'com.example.oauth.echo')),
+      );
+
+      currentRole = 'blocked';
+      final staleMemberTools = await listTools(
+        'stale-member-tools',
+        memberSessionId,
+      );
+      expect(staleMemberTools.status, HttpStatus.notFound);
+      expect(
+        _jsonResponseBody(staleMemberTools),
+        containsPair(
+          'error',
+          containsPair('message', 'Unknown MCP HTTP session'),
+        ),
+      );
+      expect(staleMemberTools.headers, isNot(contains('MCP-Session-Id')));
+
+      final blockedSessionId = await initialize('blocked-initialize');
+      final blockedTools = await listTools('blocked-tools', blockedSessionId);
+      expect(blockedTools.status, HttpStatus.ok);
+      final blockedResult = _jsonResponseBody(blockedTools)['result']! as Map;
+      expect(
+        blockedResult['tools'],
+        isNot(contains(containsPair('name', 'com.example.oauth.echo'))),
+      );
+
+      currentRole = 'member';
+      final staleBlockedTools = await listTools(
+        'stale-blocked-tools',
+        blockedSessionId,
+      );
+      expect(staleBlockedTools.status, HttpStatus.notFound);
+
+      final replacementSessionId = await initialize('replacement-initialize');
+      final replacementTools = await listTools(
+        'replacement-tools',
+        replacementSessionId,
+      );
+      expect(replacementTools.status, HttpStatus.ok);
+      expect(
+        (_jsonResponseBody(replacementTools)['result']! as Map)['tools'],
+        contains(containsPair('name', 'com.example.oauth.echo')),
+      );
+      expect(introspectionRequests, greaterThanOrEqualTo(8));
     },
   );
 

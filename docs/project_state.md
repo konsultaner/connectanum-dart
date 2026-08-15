@@ -25195,7 +25195,28 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active MCP authorization-readiness plan is
+- The active MCP auth/session-readiness plan is
+  `docs/exec-plans/2026-08-15-mcp-external-bearer-session-context.md`.
+  Configured JWT, OIDC, and OAuth introspection providers revalidate every
+  protected HTTP request. Their reusable internal sessions are now keyed by an
+  opaque credential fingerprint and a canonical digest of the effective auth
+  ID, role, method, provider, and roles instead of retaining the raw bearer or
+  reusing stale privileges. A changed result closes the prior internal session
+  and disposes its router-hosted MCP endpoints and subscriptions before a fresh
+  authorization context is accepted. The OAuth-introspection runtime regression
+  proves unchanged-context reuse, old MCP session rejection after member-to-
+  blocked and blocked-to-member changes, authorization-filtered replacement,
+  and fresh-session recovery.
+  Pre-change `bin/test-fast` exits zero across the maintained repository,
+  live-WAMP, executable, and consumer-smoke matrix. Router analysis is clean;
+  the focused HTTP-auth provider plus runtime matrix passes all 103 cases; and
+  full `bin/verify` exits zero with formatting unchanged, Rust core and FFI
+  green, 366 core tests, the complete MCP/client suite, 97 benchmark tests
+  including all 37 live WAMP workloads, the 443-case router suite, six remote-
+  auth tests, 13 native follow-ups, every maintained consumer smoke, Chrome,
+  and Dart2Wasm green. Commit, push, exact-head hosted workflows, and the strict
+  deployment-chain audit remain pending.
+- The most recently completed MCP authorization-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-preregistered-client-issuer-binding.md`.
   Stable MCP `2026-07-28` requires pre-registered and persisted dynamically
   registered client credentials to remain bound to the exact validated
@@ -25217,9 +25238,17 @@ at the older `47bbf9c` commit.
   the complete 293-case MCP/client suite; 97 benchmark tests including all 37
   live WAMP workloads; the 442-case router suite; six remote-auth tests; 13
   native follow-ups; every maintained consumer smoke; Chrome; and Dart2Wasm
-  green. Commit, push, exact-head hosted workflows, and the strict deployment-
-  chain audit remain pending.
-- The most recently completed MCP authorization-readiness plan is
+  green. Commit `054fcd50` is published to both maintained `master` branches.
+  Exact-head CI `31872012735`, Dart Package Publish Dry Run `31872012738`, WAMP
+  Profile Benchmarks `31872012720`, and Router Image dry run `31872857435` all
+  pass on their first attempts with zero check annotations. CI retains coverage
+  artifact `9243900793`; WAMP retains benchmark artifact `9243756014`; Router
+  Image retains preview artifact `9243912725` and Docker build records
+  `9243953962` and `9243953791`. The comprehensive strict deployment-chain
+  audit exits zero with clean exact-head CI logs and all required package,
+  retained native-release, loaded-image MCP, multi-architecture image, WAMP,
+  workflow, registry, and protected-branch gates clean. No RC tag was selected.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-14-mcp-discovery-bound-authorization-request.md`.
   Stable MCP `2026-07-28` requires authorization-server discovery to begin
   with Protected Resource Metadata. A stable-spec audit found that the public
@@ -25253,7 +25282,7 @@ at the older `47bbf9c` commit.
   with clean exact-head CI logs and all required package, retained native-
   release, loaded-image MCP, multi-architecture image, WAMP, workflow,
   registry, and protected-branch gates clean. No RC tag was selected.
-- Completed immediately before that:
+- Completed before those:
   `docs/exec-plans/2026-08-14-mcp-oauth-step-up-authorization-request.md`.
   Stable MCP `2026-07-28` guidance requires a runtime step-up authorization
   request to union the previous authorization scopes with the authoritative
@@ -25277,7 +25306,7 @@ at the older `47bbf9c` commit.
   build records `9233444885` and `9233444329`. The comprehensive strict audit
   exits zero with clean exact-head CI logs and all required deployment-chain
   gates clean. No RC tag was selected.
-- Completed before those:
+- Earlier completed plan:
   `docs/exec-plans/2026-08-14-mcp-client-metadata-refresh-grant.md`. A stable
   MCP `2026-07-28` authorization audit found that the preferred public Client
   ID Metadata Document path publishes only the `authorization_code` grant even
@@ -25309,7 +25338,7 @@ at the older `47bbf9c` commit.
   `9230974115`. The comprehensive strict deployment-chain audit exits zero
   with clean exact-head CI logs and all required package, Router Image, WAMP,
   workflow, registry, and protected-branch gates clean. No RC tag was selected.
-- Earlier completed plan:
+- Earlier MCP completion plan:
   `docs/exec-plans/2026-08-14-mcp-authorization-response-issuer.md`. A stable
   MCP `2026-07-28` authorization audit found that the client did not yet
   enforce the RFC 9207 authorization-response `iss` contract. The metadata

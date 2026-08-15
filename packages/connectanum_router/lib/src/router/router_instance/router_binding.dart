@@ -5246,8 +5246,54 @@ class RouterBinding {
       );
     }
 
-    final cacheKeyBase =
-        'http-external:${configuredProvider.name}:$realmUri:$token';
+    return _ensureExternalHttpAuthSession(
+      configuredProviderName: configuredProvider.name,
+      token: token,
+      realmUri: realmUri,
+      sessionProfile: sessionProfile,
+      authenticated: authenticated,
+    );
+  }
+
+  Future<RouterSession> _ensureExternalHttpAuthSession({
+    required String configuredProviderName,
+    required String token,
+    required String realmUri,
+    required SessionProfileSettings? sessionProfile,
+    required HttpAuthSuccess authenticated,
+  }) async {
+    final credentialDigest = sha256.convert(utf8.encode(token));
+    final credentialCacheKey = <String>[
+      'http-external',
+      configuredProviderName,
+      realmUri,
+      sessionProfile?.name ?? '',
+      credentialDigest.toString(),
+    ].join(':');
+    final contextDigest = sha256.convert(
+      utf8.encode(
+        jsonEncode(<String, Object?>{
+          'authid': authenticated.authId,
+          'authrole': authenticated.authRole,
+          'authmethod': authenticated.authMethod,
+          'authprovider': authenticated.authProvider,
+          'roles': _canonicalExternalHttpAuthContextValue(authenticated.roles),
+        }),
+      ),
+    );
+    final cacheKey = '$credentialCacheKey:$contextDigest';
+    final staleSessions = _internalSessionsByCacheKey.entries
+        .where(
+          (entry) =>
+              entry.key != cacheKey &&
+              entry.key.startsWith('$credentialCacheKey:'),
+        )
+        .map((entry) => entry.value)
+        .toSet()
+        .toList(growable: false);
+    for (final staleSession in staleSessions) {
+      await staleSession.close();
+    }
     return _ensureInternalSession(
       realmUri: realmUri,
       authId: authenticated.authId,
@@ -5256,11 +5302,47 @@ class RouterBinding {
       authProvider: authenticated.authProvider,
       roles: authenticated.roles,
       sessionProfile: sessionProfile?.name,
-      cacheKey: sessionProfile?.name != null && sessionProfile!.name.isNotEmpty
-          ? '$cacheKeyBase:${sessionProfile.name}'
-          : cacheKeyBase,
+      cacheKey: cacheKey,
       authorizationIsInternal: false,
     );
+  }
+
+  Object? _canonicalExternalHttpAuthContextValue(Object? value) {
+    if (value is Map) {
+      final entries =
+          value.entries
+              .map(
+                (entry) => (
+                  key: entry.key.toString(),
+                  value: _canonicalExternalHttpAuthContextValue(entry.value),
+                ),
+              )
+              .toList(growable: false)
+            ..sort((left, right) => left.key.compareTo(right.key));
+      return <String, Object?>{
+        for (final entry in entries) entry.key: entry.value,
+      };
+    }
+    if (value is Set) {
+      final values =
+          value
+              .map(_canonicalExternalHttpAuthContextValue)
+              .toList(growable: false)
+            ..sort(
+              (left, right) => jsonEncode(left).compareTo(jsonEncode(right)),
+            );
+      return values;
+    }
+    if (value is Iterable) {
+      return <Object?>[
+        for (final entry in value)
+          _canonicalExternalHttpAuthContextValue(entry),
+      ];
+    }
+    if (value == null || value is String || value is num || value is bool) {
+      return value;
+    }
+    return value.toString();
   }
 
   String? _extractBearerToken(Map<String, String> headers) {
