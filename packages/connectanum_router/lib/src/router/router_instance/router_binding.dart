@@ -5233,6 +5233,14 @@ class RouterBinding {
     );
     if (!providerResult.success) {
       final failure = providerResult.failure!;
+      if (_shouldInvalidateExternalHttpAuthFailure(failure)) {
+        await _invalidateExternalHttpAuthSessions(
+          configuredProviderName: configuredProvider.name,
+          token: token,
+          realmUri: realmUri,
+          sessionProfile: sessionProfile,
+        );
+      }
       throw _HttpUnauthorized(reason: failure.reason, message: failure.message);
     }
     final authenticated = providerResult.authenticated!;
@@ -5256,21 +5264,34 @@ class RouterBinding {
     );
   }
 
-  Future<RouterSession> _ensureExternalHttpAuthSession({
+  bool _shouldInvalidateExternalHttpAuthFailure(HttpAuthFailure failure) {
+    return const <String>{
+      'invalid_token',
+      'expired_token',
+      'inactive_token',
+    }.contains(failure.reason);
+  }
+
+  String _externalHttpAuthCredentialCacheKey({
     required String configuredProviderName,
     required String token,
     required String realmUri,
     required SessionProfileSettings? sessionProfile,
-    required HttpAuthSuccess authenticated,
-  }) async {
+  }) {
     final credentialDigest = sha256.convert(utf8.encode(token));
-    final credentialCacheKey = <String>[
+    return <String>[
       'http-external',
       configuredProviderName,
       realmUri,
       sessionProfile?.name ?? '',
       credentialDigest.toString(),
     ].join(':');
+  }
+
+  Future<T> _withExternalHttpAuthSessionTurn<T>({
+    required String credentialCacheKey,
+    required Future<T> Function() action,
+  }) async {
     // Register the successor before the first await so same-credential calls
     // form a turn chain while unrelated credentials remain independent.
     final precedingTurn = _externalHttpAuthSessionTurns[credentialCacheKey];
@@ -5282,43 +5303,7 @@ class RouterBinding {
       if (precedingTurn != null) {
         await precedingTurn;
       }
-      final contextDigest = sha256.convert(
-        utf8.encode(
-          jsonEncode(<String, Object?>{
-            'authid': authenticated.authId,
-            'authrole': authenticated.authRole,
-            'authmethod': authenticated.authMethod,
-            'authprovider': authenticated.authProvider,
-            'roles': _canonicalExternalHttpAuthContextValue(
-              authenticated.roles,
-            ),
-          }),
-        ),
-      );
-      final cacheKey = '$credentialCacheKey:$contextDigest';
-      final staleSessions = _internalSessionsByCacheKey.entries
-          .where(
-            (entry) =>
-                entry.key != cacheKey &&
-                entry.key.startsWith('$credentialCacheKey:'),
-          )
-          .map((entry) => entry.value)
-          .toSet()
-          .toList(growable: false);
-      for (final staleSession in staleSessions) {
-        await staleSession.close();
-      }
-      return await _ensureInternalSession(
-        realmUri: realmUri,
-        authId: authenticated.authId,
-        authRole: authenticated.authRole,
-        authMethod: authenticated.authMethod,
-        authProvider: authenticated.authProvider,
-        roles: authenticated.roles,
-        sessionProfile: sessionProfile?.name,
-        cacheKey: cacheKey,
-        authorizationIsInternal: false,
-      );
+      return await action();
     } finally {
       turnCompleter.complete();
       if (identical(
@@ -5328,6 +5313,92 @@ class RouterBinding {
         _externalHttpAuthSessionTurns.remove(credentialCacheKey);
       }
     }
+  }
+
+  Future<void> _invalidateExternalHttpAuthSessions({
+    required String configuredProviderName,
+    required String token,
+    required String realmUri,
+    required SessionProfileSettings? sessionProfile,
+  }) async {
+    final credentialCacheKey = _externalHttpAuthCredentialCacheKey(
+      configuredProviderName: configuredProviderName,
+      token: token,
+      realmUri: realmUri,
+      sessionProfile: sessionProfile,
+    );
+    await _withExternalHttpAuthSessionTurn<void>(
+      credentialCacheKey: credentialCacheKey,
+      action: () async {
+        final retainedSessions = _internalSessionsByCacheKey.entries
+            .where(
+              (entry) => entry.key.startsWith('$credentialCacheKey:'),
+            )
+            .map((entry) => entry.value)
+            .toSet()
+            .toList(growable: false);
+        for (final retainedSession in retainedSessions) {
+          await retainedSession.close();
+        }
+      },
+    );
+  }
+
+  Future<RouterSession> _ensureExternalHttpAuthSession({
+    required String configuredProviderName,
+    required String token,
+    required String realmUri,
+    required SessionProfileSettings? sessionProfile,
+    required HttpAuthSuccess authenticated,
+  }) {
+    final credentialCacheKey = _externalHttpAuthCredentialCacheKey(
+      configuredProviderName: configuredProviderName,
+      token: token,
+      realmUri: realmUri,
+      sessionProfile: sessionProfile,
+    );
+    return _withExternalHttpAuthSessionTurn<RouterSession>(
+      credentialCacheKey: credentialCacheKey,
+      action: () async {
+        final contextDigest = sha256.convert(
+          utf8.encode(
+            jsonEncode(<String, Object?>{
+              'authid': authenticated.authId,
+              'authrole': authenticated.authRole,
+              'authmethod': authenticated.authMethod,
+              'authprovider': authenticated.authProvider,
+              'roles': _canonicalExternalHttpAuthContextValue(
+                authenticated.roles,
+              ),
+            }),
+          ),
+        );
+        final cacheKey = '$credentialCacheKey:$contextDigest';
+        final staleSessions = _internalSessionsByCacheKey.entries
+            .where(
+              (entry) =>
+                  entry.key != cacheKey &&
+                  entry.key.startsWith('$credentialCacheKey:'),
+            )
+            .map((entry) => entry.value)
+            .toSet()
+            .toList(growable: false);
+        for (final staleSession in staleSessions) {
+          await staleSession.close();
+        }
+        return _ensureInternalSession(
+          realmUri: realmUri,
+          authId: authenticated.authId,
+          authRole: authenticated.authRole,
+          authMethod: authenticated.authMethod,
+          authProvider: authenticated.authProvider,
+          roles: authenticated.roles,
+          sessionProfile: sessionProfile?.name,
+          cacheKey: cacheKey,
+          authorizationIsInternal: false,
+        );
+      },
+    );
   }
 
   Object? _canonicalExternalHttpAuthContextValue(Object? value) {

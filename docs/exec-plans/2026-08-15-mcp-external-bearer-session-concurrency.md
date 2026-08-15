@@ -1,6 +1,6 @@
 # Exec Plan: MCP External Bearer Session Concurrency
 
-Status: active; hosted analyzer correction locally verified, publication pending
+Status: complete
 Owner: Codex
 Created: 2026-08-15
 Last updated: 2026-08-15
@@ -89,7 +89,27 @@ authorization state.
   awaits internal-session creation so the `finally` sequencing is also visible
   to the analyzer. Focused analysis and the race regression pass, and the full
   `bin/verify` matrix exits zero again on the corrective tree.
+- 2026-08-15: Corrective commit `be63ea3e` is published to both maintained
+  `master` branches. Exact-head CI `31881276618`, Dart Package Publish Dry Run
+  `31881276631`, WAMP Profile Benchmarks `31881276655`, and Router Image dry
+  run `31881282510` all pass with zero check annotations. Coverage artifact
+  `9246281216`, WAMP artifact `9246160426`, Router Image preview artifact
+  `9246083649`, and Docker build records `9246132096` and `9246131833` are
+  available.
+- 2026-08-15: Comprehensive
+  `bin/audit-github-deployment-chain --branch master --run-limit 8 --strict
+  --require-workflows-visible --require-router-package
+  --require-clean-latest-ci --require-clean-latest-ci-logs
+  --require-clean-dart-package-publish-dry-run
+  --require-clean-native-release-dry-run --require-clean-router-image-dry-run
+  --require-clean-wamp-profile-benchmarks --show-rc-readiness` exits zero with
+  exact-head CI and logs, package publishing, reusable native-release evidence,
+  loaded-image MCP smoke, multi-architecture image builds, WAMP artifacts,
+  branch protection, workflows, and package visibility clean. The non-gating
+  RC summary remains intentionally not ready because no approved numeric RC tag
+  points at this implementation commit.
 
 ## Handoff
 
-- Corrective publication and hosted evidence remain pending.
+- Implementation, local verification, publication, exact-head hosted evidence,
+  and the strict deployment-chain audit are complete.

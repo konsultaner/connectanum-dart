@@ -7075,9 +7075,12 @@ void main() {
   );
 
   test(
-    'serializes protected MCP session rotation across concurrent OAuth contexts',
+    'serializes and invalidates protected MCP OAuth session contexts',
     () async {
       var currentRole = 'member';
+      var introspectionActive = true;
+      var introspectionExpired = false;
+      var introspectionStatus = HttpStatus.ok;
       var introspectionRequests = 0;
       var queuedResponseRoles = <String>[];
       final queuedRequests = <HttpRequest>[];
@@ -7090,10 +7093,15 @@ void main() {
       addTearDown(() => introspectionServer.close(force: true));
 
       Future<void> respondWithRole(HttpRequest request, String role) async {
+        request.response.statusCode = introspectionStatus;
+        if (introspectionStatus != HttpStatus.ok) {
+          await request.response.close();
+          return;
+        }
         request.response.headers.contentType = ContentType.json;
         request.response.write(
           jsonEncode(<String, Object?>{
-            'active': true,
+            'active': introspectionActive,
             'sub': 'oauth-user',
             'role': role,
             'iss': 'https://issuer.example',
@@ -7101,7 +7109,11 @@ void main() {
             'exp':
                 DateTime.now()
                     .toUtc()
-                    .add(const Duration(minutes: 5))
+                    .add(
+                      introspectionExpired
+                          ? const Duration(minutes: -1)
+                          : const Duration(minutes: 5),
+                    )
                     .millisecondsSinceEpoch ~/
                 1000,
           }),
@@ -7314,7 +7326,90 @@ void main() {
         (_jsonResponseBody(concurrentMemberTools)['result']! as Map)['tools'],
         contains(containsPair('name', 'com.example.oauth.echo')),
       );
-      expect(introspectionRequests, greaterThanOrEqualTo(11));
+
+      introspectionStatus = HttpStatus.serviceUnavailable;
+      final unavailableIntrospection = await listTools(
+        'unavailable-introspection-tools',
+        concurrentMemberSessionId,
+      );
+      expect(unavailableIntrospection.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(unavailableIntrospection),
+        containsPair('reason', 'introspection_failed'),
+      );
+
+      introspectionStatus = HttpStatus.ok;
+      final retainedAfterUnavailable = await listTools(
+        'retained-after-unavailable-tools',
+        concurrentMemberSessionId,
+      );
+      expect(retainedAfterUnavailable.status, HttpStatus.ok);
+
+      introspectionActive = false;
+      final inactiveSession = await listTools(
+        'inactive-session-tools',
+        concurrentMemberSessionId,
+      );
+      expect(inactiveSession.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(inactiveSession),
+        containsPair('reason', 'invalid_token'),
+      );
+      expect(inactiveSession.headers, isNot(contains('MCP-Session-Id')));
+
+      introspectionActive = true;
+      final reactivatedStaleSession = await listTools(
+        'reactivated-stale-session-tools',
+        concurrentMemberSessionId,
+      );
+      expect(reactivatedStaleSession.status, HttpStatus.notFound);
+      expect(
+        _jsonResponseBody(reactivatedStaleSession),
+        containsPair(
+          'error',
+          containsPair('message', 'Unknown MCP HTTP session'),
+        ),
+      );
+
+      final reactivatedSessionId = await initialize(
+        'reactivated-session-initialize',
+      );
+      final reactivatedTools = await listTools(
+        'reactivated-session-tools',
+        reactivatedSessionId,
+      );
+      expect(reactivatedTools.status, HttpStatus.ok);
+      expect(
+        (_jsonResponseBody(reactivatedTools)['result']! as Map)['tools'],
+        contains(containsPair('name', 'com.example.oauth.echo')),
+      );
+
+      introspectionExpired = true;
+      final expiredSession = await listTools(
+        'expired-session-tools',
+        reactivatedSessionId,
+      );
+      expect(expiredSession.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(expiredSession),
+        containsPair('reason', 'expired_token'),
+      );
+      expect(expiredSession.headers, isNot(contains('MCP-Session-Id')));
+
+      introspectionExpired = false;
+      final reactivatedExpiredSession = await listTools(
+        'reactivated-expired-session-tools',
+        reactivatedSessionId,
+      );
+      expect(reactivatedExpiredSession.status, HttpStatus.notFound);
+      expect(
+        _jsonResponseBody(reactivatedExpiredSession),
+        containsPair(
+          'error',
+          containsPair('message', 'Unknown MCP HTTP session'),
+        ),
+      );
+      expect(introspectionRequests, greaterThanOrEqualTo(19));
     },
   );
 

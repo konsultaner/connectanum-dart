@@ -528,6 +528,10 @@
   - [x] Serialize configured external bearer authorization-context replacement
     per opaque credential so concurrent provider results cannot reuse a closing
     router-hosted MCP session, while unrelated credentials remain concurrent.
+  - [x] Invalidate retained configured external bearer MCP state when a
+    provider explicitly rejects the credential, require a fresh Streamable
+    HTTP session after reactivation, and preserve retained state across
+    transient provider failures.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

@@ -25196,6 +25196,30 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP auth/session-readiness plan is
+  `docs/exec-plans/2026-08-15-mcp-external-bearer-rejection-invalidation.md`.
+  Configured external providers revalidate a bearer before every protected MCP
+  request, but an explicit provider rejection previously returned HTTP 401
+  without closing the internal session retained for that credential. If the
+  provider later reported the same token active with unchanged claims, the old
+  Streamable HTTP session became usable again. The fail-first OAuth
+  introspection regression expected the old session to remain unknown after
+  reactivation but received HTTP 200. Terminal `invalid_token`,
+  `expired_token`, and `inactive_token` failures now close every retained
+  context for that provider, realm, profile, and opaque credential through the
+  existing per-credential turn chain before the 401 is returned. Transient
+  provider HTTP failures remain request-local and preserve the established MCP
+  session. The public protected runtime regression proves transient
+  preservation, inactive and expired rejection, stale-session 404 isolation,
+  and fresh-session recovery without retaining the raw bearer. Pre-change
+  `bin/test-fast` exits zero; router analysis, the focused regression, and the
+  HTTP-auth provider plus router runtime matrix with all 103 cases are green.
+  Full `bin/verify` exits zero with formatting unchanged; Rust core and FFI
+  green; 366 core tests; 116 MCP tests; the complete 293-case MCP/client suite;
+  97 benchmark tests including all 37 live WAMP workloads; the 443-case router
+  suite; six remote-auth tests; 13 native follow-ups; every maintained consumer
+  smoke; Chrome; and Dart2Wasm green. Publication and exact-head hosted evidence
+  remain.
+- The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-external-bearer-session-concurrency.md`.
   Configured external bearer validation may complete concurrently for the same
   opaque credential. The current context-rotation path can therefore observe
@@ -25224,8 +25248,16 @@ at the older `47bbf9c` commit.
   `try`. The correction explicitly awaits internal-session creation so the
   `finally` sequencing is visible to the analyzer. Focused analysis and the
   race regression pass, and the full `bin/verify` matrix exits zero again on
-  the corrective tree. Corrective publication and hosted evidence remain
-  pending.
+  the corrective tree. Corrective commit `be63ea3e` is published to both
+  maintained `master` branches. Exact-head CI `31881276618`, Dart Package
+  Publish Dry Run `31881276631`, WAMP Profile Benchmarks `31881276655`, and
+  Router Image dry run `31881282510` all pass with zero check annotations.
+  Coverage artifact `9246281216`, WAMP artifact `9246160426`, Router Image
+  preview artifact `9246083649`, and Docker build records `9246132096` and
+  `9246131833` are available. Clean hosted-log scanning and the comprehensive
+  strict deployment-chain audit pass; its non-gating RC summary remains
+  intentionally not ready because no approved numeric RC tag points at this
+  implementation commit.
 - The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-external-bearer-session-context.md`.
   Configured JWT, OIDC, and OAuth introspection providers revalidate every
