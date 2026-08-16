@@ -544,6 +544,10 @@
     scope so simultaneous modern sessionless requests share one internal WAMP
     session instead of leaking duplicate isolates and session identities, while
     unrelated cache keys and realms remain independently coordinated.
+  - [x] Fence router-issued access-token revocation against overlapping first
+    protected MCP session creation, fail the request closed without returning a
+    session header, and remove the created internal WAMP session from both
+    binding caches and router state.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

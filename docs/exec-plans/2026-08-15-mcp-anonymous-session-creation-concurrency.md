@@ -1,6 +1,6 @@
 # Exec Plan: MCP Anonymous Session Creation Concurrency
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-08-15
 Last updated: 2026-08-16
@@ -115,8 +115,21 @@ observe different WAMP identities for the same route scope.
   remote-auth tests; 13 native follow-ups; every maintained consumer and
   global-activation smoke; Chrome; and Dart2Wasm green. No Dart pub retry was
   required on the passing run.
+- 2026-08-16: Commit `be4a5a8e` is published to both maintained `master`
+  branches. Exact-head CI `31912783283`, Dart Package Publish Dry Run
+  `31912783280`, WAMP Profile Benchmarks `31912783262`, and Router Image dry
+  run `31913621089` all pass with zero check annotations. Coverage artifact
+  `9254321577`, WAMP artifact `9254194794`, Router Image preview artifact
+  `9254334513`, and Docker build records `9254380409` and `9254380207` are
+  available.
+- 2026-08-16: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and clean logs, package publishing, reusable native-release
+  evidence, loaded-image MCP smoke, multi-architecture image builds, WAMP
+  artifacts, branch protection, workflow visibility, and public router-package
+  visibility clean. The non-gating RC summary remains intentionally not ready
+  because no approved numeric RC tag points at this implementation commit.
 
 ## Handoff
 
-- Implementation and complete local verification are green. Publication to
-  both maintained remotes and exact-head hosted evidence remain pending.
+- Implementation, complete local verification, publication, exact-head hosted
+  evidence, and the comprehensive strict deployment-chain audit are complete.

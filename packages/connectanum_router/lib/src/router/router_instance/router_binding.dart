@@ -1775,7 +1775,15 @@ class RouterBinding {
   }
 
   void _removeInternalSession(RouterSession session) {
-    _internalSessions.remove(session);
+    final removed = _internalSessions.remove(session);
+    if (removed) {
+      _boss?.stateCommandPort.send(
+        SessionCloseCommand(
+          realmUri: session.realmUri,
+          sessionId: session.sessionId,
+        ),
+      );
+    }
     final cacheKey = session.cacheKey;
     if (cacheKey != null) {
       final cached = _internalSessionsByCacheKey[cacheKey];
@@ -5232,7 +5240,7 @@ class RouterBinding {
           sessionProfile?.name != null && sessionProfile!.name.isNotEmpty
           ? '${record.cacheKeyPrefix}:${sessionProfile.name}'
           : record.cacheKeyPrefix;
-      return _ensureInternalSession(
+      final session = await _ensureInternalSession(
         realmUri: realmUri,
         authId: record.authId,
         authRole: record.authRole,
@@ -5242,6 +5250,14 @@ class RouterBinding {
         cacheKey: cacheKey,
         authorizationIsInternal: false,
       );
+      if (record.sessionAuthorizationRevoked) {
+        await session.close();
+        throw const _HttpUnauthorized(
+          reason: 'invalid_token',
+          message: 'Bearer token is unknown',
+        );
+      }
+      return session;
     }
 
     final configuredProvider = await _configuredHttpAuthProviderFor(
@@ -6147,6 +6163,9 @@ class RouterBinding {
     final record = _httpAuthTokens.remove(token);
     if (record == null) {
       return;
+    }
+    if (closeSessions) {
+      record.sessionAuthorizationRevoked = true;
     }
     if (removeFromRefreshToken) {
       final refreshToken = record.refreshToken;
@@ -8242,7 +8261,7 @@ class _HttpAuthIssueResult {
 }
 
 class _HttpAuthTokenRecord {
-  const _HttpAuthTokenRecord({
+  _HttpAuthTokenRecord({
     required this.token,
     required this.realmUri,
     required this.authMethod,
@@ -8267,6 +8286,7 @@ class _HttpAuthTokenRecord {
   final DateTime expiresAt;
   final String? refreshToken;
   final String cacheKeyPrefix;
+  bool sessionAuthorizationRevoked = false;
 
   Duration get expiresIn {
     final remaining = expiresAt.difference(DateTime.now().toUtc());

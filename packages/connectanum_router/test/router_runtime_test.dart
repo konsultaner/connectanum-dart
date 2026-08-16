@@ -11216,6 +11216,133 @@ void main() {
     },
   );
 
+  test(
+    'auth bridge revocation fences overlapping MCP session creation',
+    () async {
+      final runtime = _HandleRuntime();
+      late int listenerId;
+      late String accessToken;
+      var revokeQueued = false;
+      const protectedConnectionId = 88;
+      const revokeConnectionId = 89;
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthBridge(),
+      );
+
+      final binding = router.start(
+        runtime,
+        onEvent: (event) {
+          if (event is! Map<String, Object?> ||
+              event['type'] != 'listener_http_request' ||
+              event['connectionId'] != protectedConnectionId ||
+              revokeQueued) {
+            return;
+          }
+          revokeQueued = true;
+          _enqueueSyntheticHttpRequest(
+            runtime: runtime,
+            listenerId: listenerId,
+            connectionId: revokeConnectionId,
+            handle: 49,
+            method: 'POST',
+            target: '/auth',
+            headers: const {'content-type': 'application/json'},
+            body: <String, Object?>{
+              'grant_type': 'revoke',
+              'token': accessToken,
+              'token_type_hint': 'access_token',
+            },
+            realm: 'router.http',
+            procedure: 'router.http.auth',
+          );
+        },
+      );
+      addTearDown(binding.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      listenerId = binding.listeners.single.listenerId;
+      final grant = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+        startConnectionId: 86,
+      );
+      accessToken = grant.accessToken;
+      final baselineSessionCount =
+          (await binding.collectMetrics()).sessionCount;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: protectedConnectionId,
+        handle: 48,
+        method: 'POST',
+        target: '/mcp/secure',
+        headers: <String, String>{
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          HttpHeaders.contentTypeHeader: 'application/json',
+          HttpHeaders.authorizationHeader: 'Bearer $accessToken',
+          'mcp-protocol-version': '2026-07-28',
+          'mcp-method': 'tools/list',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'revoked-first-request',
+          'method': 'tools/list',
+          'params': <String, Object?>{
+            '_meta': <String, Object?>{
+              'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+              'io.modelcontextprotocol/clientCapabilities': <String, Object?>{},
+            },
+          },
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+
+      await _waitUntil(
+        () =>
+            runtime.httpResponses[protectedConnectionId]?.isNotEmpty == true &&
+            runtime.httpResponses[revokeConnectionId]?.isNotEmpty == true,
+      );
+      expect(revokeQueued, isTrue);
+      expect(
+        runtime.httpResponses[revokeConnectionId]!.single.status,
+        HttpStatus.ok,
+      );
+
+      final protectedResponse =
+          runtime.httpResponses[protectedConnectionId]!.single;
+      expect(protectedResponse.status, HttpStatus.unauthorized);
+      expect(protectedResponse.headers, isNot(contains('MCP-Session-Id')));
+      expect(
+        _jsonResponseBody(protectedResponse)['reason'],
+        'invalid_token',
+      );
+
+      var finalSessionCount = (await binding.collectMetrics()).sessionCount;
+      for (
+        var attempt = 0;
+        attempt < 50 && finalSessionCount != baselineSessionCount;
+        attempt++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        finalSessionCount = (await binding.collectMetrics()).sessionCount;
+      }
+      expect(finalSessionCount, baselineSessionCount);
+    },
+  );
+
   test('auth bridge revokes refresh and access tokens', () async {
     final runtime = _HandleRuntime();
     final router = Router(

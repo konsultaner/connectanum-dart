@@ -25195,7 +25195,32 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active MCP session-readiness plan is
+- The active MCP auth/session-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-router-grant-revocation-creation-race.md`.
+  A protected request can read a router-issued access grant and then await
+  first-use internal WAMP session creation while a concurrent revocation
+  removes that grant. Revocation scans completed session-cache entries, so the
+  session still being created can escape that cleanup. The checkpoint will
+  reproduce the overlap at the public HTTP-auth and MCP boundary, recheck the
+  exact grant record after session creation, fail closed when revocation won,
+  and prove no authenticated session remains retained. The fail-first public
+  regression returned HTTP 200 from both revocation and the overlapping
+  `tools/list` request. The request now rechecks a terminal-revocation marker
+  on the exact grant record, closes the created session, and returns HTTP 401
+  without an MCP session header. That check preserves intentional non-terminal
+  access-record replacement during refresh. The regression also exposed that
+  internal-session close removed only binding caches; removal now sends one
+  `SessionCloseCommand` so router-state metrics return to baseline. The focused
+  race passes five consecutive runs, router analysis is clean, all 10
+  HTTP-auth provider tests pass, and the complete 97-case router runtime suite
+  passes. Canonical `bin/verify` exits zero across formatting, 117 Rust core
+  and serializer tests, 52 FFI tests, all maintained script suites, 366 core
+  Dart tests, 116 MCP tests, the complete 293-case MCP/client suite, all 97
+  benchmark tests including 37 live WAMP workloads, all 447 router cases, six
+  remote-auth tests, 13 native follow-ups, every maintained consumer and
+  global-activation smoke, Chrome, and Dart2Wasm. Publication and exact-head
+  hosted evidence remain.
+- The most recently completed MCP session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-anonymous-session-creation-concurrency.md`.
   Concurrent HTTP handlers could all pass the completed anonymous-session
   cache check while the first internal WAMP isolate was still starting. The
@@ -25223,10 +25248,17 @@ at the older `47bbf9c` commit.
   Dart tests; 116 MCP tests; the complete 293-case MCP/client suite; all 97
   benchmark tests including 37 live WAMP workloads; all 446 router cases; six
   remote-auth tests; 13 native follow-ups; every maintained consumer and
-  global-activation smoke; Chrome; and Dart2Wasm green. Commit, publication,
-  and exact-head hosted evidence remain.
-- The most recently completed MCP
-  session-readiness plan is
+  global-activation smoke; Chrome; and Dart2Wasm green. Commit `be4a5a8e` is
+  published to both maintained `master` branches. Exact-head CI `31912783283`,
+  Dart Package Publish Dry Run `31912783280`, WAMP Profile Benchmarks
+  `31912783262`, and Router Image dry run `31913621089` all pass with zero
+  check annotations. Coverage artifact `9254321577`, WAMP artifact
+  `9254194794`, Router Image preview artifact `9254334513`, and Docker build
+  records `9254380409` and `9254380207` are available. Clean hosted-log
+  scanning and the comprehensive strict deployment-chain audit pass; its
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation commit.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-15-mcp-anonymous-route-scope-key-isolation.md`.
   Public router-hosted MCP routes retain an anonymous internal WAMP session per
   listener, route, realm, and session profile. Those configurable fields were
