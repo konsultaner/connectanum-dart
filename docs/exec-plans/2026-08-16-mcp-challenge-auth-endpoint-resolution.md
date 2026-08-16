@@ -1,6 +1,6 @@
 # Exec Plan: MCP Challenge Auth-Endpoint Resolution
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -95,8 +95,22 @@ the MCP endpoint's origin.
   including 37 live WAMP workloads, all 454 router cases, six remote-auth
   tests, 13 native follow-ups, every maintained consumer/global-activation
   smoke, Chrome, and Dart2Wasm.
+- 2026-08-16: Commit `2de11049` is published to both maintained `master`
+  branches. Exact-head CI `31947309379`, Dart Package Publish Dry Run
+  `31947309407`, WAMP Profile Benchmarks `31947309382`, and Router Image dry
+  run `31947337301` all pass. Coverage artifact `9263842774`, WAMP artifact
+  `9263743157`, Router Image preview artifact `9263666403`, and Docker build
+  records `9263720410` and `9263720011` are available.
+- 2026-08-16: The comprehensive strict deployment-chain audit exits zero with
+  clean exact-head CI jobs and logs, package and retained native-release
+  evidence, loaded-image router-hosted MCP smoke, multi-architecture image
+  build, WAMP artifact, workflow visibility, branch protection, and public
+  Router Image package visibility. Its non-gating RC summary remains
+  intentionally not ready because no approved numeric RC tag points at this
+  implementation commit.
 
 ## Handoff
 
-- Implementation and all local verification are complete; publication,
-  exact-head hosted workflows, and the strict deployment-chain audit remain.
+- Complete. The implementation, local verification, publication, exact-head
+  hosted workflows, retained artifacts, and comprehensive strict audit all
+  pass.

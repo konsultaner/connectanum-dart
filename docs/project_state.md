@@ -25196,29 +25196,38 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP downstream-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-public-client-auth-endpoint-discovery.md`.
+  The published router-hosted client now treats `--auth-url` as an optional
+  ticket-auth override. When it is omitted, the client performs a
+  credential-free sessionless ping, requires a realm-matched Bearer challenge
+  with `auth_path`, and constructs the auth client through the public challenge
+  factory before sending ticket credentials. Explicit auth URLs and raw bearer
+  grants retain their existing behavior. All 22 consumer-boundary tests and
+  focused package analysis pass. The maintained source and globally activated
+  live clients prove discovered ticket authentication, refresh/revoke,
+  Streamable HTTP, direct JSON, WAMP meta, and pub/sub behavior; mismatched
+  realms and unprotected endpoints fail closed without leaking the ticket.
+  Pre-change and post-change `bin/test-fast` pass the complete fast regression,
+  package, benchmark, router, generated-consumer, and globally activated
+  executable matrix, including all 97 benchmark tests and 37 live WAMP
+  workloads. Canonical `bin/verify` passes with zero formatting changes, 117
+  Rust core/serializer tests, 52 native FFI tests, the feature-gated native
+  metrics snapshot, 366 Dart core tests, 116 MCP tests, the complete 296-case
+  MCP/client suite, all 97 benchmark tests including 37 live WAMP workloads,
+  all 454 router cases, six remote-auth tests, 13 native follow-ups, every
+  maintained consumer/global-activation smoke, Chrome, and Dart2Wasm. The
+  implementation is ready to publish; exact-head hosted workflows and the
+  comprehensive strict deployment-chain audit remain.
+- The most recently completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-challenge-auth-endpoint-resolution.md`.
-  Router-hosted Bearer challenges can advertise a compatible alternate
-  `auth_path`, but the typed public challenge API does not expose that
-  parameter and `ConnectanumHttpAuthClient` still requires a separately
-  hard-coded endpoint. The active work adds fail-first parsing and endpoint
-  safety coverage, a same-origin public construction path, and an isolated
-  neutral consumer proof that discovers and uses the router-selected alternate
-  auth route. The regression first failed because the typed challenge accessor
-  and public auth-client factory did not exist. All 33 focused authorization
-  discovery/auth-client tests pass and client analysis is clean. The isolated
-  consumer discovers `/auth/discovered` without creating MCP session or resume
-  state, issues the route-bound grant there, and completes the existing secure
-  direct JSON, Streamable HTTP, WAMP meta, pub/sub, refresh, and revocation
-  matrix. Pre-change and post-change `bin/test-fast` pass. Canonical
-  `bin/verify` passes with zero formatting changes, 117 Rust core/serializer
-  tests, 52 native FFI tests, the feature-gated native metrics snapshot, 366
-  Dart core tests, 116 MCP tests, the complete 296-case MCP/client suite, all
-  97 benchmark tests including 37 live WAMP workloads, all 454 router cases,
-  six remote-auth tests, 13 native follow-ups, every maintained
-  consumer/global-activation smoke, Chrome, and Dart2Wasm. The implementation
-  is ready to publish; exact-head hosted workflows and the strict deployment-
-  chain audit remain.
-- The most recently completed MCP auth/session-readiness plan is
+  Router-hosted Bearer challenges now expose the compatible alternate
+  `auth_path` through the typed public challenge API, and
+  `ConnectanumHttpAuthClient.fromMcpBearerChallenge` restricts resolution to a
+  credential-free HTTP(S) origin plus an absolute query-free and fragment-free
+  path. All 33 focused tests, the neutral generated consumer, pre/post fast
+  gates, canonical verification, commit `2de11049`, exact-head hosted
+  workflows, and the comprehensive strict deployment-chain audit pass.
+- The preceding MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-auth-route-discovery.md`.
   Router-hosted Bearer challenges currently advertise the first exact auth
   route whose base action is `auth`, without checking whether that route can

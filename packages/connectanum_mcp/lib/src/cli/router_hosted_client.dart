@@ -73,18 +73,25 @@ Future<_ClientContext> _createClient(_Options options) async {
   };
   final stateless = _isStatelessProtocolVersion(options.protocolVersion);
 
-  if (options.authEndpoint != null) {
-    final authClient = ConnectanumHttpAuthClient(
-      options.authEndpoint!,
-      httpClient: _shortLivedHttpClient(),
-      closeHttpClient: true,
-    );
+  if (options.authRealm != null) {
+    final authContext = await _createTicketAuthClient(options);
+    final authClient = authContext.client;
     try {
       final grant = await authClient.issueTicketToken(
         realm: options.authRealm!,
         authId: options.authId!,
         ticket: options.ticket!,
       );
+      if (authContext.discovered) {
+        stdout.writeln(
+          jsonEncode({
+            'auth': {
+              'endpointDiscovery': true,
+              'endpoint': authClient.endpoint.toString(),
+            },
+          }),
+        );
+      }
       return _ClientContext(
         stateless
             ? McpStreamableHttpClient.statelessWithAuthGrant(
@@ -144,6 +151,78 @@ Future<_ClientContext> _createClient(_Options options) async {
             defaultProtocolVersion: options.protocolVersion,
             closeHttpClient: true,
           ),
+  );
+}
+
+Future<_TicketAuthClientContext> _createTicketAuthClient(
+  _Options options,
+) async {
+  final explicitEndpoint = options.authEndpoint;
+  if (explicitEndpoint != null) {
+    return _TicketAuthClientContext(
+      ConnectanumHttpAuthClient(
+        explicitEndpoint,
+        httpClient: _shortLivedHttpClient(),
+        closeHttpClient: true,
+      ),
+      discovered: false,
+    );
+  }
+
+  final probe = McpStreamableHttpClient.stateless(
+    options.endpoint,
+    clientInfo: const <String, Object?>{
+      'name': 'connectanum-mcp-router-hosted-client-auth-discovery',
+      'version': '3.0.0-beta',
+    },
+    httpClient: _shortLivedHttpClient(),
+    closeHttpClient: true,
+  );
+  try {
+    try {
+      await probe.pingDirect(id: 'auth-endpoint-discovery');
+    } on McpStreamableHttpException catch (error) {
+      if (error.statusCode != HttpStatus.unauthorized) {
+        throw StateError(
+          'Ticket auth endpoint discovery returned HTTP '
+          '${error.statusCode}; expected ${HttpStatus.unauthorized}.',
+        );
+      }
+      final challenge = _compatibleTicketAuthChallenge(
+        error.bearerChallenges,
+        options.authRealm!,
+      );
+      return _TicketAuthClientContext(
+        ConnectanumHttpAuthClient.fromMcpBearerChallenge(
+          options.endpoint,
+          challenge,
+          httpClient: _shortLivedHttpClient(),
+          closeHttpClient: true,
+        ),
+        discovered: true,
+      );
+    }
+    throw StateError(
+      'Ticket auth endpoint discovery expected the MCP endpoint to require '
+      'Bearer authentication.',
+    );
+  } finally {
+    probe.close(force: true);
+  }
+}
+
+McpBearerChallenge _compatibleTicketAuthChallenge(
+  List<McpBearerChallenge> challenges,
+  String realm,
+) {
+  for (final challenge in challenges) {
+    if (challenge.realm == realm && challenge.authPath != null) {
+      return challenge;
+    }
+  }
+  throw StateError(
+    'Ticket auth endpoint discovery did not receive a compatible Bearer '
+    'challenge with auth_path for the requested realm.',
   );
 }
 
@@ -354,10 +433,22 @@ class _ClientContext {
   final String? authorizationHeader;
 }
 
+class _TicketAuthClientContext {
+  const _TicketAuthClientContext(this.client, {required this.discovered});
+
+  final ConnectanumHttpAuthClient client;
+  final bool discovered;
+}
+
 void _printDryRunSummary(IOSink sink, _Options options) {
-  final authMode = switch ((options.bearerToken, options.authEndpoint)) {
-    (String(), _) => 'bearer',
-    (_, Uri()) => 'ticket',
+  final authMode = switch ((
+    options.bearerToken,
+    options.authRealm,
+    options.authEndpoint,
+  )) {
+    (String(), _, _) => 'bearer',
+    (_, String(), Uri()) => 'ticket',
+    (_, String(), _) => 'ticket-discovered',
     _ => 'none',
   };
   final stateless = _isStatelessProtocolVersion(options.protocolVersion);
@@ -376,6 +467,8 @@ void _printDryRunSummary(IOSink sink, _Options options) {
       if (options.authEndpoint != null)
         'authEndpoint': options.authEndpoint.toString(),
       if (options.authRealm != null) 'realm': options.authRealm,
+      if (options.authRealm != null && options.authEndpoint == null)
+        'authEndpointDiscovery': true,
       if (options.authId != null) 'authId': options.authId,
       if (options.authLifecycleSmoke) 'authLifecycleSmoke': true,
       if (options.rejectedOrigin != null)
@@ -434,21 +527,13 @@ Future<void> _deleteStreamableSession(McpStreamableHttpClient client) async {
 }
 
 Future<void> _runAuthLifecycleSmoke(_Options options) async {
-  final authEndpoint = options.authEndpoint;
-  if (authEndpoint == null) {
-    throw StateError('Auth lifecycle smoke requires --auth-url.');
-  }
-
   const clientInfo = <String, Object?>{
     'name': 'connectanum-mcp-router-hosted-client-example',
     'version': '3.0.0-beta',
   };
   final stateless = _isStatelessProtocolVersion(options.protocolVersion);
-  final authClient = ConnectanumHttpAuthClient(
-    authEndpoint,
-    httpClient: _shortLivedHttpClient(),
-    closeHttpClient: true,
-  );
+  final authContext = await _createTicketAuthClient(options);
+  final authClient = authContext.client;
   McpStreamableHttpClient? refreshedClient;
   McpStreamableHttpClient? revokedClient;
   Map<String, Object?>? refreshedRequestScopedResourceSubscription;
@@ -6025,22 +6110,22 @@ final class _Options {
       const <String, String>{},
     );
 
-    if (bearerToken != null && authEndpoint != null) {
+    final ticketAuthValues = [authRealm, authId, ticket];
+    final hasTicketAuthOption =
+        authEndpoint != null || ticketAuthValues.any((value) => value != null);
+    if (bearerToken != null && hasTicketAuthOption) {
       throw const FormatException(
-        'Use either --bearer-token or --auth-url, not both.',
+        'Use either --bearer-token or ticket auth options, not both.',
       );
     }
-
-    final authValues = [authEndpoint, authRealm, authId, ticket];
-    if (authValues.any((value) => value != null) &&
-        authValues.any((value) => value == null)) {
+    if (hasTicketAuthOption && ticketAuthValues.any((value) => value == null)) {
       throw const FormatException(
-        'Use --auth-url, --realm, --auth-id, and --ticket together.',
+        'Use --realm, --auth-id, and --ticket together; --auth-url is optional.',
       );
     }
-    if (authLifecycleSmoke && authEndpoint == null) {
+    if (authLifecycleSmoke && authRealm == null) {
       throw const FormatException(
-        'Use --auth-lifecycle-smoke together with --auth-url.',
+        'Use --auth-lifecycle-smoke together with --realm, --auth-id, and --ticket.',
       );
     }
     if (rejectedOrigin != null &&
@@ -6410,11 +6495,11 @@ Usage:
 Options:
   --bearer-token TOKEN              Use a bearer-protected MCP route.
   --protocol-version VERSION        MCP protocol version header to send.
-  --auth-url URL                    Issue a ticket auth grant from this URL.
-  --realm REALM                     Realm for --auth-url ticket grants.
-  --auth-id AUTHID                  Auth id for --auth-url ticket grants.
-  --ticket TICKET                   Ticket secret for --auth-url grants.
-  --auth-lifecycle-smoke            Refresh/revoke ticket auth grant lifecycle (requires --auth-url).
+  --auth-url URL                    Override challenge-discovered ticket auth URL.
+  --realm REALM                     Realm for a ticket grant.
+  --auth-id AUTHID                  Auth id for a ticket grant.
+  --ticket TICKET                   Ticket secret for a ticket grant.
+  --auth-lifecycle-smoke            Refresh/revoke ticket auth grant lifecycle.
   --rejected-origin URL             Require this Origin to receive sessionless 403 on Streamable POST/GET/DELETE.
   --tool NAME                       Call this direct JSON tool.
   --tool-arguments JSON_OBJECT      Arguments for --tool.

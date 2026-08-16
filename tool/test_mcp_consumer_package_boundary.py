@@ -89,7 +89,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('PUB_CACHE="$pub_cache" dart analyze', body)
         self.assertIn('PUB_CACHE="$pub_cache" dart run bin/main.dart', body)
         self.assertIn(
-            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" '
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \\\n    '
             "dart pub global activate --source path",
             body,
         )
@@ -353,7 +353,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" '
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \\\n    '
             "dart pub global activate --source path",
             body,
         )
@@ -439,7 +439,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("'--router-config'", body)
         self.assertIn("'--targets-json'", body)
         self.assertIn(
-            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" '
+            'PATH="$pub_cache/bin:$PATH" PUB_CACHE="$pub_cache" \\\n    '
             "dart pub global activate --source path",
             body,
         )
@@ -1469,6 +1469,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"secure":{"ticketGrant":true,'
+            '"authPathDiscovery":true,'
+            '"authRealmPolicyBinding":true,'
             '"authGrantTypeValidation":true,'
             '"authSelectorIsolation":true,'
             '"authSelectorSourceIsolation":true,'
@@ -1957,7 +1959,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "authLifecycle",
             "revokedAccessRejected",
             "revokedRefreshRejected",
-            "Use --auth-lifecycle-smoke together with --auth-url.",
+            "Use --auth-lifecycle-smoke together with --realm, --auth-id, and --ticket.",
+            "_createTicketAuthClient",
+            "_compatibleTicketAuthChallenge",
+            "ConnectanumHttpAuthClient.fromMcpBearerChallenge",
+            "auth-endpoint-discovery",
+            "endpointDiscovery",
+            "ticket-discovered",
             "--auth-lifecycle-smoke",
             "McpStreamableHttpClient.latestSessionProtocolVersion",
             "McpStreamableHttpClient.latestProtocolVersion",
@@ -2688,6 +2696,12 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("stateless_auth_lifecycle_summary=\"$(", body)
         self.assertIn('"authLifecycleSmoke":true', body)
         self.assertIn('"authMode":"ticket"', body)
+        self.assertIn("discovered_auth_dry_run_summary=\"$(", body)
+        self.assertIn("--ticket dry-run-discovered-ticket-secret", body)
+        self.assertIn('"authMode":"ticket-discovered"', body)
+        self.assertIn('"authEndpointDiscovery":true', body)
+        self.assertIn("discovered-auth dry-run leaked ticket secret material", body)
+        self.assertIn("omitted challenge-discovery evidence", body)
         self.assertIn("stateless_resource_update_summary=\"$(", body)
         self.assertIn('"resourceSubscription"', body)
         self.assertIn('"updateTopic":"example.events.context.updated"', body)
@@ -2820,7 +2834,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            "Use --auth-lifecycle-smoke together with --auth-url.",
+            "Use --auth-lifecycle-smoke together with --realm, --auth-id, and --ticket.",
             body,
         )
         self.assertIn(
@@ -2833,7 +2847,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            "Use either --bearer-token or --auth-url, not both.",
+            "Use either --bearer-token or ticket auth options, not both.",
             body,
         )
         self.assertIn(
@@ -2846,7 +2860,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            "Use --auth-url, --realm, --auth-id, and --ticket together.",
+            "Use --realm, --auth-id, and --ticket together; --auth-url is optional.",
             body,
         )
         self.assertIn(
@@ -3124,6 +3138,18 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("bearer_summary=\"$(", live_body)
         self.assertIn("authenticated_json_summary=\"$(", live_body)
         self.assertIn("bearer_json_summary=\"$(", live_body)
+        self.assertIn("mismatched_auth_discovery_output=\"$(", live_body)
+        self.assertIn("unprotected_auth_discovery_output=\"$(", live_body)
+        self.assertIn(
+            "did not receive a compatible Bearer challenge with auth_path for the requested realm.",
+            live_body,
+        )
+        self.assertIn(
+            "expected the MCP endpoint to require Bearer authentication.",
+            live_body,
+        )
+        self.assertIn("mismatched-realm discovery leaked ticket material", live_body)
+        self.assertIn("unprotected discovery leaked ticket material", live_body)
         self.assertIn(
             '"invalidLastEventId":{"rejected":true,"sessionUnchanged":true}',
             script,
@@ -3164,6 +3190,15 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("streamable.activeDirectJson", script)
         self.assertIn('"toolNotificationEvents"', script)
+        authenticated_body = live_body.split(
+            'authenticated_summary="$(dart run connectanum_mcp:router_hosted_client',
+            1,
+        )[1].split(
+            'assert_public_router_hosted_mcp_client_summary "$authenticated_summary"',
+            1,
+        )[0]
+        self.assertNotIn("--auth-url", authenticated_body)
+        self.assertIn('"auth":{"endpointDiscovery":true', live_body)
         self.assertIn("--auth-url \"$auth_url\"", live_body)
         self.assertIn("--bearer-token \"$bearer_token\"", live_body)
         self.assertIn("--realm example.realm", live_body)

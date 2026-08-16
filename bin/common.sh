@@ -622,6 +622,26 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local discovered_auth_dry_run_summary
+  discovered_auth_dry_run_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --protocol-version 2026-07-28 \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --ticket dry-run-discovered-ticket-secret \
+    --auth-lifecycle-smoke \
+    --dry-run)"
+  if [[ "$discovered_auth_dry_run_summary" == *dry-run-discovered-ticket-secret* ]]; then
+    printf 'Public router-hosted MCP client discovered-auth dry-run leaked ticket secret material.\n'
+    return 1
+  fi
+  if [[ "$discovered_auth_dry_run_summary" != *'"authMode":"ticket-discovered"'* ||
+        "$discovered_auth_dry_run_summary" != *'"authEndpointDiscovery":true'* ||
+        "$discovered_auth_dry_run_summary" != *'"authLifecycleSmoke":true'* ]]; then
+    printf 'Public router-hosted MCP client discovered-auth dry-run omitted challenge-discovery evidence.\n'
+    return 1
+  fi
+
   local stateless_resource_update_summary
   stateless_resource_update_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
@@ -797,7 +817,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     printf 'Public router-hosted MCP client dry-run accepted auth lifecycle smoke without ticket auth.\n'
     return 1
   fi
-  if [[ "$dangling_auth_lifecycle_output" != *'Use --auth-lifecycle-smoke together with --auth-url.'* ]]; then
+  if [[ "$dangling_auth_lifecycle_output" != *'Use --auth-lifecycle-smoke together with --realm, --auth-id, and --ticket.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the dangling auth lifecycle smoke error.\n'
     return 1
   fi
@@ -814,7 +834,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     printf 'Public router-hosted MCP client dry-run accepted mutually exclusive auth options.\n'
     return 1
   fi
-  if [[ "$ambiguous_auth_output" != *'Use either --bearer-token or --auth-url, not both.'* ]]; then
+  if [[ "$ambiguous_auth_output" != *'Use either --bearer-token or ticket auth options, not both.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the mutually exclusive auth error.\n'
     return 1
   fi
@@ -829,7 +849,7 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     printf 'Public router-hosted MCP client dry-run accepted incomplete ticket auth options.\n'
     return 1
   fi
-  if [[ "$incomplete_auth_output" != *'Use --auth-url, --realm, --auth-id, and --ticket together.'* ]]; then
+  if [[ "$incomplete_auth_output" != *'Use --realm, --auth-id, and --ticket together; --auth-url is optional.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the incomplete ticket auth error.\n'
     return 1
   fi
@@ -1415,6 +1435,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
   local global_pub_cache
   local global_smoke_workspace
   local live_summary
+  local mismatched_auth_discovery_output
   local package_name
   local pubsub_only_summary
   local secure_endpoint
@@ -1423,6 +1444,7 @@ run_public_router_hosted_mcp_client_live_smoke() (
   local server_pid
   local status
   local timeout_at
+  local unprotected_auth_discovery_output
 
   server_log="$(mktemp "${TMPDIR:-/tmp}/connectanum-router-hosted-mcp.XXXXXX")"
 
@@ -1493,6 +1515,46 @@ run_public_router_hosted_mcp_client_live_smoke() (
     return 1
   fi
   auth_url="${endpoint%/mcp}/auth"
+
+  if mismatched_auth_discovery_output="$(
+    dart run connectanum_mcp:router_hosted_client \
+      --endpoint "$secure_endpoint" \
+      --protocol-version 2026-07-28 \
+      --realm other.realm \
+      --auth-id mcp-user \
+      --ticket mcp-demo-ticket 2>&1
+  )"; then
+    printf 'Router-hosted MCP client accepted challenge discovery for a mismatched realm.\n'
+    return 1
+  fi
+  if [[ "$mismatched_auth_discovery_output" == *mcp-demo-ticket* ]]; then
+    printf 'Router-hosted MCP client mismatched-realm discovery leaked ticket material.\n'
+    return 1
+  fi
+  if [[ "$mismatched_auth_discovery_output" != *'did not receive a compatible Bearer challenge with auth_path for the requested realm.'* ]]; then
+    printf 'Router-hosted MCP client mismatched-realm discovery did not fail closed.\n'
+    return 1
+  fi
+
+  if unprotected_auth_discovery_output="$(
+    dart run connectanum_mcp:router_hosted_client \
+      --endpoint "$endpoint" \
+      --protocol-version 2026-07-28 \
+      --realm example.realm \
+      --auth-id mcp-user \
+      --ticket mcp-demo-ticket 2>&1
+  )"; then
+    printf 'Router-hosted MCP client accepted auth discovery without a Bearer challenge.\n'
+    return 1
+  fi
+  if [[ "$unprotected_auth_discovery_output" == *mcp-demo-ticket* ]]; then
+    printf 'Router-hosted MCP client unprotected discovery leaked ticket material.\n'
+    return 1
+  fi
+  if [[ "$unprotected_auth_discovery_output" != *'expected the MCP endpoint to require Bearer authentication.'* ]]; then
+    printf 'Router-hosted MCP client unprotected discovery did not require a challenge.\n'
+    return 1
+  fi
 
   live_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$endpoint" \
@@ -1734,7 +1796,6 @@ PY
   authenticated_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$secure_endpoint" \
     --protocol-version 2025-06-18 \
-    --auth-url "$auth_url" \
     --realm example.realm \
     --auth-id mcp-user \
     --ticket mcp-demo-ticket \
@@ -1751,6 +1812,7 @@ PY
     --pubsub-topic example.events.task \
     --pubsub-event '{"taskId":"T-authenticated-example-live","status":"open"}')"
   assert_public_router_hosted_mcp_client_summary "$authenticated_summary" authenticated \
+    '"auth":{"endpointDiscovery":true' \
     '"directPing"' \
     '"directWampMetadata"' \
     '"configuredRegistrationMetadata"' \

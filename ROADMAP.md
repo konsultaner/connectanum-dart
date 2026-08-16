@@ -565,6 +565,14 @@
     path on the MCP endpoint's credential-free HTTP(S) origin. Focused tests
     and the isolated neutral router CLI consumer prove alternate compatible
     auth-route discovery without a separately hard-coded endpoint.
+  - [x] Make `router_hosted_client` treat `--auth-url` as an optional override
+    for complete ticket credentials. The published client now probes the
+    protected MCP endpoint without credentials or session state, requires a
+    realm-matched Bearer challenge with `auth_path`, and proves discovered
+    authentication plus refresh/revoke, direct JSON, Streamable HTTP, WAMP
+    meta, and pub/sub behavior in source and globally activated live smokes.
+    Mismatched-realm and unprotected endpoints fail closed without exposing
+    credentials.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready
