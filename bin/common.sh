@@ -642,6 +642,46 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     return 1
   fi
 
+  local discovered_wampcra_auth_dry_run_summary
+  discovered_wampcra_auth_dry_run_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --protocol-version 2026-07-28 \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --wampcra-secret dry-run-discovered-wampcra-secret \
+    --auth-lifecycle-smoke \
+    --dry-run)"
+  if [[ "$discovered_wampcra_auth_dry_run_summary" == *dry-run-discovered-wampcra-secret* ]]; then
+    printf 'Public router-hosted MCP client dry-run leaked discovered WAMP-CRA secret material.\n'
+    return 1
+  fi
+  if [[ "$discovered_wampcra_auth_dry_run_summary" != *'"authMode":"wampcra-discovered"'* ||
+        "$discovered_wampcra_auth_dry_run_summary" != *'"authEndpointDiscovery":true'* ||
+        "$discovered_wampcra_auth_dry_run_summary" != *'"authLifecycleSmoke":true'* ]]; then
+    printf 'Public router-hosted MCP client WAMP-CRA dry-run omitted challenge-discovery evidence.\n'
+    return 1
+  fi
+
+  local discovered_scram_auth_dry_run_summary
+  discovered_scram_auth_dry_run_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --protocol-version 2026-07-28 \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --scram-secret dry-run-discovered-scram-secret \
+    --auth-lifecycle-smoke \
+    --dry-run)"
+  if [[ "$discovered_scram_auth_dry_run_summary" == *dry-run-discovered-scram-secret* ]]; then
+    printf 'Public router-hosted MCP client dry-run leaked discovered SCRAM secret material.\n'
+    return 1
+  fi
+  if [[ "$discovered_scram_auth_dry_run_summary" != *'"authMode":"scram-discovered"'* ||
+        "$discovered_scram_auth_dry_run_summary" != *'"authEndpointDiscovery":true'* ||
+        "$discovered_scram_auth_dry_run_summary" != *'"authLifecycleSmoke":true'* ]]; then
+    printf 'Public router-hosted MCP client SCRAM dry-run omitted challenge-discovery evidence.\n'
+    return 1
+  fi
+
   local stateless_resource_update_summary
   stateless_resource_update_summary="$(run_public_router_hosted_mcp_client_example_dry_run \
     --endpoint http://127.0.0.1:8080/mcp \
@@ -814,10 +854,10 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     --endpoint http://127.0.0.1:8080/mcp/secure \
     --auth-lifecycle-smoke \
     --dry-run 2>&1)"; then
-    printf 'Public router-hosted MCP client dry-run accepted auth lifecycle smoke without ticket auth.\n'
+    printf 'Public router-hosted MCP client dry-run accepted auth lifecycle smoke without HTTP auth.\n'
     return 1
   fi
-  if [[ "$dangling_auth_lifecycle_output" != *'Use --auth-lifecycle-smoke together with --realm, --auth-id, and --ticket.'* ]]; then
+  if [[ "$dangling_auth_lifecycle_output" != *'Use --auth-lifecycle-smoke together with HTTP auth credentials.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the dangling auth lifecycle smoke error.\n'
     return 1
   fi
@@ -834,8 +874,24 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     printf 'Public router-hosted MCP client dry-run accepted mutually exclusive auth options.\n'
     return 1
   fi
-  if [[ "$ambiguous_auth_output" != *'Use either --bearer-token or ticket auth options, not both.'* ]]; then
+  if [[ "$ambiguous_auth_output" != *'Use either --bearer-token or HTTP auth options, not both.'* ]]; then
     printf 'Public router-hosted MCP client dry-run did not report the mutually exclusive auth error.\n'
+    return 1
+  fi
+
+  local ambiguous_http_auth_method_output
+  if ambiguous_http_auth_method_output="$(run_public_router_hosted_mcp_client_example_dry_run \
+    --endpoint http://127.0.0.1:8080/mcp/secure \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --ticket dry-run-ticket-secret \
+    --wampcra-secret dry-run-wampcra-secret \
+    --dry-run 2>&1)"; then
+    printf 'Public router-hosted MCP client dry-run accepted multiple HTTP auth secret options.\n'
+    return 1
+  fi
+  if [[ "$ambiguous_http_auth_method_output" != *'Use exactly one of --ticket, --wampcra-secret, or --scram-secret.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the HTTP auth method ambiguity.\n'
     return 1
   fi
 
@@ -846,11 +902,11 @@ run_public_router_hosted_mcp_client_dry_run_smoke() {
     --realm example.realm \
     --auth-id mcp-user \
     --dry-run 2>&1)"; then
-    printf 'Public router-hosted MCP client dry-run accepted incomplete ticket auth options.\n'
+    printf 'Public router-hosted MCP client dry-run accepted incomplete HTTP auth options.\n'
     return 1
   fi
-  if [[ "$incomplete_auth_output" != *'Use --realm, --auth-id, and --ticket together; --auth-url is optional.'* ]]; then
-    printf 'Public router-hosted MCP client dry-run did not report the incomplete ticket auth error.\n'
+  if [[ "$incomplete_auth_output" != *'Use --realm, --auth-id, and exactly one of --ticket, --wampcra-secret, or --scram-secret together; --auth-url is optional.'* ]]; then
+    printf 'Public router-hosted MCP client dry-run did not report the incomplete HTTP auth error.\n'
     return 1
   fi
 
@@ -1440,11 +1496,13 @@ run_public_router_hosted_mcp_client_live_smoke() (
   local pubsub_only_summary
   local secure_endpoint
   local secure_json_endpoint
+  local scram_summary
   local server_log
   local server_pid
   local status
   local timeout_at
   local unprotected_auth_discovery_output
+  local wampcra_summary
 
   server_log="$(mktemp "${TMPDIR:-/tmp}/connectanum-router-hosted-mcp.XXXXXX")"
 
@@ -1699,6 +1757,32 @@ EOF
 
   printf 'Globally activated router-hosted MCP client live smoke completed.\n'
 
+  scram_summary="$(PATH="$global_pub_cache/bin:$PATH" \
+    PUB_CACHE="$global_pub_cache" router_hosted_client \
+    --endpoint "$secure_endpoint" \
+    --protocol-version 2026-07-28 \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --scram-secret mcp-demo-secret \
+    --auth-lifecycle-smoke \
+    --tool example.task.lookup \
+    --tool-arguments '{"taskId":"T-global-scram-example-live"}' \
+    --wamp-procedure example.task.configured.lookup \
+    --wamp-topic example.events.task \
+    --pubsub-topic example.events.task \
+    --pubsub-event '{"taskId":"T-global-scram-example-live","status":"open"}')"
+  assert_public_router_hosted_mcp_client_summary "$scram_summary" global-scram \
+    '"auth":{"endpointDiscovery":true' \
+    '"method":"scram"' \
+    '"directPing"' \
+    '"directWampMetadata"' \
+    '"pubsubTopic":"example.events.task"' \
+    '"stateless":{"protocolVersion":"2026-07-28","sessionless":true' \
+    '"authLifecycle":{"method":"scram","issued":true,"refreshed":true,"refreshedDirectPing":true,"refreshedSessionless":true' \
+    '"revokedAccessRejected":true,"revokedRefreshRejected":true'
+
+  printf 'SCRAM router-hosted MCP client live smoke completed.\n'
+
   pubsub_only_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$endpoint" \
     --protocol-version 2025-06-18 \
@@ -1840,6 +1924,32 @@ PY
     "$authenticated_summary" authenticated
 
   printf 'Authenticated router-hosted MCP client live smoke completed.\n'
+
+  wampcra_summary="$(dart run connectanum_mcp:router_hosted_client \
+    --endpoint "$secure_endpoint" \
+    --protocol-version 2025-06-18 \
+    --realm example.realm \
+    --auth-id mcp-user \
+    --wampcra-secret mcp-demo-secret \
+    --auth-lifecycle-smoke \
+    --tool example.task.lookup \
+    --tool-arguments '{"taskId":"T-wampcra-example-live"}' \
+    --wamp-procedure example.task.configured.lookup \
+    --wamp-topic example.events.task \
+    --pubsub-topic example.events.task \
+    --pubsub-event '{"taskId":"T-wampcra-example-live","status":"open"}')"
+  assert_public_router_hosted_mcp_client_summary "$wampcra_summary" wampcra \
+    '"auth":{"endpointDiscovery":true' \
+    '"method":"wampcra"' \
+    '"directPing"' \
+    '"directWampMetadata"' \
+    '"streamable"' \
+    '"wampMetadata"' \
+    '"pubsubTopic":"example.events.task"' \
+    '"authLifecycle":{"method":"wampcra","issued":true,"refreshed":true,"refreshedDirectPing":true,"refreshedStreamableSession":true' \
+    '"revokedAccessRejected":true,"revokedRefreshRejected":true'
+
+  printf 'WAMP-CRA router-hosted MCP client live smoke completed.\n'
 
   bearer_summary="$(dart run connectanum_mcp:router_hosted_client \
     --endpoint "$secure_endpoint" \

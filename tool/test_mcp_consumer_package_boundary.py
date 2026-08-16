@@ -1946,6 +1946,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "McpStreamableHttpException",
             "_runAuthLifecycleSmoke",
             "issueTicketToken(",
+            "issueWampCraToken(",
+            "issueScramToken(",
             "refreshToken(",
             "revokeToken(",
             "_expectMcpUnauthorized",
@@ -1959,13 +1961,16 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "authLifecycle",
             "revokedAccessRejected",
             "revokedRefreshRejected",
-            "Use --auth-lifecycle-smoke together with --realm, --auth-id, and --ticket.",
-            "_createTicketAuthClient",
-            "_compatibleTicketAuthChallenge",
+            "Use --auth-lifecycle-smoke together with HTTP auth credentials.",
+            "_createHttpAuthClient",
+            "_compatibleHttpAuthChallenge",
+            "_issueHttpAuthGrant",
             "ConnectanumHttpAuthClient.fromMcpBearerChallenge",
             "auth-endpoint-discovery",
             "endpointDiscovery",
-            "ticket-discovered",
+            "_HttpAuthMethod.ticket",
+            "--wampcra-secret",
+            "--scram-secret",
             "--auth-lifecycle-smoke",
             "McpStreamableHttpClient.latestSessionProtocolVersion",
             "McpStreamableHttpClient.latestProtocolVersion",
@@ -2702,6 +2707,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn('"authEndpointDiscovery":true', body)
         self.assertIn("discovered-auth dry-run leaked ticket secret material", body)
         self.assertIn("omitted challenge-discovery evidence", body)
+        self.assertIn("discovered_wampcra_auth_dry_run_summary=\"$(", body)
+        self.assertIn("--wampcra-secret dry-run-discovered-wampcra-secret", body)
+        self.assertIn('"authMode":"wampcra-discovered"', body)
+        self.assertIn("discovered WAMP-CRA secret material", body)
+        self.assertIn("discovered_scram_auth_dry_run_summary=\"$(", body)
+        self.assertIn("--scram-secret dry-run-discovered-scram-secret", body)
+        self.assertIn('"authMode":"scram-discovered"', body)
+        self.assertIn("discovered SCRAM secret material", body)
         self.assertIn("stateless_resource_update_summary=\"$(", body)
         self.assertIn('"resourceSubscription"', body)
         self.assertIn('"updateTopic":"example.events.context.updated"', body)
@@ -2830,11 +2843,11 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("dangling_auth_lifecycle_output=\"$(", body)
         self.assertIn(
-            "accepted auth lifecycle smoke without ticket auth",
+            "accepted auth lifecycle smoke without HTTP auth",
             body,
         )
         self.assertIn(
-            "Use --auth-lifecycle-smoke together with --realm, --auth-id, and --ticket.",
+            "Use --auth-lifecycle-smoke together with HTTP auth credentials.",
             body,
         )
         self.assertIn(
@@ -2847,24 +2860,34 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
         self.assertIn(
-            "Use either --bearer-token or ticket auth options, not both.",
+            "Use either --bearer-token or HTTP auth options, not both.",
             body,
         )
         self.assertIn(
             "did not report the mutually exclusive auth error",
             body,
         )
+        self.assertIn("ambiguous_http_auth_method_output=\"$(", body)
+        self.assertIn(
+            "accepted multiple HTTP auth secret options",
+            body,
+        )
+        self.assertIn(
+            "Use exactly one of --ticket, --wampcra-secret, or --scram-secret.",
+            body,
+        )
         self.assertIn("incomplete_auth_output=\"$(", body)
         self.assertIn(
-            "accepted incomplete ticket auth options",
+            "accepted incomplete HTTP auth options",
             body,
         )
         self.assertIn(
-            "Use --realm, --auth-id, and --ticket together; --auth-url is optional.",
+            "Use --realm, --auth-id, and exactly one of --ticket, "
+            "--wampcra-secret, or --scram-secret together; --auth-url is optional.",
             body,
         )
         self.assertIn(
-            "did not report the incomplete ticket auth error",
+            "did not report the incomplete HTTP auth error",
             body,
         )
         self.assertIn("malformed_auth_url_output=\"$(", body)
@@ -3135,6 +3158,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn("pubsub_only_summary=\"$(", live_body)
         self.assertIn("authenticated_summary=\"$(", live_body)
+        self.assertIn("wampcra_summary=\"$(", live_body)
+        self.assertIn("scram_summary=\"$(", live_body)
         self.assertIn("bearer_summary=\"$(", live_body)
         self.assertIn("authenticated_json_summary=\"$(", live_body)
         self.assertIn("bearer_json_summary=\"$(", live_body)
@@ -3204,6 +3229,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("--realm example.realm", live_body)
         self.assertIn("--auth-id mcp-user", live_body)
         self.assertIn("--ticket mcp-demo-ticket", live_body)
+        self.assertIn("--wampcra-secret mcp-demo-secret", live_body)
+        self.assertIn("--scram-secret mcp-demo-secret", live_body)
         self.assertIn("--auth-lifecycle-smoke", live_body)
         self.assertIn("--tool example.task.lookup", live_body)
         self.assertIn("--resource-uri app://example/context", live_body)
@@ -3220,6 +3247,14 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("T-bearer-json-response-example-live", live_body)
         self.assertIn(
             "Authenticated router-hosted MCP client live smoke completed.",
+            live_body,
+        )
+        self.assertIn(
+            "WAMP-CRA router-hosted MCP client live smoke completed.",
+            live_body,
+        )
+        self.assertIn(
+            "SCRAM router-hosted MCP client live smoke completed.",
             live_body,
         )
         self.assertIn(

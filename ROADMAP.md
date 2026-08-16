@@ -573,6 +573,12 @@
     meta, and pub/sub behavior in source and globally activated live smokes.
     Mismatched-realm and unprotected endpoints fail closed without exposing
     credentials.
+  - [x] Extend the published router-hosted client across every router HTTP-auth
+    challenge method: mutually exclusive ticket, WAMP-CRA, and SCRAM secrets
+    reuse the credential-free challenge-discovered endpoint, identify the
+    selected method without exposing credentials, and complete refresh/revoke,
+    direct JSON, Streamable HTTP, WAMP meta, and pub/sub behavior through
+    maintained source and globally activated live smokes.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

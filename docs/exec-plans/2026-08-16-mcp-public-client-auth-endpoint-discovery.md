@@ -1,6 +1,6 @@
 # Exec Plan: MCP Public Client Auth-Endpoint Discovery
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -104,9 +104,24 @@ auth ID, and ticket credentials without separately hard-coding `--auth-url`.
   MCP/client suite, all 97 benchmark tests including 37 live WAMP workloads,
   all 454 router cases, six remote-auth tests, 13 native follow-ups, every
   maintained consumer/global-activation smoke, Chrome, and Dart2Wasm.
+- 2026-08-16: Commit `7fbc82f` is published to both maintained `master`
+  branches. Exact-head GitHub CI `31952019409` passes Fast Checks, Full Verify,
+  Dart VM Coverage, Codecov upload, and coverage artifact `9265162483`. Dart
+  Package Publish Dry Run `31952019412` passes.
+- 2026-08-16: Exact-head Router Image dry run `31953037643` passes the
+  router-hosted MCP runtime smoke and multi-architecture build without GHCR
+  login. Preview artifact `9265186625` and Docker build records `9265233367`
+  and `9265233039` are available.
+- 2026-08-16: The comprehensive strict deployment-chain audit passes. It
+  accepts relevant native dry run `31221315902` and WAMP Profile Benchmarks run
+  `31947309382` with artifact `9263743157` because no sensitive inputs changed,
+  and reports clean branch, workflow, package, CI-log, publish-dry-run, image,
+  and benchmark gates. Its non-gating RC summary remains intentionally not
+  ready because no approved numeric RC tag points at this implementation.
 
 ## Handoff
 
-- Active. Implementation and all local verification pass. Publication,
-  exact-head hosted workflows, and the comprehensive strict deployment-chain
-  audit remain.
+- Completed. Implementation commit `7fbc82f`, all local verification,
+  publication to both maintained branches, exact-head hosted CI/package/image
+  evidence, relevant native/WAMP evidence, and the comprehensive strict
+  deployment-chain audit pass.

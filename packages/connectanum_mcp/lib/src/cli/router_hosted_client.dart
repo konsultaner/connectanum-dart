@@ -74,20 +74,17 @@ Future<_ClientContext> _createClient(_Options options) async {
   final stateless = _isStatelessProtocolVersion(options.protocolVersion);
 
   if (options.authRealm != null) {
-    final authContext = await _createTicketAuthClient(options);
+    final authContext = await _createHttpAuthClient(options);
     final authClient = authContext.client;
     try {
-      final grant = await authClient.issueTicketToken(
-        realm: options.authRealm!,
-        authId: options.authId!,
-        ticket: options.ticket!,
-      );
+      final grant = await _issueHttpAuthGrant(authClient, options);
       if (authContext.discovered) {
         stdout.writeln(
           jsonEncode({
             'auth': {
               'endpointDiscovery': true,
               'endpoint': authClient.endpoint.toString(),
+              'method': grant.authMethod,
             },
           }),
         );
@@ -154,12 +151,12 @@ Future<_ClientContext> _createClient(_Options options) async {
   );
 }
 
-Future<_TicketAuthClientContext> _createTicketAuthClient(
+Future<_HttpAuthClientContext> _createHttpAuthClient(
   _Options options,
 ) async {
   final explicitEndpoint = options.authEndpoint;
   if (explicitEndpoint != null) {
-    return _TicketAuthClientContext(
+    return _HttpAuthClientContext(
       ConnectanumHttpAuthClient(
         explicitEndpoint,
         httpClient: _shortLivedHttpClient(),
@@ -184,15 +181,15 @@ Future<_TicketAuthClientContext> _createTicketAuthClient(
     } on McpStreamableHttpException catch (error) {
       if (error.statusCode != HttpStatus.unauthorized) {
         throw StateError(
-          'Ticket auth endpoint discovery returned HTTP '
+          'HTTP auth endpoint discovery returned HTTP '
           '${error.statusCode}; expected ${HttpStatus.unauthorized}.',
         );
       }
-      final challenge = _compatibleTicketAuthChallenge(
+      final challenge = _compatibleHttpAuthChallenge(
         error.bearerChallenges,
         options.authRealm!,
       );
-      return _TicketAuthClientContext(
+      return _HttpAuthClientContext(
         ConnectanumHttpAuthClient.fromMcpBearerChallenge(
           options.endpoint,
           challenge,
@@ -203,7 +200,7 @@ Future<_TicketAuthClientContext> _createTicketAuthClient(
       );
     }
     throw StateError(
-      'Ticket auth endpoint discovery expected the MCP endpoint to require '
+      'HTTP auth endpoint discovery expected the MCP endpoint to require '
       'Bearer authentication.',
     );
   } finally {
@@ -211,7 +208,7 @@ Future<_TicketAuthClientContext> _createTicketAuthClient(
   }
 }
 
-McpBearerChallenge _compatibleTicketAuthChallenge(
+McpBearerChallenge _compatibleHttpAuthChallenge(
   List<McpBearerChallenge> challenges,
   String realm,
 ) {
@@ -221,9 +218,36 @@ McpBearerChallenge _compatibleTicketAuthChallenge(
     }
   }
   throw StateError(
-    'Ticket auth endpoint discovery did not receive a compatible Bearer '
+    'HTTP auth endpoint discovery did not receive a compatible Bearer '
     'challenge with auth_path for the requested realm.',
   );
+}
+
+Future<ConnectanumHttpAuthGrant> _issueHttpAuthGrant(
+  ConnectanumHttpAuthClient client,
+  _Options options, {
+  Map<String, String> headers = const <String, String>{},
+}) {
+  return switch (options.authMethod!) {
+    _HttpAuthMethod.ticket => client.issueTicketToken(
+      realm: options.authRealm!,
+      authId: options.authId!,
+      ticket: options.authSecret!,
+      headers: headers,
+    ),
+    _HttpAuthMethod.wampCra => client.issueWampCraToken(
+      realm: options.authRealm!,
+      authId: options.authId!,
+      secret: options.authSecret!,
+      headers: headers,
+    ),
+    _HttpAuthMethod.scram => client.issueScramToken(
+      realm: options.authRealm!,
+      authId: options.authId!,
+      secret: options.authSecret!,
+      headers: headers,
+    ),
+  };
 }
 
 bool _isStatelessProtocolVersion(String protocolVersion) =>
@@ -433,24 +457,20 @@ class _ClientContext {
   final String? authorizationHeader;
 }
 
-class _TicketAuthClientContext {
-  const _TicketAuthClientContext(this.client, {required this.discovered});
+class _HttpAuthClientContext {
+  const _HttpAuthClientContext(this.client, {required this.discovered});
 
   final ConnectanumHttpAuthClient client;
   final bool discovered;
 }
 
 void _printDryRunSummary(IOSink sink, _Options options) {
-  final authMode = switch ((
-    options.bearerToken,
-    options.authRealm,
-    options.authEndpoint,
-  )) {
-    (String(), _, _) => 'bearer',
-    (_, String(), Uri()) => 'ticket',
-    (_, String(), _) => 'ticket-discovered',
-    _ => 'none',
-  };
+  final authMethod = options.authMethod;
+  final authMode = options.bearerToken != null
+      ? 'bearer'
+      : authMethod == null
+      ? 'none'
+      : '${authMethod.label}${options.authEndpoint == null ? '-discovered' : ''}';
   final stateless = _isStatelessProtocolVersion(options.protocolVersion);
   final resourceTemplate = options.resourceTemplate;
   final expandedResourceTemplateUri = resourceTemplate?.expand(
@@ -532,16 +552,15 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
     'version': '3.0.0-beta',
   };
   final stateless = _isStatelessProtocolVersion(options.protocolVersion);
-  final authContext = await _createTicketAuthClient(options);
+  final authContext = await _createHttpAuthClient(options);
   final authClient = authContext.client;
   McpStreamableHttpClient? refreshedClient;
   McpStreamableHttpClient? revokedClient;
   Map<String, Object?>? refreshedRequestScopedResourceSubscription;
   try {
-    final grant = await authClient.issueTicketToken(
-      realm: options.authRealm!,
-      authId: options.authId!,
-      ticket: options.ticket!,
+    final grant = await _issueHttpAuthGrant(
+      authClient,
+      options,
       headers: const <String, String>{
         'x-consumer-trace': 'router-hosted-client-auth-lifecycle-issue',
       },
@@ -678,6 +697,7 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
     stdout.writeln(
       jsonEncode({
         'authLifecycle': {
+          'method': grant.authMethod,
           'issued': true,
           'refreshed': true,
           'refreshedDirectPing': true,
@@ -6037,6 +6057,16 @@ Future<void> _runStreamableSessionExample(
   stdout.writeln(jsonEncode({'streamable': streamable}));
 }
 
+enum _HttpAuthMethod {
+  ticket('ticket'),
+  wampCra('wampcra'),
+  scram('scram');
+
+  const _HttpAuthMethod(this.label);
+
+  final String label;
+}
+
 final class _Options {
   const _Options({
     required this.endpoint,
@@ -6052,7 +6082,8 @@ final class _Options {
     this.authEndpoint,
     this.authRealm,
     this.authId,
-    this.ticket,
+    this.authMethod,
+    this.authSecret,
     this.rejectedOrigin,
     this.toolName,
     this.resourceUri,
@@ -6070,7 +6101,8 @@ final class _Options {
   final Uri? authEndpoint;
   final String? authRealm;
   final String? authId;
-  final String? ticket;
+  final _HttpAuthMethod? authMethod;
+  final String? authSecret;
   final Uri? rejectedOrigin;
   final String? toolName;
   final McpJsonMap toolArguments;
@@ -6097,6 +6129,8 @@ final class _Options {
     final authRealm = _mcpSelectorOption(values, '--realm');
     final authId = _mcpSelectorOption(values, '--auth-id');
     final ticket = _nonEmptyStringOption(values, '--ticket');
+    final wampCraSecret = _nonEmptyStringOption(values, '--wampcra-secret');
+    final scramSecret = _nonEmptyStringOption(values, '--scram-secret');
     final rejectedOrigin = _optionalUri(values, '--rejected-origin');
     final authLifecycleSmoke = values.containsKey('--auth-lifecycle-smoke');
     final resourceUri = _mcpResourceUriOption(values, '--resource-uri');
@@ -6110,22 +6144,38 @@ final class _Options {
       const <String, String>{},
     );
 
-    final ticketAuthValues = [authRealm, authId, ticket];
-    final hasTicketAuthOption =
-        authEndpoint != null || ticketAuthValues.any((value) => value != null);
-    if (bearerToken != null && hasTicketAuthOption) {
+    final authSecrets = <(_HttpAuthMethod, String?)>[
+      (_HttpAuthMethod.ticket, ticket),
+      (_HttpAuthMethod.wampCra, wampCraSecret),
+      (_HttpAuthMethod.scram, scramSecret),
+    ];
+    final selectedAuthSecrets = authSecrets
+        .where((entry) => entry.$2 != null)
+        .toList(growable: false);
+    if (selectedAuthSecrets.length > 1) {
       throw const FormatException(
-        'Use either --bearer-token or ticket auth options, not both.',
+        'Use exactly one of --ticket, --wampcra-secret, or --scram-secret.',
       );
     }
-    if (hasTicketAuthOption && ticketAuthValues.any((value) => value == null)) {
+    final authMethod = selectedAuthSecrets.firstOrNull?.$1;
+    final authSecret = selectedAuthSecrets.firstOrNull?.$2;
+    final httpAuthValues = [authRealm, authId, authSecret];
+    final hasHttpAuthOption =
+        authEndpoint != null || httpAuthValues.any((value) => value != null);
+    if (bearerToken != null && hasHttpAuthOption) {
       throw const FormatException(
-        'Use --realm, --auth-id, and --ticket together; --auth-url is optional.',
+        'Use either --bearer-token or HTTP auth options, not both.',
       );
     }
-    if (authLifecycleSmoke && authRealm == null) {
+    if (hasHttpAuthOption && httpAuthValues.any((value) => value == null)) {
       throw const FormatException(
-        'Use --auth-lifecycle-smoke together with --realm, --auth-id, and --ticket.',
+        'Use --realm, --auth-id, and exactly one of --ticket, '
+        '--wampcra-secret, or --scram-secret together; --auth-url is optional.',
+      );
+    }
+    if (authLifecycleSmoke && authMethod == null) {
+      throw const FormatException(
+        'Use --auth-lifecycle-smoke together with HTTP auth credentials.',
       );
     }
     if (rejectedOrigin != null &&
@@ -6182,7 +6232,8 @@ final class _Options {
       authEndpoint: authEndpoint,
       authRealm: authRealm,
       authId: authId,
-      ticket: ticket,
+      authMethod: authMethod,
+      authSecret: authSecret,
       rejectedOrigin: rejectedOrigin,
       toolName: _mcpToolNameOption(values, '--tool'),
       toolArguments: _jsonObjectOption(
@@ -6356,6 +6407,8 @@ Map<String, String> _parseOptions(List<String> args) {
     '--realm',
     '--auth-id',
     '--ticket',
+    '--wampcra-secret',
+    '--scram-secret',
     '--rejected-origin',
     '--tool',
     '--tool-arguments',
@@ -6495,11 +6548,13 @@ Usage:
 Options:
   --bearer-token TOKEN              Use a bearer-protected MCP route.
   --protocol-version VERSION        MCP protocol version header to send.
-  --auth-url URL                    Override challenge-discovered ticket auth URL.
-  --realm REALM                     Realm for a ticket grant.
-  --auth-id AUTHID                  Auth id for a ticket grant.
-  --ticket TICKET                   Ticket secret for a ticket grant.
-  --auth-lifecycle-smoke            Refresh/revoke ticket auth grant lifecycle.
+  --auth-url URL                    Override challenge-discovered HTTP auth URL.
+  --realm REALM                     Realm for an HTTP auth grant.
+  --auth-id AUTHID                  Auth id for an HTTP auth grant.
+  --ticket TICKET                   Authenticate with a ticket secret.
+  --wampcra-secret SECRET           Authenticate with a WAMP-CRA secret.
+  --scram-secret SECRET             Authenticate with a SCRAM secret.
+  --auth-lifecycle-smoke            Refresh/revoke HTTP auth grant lifecycle.
   --rejected-origin URL             Require this Origin to receive sessionless 403 on Streamable POST/GET/DELETE.
   --tool NAME                       Call this direct JSON tool.
   --tool-arguments JSON_OBJECT      Arguments for --tool.

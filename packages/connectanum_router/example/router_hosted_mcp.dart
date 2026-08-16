@@ -12,9 +12,10 @@ const String _authPath = '/auth';
 const String _publicMcpPath = '/mcp';
 const String _secureMcpPath = '/mcp/secure';
 const String _secureJsonPostMcpPath = '/mcp/secure-json-post';
-const String _ticketAuthId = 'mcp-user';
+const String _httpAuthId = 'mcp-user';
 const String _otherTicketAuthId = 'mcp-other-user';
 const String _ticketSecret = 'mcp-demo-ticket';
+const String _httpAuthSecret = 'mcp-demo-secret';
 const String _dynamicResourceUri = 'app://example/context/live';
 const String _dynamicResourceReadProcedure = 'example.task.context.read';
 const String _dynamicResourceUpdateTopic = 'example.events.context.updated';
@@ -331,6 +332,11 @@ RouterSettings _buildSettings() {
   final realm = RealmSettingsBuilder(_realm)
     ..addAuthMethod('anonymous')
     ..addAuthMethod('ticket', options: const {'authenticator': 'ticket-demo'})
+    ..addAuthMethod(
+      'wampcra',
+      options: const {'authenticator': 'wampcra-demo'},
+    )
+    ..addAuthMethod('scram', options: const {'authenticator': 'scram-demo'})
     ..addRoleFromBuilder(
       RoleSettingsBuilder('anonymous')
         ..addPermissionFromBuilder(
@@ -451,7 +457,7 @@ RouterSettings _buildSettings() {
         ..addSessionProfileFromBuilder(
           SessionProfileSettingsBuilder('mcp-ticket')
             ..setRealm(_realm)
-            ..setAuthMethods(const ['ticket']),
+            ..setAuthMethods(const ['ticket', 'wampcra', 'scram']),
         )
         ..addAuthenticator(
           'ticket-demo',
@@ -459,13 +465,43 @@ RouterSettings _buildSettings() {
             type: 'ticket',
             options: {
               'secrets': {
-                _ticketAuthId: {
+                _httpAuthId: {
                   'ticket': _ticketSecret,
                   'role': 'member',
                   'provider': 'example-local',
                 },
                 _otherTicketAuthId: {
                   'ticket': _ticketSecret,
+                  'role': 'member',
+                  'provider': 'example-local',
+                },
+              },
+            },
+          ),
+        )
+        ..addAuthenticator(
+          'wampcra-demo',
+          const AuthenticatorDefinition(
+            type: 'wampcra',
+            options: {
+              'secrets': {
+                _httpAuthId: {
+                  'secret': _httpAuthSecret,
+                  'role': 'member',
+                  'provider': 'example-local',
+                },
+              },
+            },
+          ),
+        )
+        ..addAuthenticator(
+          'scram-demo',
+          const AuthenticatorDefinition(
+            type: 'scram',
+            options: {
+              'secrets': {
+                _httpAuthId: {
+                  'secret': _httpAuthSecret,
                   'role': 'member',
                   'provider': 'example-local',
                 },
@@ -670,7 +706,7 @@ Future<void> _expectSecureMcpUnauthorized(
 
 Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
   RouterBinding binding, {
-  String authId = _ticketAuthId,
+  String authId = _httpAuthId,
 }) async {
   final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   try {
