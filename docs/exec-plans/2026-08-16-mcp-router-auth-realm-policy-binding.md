@@ -67,3 +67,23 @@ the request reaches the other realm's authentication and capacity state.
   follow-ups, every maintained consumer and global-activation smoke, Chrome,
   and Dart2Wasm. The implementation is ready to publish; exact-head hosted
   workflows and the strict deployment-chain audit remain.
+- 2026-08-16: Commit `536f8646` is published to both maintained `master`
+  branches. Exact-head CI `31925871957`, Dart Package Publish Dry Run
+  `31925871923`, WAMP Profile Benchmarks `31925871981`, and Router Image dry
+  run `31926663549` all pass with zero check annotations. The first WAMP
+  attempt completed all workloads but missed one throughput floor by 1.5%
+  (`1.182` versus `1.200` Mbps); failed-job attempt 2 passed the canonical gate
+  and uploaded artifact `9257984905`. Coverage artifact `9258025277`, Router
+  Image preview artifact `9258039065`, and Docker build records `9258089621`
+  and `9258089416` are available.
+- 2026-08-16: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and clean logs, package publishing, reusable native-release
+  evidence, loaded-image MCP smoke, multi-architecture image builds, WAMP
+  artifacts, branch protection, workflow visibility, and public router-package
+  visibility clean. The non-gating RC summary remains intentionally not ready
+  because no approved numeric RC tag points at this implementation commit.
+
+## Handoff
+
+- Implementation, canonical local verification, publication, exact-head hosted
+  evidence, and the comprehensive strict deployment-chain audit are complete.

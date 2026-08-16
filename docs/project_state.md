@@ -25197,6 +25197,24 @@ at the older `47bbf9c` commit.
 
 - No execution plan is active. The most recently completed MCP
   auth/session-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-method-route-session-capacity.md`.
+  Method-specific HTTP actions are materialized as structurally equal route
+  copies on each request, but router-hosted MCP capacity accounting grouped
+  sessions by Dart object identity. That let a method-specific MCP action
+  exceed its configured `max_session_count`. A fail-first native-router
+  regression reproduced a second successful initialize at a one-session limit;
+  capacity accounting now uses the route type's structural equality contract.
+  The regression proves 503 rejection without a session header, continued
+  direct JSON and active-session access, DELETE cleanup, and capacity reuse.
+  Pre-change and post-change `bin/test-fast`, five consecutive focused runs,
+  paired ordinary/method-action capacity coverage, and router analysis pass.
+  Canonical `bin/verify` passes formatting, 117 Rust core/serializer tests, 52
+  native FFI tests, the feature-gated native metrics snapshot, 366 Dart core
+  tests, 116 MCP tests, the complete 293-case MCP/client suite, all 97 benchmark
+  tests including 37 live WAMP workloads, all 451 router cases, six remote-auth
+  tests, 13 native follow-ups, every maintained consumer/global-activation
+  smoke, Chrome, and Dart2Wasm.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-16-mcp-router-auth-realm-policy-binding.md`.
   Initial router HTTP-auth requests let body, query, or header realm selectors
   override the realm pinned by the auth route or session profile, exposing
@@ -25215,9 +25233,18 @@ at the older `47bbf9c` commit.
   tests, 366 Dart core tests, 116 MCP tests, the complete 293-case MCP/client
   suite, all 97 benchmark tests including 37 live WAMP workloads, all 450 router
   cases, six remote-auth tests, 13 native follow-ups, every maintained consumer
-  and global-activation smoke, Chrome, and Dart2Wasm. The implementation is ready
-  to publish; exact-head hosted workflows and the strict deployment-chain audit
-  remain.
+  and global-activation smoke, Chrome, and Dart2Wasm. Commit `536f8646` is
+  published to both maintained `master` branches. Exact-head CI `31925871957`,
+  Dart Package Publish Dry Run `31925871923`, WAMP Profile Benchmarks
+  `31925871981`, and Router Image dry run `31926663549` all pass with zero check
+  annotations. The first WAMP attempt completed all workloads but missed one
+  throughput floor by 1.5% (`1.182` versus `1.200` Mbps); failed-job attempt 2
+  passed the canonical gate and uploaded artifact `9257984905`. Coverage
+  artifact `9258025277`, Router Image preview artifact `9258039065`, and Docker
+  build records `9258089621` and `9258089416` are available. Clean hosted-log
+  scanning and the comprehensive strict deployment-chain audit pass; its
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation commit.
 - Completed immediately before that:
   `docs/exec-plans/2026-08-16-mcp-router-auth-route-policy-binding.md`.
   Router challenge and refresh records retain the issuing realm and session

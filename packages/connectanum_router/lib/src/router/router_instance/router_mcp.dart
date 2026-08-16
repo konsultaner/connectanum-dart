@@ -3239,7 +3239,7 @@ extension _RouterBindingMcp on RouterBinding {
             (endpoint) =>
                 endpoint.mcpSessionId != null &&
                 endpoint.listenerId == request.listenerId &&
-                identical(endpoint.route, route),
+                endpoint.route == route,
           )
           .length;
       if (activeSessionCount >= _mcpMaxSessionCountForRoute(route)) {

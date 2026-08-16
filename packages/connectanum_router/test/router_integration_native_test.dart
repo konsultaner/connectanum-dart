@@ -5683,6 +5683,113 @@ void main() {
     );
 
     test(
+      'bounds compatibility MCP sessions for method-specific route actions',
+      () async {
+        const mcpAction = HttpRouteAction(
+          type: HttpRouteActionType.mcp,
+          realm: 'realm1',
+          options: <String, Object?>{
+            'max_session_count': 1,
+            'tool_list_page_size': 100,
+          },
+        );
+        final harness = await _RouterHarness.start(
+          connectionId: 91431,
+          nativeLib: nativeLib,
+          settings: _buildRouterSettings(
+            enableHttp3: false,
+            enableMcp: true,
+            mcpRouteMatch: const HttpRouteMatch(
+              path: '/mcp',
+              methods: ['GET'],
+            ),
+            mcpRouteAction: const HttpRouteAction(
+              type: HttpRouteActionType.rpc,
+              realm: 'realm1',
+              procedure: 'com.example.http.health',
+            ),
+            mcpMethodActions: const <String, HttpRouteAction>{
+              'POST': mcpAction,
+              'DELETE': mcpAction,
+            },
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp',
+        );
+        final primary = McpStreamableHttpClient(endpoint);
+        final contender = McpStreamableHttpClient(endpoint);
+        final direct = McpStreamableHttpClient.stateless(
+          endpoint,
+          clientInfo: const <String, Object?>{
+            'name': 'router-method-session-capacity-test',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => primary.close(force: true));
+        addTearDown(() => contender.close(force: true));
+        addTearDown(() => direct.close(force: true));
+
+        await primary.initialize(id: 'method-capacity-primary');
+        await primary.notifyInitialized();
+        final primarySessionId = primary.sessionId;
+        expect(primarySessionId, isNotNull);
+
+        await expectLater(
+          contender.initialize(id: 'method-capacity-contender'),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.serviceUnavailable,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  contains('session capacity is exhausted'),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(contender.sessionId, isNull);
+        expect(contender.lastEventId, isNull);
+
+        expect(
+          await direct.pingDirect(id: 'method-capacity-direct'),
+          containsPair('resultType', 'complete'),
+        );
+        expect(direct.sessionId, isNull);
+        expect(direct.lastEventId, isNull);
+
+        final tools = await primary.listTools(
+          id: 'method-capacity-primary-tools',
+        );
+        expect(
+          tools.tools.map((tool) => tool['name']),
+          contains('connectanum.api.list'),
+        );
+        expect(primary.sessionId, equals(primarySessionId));
+
+        await primary.deleteSession();
+        await contender.initialize(id: 'method-capacity-after-delete');
+        expect(contender.sessionId, isNotNull);
+        await contender.deleteSession();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds compatibility MCP sessions per route without blocking auth or direct JSON',
       () async {
         final harness = await _RouterHarness.start(
