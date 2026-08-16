@@ -12,6 +12,7 @@ void main() {
         'Basic realm="legacy", Bearer realm="mcp", '
             'resource_metadata="https://mcp.example/.well-known/'
             'oauth-protected-resource", scope="tools:read tools:call", '
+            'auth_path="/auth/alternate", '
             'error="insufficient_scope", '
             'error_description="Authorize, then retry"',
       ]);
@@ -23,6 +24,7 @@ void main() {
         Uri.parse('https://mcp.example/.well-known/oauth-protected-resource'),
       );
       expect(challenges.single.scopes, <String>['tools:read', 'tools:call']);
+      expect(challenges.single.authPath, '/auth/alternate');
       expect(challenges.single.error, 'insufficient_scope');
       expect(challenges.single.errorDescription, 'Authorize, then retry');
     });

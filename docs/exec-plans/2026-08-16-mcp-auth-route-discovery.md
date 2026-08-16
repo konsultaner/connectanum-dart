@@ -1,6 +1,6 @@
 # Exec Plan: MCP Auth-Route Discovery
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -59,8 +59,22 @@ discoverable at all, even though the router serves them normally.
   MCP/client suite, all 97 benchmark tests including 37 live WAMP workloads,
   all 454 router cases, six remote-auth tests, 13 native follow-ups, every
   maintained consumer/global-activation smoke, Chrome, and Dart2Wasm.
+- 2026-08-16: Commit `6882c00b` was published to both maintained `master`
+  branches. Exact-head CI `31942878631`, Dart Package Publish Dry Run
+  `31942878623`, WAMP Profile Benchmarks `31942878630`, and Router Image dry
+  run `31942892443` all passed. Coverage artifact `9262712175`, WAMP artifact
+  `9262568104`, Router Image preview artifact `9262497040`, and Docker build
+  records `9262550427` and `9262550136` are available.
+- 2026-08-16: The comprehensive strict deployment-chain audit passed with
+  clean exact-head CI jobs and logs, package and retained native-release
+  evidence, loaded-image router-hosted MCP smoke, multi-architecture image
+  build, WAMP artifact, workflow visibility, branch protection, and public
+  Router Image package visibility. Its non-gating RC summary remains
+  intentionally not ready because no approved numeric RC tag points at this
+  implementation commit.
 
 ## Handoff
 
-- Implementation and all local verification are complete; publication and
-  exact-head hosted evidence remain.
+- Complete. The implementation, local verification, publication, exact-head
+  hosted workflows, retained artifacts, and comprehensive strict audit all
+  pass.

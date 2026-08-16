@@ -560,6 +560,11 @@
     route whose resolved realm and session profile match the protected route,
     including auth actions configured through per-method routing, so consumers
     are not directed to an intentionally incompatible grant issuer.
+  - [x] Let public consumers construct `ConnectanumHttpAuthClient` from the
+    router-advertised `auth_path` while restricting resolution to an absolute
+    path on the MCP endpoint's credential-free HTTP(S) origin. Focused tests
+    and the isolated neutral router CLI consumer prove alternate compatible
+    auth-route discovery without a separately hard-coded endpoint.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

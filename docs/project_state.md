@@ -25195,7 +25195,30 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active MCP auth/session-readiness plan is
+- The active MCP downstream-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-challenge-auth-endpoint-resolution.md`.
+  Router-hosted Bearer challenges can advertise a compatible alternate
+  `auth_path`, but the typed public challenge API does not expose that
+  parameter and `ConnectanumHttpAuthClient` still requires a separately
+  hard-coded endpoint. The active work adds fail-first parsing and endpoint
+  safety coverage, a same-origin public construction path, and an isolated
+  neutral consumer proof that discovers and uses the router-selected alternate
+  auth route. The regression first failed because the typed challenge accessor
+  and public auth-client factory did not exist. All 33 focused authorization
+  discovery/auth-client tests pass and client analysis is clean. The isolated
+  consumer discovers `/auth/discovered` without creating MCP session or resume
+  state, issues the route-bound grant there, and completes the existing secure
+  direct JSON, Streamable HTTP, WAMP meta, pub/sub, refresh, and revocation
+  matrix. Pre-change and post-change `bin/test-fast` pass. Canonical
+  `bin/verify` passes with zero formatting changes, 117 Rust core/serializer
+  tests, 52 native FFI tests, the feature-gated native metrics snapshot, 366
+  Dart core tests, 116 MCP tests, the complete 296-case MCP/client suite, all
+  97 benchmark tests including 37 live WAMP workloads, all 454 router cases,
+  six remote-auth tests, 13 native follow-ups, every maintained
+  consumer/global-activation smoke, Chrome, and Dart2Wasm. The implementation
+  is ready to publish; exact-head hosted workflows and the strict deployment-
+  chain audit remain.
+- The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-auth-route-discovery.md`.
   Router-hosted Bearer challenges currently advertise the first exact auth
   route whose base action is `auth`, without checking whether that route can
@@ -25216,9 +25239,16 @@ at the older `47bbf9c` commit.
   Dart core tests, 116 MCP tests, the complete 293-case MCP/client suite, all
   97 benchmark tests including 37 live WAMP workloads, all 454 router cases,
   six remote-auth tests, 13 native follow-ups, every maintained
-  consumer/global-activation smoke, Chrome, and Dart2Wasm. The implementation
-  is ready to publish; exact-head hosted workflows and the strict deployment-
-  chain audit remain.
+  consumer/global-activation smoke, Chrome, and Dart2Wasm. Commit `6882c00b`
+  is published to both maintained `master` branches. Exact-head CI
+  `31942878631`, Dart Package Publish Dry Run `31942878623`, WAMP Profile
+  Benchmarks `31942878630`, and Router Image dry run `31942892443` all pass.
+  Coverage artifact `9262712175`, WAMP artifact `9262568104`, Router Image
+  preview artifact `9262497040`, and Docker build records `9262550427` and
+  `9262550136` are available. Clean hosted-log scanning and the comprehensive
+  strict deployment-chain audit pass; its non-gating RC summary remains
+  intentionally not ready because no approved numeric RC tag points at this
+  implementation commit.
 - Completed immediately before that:
   `docs/exec-plans/2026-08-16-mcp-route-match-scope-isolation.md`.
   Before this checkpoint, router-hosted MCP reduced each configured route

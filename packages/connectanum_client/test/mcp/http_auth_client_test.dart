@@ -8,6 +8,70 @@ import 'package:test/test.dart';
 
 void main() {
   group('ConnectanumHttpAuthClient', () {
+    test('constructs from a same-origin MCP challenge auth path', () {
+      final client = ConnectanumHttpAuthClient.fromMcpBearerChallenge(
+        Uri.parse('https://consumer.example:8443/mcp?tenant=one'),
+        McpBearerChallenge(const <String, String>{
+          'auth_path': '/auth/alternate',
+        }),
+      );
+      addTearDown(() => client.close(force: true));
+
+      expect(
+        client.endpoint,
+        Uri.parse('https://consumer.example:8443/auth/alternate'),
+      );
+    });
+
+    test('rejects unsafe MCP challenge auth endpoint references', () {
+      final invalidAuthPaths = <String?>[
+        null,
+        '',
+        ' auth',
+        'auth/alternate',
+        '//attacker.example/auth',
+        'https://attacker.example/auth',
+        '/auth?target=attacker',
+        '/auth#fragment',
+      ];
+
+      for (final authPath in invalidAuthPaths) {
+        final challenge = McpBearerChallenge(<String, String>{
+          'auth_path': ?authPath,
+        });
+
+        expect(
+          () => ConnectanumHttpAuthClient.fromMcpBearerChallenge(
+            Uri.parse('https://consumer.example/mcp'),
+            challenge,
+          ),
+          throwsA(isA<ConnectanumHttpAuthProtocolException>()),
+          reason: 'auth_path=$authPath',
+        );
+      }
+    });
+
+    test('requires an absolute credential-free HTTP MCP endpoint', () {
+      final challenge = McpBearerChallenge(const <String, String>{
+        'auth_path': '/auth',
+      });
+
+      for (final endpoint in <Uri>[
+        Uri.parse('/mcp'),
+        Uri.parse('file:///tmp/mcp'),
+        Uri.parse('https://user:secret@consumer.example/mcp'),
+      ]) {
+        expect(
+          () => ConnectanumHttpAuthClient.fromMcpBearerChallenge(
+            endpoint,
+            challenge,
+          ),
+          throwsA(isA<ConnectanumHttpAuthProtocolException>()),
+          reason: 'endpoint=$endpoint',
+        );
+      }
+    });
+
     test('issues ticket bearer tokens through the HTTP auth bridge', () async {
       final endpoint = await _FakeHttpAuthEndpoint.bind();
       addTearDown(endpoint.close);

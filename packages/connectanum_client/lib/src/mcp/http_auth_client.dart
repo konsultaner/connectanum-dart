@@ -5,6 +5,8 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
 
+import 'authorization_discovery.dart';
+
 typedef _HttpAuthRequestOpener = Future<HttpClientRequest> Function();
 
 abstract interface class _PendingHttpAuthOperation {
@@ -58,6 +60,31 @@ final class ConnectanumHttpAuthClient {
        maxResponseBytes = _validatedHttpAuthMaxResponseBytes(maxResponseBytes),
        _httpClient = httpClient ?? HttpClient(),
        _ownsHttpClient = httpClient == null || closeHttpClient;
+
+  /// Creates an auth bridge client from a router-hosted MCP Bearer challenge.
+  ///
+  /// The advertised `auth_path` must be an absolute path on the MCP
+  /// endpoint's own HTTP(S) origin. Authority, query, and fragment components
+  /// are rejected so credentials cannot be redirected or mixed with
+  /// challenge-controlled URL data.
+  factory ConnectanumHttpAuthClient.fromMcpBearerChallenge(
+    Uri mcpEndpoint,
+    McpBearerChallenge challenge, {
+    HttpClient? httpClient,
+    Map<String, String> headers = const <String, String>{},
+    Duration requestTimeout = defaultRequestTimeout,
+    int maxResponseBytes = defaultMaxResponseBytes,
+    bool closeHttpClient = false,
+  }) {
+    return ConnectanumHttpAuthClient(
+      _resolveConnectanumHttpAuthEndpoint(mcpEndpoint, challenge),
+      httpClient: httpClient,
+      headers: headers,
+      requestTimeout: requestTimeout,
+      maxResponseBytes: maxResponseBytes,
+      closeHttpClient: closeHttpClient,
+    );
+  }
 
   final Uri endpoint;
   final Map<String, String> headers;
@@ -516,6 +543,48 @@ final class ConnectanumHttpAuthClient {
     }
     return _nonEmptyToken(tokenTypeHint, 'tokenTypeHint');
   }
+}
+
+Uri _resolveConnectanumHttpAuthEndpoint(
+  Uri mcpEndpoint,
+  McpBearerChallenge challenge,
+) {
+  final scheme = mcpEndpoint.scheme.toLowerCase();
+  if (!mcpEndpoint.isAbsolute ||
+      (scheme != 'http' && scheme != 'https') ||
+      mcpEndpoint.host.isEmpty ||
+      mcpEndpoint.userInfo.isNotEmpty ||
+      mcpEndpoint.hasFragment) {
+    throw const ConnectanumHttpAuthProtocolException(
+      'MCP endpoint must be an absolute credential-free HTTP(S) URI',
+    );
+  }
+
+  final authPath = challenge.authPath;
+  final authReference = authPath == null ? null : Uri.tryParse(authPath);
+  if (authPath == null ||
+      authPath.isEmpty ||
+      authPath != authPath.trim() ||
+      authReference == null ||
+      authReference.isAbsolute ||
+      authReference.hasAuthority ||
+      !authReference.path.startsWith('/') ||
+      authReference.hasQuery ||
+      authReference.hasFragment) {
+    throw const ConnectanumHttpAuthProtocolException(
+      'Bearer challenge auth_path must be a same-origin absolute path',
+    );
+  }
+
+  final endpoint = mcpEndpoint.resolveUri(authReference);
+  if (endpoint.scheme.toLowerCase() != scheme ||
+      endpoint.host.toLowerCase() != mcpEndpoint.host.toLowerCase() ||
+      endpoint.port != mcpEndpoint.port) {
+    throw const ConnectanumHttpAuthProtocolException(
+      'Bearer challenge auth_path must preserve the MCP endpoint origin',
+    );
+  }
+  return endpoint;
 }
 
 bool _isControlledHttpAuthRequestHeader(String name) {

@@ -23,6 +23,9 @@ final class McpBearerChallenge {
 
   String? get realm => parameters['realm'];
 
+  /// Connectanum router HTTP auth bridge path advertised for this MCP route.
+  String? get authPath => parameters['auth_path'];
+
   String? get resourceMetadataValue => parameters['resource_metadata'];
 
   Uri? get resourceMetadata {
