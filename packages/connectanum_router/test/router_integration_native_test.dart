@@ -3319,6 +3319,138 @@ void main() {
     );
 
     test(
+      'isolates exact and prefix MCP routes with the same route text',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9261,
+          nativeLib: nativeLib,
+          settings: _buildRouterSettings(
+            enableHttp3: false,
+            enableMcp: true,
+            mcpOptions: const <String, Object?>{
+              'name': 'exact-route-mcp',
+            },
+            additionalHttpRoutes: const <HttpRouteSettings>[
+              HttpRouteSettings(
+                match: HttpRouteMatch(prefix: '/mcp'),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.mcp,
+                  realm: 'realm1',
+                  options: <String, Object?>{
+                    'name': 'prefix-route-mcp',
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final exactClient = McpStreamableHttpClient.stateless(
+          Uri.parse('http://127.0.0.1:${listener.port}/mcp'),
+          clientInfo: const <String, Object?>{
+            'name': 'exact-route-client',
+            'version': '1.0.0',
+          },
+        );
+        final prefixClient = McpStreamableHttpClient.stateless(
+          Uri.parse('http://127.0.0.1:${listener.port}/mcp/child'),
+          clientInfo: const <String, Object?>{
+            'name': 'prefix-route-client',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => exactClient.close(force: true));
+        addTearDown(() => prefixClient.close(force: true));
+
+        final exactDiscovery = await exactClient.discover(
+          id: 'discover-exact-route',
+        );
+        final prefixDiscovery = await prefixClient.discover(
+          id: 'discover-prefix-route',
+        );
+
+        expect(exactDiscovery.serverInfo?['name'], equals('exact-route-mcp'));
+        expect(
+          prefixDiscovery.serverInfo?['name'],
+          equals('prefix-route-mcp'),
+        );
+        expect(exactClient.sessionId, isNull);
+        expect(exactClient.lastEventId, isNull);
+        expect(prefixClient.sessionId, isNull);
+        expect(prefixClient.lastEventId, isNull);
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'keeps pathless MCP route sessions stable across request targets',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 9262,
+          nativeLib: nativeLib,
+          settings: _buildRouterSettings(
+            enableHttp3: false,
+            additionalHttpRoutes: const <HttpRouteSettings>[
+              HttpRouteSettings(
+                match: HttpRouteMatch(),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.mcp,
+                  realm: 'realm1',
+                  options: <String, Object?>{
+                    'name': 'pathless-route-mcp',
+                    'post_response_transport': 'json',
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final sessionClient = McpStreamableHttpClient(
+          Uri.parse('http://127.0.0.1:${listener.port}/scope/first'),
+        );
+        addTearDown(() => sessionClient.close(force: true));
+
+        await sessionClient.initialize(id: 'initialize-pathless-route');
+        await sessionClient.notifyInitialized();
+        final sessionId = sessionClient.sessionId;
+        expect(sessionId, isNotNull);
+
+        final rawClient = HttpClient();
+        addTearDown(() => rawClient.close(force: true));
+        final tools = await _postJson(
+          rawClient,
+          listener.port,
+          '/scope/second',
+          const <String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 'tools-pathless-route',
+            'method': 'tools/list',
+            'params': <String, Object?>{},
+          },
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+            'MCP-Protocol-Version': '2025-11-25',
+            'MCP-Session-Id': sessionId!,
+            'Mcp-Method': 'tools/list',
+          },
+        );
+
+        expect(tools.statusCode, equals(HttpStatus.ok));
+        expect(
+          tools.json?['result'],
+          containsPair('tools', isA<List<Object?>>()),
+        );
+        expect(sessionClient.sessionId, equals(sessionId));
+      },
+      skip: skipReason,
+    );
+
+    test(
       'serves MCP 2026 discovery and ordinary requests without sessions',
       () async {
         final harness = await _RouterHarness.start(
@@ -17009,6 +17141,7 @@ RouterSettings _buildRouterSettings({
   Map<String, HttpRouteAction> mcpMethodActions =
       const <String, HttpRouteAction>{},
   Map<String, Object?>? mcpOptions,
+  List<HttpRouteSettings> additionalHttpRoutes = const <HttpRouteSettings>[],
 }) {
   final realmBuilder = RealmSettingsBuilder('realm1')
     ..addAuthMethod('anonymous')
@@ -17185,6 +17318,7 @@ RouterSettings _buildRouterSettings({
       ),
     );
   }
+  routes.addAll(additionalHttpRoutes);
   listener
     ..setRawSocketOptions(const RawSocketListenerSettings(maxFrameExponent: 16))
     ..setHttpOptions(

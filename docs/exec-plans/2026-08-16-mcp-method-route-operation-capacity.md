@@ -1,6 +1,6 @@
 # Exec Plan: MCP Method-Route Operation Capacity
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -63,3 +63,20 @@ both configured limits on the same method-provided MCP route.
   MCP/client suite, all 97 benchmark tests including 37 live WAMP workloads,
   all 452 router cases, six remote-auth tests, 13 native follow-ups, every
   maintained consumer/global-activation smoke, Chrome, and Dart2Wasm.
+- 2026-08-16: Commit `50568d63` is published to both maintained `master`
+  branches. Exact-head CI `31933761037`, Dart Package Publish Dry Run
+  `31933761169`, WAMP Profile Benchmarks `31933761188`, and Router Image dry
+  run `31934472546` all pass. Coverage artifact `9260219219`, WAMP artifact
+  `9260130223`, Router Image preview artifact `9260239191`, and Docker build
+  records `9260291295` and `9260291101` are available.
+- 2026-08-16: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and clean logs, package publishing, reusable native-release
+  evidence, loaded-image MCP smoke, multi-architecture image builds, WAMP
+  artifacts, branch protection, workflow visibility, and public router-package
+  visibility clean. The non-gating RC summary remains intentionally not ready
+  because no approved numeric RC tag points at this implementation commit.
+
+## Handoff
+
+- Implementation, canonical local verification, publication, exact-head hosted
+  evidence, and the comprehensive strict deployment-chain audit are complete.

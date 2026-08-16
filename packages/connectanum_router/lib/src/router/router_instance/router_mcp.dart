@@ -2073,6 +2073,7 @@ Future<void> _handleMcpHttpRequestForBinding(
         authMethod: 'anonymous',
         authProvider: 'router-http',
         cacheKey: _mcpAnonymousRouteSessionCacheKey(
+          binding: binding,
           request: request,
           route: route,
           realmUri: resolvedRealmUri,
@@ -3170,14 +3171,18 @@ extension _RouterBindingMcp on RouterBinding {
     required RouterSession session,
     String? mcpSessionId,
   }) {
-    final routeKey = route.match.path ?? route.match.prefix ?? request.path;
-    return [
-      request.listenerId,
-      routeKey,
-      session.cacheKey ?? session.realmUri,
-      session.sessionId,
-      mcpSessionId ?? 'legacy',
-    ].join(':');
+    final endpointDigest = sha256.convert(
+      utf8.encode(
+        jsonEncode(<Object?>[
+          request.listenerId,
+          _mcpRouteMatchScopeDigest(this, route.match),
+          session.cacheKey ?? session.realmUri,
+          session.sessionId,
+          mcpSessionId ?? 'legacy',
+        ]),
+      ),
+    );
+    return 'mcp-endpoint:$endpointDigest';
   }
 
   void _expireIdleMcpEndpoints() {
@@ -6029,18 +6034,36 @@ class _DirectJsonMessageResponse {
   final mcp.JsonMap? response;
 }
 
+String _mcpRouteMatchScopeDigest(
+  RouterBinding binding,
+  HttpRouteMatch match,
+) {
+  final canonicalMatch = binding._canonicalExternalHttpAuthContextValue(
+    <String, Object?>{
+      'path': match.path,
+      'prefix': match.prefix,
+      'host': match.host,
+      'methods': match.methods,
+      'protocols': match.protocols,
+      'headers': match.headers,
+      'extra': match.extra,
+    },
+  );
+  return sha256.convert(utf8.encode(jsonEncode(canonicalMatch))).toString();
+}
+
 String _mcpAnonymousRouteSessionCacheKey({
+  required RouterBinding binding,
   required RouterHttpRequest request,
   required HttpRouteSettings route,
   required String realmUri,
   required SessionProfileSettings? sessionProfile,
 }) {
-  final routeKey = route.match.path ?? route.match.prefix ?? request.path;
   final scopeDigest = sha256.convert(
     utf8.encode(
       jsonEncode(<Object?>[
         request.listenerId,
-        routeKey,
+        _mcpRouteMatchScopeDigest(binding, route.match),
         realmUri,
         sessionProfile?.name ?? 'anonymous',
       ]),

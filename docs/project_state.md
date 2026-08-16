@@ -25196,6 +25196,28 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP auth/session-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-route-match-scope-isolation.md`.
+  Before this checkpoint, router-hosted MCP reduced each configured route
+  match to `path`, `prefix`, or the incoming request path when it keys anonymous
+  compatibility sessions and hosted endpoints. An exact `/mcp` route and a
+  prefix `/mcp` route can therefore reuse the same endpoint despite distinct
+  MCP options, while a pathless configured route fragments state by request
+  target. The active work adds a fail-first native regression and replaces
+  that lossy identity with a canonical digest of the complete configured
+  `HttpRouteMatch`. The regression first failed because the prefix route
+  discovered the exact route's server identity. Both exact/prefix isolation
+  and pathless-route cross-target session reuse now pass; the former passes
+  five consecutive runs. Anonymous cache-key, route/principal session,
+  method-route capacity, and full router analysis coverage pass. Pre-change
+  and post-change `bin/test-fast` pass, including all 97 benchmark tests with
+  37 live WAMP workloads and every maintained MCP consumer/CLI smoke.
+  Canonical `bin/verify` passes with zero formatting changes, 117 Rust
+  core/serializer tests, 52 native FFI tests, the feature-gated native metrics
+  snapshot, 366 Dart core tests, 116 MCP tests, the complete 293-case
+  MCP/client suite, all 97 benchmark tests including 37 live WAMP workloads,
+  all 454 router cases, six remote-auth tests, 13 native follow-ups, every
+  maintained consumer/global-activation smoke, Chrome, and Dart2Wasm.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-16-mcp-method-route-operation-capacity.md`.
   Method-specific HTTP actions are structurally equal effective route copies,
   but route-wide request-scoped listener and WAMP subscription reservations
@@ -25216,7 +25238,15 @@ at the older `47bbf9c` commit.
   the complete 293-case MCP/client suite, all 97 benchmark tests including 37
   live WAMP workloads, all 452 router cases, six remote-auth tests, 13 native
   follow-ups, every maintained consumer/global-activation smoke, Chrome, and
-  Dart2Wasm.
+  Dart2Wasm. Commit `50568d63` is published to both maintained `master`
+  branches. Exact-head CI `31933761037`, Dart Package Publish Dry Run
+  `31933761169`, WAMP Profile Benchmarks `31933761188`, and Router Image dry run
+  `31934472546` all pass. Coverage artifact `9260219219`, WAMP artifact
+  `9260130223`, Router Image preview artifact `9260239191`, and Docker build
+  records `9260291295` and `9260291101` are available. Clean hosted-log
+  scanning and the comprehensive strict deployment-chain audit pass; its
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation commit.
 - Completed immediately before that:
   `docs/exec-plans/2026-08-16-mcp-method-route-session-capacity.md`.
   Method-specific HTTP actions are materialized as structurally equal route
