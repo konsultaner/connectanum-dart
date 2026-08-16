@@ -1,6 +1,6 @@
 # Exec Plan: MCP Public Client Auth-Method Parity
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -98,8 +98,7 @@ compatibility-era Streamable HTTP behavior.
   revocation, direct JSON tools, WAMP meta operations, and pub/sub against the
   real router.
 - 2026-08-16: Focused analysis, shell syntax, all 22 package-boundary tests,
-  the complete dry-run helper, and the complete live helper pass. Canonical
-  post-change verification remains.
+  the complete dry-run helper, and the complete live helper pass.
 - 2026-08-16: Post-change `bin/test-fast` passes the complete fast regression,
   package, benchmark, router, generated-consumer, and globally activated
   executable matrix, including the new WAMP-CRA and SCRAM live runs.
@@ -109,8 +108,20 @@ compatibility-era Streamable HTTP behavior.
   MCP/client suite, all 97 benchmark tests including 37 live WAMP workloads,
   all 454 router cases, six remote-auth tests, 13 native follow-ups, every
   maintained consumer/global-activation smoke, Chrome, and Dart2Wasm.
+- 2026-08-16: Commit `8ebccad4` is published to both maintained `master`
+  branches. Exact-head CI `31957411168`, Dart Package Publish Dry Run
+  `31957411197`, WAMP Profile Benchmarks `31957411223`, and Router Image dry
+  run `31957433105` pass.
+- 2026-08-16: Coverage artifact `9266541508`, WAMP artifact `9266402252`,
+  Router Image preview `9266316316`, and Docker build records `9266368894` and
+  `9266368678` are available. The comprehensive strict deployment-chain audit
+  passes with exact-head CI logs clean and all required package, relevant
+  native, image, benchmark, workflow, branch-protection, and public-package
+  gates ready. Its non-gating RC summary remains intentionally not ready
+  because no approved numeric RC tag points at this implementation.
 
 ## Handoff
 
-- Active. Implementation, focused real-router evidence, and canonical local
-  verification pass; publication and hosted deployment-chain evidence remain.
+- Completed. Implementation, focused and canonical local verification,
+  publication to both maintained branches, exact-head hosted workflows, and
+  the comprehensive strict deployment-chain audit pass.

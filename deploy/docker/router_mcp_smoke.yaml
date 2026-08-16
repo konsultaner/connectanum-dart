@@ -9,14 +9,18 @@ router:
     - name: image-smoke-auth
       realm: image.smoke
       auth:
-        methods: [ticket]
+        methods: [ticket, wampcra, scram]
 
   realms:
     - name: image.smoke
       auth:
-        authmethods: [anonymous, ticket]
+        authmethods: [anonymous, ticket, wampcra, scram]
         ticket:
           authenticator: image-smoke-ticket
+        wampcra:
+          authenticator: image-smoke-wampcra
+        scram:
+          authenticator: image-smoke-scram
       roles:
         - name: anonymous
           permissions:
@@ -280,5 +284,21 @@ router:
             provider: router-image-smoke
           image-smoke-peer:
             ticket: image-smoke-peer-ticket
+            role: member
+            provider: router-image-smoke
+    image-smoke-wampcra:
+      type: wampcra
+      options:
+        secrets:
+          image-smoke-agent:
+            secret: image-smoke-secret
+            role: member
+            provider: router-image-smoke
+    image-smoke-scram:
+      type: scram
+      options:
+        secrets:
+          image-smoke-agent:
+            secret: image-smoke-secret
             role: member
             provider: router-image-smoke

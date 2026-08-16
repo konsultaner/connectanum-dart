@@ -252,7 +252,40 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, runner)
 
-        self.assertEqual(runner.count("--auth-lifecycle-smoke"), 4)
+        self.assertEqual(runner.count("--auth-lifecycle-smoke"), 6)
+
+    def test_loaded_image_package_client_covers_all_http_auth_methods(self) -> None:
+        runner = RUNNER.read_text(encoding="utf-8")
+        config = CONFIG.read_text(encoding="utf-8")
+
+        for expected in [
+            "methods: [ticket, wampcra, scram]",
+            "authmethods: [anonymous, ticket, wampcra, scram]",
+            "wampcra:\n          authenticator: image-smoke-wampcra",
+            "scram:\n          authenticator: image-smoke-scram",
+            "image-smoke-wampcra:",
+            "type: wampcra",
+            "image-smoke-scram:",
+            "type: scram",
+            "secret: image-smoke-secret",
+        ]:
+            with self.subTest(config_expected=expected):
+                self.assertIn(expected, config)
+
+        for expected in [
+            'run_package_client_smoke "Protected WAMP-CRA"',
+            '"wampcra" \\',
+            "--wampcra-secret image-smoke-secret",
+            'run_stateless_package_client_smoke "Protected SCRAM"',
+            '"scram" \\',
+            "--scram-secret image-smoke-secret",
+            '\\"authLifecycle\\":{\\"method\\":\\"$expected_auth_method\\"',
+            "assert_package_client_summary_redacted",
+            "image-smoke-ticket",
+            "image-smoke-secret",
+        ]:
+            with self.subTest(runner_expected=expected):
+                self.assertIn(expected, runner)
 
     def test_shell_runner_uses_pinned_official_mcp_client(self) -> None:
         syntax = subprocess.run(
@@ -1781,7 +1814,7 @@ class RouterImageMcpSmokeTest(unittest.TestCase):
             "type: mcp",
             "type: auth",
             "name: image-smoke-auth",
-            "authmethods: [anonymous, ticket]",
+            "authmethods: [anonymous, ticket, wampcra, scram]",
             "allow_insecure_transport: true",
             "include_standard_meta_api: true",
             "include_pubsub_tools: true",

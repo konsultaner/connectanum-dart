@@ -253,11 +253,26 @@ print_package_client_evidence() {
     "$mcp_prompt_name"
 }
 
+assert_package_client_summary_redacted() {
+  local label="$1"
+  local summary="$2"
+  local sensitive_value
+
+  for sensitive_value in image-smoke-ticket image-smoke-secret; do
+    if [[ "$summary" == *"$sensitive_value"* ]]; then
+      printf '%s package client smoke exposed sensitive material.\n' \
+        "$label" >&2
+      return 1
+    fi
+  done
+}
+
 run_package_client_smoke() {
   local label="$1"
   local endpoint="$2"
+  local expected_auth_method="$3"
   local summary
-  shift 2
+  shift 3
 
   summary="$(
     CONNECTANUM_SKIP_NATIVE_BUILD=true \
@@ -278,6 +293,7 @@ run_package_client_smoke() {
       --pubsub-event '{"source":"router-image-package-client"}' \
       "$@"
   )"
+  assert_package_client_summary_redacted "$label" "$summary"
 
   for marker in \
     '"directStandardTools"' \
@@ -307,11 +323,14 @@ run_package_client_smoke() {
     fi
   done
 
-  if [[ "$label" == Protected* && "$summary" != *'"authLifecycle"'* ]]; then
-    printf '%s package client smoke omitted auth lifecycle evidence.\n' \
-      "$label" >&2
-    printf '%s\n' "$summary" >&2
-    return 1
+  if [[ "$label" == Protected* ]]; then
+    if [[ "$summary" != *'"authLifecycle"'* ||
+          "$summary" != *"\"authLifecycle\":{\"method\":\"$expected_auth_method\""* ]]; then
+      printf '%s package client smoke omitted %s auth lifecycle evidence.\n' \
+        "$label" "$expected_auth_method" >&2
+      printf '%s\n' "$summary" >&2
+      return 1
+    fi
   fi
 
   local resource_template_pages=1
@@ -383,7 +402,7 @@ run_package_client_smoke() {
   lifecycle_evidence+=" wamp_procedure_pages=$wamp_procedure_pages"
   lifecycle_evidence+=" wamp_topic_pages=$wamp_topic_pages"
   if [[ "$label" == Protected* ]]; then
-    auth_evidence="router-issued"
+    auth_evidence="router-issued-$expected_auth_method"
     lifecycle_evidence+=" auth_lifecycle=true"
   fi
   if [[ "$label" == "Protected JSON-response" ]]; then
@@ -402,8 +421,9 @@ run_package_client_smoke() {
 run_stateless_package_client_smoke() {
   local label="$1"
   local endpoint="$2"
+  local expected_auth_method="$3"
   local summary
-  shift 2
+  shift 3
 
   summary="$(
     CONNECTANUM_SKIP_NATIVE_BUILD=true \
@@ -422,6 +442,7 @@ run_stateless_package_client_smoke() {
       --pubsub-event '{"source":"router-image-stateless-package-client"}' \
       "$@"
   )"
+  assert_package_client_summary_redacted "$label" "$summary"
 
   for marker in \
     '"modernBatchUnsupported"' \
@@ -454,9 +475,10 @@ run_stateless_package_client_smoke() {
   local lifecycle_evidence="sessionless=true request_listener=true"
   lifecycle_evidence+=" modern_batch_unsupported=true"
   if [[ "$label" == Protected* ]]; then
-    auth_evidence="router-issued"
+    auth_evidence="router-issued-$expected_auth_method"
     for marker in \
       '"authLifecycle"' \
+      "\"authLifecycle\":{\"method\":\"$expected_auth_method\"" \
       '"refreshedSessionless":true' \
       '"refreshedRequestScopedResourceSubscription"' \
       '"revokedAccessRejected":true' \
@@ -498,32 +520,54 @@ run_official_mcp_client_smoke \
 prepare_isolated_package_client
 
 run_stateless_package_client_smoke "Public" \
-  "http://127.0.0.1:$host_port/mcp"
+  "http://127.0.0.1:$host_port/mcp" \
+  anonymous
 run_stateless_package_client_smoke "Protected" \
   "http://127.0.0.1:$host_port/mcp/secure" \
+  ticket \
   --auth-url "http://127.0.0.1:$host_port/auth" \
   --realm image.smoke \
   --auth-id image-smoke-agent \
   --ticket image-smoke-ticket \
   --auth-lifecycle-smoke
+run_stateless_package_client_smoke "Protected SCRAM" \
+  "http://127.0.0.1:$host_port/mcp/secure" \
+  "scram" \
+  --auth-url "http://127.0.0.1:$host_port/auth" \
+  --realm image.smoke \
+  --auth-id image-smoke-agent \
+  --scram-secret image-smoke-secret \
+  --auth-lifecycle-smoke
 run_stateless_package_client_smoke "Protected JSON-response" \
   "http://127.0.0.1:$host_port/mcp/secure-json" \
+  ticket \
   --auth-url "http://127.0.0.1:$host_port/auth" \
   --realm image.smoke \
   --auth-id image-smoke-agent \
   --ticket image-smoke-ticket \
   --auth-lifecycle-smoke
 run_package_client_smoke "Public" \
-  "http://127.0.0.1:$host_port/mcp"
+  "http://127.0.0.1:$host_port/mcp" \
+  anonymous
 run_package_client_smoke "Protected" \
   "http://127.0.0.1:$host_port/mcp/secure" \
+  ticket \
   --auth-url "http://127.0.0.1:$host_port/auth" \
   --realm image.smoke \
   --auth-id image-smoke-agent \
   --ticket image-smoke-ticket \
   --auth-lifecycle-smoke
+run_package_client_smoke "Protected WAMP-CRA" \
+  "http://127.0.0.1:$host_port/mcp/secure" \
+  "wampcra" \
+  --auth-url "http://127.0.0.1:$host_port/auth" \
+  --realm image.smoke \
+  --auth-id image-smoke-agent \
+  --wampcra-secret image-smoke-secret \
+  --auth-lifecycle-smoke
 run_package_client_smoke "Protected JSON-response" \
   "http://127.0.0.1:$host_port/mcp/secure-json" \
+  ticket \
   --auth-url "http://127.0.0.1:$host_port/auth" \
   --realm image.smoke \
   --auth-id image-smoke-agent \

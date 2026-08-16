@@ -25195,12 +25195,39 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active MCP downstream-readiness plan is
+- The active Router Image downstream-readiness plan is
+  `docs/exec-plans/2026-08-16-router-image-mcp-http-auth-method-parity.md`.
+  The public client and source/global real-router smokes now cover ticket,
+  WAMP-CRA, and SCRAM, but the loaded Router Image gate still configures and
+  proves ticket only. The active work retains the existing ticket, protected
+  JSON-response, Python black-box, and official SDK coverage while adding a
+  WAMP-CRA compatibility lifecycle run and a SCRAM modern stateless lifecycle
+  run through the globally activated public package client. Pre-change
+  `bin/test-fast` passes the complete fast matrix, including all 97 benchmark
+  tests and 37 live WAMP workloads. Implementation and focused evidence pass:
+  all 34 Router Image boundary tests and shell syntax are clean; the current
+  router loads the modified profile; and focused live WAMP-CRA compatibility
+  plus SCRAM stateless runs complete authentication, refresh/revoke,
+  Streamable/sessionless behavior, direct JSON, WAMP meta, resources, prompts,
+  pub/sub, and credential redaction. A cached local image predates the current
+  MCP completions contract, and a fresh local image build stalled during
+  external Dockerfile-frontend resolution before its first build stage, so the
+  exact-head hosted Router Image workflow remains the authoritative fresh-image
+  build and runtime check after publication. Canonical `bin/verify` passes on
+  retry with zero formatting changes, 117 Rust core/serializer tests, 52 FFI
+  tests, all Python contracts, 366 core tests, 116 MCP tests, the complete
+  296-case MCP/client suite, all 97 benchmark tests including 37 live WAMP
+  workloads, every maintained consumer and global-activation smoke, all 454
+  router cases, six remote-auth tests, 13 native follow-ups, Chrome, and
+  Dart2Wasm. The first run had one isolated multi-megabyte HTTP/3 handshake
+  timeout after the preceding suites; the exact case passed immediately in
+  isolation and passed again in the complete retry.
+- The most recently completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-public-client-auth-method-parity.md`.
-  The router and public HTTP-auth client already support ticket, WAMP-CRA, and
-  SCRAM, but the published router-hosted MCP executable currently proves only
-  ticket grants. The active work retains the existing ticket contract, adds
-  mutually exclusive WAMP-CRA and SCRAM secret options, reuses the same
+  The router and public HTTP-auth client already supported ticket, WAMP-CRA,
+  and SCRAM, but the published router-hosted MCP executable previously proved
+  only ticket grants. The completed work retains the existing ticket contract,
+  adds mutually exclusive WAMP-CRA and SCRAM secret options, reuses the same
   credential-free challenge discovery, and extends source plus globally
   activated package evidence through authentication, refresh/revoke, direct
   JSON, Streamable HTTP, WAMP meta, and pub/sub behavior. Pre-change
@@ -25219,8 +25246,16 @@ at the older `47bbf9c` commit.
   benchmark tests including 37 live WAMP workloads, all 454 router cases, six
   remote-auth tests, 13 native follow-ups, every maintained consumer and
   global-activation smoke, Chrome, and Dart2Wasm. Publication and hosted
-  deployment-chain evidence remain.
-- The most recently completed MCP downstream-readiness plan is
+  deployment-chain evidence also pass: commit `8ebccad4` is published to both
+  maintained `master` branches; exact-head CI `31957411168`, Dart Package
+  Publish Dry Run `31957411197`, WAMP Profile Benchmarks `31957411223`, and
+  Router Image dry run `31957433105` are green. Coverage artifact `9266541508`,
+  WAMP artifact `9266402252`, Router Image preview `9266316316`, and Docker
+  build records `9266368894` and `9266368678` are available. The comprehensive
+  strict deployment-chain audit passes with clean exact-head CI logs and all
+  required gates ready. Its non-gating RC summary remains intentionally not
+  ready because no approved numeric RC tag points at this implementation.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-16-mcp-public-client-auth-endpoint-discovery.md`.
   The published router-hosted client now treats `--auth-url` as an optional
   ticket-auth override. When it is omitted, the client performs a
