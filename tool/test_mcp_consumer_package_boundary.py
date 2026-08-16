@@ -1943,7 +1943,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "McpStreamableHttpClient.withAuthGrant",
             "ConnectanumHttpAuthClient",
             "ConnectanumHttpAuthException",
-            "McpStreamableHttpException",
+            "McpStreamableHttpClient.discoverHttpAuthClient",
             "_runAuthLifecycleSmoke",
             "issueTicketToken(",
             "issueWampCraToken(",
@@ -1963,10 +1963,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "revokedRefreshRejected",
             "Use --auth-lifecycle-smoke together with HTTP auth credentials.",
             "_createHttpAuthClient",
-            "_compatibleHttpAuthChallenge",
             "_issueHttpAuthGrant",
-            "ConnectanumHttpAuthClient.fromMcpBearerChallenge",
-            "auth-endpoint-discovery",
             "endpointDiscovery",
             "_HttpAuthMethod.ticket",
             "--wampcra-secret",
@@ -2520,6 +2517,8 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         ):
             with self.subTest(helper=public_helper):
                 self.assertIn(public_helper, runner)
+        self.assertNotIn("_compatibleHttpAuthChallenge", runner)
+        self.assertNotIn("ConnectanumHttpAuthClient.fromMcpBearerChallenge", runner)
         self.assertNotIn(
             "dart run packages/connectanum_mcp/example/router_hosted_client.dart",
             runner,

@@ -166,60 +166,14 @@ Future<_HttpAuthClientContext> _createHttpAuthClient(
     );
   }
 
-  final probe = McpStreamableHttpClient.stateless(
-    options.endpoint,
-    clientInfo: const <String, Object?>{
-      'name': 'connectanum-mcp-router-hosted-client-auth-discovery',
-      'version': '3.0.0-beta',
-    },
-    httpClient: _shortLivedHttpClient(),
-    closeHttpClient: true,
-  );
-  try {
-    try {
-      await probe.pingDirect(id: 'auth-endpoint-discovery');
-    } on McpStreamableHttpException catch (error) {
-      if (error.statusCode != HttpStatus.unauthorized) {
-        throw StateError(
-          'HTTP auth endpoint discovery returned HTTP '
-          '${error.statusCode}; expected ${HttpStatus.unauthorized}.',
-        );
-      }
-      final challenge = _compatibleHttpAuthChallenge(
-        error.bearerChallenges,
-        options.authRealm!,
-      );
-      return _HttpAuthClientContext(
-        ConnectanumHttpAuthClient.fromMcpBearerChallenge(
-          options.endpoint,
-          challenge,
-          httpClient: _shortLivedHttpClient(),
-          closeHttpClient: true,
-        ),
-        discovered: true,
-      );
-    }
-    throw StateError(
-      'HTTP auth endpoint discovery expected the MCP endpoint to require '
-      'Bearer authentication.',
-    );
-  } finally {
-    probe.close(force: true);
-  }
-}
-
-McpBearerChallenge _compatibleHttpAuthChallenge(
-  List<McpBearerChallenge> challenges,
-  String realm,
-) {
-  for (final challenge in challenges) {
-    if (challenge.realm == realm && challenge.authPath != null) {
-      return challenge;
-    }
-  }
-  throw StateError(
-    'HTTP auth endpoint discovery did not receive a compatible Bearer '
-    'challenge with auth_path for the requested realm.',
+  return _HttpAuthClientContext(
+    await McpStreamableHttpClient.discoverHttpAuthClient(
+      options.endpoint,
+      realm: options.authRealm!,
+      httpClient: _shortLivedHttpClient(),
+      closeHttpClient: true,
+    ),
+    discovered: true,
   );
 }
 

@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-08-16
-Current branch: `master`
+Current branch: `codex/mcp-public-http-auth-discovery`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
 approved merging `add-router` into `master` and requires every versioned
@@ -24374,6 +24374,24 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-16: Public router-hosted HTTP-auth discovery is now reusable through
+  `McpStreamableHttpClient.discoverHttpAuthClient`. It validates the endpoint
+  and realm before network I/O, probes through a fresh credential-free and
+  sessionless transport, requires HTTP 401 plus an exact realm-matched Bearer
+  challenge with `auth_path`, delegates same-origin validation to the existing
+  auth client, preserves explicit caller-owned or transferred transport
+  semantics, and returns typed protocol failures. The published CLI uses this
+  public path. Eight focused discovery regressions, the public IO boundary,
+  the consumer structural contract, affected-package analysis, source/global
+  ticket, WAMP-CRA, SCRAM, bearer, pub/sub, and JSON-response real-router
+  smokes pass. Canonical `bin/verify` passes with zero formatting changes, 117
+  Rust core/serializer tests, all 52 FFI tests plus the metrics test mode, 366
+  Dart core tests, 117 MCP package tests, the 304-case client/MCP suite, all 97
+  benchmark tests with 37 live WAMP workloads, the 454-case router suite, six
+  remote-auth tests, 13 native follow-ups, every maintained isolated consumer
+  smoke, Chrome, and Dart2Wasm. A clean strict release-ready dry run validates
+  all seven synchronized `3.0.0-beta` Dart package archives, public executable
+  entrypoints, and dependency-ordered release plan with zero warnings.
 - 2026-08-14: Downstream applications can now derive a fail-closed,
   resource-bound OAuth authorization request from a live MCP HTTP 403 Bearer
   `insufficient_scope` response. The public helper accepts only one unambiguous
@@ -25195,12 +25213,23 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active Router Image downstream-readiness plan is
+- The active MCP downstream-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-public-http-auth-discovery-helper.md`.
+  The published router-hosted client can discover a compatible HTTP-auth route
+  from a credential-free Bearer challenge. The implementation now promotes its
+  fresh sessionless probe, exact realm-matched challenge selection, same-origin
+  `auth_path` validation, typed failures, and HTTP-client ownership boundary
+  into the public package so a downstream application does not have to
+  reproduce private project logic. The published CLI delegates to that helper.
+  Eight focused regressions, both public package boundaries, the structural
+  consumer contract, source/global real-router smokes, and canonical
+  `bin/verify` pass; review and publication remain.
+- The most recently completed Router Image downstream-readiness plan is
   `docs/exec-plans/2026-08-16-router-image-mcp-http-auth-method-parity.md`.
-  The public client and source/global real-router smokes now cover ticket,
-  WAMP-CRA, and SCRAM, but the loaded Router Image gate still configures and
-  proves ticket only. The active work retains the existing ticket, protected
-  JSON-response, Python black-box, and official SDK coverage while adding a
+  The public client, source/global real-router smokes, and loaded Router Image
+  gate now cover ticket, WAMP-CRA, and SCRAM. The completed work retains the
+  existing ticket, protected JSON-response, Python black-box, and official SDK
+  coverage while adding a
   WAMP-CRA compatibility lifecycle run and a SCRAM modern stateless lifecycle
   run through the globally activated public package client. Pre-change
   `bin/test-fast` passes the complete fast matrix, including all 97 benchmark
@@ -25221,8 +25250,19 @@ at the older `47bbf9c` commit.
   router cases, six remote-auth tests, 13 native follow-ups, Chrome, and
   Dart2Wasm. The first run had one isolated multi-megabyte HTTP/3 handshake
   timeout after the preceding suites; the exact case passed immediately in
-  isolation and passed again in the complete retry.
-- The most recently completed MCP downstream-readiness plan is
+  isolation and passed again in the complete retry. Commit `ec53a327` is
+  published to both maintained `master` branches. Exact-head CI `31962764195`
+  passes Fast Checks, Full Verify, and Dart VM Coverage; Router Image dry run
+  `31962779317` passes the fresh amd64 image build, expanded loaded-image MCP
+  smoke, and dry-run multi-architecture build. Coverage artifact `9267901890`,
+  Router Image preview `9267671173`, and Docker build records `9267681408` and
+  `9267681075` are available. The comprehensive strict deployment-chain audit
+  exits zero with exact-head CI and clean logs, current Router Image evidence,
+  relevant package/native/WAMP gates, branch protection, workflow visibility,
+  and public router-package visibility ready. Its non-gating RC summary remains
+  intentionally not ready because no approved numeric RC tag points at this
+  implementation.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-16-mcp-public-client-auth-method-parity.md`.
   The router and public HTTP-auth client already supported ticket, WAMP-CRA,
   and SCRAM, but the published router-hosted MCP executable previously proved

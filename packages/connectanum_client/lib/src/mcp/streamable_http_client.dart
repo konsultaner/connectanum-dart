@@ -1619,6 +1619,94 @@ final class McpStreamableHttpClient {
   static const latestProtocolVersion = _mcpLatestProtocolVersion;
   static const latestSessionProtocolVersion = _mcpLatestSessionProtocolVersion;
 
+  /// Discovers a same-origin HTTP auth bridge advertised by a protected MCP
+  /// endpoint.
+  ///
+  /// The probe uses a fresh transport, is sessionless, and never sends caller
+  /// credentials. Discovery succeeds only when the endpoint returns HTTP 401
+  /// with a Bearer challenge for [realm] that includes a safe `auth_path`
+  /// parameter.
+  ///
+  /// When [httpClient] is omitted, the returned auth client owns the internally
+  /// created transport. A supplied client remains caller-owned unless
+  /// [closeHttpClient] is true.
+  static Future<ConnectanumHttpAuthClient> discoverHttpAuthClient(
+    Uri endpoint, {
+    required String realm,
+    HttpClient? httpClient,
+    Duration requestTimeout = defaultRequestTimeout,
+    int maxResponseBytes = defaultMaxResponseBytes,
+    bool closeHttpClient = false,
+  }) async {
+    final scheme = endpoint.scheme.toLowerCase();
+    if (!endpoint.isAbsolute ||
+        (scheme != 'http' && scheme != 'https') ||
+        endpoint.host.isEmpty ||
+        endpoint.userInfo.isNotEmpty ||
+        endpoint.hasFragment) {
+      throw const ConnectanumHttpAuthProtocolException(
+        'MCP endpoint must be an absolute credential-free HTTP(S) URI',
+      );
+    }
+    if (realm.isEmpty || containsMcpWhitespaceOrControl(realm)) {
+      throw ArgumentError.value(
+        realm,
+        'realm',
+        'realm must be non-empty and contain no whitespace or control characters.',
+      );
+    }
+
+    final probe = McpStreamableHttpClient.stateless(
+      endpoint,
+      clientInfo: const <String, Object?>{
+        'name': 'connectanum-http-auth-discovery',
+        'version': '3.0.0-beta',
+      },
+      requestTimeout: requestTimeout,
+      maxResponseBytes: maxResponseBytes,
+    );
+    var succeeded = false;
+    try {
+      try {
+        await probe.pingDirect(id: 'http-auth-discovery');
+      } on McpStreamableHttpException catch (error) {
+        if (error.statusCode != HttpStatus.unauthorized) {
+          throw ConnectanumHttpAuthProtocolException(
+            'HTTP auth discovery returned HTTP ${error.statusCode}; '
+            'expected ${HttpStatus.unauthorized}.',
+          );
+        }
+        for (final challenge in error.bearerChallenges) {
+          if (challenge.realm == realm && challenge.authPath != null) {
+            final client = ConnectanumHttpAuthClient.fromMcpBearerChallenge(
+              endpoint,
+              challenge,
+              httpClient: httpClient,
+              requestTimeout: requestTimeout,
+              maxResponseBytes: maxResponseBytes,
+              closeHttpClient: closeHttpClient,
+            );
+            succeeded = true;
+            return client;
+          }
+        }
+        throw const ConnectanumHttpAuthProtocolException(
+          'HTTP auth discovery did not receive a compatible Bearer challenge '
+          'with auth_path for the requested realm.',
+        );
+      }
+      throw const ConnectanumHttpAuthProtocolException(
+        'HTTP auth discovery expected the MCP endpoint to require Bearer '
+        'authentication.',
+      );
+    } finally {
+      probe.close(force: true);
+      if (!succeeded && httpClient != null && closeHttpClient) {
+        httpClient.close(force: true);
+      }
+    }
+  }
+
   McpStreamableHttpClient(
     this.endpoint, {
     HttpClient? httpClient,

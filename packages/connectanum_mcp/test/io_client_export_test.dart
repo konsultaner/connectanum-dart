@@ -1056,6 +1056,30 @@ void main() {
     transport.close(force: true);
   });
 
+  test('IO entrypoint discovers a router HTTP auth client', () async {
+    final endpoint = await _AuthBackedMcpEndpoint.bind();
+    addTearDown(endpoint.close);
+
+    final client = await McpStreamableHttpClient.discoverHttpAuthClient(
+      endpoint.mcpUri,
+      realm: _ioAuthRealm,
+    );
+    addTearDown(() => client.close(force: true));
+
+    expect(client.endpoint, endpoint.authUri);
+    expect(endpoint.mcpRequests, hasLength(1));
+    expect(endpoint.mcpRequests.single.authorization, isNull);
+    expect(endpoint.mcpRequests.single.sessionId, isNull);
+
+    final grant = await client.issueTicketToken(
+      realm: _ioAuthRealm,
+      authId: _ioAuthId,
+      ticket: _ioTicketSecret,
+    );
+    expect(grant.accessToken, _ioAccessToken);
+    expect(endpoint.authRequests, hasLength(2));
+  });
+
   test(
     'IO entrypoint re-exports bearer-token MCP client construction',
     () async {
@@ -2790,6 +2814,10 @@ final class _AuthBackedMcpEndpoint {
         : null;
     if (authorization != 'Bearer $_ioAccessToken' &&
         authorization != 'Bearer $_ioRefreshedAccessToken') {
+      request.response.headers.set(
+        HttpHeaders.wwwAuthenticateHeader,
+        'Bearer realm="$_ioAuthRealm", auth_path="/auth"',
+      );
       await _writeJson(request, const <String, Object?>{
         'error': <String, Object?>{'code': 401, 'message': 'unauthorized'},
       }, statusCode: HttpStatus.unauthorized);

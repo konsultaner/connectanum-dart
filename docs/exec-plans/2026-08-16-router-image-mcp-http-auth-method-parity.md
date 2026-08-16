@@ -1,6 +1,6 @@
 # Exec Plan: Router Image MCP HTTP-Auth Method Parity
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -112,8 +112,21 @@ Streamable HTTP path, and add SCRAM on the modern stateless path.
   native follow-ups, Chrome, and Dart2Wasm. The first run had one isolated
   multi-megabyte HTTP/3 handshake timeout after the preceding suites; the exact
   case passed immediately in isolation and passed again in the complete retry.
+- 2026-08-16: Commit `ec53a327` is published to both maintained `master`
+  branches. Exact-head CI `31962764195` passes Fast Checks, Full Verify, and
+  Dart VM Coverage; Router Image dry run `31962779317` passes the fresh amd64
+  image build, expanded loaded-image MCP smoke, and dry-run multi-architecture
+  build. Coverage artifact `9267901890`, Router Image preview `9267671173`, and
+  Docker build records `9267681408` and `9267681075` are available.
+- 2026-08-16: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and clean logs, current Router Image runtime and metadata
+  evidence, relevant package/native/WAMP gates, branch protection, workflow
+  visibility, and public router-package visibility ready. Its non-gating RC
+  summary remains intentionally not ready because no approved numeric RC tag
+  points at this implementation.
 
 ## Handoff
 
-- Active. Implementation, focused profile evidence, and canonical local
-  verification pass; publication and exact-head hosted image evidence remain.
+- Completed. Implementation, focused and canonical local verification,
+  publication to both maintained branches, exact-head hosted CI and image
+  evidence, and the comprehensive strict deployment-chain audit pass.
