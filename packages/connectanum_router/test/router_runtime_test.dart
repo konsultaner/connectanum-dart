@@ -837,6 +837,7 @@ Future<({String accessToken, String refreshToken})> _issueTicketHttpTokens({
   String authId = 'user-1',
   String? realm = 'realm1',
   String ticket = 'signed-token',
+  String authPath = '/auth',
 }) => _issueHttpBridgeTokens(
   runtime: runtime,
   listenerId: listenerId,
@@ -845,6 +846,7 @@ Future<({String accessToken, String refreshToken})> _issueTicketHttpTokens({
   realm: realm,
   authMethod: 'ticket',
   authSecret: ticket,
+  authPath: authPath,
 );
 
 Future<({String accessToken, String refreshToken})> _issueHttpBridgeTokens({
@@ -855,6 +857,7 @@ Future<({String accessToken, String refreshToken})> _issueHttpBridgeTokens({
   int startConnectionId = 60,
   String authId = 'user-1',
   String? realm = 'realm1',
+  String authPath = '/auth',
 }) async {
   final startBody = <String, Object?>{
     'realm': ?realm,
@@ -883,7 +886,7 @@ Future<({String accessToken, String refreshToken})> _issueHttpBridgeTokens({
     connectionId: startConnectionId,
     handle: startConnectionId - 40,
     method: 'POST',
-    target: '/auth',
+    target: authPath,
     headers: const {'content-type': 'application/json'},
     body: startBody,
     realm: 'router.http',
@@ -914,7 +917,7 @@ Future<({String accessToken, String refreshToken})> _issueHttpBridgeTokens({
     connectionId: startConnectionId + 1,
     handle: startConnectionId - 39,
     method: 'POST',
-    target: '/auth',
+    target: authPath,
     headers: const {'content-type': 'application/json'},
     body: <String, Object?>{
       'state': state,
@@ -1643,11 +1646,32 @@ RouterSettings _buildRouterSettingsWithHttpAuthProfileIsolation() {
           routes: <HttpRouteSettings>[
             ...http.routes,
             const HttpRouteSettings(
-              match: HttpRouteMatch(path: '/auth/alternate'),
+              match: HttpRouteMatch(path: '/auth/unusable'),
               action: HttpRouteAction(
                 type: HttpRouteActionType.auth,
                 sessionProfile: 'http-ticket-alternate',
               ),
+              methodActions: <String, HttpRouteAction>{
+                'GET': HttpRouteAction(
+                  type: HttpRouteActionType.rpc,
+                  realm: 'realm1',
+                  procedure: 'com.example.http.health',
+                ),
+              },
+            ),
+            const HttpRouteSettings(
+              match: HttpRouteMatch(path: '/auth/alternate'),
+              action: HttpRouteAction(
+                type: HttpRouteActionType.rpc,
+                realm: 'realm1',
+                procedure: 'com.example.http.health',
+              ),
+              methodActions: <String, HttpRouteAction>{
+                'POST': HttpRouteAction(
+                  type: HttpRouteActionType.auth,
+                  sessionProfile: 'http-ticket-alternate',
+                ),
+              },
             ),
             const HttpRouteSettings(
               match: HttpRouteMatch(path: '/mcp/secure-alternate'),
@@ -11635,6 +11659,46 @@ void main() {
       _enqueueSyntheticHttpRequest(
         runtime: runtime,
         listenerId: listenerId,
+        connectionId: 89,
+        handle: 49,
+        method: 'POST',
+        target: '/mcp/secure-alternate',
+        headers: const <String, String>{
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          HttpHeaders.contentTypeHeader: 'application/json',
+          'mcp-protocol-version': '2026-07-28',
+          'mcp-method': 'tools/list',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'alternate-profile-auth-discovery',
+          'method': 'tools/list',
+          'params': <String, Object?>{
+            '_meta': <String, Object?>{
+              'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+              'io.modelcontextprotocol/clientCapabilities': <String, Object?>{},
+            },
+          },
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[89]?.isNotEmpty ?? false);
+      final discoveryResponse = runtime.httpResponses[89]!.single;
+      expect(discoveryResponse.status, HttpStatus.unauthorized);
+      expect(
+        discoveryResponse.headers['www-authenticate'],
+        contains('auth_path="/auth/alternate"'),
+      );
+      expect(
+        discoveryResponse.headers['www-authenticate'],
+        isNot(contains('auth_path="/auth"')),
+      );
+      expect(discoveryResponse.headers, isNot(contains('mcp-session-id')));
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
         connectionId: 90,
         handle: 50,
         method: 'POST',
@@ -11838,6 +11902,46 @@ void main() {
       );
       await _waitUntil(() => runtime.httpResponses[98]?.isNotEmpty ?? false);
       expect(runtime.httpResponses[98]!.single.status, HttpStatus.ok);
+
+      final alternateGrant = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+        startConnectionId: 100,
+        authPath: '/auth/alternate',
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 102,
+        handle: 62,
+        method: 'POST',
+        target: '/mcp/secure-alternate',
+        headers: <String, String>{
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          HttpHeaders.contentTypeHeader: 'application/json',
+          HttpHeaders.authorizationHeader:
+              'Bearer ${alternateGrant.accessToken}',
+          'mcp-protocol-version': '2026-07-28',
+          'mcp-method': 'tools/list',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'alternate-profile-access',
+          'method': 'tools/list',
+          'params': <String, Object?>{
+            '_meta': <String, Object?>{
+              'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+              'io.modelcontextprotocol/clientCapabilities': <String, Object?>{},
+            },
+          },
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[102]?.isNotEmpty ?? false);
+      final alternateAccess = runtime.httpResponses[102]!.single;
+      expect(alternateAccess.status, HttpStatus.ok);
+      expect(alternateAccess.headers, isNot(contains('mcp-session-id')));
     },
   );
 

@@ -25196,6 +25196,30 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP auth/session-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-auth-route-discovery.md`.
+  Router-hosted Bearer challenges currently advertise the first exact auth
+  route whose base action is `auth`, without checking whether that route can
+  issue a grant for the protected route's resolved realm and session profile.
+  This can send a consumer to an intentionally incompatible auth profile, and
+  it ignores valid auth endpoints configured as `POST` method actions. The
+  active work adds a fail-first public HTTP regression and makes challenge
+  discovery select a compatible, POST-capable route. The regression first
+  failed with `auth_path="/auth"`; the fixed challenge advertises the
+  alternate-profile method-action endpoint, that endpoint issues its own
+  bound grant, and the grant completes a modern sessionless MCP tool request.
+  The focused regression passes five consecutive runs, the complete 100-test
+  router runtime suite passes, and router analysis is clean. Pre-change
+  and post-change `bin/test-fast` pass with all 97 benchmark tests, 37 live
+  WAMP workloads, and every maintained MCP consumer/CLI smoke. Canonical
+  `bin/verify` passes with zero formatting changes, 117 Rust core/serializer
+  tests, 52 native FFI tests, the feature-gated native metrics snapshot, 366
+  Dart core tests, 116 MCP tests, the complete 293-case MCP/client suite, all
+  97 benchmark tests including 37 live WAMP workloads, all 454 router cases,
+  six remote-auth tests, 13 native follow-ups, every maintained
+  consumer/global-activation smoke, Chrome, and Dart2Wasm. The implementation
+  is ready to publish; exact-head hosted workflows and the strict deployment-
+  chain audit remain.
+- Completed immediately before that:
   `docs/exec-plans/2026-08-16-mcp-route-match-scope-isolation.md`.
   Before this checkpoint, router-hosted MCP reduced each configured route
   match to `path`, `prefix`, or the incoming request path when it keys anonymous
@@ -25217,6 +25241,15 @@ at the older `47bbf9c` commit.
   MCP/client suite, all 97 benchmark tests including 37 live WAMP workloads,
   all 454 router cases, six remote-auth tests, 13 native follow-ups, every
   maintained consumer/global-activation smoke, Chrome, and Dart2Wasm.
+  Commit `b62321d1` is published to both maintained `master` branches.
+  Exact-head CI `31938376766`, Dart Package Publish Dry Run `31938376722`, WAMP
+  Profile Benchmarks `31938376734`, and Router Image dry run `31939258624` all
+  pass. Coverage artifact `9261540904`, WAMP artifact `9261400703`, Router
+  Image preview artifact `9261555369`, and Docker build records `9261615068`
+  and `9261614729` are available. Clean hosted-log scanning and the
+  comprehensive strict deployment-chain audit pass; its non-gating RC summary
+  remains intentionally not ready because no approved numeric RC tag points at
+  this implementation commit.
 - Completed immediately before that:
   `docs/exec-plans/2026-08-16-mcp-method-route-operation-capacity.md`.
   Method-specific HTTP actions are structurally equal effective route copies,

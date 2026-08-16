@@ -1,6 +1,6 @@
 # Exec Plan: MCP Route-Match Scope Isolation
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -60,8 +60,22 @@ configured route across request targets.
   MCP/client suite, all 97 benchmark tests including 37 live WAMP workloads,
   all 454 router cases, six remote-auth tests, 13 native follow-ups, every
   maintained consumer/global-activation smoke, Chrome, and Dart2Wasm.
+- 2026-08-16: Commit `b62321d1` was published to both maintained `master`
+  branches. Exact-head CI `31938376766`, Dart Package Publish Dry Run
+  `31938376722`, WAMP Profile Benchmarks `31938376734`, and Router Image dry
+  run `31939258624` all passed. Coverage artifact `9261540904`, WAMP artifact
+  `9261400703`, Router Image preview artifact `9261555369`, and Docker build
+  records `9261615068` and `9261614729` are available.
+- 2026-08-16: The comprehensive strict deployment-chain audit passed with
+  clean exact-head CI jobs and logs, package and native release dry-run
+  evidence, the loaded-image router-hosted MCP smoke, the multi-architecture
+  image build, WAMP benchmark evidence, workflow visibility, branch
+  protection, and public Router Image package visibility. Its non-gating RC
+  summary remains intentionally not ready because no approved numeric RC tag
+  points at this implementation commit.
 
 ## Handoff
 
-- Implementation and canonical local verification are complete; publication
-  and exact-head hosted deployment-chain evidence remain.
+- Complete. The implementation, local verification, publication, exact-head
+  hosted workflows, artifact evidence, and comprehensive strict audit all
+  pass.

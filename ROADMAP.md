@@ -556,6 +556,10 @@
     issuing listener and auth route, reject same-profile cross-route reuse
     before authenticator or grant mutation, and preserve the original route's
     refresh lifetime and rotation policy.
+  - [x] Make router-hosted Bearer challenges discover a `POST`-capable HTTP-auth
+    route whose resolved realm and session profile match the protected route,
+    including auth actions configured through per-method routing, so consumers
+    are not directed to an intentionally incompatible grant issuer.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

@@ -2087,13 +2087,21 @@ class RouterBinding {
           ? mcpRoute == null
                 ? _httpUnauthorizedHeaders(
                     realm: authRealm,
-                    authPath: _httpAuthPathFor(listenerSettings?.http),
+                    authPath: _httpAuthPathFor(
+                      listenerSettings?.http,
+                      sessionProfile: sessionProfile,
+                      realm: authRealm,
+                    ),
                   )
                 : _mcpUnauthorizedHeaders(
                     this,
                     route: mcpRoute,
                     realm: authRealm,
-                    authPath: _httpAuthPathFor(listenerSettings?.http),
+                    authPath: _httpAuthPathFor(
+                      listenerSettings?.http,
+                      sessionProfile: sessionProfile,
+                      realm: authRealm,
+                    ),
                   )
           : const <String, String>{};
       final responseHeaders = mcpRoute == null
@@ -2379,7 +2387,11 @@ class RouterBinding {
               status: HttpStatus.unauthorized,
               headers: _httpUnauthorizedHeaders(
                 realm: resolvedRealmUri,
-                authPath: _httpAuthPathFor(listenerSettings?.http),
+                authPath: _httpAuthPathFor(
+                  listenerSettings?.http,
+                  sessionProfile: sessionProfile,
+                  realm: resolvedRealmUri,
+                ),
               ),
               body: NativeHttpResponseJson(<String, Object?>{
                 'status': 'error',
@@ -2404,7 +2416,11 @@ class RouterBinding {
           status: HttpStatus.unauthorized,
           headers: _httpUnauthorizedHeaders(
             realm: resolvedRealmUri,
-            authPath: _httpAuthPathFor(listenerSettings?.http),
+            authPath: _httpAuthPathFor(
+              listenerSettings?.http,
+              sessionProfile: sessionProfile,
+              realm: resolvedRealmUri,
+            ),
           ),
           body: NativeHttpResponseJson(<String, Object?>{
             'status': 'error',
@@ -3057,7 +3073,11 @@ class RouterBinding {
               status: HttpStatus.unauthorized,
               headers: _httpUnauthorizedHeaders(
                 realm: resolvedRealmUri,
-                authPath: _httpAuthPathFor(listenerSettings?.http),
+                authPath: _httpAuthPathFor(
+                  listenerSettings?.http,
+                  sessionProfile: sessionProfile,
+                  realm: resolvedRealmUri,
+                ),
               ),
               body: NativeHttpResponseJson(<String, Object?>{
                 'status': 'error',
@@ -3081,7 +3101,11 @@ class RouterBinding {
           status: HttpStatus.unauthorized,
           headers: _httpUnauthorizedHeaders(
             realm: resolvedRealmUri,
-            authPath: _httpAuthPathFor(listenerSettings?.http),
+            authPath: _httpAuthPathFor(
+              listenerSettings?.http,
+              sessionProfile: sessionProfile,
+              realm: resolvedRealmUri,
+            ),
           ),
           body: NativeHttpResponseJson(<String, Object?>{
             'status': 'error',
@@ -5639,16 +5663,77 @@ class RouterBinding {
     };
   }
 
-  String _httpAuthPathFor(HttpListenerSettings? httpSettings) {
+  String _httpAuthPathFor(
+    HttpListenerSettings? httpSettings, {
+    required SessionProfileSettings? sessionProfile,
+    required String realm,
+  }) {
     if (httpSettings == null) {
       return '/auth';
     }
+    final targetProfileName = sessionProfile?.name;
+    final targetRealm = realm.trim();
     for (final route in httpSettings.routes) {
-      if (route.action.type == HttpRouteActionType.auth &&
-          route.match.path != null &&
-          route.match.path!.isNotEmpty) {
-        return route.match.path!;
+      final path = route.match.path?.trim();
+      if (path == null || path.isEmpty) {
+        continue;
       }
+
+      var hasMethodTargets = false;
+      HttpRouteAction? postAction;
+      for (final method in route.match.methods) {
+        final normalized = method.trim().toUpperCase();
+        if (normalized.isEmpty) {
+          continue;
+        }
+        hasMethodTargets = true;
+        if (normalized == 'POST') {
+          postAction = route.action;
+        }
+      }
+      for (final entry in route.methodActions.entries) {
+        final normalized = entry.key.trim().toUpperCase();
+        if (normalized.isEmpty) {
+          continue;
+        }
+        hasMethodTargets = true;
+        if (normalized == 'POST') {
+          postAction = entry.value;
+        }
+      }
+      if (!hasMethodTargets) {
+        postAction = route.action;
+      }
+      if (postAction?.type != HttpRouteActionType.auth) {
+        continue;
+      }
+
+      final actionProfileName = postAction?.sessionProfile?.trim();
+      final listenerProfileName = httpSettings.sessionProfile?.trim();
+      final candidateProfileName =
+          actionProfileName != null && actionProfileName.isNotEmpty
+          ? actionProfileName
+          : (listenerProfileName != null && listenerProfileName.isNotEmpty
+                ? listenerProfileName
+                : null);
+      if (candidateProfileName != targetProfileName) {
+        continue;
+      }
+
+      final candidateProfile = _resolveSessionProfile(candidateProfileName);
+      final actionRealm = postAction?.realm?.trim();
+      final profileRealm = candidateProfile?.realm?.trim();
+      final candidateRealm = actionRealm != null && actionRealm.isNotEmpty
+          ? actionRealm
+          : (profileRealm != null && profileRealm.isNotEmpty
+                ? profileRealm
+                : null);
+      if (candidateRealm != null &&
+          targetRealm.isNotEmpty &&
+          candidateRealm != targetRealm) {
+        continue;
+      }
+      return path;
     }
     return '/auth';
   }
