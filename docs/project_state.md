@@ -25196,6 +25196,29 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP auth/session-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-router-grant-session-profile-binding.md`.
+  Router HTTP-auth challenge, access-token, and refresh-token records persist
+  the issuing session profile, and the public bridge contract requires
+  protected routes to reference that same profile. The validation paths do not
+  currently compare the persisted profile with the current route, so a
+  same-realm alternate profile can complete challenge state, refresh a grant,
+  or use its bearer for router-hosted MCP. The checkpoint will reproduce all
+  three public boundaries, reject mismatches before internal WAMP session
+  creation, and preserve same-profile authentication, MCP, and refresh. The
+  fail-first challenge continuation returned HTTP 200 through the alternate
+  profile. Challenge continuation now consumes and aborts mismatched state;
+  refresh rejects a mismatch without rotating or invalidating the grant; and
+  bearer validation rejects it before internal-session lookup. All paths use a
+  secret-free `wrong_session_profile` response. The focused regression passes
+  six runs, router analysis is clean, all 10 HTTP-auth provider tests pass,
+  and the complete 98-case router runtime suite passes. Canonical `bin/verify`
+  passes formatting, 117 Rust core tests, 52 native FFI tests, 366 Dart core
+  tests, 116 MCP tests, the complete 293-case MCP/client suite, all 97
+  benchmark tests including 37 live WAMP workloads, all 448 router cases, six
+  remote-auth tests, 13 native follow-ups, every maintained consumer and
+  global-activation smoke, Chrome, and Dart2Wasm. Publication and exact-head
+  hosted evidence remain.
+- The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-router-grant-revocation-creation-race.md`.
   A protected request can read a router-issued access grant and then await
   first-use internal WAMP session creation while a concurrent revocation
@@ -25218,8 +25241,16 @@ at the older `47bbf9c` commit.
   Dart tests, 116 MCP tests, the complete 293-case MCP/client suite, all 97
   benchmark tests including 37 live WAMP workloads, all 447 router cases, six
   remote-auth tests, 13 native follow-ups, every maintained consumer and
-  global-activation smoke, Chrome, and Dart2Wasm. Publication and exact-head
-  hosted evidence remain.
+  global-activation smoke, Chrome, and Dart2Wasm. Commit `e18f5224` is
+  published to both maintained `master` branches. Exact-head CI `31916476178`,
+  Dart Package Publish Dry Run `31916476177`, WAMP Profile Benchmarks
+  `31916476172`, and Router Image dry run `31916572192` all pass with zero
+  check annotations. Coverage artifact `9255264285`, WAMP artifact
+  `9255101170`, Router Image preview artifact `9255060480`, and Docker build
+  records `9255121024` and `9255120680` are available. Clean hosted-log
+  scanning and the comprehensive strict deployment-chain audit pass; its
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation commit.
 - The most recently completed MCP session-readiness plan is
   `docs/exec-plans/2026-08-15-mcp-anonymous-session-creation-concurrency.md`.
   Concurrent HTTP handlers could all pass the completed anonymous-session

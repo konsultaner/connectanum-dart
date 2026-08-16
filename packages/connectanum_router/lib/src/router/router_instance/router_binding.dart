@@ -4648,6 +4648,14 @@ class RouterBinding {
       );
       return;
     }
+    if (pending.sessionProfileName != sessionProfile?.name) {
+      await pending.abort(reason: 'wrong_session_profile');
+      await _sendWrongHttpSessionProfileResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
 
     final pendingAuthId = pending.authId;
     if (pendingAuthId != null) {
@@ -4914,6 +4922,13 @@ class RouterBinding {
       );
       return;
     }
+    if (record.sessionProfileName != sessionProfile?.name) {
+      await _sendWrongHttpSessionProfileResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
 
     final allowedMethods = sessionProfile?.auth.methods ?? const <String>[];
     if (allowedMethods.isNotEmpty &&
@@ -5054,6 +5069,23 @@ class RouterBinding {
         'status': 'error',
         'reason': 'invalid_refresh_token',
         'message': 'Refresh token is unknown',
+      }),
+    ),
+  );
+
+  Future<void> _sendWrongHttpSessionProfileResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+  }) => _sendImmediateHttpResponse(
+    request: request,
+    handshake: handshake,
+    response: NativeHttpResponse(
+      status: HttpStatus.unauthorized,
+      headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+      body: NativeHttpResponseJson(const <String, Object?>{
+        'status': 'error',
+        'reason': 'wrong_session_profile',
+        'message': 'Credential is not valid for this session profile',
       }),
     ),
   );
@@ -5224,6 +5256,12 @@ class RouterBinding {
         throw const _HttpUnauthorized(
           reason: 'wrong_realm',
           message: 'Bearer token does not grant access to this realm',
+        );
+      }
+      if (record.sessionProfileName != sessionProfile?.name) {
+        throw const _HttpUnauthorized(
+          reason: 'wrong_session_profile',
+          message: 'Credential is not valid for this session profile',
         );
       }
       final allowedMethods = sessionProfile?.auth.methods;

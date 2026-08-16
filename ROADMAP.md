@@ -548,6 +548,10 @@
     protected MCP session creation, fail the request closed without returning a
     session header, and remove the created internal WAMP session from both
     binding caches and router state.
+  - [x] Bind router-issued HTTP-auth challenge state, access grants, and refresh
+    grants to their issuing session profile, reject same-realm cross-profile
+    reuse before internal WAMP session creation, and preserve same-profile MCP
+    access plus refresh rotation.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

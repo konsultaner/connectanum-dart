@@ -1,6 +1,6 @@
 # Exec Plan: MCP Router Grant Revocation During Session Creation
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -93,8 +93,21 @@ session creation must fail closed and release the new session.
   remote-auth tests; 13 native follow-ups; every maintained consumer and
   global-activation smoke; Chrome; and Dart2Wasm are green. No Dart pub retry
   was required.
+- 2026-08-16: Commit `e18f5224` is published to both maintained `master`
+  branches. Exact-head CI `31916476178`, Dart Package Publish Dry Run
+  `31916476177`, WAMP Profile Benchmarks `31916476172`, and Router Image dry
+  run `31916572192` all pass with zero check annotations. Coverage artifact
+  `9255264285`, WAMP artifact `9255101170`, Router Image preview artifact
+  `9255060480`, and Docker build records `9255121024` and `9255120680` are
+  available.
+- 2026-08-16: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and clean logs, package publishing, reusable native-release
+  evidence, loaded-image MCP smoke, multi-architecture image builds, WAMP
+  artifacts, branch protection, workflow visibility, and public router-package
+  visibility clean. The non-gating RC summary remains intentionally not ready
+  because no approved numeric RC tag points at this implementation commit.
 
 ## Handoff
 
-- Implementation and complete local verification are green. Publication to
-  both maintained remotes and exact-head hosted evidence remain pending.
+- Implementation, complete local verification, publication, exact-head hosted
+  evidence, and the comprehensive strict deployment-chain audit are complete.
