@@ -147,6 +147,48 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             body,
         )
 
+    def test_mcp_client_consumer_discovers_http_auth_route(self) -> None:
+        script = COMMON_SH.read_text(encoding="utf-8")
+        body = _function_body(
+            script,
+            "run_mcp_client_package_smoke",
+        )
+
+        self.assertIn(
+            "authClient = await McpStreamableHttpClient.discoverHttpAuthClient(",
+            body,
+        )
+        self.assertIn("realm: _authRealm", body)
+        self.assertIn("headers: const <String, String>{", body)
+        self.assertIn("httpAuthDiscoveryProbeCount", body)
+        self.assertIn("httpAuthDiscoverySawCallerState", body)
+        self.assertIn('auth_path="/auth"', body)
+        self.assertNotIn(
+            "authClient = ConnectanumHttpAuthClient(\n"
+            "      endpoint.authUri,\n"
+            "      headers:",
+            body,
+        )
+
+        router_body = _function_body(
+            script,
+            "run_router_cli_consumer_package_smoke",
+        )
+        self.assertIn(
+            "await McpStreamableHttpClient.discoverHttpAuthClient(",
+            router_body,
+        )
+        self.assertIn("realm: 'cli.smoke'", router_body)
+        self.assertNotIn(
+            "Future<ConnectanumHttpAuthClient> "
+            "_discoverConnectanumAuthClient(",
+            router_body,
+        )
+        self.assertNotIn(
+            "ConnectanumHttpAuthClient.fromMcpBearerChallenge(",
+            router_body,
+        )
+
     def test_generated_consumer_smokes_depend_on_public_mcp_entrypoint(self) -> None:
         script = COMMON_SH.read_text(encoding="utf-8")
         cases = {

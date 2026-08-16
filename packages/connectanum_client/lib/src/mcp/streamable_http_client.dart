@@ -1627,6 +1627,9 @@ final class McpStreamableHttpClient {
   /// with a Bearer challenge for [realm] that includes a safe `auth_path`
   /// parameter.
   ///
+  /// Default [headers] are applied only to the returned auth client. They are
+  /// never sent by the discovery probe.
+  ///
   /// When [httpClient] is omitted, the returned auth client owns the internally
   /// created transport. A supplied client remains caller-owned unless
   /// [closeHttpClient] is true.
@@ -1634,6 +1637,7 @@ final class McpStreamableHttpClient {
     Uri endpoint, {
     required String realm,
     HttpClient? httpClient,
+    Map<String, String> headers = const <String, String>{},
     Duration requestTimeout = defaultRequestTimeout,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
@@ -1682,6 +1686,7 @@ final class McpStreamableHttpClient {
               endpoint,
               challenge,
               httpClient: httpClient,
+              headers: headers,
               requestTimeout: requestTimeout,
               maxResponseBytes: maxResponseBytes,
               closeHttpClient: closeHttpClient,

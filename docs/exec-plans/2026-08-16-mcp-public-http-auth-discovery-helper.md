@@ -1,6 +1,6 @@
 # Exec Plan: MCP Public HTTP-Auth Discovery Helper
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -101,7 +101,13 @@ CLI's private credential-free probe, challenge selection, and same-origin
 - 2026-08-16: A clean strict release-ready dry run validates all seven
   synchronized `3.0.0-beta` Dart package archives, the public executable map,
   and dependency-ordered release plan with zero warnings.
+- 2026-08-16: Commit `0a643840` is published to both maintained feature-branch
+  remotes. Exact-head GitHub `CI` run `31967815026` passes Fast Checks, Full
+  Verify, and Dart VM Coverage, retaining coverage artifact `9269201509`.
+  Exact-head Dart Package Publish Dry Run `31967815059` also passes its strict
+  release-readiness gate.
 
 ## Handoff
 
-- Active. Review and publication remain; all local verification passes.
+- Completed. The public helper, CLI adoption, local verification, strict
+  package dry run, publication, and exact-head hosted checks all pass.

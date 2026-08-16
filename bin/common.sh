@@ -2583,11 +2583,21 @@ Future<void> main() async {
   McpStreamableHttpClient? client;
 
   try {
-    authClient = ConnectanumHttpAuthClient(
-      endpoint.authUri,
+    authClient = await McpStreamableHttpClient.discoverHttpAuthClient(
+      endpoint.uri,
+      realm: _authRealm,
       headers: const <String, String>{
         'x-consumer-default': 'client-auth-default',
       },
+    );
+    _expect(
+      authClient.endpoint == endpoint.authUri,
+      'HTTP auth discovery selected an unexpected endpoint',
+    );
+    _expect(
+      endpoint.httpAuthDiscoveryProbeCount == 1 &&
+          !endpoint.httpAuthDiscoverySawCallerState,
+      'HTTP auth discovery forwarded caller headers or MCP session state',
     );
     await _smokeNonJsonAuthError(endpoint);
 
@@ -7885,6 +7895,8 @@ final class _AgentMcpEndpoint {
   final _releaseBlockedResponseBody = Completer<void>();
   var sawDirectRequestWithoutSession = false;
   var sessionDeleted = false;
+  var httpAuthDiscoveryProbeCount = 0;
+  var httpAuthDiscoverySawCallerState = false;
   var authorizationDiscoveryProbeCount = 0;
   var protectedResourceMetadataRequestCount = 0;
   var authorizationServerMetadataRequestCount = 0;
@@ -8029,6 +8041,24 @@ final class _AgentMcpEndpoint {
             bearerToken != _refreshedAccessToken &&
             bearerToken != _oauthAccessToken &&
             bearerToken != _oauthRefreshedAccessToken)) {
+      final bodyText = await utf8.decoder.bind(request).join();
+      Object? requestId;
+      if (bodyText.isNotEmpty) {
+        final decoded = jsonDecode(bodyText);
+        if (decoded is Map<Object?, Object?>) {
+          requestId = decoded['id'];
+        }
+      }
+      if (requestId == 'http-auth-discovery') {
+        httpAuthDiscoveryProbeCount += 1;
+        if (request.headers.value('x-consumer-default') != null ||
+            request.headers.value(HttpHeaders.authorizationHeader) != null ||
+            request.headers.value(HttpHeaders.cookieHeader) != null ||
+            request.headers.value('MCP-Session-Id') != null ||
+            request.headers.value('Last-Event-ID') != null) {
+          httpAuthDiscoverySawCallerState = true;
+        }
+      }
       if (request.headers.value('x-consumer-trace') ==
           'authorization-discovery') {
         authorizationDiscoveryProbeCount += 1;
@@ -8036,7 +8066,8 @@ final class _AgentMcpEndpoint {
       }
       request.response.headers.set(
         HttpHeaders.wwwAuthenticateHeader,
-        'Bearer resource_metadata="$protectedResourceMetadataUri", '
+        'Bearer realm="$_authRealm", auth_path="/auth", '
+        'resource_metadata="$protectedResourceMetadataUri", '
         'scope="mcp:tools mcp:meta"',
       );
       await _writeError(request, HttpStatus.unauthorized, 'missing bearer');
@@ -30562,50 +30593,6 @@ Future<void> _expectNormalizedAllowedOriginAccepted({
   }
 }
 
-Future<ConnectanumHttpAuthClient> _discoverConnectanumAuthClient(
-  Uri endpoint,
-) async {
-  final challengeClient = McpStreamableHttpClient.stateless(
-    endpoint,
-    clientInfo: const <String, Object?>{
-      'name': 'router-cli-auth-discovery-smoke',
-      'version': '0.0.0',
-    },
-  );
-  try {
-    try {
-      await challengeClient.listToolsDirect(
-        id: 'dart-consumer-secure-auth-discovery',
-      );
-    } on McpStreamableHttpException catch (error) {
-      _expect(
-        error.statusCode == HttpStatus.unauthorized &&
-            error.bearerChallenges.length == 1,
-        'Dart consumer protected MCP challenge was incomplete.',
-      );
-      _expect(
-        challengeClient.sessionId == null &&
-            challengeClient.lastEventId == null,
-        'Dart consumer protected MCP challenge created session state.',
-      );
-      final challenge = error.bearerChallenges.single;
-      _expect(
-        challenge.realm == 'cli.smoke',
-        'Dart consumer protected MCP challenge realm changed.',
-      );
-      return ConnectanumHttpAuthClient.fromMcpBearerChallenge(
-        endpoint,
-        challenge,
-      );
-    }
-    throw StateError(
-      'Dart consumer protected MCP endpoint accepted a missing bearer grant.',
-    );
-  } finally {
-    challengeClient.close(force: true);
-  }
-}
-
 Future<void> main() async {
   final port = Platform.environment['MCP_PORT'] ?? '';
   _expect(port.isNotEmpty, 'MCP_PORT must be set.');
@@ -30634,9 +30621,11 @@ Future<void> main() async {
     await _expectNormalizedAllowedOriginAccepted(
       endpoint: normalizedOriginEndpoint,
     );
-    final discoveredAuthClient = await _discoverConnectanumAuthClient(
-      secureEndpoint,
-    );
+    final discoveredAuthClient =
+        await McpStreamableHttpClient.discoverHttpAuthClient(
+          secureEndpoint,
+          realm: 'cli.smoke',
+        );
     authClient = discoveredAuthClient;
     final authEndpoint = discoveredAuthClient.endpoint;
     _expect(

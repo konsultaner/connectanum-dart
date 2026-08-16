@@ -16,6 +16,9 @@ void main() {
         final client = await McpStreamableHttpClient.discoverHttpAuthClient(
           endpoint.mcpUri,
           realm: 'realm1',
+          headers: const <String, String>{
+            'x-consumer-default': 'auth-only',
+          },
         );
         addTearDown(() => client.close(force: true));
 
@@ -23,6 +26,7 @@ void main() {
         expect(endpoint.mcpRequests, hasLength(1));
         expect(endpoint.mcpRequests.single.authorization, isNull);
         expect(endpoint.mcpRequests.single.sessionId, isNull);
+        expect(endpoint.mcpRequests.single.consumerDefault, isNull);
         expect(endpoint.mcpRequests.single.body['method'], 'ping');
 
         final grant = await client.issueTicketToken(
@@ -35,6 +39,10 @@ void main() {
         expect(grant.realm, 'realm1');
         expect(grant.authId, 'consumer-1');
         expect(endpoint.authRequests, hasLength(2));
+        expect(
+          endpoint.authRequests.map((request) => request.consumerDefault),
+          everyElement('auth-only'),
+        );
         expect(endpoint.authRequests.first.path, '/auth/alternate');
         expect(endpoint.authRequests.first.body, <String, Object?>{
           'realm': 'realm1',
@@ -225,6 +233,7 @@ final class _FakeProtectedMcpEndpoint {
       path: request.uri.path,
       authorization: request.headers.value(HttpHeaders.authorizationHeader),
       sessionId: request.headers.value('MCP-Session-Id'),
+      consumerDefault: request.headers.value('x-consumer-default'),
       body: body,
     );
 
@@ -298,12 +307,14 @@ final class _SeenRequest {
     required this.path,
     required this.authorization,
     required this.sessionId,
+    required this.consumerDefault,
     required this.body,
   });
 
   final String path;
   final String? authorization;
   final String? sessionId;
+  final String? consumerDefault;
   final Map<String, Object?> body;
 }
 

@@ -24374,6 +24374,21 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-16: Both neutral generated MCP applications now use the public
+  `McpStreamableHttpClient.discoverHttpAuthClient` boundary instead of a
+  hard-coded auth endpoint or private challenge-selection helper. Caller
+  default headers configure only the returned HTTP-auth client; the fresh
+  discovery probe remains credential-free, sessionless, and caller-header-free.
+  Fail-first Dart and structural contracts reproduce both missing boundaries.
+  Eight focused discovery tests, 23 consumer-boundary checks, affected-package
+  analysis, the 117-case MCP package suite, the 304-case client/MCP suite, and
+  both isolated generated consumer smokes pass. Canonical `bin/verify` passes
+  with zero formatting changes, 117 Rust core/serializer checks, all 52 FFI
+  tests plus the metrics test mode, 366 Dart core tests, 117 MCP tests, the
+  complete 304-case client/MCP suite, all 97 benchmark tests with 37 live WAMP
+  workloads, all 454 router cases, six remote-auth tests, 13 native follow-ups,
+  every maintained isolated and globally activated consumer smoke, Chrome, and
+  Dart2Wasm.
 - 2026-08-16: Public router-hosted HTTP-auth discovery is now reusable through
   `McpStreamableHttpClient.discoverHttpAuthClient`. It validates the endpoint
   and realm before network I/O, probes through a fresh credential-free and
@@ -24391,7 +24406,11 @@ at the older `47bbf9c` commit.
   remote-auth tests, 13 native follow-ups, every maintained isolated consumer
   smoke, Chrome, and Dart2Wasm. A clean strict release-ready dry run validates
   all seven synchronized `3.0.0-beta` Dart package archives, public executable
-  entrypoints, and dependency-ordered release plan with zero warnings.
+  entrypoints, and dependency-ordered release plan with zero warnings. Commit
+  `0a643840` is published to both maintained feature-branch remotes. Exact-head
+  GitHub `CI` run `31967815026` passes Fast Checks, Full Verify, and Dart VM
+  Coverage with retained coverage artifact `9269201509`; Dart Package Publish
+  Dry Run `31967815059` passes the strict release-readiness gate.
 - 2026-08-14: Downstream applications can now derive a fail-closed,
   resource-bound OAuth authorization request from a live MCP HTTP 403 Bearer
   `insufficient_scope` response. The public helper accepts only one unambiguous
@@ -25214,6 +25233,17 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP downstream-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-consumer-http-auth-discovery-smoke.md`.
+  It closes the remaining direct consumer-boundary gap around the newly public
+  HTTP-auth discovery helper: caller-configured auth headers must apply only to
+  the returned auth client, never its fresh credential-free probe, and both
+  neutral generated MCP applications must use the public helper to discover
+  the advertised endpoint before completing their existing grant, direct JSON,
+  Streamable HTTP, WAMP meta, and pub/sub lifecycles. Pre-change
+  `bin/test-fast`, all focused client/package checks, and both isolated
+  generated consumer smokes pass. Canonical `bin/verify` also passes; the clean
+  strict package dry run, publication, and exact-head hosted evidence remain.
+- The most recently completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-public-http-auth-discovery-helper.md`.
   The published router-hosted client can discover a compatible HTTP-auth route
   from a credential-free Bearer challenge. The implementation now promotes its
@@ -25223,7 +25253,10 @@ at the older `47bbf9c` commit.
   reproduce private project logic. The published CLI delegates to that helper.
   Eight focused regressions, both public package boundaries, the structural
   consumer contract, source/global real-router smokes, and canonical
-  `bin/verify` pass; review and publication remain.
+  `bin/verify` pass. Commit `0a643840` is published to both maintained
+  feature-branch remotes; exact-head GitHub `CI` run `31967815026` and Dart
+  Package Publish Dry Run `31967815059` pass, with coverage artifact
+  `9269201509` retained.
 - The most recently completed Router Image downstream-readiness plan is
   `docs/exec-plans/2026-08-16-router-image-mcp-http-auth-method-parity.md`.
   The public client, source/global real-router smokes, and loaded Router Image
