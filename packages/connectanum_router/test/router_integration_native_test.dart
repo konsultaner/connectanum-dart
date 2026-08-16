@@ -5790,6 +5790,159 @@ void main() {
     );
 
     test(
+      'bounds MCP listener and WAMP subscription capacity for method-specific route actions',
+      () async {
+        final harness = await _RouterHarness.start(
+          connectionId: 91432,
+          nativeLib: nativeLib,
+          settings: _buildMcpSmokeSettings(
+            maxRequestScopedListenerCount: 1,
+            maxWampSubscriptionCount: 1,
+            secureMcpPostMethodAction: true,
+          ),
+        );
+        addTearDown(harness.dispose);
+
+        final listener = harness.binding.listeners.single;
+        final endpoint = Uri(
+          scheme: 'http',
+          host: '127.0.0.1',
+          port: listener.port,
+          path: '/mcp/secure',
+        );
+        final httpClient = HttpClient();
+        addTearDown(() => httpClient.close(force: true));
+        final primaryGrant = await _issueTicketHttpGrant(
+          httpClient,
+          listener.port,
+          authId: 'user-1',
+        );
+        final contenderGrant = await _issueTicketHttpGrant(
+          httpClient,
+          listener.port,
+          authId: 'user-2',
+        );
+        final primary = McpStreamableHttpClient.statelessWithAuthGrant(
+          endpoint,
+          primaryGrant,
+          clientInfo: const <String, Object?>{
+            'name': 'router-method-capacity-primary',
+            'version': '1.0.0',
+          },
+        );
+        final contender = McpStreamableHttpClient.statelessWithAuthGrant(
+          endpoint,
+          contenderGrant,
+          clientInfo: const <String, Object?>{
+            'name': 'router-method-capacity-contender',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => primary.close(force: true));
+        addTearDown(() => contender.close(force: true));
+
+        final primaryListener = await primary.listen(
+          id: 'method-listener-capacity-primary',
+          toolsListChanged: true,
+        );
+        addTearDown(primaryListener.close);
+        await expectLater(
+          contender.listen(id: 'method-listener-capacity-contender'),
+          throwsA(
+            isA<McpStreamableHttpException>()
+                .having(
+                  (error) => error.statusCode,
+                  'statusCode',
+                  HttpStatus.serviceUnavailable,
+                )
+                .having(
+                  (error) => error.body,
+                  'body',
+                  contains('request-scoped listener capacity is exhausted'),
+                )
+                .having(
+                  (error) => error.responseHeaders,
+                  'responseHeaders',
+                  isNot(contains('mcp-session-id')),
+                ),
+          ),
+        );
+        expect(contender.sessionId, isNull);
+        expect(contender.lastEventId, isNull);
+        expect(
+          await contender.pingDirect(id: 'method-listener-capacity-direct'),
+          containsPair('resultType', 'complete'),
+        );
+
+        final primarySubscription = await primary.subscribeWampTopicDirect(
+          'app.secure.audit',
+          id: 'method-wamp-capacity-primary',
+        );
+        await expectLater(
+          contender.subscribeWampTopicDirect(
+            'app.secure.audit',
+            id: 'method-wamp-capacity-contender',
+          ),
+          throwsA(
+            isA<McpStreamableWampToolException>().having(
+              (error) => error.message,
+              'message',
+              contains('WAMP subscription capacity is exhausted'),
+            ),
+          ),
+        );
+        expect(primary.sessionId, isNull);
+        expect(primary.lastEventId, isNull);
+        expect(contender.sessionId, isNull);
+        expect(contender.lastEventId, isNull);
+
+        await primary.unsubscribeWampTopicDirect(
+          primarySubscription.handle,
+          id: 'method-wamp-capacity-primary-release',
+        );
+        final recoveredSubscription = await contender.subscribeWampTopicDirect(
+          'app.secure.audit',
+          id: 'method-wamp-capacity-recovered',
+        );
+        final publication = await contender.publishWampEventDirect(
+          'app.secure.audit',
+          id: 'method-wamp-capacity-recovered-publish',
+          argumentsKeywords: const <String, Object?>{
+            'marker': 'method-route-capacity-recovered',
+          },
+          acknowledge: true,
+          options: const <String, Object?>{'exclude_me': false},
+        );
+        expect(publication.acknowledged, isTrue);
+        var events = await contender.pollWampEventsDirect(
+          recoveredSubscription.handle,
+          id: 'method-wamp-capacity-recovered-poll-0',
+        );
+        for (
+          var attempt = 1;
+          events.events.isEmpty && attempt < 50;
+          attempt++
+        ) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          events = await contender.pollWampEventsDirect(
+            recoveredSubscription.handle,
+            id: 'method-wamp-capacity-recovered-poll-$attempt',
+          );
+        }
+        expect(
+          jsonEncode(events.events),
+          contains('method-route-capacity-recovered'),
+        );
+        await contender.unsubscribeWampTopicDirect(
+          recoveredSubscription.handle,
+          id: 'method-wamp-capacity-recovered-release',
+        );
+        await primaryListener.close();
+      },
+      skip: skipReason,
+    );
+
+    test(
       'bounds compatibility MCP sessions per route without blocking auth or direct JSON',
       () async {
         final harness = await _RouterHarness.start(
@@ -17430,6 +17583,7 @@ final class _ConcurrentCatalogAuthorizationProvider
 RouterSettings _buildMcpSmokeSettings({
   bool enableHttp3 = false,
   HttpRouteMatch? secureMcpRouteMatch,
+  bool secureMcpPostMethodAction = false,
   int? sessionIdleTimeoutMs,
   int? maxSessionCount,
   int? maxRequestScopedListenerCount,
@@ -17663,6 +17817,17 @@ RouterSettings _buildMcpSmokeSettings({
       ),
     );
 
+  final secureMcpAction = HttpRouteAction(
+    type: HttpRouteActionType.mcp,
+    realm: 'realm1',
+    sessionProfile: 'mcp-ticket',
+    options: <String, Object?>{
+      ...mcpOptions,
+      'allow_insecure_transport': true,
+      'protected_resource_metadata': protectedResourceMetadata,
+    },
+  );
+
   final listener = ListenerSettingsBuilder('rawsocket', '127.0.0.1:0')
     ..setSessionProfile('public-wamp')
     ..addProtocol(ListenerProtocol.rawsocket)
@@ -17699,16 +17864,16 @@ RouterSettings _buildMcpSmokeSettings({
             match:
                 secureMcpRouteMatch ??
                 const HttpRouteMatch(path: '/mcp/secure'),
-            action: HttpRouteAction(
-              type: HttpRouteActionType.mcp,
-              realm: 'realm1',
-              sessionProfile: 'mcp-ticket',
-              options: <String, Object?>{
-                ...mcpOptions,
-                'allow_insecure_transport': true,
-                'protected_resource_metadata': protectedResourceMetadata,
-              },
-            ),
+            action: secureMcpPostMethodAction
+                ? const HttpRouteAction(
+                    type: HttpRouteActionType.rpc,
+                    procedure: 'com.example.http.health',
+                    realm: 'realm1',
+                  )
+                : secureMcpAction,
+            methodActions: secureMcpPostMethodAction
+                ? <String, HttpRouteAction>{'POST': secureMcpAction}
+                : const <String, HttpRouteAction>{},
           ),
           HttpRouteSettings(
             match: HttpRouteMatch(path: '/mcp/secure-json-post'),

@@ -65,3 +65,20 @@ create more compatibility sessions than its configured per-route limit.
   MCP/client suite, all 97 benchmark tests including 37 live WAMP workloads,
   all 451 router cases, six remote-auth tests, 13 native follow-ups, every
   maintained consumer/global-activation smoke, Chrome, and Dart2Wasm.
+- 2026-08-16: Commit `8fd577af` is published to both maintained `master`
+  branches. Exact-head CI `31929757341`, Dart Package Publish Dry Run
+  `31929757339`, WAMP Profile Benchmarks `31929757332`, and Router Image dry
+  run `31929778657` all pass. Coverage artifact `9259116378`, WAMP artifact
+  `9259003447`, Router Image preview artifact `9258935284`, and Docker build
+  records `9258981877` and `9258981731` are available.
+- 2026-08-16: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and clean logs, package publishing, reusable native-release
+  evidence, loaded-image MCP smoke, multi-architecture image builds, WAMP
+  artifacts, branch protection, workflow visibility, and public router-package
+  visibility clean. The non-gating RC summary remains intentionally not ready
+  because no approved numeric RC tag points at this implementation commit.
+
+## Handoff
+
+- Implementation, canonical local verification, publication, exact-head hosted
+  evidence, and the comprehensive strict deployment-chain audit are complete.

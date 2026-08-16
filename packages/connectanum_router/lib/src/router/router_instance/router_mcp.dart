@@ -3264,7 +3264,7 @@ extension _RouterBindingMcp on RouterBinding {
         .where(
           (endpoint) =>
               endpoint.listenerId == target.listenerId &&
-              identical(endpoint.route, target.route),
+              endpoint.route == target.route,
         )
         .fold<int>(
           0,
@@ -3285,7 +3285,7 @@ extension _RouterBindingMcp on RouterBinding {
         .where(
           (endpoint) =>
               endpoint.listenerId == target.listenerId &&
-              identical(endpoint.route, target.route),
+              endpoint.route == target.route,
         )
         .fold<int>(
           0,
