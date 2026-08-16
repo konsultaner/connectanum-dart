@@ -108,6 +108,84 @@ void main() {
     });
 
     test(
+      'rejects challenge identity drift before signing a response',
+      () async {
+        final cases = <Map<String, Object?>>[
+          const <String, Object?>{'realm': 'other-realm'},
+          const <String, Object?>{'authmethod': 'wampcra'},
+        ];
+
+        for (final challengeOverrides in cases) {
+          final untrustedIdentity = challengeOverrides.values.single as String;
+          final endpoint = await _FakeHttpAuthEndpoint.bind(
+            challengeOverrides: challengeOverrides,
+          );
+          addTearDown(endpoint.close);
+          final client = ConnectanumHttpAuthClient(endpoint.uri);
+          addTearDown(() => client.close(force: true));
+
+          await expectLater(
+            client.issueTicketToken(
+              realm: 'realm1',
+              authId: 'user-1',
+              ticket: 'ticket-secret',
+            ),
+            throwsA(
+              isA<ConnectanumHttpAuthProtocolException>().having(
+                (error) => error.message,
+                'message',
+                allOf(
+                  contains('does not match'),
+                  isNot(contains(untrustedIdentity)),
+                ),
+              ),
+            ),
+          );
+
+          expect(endpoint.requests, hasLength(1));
+        }
+      },
+    );
+
+    test('rejects issued grant identity drift', () async {
+      final cases = <Map<String, Object?>>[
+        const <String, Object?>{'realm': 'other-realm'},
+        const <String, Object?>{'authmethod': 'wampcra'},
+        const <String, Object?>{'authid': 'other-user'},
+      ];
+
+      for (final grantOverrides in cases) {
+        final untrustedIdentity = grantOverrides.values.single as String;
+        final endpoint = await _FakeHttpAuthEndpoint.bind(
+          grantOverrides: grantOverrides,
+        );
+        addTearDown(endpoint.close);
+        final client = ConnectanumHttpAuthClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.issueTicketToken(
+            realm: 'realm1',
+            authId: 'user-1',
+            ticket: 'ticket-secret',
+          ),
+          throwsA(
+            isA<ConnectanumHttpAuthProtocolException>().having(
+              (error) => error.message,
+              'message',
+              allOf(
+                contains('does not match'),
+                isNot(contains(untrustedIdentity)),
+              ),
+            ),
+          ),
+        );
+
+        expect(endpoint.requests, hasLength(2));
+      }
+    });
+
+    test(
       'forwards per-call headers while owning JSON request headers',
       () async {
         final endpoint = await _FakeHttpAuthEndpoint.bind();
@@ -485,6 +563,18 @@ void main() {
       () async {
         final cases = <(Map<String, Object?>, Matcher)>[
           (
+            const <String, Object?>{'realm': null},
+            contains('missing "realm"'),
+          ),
+          (
+            const <String, Object?>{'authmethod': null},
+            contains('missing "authmethod"'),
+          ),
+          (
+            const <String, Object?>{'authid': null},
+            contains('missing "authid"'),
+          ),
+          (
             const <String, Object?>{'realm': 123},
             contains('"realm" must be a string'),
           ),
@@ -581,6 +671,14 @@ void main() {
       'throws format exceptions for malformed auth challenge responses',
       () async {
         final cases = <(Map<String, Object?>, Matcher)>[
+          (
+            const <String, Object?>{'realm': null},
+            contains('missing "realm"'),
+          ),
+          (
+            const <String, Object?>{'authmethod': null},
+            contains('missing "authmethod"'),
+          ),
           (
             const <String, Object?>{'state': 'bad state'},
             contains('"state" must not contain whitespace'),
@@ -802,6 +900,8 @@ final class _FakeHttpAuthEndpoint {
       expect(body['authmethod'], authMethod);
       _writeJson(request, <String, Object?>{
         'state': 'state-1',
+        'realm': 'realm1',
+        'authmethod': authMethod,
         'challenge': challenge,
         ...challengeOverrides,
       }, statusCode: HttpStatus.unauthorized);

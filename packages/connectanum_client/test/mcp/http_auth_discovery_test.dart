@@ -267,6 +267,8 @@ final class _FakeProtectedMcpEndpoint {
           request,
           const <String, Object?>{
             'state': 'state-1',
+            'realm': 'realm1',
+            'authmethod': 'ticket',
             'challenge': <String, Object?>{'challenge': 'ticket'},
           },
           statusCode: HttpStatus.unauthorized,

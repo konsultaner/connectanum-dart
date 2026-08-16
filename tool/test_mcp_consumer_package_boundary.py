@@ -163,6 +163,13 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         self.assertIn("httpAuthDiscoveryProbeCount", body)
         self.assertIn("httpAuthDiscoverySawCallerState", body)
         self.assertIn('auth_path="/auth"', body)
+        self.assertIn(
+            "'state': _authState,\n"
+            "        'realm': _authRealm,\n"
+            "        'authmethod': 'ticket',\n"
+            "        'challenge': <String, Object?>{},",
+            body,
+        )
         self.assertNotIn(
             "authClient = ConnectanumHttpAuthClient(\n"
             "      endpoint.authUri,\n"

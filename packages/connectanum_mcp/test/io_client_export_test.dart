@@ -2774,6 +2774,8 @@ final class _AuthBackedMcpEndpoint {
           expect(jsonBody['authid'], _ioAuthId);
           await _writeJson(request, const <String, Object?>{
             'state': _ioAuthState,
+            'realm': _ioAuthRealm,
+            'authmethod': 'ticket',
             'challenge': <String, Object?>{},
           }, statusCode: HttpStatus.unauthorized);
           return;

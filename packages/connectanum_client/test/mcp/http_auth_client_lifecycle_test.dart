@@ -496,6 +496,8 @@ final class _LifecycleAuthEndpoint {
     if (!body.containsKey('state')) {
       return const <String, Object?>{
         'state': 'state-1',
+        'realm': 'realm1',
+        'authmethod': 'ticket',
         'challenge': <String, Object?>{},
       };
     }

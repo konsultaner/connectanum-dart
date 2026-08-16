@@ -24374,6 +24374,24 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-17: The public router HTTP-auth client now binds every challenge to
+  the requested realm and authentication method before computing a
+  secret-derived response, and binds every issued grant to the requested
+  realm, method, and auth ID before returning bearer credentials. Identity
+  drift fails through redacted typed protocol errors; missing and wrongly
+  typed authoritative fields remain malformed-response failures. Focused
+  HTTP-auth, discovery, lifecycle, and public-IO tests pass, the combined
+  client MCP and public MCP suite passes all 423 cases, affected-package
+  analysis is clean, all 23 consumer-boundary checks pass, and both the
+  standalone source/global client-only smoke and generated downstream
+  application smoke pass. The first full gate exposed and then protected an
+  outdated generated challenge fixture. Canonical `bin/verify` passes on the
+  corrected tree with zero formatting changes, 117 Rust core/serializer
+  checks, all 52 FFI tests plus the metrics test mode, 366 Dart core tests, 117
+  MCP tests, the complete 306-case client/MCP suite, all 97 benchmark tests
+  with 37 live WAMP workloads, all 454 router cases, six remote-auth tests, 13
+  native follow-ups, every maintained isolated and globally activated
+  consumer smoke, Chrome, and Dart2Wasm.
 - 2026-08-16: Both neutral generated MCP applications now use the public
   `McpStreamableHttpClient.discoverHttpAuthClient` boundary instead of a
   hard-coded auth endpoint or private challenge-selection helper. Caller
@@ -24388,7 +24406,14 @@ at the older `47bbf9c` commit.
   complete 304-case client/MCP suite, all 97 benchmark tests with 37 live WAMP
   workloads, all 454 router cases, six remote-auth tests, 13 native follow-ups,
   every maintained isolated and globally activated consumer smoke, Chrome, and
-  Dart2Wasm.
+  Dart2Wasm. Clean commit `6dea11e3` passes the strict release-ready dry run for
+  all seven synchronized `3.0.0-beta` archives with zero warnings and is
+  published to both maintained feature-branch remotes. Exact-head GitHub `CI`
+  run `31971823900` passes Fast Checks, Full Verify, and Dart VM Coverage with
+  retained coverage artifact `9270255155`; Dart Package Publish Dry Run
+  `31971823915` passes the strict release-readiness gate. The feature-branch
+  deployment-chain audit confirms exact-head CI/job/log cleanliness and current
+  package-run relevance.
 - 2026-08-16: Public router-hosted HTTP-auth discovery is now reusable through
   `McpStreamableHttpClient.discoverHttpAuthClient`. It validates the endpoint
   and realm before network I/O, probes through a fresh credential-free and
@@ -25233,6 +25258,17 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP downstream-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-http-auth-response-binding.md`. The public
+  HTTP-auth client now rejects challenge realm/method drift before invoking a
+  secret-bearing authentication response and rejects issued-grant
+  realm/method/auth-id drift before returning credentials, without echoing
+  attacker-controlled identity values. Positive package fixtures reproduce the
+  authoritative router response shape and are protected by a generated-boundary
+  assertion. Pre-change `bin/test-fast`, focused client/package checks, the
+  source/global client-only smoke, the generated downstream application smoke,
+  and canonical `bin/verify` pass; strict package validation, publication, and
+  exact-head hosted evidence remain.
+- The most recently completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-consumer-http-auth-discovery-smoke.md`.
   It closes the remaining direct consumer-boundary gap around the newly public
   HTTP-auth discovery helper: caller-configured auth headers must apply only to
@@ -25241,9 +25277,12 @@ at the older `47bbf9c` commit.
   the advertised endpoint before completing their existing grant, direct JSON,
   Streamable HTTP, WAMP meta, and pub/sub lifecycles. Pre-change
   `bin/test-fast`, all focused client/package checks, and both isolated
-  generated consumer smokes pass. Canonical `bin/verify` also passes; the clean
-  strict package dry run, publication, and exact-head hosted evidence remain.
-- The most recently completed MCP downstream-readiness plan is
+  generated consumer smokes and canonical `bin/verify` pass. Clean commit
+  `6dea11e3` is published to both maintained feature-branch remotes; exact-head
+  GitHub `CI` run `31971823900`, Dart Package Publish Dry Run `31971823915`,
+  retained coverage artifact `9270255155`, and the feature-branch clean-log
+  deployment audit are green.
+- The preceding completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-public-http-auth-discovery-helper.md`.
   The published router-hosted client can discover a compatible HTTP-auth route
   from a credential-free Bearer challenge. The implementation now promotes its

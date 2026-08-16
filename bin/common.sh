@@ -8766,6 +8766,8 @@ final class _AgentMcpEndpoint {
       request.response.statusCode = HttpStatus.unauthorized;
       await _writeJson(request, const <String, Object?>{
         'state': _authState,
+        'realm': _authRealm,
+        'authmethod': 'ticket',
         'challenge': <String, Object?>{},
       });
       return;

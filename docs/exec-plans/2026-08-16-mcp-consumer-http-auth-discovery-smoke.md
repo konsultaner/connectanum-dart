@@ -1,6 +1,6 @@
 # Exec Plan: MCP Consumer HTTP-Auth Discovery Smoke
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -103,8 +103,16 @@ lifecycle.
   benchmark tests with 37 live WAMP workloads, the 454-case router suite, six
   remote-auth tests, 13 native follow-ups, every maintained isolated and
   globally activated consumer smoke, Chrome, and Dart2Wasm.
+- 2026-08-16: Clean commit `6dea11e3` passes the strict release-ready dry run
+  for all seven synchronized `3.0.0-beta` package archives with zero warnings
+  and is published to both maintained feature-branch remotes. Exact-head GitHub
+  `CI` run `31971823900` passes Fast Checks, Full Verify, and Dart VM Coverage,
+  retaining coverage artifact `9270255155`; Dart Package Publish Dry Run
+  `31971823915` passes the strict release-readiness gate. The feature-branch
+  deployment-chain audit confirms exact-head CI/job/log cleanliness and current
+  package-run relevance.
 
 ## Handoff
 
-- Active. Implementation and all local verification pass; publication, the
-  clean strict package dry run, and exact-head hosted evidence remain.
+- Completed. Implementation, local verification, strict package validation,
+  publication, exact-head hosted checks, and clean-log audit all pass.

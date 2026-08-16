@@ -49,6 +49,9 @@
 - Re-export discovery-bound initial OAuth authorization requests and exercise
   issuer/resource binding plus active-session isolation through the public IO
   and isolated installed-package boundaries.
+- Fail closed through the public IO HTTP-auth boundary when router challenges
+  or issued grants drift from the requested realm, authentication method, or
+  auth ID.
 - Re-export the native OAuth loopback callback listener through the IO
   entrypoint and exercise it in the public authorization lifecycle.
 - Re-export validated in-place OAuth grant replacement so consumers can retry

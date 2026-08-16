@@ -182,6 +182,12 @@ final class ConnectanumHttpAuthClient {
         extraHeaders: headers,
         openRequest: openRequest,
       );
+      _validateAuthResponseIdentity(
+        challenge,
+        label: 'HTTP auth challenge',
+        realm: requestRealm,
+        authMethod: method,
+      );
       final state = _nonEmptyString(challenge['state'], 'state');
       final authenticate = await authentication.challenge(
         _challengeExtraFrom(challenge['challenge']),
@@ -200,7 +206,15 @@ final class ConnectanumHttpAuthClient {
         extraHeaders: headers,
         openRequest: openRequest,
       );
-      return ConnectanumHttpAuthGrant.fromJson(grant);
+      final parsedGrant = ConnectanumHttpAuthGrant.fromJson(grant);
+      _validateAuthResponseIdentity(
+        grant,
+        label: 'HTTP auth grant',
+        realm: requestRealm,
+        authMethod: method,
+        authId: requestAuthId,
+      );
+      return parsedGrant;
     });
   }
 
@@ -440,6 +454,41 @@ final class ConnectanumHttpAuthClient {
       name,
       '$name must not contain whitespace or control characters.',
     );
+  }
+
+  static void _validateAuthResponseIdentity(
+    Map<String, Object?> response, {
+    required String label,
+    required String realm,
+    required String authMethod,
+    String? authId,
+  }) {
+    final responseRealm = _nonEmptyString(response['realm'], 'realm');
+    if (responseRealm != realm) {
+      throw ConnectanumHttpAuthProtocolException(
+        '$label realm does not match the authentication request.',
+      );
+    }
+
+    final responseAuthMethod = _nonEmptyString(
+      response['authmethod'],
+      'authmethod',
+    );
+    if (responseAuthMethod != authMethod) {
+      throw ConnectanumHttpAuthProtocolException(
+        '$label authmethod does not match the authentication request.',
+      );
+    }
+
+    if (authId == null) {
+      return;
+    }
+    final responseAuthId = _nonEmptyString(response['authid'], 'authid');
+    if (responseAuthId != authId) {
+      throw ConnectanumHttpAuthProtocolException(
+        '$label authid does not match the authentication request.',
+      );
+    }
   }
 
   static Extra _challengeExtraFrom(Object? value) {
