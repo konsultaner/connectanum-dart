@@ -552,6 +552,10 @@
     grants to their issuing session profile, reject same-realm cross-profile
     reuse before internal WAMP session creation, and preserve same-profile MCP
     access plus refresh rotation.
+  - [x] Bind router-issued HTTP-auth challenge state and refresh grants to their
+    issuing listener and auth route, reject same-profile cross-route reuse
+    before authenticator or grant mutation, and preserve the original route's
+    refresh lifetime and rotation policy.
 - [x] WAMP profile transport benchmark production readiness
   - [x] Active after the first usable MCP path; use it to make
     RawSocket/WebSocket WAMP transport performance release-decision ready

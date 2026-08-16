@@ -1660,6 +1660,50 @@ RouterSettings _buildRouterSettingsWithHttpAuthProfileIsolation() {
   );
 }
 
+RouterSettings _buildRouterSettingsWithHttpAuthRouteIsolation() {
+  final base = _buildRouterSettingsWithHttpAuthBridge();
+  final listener = base.listeners.single;
+  final http = listener.http!;
+
+  return base.copyWith(
+    listeners: <ListenerSettings>[
+      ListenerSettings(
+        type: listener.type,
+        endpoint: listener.endpoint,
+        authmethods: listener.authmethods,
+        sessionProfile: listener.sessionProfile,
+        path: listener.path,
+        tls: listener.tls,
+        options: listener.options,
+        protocols: listener.protocols,
+        rawsocket: listener.rawsocket,
+        websocket: listener.websocket,
+        http: HttpListenerSettings(
+          alpn: http.alpn,
+          http3: http.http3,
+          sessionProfile: http.sessionProfile,
+          options: http.options,
+          routes: <HttpRouteSettings>[
+            ...http.routes,
+            const HttpRouteSettings(
+              match: HttpRouteMatch(path: '/auth/alternate'),
+              action: HttpRouteAction(
+                type: HttpRouteActionType.auth,
+                sessionProfile: 'http-ticket',
+                options: <String, Object?>{
+                  'token_ttl_ms': 120000,
+                  'refresh_token_ttl_ms': 600000,
+                  'rotate_refresh_tokens': false,
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
 RouterSettings _buildRouterSettingsWithHttpJwtProvider() {
   final builder = RouterSettingsBuilder()
     ..addRealmFromBuilder(
@@ -11270,6 +11314,176 @@ void main() {
       await _waitUntil(() => runtime.httpResponses[75]?.isNotEmpty ?? false);
       final activeAccess = runtime.httpResponses[75]!.single;
       expect(activeAccess.status, HttpStatus.ok);
+    },
+  );
+
+  test(
+    'auth bridge binds challenge and refresh policy to the issuing route',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthRouteIsolation(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+      final baselineSessionCount =
+          (await binding.collectMetrics()).sessionCount;
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 90,
+        handle: 50,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: const <String, Object?>{
+          'realm': 'realm1',
+          'authmethod': 'ticket',
+          'authid': 'user-1',
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[90]?.isNotEmpty ?? false);
+      final challengeResponse = runtime.httpResponses[90]!.single;
+      expect(challengeResponse.status, HttpStatus.unauthorized);
+      final challenge = _jsonResponseBody(challengeResponse);
+      final authenticate = await TicketAuthentication(
+        'signed-token',
+      ).challenge(Extra());
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 91,
+        handle: 51,
+        method: 'POST',
+        target: '/auth/alternate',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'state': challenge['state'],
+          'signature': authenticate.signature,
+          'extra': authenticate.extra,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[91]?.isNotEmpty ?? false);
+      final crossRouteCompletion = runtime.httpResponses[91]!.single;
+      expect(crossRouteCompletion.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(crossRouteCompletion)['reason'],
+        'wrong_auth_route',
+      );
+      expect(
+        _jsonResponseBody(crossRouteCompletion),
+        isNot(anyOf(contains('access_token'), contains('refresh_token'))),
+      );
+
+      final grant = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+        startConnectionId: 92,
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 94,
+        handle: 54,
+        method: 'POST',
+        target: '/auth/alternate',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': grant.refreshToken,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[94]?.isNotEmpty ?? false);
+      final crossRouteRefresh = runtime.httpResponses[94]!.single;
+      expect(crossRouteRefresh.status, HttpStatus.unauthorized);
+      expect(
+        _jsonResponseBody(crossRouteRefresh)['reason'],
+        'wrong_auth_route',
+      );
+      expect(
+        _jsonResponseBody(crossRouteRefresh),
+        isNot(anyOf(contains('access_token'), contains('refresh_token'))),
+      );
+      expect(
+        (await binding.collectMetrics()).sessionCount,
+        baselineSessionCount,
+      );
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 95,
+        handle: 55,
+        method: 'POST',
+        target: '/auth',
+        headers: const {'content-type': 'application/json'},
+        body: <String, Object?>{
+          'grant_type': 'refresh_token',
+          'refresh_token': grant.refreshToken,
+        },
+        realm: 'router.http',
+        procedure: 'router.http.auth',
+      );
+      await _waitUntil(() => runtime.httpResponses[95]?.isNotEmpty ?? false);
+      final refreshed = runtime.httpResponses[95]!.single;
+      expect(refreshed.status, HttpStatus.ok);
+      final refreshedBody = _jsonResponseBody(refreshed);
+      final refreshedAccessToken = refreshedBody['access_token'] as String;
+      expect(refreshedBody['refresh_token'], isNot(grant.refreshToken));
+
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 96,
+        handle: 56,
+        method: 'POST',
+        target: '/mcp/secure',
+        headers: <String, String>{
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          HttpHeaders.contentTypeHeader: 'application/json',
+          HttpHeaders.authorizationHeader: 'Bearer $refreshedAccessToken',
+          'mcp-protocol-version': '2026-07-28',
+          'mcp-method': 'tools/list',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'same-route-refreshed-access',
+          'method': 'tools/list',
+          'params': <String, Object?>{
+            '_meta': <String, Object?>{
+              'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+              'io.modelcontextprotocol/clientCapabilities': <String, Object?>{},
+            },
+          },
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[96]?.isNotEmpty ?? false);
+      expect(runtime.httpResponses[96]!.single.status, HttpStatus.ok);
     },
   );
 

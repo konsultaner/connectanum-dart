@@ -25196,6 +25196,26 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP auth/session-readiness plan is
+  `docs/exec-plans/2026-08-16-mcp-router-auth-route-policy-binding.md`.
+  Router challenge and refresh records retain the issuing realm and session
+  profile, but not the auth route. Challenge completion and refresh resolve
+  access-token lifetime, refresh-token lifetime, and rotation from the current
+  route, so two routes that share a profile can exchange state or refresh
+  tokens and select the alternate route's grant policy. Pending challenge and
+  refresh records now retain the issuing listener and effective auth route;
+  mismatches fail with a secret-free `wrong_auth_route` response before any
+  authenticator or grant mutation. The fail-first regression proves both
+  public boundaries, preserves the rejected refresh token, then rotates it on
+  the issuing route and uses the successor bearer on protected MCP. Pre-change
+  `bin/test-fast`, five focused runs, router analysis, all 22 auth-bridge cases,
+  and the complete 99-case router runtime suite pass. Canonical `bin/verify`
+  passes formatting, 117 Rust core tests, 52 native FFI tests, 366 Dart core
+  tests, 116 MCP tests, the complete 293-case MCP/client suite, all 97
+  benchmark tests including 37 live WAMP workloads, all 449 router cases, six
+  remote-auth tests, 13 native follow-ups, every maintained consumer and
+  global-activation smoke, Chrome, and Dart2Wasm. Publication and hosted
+  deployment evidence remain in progress.
+- The most recently completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-router-grant-session-profile-binding.md`.
   Router HTTP-auth challenge, access-token, and refresh-token records persist
   the issuing session profile, and the public bridge contract requires
@@ -25216,9 +25236,17 @@ at the older `47bbf9c` commit.
   tests, 116 MCP tests, the complete 293-case MCP/client suite, all 97
   benchmark tests including 37 live WAMP workloads, all 448 router cases, six
   remote-auth tests, 13 native follow-ups, every maintained consumer and
-  global-activation smoke, Chrome, and Dart2Wasm. Publication and exact-head
-  hosted evidence remain.
-- The most recently completed MCP auth/session-readiness plan is
+  global-activation smoke, Chrome, and Dart2Wasm. Commit `cc6eb677` is
+  published to both maintained `master` branches. Exact-head CI `31919491504`,
+  Dart Package Publish Dry Run `31919491519`, WAMP Profile Benchmarks
+  `31919491524`, and Router Image dry run `31919511688` all pass with zero
+  check annotations. Coverage artifact `9256127063`, WAMP artifact
+  `9255983600`, Router Image preview artifact `9255913078`, and Docker build
+  records `9255961308` and `9255961016` are available. Clean hosted-log
+  scanning and the comprehensive strict deployment-chain audit pass; its
+  non-gating RC summary remains intentionally not ready because no approved
+  numeric RC tag points at this implementation commit.
+- The prior completed MCP auth/session-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-router-grant-revocation-creation-race.md`.
   A protected request can read a router-issued access grant and then await
   first-use internal WAMP session creation while a concurrent revocation

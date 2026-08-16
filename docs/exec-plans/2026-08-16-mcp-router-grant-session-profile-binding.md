@@ -1,6 +1,6 @@
 # Exec Plan: MCP Router Grant Session-Profile Binding
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -92,8 +92,21 @@ MCP through a different same-realm profile.
   workloads, all 448 router cases, six remote-auth tests, 13 native
   follow-ups, every maintained consumer and global-activation smoke, Chrome,
   and Dart2Wasm. No Dart pub retry was required.
+- 2026-08-16: Commit `cc6eb677` is published to both maintained `master`
+  branches. Exact-head CI `31919491504`, Dart Package Publish Dry Run
+  `31919491519`, WAMP Profile Benchmarks `31919491524`, and Router Image dry
+  run `31919511688` all pass with zero check annotations. Coverage artifact
+  `9256127063`, WAMP artifact `9255983600`, Router Image preview artifact
+  `9255913078`, and Docker build records `9255961308` and `9255961016` are
+  available.
+- 2026-08-16: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and clean logs, package publishing, reusable native-release
+  evidence, loaded-image MCP smoke, multi-architecture image builds, WAMP
+  artifacts, branch protection, workflow visibility, and public router-package
+  visibility clean. The non-gating RC summary remains intentionally not ready
+  because no approved numeric RC tag points at this implementation commit.
 
 ## Handoff
 
-- Implementation and complete local verification are green. Publication to
-  both maintained remotes and exact-head hosted evidence remain pending.
+- Implementation, complete local verification, publication, exact-head hosted
+  evidence, and the comprehensive strict deployment-chain audit are complete.

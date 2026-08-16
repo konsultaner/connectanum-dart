@@ -4242,6 +4242,10 @@ class RouterBinding {
           authenticator: authenticator,
           context: context,
           sessionProfileName: sessionProfile?.name,
+          routeScope: _HttpAuthRouteScope(
+            listenerId: request.listenerId,
+            route: route,
+          ),
           expiresAt: now.add(
             Duration(milliseconds: timeoutMs > 0 ? timeoutMs : 10000),
           ),
@@ -4278,6 +4282,10 @@ class RouterBinding {
           authRole: result.success!.authRole,
           details: result.success!.details,
           sessionProfileName: sessionProfile?.name,
+          routeScope: _HttpAuthRouteScope(
+            listenerId: request.listenerId,
+            route: route,
+          ),
           route: route,
           listenerSettings: listenerSettings,
           realmSettings: realmSettings,
@@ -4656,6 +4664,17 @@ class RouterBinding {
       );
       return;
     }
+    if (!pending.routeScope.matches(
+      listenerId: request.listenerId,
+      route: route,
+    )) {
+      await pending.abort(reason: 'wrong_auth_route');
+      await _sendWrongHttpAuthRouteResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
 
     final pendingAuthId = pending.authId;
     if (pendingAuthId != null) {
@@ -4803,6 +4822,7 @@ class RouterBinding {
           details: result.success!.details,
           sessionProfileName:
               pending.sessionProfileName ?? sessionProfile?.name,
+          routeScope: pending.routeScope,
           route: route,
           listenerSettings: listenerSettings,
           realmSettings: realmSettings,
@@ -4929,6 +4949,16 @@ class RouterBinding {
       );
       return;
     }
+    if (!record.routeScope.matches(
+      listenerId: request.listenerId,
+      route: route,
+    )) {
+      await _sendWrongHttpAuthRouteResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
 
     final allowedMethods = sessionProfile?.auth.methods ?? const <String>[];
     if (allowedMethods.isNotEmpty &&
@@ -5009,6 +5039,7 @@ class RouterBinding {
           authRole: record.authRole,
           details: record.details,
           sessionProfileName: record.sessionProfileName ?? sessionProfile?.name,
+          routeScope: record.routeScope,
           route: route,
           listenerSettings: listenerSettings,
           realmSettings: realmSettings,
@@ -5086,6 +5117,23 @@ class RouterBinding {
         'status': 'error',
         'reason': 'wrong_session_profile',
         'message': 'Credential is not valid for this session profile',
+      }),
+    ),
+  );
+
+  Future<void> _sendWrongHttpAuthRouteResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+  }) => _sendImmediateHttpResponse(
+    request: request,
+    handshake: handshake,
+    response: NativeHttpResponse(
+      status: HttpStatus.unauthorized,
+      headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+      body: NativeHttpResponseJson(const <String, Object?>{
+        'status': 'error',
+        'reason': 'wrong_auth_route',
+        'message': 'Credential is not valid for this authentication route',
       }),
     ),
   );
@@ -5978,6 +6026,7 @@ class RouterBinding {
     required String authRole,
     required Map<String, Object?> details,
     required String? sessionProfileName,
+    required _HttpAuthRouteScope routeScope,
     required HttpRouteSettings? route,
     required ListenerSettings? listenerSettings,
     required RealmSettings realmSettings,
@@ -6005,6 +6054,7 @@ class RouterBinding {
         authRole: authRole,
         details: Map<String, Object?>.unmodifiable(details),
         sessionProfileName: sessionProfileName,
+        routeScope: routeScope,
         expiresAt: DateTime.now().toUtc().add(refreshTtl),
       );
       _httpRefreshTokens[refreshToken] = refreshRecord;
@@ -8253,6 +8303,21 @@ class _HttpAuthGrantCapacityDecision {
   }
 }
 
+class _HttpAuthRouteScope {
+  const _HttpAuthRouteScope({
+    required this.listenerId,
+    required this.route,
+  });
+
+  final int listenerId;
+  final HttpRouteSettings route;
+
+  bool matches({
+    required int listenerId,
+    required HttpRouteSettings route,
+  }) => this.listenerId == listenerId && this.route == route;
+}
+
 class _PendingHttpAuthTransaction {
   const _PendingHttpAuthTransaction({
     required this.state,
@@ -8262,6 +8327,7 @@ class _PendingHttpAuthTransaction {
     required this.authenticator,
     required this.context,
     required this.sessionProfileName,
+    required this.routeScope,
     required this.expiresAt,
   });
 
@@ -8272,6 +8338,7 @@ class _PendingHttpAuthTransaction {
   final Authenticator authenticator;
   final AuthenticatorContext context;
   final String? sessionProfileName;
+  final _HttpAuthRouteScope routeScope;
   final DateTime expiresAt;
 
   _PendingHttpAuthTransaction copyWith({String? state, DateTime? expiresAt}) {
@@ -8283,6 +8350,7 @@ class _PendingHttpAuthTransaction {
       authenticator: authenticator,
       context: context,
       sessionProfileName: sessionProfileName,
+      routeScope: routeScope,
       expiresAt: expiresAt ?? this.expiresAt,
     );
   }
@@ -8345,6 +8413,7 @@ class _HttpRefreshTokenRecord {
     required this.authRole,
     required this.details,
     required this.sessionProfileName,
+    required this.routeScope,
     required this.expiresAt,
     Set<String>? accessTokens,
   }) : accessTokens = accessTokens ?? <String>{};
@@ -8357,6 +8426,7 @@ class _HttpRefreshTokenRecord {
   final String authRole;
   final Map<String, Object?> details;
   final String? sessionProfileName;
+  final _HttpAuthRouteScope routeScope;
   final DateTime expiresAt;
   final Set<String> accessTokens;
 
