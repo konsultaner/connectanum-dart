@@ -1,6 +1,6 @@
 # Exec Plan: MCP Router Auth-Route Policy Binding
 
-Status: active
+Status: complete
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-16
@@ -89,8 +89,21 @@ able to switch routes after starting authentication or receiving a grant.
   workloads, all 449 router cases, six remote-auth tests, 13 native
   follow-ups, every maintained consumer and global-activation smoke, Chrome,
   and Dart2Wasm.
+- 2026-08-16: Commit `2e396db9` is published to both maintained `master`
+  branches. Exact-head CI `31922573492`, Dart Package Publish Dry Run
+  `31922573433`, WAMP Profile Benchmarks `31922573486`, and Router Image dry
+  run `31922585553` all pass with zero check annotations. Coverage artifact
+  `9256980631`, WAMP artifact `9256871984`, Router Image preview artifact
+  `9256814016`, and Docker build records `9256869519` and `9256869276` are
+  available.
+- 2026-08-16: The comprehensive strict deployment-chain audit exits zero with
+  exact-head CI and clean logs, package publishing, reusable native-release
+  evidence, loaded-image MCP smoke, multi-architecture image builds, WAMP
+  artifacts, branch protection, workflow visibility, and public router-package
+  visibility clean. The non-gating RC summary remains intentionally not ready
+  because no approved numeric RC tag points at this implementation commit.
 
 ## Handoff
 
-- Implementation and canonical local verification are complete. Publication
-  and exact-head hosted deployment evidence remain in progress.
+- Implementation, canonical local verification, publication, exact-head hosted
+  evidence, and the comprehensive strict deployment-chain audit are complete.

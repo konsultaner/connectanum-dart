@@ -835,7 +835,7 @@ Future<({String accessToken, String refreshToken})> _issueTicketHttpTokens({
   required int listenerId,
   int startConnectionId = 60,
   String authId = 'user-1',
-  String realm = 'realm1',
+  String? realm = 'realm1',
   String ticket = 'signed-token',
 }) => _issueHttpBridgeTokens(
   runtime: runtime,
@@ -854,20 +854,24 @@ Future<({String accessToken, String refreshToken})> _issueHttpBridgeTokens({
   required String authSecret,
   int startConnectionId = 60,
   String authId = 'user-1',
-  String realm = 'realm1',
+  String? realm = 'realm1',
 }) async {
   final startBody = <String, Object?>{
-    'realm': realm,
+    'realm': ?realm,
     'authmethod': authMethod,
     'authid': authId,
   };
   ScramAuthentication? scramAuthentication;
   if (authMethod == 'scram') {
+    final scramRealm = realm;
+    if (scramRealm == null) {
+      throw ArgumentError('SCRAM HTTP auth test grants require a realm');
+    }
     scramAuthentication = ScramAuthentication(authSecret);
     final helloDetails = Details.forHello()
       ..authmethods = [authMethod]
       ..authid = authId;
-    await scramAuthentication.hello(realm, helloDetails);
+    await scramAuthentication.hello(scramRealm, helloDetails);
     startBody['authextra'] = Map<String, Object?>.from(
       helloDetails.authextra ?? const <String, Object?>{},
     );
@@ -1700,6 +1704,24 @@ RouterSettings _buildRouterSettingsWithHttpAuthRouteIsolation() {
           ],
         ),
       ),
+    ],
+  );
+}
+
+RouterSettings _buildRouterSettingsWithHttpAuthRealmPolicyBinding() {
+  final base = _buildRouterSettingsWithHttpAuthBridge();
+
+  return base.copyWith(
+    realms: <RealmSettings>[
+      ...base.realms,
+      (RealmSettingsBuilder('realm2')
+            ..setLimits(const RealmLimitSettings(maxPendingAuth: 1))
+            ..addAuthMethod(
+              'ticket',
+              options: const {'authenticator': 'ticket-basic'},
+            )
+            ..addRoleFromBuilder(RoleSettingsBuilder('member')))
+          .build(),
     ],
   );
 }
@@ -11314,6 +11336,103 @@ void main() {
       await _waitUntil(() => runtime.httpResponses[75]?.isNotEmpty ?? false);
       final activeAccess = runtime.httpResponses[75]!.single;
       expect(activeAccess.status, HttpStatus.ok);
+    },
+  );
+
+  test(
+    'auth bridge binds initial realm selectors to configured route policy',
+    () async {
+      final runtime = _HandleRuntime();
+      final router = Router(
+        RouterConfig(
+          endpoints: [
+            Endpoint(
+              host: '127.0.0.1',
+              port: 0,
+              tlsMode: TlsMode.native,
+              maxRawSocketSizeExponent: 16,
+              sniCertificates: [_cert('localhost')],
+            ),
+          ],
+        ),
+        settings: _buildRouterSettingsWithHttpAuthRealmPolicyBinding(),
+      );
+
+      final binding = router.start(runtime);
+      addTearDown(binding.dispose);
+      await Future<void>.delayed(Duration.zero);
+      final listenerId = binding.listeners.single.listenerId;
+
+      for (var attempt = 0; attempt < 3; attempt++) {
+        final connectionId = 120 + attempt;
+        _enqueueSyntheticHttpRequest(
+          runtime: runtime,
+          listenerId: listenerId,
+          connectionId: connectionId,
+          handle: 80 + attempt,
+          method: 'POST',
+          target: '/auth',
+          query: attempt == 1 ? 'realm=realm2' : null,
+          headers: <String, String>{
+            'content-type': 'application/json',
+            if (attempt == 2) 'x-connectanum-realm': 'realm2',
+          },
+          body: <String, Object?>{
+            if (attempt == 0) 'realm': 'realm2',
+            'authmethod': 'ticket',
+            'authid': 'user-1',
+          },
+          realm: 'router.http',
+          procedure: 'router.http.auth',
+        );
+        await _waitUntil(
+          () => runtime.httpResponses[connectionId]?.isNotEmpty ?? false,
+        );
+        final rejected = runtime.httpResponses[connectionId]!.single;
+        expect(rejected.status, HttpStatus.unauthorized);
+        expect(_jsonResponseBody(rejected)['reason'], 'wrong_realm');
+        expect(
+          _jsonResponseBody(rejected),
+          isNot(anyOf(contains('state'), contains('access_token'))),
+        );
+      }
+
+      final grant = await _issueTicketHttpTokens(
+        runtime: runtime,
+        listenerId: listenerId,
+        startConnectionId: 123,
+        realm: null,
+      );
+      _enqueueSyntheticHttpRequest(
+        runtime: runtime,
+        listenerId: listenerId,
+        connectionId: 125,
+        handle: 85,
+        method: 'POST',
+        target: '/mcp/secure',
+        headers: <String, String>{
+          HttpHeaders.acceptHeader: 'application/json, text/event-stream',
+          HttpHeaders.contentTypeHeader: 'application/json',
+          HttpHeaders.authorizationHeader: 'Bearer ${grant.accessToken}',
+          'mcp-protocol-version': '2026-07-28',
+          'mcp-method': 'tools/list',
+        },
+        body: const <String, Object?>{
+          'jsonrpc': '2.0',
+          'id': 'configured-realm-access',
+          'method': 'tools/list',
+          'params': <String, Object?>{
+            '_meta': <String, Object?>{
+              'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+              'io.modelcontextprotocol/clientCapabilities': <String, Object?>{},
+            },
+          },
+        },
+        realm: 'realm1',
+        procedure: 'router.http.mcp',
+      );
+      await _waitUntil(() => runtime.httpResponses[125]?.isNotEmpty ?? false);
+      expect(runtime.httpResponses[125]!.single.status, HttpStatus.ok);
     },
   );
 

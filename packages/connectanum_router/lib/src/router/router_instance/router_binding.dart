@@ -3991,13 +3991,21 @@ class RouterBinding {
     final authId = authIdSelectors.isEmpty ? null : authIdSelectors.single;
 
     registerDefaultAuthenticators();
-    final realmUri = _resolveHttpAuthRealm(
+    final realmResolution = _resolveHttpAuthRealm(
       request: request,
       route: route,
       sessionProfile: sessionProfile,
       body: body,
       query: query,
     );
+    if (realmResolution.conflictsPolicy) {
+      await _sendWrongHttpAuthRealmResponse(
+        request: request,
+        handshake: handshake,
+      );
+      return;
+    }
+    final realmUri = realmResolution.realmUri;
     if (realmUri == null || realmUri.isEmpty) {
       await _sendImmediateHttpResponse(
         request: request,
@@ -5138,6 +5146,23 @@ class RouterBinding {
     ),
   );
 
+  Future<void> _sendWrongHttpAuthRealmResponse({
+    required RouterHttpRequest request,
+    required NativeHttpHandshake? handshake,
+  }) => _sendImmediateHttpResponse(
+    request: request,
+    handshake: handshake,
+    response: NativeHttpResponse(
+      status: HttpStatus.unauthorized,
+      headers: const {HttpHeaders.wwwAuthenticateHeader: 'Bearer'},
+      body: NativeHttpResponseJson(const <String, Object?>{
+        'status': 'error',
+        'reason': 'wrong_realm',
+        'message': 'Requested realm is not valid for this authentication route',
+      }),
+    ),
+  );
+
   Future<void> _handleHttpRevokeGrant({
     required RouterHttpRequest request,
     required NativeHttpHandshake? handshake,
@@ -5218,38 +5243,33 @@ class RouterBinding {
     return null;
   }
 
-  String? _resolveHttpAuthRealm({
+  ({String? realmUri, bool conflictsPolicy}) _resolveHttpAuthRealm({
     required RouterHttpRequest request,
     required HttpRouteSettings route,
     required SessionProfileSettings? sessionProfile,
     required Map<String, Object?> body,
     required Map<String, String> query,
   }) {
-    final bodyRealm = _firstNonEmptyString(body['realm']);
-    if (bodyRealm != null) {
-      return bodyRealm;
+    final requestedRealm = _firstNonEmptyString(
+      body['realm'],
+      query['realm'],
+      _headerValue(request.headers, 'x-connectanum-realm'),
+    );
+    final routeRealm = _firstNonEmptyString(route.action.realm);
+    final profileRealm = _firstNonEmptyString(sessionProfile?.realm);
+    final configuredRealm = routeRealm ?? profileRealm;
+    if (configuredRealm != null) {
+      return (
+        realmUri: configuredRealm,
+        conflictsPolicy:
+            requestedRealm != null && requestedRealm != configuredRealm,
+      );
     }
-    final queryRealm = _firstNonEmptyString(query['realm']);
-    if (queryRealm != null) {
-      return queryRealm;
-    }
-    final headerRealm = _headerValue(request.headers, 'x-connectanum-realm');
-    if (headerRealm != null && headerRealm.isNotEmpty) {
-      return headerRealm;
-    }
-    final routeRealm = route.action.realm?.trim();
-    if (routeRealm != null && routeRealm.isNotEmpty) {
-      return routeRealm;
-    }
-    final profileRealm = sessionProfile?.realm?.trim();
-    if (profileRealm != null && profileRealm.isNotEmpty) {
-      return profileRealm;
-    }
-    final requestRealm = request.realm?.trim();
-    if (requestRealm != null && requestRealm.isNotEmpty) {
-      return requestRealm;
-    }
-    return null;
+    final requestRealm = _firstNonEmptyString(request.realm);
+    return (
+      realmUri: requestedRealm ?? requestRealm,
+      conflictsPolicy: false,
+    );
   }
 
   Future<_ConfiguredHttpAuthProvider?> _configuredHttpAuthProviderFor(
