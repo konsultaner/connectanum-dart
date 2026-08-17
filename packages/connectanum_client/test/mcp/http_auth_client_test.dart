@@ -91,6 +91,22 @@ void main() {
       expect(grant.authEndpoint, endpoint.uri);
       expect(grant.isForAuthEndpoint(endpoint.uri), isTrue);
       expect(
+        grant.isForMcpEndpoint(endpoint.uri.replace(path: '/mcp')),
+        isTrue,
+      );
+      expect(
+        grant.isForMcpEndpoint(
+          endpoint.uri.replace(path: '/mcp', port: endpoint.uri.port + 1),
+        ),
+        isFalse,
+      );
+      expect(
+        grant.isForMcpEndpoint(
+          endpoint.uri.replace(path: '/mcp', userInfo: 'unexpected'),
+        ),
+        isFalse,
+      );
+      expect(
         grant.isForAuthEndpoint(endpoint.uri.replace(path: '/other-auth')),
         isFalse,
       );

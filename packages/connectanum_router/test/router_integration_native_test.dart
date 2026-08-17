@@ -19224,7 +19224,15 @@ Future<ConnectanumHttpAuthGrant> _issueTicketHttp3Grant(
   expect(success.statusCode, equals(HttpStatus.ok), reason: success.body);
   final successJson = success.json;
   expect(successJson, isNotNull);
-  return ConnectanumHttpAuthGrant.fromJson(successJson!);
+  return ConnectanumHttpAuthGrant.fromJson(
+    successJson!,
+    authEndpoint: Uri(
+      scheme: 'https',
+      host: '127.0.0.1',
+      port: port,
+      path: '/auth',
+    ),
+  );
 }
 
 Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
@@ -19255,7 +19263,15 @@ Future<ConnectanumHttpAuthGrant> _issueTicketHttpGrant(
   expect(success.statusCode, equals(HttpStatus.ok), reason: success.body);
   final successJson = success.json;
   expect(successJson, isNotNull);
-  return ConnectanumHttpAuthGrant.fromJson(successJson!);
+  return ConnectanumHttpAuthGrant.fromJson(
+    successJson!,
+    authEndpoint: Uri(
+      scheme: 'http',
+      host: '127.0.0.1',
+      port: port,
+      path: '/auth',
+    ),
+  );
 }
 
 int _parseContentLength(String headers) {

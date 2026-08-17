@@ -1825,6 +1825,8 @@ final class McpStreamableHttpClient {
        );
 
   /// Creates a sessionless MCP 2026 client using an HTTP auth bridge grant.
+  ///
+  /// The grant's issuing auth endpoint must share [endpoint]'s HTTP origin.
   McpStreamableHttpClient.statelessWithAuthGrant(
     Uri endpoint,
     ConnectanumHttpAuthGrant grant, {
@@ -1884,6 +1886,8 @@ final class McpStreamableHttpClient {
   }
 
   /// Creates a client for MCP HTTP endpoints using an HTTP auth bridge grant.
+  ///
+  /// The grant's issuing auth endpoint must share [endpoint]'s HTTP origin.
   McpStreamableHttpClient.withAuthGrant(
     Uri endpoint,
     ConnectanumHttpAuthGrant grant, {
@@ -1901,7 +1905,7 @@ final class McpStreamableHttpClient {
          endpoint,
          httpClient: httpClient,
          subscriptionHttpClientFactory: subscriptionHttpClientFactory,
-         headers: _headersWithAuthGrant(headers, grant),
+         headers: _headersWithAuthGrant(endpoint, headers, grant),
          clientInfo: clientInfo,
          clientCapabilities: clientCapabilities,
          defaultProtocolVersion: defaultProtocolVersion,
@@ -2030,9 +2034,15 @@ final class McpStreamableHttpClient {
   }
 
   static Map<String, String> _headersWithAuthGrant(
+    Uri endpoint,
     Map<String, String> headers,
     ConnectanumHttpAuthGrant grant,
   ) {
+    if (!grant.isForMcpEndpoint(endpoint)) {
+      throw ArgumentError(
+        'grant.authEndpoint must share the MCP endpoint HTTP origin.',
+      );
+    }
     final tokenType = grant.tokenType.trim();
     if (tokenType.toLowerCase() != 'bearer') {
       throw ArgumentError.value(
@@ -2335,15 +2345,20 @@ final class McpStreamableHttpClient {
 
   /// Replaces the router HTTP-auth grant used for subsequent MCP requests.
   ///
-  /// The [grant] must contain a valid Bearer access token. Streamable HTTP
-  /// session, resume, protocol, request, and connection state remain unchanged.
+  /// The [grant] must contain a valid Bearer access token issued by an auth
+  /// endpoint that shares this client's HTTP origin. Streamable HTTP session,
+  /// resume, protocol, request, and connection state remain unchanged.
   /// Requests already in flight keep their captured credential, and a delayed
   /// 401 or failed initialize for that credential cannot clear the replacement
   /// authorization state's active session. Refresh timing and request retries
   /// stay caller-controlled.
   void replaceAuthGrant(ConnectanumHttpAuthGrant grant) {
     final authorizationHeader = _authorizationHeaderFrom(
-      _headersWithAuthGrant(const <String, String>{}, grant),
+      _headersWithAuthGrant(
+        endpoint,
+        const <String, String>{},
+        grant,
+      ),
     );
     _authorizationHeader = authorizationHeader;
     _authorizationStateToken = Object();

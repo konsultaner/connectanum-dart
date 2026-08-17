@@ -4223,9 +4223,10 @@ Future<void> _smokeAuthGrantRotationConcurrency(
     );
     await endpoint.waitForBlockedResponse();
     client.replaceAuthGrant(
-      const ConnectanumHttpAuthGrant(
+      ConnectanumHttpAuthGrant(
         accessToken: _refreshedAccessToken,
         tokenType: 'Bearer',
+        authEndpoint: endpoint.uri.replace(path: '/auth'),
       ),
     );
     endpoint.releaseBlockedResponse();
@@ -4268,7 +4269,11 @@ Future<void> _smokeAuthGrantRotationConcurrency(
   final initializeEndpoint = await _AgentMcpEndpoint.bind();
   final initializeClient = McpStreamableHttpClient.withAuthGrant(
     initializeEndpoint.uri,
-    grant,
+    ConnectanumHttpAuthGrant(
+      accessToken: grant.accessToken,
+      tokenType: grant.tokenType,
+      authEndpoint: initializeEndpoint.uri.replace(path: '/auth'),
+    ),
   );
   try {
     await initializeClient.initialize(
@@ -4287,9 +4292,10 @@ Future<void> _smokeAuthGrantRotationConcurrency(
     );
     await initializeEndpoint.waitForBlockedResponse();
     initializeClient.replaceAuthGrant(
-      const ConnectanumHttpAuthGrant(
+      ConnectanumHttpAuthGrant(
         accessToken: _refreshedAccessToken,
         tokenType: 'Bearer',
+        authEndpoint: initializeEndpoint.uri.replace(path: '/auth'),
       ),
     );
     initializeEndpoint.releaseBlockedResponse();
@@ -4335,7 +4341,14 @@ Future<void> _smokeResumeCursorConcurrency(
   ConnectanumHttpAuthGrant grant,
 ) async {
   final endpoint = await _AgentMcpEndpoint.bind();
-  final client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
+  final client = McpStreamableHttpClient.withAuthGrant(
+    endpoint.uri,
+    ConnectanumHttpAuthGrant(
+      accessToken: grant.accessToken,
+      tokenType: grant.tokenType,
+      authEndpoint: endpoint.uri.replace(path: '/auth'),
+    ),
+  );
   try {
     await client.initialize(id: 'resume-cursor-concurrency-initialize');
     _expect(
@@ -4381,7 +4394,14 @@ Future<void> _smokeToolCatalogStateIntegrity(
   ConnectanumHttpAuthGrant grant,
 ) async {
   final endpoint = await _AgentMcpEndpoint.bind();
-  final client = McpStreamableHttpClient.withAuthGrant(endpoint.uri, grant);
+  final client = McpStreamableHttpClient.withAuthGrant(
+    endpoint.uri,
+    ConnectanumHttpAuthGrant(
+      accessToken: grant.accessToken,
+      tokenType: grant.tokenType,
+      authEndpoint: endpoint.uri.replace(path: '/auth'),
+    ),
+  );
   try {
     await client.listToolsDirect(
       id: 'tool-catalog-valid',
@@ -17517,8 +17537,25 @@ Future<void> _smokeSecureMcpGrant(
   ConnectanumHttpAuthGrant grant, {
   required String label,
 }) async {
+  final endpoint = _mcpEndpoint(binding, secure: true);
+  if (!grant.isForMcpEndpoint(endpoint)) {
+    throw StateError('Secure MCP grant $label lost its issuing origin.');
+  }
+  McpStreamableHttpClient? unexpectedForeignClient;
+  try {
+    unexpectedForeignClient = McpStreamableHttpClient.withAuthGrant(
+      endpoint.replace(port: endpoint.port + 1),
+      grant,
+    );
+  } on ArgumentError {
+    // Expected: grant-aware clients cannot move the bearer to another origin.
+  }
+  if (unexpectedForeignClient != null) {
+    unexpectedForeignClient.close(force: true);
+    throw StateError('Secure MCP grant $label authorized another origin.');
+  }
   final directClient = McpStreamableHttpClient.withAuthGrant(
-    _mcpEndpoint(binding, secure: true),
+    endpoint,
     grant,
   );
   McpStreamableHttpClient? streamableClient;

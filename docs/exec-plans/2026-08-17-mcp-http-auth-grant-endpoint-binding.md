@@ -1,6 +1,6 @@
 # Exec Plan: MCP HTTP-Auth Grant Endpoint Binding
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-17
 Last updated: 2026-08-17
@@ -116,8 +116,23 @@ grant for refresh or revocation.
   globally activated consumer smoke, Chrome, and Dart2Wasm. The strict 20-case
   release-ready package dry run and 22-case deployment-audit regression suite
   also pass.
+- 2026-08-17: Clean commit `dc659d69` (`Bind router HTTP auth grants to
+  endpoints`) is published to both maintained feature-branch remotes.
+  Exact-head GitHub `CI` run `31985169075` passes Fast Checks job
+  `95258798895`, Full Verify job `95259923186`, and Dart VM Coverage job
+  `95259923149`; retained coverage artifact `9273825960` has digest
+  `sha256:ba97b09c00d93a62729598a9e9eb644c930823002a834c301ed226f018ffeead`.
+  Dart Package Publish Dry Run `31985169098` passes job `95258799020` and
+  covers the exact head.
+- 2026-08-17: The strict protected-release baseline passes from an isolated
+  `master` worktree at `ec53a327`, including protected required checks,
+  exact-head CI/job/log cleanliness, package-run relevance, workflow
+  visibility, and public router-package visibility. The feature-branch audit
+  also passes with exact-head CI/job/log cleanliness, current package-run
+  relevance, workflow visibility, and router-package visibility.
 
 ## Handoff
 
-- Active. Implementation and local verification are complete; publication,
-  exact-head hosted workflows, and deployment-chain audits remain.
+- Completed. The implementation, local verification, publication, exact-head
+  hosted workflows, retained coverage evidence, protected-release baseline,
+  and feature-branch deployment-chain audit pass.

@@ -933,6 +933,28 @@ final class ConnectanumHttpAuthGrant {
     return authEndpoint?.toString() == candidate.toString();
   }
 
+  /// Whether this grant's issuing auth endpoint shares [candidate]'s HTTP
+  /// origin.
+  bool isForMcpEndpoint(Uri candidate) {
+    final issuer = authEndpoint;
+    if (issuer == null) {
+      return false;
+    }
+    final issuerScheme = issuer.scheme.toLowerCase();
+    final candidateScheme = candidate.scheme.toLowerCase();
+    return issuer.isAbsolute &&
+        candidate.isAbsolute &&
+        (issuerScheme == 'http' || issuerScheme == 'https') &&
+        candidateScheme == issuerScheme &&
+        issuer.host.isNotEmpty &&
+        issuer.host.toLowerCase() == candidate.host.toLowerCase() &&
+        issuer.port == candidate.port &&
+        issuer.userInfo.isEmpty &&
+        candidate.userInfo.isEmpty &&
+        !issuer.hasFragment &&
+        !candidate.hasFragment;
+  }
+
   static String _requiredToken(Object? value, String key) {
     if (value == null) {
       throw FormatException('HTTP auth response is missing "$key".');

@@ -44,12 +44,15 @@ calls for frontend clients that do not need the MCP `initialize` lifecycle.
 Consumer clients can use `McpStreamableHttpClient` from
 `package:connectanum_mcp/connectanum_mcp_io.dart`, including
 `ConnectanumHttpAuthClient` plus `McpStreamableHttpClient.withAuthGrant(...)`
-for bearer-protected routes that issue HTTP auth bridge grants. Use the
-explicit `stateless` constructors for `2026-07-28`; this keeps the modern
-request-scoped lifecycle separate from session-era initialize/poll/delete. HTTP
-auth issue, challenge, refresh, and revoke operations have one configurable
-total deadline and accept only a configurable number of raw response bytes
-before UTF-8/JSON decoding; overflow errors do not include the response body.
+for bearer-protected routes that issue HTTP auth bridge grants. Grant-aware
+Streamable and stateless clients require the grant's issuing auth endpoint to
+share the MCP endpoint's HTTP origin; use the raw bearer-token APIs only when
+the application deliberately owns that authority decision. Use the explicit
+`stateless` constructors for `2026-07-28`; this keeps the modern request-scoped
+lifecycle separate from session-era initialize/poll/delete. HTTP auth issue,
+challenge, refresh, and revoke operations have one configurable total deadline
+and accept only a configurable number of raw response bytes before UTF-8/JSON
+decoding; overflow errors do not include the response body.
 Tool execution failures are returned as MCP tool results with `isError: true`;
 malformed JSON-RPC messages, unknown methods, and invalid parameters remain
 protocol errors.

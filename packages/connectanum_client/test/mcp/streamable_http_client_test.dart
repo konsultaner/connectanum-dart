@@ -272,9 +272,10 @@ void main() {
       'validates and forwards operation limits across constructors',
       () async {
         final endpoint = Uri.parse('http://127.0.0.1/mcp');
-        const authGrant = ConnectanumHttpAuthGrant(
+        final authGrant = ConnectanumHttpAuthGrant(
           accessToken: 'auth-token',
           tokenType: 'Bearer',
+          authEndpoint: endpoint.replace(path: '/auth'),
         );
         final oauthGrant = _testOAuthGrant(
           endpoint,
@@ -998,9 +999,10 @@ void main() {
 
         final client = McpStreamableHttpClient.statelessWithAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'initial-listener-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
           clientInfo: const <String, Object?>{
             'name': 'consumer-test',
@@ -1014,9 +1016,10 @@ void main() {
           toolsListChanged: true,
         );
         client.replaceAuthGrant(
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'replacement-tool-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
 
@@ -1062,9 +1065,10 @@ void main() {
 
         final client = McpStreamableHttpClient.statelessWithAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'initial-listener-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
           clientInfo: const <String, Object?>{
             'name': 'consumer-test',
@@ -1078,9 +1082,10 @@ void main() {
           toolsListChanged: true,
         );
         client.replaceAuthGrant(
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'replacement-pubsub-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
 
@@ -1156,9 +1161,10 @@ void main() {
 
         final client = McpStreamableHttpClient.statelessWithAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'initial-listener-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
           clientInfo: const <String, Object?>{
             'name': 'consumer-test',
@@ -1172,9 +1178,10 @@ void main() {
           toolsListChanged: true,
         );
         client.replaceAuthGrant(
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'replacement-streamable-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
         client.protocolVersion =
@@ -5432,9 +5439,10 @@ void main() {
         expect(
           () => McpStreamableHttpClient.withAuthGrant(
             endpoint.uri,
-            const ConnectanumHttpAuthGrant(
+            ConnectanumHttpAuthGrant(
               accessToken: 'grant token',
               tokenType: 'Bearer',
+              authEndpoint: endpoint.uri.replace(path: '/auth'),
             ),
           ),
           throwsArgumentError,
@@ -5448,9 +5456,10 @@ void main() {
 
       final client = McpStreamableHttpClient.withAuthGrant(
         endpoint.uri,
-        const ConnectanumHttpAuthGrant(
+        ConnectanumHttpAuthGrant(
           accessToken: ' grant-token ',
           tokenType: 'bearer',
+          authEndpoint: endpoint.uri.replace(path: '/auth'),
         ),
         headers: const <String, String>{
           HttpHeaders.authorizationHeader: 'Bearer stale-token',
@@ -5499,6 +5508,109 @@ void main() {
       expect(client.sessionId, isNull);
     });
 
+    test('rejects HTTP auth grants outside the MCP endpoint origin', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      final foreignEndpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+      addTearDown(foreignEndpoint.close);
+
+      McpStreamableHttpClient? constructedClient;
+      addTearDown(() => constructedClient?.close(force: true));
+
+      expect(
+        () => constructedClient = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          ConnectanumHttpAuthGrant(
+            accessToken: 'foreign-grant-token',
+            tokenType: 'Bearer',
+            authEndpoint: foreignEndpoint.uri.replace(path: '/auth'),
+          ),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () =>
+            constructedClient = McpStreamableHttpClient.statelessWithAuthGrant(
+              endpoint.uri,
+              const ConnectanumHttpAuthGrant(
+                accessToken: 'unknown-origin-token',
+                tokenType: 'Bearer',
+              ),
+              clientInfo: const <String, Object?>{
+                'name': 'origin-bound-client',
+                'version': '1.0.0',
+              },
+            ),
+        throwsArgumentError,
+      );
+
+      final sameOriginClient = McpStreamableHttpClient.withAuthGrant(
+        endpoint.uri,
+        ConnectanumHttpAuthGrant(
+          accessToken: 'same-origin-token',
+          tokenType: 'Bearer',
+          authEndpoint: endpoint.uri.replace(path: '/auth'),
+        ),
+      );
+      addTearDown(() => sameOriginClient.close(force: true));
+      await sameOriginClient.initialize(id: 'same-origin-initialize');
+
+      expect(
+        endpoint.requests.single.authorization,
+        'Bearer same-origin-token',
+      );
+      expect(foreignEndpoint.requests, isEmpty);
+    });
+
+    test('rejects cross-origin grant replacement atomically', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      final foreignEndpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+      addTearDown(foreignEndpoint.close);
+
+      final client = McpStreamableHttpClient.withAuthGrant(
+        endpoint.uri,
+        ConnectanumHttpAuthGrant(
+          accessToken: 'initial-origin-token',
+          tokenType: 'Bearer',
+          authEndpoint: endpoint.uri.replace(path: '/auth'),
+        ),
+      );
+      addTearDown(() => client.close(force: true));
+
+      await client.initialize(id: 'origin-replacement-initialize');
+      client.lastEventId = 'session-1:origin-replacement:kept';
+
+      expect(
+        () => client.replaceAuthGrant(
+          ConnectanumHttpAuthGrant(
+            accessToken: 'foreign-origin-token',
+            tokenType: 'Bearer',
+            authEndpoint: foreignEndpoint.uri.replace(path: '/auth'),
+          ),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => client.replaceAuthGrant(
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'unknown-origin-token',
+            tokenType: 'Bearer',
+          ),
+        ),
+        throwsArgumentError,
+      );
+
+      await client.ping(id: 'origin-replacement-ping');
+      expect(client.sessionId, 'session-1');
+      expect(client.lastEventId, 'session-1:origin-replacement:kept');
+      expect(
+        endpoint.requests.last.authorization,
+        'Bearer initial-origin-token',
+      );
+      expect(foreignEndpoint.requests, isEmpty);
+    });
+
     test(
       'replaces refreshed HTTP auth grants on the same session atomically',
       () async {
@@ -5507,9 +5619,10 @@ void main() {
 
         final client = McpStreamableHttpClient.withAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'initial-grant-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
         addTearDown(() => client.close(force: true));
@@ -5519,9 +5632,10 @@ void main() {
         client.lastEventId = 'session-1:grant-replacement:kept';
 
         client.replaceAuthGrant(
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: ' refreshed-grant-token ',
             tokenType: 'bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
 
@@ -5536,18 +5650,20 @@ void main() {
 
         expect(
           () => client.replaceAuthGrant(
-            const ConnectanumHttpAuthGrant(
+            ConnectanumHttpAuthGrant(
               accessToken: 'wrong-type-token',
               tokenType: 'Basic',
+              authEndpoint: endpoint.uri.replace(path: '/auth'),
             ),
           ),
           throwsArgumentError,
         );
         expect(
           () => client.replaceAuthGrant(
-            const ConnectanumHttpAuthGrant(
+            ConnectanumHttpAuthGrant(
               accessToken: 'malformed grant token',
               tokenType: 'Bearer',
+              authEndpoint: endpoint.uri.replace(path: '/auth'),
             ),
           ),
           throwsArgumentError,
@@ -5571,9 +5687,10 @@ void main() {
         final delayedHttpClient = _DelayedPostHttpClient(HttpClient());
         final client = McpStreamableHttpClient.withAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'pre-await-initial-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
           httpClient: delayedHttpClient,
           closeHttpClient: true,
@@ -5588,9 +5705,10 @@ void main() {
         );
         await delayedHttpClient.waitForPost();
         client.replaceAuthGrant(
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'pre-await-refreshed-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
         delayedHttpClient.releasePost();
@@ -5636,6 +5754,7 @@ void main() {
                   ConnectanumHttpAuthGrant(
                     accessToken: initialToken,
                     tokenType: 'Bearer',
+                    authEndpoint: endpoint.uri.replace(path: '/auth'),
                   ),
                 );
 
@@ -5681,6 +5800,7 @@ void main() {
                 ConnectanumHttpAuthGrant(
                   accessToken: refreshedToken,
                   tokenType: 'Bearer',
+                  authEndpoint: endpoint.uri.replace(path: '/auth'),
                 ),
               );
             }
@@ -5721,9 +5841,10 @@ void main() {
 
         final client = McpStreamableHttpClient.withAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'unchanged-authorization-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
         addTearDown(() => client.close(force: true));
@@ -5741,9 +5862,10 @@ void main() {
 
         expect(
           () => client.replaceAuthGrant(
-            const ConnectanumHttpAuthGrant(
+            ConnectanumHttpAuthGrant(
               accessToken: 'rejected-auth-token',
               tokenType: 'Basic',
+              authEndpoint: endpoint.uri.replace(path: '/auth'),
             ),
           ),
           throwsArgumentError,
@@ -5787,6 +5909,7 @@ void main() {
                   ConnectanumHttpAuthGrant(
                     accessToken: initialToken,
                     tokenType: 'Bearer',
+                    authEndpoint: endpoint.uri.replace(path: '/auth'),
                   ),
                 );
 
@@ -5827,6 +5950,7 @@ void main() {
                 ConnectanumHttpAuthGrant(
                   accessToken: refreshedToken,
                   tokenType: 'Bearer',
+                  authEndpoint: endpoint.uri.replace(path: '/auth'),
                 ),
               );
             }
@@ -5872,9 +5996,10 @@ void main() {
 
         final client = McpStreamableHttpClient.withAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'initial-successful-initialize-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
         addTearDown(() => client.close(force: true));
@@ -5887,9 +6012,10 @@ void main() {
         );
         await endpoint.waitForBlockedRequest();
         client.replaceAuthGrant(
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'refreshed-successful-initialize-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
         endpoint.releaseBlockedRequest();
@@ -5920,9 +6046,10 @@ void main() {
 
         final client = McpStreamableHttpClient.withAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'unchanged-initialize-failure-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
         addTearDown(() => client.close(force: true));
@@ -5939,9 +6066,10 @@ void main() {
         await endpoint.waitForBlockedRequest();
         expect(
           () => client.replaceAuthGrant(
-            const ConnectanumHttpAuthGrant(
+            ConnectanumHttpAuthGrant(
               accessToken: 'rejected-initialize-replacement-token',
               tokenType: 'Basic',
+              authEndpoint: endpoint.uri.replace(path: '/auth'),
             ),
           ),
           throwsArgumentError,
@@ -5963,9 +6091,10 @@ void main() {
 
         final client = McpStreamableHttpClient.withAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'initial-not-found-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
         addTearDown(() => client.close(force: true));
@@ -5982,9 +6111,10 @@ void main() {
         await endpoint.waitForBlockedRequest();
 
         client.replaceAuthGrant(
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'refreshed-not-found-token',
             tokenType: 'Bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
         );
         endpoint.releaseBlockedRequest();
@@ -6012,9 +6142,10 @@ void main() {
 
         final client = McpStreamableHttpClient.withAuthGrant(
           endpoint.uri,
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: ' grant-direct-token ',
             tokenType: 'bearer',
+            authEndpoint: endpoint.uri.replace(path: '/auth'),
           ),
           headers: const <String, String>{
             HttpHeaders.authorizationHeader: 'Bearer stale-direct-token',
@@ -6513,9 +6644,10 @@ void main() {
       expect(
         () => McpStreamableHttpClient.withAuthGrant(
           Uri.parse('http://127.0.0.1/mcp'),
-          const ConnectanumHttpAuthGrant(
+          ConnectanumHttpAuthGrant(
             accessToken: 'grant-token',
             tokenType: 'mac',
+            authEndpoint: Uri.parse('http://127.0.0.1/auth'),
           ),
         ),
         throwsArgumentError,
@@ -6975,13 +7107,15 @@ void main() {
         final endpoint = await _FakeMcpEndpoint.bind();
         addTearDown(endpoint.close);
 
-        const initialGrant = ConnectanumHttpAuthGrant(
+        final initialGrant = ConnectanumHttpAuthGrant(
           accessToken: 'initial-mrtr-token',
           tokenType: 'Bearer',
+          authEndpoint: endpoint.uri.replace(path: '/auth'),
         );
-        const refreshedGrant = ConnectanumHttpAuthGrant(
+        final refreshedGrant = ConnectanumHttpAuthGrant(
           accessToken: 'refreshed-mrtr-token',
           tokenType: 'Bearer',
+          authEndpoint: endpoint.uri.replace(path: '/auth'),
         );
         final client = McpStreamableHttpClient.withAuthGrant(
           endpoint.uri,

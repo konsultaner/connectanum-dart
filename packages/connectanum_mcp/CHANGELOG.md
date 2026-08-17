@@ -64,6 +64,9 @@
 - Use endpoint-bound grant-aware router HTTP-auth revocation in the packaged
   client and isolated consumer smokes while retaining raw token APIs for
   explicit low-level compatibility checks.
+- Reject router HTTP-auth grants before grant-aware Streamable/stateless MCP
+  client construction or replacement when their issuing auth endpoint is
+  unknown or on another HTTP origin.
 - Add isolated server, client, executable, and consumer application smokes.
 - Export the `2025-03-26` compatibility fallback for legacy HTTP requests that
   omit `MCP-Protocol-Version`.

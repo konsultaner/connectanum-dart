@@ -719,6 +719,16 @@ void main() {
     expect(grant.authId, _ioAuthId);
     expect(grant.authRole, _ioAuthRole);
     expect(grant.authMethod, 'ticket');
+    expect(grant.isForMcpEndpoint(endpoint.mcpUri), isTrue);
+    McpStreamableHttpClient? unexpectedForeignClient;
+    addTearDown(() => unexpectedForeignClient?.close(force: true));
+    expect(
+      () => unexpectedForeignClient = McpStreamableHttpClient.withAuthGrant(
+        endpoint.mcpUri.replace(port: endpoint.mcpUri.port + 1),
+        grant,
+      ),
+      throwsArgumentError,
+    );
 
     final mcpClient = McpStreamableHttpClient.withAuthGrant(
       endpoint.mcpUri,
