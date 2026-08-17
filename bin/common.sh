@@ -31104,11 +31104,28 @@ Future<void> main() async {
       'Dart consumer public Streamable delete leaked state.',
     );
 
-    final grant = await _issueTicketGrantWithPolicyProof(
+    final issuedGrant = await _issueTicketGrantWithPolicyProof(
       endpoint: authEndpoint,
       realm: 'cli.smoke',
       authId: 'cli-user',
       ticket: 'cli-ticket',
+    );
+    final persistedGrantState =
+        (jsonDecode(jsonEncode(issuedGrant.toStateJson())) as Map)
+            .cast<String, Object?>();
+    final grant = ConnectanumHttpAuthGrant.fromStateJson(
+      persistedGrantState,
+      expectedAuthEndpoint: authEndpoint,
+      expectedMcpEndpoint: secureEndpoint,
+    );
+    _expect(
+      grant.accessToken == issuedGrant.accessToken &&
+          grant.refreshToken == issuedGrant.refreshToken &&
+          grant.authEndpoint == issuedGrant.authEndpoint &&
+          grant.issuedAt == issuedGrant.issuedAt &&
+          grant.accessTokenExpiresAt == issuedGrant.accessTokenExpiresAt &&
+          grant.refreshTokenExpiresAt == issuedGrant.refreshTokenExpiresAt,
+      'Dart consumer persisted HTTP auth grant changed bound state.',
     );
     _expect(grant.accessToken.isNotEmpty, 'Dart consumer auth grant was empty.');
     _expect(grant.tokenType == 'Bearer', 'Dart consumer auth grant was not Bearer.');
@@ -34128,6 +34145,7 @@ Future<void> main() async {
         },
         'secure': <String, Object?>{
           'ticketGrant': true,
+          'authGrantPersistence': true,
           'authPathDiscovery': true,
           'authRealmPolicyBinding': true,
           'authGrantTypeValidation': true,
@@ -35819,7 +35837,7 @@ DART
   assert_router_cli_consumer_package_summary "$dart_consumer_summary" \
     '"routerCliConsumerSummary"' \
     '"public":{"originHeaderMultiplicityValidation":true,"originSerializationValidation":true,"originTupleMatching":true,"hostHeaderMultiplicityValidation":true,"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"resourceSubscriptionSessionDeleteCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"pubsub":true,"pubsubNotifications":true,"sessionProxy":true,"batch":true}' \
-    '"secure":{"ticketGrant":true,"authPathDiscovery":true,"authRealmPolicyBinding":true,"authGrantTypeValidation":true,"authSelectorIsolation":true,"authSelectorSourceIsolation":true,"authCredentialSourceIsolation":true,"authParameterTypeValidation":true,"authParameterBlankValidation":true,"authQueryValidation":true,"authBodyMultiplicityValidation":true,"authObjectParameterValidation":true,"authNestedObjectMultiplicityValidation":true,"authHeaderMultiplicityValidation":true,"protocolHeaderMultiplicityValidation":true,"protocolVersionFallback":true,"sessionHeaderMultiplicityValidation":true,"lastEventIdHeaderMultiplicityValidation":true,"contentTypeHeaderMultiplicityValidation":true,"contentTypePresenceValidation":true,"requestMetadataHeaderMultiplicityValidation":true,"acceptFieldValuePreservation":true,"corsRequestMethodHeaderMultiplicityValidation":true,"corsRequestHeaderFieldValuePreservation":true,"authPendingCapacity":true,"authLockout":true,"authFailureCapacity":true,"authGrantCapacity":true,"authRefreshConcurrency":true,"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"resourceSubscriptionSessionDeleteCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
+    '"secure":{"ticketGrant":true,"authGrantPersistence":true,"authPathDiscovery":true,"authRealmPolicyBinding":true,"authGrantTypeValidation":true,"authSelectorIsolation":true,"authSelectorSourceIsolation":true,"authCredentialSourceIsolation":true,"authParameterTypeValidation":true,"authParameterBlankValidation":true,"authQueryValidation":true,"authBodyMultiplicityValidation":true,"authObjectParameterValidation":true,"authNestedObjectMultiplicityValidation":true,"authHeaderMultiplicityValidation":true,"protocolHeaderMultiplicityValidation":true,"protocolVersionFallback":true,"sessionHeaderMultiplicityValidation":true,"lastEventIdHeaderMultiplicityValidation":true,"contentTypeHeaderMultiplicityValidation":true,"contentTypePresenceValidation":true,"requestMetadataHeaderMultiplicityValidation":true,"acceptFieldValuePreservation":true,"corsRequestMethodHeaderMultiplicityValidation":true,"corsRequestHeaderFieldValuePreservation":true,"authPendingCapacity":true,"authLockout":true,"authFailureCapacity":true,"authGrantCapacity":true,"authRefreshConcurrency":true,"stateless2026":true,"subscriptionsListen":true,"resourceSubscriptionCoexistence":true,"resourceSubscriptionSessionDeleteCoexistence":true,"wampPubSubCoexistence":true,"wampPubSubSessionDeleteCoexistence":true,"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"directJsonStaleSessionId":true,"streamableSessionDelete":true,"deletedSessionRejected":true,"deletedSessionMatrix":true,"resourcesPrompts":true,"pubsub":true,"pubsubNotifications":true,"wampMeta":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true}' \
     '"jsonResponse":{"active":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true,"authRejectionIsolation":true,"refreshAndRevoke":true},"tokenOnly":{"directJson":true,"directJsonStaleSessionId":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}}' \
     '"tokenOnly":{"directJson":true,"streamable":true,"streamableInvalidLastEventId":true,"streamableEmptyLastEventId":true,"streamableSessionDelete":true,"resourcesPrompts":true,"wampMeta":true,"registrationMeta":true,"configuredRegistrationMeta":true,"sessionMeta":true,"subscriptionMeta":true,"configuredSubscriptionMeta":true,"pubsub":true,"pubsubNotifications":true,"batch":true}'
 

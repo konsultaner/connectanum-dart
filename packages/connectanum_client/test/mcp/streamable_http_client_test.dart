@@ -5611,6 +5611,58 @@ void main() {
       expect(foreignEndpoint.requests, isEmpty);
     });
 
+    test('rejects expired HTTP auth grants atomically', () async {
+      final endpoint = await _FakeMcpEndpoint.bind();
+      addTearDown(endpoint.close);
+      final authEndpoint = endpoint.uri.replace(path: '/auth');
+      final expired = ConnectanumHttpAuthGrant.fromJson(
+        const <String, Object?>{
+          'access_token': 'expired-origin-token',
+          'token_type': 'Bearer',
+          'expires_in': 60,
+        },
+        authEndpoint: authEndpoint,
+        now: DateTime.utc(2020),
+      );
+
+      expect(
+        () => McpStreamableHttpClient.withAuthGrant(endpoint.uri, expired),
+        throwsArgumentError,
+      );
+      expect(
+        () => McpStreamableHttpClient.statelessWithAuthGrant(
+          endpoint.uri,
+          expired,
+          clientInfo: const <String, Object?>{
+            'name': 'expiry-bound-client',
+            'version': '1.0.0',
+          },
+        ),
+        throwsArgumentError,
+      );
+
+      final client = McpStreamableHttpClient.withAuthGrant(
+        endpoint.uri,
+        ConnectanumHttpAuthGrant(
+          accessToken: 'initial-origin-token',
+          tokenType: 'Bearer',
+          authEndpoint: authEndpoint,
+        ),
+      );
+      addTearDown(() => client.close(force: true));
+      await client.initialize(id: 'expiry-replacement-initialize');
+      client.lastEventId = 'session-1:expiry-replacement:kept';
+
+      expect(() => client.replaceAuthGrant(expired), throwsArgumentError);
+      await client.ping(id: 'expiry-replacement-ping');
+      expect(client.sessionId, 'session-1');
+      expect(client.lastEventId, 'session-1:expiry-replacement:kept');
+      expect(
+        endpoint.requests.last.authorization,
+        'Bearer initial-origin-token',
+      );
+    });
+
     test(
       'replaces refreshed HTTP auth grants on the same session atomically',
       () async {

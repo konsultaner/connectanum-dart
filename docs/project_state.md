@@ -24374,6 +24374,45 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-17: Router-issued HTTP-auth grants now expose a versioned JSON state
+  contract that preserves their exact issuer, authorization lineage, issue
+  time, and absolute access/refresh expiry across a consumer application
+  restart. Restore requires the expected auth endpoint and can pin the target
+  MCP HTTP origin; malformed, future-dated, inconsistent, unsupported, or non-
+  JSON state fails through a token-redacted typed exception. Grant-aware MCP
+  construction/replacement and refresh reject known-expired credentials before
+  I/O, while grants without lifetime metadata and raw-token APIs retain their
+  compatibility behavior. The public IO entrypoint and generated router CLI
+  consumer persist and restore a real grant before direct JSON, Streamable
+  HTTP, pub/sub, refresh, and revocation. Focused analysis/tests, all 23
+  consumer-boundary checks, and the affected live smoke pass. Canonical
+  `bin/verify` passes with zero formatting changes, 117 Rust core/serializer
+  checks, all 52 FFI tests plus metrics mode, 366 Dart core tests, 117 MCP
+  package tests, the complete 318-case client/MCP suite, all 97 benchmark tests
+  with 37 live WAMP workloads, all 454 router tests, six remote-auth tests, 13
+  native follow-ups, every maintained consumer smoke, Chrome, and Dart2Wasm.
+  Clean-tree package readiness, publication, exact-head hosted evidence, and
+  deployment-chain audits remain.
+- 2026-08-17: Grant-aware Streamable and modern stateless MCP clients now
+  reject router HTTP-auth grants whose issuing endpoint is unknown or does not
+  share the target MCP endpoint's HTTP origin. Construction fails before the
+  bearer enters client state, and failed in-place replacement preserves the
+  active session, cursor, and credential; raw bearer-token APIs remain caller-
+  managed compatibility surfaces. Focused client/package tests, analysis, all
+  23 consumer-boundary checks, affected live smokes, and canonical `bin/verify`
+  pass. Full verification includes the complete 314-case client/MCP suite, all
+  97 benchmark tests with 37 live WAMP workloads, all 454 router tests, every
+  maintained consumer smoke, Chrome, and Dart2Wasm. Clean-tree strict release
+  readiness passes all seven publishable packages with zero warnings. Clean
+  commit `3bdecef8` is published to both maintained feature-branch remotes.
+  Exact-head GitHub `CI` run `31991484405` passes Fast Checks job `95275734383`,
+  Full Verify job `95276929712`, and Dart VM Coverage job `95276929731`, with
+  retained coverage artifact `9275787067`; Dart Package Publish Dry Run
+  `31991484403` passes job `95275734357`. The feature-branch deployment-chain
+  audit passes exact-head CI/job/log cleanliness, package-run relevance,
+  workflow visibility, and public router-package visibility. The strict
+  protected-release baseline passes from an isolated `master` worktree at
+  `ec53a327`.
 - 2026-08-17: Public router HTTP-auth grants now retain their exact issuing
   endpoint, and grant-aware refresh plus access/refresh revocation reject an
   unknown or different endpoint before selecting or transmitting a credential.
@@ -25315,6 +25354,17 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP downstream-readiness plan is
+  `docs/exec-plans/2026-08-17-mcp-http-auth-grant-persistence.md`. It adds a
+  versioned, issuer-bound persistence contract for router HTTP-auth grants so a
+  consumer application can restart without discarding endpoint provenance,
+  authorization lineage, or expiry semantics. Fail-first regressions,
+  implementation, public/package-only consumer evidence, focused checks, and
+  canonical `bin/verify` pass. Full verification includes the complete 318-case
+  client/MCP suite, all 97 benchmark tests with 37 live WAMP workloads, all 454
+  router tests, every maintained consumer smoke, Chrome, and Dart2Wasm. Clean-
+  tree package verification, publication, exact-head hosted workflows, and
+  deployment-chain audits remain.
+- The most recently completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-http-auth-grant-mcp-origin-binding.md`. It
   closes the remaining public grant-authority gap by rejecting an endpoint-
   bound router HTTP-auth grant before it can authorize a Streamable or modern
@@ -25328,10 +25378,13 @@ at the older `47bbf9c` commit.
   and canonical `bin/verify` pass. Full verification includes the complete
   314-case client/MCP suite, all 97 benchmark tests with 37 live WAMP workloads,
   all 454 router tests, every maintained consumer smoke, Chrome, and Dart2Wasm.
-  The strict release-ready package dry run has clean package content and must
-  be rerun from the implementation commit because strict mode rejects the
-  current dirty tree.
-- The most recently completed MCP downstream-readiness plan is
+  Clean-tree strict release readiness passes all seven publishable packages
+  with zero warnings. Clean commit `3bdecef8` is published to both maintained
+  feature-branch remotes; exact-head GitHub `CI` run `31991484405`, Dart Package
+  Publish Dry Run `31991484403`, retained coverage artifact `9275787067`, the
+  feature-branch clean-log deployment audit, and the strict protected-release
+  baseline are green.
+- The preceding completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-http-auth-grant-endpoint-binding.md`. It
   prevents a downstream application from transmitting router-issued access or
   refresh credentials to a different HTTP-auth endpoint by attaching exact
@@ -25351,7 +25404,7 @@ at the older `47bbf9c` commit.
   Publish Dry Run `31985169098`, retained coverage artifact `9273825960`, the
   strict protected-release baseline, and the feature-branch clean-log
   deployment audit are green.
-- The preceding completed MCP downstream-readiness plan is
+- The earlier completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-http-auth-refresh-lineage-binding.md`. It
   adds a public grant-aware router HTTP-auth refresh path that validates the
   complete prior identity and authorization context before I/O, then rejects

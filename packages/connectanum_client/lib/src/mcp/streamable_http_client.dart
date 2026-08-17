@@ -2043,6 +2043,11 @@ final class McpStreamableHttpClient {
         'grant.authEndpoint must share the MCP endpoint HTTP origin.',
       );
     }
+    if (grant.isAccessTokenExpired()) {
+      throw ArgumentError(
+        'grant.accessToken is expired and cannot authorize an MCP client.',
+      );
+    }
     final tokenType = grant.tokenType.trim();
     if (tokenType.toLowerCase() != 'bearer') {
       throw ArgumentError.value(

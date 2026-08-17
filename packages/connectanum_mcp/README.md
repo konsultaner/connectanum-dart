@@ -53,6 +53,26 @@ lifecycle separate from session-era initialize/poll/delete. HTTP auth issue,
 challenge, refresh, and revoke operations have one configurable total deadline
 and accept only a configurable number of raw response bytes before UTF-8/JSON
 decoding; overflow errors do not include the response body.
+
+Router-issued grants can cross an application restart without losing those
+bindings. Persist `grant.toStateJson()` as secret material, then restore it with
+both the expected auth endpoint and target MCP endpoint before constructing a
+grant-aware client:
+
+```dart
+final stored = jsonEncode(grant.toStateJson());
+final restored = ConnectanumHttpAuthGrant.fromStateJson(
+  (jsonDecode(stored) as Map).cast<String, Object?>(),
+  expectedAuthEndpoint: authClient.endpoint,
+  expectedMcpEndpoint: mcpEndpoint,
+);
+final client = McpStreamableHttpClient.withAuthGrant(mcpEndpoint, restored);
+```
+
+The versioned state rejects changed issuers, foreign MCP origins, inconsistent
+absolute expiries, and known-expired grant-aware use. Storage and encryption
+remain the consumer application's responsibility because the state contains
+access and refresh credentials.
 Tool execution failures are returned as MCP tool results with `isError: true`;
 malformed JSON-RPC messages, unknown methods, and invalid parameters remain
 protocol errors.

@@ -1,6 +1,6 @@
 # Exec Plan: MCP HTTP-Auth Grant Origin Binding
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-17
 Last updated: 2026-08-17
@@ -113,9 +113,24 @@ to an MCP endpoint on a different HTTP origin.
   run reaches the changed client package with clean package content and stops
   only on its intentional dirty-tree warning; rerun from the implementation
   commit remains before publication.
+- 2026-08-17: Clean-tree strict release readiness passes all seven publishable
+  packages with zero warnings. Commit `3bdecef8` (`Bind router HTTP auth grants
+  to MCP origins`) is published to both maintained feature-branch remotes.
+  Exact-head GitHub `CI` run `31991484405` passes Fast Checks job `95275734383`,
+  Full Verify job `95276929712`, and Dart VM Coverage job `95276929731`;
+  retained coverage artifact `9275787067` has digest
+  `sha256:f111f22f38671d7dce56fa138f12afee5a42482a6afba2e46f532fee9d19cfc1`.
+  Dart Package Publish Dry Run `31991484403` passes job `95275734357` and
+  covers the exact head.
+- 2026-08-17: The feature-branch deployment-chain audit passes exact-head
+  CI/job/log cleanliness, current package-run relevance, checked-in workflow
+  visibility, and public router-package visibility. The strict protected-
+  release baseline also passes from an isolated `master` worktree at
+  `ec53a327` with required Fast Checks and Full Verify branch protection.
 
 ## Handoff
 
-- Active. Implementation and local verification are complete; clean-tree
-  package verification, publication, exact-head hosted workflows, and
-  deployment-chain audits remain.
+- Completed. Implementation, local verification, clean-tree package readiness,
+  publication, exact-head hosted workflows, retained coverage evidence, the
+  feature-branch deployment audit, and the strict protected-release baseline
+  pass.

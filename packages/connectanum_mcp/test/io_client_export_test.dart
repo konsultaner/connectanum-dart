@@ -707,11 +707,26 @@ void main() {
     );
     addTearDown(() => authClient.close(force: true));
 
-    final grant = await authClient.issueTicketToken(
+    final issuedGrant = await authClient.issueTicketToken(
       realm: _ioAuthRealm,
       authId: _ioAuthId,
       ticket: _ioTicketSecret,
       headers: const <String, String>{'x-consumer-trace': 'io-auth-issue'},
+    );
+    final storedGrant =
+        (jsonDecode(jsonEncode(issuedGrant.toStateJson())) as Map)
+            .cast<String, Object?>();
+    final grant = ConnectanumHttpAuthGrant.fromStateJson(
+      storedGrant,
+      expectedAuthEndpoint: endpoint.authUri,
+      expectedMcpEndpoint: endpoint.mcpUri,
+    );
+    expect(
+      () => ConnectanumHttpAuthGrant.fromStateJson(
+        storedGrant,
+        expectedAuthEndpoint: endpoint.authUri.replace(path: '/other-auth'),
+      ),
+      throwsA(isA<ConnectanumHttpAuthGrantStateException>()),
     );
     expect(grant.accessToken, _ioAccessToken);
     expect(grant.refreshToken, _ioRefreshToken);

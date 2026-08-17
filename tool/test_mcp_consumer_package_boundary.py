@@ -1521,6 +1521,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
         )
         self.assertIn(
             '"secure":{"ticketGrant":true,'
+            '"authGrantPersistence":true,'
             '"authPathDiscovery":true,'
             '"authRealmPolicyBinding":true,'
             '"authGrantTypeValidation":true,'
@@ -1570,6 +1571,10 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             '"authRejectionIsolation":true,"refreshAndRevoke":true}',
             body,
         )
+        self.assertIn("issuedGrant.toStateJson()", body)
+        self.assertIn("ConnectanumHttpAuthGrant.fromStateJson", body)
+        self.assertIn("expectedAuthEndpoint: authEndpoint", body)
+        self.assertIn("expectedMcpEndpoint: secureEndpoint", body)
         self.assertIn("_expectRepeatedContentTypeHeaderRejected", body)
         self.assertIn("content-type: text/plain", body)
         self.assertIn("Invalid Content-Type header", body)

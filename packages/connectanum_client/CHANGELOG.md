@@ -32,6 +32,9 @@
 - Require endpoint-bound router HTTP-auth grants to share the target MCP
   client's HTTP origin before grant-aware Streamable/stateless construction or
   in-place credential replacement; raw bearer-token APIs remain caller-managed.
+- Add versioned router HTTP-auth grant persistence with exact issuer and MCP-
+  origin restore pins, absolute access/refresh expiry preservation, redacted
+  state validation, and pre-I/O rejection of known-expired grant-aware use.
 - Let typed Streamable HTTP and direct JSON WAMP API-list helpers send validated
   opaque cursors and reject malformed continuation cursors.
 - Re-export the shared MCP resource-URI-template utility so client-only

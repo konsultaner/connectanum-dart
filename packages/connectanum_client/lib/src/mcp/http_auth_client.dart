@@ -256,6 +256,11 @@ final class ConnectanumHttpAuthClient {
   }) {
     return _runTrackedOperation((openRequest) async {
       _validateGrantEndpoint(grant);
+      if (grant.isRefreshTokenExpired()) {
+        throw ArgumentError(
+          'grant.refreshToken is expired and cannot be refreshed.',
+        );
+      }
       final token = grant.refreshToken;
       if (token == null) {
         throw ArgumentError(
@@ -872,6 +877,31 @@ bool _isControlledHttpAuthRequestHeader(String name) {
       normalized == HttpHeaders.contentLengthHeader;
 }
 
+const _httpAuthGrantStateType = 'connectanum_http_auth_grant';
+const _httpAuthGrantStateVersion = 1;
+const _httpAuthGrantStateKeys = <String>{
+  'type',
+  'version',
+  'issued_at',
+  'auth_endpoint',
+  'access_token_expires_at',
+  'refresh_token_expires_at',
+  'grant',
+};
+const _httpAuthGrantResponseKeys = <String>{
+  'access_token',
+  'token_type',
+  'refresh_token',
+  'realm',
+  'authid',
+  'authrole',
+  'authmethod',
+  'authprovider',
+  'expires_in',
+  'refresh_token_expires_in',
+  'details',
+};
+
 final class ConnectanumHttpAuthGrant {
   const ConnectanumHttpAuthGrant({
     required this.accessToken,
@@ -885,12 +915,17 @@ final class ConnectanumHttpAuthGrant {
     this.authProvider,
     this.accessTokenExpiresIn,
     this.refreshTokenExpiresIn,
+    this.issuedAt,
     this.details = const <String, Object?>{},
   });
 
+  /// Parses one live router HTTP-auth response.
+  ///
+  /// Use [fromStateJson] for a previously persisted grant.
   factory ConnectanumHttpAuthGrant.fromJson(
     Map<String, Object?> json, {
     Uri? authEndpoint,
+    DateTime? now,
   }) {
     final tokenType = _optionalToken(json, 'token_type');
     return ConnectanumHttpAuthGrant(
@@ -908,8 +943,97 @@ final class ConnectanumHttpAuthGrant {
         json,
         'refresh_token_expires_in',
       ),
+      issuedAt: (now ?? DateTime.now()).toUtc(),
       details: _detailsFromJson(json),
     );
+  }
+
+  /// Restores a versioned grant state document while pinning its issuer.
+  ///
+  /// [expectedAuthEndpoint] must exactly match the issuing endpoint stored in
+  /// the document. When [expectedMcpEndpoint] is supplied, the issuer must also
+  /// share that endpoint's HTTP origin.
+  factory ConnectanumHttpAuthGrant.fromStateJson(
+    Map<String, Object?> json, {
+    required Uri expectedAuthEndpoint,
+    Uri? expectedMcpEndpoint,
+    DateTime? now,
+  }) {
+    try {
+      _validateOnlyStateKeys(json, _httpAuthGrantStateKeys);
+      if (json['type'] != _httpAuthGrantStateType) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'Persisted HTTP auth grant has an unsupported document type.',
+        );
+      }
+      if (json['version'] != _httpAuthGrantStateVersion) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'Persisted HTTP auth grant has an unsupported schema version.',
+        );
+      }
+
+      final endpoint = _stateUri(json, 'auth_endpoint');
+      if (!_safeAuthEndpoint(endpoint)) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'Persisted HTTP auth grant has an invalid issuing endpoint.',
+        );
+      }
+      if (endpoint.toString() != expectedAuthEndpoint.toString()) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'Persisted HTTP auth grant belongs to a different auth endpoint.',
+        );
+      }
+
+      final issuedAt = _stateDateTime(json, 'issued_at');
+      final current = (now ?? DateTime.now()).toUtc();
+      if (issuedAt.isAfter(current)) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'Persisted HTTP auth grant is not yet valid.',
+        );
+      }
+
+      final grantJson = _stateObject(json, 'grant');
+      _validateOnlyStateKeys(grantJson, _httpAuthGrantResponseKeys);
+      final accessTokenExpiresIn = _durationFromSeconds(
+        grantJson,
+        'expires_in',
+      );
+      final refreshTokenExpiresIn = _durationFromSeconds(
+        grantJson,
+        'refresh_token_expires_in',
+      );
+      _validateStateExpiry(
+        json,
+        'access_token_expires_at',
+        issuedAt,
+        accessTokenExpiresIn,
+      );
+      _validateStateExpiry(
+        json,
+        'refresh_token_expires_at',
+        issuedAt,
+        refreshTokenExpiresIn,
+      );
+
+      final restored = ConnectanumHttpAuthGrant.fromJson(
+        grantJson,
+        authEndpoint: endpoint,
+        now: issuedAt,
+      );
+      if (expectedMcpEndpoint != null &&
+          !restored.isForMcpEndpoint(expectedMcpEndpoint)) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'Persisted HTTP auth grant belongs to a different MCP origin.',
+        );
+      }
+      return restored;
+    } on ConnectanumHttpAuthGrantStateException {
+      rethrow;
+    } on Object {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'Persisted HTTP auth grant is invalid.',
+      );
+    }
   }
 
   final String accessToken;
@@ -926,7 +1050,148 @@ final class ConnectanumHttpAuthGrant {
   final String? authProvider;
   final Duration? accessTokenExpiresIn;
   final Duration? refreshTokenExpiresIn;
+
+  /// Time at which the router response was accepted when known.
+  final DateTime? issuedAt;
+
   final Map<String, Object?> details;
+
+  /// Absolute access-token expiry derived from [issuedAt].
+  DateTime? get accessTokenExpiresAt {
+    final issued = issuedAt;
+    final lifetime = accessTokenExpiresIn;
+    if (issued == null || lifetime == null) {
+      return null;
+    }
+    return issued.toUtc().add(lifetime);
+  }
+
+  /// Absolute refresh-token expiry derived from [issuedAt].
+  DateTime? get refreshTokenExpiresAt {
+    final issued = issuedAt;
+    final lifetime = refreshTokenExpiresIn;
+    if (issued == null || lifetime == null) {
+      return null;
+    }
+    return issued.toUtc().add(lifetime);
+  }
+
+  /// Whether the advertised access-token lifetime has elapsed.
+  ///
+  /// A grant without complete lifetime metadata is treated as having unknown
+  /// expiry for compatibility.
+  bool isAccessTokenExpired({DateTime? now}) {
+    final expiresAt = accessTokenExpiresAt;
+    return expiresAt != null &&
+        !(now ?? DateTime.now()).toUtc().isBefore(expiresAt);
+  }
+
+  /// Whether the advertised refresh-token lifetime has elapsed.
+  ///
+  /// A grant without complete lifetime metadata is treated as having unknown
+  /// expiry for compatibility.
+  bool isRefreshTokenExpired({DateTime? now}) {
+    final expiresAt = refreshTokenExpiresAt;
+    return expiresAt != null &&
+        !(now ?? DateTime.now()).toUtc().isBefore(expiresAt);
+  }
+
+  /// Returns a versioned JSON state document for durable caller-owned storage.
+  ///
+  /// The returned document contains bearer and refresh credentials. Callers
+  /// must protect it as secret material. An exact [authEndpoint] and [issuedAt]
+  /// are required so restoring state cannot discard issuer or expiry context.
+  Map<String, Object?> toStateJson() {
+    try {
+      final endpoint = authEndpoint;
+      if (endpoint == null || !_safeAuthEndpoint(endpoint)) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'HTTP auth grant state requires a valid issuing endpoint.',
+        );
+      }
+      final issued = issuedAt?.toUtc();
+      if (issued == null) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'HTTP auth grant state requires a known issue time.',
+        );
+      }
+      final accessTokenExpiresInSeconds = _durationSecondsForState(
+        accessTokenExpiresIn,
+        'access token lifetime',
+      );
+      final refreshTokenExpiresInSeconds = _durationSecondsForState(
+        refreshTokenExpiresIn,
+        'refresh token lifetime',
+      );
+
+      final response = <String, Object?>{
+        'access_token': accessToken,
+        'token_type': tokenType,
+        if (refreshToken != null) 'refresh_token': refreshToken,
+        if (realm != null) 'realm': realm,
+        if (authId != null) 'authid': authId,
+        if (authRole != null) 'authrole': authRole,
+        if (authMethod != null) 'authmethod': authMethod,
+        if (authProvider != null) 'authprovider': authProvider,
+        'expires_in': ?accessTokenExpiresInSeconds,
+        'refresh_token_expires_in': ?refreshTokenExpiresInSeconds,
+        if (details.isNotEmpty) 'details': details,
+      };
+      final validated = ConnectanumHttpAuthGrant.fromJson(
+        response,
+        authEndpoint: endpoint,
+        now: issued,
+      );
+      final grantState = <String, Object?>{
+        'access_token': validated.accessToken,
+        'token_type': validated.tokenType,
+        if (validated.refreshToken != null)
+          'refresh_token': validated.refreshToken,
+        if (validated.realm != null) 'realm': validated.realm,
+        if (validated.authId != null) 'authid': validated.authId,
+        if (validated.authRole != null) 'authrole': validated.authRole,
+        if (validated.authMethod != null) 'authmethod': validated.authMethod,
+        if (validated.authProvider != null)
+          'authprovider': validated.authProvider,
+        if (validated.accessTokenExpiresIn != null)
+          'expires_in': validated.accessTokenExpiresIn!.inSeconds,
+        if (validated.refreshTokenExpiresIn != null)
+          'refresh_token_expires_in':
+              validated.refreshTokenExpiresIn!.inSeconds,
+        if (validated.details.isNotEmpty) 'details': validated.details,
+      };
+      final state = <String, Object?>{
+        'type': _httpAuthGrantStateType,
+        'version': _httpAuthGrantStateVersion,
+        'issued_at': issued.toIso8601String(),
+        'auth_endpoint': endpoint.toString(),
+        if (accessTokenExpiresAt != null)
+          'access_token_expires_at': accessTokenExpiresAt!
+              .toUtc()
+              .toIso8601String(),
+        if (refreshTokenExpiresAt != null)
+          'refresh_token_expires_at': refreshTokenExpiresAt!
+              .toUtc()
+              .toIso8601String(),
+        'grant': grantState,
+      };
+      final copied = jsonDecode(jsonEncode(state));
+      if (copied is! Map) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'HTTP auth grant state is not a JSON object.',
+        );
+      }
+      return Map<String, Object?>.unmodifiable(
+        copied.cast<String, Object?>(),
+      );
+    } on ConnectanumHttpAuthGrantStateException {
+      rethrow;
+    } on Object {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'HTTP auth grant cannot be persisted as valid JSON state.',
+      );
+    }
+  }
 
   /// Whether this grant was issued by [candidate].
   bool isForAuthEndpoint(Uri candidate) {
@@ -1039,6 +1304,19 @@ final class ConnectanumHttpAuthGrant {
     return result;
   }
 
+  static int? _durationSecondsForState(Duration? value, String name) {
+    if (value == null) {
+      return null;
+    }
+    if (value.isNegative ||
+        value.inMicroseconds % Duration.microsecondsPerSecond != 0) {
+      throw ConnectanumHttpAuthGrantStateException(
+        'HTTP auth grant $name must be a non-negative whole number of seconds.',
+      );
+    }
+    return value.inSeconds;
+  }
+
   static Duration? _durationFromSeconds(
     Map<String, Object?> json,
     String name,
@@ -1057,6 +1335,120 @@ final class ConnectanumHttpAuthGrant {
       '"$name" must be a non-negative integer number of seconds.',
     );
   }
+
+  static Map<String, Object?> _stateObject(
+    Map<String, Object?> json,
+    String key,
+  ) {
+    final value = json[key];
+    if (value is! Map) {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'Persisted HTTP auth grant contains an invalid JSON object.',
+      );
+    }
+    final result = <String, Object?>{};
+    for (final entry in value.entries) {
+      if (entry.key is! String) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'Persisted HTTP auth grant contains a non-string JSON key.',
+        );
+      }
+      result[entry.key as String] = entry.value;
+    }
+    return result;
+  }
+
+  static Uri _stateUri(Map<String, Object?> json, String key) {
+    final value = json[key];
+    if (value is! String || value.isEmpty) {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'Persisted HTTP auth grant contains an invalid URI.',
+      );
+    }
+    final parsed = Uri.tryParse(value);
+    if (parsed == null) {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'Persisted HTTP auth grant contains an invalid URI.',
+      );
+    }
+    return parsed;
+  }
+
+  static DateTime _stateDateTime(
+    Map<String, Object?> json,
+    String key,
+  ) {
+    final value = json[key];
+    if (value is! String || value.isEmpty) {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'Persisted HTTP auth grant contains an invalid timestamp.',
+      );
+    }
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null || !parsed.isUtc) {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'Persisted HTTP auth grant contains an invalid timestamp.',
+      );
+    }
+    return parsed.toUtc();
+  }
+
+  static void _validateStateExpiry(
+    Map<String, Object?> json,
+    String key,
+    DateTime issuedAt,
+    Duration? lifetime,
+  ) {
+    if (lifetime == null) {
+      if (json.containsKey(key)) {
+        throw const ConnectanumHttpAuthGrantStateException(
+          'Persisted HTTP auth grant expiry is inconsistent.',
+        );
+      }
+      return;
+    }
+    if (!json.containsKey(key)) {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'Persisted HTTP auth grant expiry is incomplete.',
+      );
+    }
+    final actual = _stateDateTime(json, key);
+    if (!actual.isAtSameMomentAs(issuedAt.add(lifetime))) {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'Persisted HTTP auth grant expiry is inconsistent.',
+      );
+    }
+  }
+
+  static void _validateOnlyStateKeys(
+    Map<String, Object?> json,
+    Set<String> allowed,
+  ) {
+    if (json.keys.any((key) => !allowed.contains(key))) {
+      throw const ConnectanumHttpAuthGrantStateException(
+        'Persisted HTTP auth grant contains unsupported fields.',
+      );
+    }
+  }
+
+  static bool _safeAuthEndpoint(Uri endpoint) {
+    final scheme = endpoint.scheme.toLowerCase();
+    return endpoint.isAbsolute &&
+        (scheme == 'http' || scheme == 'https') &&
+        endpoint.host.isNotEmpty &&
+        endpoint.userInfo.isEmpty &&
+        !endpoint.hasFragment;
+  }
+}
+
+/// A redacted failure to serialize or restore HTTP-auth grant state.
+final class ConnectanumHttpAuthGrantStateException implements Exception {
+  const ConnectanumHttpAuthGrantStateException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'ConnectanumHttpAuthGrantStateException: $message';
 }
 
 final class ConnectanumHttpAuthProtocolException implements Exception {

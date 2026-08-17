@@ -67,6 +67,9 @@
 - Reject router HTTP-auth grants before grant-aware Streamable/stateless MCP
   client construction or replacement when their issuing auth endpoint is
   unknown or on another HTTP origin.
+- Re-export versioned router HTTP-auth grant persistence so consumer
+  applications can restore issuer, lineage, and absolute expiry state across a
+  restart before using direct JSON or Streamable HTTP grant-aware clients.
 - Add isolated server, client, executable, and consumer application smokes.
 - Export the `2025-03-26` compatibility fallback for legacy HTTP requests that
   omit `MCP-Protocol-Version`.

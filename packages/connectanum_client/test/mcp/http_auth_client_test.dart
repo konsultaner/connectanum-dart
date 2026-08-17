@@ -129,6 +129,261 @@ void main() {
       });
     });
 
+    test('persists and restores a bound HTTP auth grant', () async {
+      final endpoint = await _FakeHttpAuthEndpoint.bind(
+        grantOverrides: const <String, Object?>{
+          'details': <String, Object?>{
+            'tenant': 'consumer-1',
+            'flags': <Object?>['tools', true, 3],
+          },
+        },
+      );
+      addTearDown(endpoint.close);
+
+      final client = ConnectanumHttpAuthClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+      final beforeIssue = DateTime.now().toUtc();
+      final grant = await client.issueTicketToken(
+        realm: 'realm1',
+        authId: 'user-1',
+        ticket: 'ticket-secret',
+      );
+      final afterIssue = DateTime.now().toUtc();
+      final stored = (jsonDecode(jsonEncode(grant.toStateJson())) as Map)
+          .cast<String, Object?>();
+
+      final restored = ConnectanumHttpAuthGrant.fromStateJson(
+        stored,
+        expectedAuthEndpoint: endpoint.uri,
+        expectedMcpEndpoint: endpoint.uri.replace(path: '/mcp/secure'),
+        now: afterIssue,
+      );
+
+      expect(grant.issuedAt, isNotNull);
+      expect(grant.issuedAt!.isBefore(beforeIssue), isFalse);
+      expect(grant.issuedAt!.isAfter(afterIssue), isFalse);
+      expect(stored['type'], 'connectanum_http_auth_grant');
+      expect(stored['version'], 1);
+      expect(stored['auth_endpoint'], endpoint.uri.toString());
+      expect(
+        stored['access_token_expires_at'],
+        grant.accessTokenExpiresAt!.toIso8601String(),
+      );
+      expect(
+        stored['refresh_token_expires_at'],
+        grant.refreshTokenExpiresAt!.toIso8601String(),
+      );
+      expect(restored.accessToken, grant.accessToken);
+      expect(restored.refreshToken, grant.refreshToken);
+      expect(restored.tokenType, grant.tokenType);
+      expect(restored.authEndpoint, grant.authEndpoint);
+      expect(restored.realm, grant.realm);
+      expect(restored.authId, grant.authId);
+      expect(restored.authRole, grant.authRole);
+      expect(restored.authMethod, grant.authMethod);
+      expect(restored.authProvider, grant.authProvider);
+      expect(restored.issuedAt, grant.issuedAt);
+      expect(restored.accessTokenExpiresAt, grant.accessTokenExpiresAt);
+      expect(restored.refreshTokenExpiresAt, grant.refreshTokenExpiresAt);
+      expect(restored.details, grant.details);
+      expect(restored.isAccessTokenExpired(now: afterIssue), isFalse);
+      expect(restored.isRefreshTokenExpired(now: afterIssue), isFalse);
+    });
+
+    test('rejects tampered or misbound persisted HTTP auth grants', () {
+      final issuedAt = DateTime.utc(2020, 8, 17, 6);
+      final authEndpoint = Uri.parse('https://consumer.example/auth');
+      final mcpEndpoint = Uri.parse('https://consumer.example/mcp');
+      final grant = ConnectanumHttpAuthGrant.fromJson(
+        const <String, Object?>{
+          'access_token': 'persisted-access-token',
+          'refresh_token': 'persisted-refresh-token',
+          'token_type': 'Bearer',
+          'realm': 'realm1',
+          'authid': 'user-1',
+          'authrole': 'member',
+          'authmethod': 'ticket',
+          'authprovider': 'consumer-local',
+          'expires_in': 60,
+          'refresh_token_expires_in': 600,
+          'details': <String, Object?>{'tenant': 'consumer-1'},
+        },
+        authEndpoint: authEndpoint,
+        now: issuedAt,
+      );
+
+      Map<String, Object?> storedCopy() =>
+          (jsonDecode(jsonEncode(grant.toStateJson())) as Map)
+              .cast<String, Object?>();
+
+      TypeMatcher<ConnectanumHttpAuthGrantStateException> stateError() =>
+          isA<ConnectanumHttpAuthGrantStateException>();
+
+      expect(
+        () => ConnectanumHttpAuthGrant.fromStateJson(
+          storedCopy()..['type'] = 'other_grant',
+          expectedAuthEndpoint: authEndpoint,
+        ),
+        throwsA(stateError()),
+      );
+      expect(
+        () => ConnectanumHttpAuthGrant.fromStateJson(
+          storedCopy()..['version'] = 2,
+          expectedAuthEndpoint: authEndpoint,
+        ),
+        throwsA(stateError()),
+      );
+      expect(
+        () => ConnectanumHttpAuthGrant.fromStateJson(
+          storedCopy()..['unexpected'] = true,
+          expectedAuthEndpoint: authEndpoint,
+        ),
+        throwsA(stateError()),
+      );
+      final unexpectedGrantField = storedCopy();
+      (unexpectedGrantField['grant'] as Map)['unexpected'] = true;
+      expect(
+        () => ConnectanumHttpAuthGrant.fromStateJson(
+          unexpectedGrantField,
+          expectedAuthEndpoint: authEndpoint,
+        ),
+        throwsA(stateError()),
+      );
+      expect(
+        () => ConnectanumHttpAuthGrant.fromStateJson(
+          storedCopy(),
+          expectedAuthEndpoint: authEndpoint.replace(path: '/other-auth'),
+        ),
+        throwsA(stateError()),
+      );
+      expect(
+        () => ConnectanumHttpAuthGrant.fromStateJson(
+          storedCopy(),
+          expectedAuthEndpoint: authEndpoint,
+          expectedMcpEndpoint: Uri.parse('https://other.example/mcp'),
+        ),
+        throwsA(stateError()),
+      );
+
+      final future = storedCopy();
+      final futureIssuedAt = issuedAt.add(const Duration(days: 1));
+      future['issued_at'] = futureIssuedAt.toIso8601String();
+      future['access_token_expires_at'] = futureIssuedAt
+          .add(grant.accessTokenExpiresIn!)
+          .toIso8601String();
+      future['refresh_token_expires_at'] = futureIssuedAt
+          .add(grant.refreshTokenExpiresIn!)
+          .toIso8601String();
+      expect(
+        () => ConnectanumHttpAuthGrant.fromStateJson(
+          future,
+          expectedAuthEndpoint: authEndpoint,
+          now: issuedAt,
+        ),
+        throwsA(stateError()),
+      );
+
+      expect(
+        () => ConnectanumHttpAuthGrant.fromStateJson(
+          storedCopy()
+            ..['access_token_expires_at'] = issuedAt
+                .add(const Duration(seconds: 61))
+                .toIso8601String(),
+          expectedAuthEndpoint: authEndpoint,
+          now: issuedAt,
+        ),
+        throwsA(stateError()),
+      );
+
+      const leakedToken = 'persisted-access-token-leak';
+      final malformedToken = storedCopy();
+      (malformedToken['grant'] as Map)['access_token'] =
+          '$leakedToken\ncontinued';
+      expect(
+        () => ConnectanumHttpAuthGrant.fromStateJson(
+          malformedToken,
+          expectedAuthEndpoint: authEndpoint,
+          expectedMcpEndpoint: mcpEndpoint,
+          now: issuedAt,
+        ),
+        throwsA(
+          stateError().having(
+            (error) => error.toString(),
+            'redacted state error',
+            allOf(
+              isNot(contains(leakedToken)),
+              isNot(contains(grant.refreshToken!)),
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        () => ConnectanumHttpAuthGrant(
+          accessToken: 'access-token',
+          tokenType: 'Bearer',
+          authEndpoint: authEndpoint,
+          issuedAt: issuedAt,
+          details: <String, Object?>{'not_json': DateTime.now()},
+        ).toStateJson(),
+        throwsA(stateError()),
+      );
+      expect(
+        () => ConnectanumHttpAuthGrant(
+          accessToken: 'access-token',
+          tokenType: 'Bearer',
+          issuedAt: issuedAt,
+        ).toStateJson(),
+        throwsA(stateError()),
+      );
+      expect(
+        () => ConnectanumHttpAuthGrant(
+          accessToken: 'access-token',
+          tokenType: 'Bearer',
+          authEndpoint: authEndpoint,
+        ).toStateJson(),
+        throwsA(stateError()),
+      );
+      expect(
+        () => ConnectanumHttpAuthGrant(
+          accessToken: 'access-token',
+          tokenType: 'Bearer',
+          authEndpoint: authEndpoint,
+          issuedAt: issuedAt,
+          accessTokenExpiresIn: const Duration(milliseconds: 1500),
+        ).toStateJson(),
+        throwsA(stateError()),
+      );
+    });
+
+    test('rejects a known-expired refresh grant before network I/O', () async {
+      final endpoint = await _FakeHttpAuthEndpoint.bind();
+      addTearDown(endpoint.close);
+      final client = ConnectanumHttpAuthClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+      final expired = ConnectanumHttpAuthGrant.fromJson(
+        const <String, Object?>{
+          'access_token': 'expired-access-token',
+          'refresh_token': 'expired-refresh-token',
+          'token_type': 'Bearer',
+          'realm': 'realm1',
+          'authid': 'user-1',
+          'authrole': 'member',
+          'authmethod': 'ticket',
+          'authprovider': 'consumer-local',
+          'expires_in': 60,
+          'refresh_token_expires_in': 600,
+        },
+        authEndpoint: endpoint.uri,
+        now: DateTime.utc(2020),
+      );
+
+      expect(expired.isAccessTokenExpired(), isTrue);
+      expect(expired.isRefreshTokenExpired(), isTrue);
+      await expectLater(client.refreshGrant(expired), throwsArgumentError);
+      expect(endpoint.requests, isEmpty);
+    });
+
     test(
       'rejects challenge identity drift before signing a response',
       () async {
