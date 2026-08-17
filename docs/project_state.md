@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-16
+Last updated: 2026-08-17
 Current branch: `codex/mcp-public-http-auth-discovery`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -24391,7 +24391,15 @@ at the older `47bbf9c` commit.
   MCP tests, the complete 306-case client/MCP suite, all 97 benchmark tests
   with 37 live WAMP workloads, all 454 router cases, six remote-auth tests, 13
   native follow-ups, every maintained isolated and globally activated
-  consumer smoke, Chrome, and Dart2Wasm.
+  consumer smoke, Chrome, and Dart2Wasm. Clean commit `f75bc960` passes the
+  strict release-ready dry run for all seven synchronized `3.0.0-beta`
+  archives with zero warnings and is published to both maintained
+  feature-branch remotes. Exact-head GitHub `CI` run `31976621727` passes Fast
+  Checks, Full Verify, and Dart VM Coverage with retained coverage artifact
+  `9271444968`; Dart Package Publish Dry Run `31976621678` passes. The strict
+  protected-release baseline passes against `master`, and the feature-branch
+  deployment-chain audit confirms exact-head CI/job/log cleanliness, workflow
+  and router-package visibility, and current package-run relevance.
 - 2026-08-16: Both neutral generated MCP applications now use the public
   `McpStreamableHttpClient.discoverHttpAuthClient` boundary instead of a
   hard-coded auth endpoint or private challenge-selection helper. Caller
@@ -25258,6 +25266,22 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP downstream-readiness plan is
+  `docs/exec-plans/2026-08-17-mcp-http-auth-refresh-lineage-binding.md`. It
+  adds a public grant-aware router HTTP-auth refresh path that validates the
+  complete prior identity and authorization context before I/O, then rejects
+  realm, method, auth-ID, role, provider, token-scheme, or JSON-details drift
+  before returning replacement credentials. The existing raw-token operation
+  remains for compatibility and explicit invalid-token checks. Maintained
+  package, source, globally activated, generated consumer, and router CLI
+  lifecycles now use the bound operation. Pre-change `bin/test-fast`, focused
+  client/lifecycle/IO tests, affected-package analysis, all 23 consumer
+  boundary checks, every affected live consumer smoke, the strict release-ready
+  package dry run, and canonical `bin/verify` pass. Full verification includes
+  366 core tests, 117 MCP package tests, the complete 309-case client/MCP suite,
+  all 97 benchmark tests with 37 live WAMP workloads, all 454 router tests, six
+  remote-auth tests, 13 native follow-ups, Chrome, and Dart2Wasm. Publication
+  and exact-head hosted evidence remain.
+- The most recently completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-http-auth-response-binding.md`. The public
   HTTP-auth client now rejects challenge realm/method drift before invoking a
   secret-bearing authentication response and rejects issued-grant
@@ -25266,9 +25290,12 @@ at the older `47bbf9c` commit.
   authoritative router response shape and are protected by a generated-boundary
   assertion. Pre-change `bin/test-fast`, focused client/package checks, the
   source/global client-only smoke, the generated downstream application smoke,
-  and canonical `bin/verify` pass; strict package validation, publication, and
-  exact-head hosted evidence remain.
-- The most recently completed MCP downstream-readiness plan is
+  and canonical `bin/verify` pass. Clean commit `f75bc960` is published to both
+  maintained feature-branch remotes; exact-head GitHub `CI` run `31976621727`,
+  Dart Package Publish Dry Run `31976621678`, retained coverage artifact
+  `9271444968`, the strict protected-release baseline, and the feature-branch
+  clean-log deployment audit are green.
+- The preceding completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-consumer-http-auth-discovery-smoke.md`.
   It closes the remaining direct consumer-boundary gap around the newly public
   HTTP-auth discovery helper: caller-configured auth headers must apply only to

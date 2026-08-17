@@ -1,6 +1,6 @@
 # Exec Plan: MCP HTTP-Auth Response Binding
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-16
 Last updated: 2026-08-17
@@ -115,8 +115,18 @@ MCP.
   workloads, all 454 router cases, six remote-auth tests, 13 native follow-ups,
   every maintained isolated and globally activated consumer smoke, Chrome,
   and Dart2Wasm.
+- 2026-08-17: The clean strict release-ready package dry run validates all
+  seven synchronized `3.0.0-beta` archives, public executables, and release
+  ordering with zero warnings. Commit `f75bc960` is published to both
+  maintained feature-branch remotes.
+- 2026-08-17: Exact-head GitHub `CI` run `31976621727` passes Fast Checks,
+  Full Verify, and Dart VM Coverage with retained coverage artifact
+  `9271444968`. Dart Package Publish Dry Run `31976621678` passes. The strict
+  protected-release baseline passes against `master`, and the feature-branch
+  audit confirms exact-head CI/job/log cleanliness, workflow and router-package
+  visibility, and current package-run relevance.
 
 ## Handoff
 
-- Active. Implementation and all local verification pass; the clean strict
-  package dry run, publication, and exact-head hosted evidence remain.
+- Completed. The implementation, local verification, strict package dry run,
+  publication, exact-head hosted workflows, and deployment-chain audits pass.

@@ -816,8 +816,8 @@ void main() {
     expect(directUnsubscribe.unsubscribed, isTrue);
     expect(mcpClient.sessionId, _ioAuthSessionId);
 
-    final refreshed = await authClient.refreshToken(
-      grant.refreshToken!,
+    final refreshed = await authClient.refreshGrant(
+      grant,
       headers: const <String, String>{'x-consumer-trace': 'io-auth-refresh'},
     );
     expect(refreshed.accessToken, _ioRefreshedAccessToken);
@@ -877,8 +877,8 @@ void main() {
       },
     );
     try {
-      await authClient.refreshToken(
-        refreshed.refreshToken!,
+      await authClient.refreshGrant(
+        refreshed,
         headers: const <String, String>{
           'x-consumer-trace': 'io-auth-refresh-revoked',
         },
@@ -2754,6 +2754,7 @@ final class _AuthBackedMcpEndpoint {
           'authid': _ioAuthId,
           'authrole': _ioAuthRole,
           'authmethod': 'ticket',
+          'authprovider': 'consumer-local',
         });
         return;
       case 'revoke':

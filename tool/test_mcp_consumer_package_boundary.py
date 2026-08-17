@@ -1997,7 +1997,7 @@ class McpConsumerPackageBoundaryTest(unittest.TestCase):
             "issueTicketToken(",
             "issueWampCraToken(",
             "issueScramToken(",
-            "refreshToken(",
+            "refreshGrant(",
             "revokeToken(",
             "_expectMcpUnauthorized",
             "_expectAuthRefreshUnauthorized",

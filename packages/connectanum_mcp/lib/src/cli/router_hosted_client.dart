@@ -524,8 +524,8 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
       throw StateError('Auth lifecycle smoke did not receive a refresh token.');
     }
 
-    final refreshed = await authClient.refreshToken(
-      refreshToken,
+    final refreshed = await authClient.refreshGrant(
+      grant,
       headers: const <String, String>{
         'x-consumer-trace': 'router-hosted-client-auth-lifecycle-refresh',
       },
@@ -646,7 +646,7 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
             'router-hosted-client-auth-lifecycle-revoke-refresh',
       },
     );
-    await _expectAuthRefreshUnauthorized(authClient, refreshedRefreshToken);
+    await _expectAuthRefreshUnauthorized(authClient, refreshed);
 
     stdout.writeln(
       jsonEncode({
@@ -693,11 +693,11 @@ Future<void> _expectMcpUnauthorized(
 
 Future<void> _expectAuthRefreshUnauthorized(
   ConnectanumHttpAuthClient authClient,
-  String refreshToken,
+  ConnectanumHttpAuthGrant grant,
 ) async {
   try {
-    await authClient.refreshToken(
-      refreshToken,
+    await authClient.refreshGrant(
+      grant,
       headers: const <String, String>{
         'x-consumer-trace': 'auth-lifecycle-refresh-revoked',
       },

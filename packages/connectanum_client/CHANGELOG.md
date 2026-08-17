@@ -23,6 +23,9 @@
 - Bind router HTTP-auth challenges and issued bearer grants to the requested
   realm, authentication method, and auth ID before signing or returning
   credentials.
+- Add grant-aware router HTTP-auth refreshes that fail closed when the
+  replacement token scheme, identity, role, provider, or authorization details
+  drift from the prior grant.
 - Let typed Streamable HTTP and direct JSON WAMP API-list helpers send validated
   opaque cursors and reject malformed continuation cursors.
 - Re-export the shared MCP resource-URI-template utility so client-only

@@ -222,20 +222,88 @@ final class ConnectanumHttpAuthClient {
     String refreshToken, {
     Map<String, String> headers = const <String, String>{},
   }) {
-    return _runTrackedOperation((openRequest) async {
+    return _runTrackedOperation((openRequest) {
       final token = _nonEmptyToken(refreshToken, 'refreshToken');
-      final grant = await _postJsonObject(
-        <String, Object?>{
-          'grant_type': 'refresh_token',
-          'refresh_token': token,
-        },
-        expectedStatus: HttpStatus.ok,
-        label: 'HTTP auth refresh request',
-        extraHeaders: headers,
+      return _requestRefreshToken(
+        token,
+        headers: headers,
         openRequest: openRequest,
       );
-      return ConnectanumHttpAuthGrant.fromJson(grant);
     });
+  }
+
+  /// Refreshes [grant] while requiring the replacement authorization lineage
+  /// to match it exactly.
+  ///
+  /// Use [refreshToken] only when the caller intentionally has no prior grant
+  /// metadata to bind.
+  Future<ConnectanumHttpAuthGrant> refreshGrant(
+    ConnectanumHttpAuthGrant grant, {
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return _runTrackedOperation((openRequest) async {
+      final token = grant.refreshToken;
+      if (token == null) {
+        throw ArgumentError(
+          'grant.refreshToken must contain a usable refresh token.',
+        );
+      }
+      final requestRefreshToken = _nonEmptyToken(token, 'grant.refreshToken');
+      final realm = _requiredGrantLineageField(grant.realm, 'grant.realm');
+      final authMethod = _requiredGrantLineageField(
+        grant.authMethod,
+        'grant.authMethod',
+      );
+      final authId = _requiredGrantLineageField(grant.authId, 'grant.authId');
+      final authRole = _requiredGrantLineageField(
+        grant.authRole,
+        'grant.authRole',
+      );
+      final tokenType = _nonEmptyArgument(grant.tokenType, 'grant.tokenType');
+      if (tokenType.toLowerCase() != 'bearer') {
+        throw ArgumentError(
+          'grant.tokenType must use the Bearer authentication scheme.',
+        );
+      }
+      final authProvider = grant.authProvider;
+      if (authProvider != null) {
+        _nonEmptyArgument(authProvider, 'grant.authProvider');
+      }
+
+      final refreshed = await _requestRefreshToken(
+        requestRefreshToken,
+        headers: headers,
+        openRequest: openRequest,
+      );
+      _validateRefreshedGrantLineage(
+        refreshed,
+        realm: realm,
+        authMethod: authMethod,
+        authId: authId,
+        authRole: authRole,
+        authProvider: authProvider,
+        details: grant.details,
+      );
+      return refreshed;
+    });
+  }
+
+  Future<ConnectanumHttpAuthGrant> _requestRefreshToken(
+    String token, {
+    required Map<String, String> headers,
+    required _HttpAuthRequestOpener openRequest,
+  }) async {
+    final grant = await _postJsonObject(
+      <String, Object?>{
+        'grant_type': 'refresh_token',
+        'refresh_token': token,
+      },
+      expectedStatus: HttpStatus.ok,
+      label: 'HTTP auth refresh request',
+      extraHeaders: headers,
+      openRequest: openRequest,
+    );
+    return ConnectanumHttpAuthGrant.fromJson(grant);
   }
 
   Future<void> revokeToken(
@@ -489,6 +557,94 @@ final class ConnectanumHttpAuthClient {
         '$label authid does not match the authentication request.',
       );
     }
+  }
+
+  static String _requiredGrantLineageField(String? value, String name) {
+    if (value == null) {
+      throw ArgumentError('$name must be present on a grant-aware refresh.');
+    }
+    return _nonEmptyArgument(value, name);
+  }
+
+  static void _validateRefreshedGrantLineage(
+    ConnectanumHttpAuthGrant grant, {
+    required String realm,
+    required String authMethod,
+    required String authId,
+    required String authRole,
+    required String? authProvider,
+    required Map<String, Object?> details,
+  }) {
+    if (grant.tokenType.toLowerCase() != 'bearer') {
+      _throwRefreshLineageMismatch('token_type');
+    }
+    if (_requiredRefreshedGrantField(grant.realm, 'realm') != realm) {
+      _throwRefreshLineageMismatch('realm');
+    }
+    if (_requiredRefreshedGrantField(grant.authMethod, 'authmethod') !=
+        authMethod) {
+      _throwRefreshLineageMismatch('authmethod');
+    }
+    if (_requiredRefreshedGrantField(grant.authId, 'authid') != authId) {
+      _throwRefreshLineageMismatch('authid');
+    }
+    if (_requiredRefreshedGrantField(grant.authRole, 'authrole') != authRole) {
+      _throwRefreshLineageMismatch('authrole');
+    }
+    if (grant.authProvider != authProvider) {
+      _throwRefreshLineageMismatch('authprovider');
+    }
+    if (!_jsonValuesEqual(grant.details, details)) {
+      _throwRefreshLineageMismatch('details');
+    }
+  }
+
+  static String _requiredRefreshedGrantField(String? value, String name) {
+    if (value == null) {
+      throw FormatException(
+        'HTTP auth refresh response is missing "$name".',
+      );
+    }
+    return value;
+  }
+
+  static Never _throwRefreshLineageMismatch(String field) {
+    throw ConnectanumHttpAuthProtocolException(
+      'HTTP auth refreshed grant $field does not match the prior grant.',
+    );
+  }
+
+  static bool _jsonValuesEqual(Object? left, Object? right) {
+    if (identical(left, right)) {
+      return true;
+    }
+    if (left is num && right is num) {
+      return left == right;
+    }
+    if (left is List && right is List) {
+      if (left.length != right.length) {
+        return false;
+      }
+      for (var index = 0; index < left.length; index += 1) {
+        if (!_jsonValuesEqual(left[index], right[index])) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (left is Map && right is Map) {
+      if (left.length != right.length) {
+        return false;
+      }
+      for (final entry in left.entries) {
+        if (!right.containsKey(entry.key) ||
+            !_jsonValuesEqual(entry.value, right[entry.key])) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return left == right;
   }
 
   static Extra _challengeExtraFrom(Object? value) {

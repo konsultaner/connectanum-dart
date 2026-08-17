@@ -331,6 +331,174 @@ void main() {
       });
     });
 
+    test('refreshes grants while binding authorization lineage', () async {
+      final endpoint = await _FakeHttpAuthEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = ConnectanumHttpAuthClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+      const current = ConnectanumHttpAuthGrant(
+        accessToken: 'access-token-1',
+        tokenType: 'Bearer',
+        refreshToken: 'refresh-token-1',
+        realm: 'realm1',
+        authId: 'user-1',
+        authRole: 'member',
+        authMethod: 'ticket',
+        authProvider: 'consumer-local',
+        details: <String, Object?>{
+          'tenant': 'north',
+          'limits': <Object?>[
+            1,
+            <String, Object?>{'active': true},
+          ],
+        },
+      );
+
+      final refreshed = await client.refreshGrant(current);
+
+      expect(refreshed.accessToken, 'refreshed-access-token');
+      expect(refreshed.refreshToken, 'refreshed-refresh-token');
+      expect(endpoint.requests, hasLength(1));
+      expect(endpoint.requests.single.body, {
+        'grant_type': 'refresh_token',
+        'refresh_token': 'refresh-token-1',
+      });
+    });
+
+    test('rejects refreshed grant authorization lineage drift', () async {
+      final cases =
+          <
+            ({
+              String field,
+              Map<String, Object?> overrides,
+              String untrustedValue,
+            })
+          >[
+            (
+              field: 'token_type',
+              overrides: const <String, Object?>{'token_type': 'Basic'},
+              untrustedValue: 'Basic',
+            ),
+            (
+              field: 'realm',
+              overrides: const <String, Object?>{'realm': 'other-realm'},
+              untrustedValue: 'other-realm',
+            ),
+            (
+              field: 'authmethod',
+              overrides: const <String, Object?>{'authmethod': 'wampcra'},
+              untrustedValue: 'wampcra',
+            ),
+            (
+              field: 'authid',
+              overrides: const <String, Object?>{'authid': 'other-user'},
+              untrustedValue: 'other-user',
+            ),
+            (
+              field: 'authrole',
+              overrides: const <String, Object?>{'authrole': 'administrator'},
+              untrustedValue: 'administrator',
+            ),
+            (
+              field: 'authprovider',
+              overrides: const <String, Object?>{
+                'authprovider': 'other-provider',
+              },
+              untrustedValue: 'other-provider',
+            ),
+            (
+              field: 'details',
+              overrides: const <String, Object?>{
+                'details': <String, Object?>{'tenant': 'south'},
+              },
+              untrustedValue: 'south',
+            ),
+          ];
+      const current = ConnectanumHttpAuthGrant(
+        accessToken: 'access-token-1',
+        tokenType: 'Bearer',
+        refreshToken: 'refresh-token-1',
+        realm: 'realm1',
+        authId: 'user-1',
+        authRole: 'member',
+        authMethod: 'ticket',
+        authProvider: 'consumer-local',
+        details: <String, Object?>{
+          'tenant': 'north',
+          'limits': <Object?>[
+            1,
+            <String, Object?>{'active': true},
+          ],
+        },
+      );
+
+      for (final testCase in cases) {
+        final endpoint = await _FakeHttpAuthEndpoint.bind(
+          grantOverrides: testCase.overrides,
+        );
+        addTearDown(endpoint.close);
+        final client = ConnectanumHttpAuthClient(endpoint.uri);
+        addTearDown(() => client.close(force: true));
+
+        await expectLater(
+          client.refreshGrant(current),
+          throwsA(
+            isA<ConnectanumHttpAuthProtocolException>().having(
+              (error) => error.message,
+              'message',
+              allOf(
+                contains(testCase.field),
+                isNot(contains(testCase.untrustedValue)),
+              ),
+            ),
+          ),
+        );
+
+        expect(endpoint.requests, hasLength(1));
+      }
+    });
+
+    test('rejects incomplete grant-aware refresh before requests', () async {
+      final endpoint = await _FakeHttpAuthEndpoint.bind();
+      addTearDown(endpoint.close);
+      final client = ConnectanumHttpAuthClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+      final grants = <ConnectanumHttpAuthGrant>[
+        const ConnectanumHttpAuthGrant(
+          accessToken: 'access-token-1',
+          tokenType: 'Bearer',
+          realm: 'realm1',
+          authId: 'user-1',
+          authRole: 'member',
+          authMethod: 'ticket',
+        ),
+        const ConnectanumHttpAuthGrant(
+          accessToken: 'access-token-1',
+          tokenType: 'Basic',
+          refreshToken: 'refresh-token-1',
+          realm: 'realm1',
+          authId: 'user-1',
+          authRole: 'member',
+          authMethod: 'ticket',
+        ),
+        const ConnectanumHttpAuthGrant(
+          accessToken: 'access-token-1',
+          tokenType: 'Bearer',
+          refreshToken: 'refresh-token-1',
+          authId: 'user-1',
+          authRole: 'member',
+          authMethod: 'ticket',
+        ),
+      ];
+
+      for (final grant in grants) {
+        await expectLater(client.refreshGrant(grant), throwsArgumentError);
+      }
+
+      expect(endpoint.requests, isEmpty);
+    });
+
     test(
       'normalizes and rejects revoke token type hints before requests',
       () async {
@@ -874,6 +1042,19 @@ final class _FakeHttpAuthEndpoint {
           'token_type': 'Bearer',
           'access_token': 'refreshed-access-token',
           'refresh_token': 'refreshed-refresh-token',
+          'realm': 'realm1',
+          'authid': 'user-1',
+          'authrole': 'member',
+          'authmethod': authMethod,
+          'authprovider': 'consumer-local',
+          'details': const <String, Object?>{
+            'limits': <Object?>[
+              1,
+              <String, Object?>{'active': true},
+            ],
+            'tenant': 'north',
+          },
+          ...grantOverrides,
         });
         return;
       case 'revoke':

@@ -58,6 +58,9 @@
   insufficient-scope operations on the same Streamable HTTP session.
 - Re-export in-place router HTTP-auth grant replacement for refreshes that
   continue on an established Streamable HTTP session.
+- Use grant-aware router HTTP-auth refreshes in the packaged client and
+  isolated consumer smokes so refreshed authorization context is bound before
+  reuse on direct JSON or Streamable HTTP requests.
 - Add isolated server, client, executable, and consumer application smokes.
 - Export the `2025-03-26` compatibility fallback for legacy HTTP requests that
   omit `MCP-Protocol-Version`.

@@ -4007,8 +4007,8 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
     const resumeCursor = 'agent-session:auth-refresh:kept';
     refreshedClient.lastEventId = resumeCursor;
 
-    final refreshed = await authClient.refreshToken(
-      grant.refreshToken!,
+    final refreshed = await authClient.refreshGrant(
+      grant,
       headers: const <String, String>{'x-consumer-trace': 'auth-refresh'},
     );
     _expect(
@@ -4028,8 +4028,8 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
     );
 
     try {
-      await authClient.refreshToken(
-        grant.refreshToken!,
+      await authClient.refreshGrant(
+        grant,
         headers: const <String, String>{
           'x-consumer-trace': 'auth-refresh-rotated',
         },
@@ -4122,8 +4122,8 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
     );
 
     try {
-      await authClient.refreshToken(
-        refreshed.refreshToken!,
+      await authClient.refreshGrant(
+        refreshed,
         headers: const <String, String>{
           'x-consumer-trace': 'auth-refresh-revoked',
         },
@@ -18269,13 +18269,13 @@ Future<void> _assertStreamableSessionReuseRejected(
 
 Future<void> _assertHttpRefreshRejected(
   RouterBinding binding,
-  String refreshToken, {
+  ConnectanumHttpAuthGrant grant, {
   required String acceptedMessage,
 }) async {
   final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   try {
-    await authClient.refreshToken(
-      refreshToken,
+    await authClient.refreshGrant(
+      grant,
       headers: const <String, String>{
         'x-consumer-trace': 'refresh-rejection',
       },
@@ -18320,8 +18320,8 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     final resumeCursor = '$label:refresh:kept';
     rotatedSessionClient.lastEventId = resumeCursor;
 
-    final refreshed = await authClient.refreshToken(
-      refreshToken,
+    final refreshed = await authClient.refreshGrant(
+      grant,
       headers: <String, String>{
         'x-consumer-trace': '$label-refresh',
       },
@@ -18366,7 +18366,7 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     );
     await _assertHttpRefreshRejected(
       binding,
-      refreshToken,
+      grant,
       acceptedMessage:
           'HTTP auth bridge accepted a rotated $label refresh token.',
     );
@@ -18409,7 +18409,7 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     );
     await _assertHttpRefreshRejected(
       binding,
-      rotatedRefreshToken,
+      refreshed,
       acceptedMessage:
           'HTTP auth bridge accepted a revoked $label refresh token.',
     );
@@ -33874,7 +33874,7 @@ Future<void> main() async {
     > refreshOnce() async {
       try {
         return (
-          grant: await discoveredAuthClient.refreshToken(originalRefreshToken),
+          grant: await discoveredAuthClient.refreshGrant(grant),
           error: null,
         );
       } on ConnectanumHttpAuthException catch (error) {
@@ -34056,7 +34056,7 @@ Future<void> main() async {
         tokenTypeHint: 'refresh_token',
       );
       await _expectAuthRejected(
-        () => discoveredAuthClient.refreshToken(refreshedRefreshToken),
+        () => discoveredAuthClient.refreshGrant(refreshedGrant),
         HttpStatus.unauthorized,
         'Dart consumer revoked refresh token request',
       );

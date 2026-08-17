@@ -783,12 +783,12 @@ Future<void> _assertSecureMcpRejectsBearer(
 
 Future<void> _assertTicketRefreshRejected(
   RouterBinding binding,
-  String refreshToken, {
+  ConnectanumHttpAuthGrant grant, {
   required String acceptedMessage,
 }) async {
   final authClient = ConnectanumHttpAuthClient(_authEndpoint(binding));
   try {
-    await authClient.refreshToken(refreshToken);
+    await authClient.refreshGrant(grant);
     throw StateError(acceptedMessage);
   } on ConnectanumHttpAuthException catch (error) {
     if (error.statusCode != HttpStatus.unauthorized) {
@@ -1892,7 +1892,7 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     const resumeCursor = 'secure-rotated:refresh:kept';
     rotatedSessionClient.lastEventId = resumeCursor;
 
-    final refreshed = await authClient.refreshToken(refreshToken);
+    final refreshed = await authClient.refreshGrant(grant);
     if (refreshed.accessToken == grant.accessToken) {
       throw StateError('HTTP auth bridge refresh reused the access token.');
     }
@@ -1929,7 +1929,7 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     );
     await _assertTicketRefreshRejected(
       binding,
-      refreshToken,
+      grant,
       acceptedMessage: 'HTTP auth bridge accepted a rotated refresh token.',
     );
 
@@ -1955,7 +1955,7 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
     );
     await _assertTicketRefreshRejected(
       binding,
-      rotatedRefreshToken,
+      refreshed,
       acceptedMessage: 'HTTP auth bridge accepted a revoked refresh token.',
     );
   } finally {

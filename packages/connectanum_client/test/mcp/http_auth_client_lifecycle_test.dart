@@ -45,6 +45,20 @@ void main() {
           throwsA(_closedStateError),
         );
         await expectLater(
+          client.refreshGrant(
+            const ConnectanumHttpAuthGrant(
+              accessToken: 'access-token-1',
+              tokenType: 'Bearer',
+              refreshToken: 'refresh-token-1',
+              realm: 'realm1',
+              authId: 'user-1',
+              authRole: 'member',
+              authMethod: 'ticket',
+            ),
+          ),
+          throwsA(_closedStateError),
+        );
+        await expectLater(
           client.revokeToken('access-token-1'),
           throwsA(_closedStateError),
         );
