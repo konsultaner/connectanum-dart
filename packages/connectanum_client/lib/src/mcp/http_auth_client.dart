@@ -37,6 +37,16 @@ final class _PendingHttpAuthOperationHandle<T>
   }
 }
 
+/// Selects the credential revoked by a grant-aware HTTP-auth operation.
+enum ConnectanumHttpAuthTokenKind {
+  accessToken('access_token'),
+  refreshToken('refresh_token');
+
+  const ConnectanumHttpAuthTokenKind(this.hint);
+
+  final String hint;
+}
+
 /// Dart IO client for Connectanum router HTTP auth bridge endpoints.
 ///
 /// The router auth bridge exposes WAMP challenge/response authenticators over a
@@ -206,7 +216,10 @@ final class ConnectanumHttpAuthClient {
         extraHeaders: headers,
         openRequest: openRequest,
       );
-      final parsedGrant = ConnectanumHttpAuthGrant.fromJson(grant);
+      final parsedGrant = ConnectanumHttpAuthGrant.fromJson(
+        grant,
+        authEndpoint: endpoint,
+      );
       _validateAuthResponseIdentity(
         grant,
         label: 'HTTP auth grant',
@@ -232,8 +245,8 @@ final class ConnectanumHttpAuthClient {
     });
   }
 
-  /// Refreshes [grant] while requiring the replacement authorization lineage
-  /// to match it exactly.
+  /// Refreshes [grant] at its exact issuing endpoint while requiring the
+  /// replacement authorization lineage to match it exactly.
   ///
   /// Use [refreshToken] only when the caller intentionally has no prior grant
   /// metadata to bind.
@@ -242,6 +255,7 @@ final class ConnectanumHttpAuthClient {
     Map<String, String> headers = const <String, String>{},
   }) {
     return _runTrackedOperation((openRequest) async {
+      _validateGrantEndpoint(grant);
       final token = grant.refreshToken;
       if (token == null) {
         throw ArgumentError(
@@ -303,7 +317,7 @@ final class ConnectanumHttpAuthClient {
       extraHeaders: headers,
       openRequest: openRequest,
     );
-    return ConnectanumHttpAuthGrant.fromJson(grant);
+    return ConnectanumHttpAuthGrant.fromJson(grant, authEndpoint: endpoint);
   }
 
   Future<void> revokeToken(
@@ -314,21 +328,72 @@ final class ConnectanumHttpAuthClient {
     return _runTrackedOperation((openRequest) async {
       final revokeToken = _nonEmptyToken(token, 'token');
       final revokeTokenTypeHint = _optionalTokenTypeHint(tokenTypeHint);
-      final request = <String, Object?>{
-        'grant_type': 'revoke',
-        'token': revokeToken,
-      };
-      if (revokeTokenTypeHint != null) {
-        request['token_type_hint'] = revokeTokenTypeHint;
-      }
-      await _postJsonObject(
-        request,
-        expectedStatus: HttpStatus.ok,
-        label: 'HTTP auth revoke request',
-        extraHeaders: headers,
+      await _requestRevokeToken(
+        revokeToken,
+        tokenTypeHint: revokeTokenTypeHint,
+        headers: headers,
         openRequest: openRequest,
       );
     });
+  }
+
+  /// Revokes one credential from [grant] at its exact issuing endpoint.
+  ///
+  /// Use [revokeToken] only when deliberately working with an unbound raw
+  /// credential.
+  Future<void> revokeGrant(
+    ConnectanumHttpAuthGrant grant, {
+    ConnectanumHttpAuthTokenKind tokenKind =
+        ConnectanumHttpAuthTokenKind.refreshToken,
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    return _runTrackedOperation((openRequest) async {
+      _validateGrantEndpoint(grant);
+      final tokenType = _nonEmptyArgument(grant.tokenType, 'grant.tokenType');
+      if (tokenType.toLowerCase() != 'bearer') {
+        throw ArgumentError(
+          'grant.tokenType must use the Bearer authentication scheme.',
+        );
+      }
+      final token = switch (tokenKind) {
+        ConnectanumHttpAuthTokenKind.accessToken => grant.accessToken,
+        ConnectanumHttpAuthTokenKind.refreshToken => grant.refreshToken,
+      };
+      if (token == null) {
+        throw ArgumentError(
+          'grant does not contain the selected revocation credential.',
+        );
+      }
+      final revokeToken = _nonEmptyToken(token, 'grant token');
+      await _requestRevokeToken(
+        revokeToken,
+        tokenTypeHint: tokenKind.hint,
+        headers: headers,
+        openRequest: openRequest,
+      );
+    });
+  }
+
+  Future<void> _requestRevokeToken(
+    String token, {
+    required String? tokenTypeHint,
+    required Map<String, String> headers,
+    required _HttpAuthRequestOpener openRequest,
+  }) async {
+    final request = <String, Object?>{
+      'grant_type': 'revoke',
+      'token': token,
+    };
+    if (tokenTypeHint != null) {
+      request['token_type_hint'] = tokenTypeHint;
+    }
+    await _postJsonObject(
+      request,
+      expectedStatus: HttpStatus.ok,
+      label: 'HTTP auth revoke request',
+      extraHeaders: headers,
+      openRequest: openRequest,
+    );
   }
 
   void close({bool force = false}) {
@@ -564,6 +629,14 @@ final class ConnectanumHttpAuthClient {
       throw ArgumentError('$name must be present on a grant-aware refresh.');
     }
     return _nonEmptyArgument(value, name);
+  }
+
+  void _validateGrantEndpoint(ConnectanumHttpAuthGrant grant) {
+    if (!grant.isForAuthEndpoint(endpoint)) {
+      throw ArgumentError(
+        'grant.authEndpoint must match the issuing HTTP auth endpoint.',
+      );
+    }
   }
 
   static void _validateRefreshedGrantLineage(
@@ -803,6 +876,7 @@ final class ConnectanumHttpAuthGrant {
   const ConnectanumHttpAuthGrant({
     required this.accessToken,
     required this.tokenType,
+    this.authEndpoint,
     this.refreshToken,
     this.realm,
     this.authId,
@@ -814,11 +888,15 @@ final class ConnectanumHttpAuthGrant {
     this.details = const <String, Object?>{},
   });
 
-  factory ConnectanumHttpAuthGrant.fromJson(Map<String, Object?> json) {
+  factory ConnectanumHttpAuthGrant.fromJson(
+    Map<String, Object?> json, {
+    Uri? authEndpoint,
+  }) {
     final tokenType = _optionalToken(json, 'token_type');
     return ConnectanumHttpAuthGrant(
       accessToken: _requiredToken(json['access_token'], 'access_token'),
       tokenType: tokenType == null || tokenType.isEmpty ? 'Bearer' : tokenType,
+      authEndpoint: authEndpoint,
       refreshToken: _optionalToken(json, 'refresh_token'),
       realm: _optionalString(json, 'realm'),
       authId: _optionalString(json, 'authid'),
@@ -836,6 +914,10 @@ final class ConnectanumHttpAuthGrant {
 
   final String accessToken;
   final String tokenType;
+
+  /// Exact HTTP-auth endpoint that issued this grant when known.
+  final Uri? authEndpoint;
+
   final String? refreshToken;
   final String? realm;
   final String? authId;
@@ -845,6 +927,11 @@ final class ConnectanumHttpAuthGrant {
   final Duration? accessTokenExpiresIn;
   final Duration? refreshTokenExpiresIn;
   final Map<String, Object?> details;
+
+  /// Whether this grant was issued by [candidate].
+  bool isForAuthEndpoint(Uri candidate) {
+    return authEndpoint?.toString() == candidate.toString();
+  }
 
   static String _requiredToken(Object? value, String key) {
     if (value == null) {

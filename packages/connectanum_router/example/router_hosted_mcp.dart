@@ -1935,10 +1935,7 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
 
     await _smokeSecureMcpRefreshedGrant(binding, refreshed);
 
-    await authClient.revokeToken(
-      rotatedRefreshToken,
-      tokenTypeHint: 'refresh_token',
-    );
+    await authClient.revokeGrant(refreshed);
     await _assertActiveStreamableSessionRejectsBearer(
       rotatedSessionClient,
       label: 'secure-revoked',

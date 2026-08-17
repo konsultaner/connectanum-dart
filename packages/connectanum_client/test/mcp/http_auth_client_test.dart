@@ -88,6 +88,12 @@ void main() {
       expect(grant.accessToken, 'access-token-1');
       expect(grant.refreshToken, 'refresh-token-1');
       expect(grant.tokenType, 'Bearer');
+      expect(grant.authEndpoint, endpoint.uri);
+      expect(grant.isForAuthEndpoint(endpoint.uri), isTrue);
+      expect(
+        grant.isForAuthEndpoint(endpoint.uri.replace(path: '/other-auth')),
+        isFalse,
+      );
       expect(grant.realm, 'realm1');
       expect(grant.authId, 'user-1');
       expect(grant.authRole, 'member');
@@ -337,16 +343,17 @@ void main() {
 
       final client = ConnectanumHttpAuthClient(endpoint.uri);
       addTearDown(() => client.close(force: true));
-      const current = ConnectanumHttpAuthGrant(
+      final current = ConnectanumHttpAuthGrant(
         accessToken: 'access-token-1',
         tokenType: 'Bearer',
+        authEndpoint: endpoint.uri,
         refreshToken: 'refresh-token-1',
         realm: 'realm1',
         authId: 'user-1',
         authRole: 'member',
         authMethod: 'ticket',
         authProvider: 'consumer-local',
-        details: <String, Object?>{
+        details: const <String, Object?>{
           'tenant': 'north',
           'limits': <Object?>[
             1,
@@ -359,11 +366,119 @@ void main() {
 
       expect(refreshed.accessToken, 'refreshed-access-token');
       expect(refreshed.refreshToken, 'refreshed-refresh-token');
+      expect(refreshed.authEndpoint, endpoint.uri);
+      expect(refreshed.isForAuthEndpoint(endpoint.uri), isTrue);
       expect(endpoint.requests, hasLength(1));
       expect(endpoint.requests.single.body, {
         'grant_type': 'refresh_token',
         'refresh_token': 'refresh-token-1',
       });
+    });
+
+    test('rejects cross-endpoint grant operations before requests', () async {
+      final issuingEndpoint = await _FakeHttpAuthEndpoint.bind();
+      final otherEndpoint = await _FakeHttpAuthEndpoint.bind();
+      addTearDown(issuingEndpoint.close);
+      addTearDown(otherEndpoint.close);
+
+      final issuingClient = ConnectanumHttpAuthClient(issuingEndpoint.uri);
+      final otherClient = ConnectanumHttpAuthClient(otherEndpoint.uri);
+      addTearDown(() => issuingClient.close(force: true));
+      addTearDown(() => otherClient.close(force: true));
+
+      final grant = await issuingClient.issueTicketToken(
+        realm: 'realm1',
+        authId: 'user-1',
+        ticket: 'ticket-secret',
+      );
+      issuingEndpoint.requests.clear();
+
+      await expectLater(otherClient.refreshGrant(grant), throwsArgumentError);
+      await expectLater(otherClient.revokeGrant(grant), throwsArgumentError);
+      await expectLater(
+        otherClient.revokeGrant(
+          grant,
+          tokenKind: ConnectanumHttpAuthTokenKind.accessToken,
+        ),
+        throwsArgumentError,
+      );
+
+      expect(issuingEndpoint.requests, isEmpty);
+      expect(otherEndpoint.requests, isEmpty);
+    });
+
+    test('revokes endpoint-bound grant credentials', () async {
+      final endpoint = await _FakeHttpAuthEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = ConnectanumHttpAuthClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+      final grant = await client.issueTicketToken(
+        realm: 'realm1',
+        authId: 'user-1',
+        ticket: 'ticket-secret',
+      );
+      endpoint.requests.clear();
+
+      await client.revokeGrant(
+        grant,
+        tokenKind: ConnectanumHttpAuthTokenKind.accessToken,
+      );
+      await client.revokeGrant(grant);
+
+      expect(endpoint.requests, hasLength(2));
+      expect(endpoint.requests[0].body, {
+        'grant_type': 'revoke',
+        'token': 'access-token-1',
+        'token_type_hint': 'access_token',
+      });
+      expect(endpoint.requests[1].body, {
+        'grant_type': 'revoke',
+        'token': 'refresh-token-1',
+        'token_type_hint': 'refresh_token',
+      });
+    });
+
+    test('rejects invalid grant-aware revocation before requests', () async {
+      final endpoint = await _FakeHttpAuthEndpoint.bind();
+      addTearDown(endpoint.close);
+
+      final client = ConnectanumHttpAuthClient(endpoint.uri);
+      addTearDown(() => client.close(force: true));
+
+      await expectLater(
+        client.revokeGrant(
+          const ConnectanumHttpAuthGrant(
+            accessToken: 'access-token-1',
+            tokenType: 'Bearer',
+            refreshToken: 'refresh-token-1',
+          ),
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client.revokeGrant(
+          ConnectanumHttpAuthGrant(
+            accessToken: 'access-token-1',
+            tokenType: 'Bearer',
+            authEndpoint: endpoint.uri,
+          ),
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        client.revokeGrant(
+          ConnectanumHttpAuthGrant(
+            accessToken: 'access-token-1',
+            tokenType: 'Basic',
+            authEndpoint: endpoint.uri,
+          ),
+          tokenKind: ConnectanumHttpAuthTokenKind.accessToken,
+        ),
+        throwsArgumentError,
+      );
+
+      expect(endpoint.requests, isEmpty);
     });
 
     test('rejects refreshed grant authorization lineage drift', () async {
@@ -415,23 +530,6 @@ void main() {
               untrustedValue: 'south',
             ),
           ];
-      const current = ConnectanumHttpAuthGrant(
-        accessToken: 'access-token-1',
-        tokenType: 'Bearer',
-        refreshToken: 'refresh-token-1',
-        realm: 'realm1',
-        authId: 'user-1',
-        authRole: 'member',
-        authMethod: 'ticket',
-        authProvider: 'consumer-local',
-        details: <String, Object?>{
-          'tenant': 'north',
-          'limits': <Object?>[
-            1,
-            <String, Object?>{'active': true},
-          ],
-        },
-      );
 
       for (final testCase in cases) {
         final endpoint = await _FakeHttpAuthEndpoint.bind(
@@ -440,6 +538,24 @@ void main() {
         addTearDown(endpoint.close);
         final client = ConnectanumHttpAuthClient(endpoint.uri);
         addTearDown(() => client.close(force: true));
+        final current = ConnectanumHttpAuthGrant(
+          accessToken: 'access-token-1',
+          tokenType: 'Bearer',
+          authEndpoint: endpoint.uri,
+          refreshToken: 'refresh-token-1',
+          realm: 'realm1',
+          authId: 'user-1',
+          authRole: 'member',
+          authMethod: 'ticket',
+          authProvider: 'consumer-local',
+          details: const <String, Object?>{
+            'tenant': 'north',
+            'limits': <Object?>[
+              1,
+              <String, Object?>{'active': true},
+            ],
+          },
+        );
 
         await expectLater(
           client.refreshGrant(current),
@@ -465,19 +581,30 @@ void main() {
       final client = ConnectanumHttpAuthClient(endpoint.uri);
       addTearDown(() => client.close(force: true));
       final grants = <ConnectanumHttpAuthGrant>[
-        const ConnectanumHttpAuthGrant(
+        ConnectanumHttpAuthGrant(
           accessToken: 'access-token-1',
           tokenType: 'Bearer',
+          authEndpoint: endpoint.uri,
           realm: 'realm1',
           authId: 'user-1',
           authRole: 'member',
           authMethod: 'ticket',
         ),
-        const ConnectanumHttpAuthGrant(
+        ConnectanumHttpAuthGrant(
           accessToken: 'access-token-1',
           tokenType: 'Basic',
+          authEndpoint: endpoint.uri,
           refreshToken: 'refresh-token-1',
           realm: 'realm1',
+          authId: 'user-1',
+          authRole: 'member',
+          authMethod: 'ticket',
+        ),
+        ConnectanumHttpAuthGrant(
+          accessToken: 'access-token-1',
+          tokenType: 'Bearer',
+          authEndpoint: endpoint.uri,
+          refreshToken: 'refresh-token-1',
           authId: 'user-1',
           authRole: 'member',
           authMethod: 'ticket',
@@ -486,6 +613,7 @@ void main() {
           accessToken: 'access-token-1',
           tokenType: 'Bearer',
           refreshToken: 'refresh-token-1',
+          realm: 'realm1',
           authId: 'user-1',
           authRole: 'member',
           authMethod: 'ticket',

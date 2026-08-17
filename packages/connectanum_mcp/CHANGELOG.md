@@ -61,6 +61,9 @@
 - Use grant-aware router HTTP-auth refreshes in the packaged client and
   isolated consumer smokes so refreshed authorization context is bound before
   reuse on direct JSON or Streamable HTTP requests.
+- Use endpoint-bound grant-aware router HTTP-auth revocation in the packaged
+  client and isolated consumer smokes while retaining raw token APIs for
+  explicit low-level compatibility checks.
 - Add isolated server, client, executable, and consumer application smokes.
 - Export the `2025-03-26` compatibility fallback for legacy HTTP requests that
   omit `MCP-Protocol-Version`.

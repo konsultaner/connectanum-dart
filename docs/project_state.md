@@ -24374,6 +24374,48 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-17: Public router HTTP-auth grants now retain their exact issuing
+  endpoint, and grant-aware refresh plus access/refresh revocation reject an
+  unknown or different endpoint before selecting or transmitting a credential.
+  Raw token operations remain intentionally unbound for compatibility and
+  explicit invalid-token checks. Maintained package, source, globally
+  activated, generated downstream, router example, and router CLI success
+  paths preserve endpoint provenance and use grant-aware revocation. Focused
+  HTTP-auth/lifecycle tests pass all 35 cases, the public MCP IO lifecycle test
+  passes, affected-package analysis is clean, all 23 consumer-boundary checks
+  pass, and every affected live consumer smoke passes. Canonical `bin/verify`
+  passes with zero formatting changes, 117 Rust core/serializer checks, all 52
+  FFI tests plus metrics mode, 366 Dart core tests, 117 MCP package tests, the
+  complete 312-case client/MCP suite, all 97 benchmark tests with 37 live WAMP
+  workloads, all 454 router tests, six remote-auth tests, 13 native follow-ups,
+  every maintained isolated and globally activated consumer smoke, Chrome,
+  and Dart2Wasm. The strict 20-case release-ready package dry run and 22-case
+  deployment-audit regression suite also pass. Publication and exact-head
+  hosted evidence remain.
+- 2026-08-17: The public router HTTP-auth client now exposes grant-aware
+  refresh through `refreshGrant`, validates a complete prior grant before
+  network I/O, and rejects replacement token-scheme, realm, authentication
+  method, auth-ID, role, provider, or JSON-details drift through redacted typed
+  protocol failures. The raw-token refresh operation remains available for
+  compatibility and explicit invalid-token checks. Maintained package, source,
+  globally activated, generated consumer, and router CLI lifecycles use the
+  bound operation. Focused client/lifecycle/IO tests pass all 47 cases,
+  affected-package analysis is clean, all 23 consumer-boundary checks pass,
+  and every affected live consumer smoke passes. Canonical `bin/verify` passes
+  with zero formatting changes, 117 Rust core/serializer checks, all 52 FFI
+  tests plus metrics mode, 366 Dart core tests, 117 MCP package tests, the
+  complete 309-case client/MCP suite, all 97 benchmark tests with 37 live WAMP
+  workloads, all 454 router tests, six remote-auth tests, 13 native follow-ups,
+  every maintained isolated and globally activated consumer smoke, Chrome,
+  and Dart2Wasm. Clean commit `d2aaf1ef` is published to both maintained
+  feature-branch remotes. Exact-head GitHub `CI` run `31980724571` passes Fast
+  Checks job `95246866514`, Full Verify job `95247909492`, and Dart VM Coverage
+  job `95247909479`, with retained coverage artifact `9272527775`; Dart Package
+  Publish Dry Run `31980724610` passes job `95246866432`. The strict
+  protected-release baseline passes from an isolated `master` worktree at
+  `ec53a327`, and the feature-branch deployment-chain audit confirms exact-head
+  CI/job/log cleanliness, workflow and router-package visibility, and current
+  package-run relevance.
 - 2026-08-17: The public router HTTP-auth client now binds every challenge to
   the requested realm and authentication method before computing a
   secret-derived response, and binds every issued grant to the requested
@@ -25266,6 +25308,22 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP downstream-readiness plan is
+  `docs/exec-plans/2026-08-17-mcp-http-auth-grant-endpoint-binding.md`. It
+  prevents a downstream application from transmitting router-issued access or
+  refresh credentials to a different HTTP-auth endpoint by attaching exact
+  endpoint provenance to public-client grants and validating it before
+  grant-aware refresh or revocation. Raw token operations remain available for
+  compatibility and explicit invalid-token tests. Serena preflight, onboarding,
+  overlap checks, and state/roadmap review pass. Client-issued grants now carry
+  exact endpoint provenance, grant-aware operations reject unknown or different
+  endpoints before network I/O, and maintained successful consumer lifecycles
+  use endpoint-bound revocation. Focused tests, analysis, package-boundary
+  checks, all affected maintained live smokes, the strict release-ready package
+  dry run, and canonical `bin/verify` pass. Full verification includes the
+  complete 312-case client/MCP suite, all 97 benchmark tests with 37 live WAMP
+  workloads, all 454 router tests, every maintained consumer smoke, Chrome, and
+  Dart2Wasm. Publication and exact-head hosted evidence remain.
+- The most recently completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-http-auth-refresh-lineage-binding.md`. It
   adds a public grant-aware router HTTP-auth refresh path that validates the
   complete prior identity and authorization context before I/O, then rejects
@@ -25279,9 +25337,12 @@ at the older `47bbf9c` commit.
   package dry run, and canonical `bin/verify` pass. Full verification includes
   366 core tests, 117 MCP package tests, the complete 309-case client/MCP suite,
   all 97 benchmark tests with 37 live WAMP workloads, all 454 router tests, six
-  remote-auth tests, 13 native follow-ups, Chrome, and Dart2Wasm. Publication
-  and exact-head hosted evidence remain.
-- The most recently completed MCP downstream-readiness plan is
+  remote-auth tests, 13 native follow-ups, Chrome, and Dart2Wasm. Clean commit
+  `d2aaf1ef` is published to both maintained feature-branch remotes; exact-head
+  GitHub `CI` run `31980724571`, Dart Package Publish Dry Run `31980724610`,
+  retained coverage artifact `9272527775`, the strict protected-release
+  baseline, and the feature-branch clean-log deployment audit are green.
+- The preceding completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-http-auth-response-binding.md`. The public
   HTTP-auth client now rejects challenge realm/method drift before invoking a
   secret-bearing authentication response and rejects issued-grant
@@ -25295,7 +25356,7 @@ at the older `47bbf9c` commit.
   Dart Package Publish Dry Run `31976621678`, retained coverage artifact
   `9271444968`, the strict protected-release baseline, and the feature-branch
   clean-log deployment audit are green.
-- The preceding completed MCP downstream-readiness plan is
+- The earlier completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-16-mcp-consumer-http-auth-discovery-smoke.md`.
   It closes the remaining direct consumer-boundary gap around the newly public
   HTTP-auth discovery helper: caller-configured auth headers must apply only to

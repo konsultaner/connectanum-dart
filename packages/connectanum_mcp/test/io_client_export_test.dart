@@ -848,8 +848,9 @@ void main() {
     expect(refreshedApiDescription['kind'], 'procedure');
     expect(mcpClient.sessionId, _ioAuthSessionId);
 
-    await authClient.revokeToken(
-      refreshed.accessToken,
+    await authClient.revokeGrant(
+      refreshed,
+      tokenKind: ConnectanumHttpAuthTokenKind.accessToken,
       headers: const <String, String>{
         'x-consumer-trace': 'io-auth-revoke-access',
       },
@@ -869,9 +870,8 @@ void main() {
     expect(mcpClient.sessionId, isNull);
     expect(mcpClient.lastEventId, isNull);
 
-    await authClient.revokeToken(
-      refreshed.refreshToken!,
-      tokenTypeHint: 'refresh_token',
+    await authClient.revokeGrant(
+      refreshed,
       headers: const <String, String>{
         'x-consumer-trace': 'io-auth-revoke-refresh',
       },
@@ -906,6 +906,7 @@ void main() {
     expect(endpoint.authRequests[3].body, {
       'grant_type': 'revoke',
       'token': _ioRefreshedAccessToken,
+      'token_type_hint': 'access_token',
     });
     expect(endpoint.authRequests[4].body, {
       'grant_type': 'revoke',

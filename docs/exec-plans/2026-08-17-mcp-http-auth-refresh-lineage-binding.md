@@ -1,6 +1,6 @@
 # Exec Plan: MCP HTTP-Auth Refresh Lineage Binding
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-17
 Last updated: 2026-08-17
@@ -114,8 +114,23 @@ lineage of the grant being refreshed.
   isolated and globally activated consumer smoke, Chrome, and Dart2Wasm. The
   strict 20-case release-ready package dry run and 22-case deployment-audit
   regression suite also pass.
+- 2026-08-17: Clean commit `d2aaf1ef` (`Bind router HTTP auth refresh grants`)
+  is published to both maintained feature-branch remotes. Exact-head GitHub
+  `CI` run `31980724571` passes Fast Checks job `95246866514`, Full Verify job
+  `95247909492`, and Dart VM Coverage job `95247909479`; retained coverage
+  artifact `9272527775` has digest
+  `sha256:d35c0a10956cf0fac16896444020cc814e6e8bc086555fc3b256ec967378c361`.
+  Dart Package Publish Dry Run `31980724610` passes job `95246866432` and
+  covers the exact head.
+- 2026-08-17: The strict protected-release baseline passes from an isolated
+  `master` worktree at `ec53a327`, including protected required checks,
+  exact-head CI/job/log cleanliness, package-run relevance, workflow
+  visibility, and public router-package visibility. The feature-branch audit
+  also passes with exact-head CI/job/log cleanliness, current package-run
+  relevance, workflow visibility, and router-package visibility.
 
 ## Handoff
 
-- Active. Implementation and local verification are complete; publication,
-  exact-head hosted workflows, and the strict deployment-chain audit remain.
+- Completed. The implementation, local verification, publication, exact-head
+  hosted workflows, retained coverage evidence, protected-release baseline,
+  and feature-branch deployment-chain audit pass.

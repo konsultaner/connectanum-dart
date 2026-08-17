@@ -601,8 +601,9 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
       refreshedClient = null;
     }
 
-    await authClient.revokeToken(
-      refreshed.accessToken,
+    await authClient.revokeGrant(
+      refreshed,
+      tokenKind: ConnectanumHttpAuthTokenKind.accessToken,
       headers: const <String, String>{
         'x-consumer-trace': 'router-hosted-client-auth-lifecycle-revoke-access',
       },
@@ -638,9 +639,8 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
       throw StateError('Auth lifecycle revoked ping changed Streamable state.');
     }
 
-    await authClient.revokeToken(
-      refreshedRefreshToken,
-      tokenTypeHint: 'refresh_token',
+    await authClient.revokeGrant(
+      refreshed,
       headers: const <String, String>{
         'x-consumer-trace':
             'router-hosted-client-auth-lifecycle-revoke-refresh',

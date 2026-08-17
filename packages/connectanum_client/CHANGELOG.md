@@ -26,6 +26,9 @@
 - Add grant-aware router HTTP-auth refreshes that fail closed when the
   replacement token scheme, identity, role, provider, or authorization details
   drift from the prior grant.
+- Bind public router HTTP-auth grants to their exact issuing endpoint and add
+  grant-aware access/refresh revocation so successful credential lifecycles do
+  not transmit tokens through a different auth route.
 - Let typed Streamable HTTP and direct JSON WAMP API-list helpers send validated
   opaque cursors and reject malformed continuation cursors.
 - Re-export the shared MCP resource-URI-template utility so client-only

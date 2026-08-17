@@ -4088,9 +4088,9 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
       'auth refresh direct JSON ping did not use the refreshed bearer token',
     );
 
-    await authClient.revokeToken(
-      refreshed.accessToken,
-      tokenTypeHint: 'access_token',
+    await authClient.revokeGrant(
+      refreshed,
+      tokenKind: ConnectanumHttpAuthTokenKind.accessToken,
       headers: const <String, String>{'x-consumer-trace': 'auth-revoke'},
     );
 
@@ -4113,9 +4113,8 @@ Future<void> _smokeAuthGrantRefreshAndRevokeLifecycle(
       'revoked auth Streamable ping did not clear session state',
     );
 
-    await authClient.revokeToken(
-      refreshed.refreshToken!,
-      tokenTypeHint: 'refresh_token',
+    await authClient.revokeGrant(
+      refreshed,
       headers: const <String, String>{
         'x-consumer-trace': 'auth-revoke-refresh',
       },
@@ -18386,9 +18385,8 @@ Future<void> _smokeSecureMcpRefreshAndRevocation(
       label: '$label-refreshed',
     );
 
-    await authClient.revokeToken(
-      rotatedRefreshToken,
-      tokenTypeHint: 'refresh_token',
+    await authClient.revokeGrant(
+      refreshed,
       headers: <String, String>{
         'x-consumer-trace': '$label-revoke',
       },
@@ -29834,7 +29832,10 @@ Future<ConnectanumHttpAuthGrant> _issueTicketGrantWithPolicyProof({
       recoveredGrantSuccess.statusCode == HttpStatus.ok,
       'HTTP auth grant-capacity recovery did not complete its challenge.',
     );
-    return ConnectanumHttpAuthGrant.fromJson(completed.body);
+    return ConnectanumHttpAuthGrant.fromJson(
+      completed.body,
+      authEndpoint: endpoint,
+    );
   } finally {
     client.close(force: true);
   }
@@ -34032,9 +34033,9 @@ Future<void> main() async {
         'Dart consumer refreshed Streamable delete leaked state.',
       );
 
-      await discoveredAuthClient.revokeToken(
-        refreshedGrant.accessToken,
-        tokenTypeHint: 'access_token',
+      await discoveredAuthClient.revokeGrant(
+        refreshedGrant,
+        tokenKind: ConnectanumHttpAuthTokenKind.accessToken,
       );
       await _expectMcpHttpRejected(
         () => refreshedJsonClient.listToolsDirect(
@@ -34051,10 +34052,7 @@ Future<void> main() async {
         'Dart consumer revoked access token direct JSON request',
       );
 
-      await discoveredAuthClient.revokeToken(
-        refreshedRefreshToken,
-        tokenTypeHint: 'refresh_token',
-      );
+      await discoveredAuthClient.revokeGrant(refreshedGrant);
       await _expectAuthRejected(
         () => discoveredAuthClient.refreshGrant(refreshedGrant),
         HttpStatus.unauthorized,

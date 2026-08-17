@@ -62,6 +62,16 @@ void main() {
           client.revokeToken('access-token-1'),
           throwsA(_closedStateError),
         );
+        await expectLater(
+          client.revokeGrant(
+            const ConnectanumHttpAuthGrant(
+              accessToken: 'access-token-1',
+              tokenType: 'Bearer',
+              refreshToken: 'refresh-token-1',
+            ),
+          ),
+          throwsA(_closedStateError),
+        );
         expect(endpoint.requestBodies, isEmpty);
 
         final replacement = ConnectanumHttpAuthClient(
