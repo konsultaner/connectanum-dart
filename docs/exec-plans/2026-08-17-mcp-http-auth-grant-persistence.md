@@ -1,6 +1,6 @@
 # Exec Plan: MCP HTTP-Auth Grant Persistence
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-17
 Last updated: 2026-08-17
@@ -86,9 +86,25 @@ or expiry semantics.
   globally activated consumer smoke, Chrome, and Dart2Wasm. The 20-case
   release-package and 22-case deployment-audit regressions plus all 34 router-
   image smoke contracts also pass inside verification.
+- 2026-08-17: Clean-tree strict release readiness passes all seven publishable
+  packages with zero warnings. Commit `a577ed17` (`Persist router HTTP auth
+  grants safely`) is published to both maintained feature-branch remotes.
+  Exact-head GitHub `CI` run `31996897743` passes Fast Checks job `95290054438`,
+  Full Verify job `95291420053`, and Dart VM Coverage job `95291420264`;
+  retained coverage artifact `9277433897` has digest
+  `sha256:fb61f0e2ac8d602e88bafe7b171d43df0d2152bf1368e1bbbbf80ba4e2bb6cf4`.
+  Dart Package Publish Dry Run `31996897741` passes job `95290054489` and
+  covers the exact head.
+- 2026-08-17: The feature-branch deployment-chain audit passes exact-head
+  CI/job/log cleanliness, current package-run relevance, checked-in workflow
+  visibility, and public router-package visibility. The comprehensive strict
+  protected-release baseline also passes from an isolated `master` worktree at
+  `ec53a327`; its missing newly authorized RC tag remains intentionally non-
+  gating.
 
 ## Handoff
 
-- Active. Implementation and local verification are complete; clean-tree
-  package verification, publication, exact-head hosted workflows, and
-  deployment-chain audits remain.
+- Completed. Implementation, local verification, clean-tree package readiness,
+  publication, exact-head hosted workflows, retained coverage evidence, the
+  feature-branch deployment audit, and the strict protected-release baseline
+  pass.

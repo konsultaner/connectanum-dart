@@ -1395,10 +1395,15 @@ final class _McpSessionStateSnapshot {
 }
 
 final class _McpAuthorizationStateSnapshot {
-  const _McpAuthorizationStateSnapshot(this.token, this.headerValue);
+  const _McpAuthorizationStateSnapshot(
+    this.token,
+    this.headerValue,
+    this.expiresAt,
+  );
 
   final Object token;
   final String? headerValue;
+  final DateTime? expiresAt;
 }
 
 final class _McpResumeStateSnapshot {
@@ -1827,7 +1832,7 @@ final class McpStreamableHttpClient {
   /// Creates a sessionless MCP 2026 client using an HTTP auth bridge grant.
   ///
   /// The grant's issuing auth endpoint must share [endpoint]'s HTTP origin.
-  McpStreamableHttpClient.statelessWithAuthGrant(
+  factory McpStreamableHttpClient.statelessWithAuthGrant(
     Uri endpoint,
     ConnectanumHttpAuthGrant grant, {
     required McpJsonMap clientInfo,
@@ -1839,20 +1844,22 @@ final class McpStreamableHttpClient {
     int maxRequestBytes = defaultMaxRequestBytes,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
-  }) : this.withAuthGrant(
-         endpoint,
-         grant,
-         httpClient: httpClient,
-         subscriptionHttpClientFactory: subscriptionHttpClientFactory,
-         headers: headers,
-         clientInfo: clientInfo,
-         clientCapabilities: clientCapabilities,
-         defaultProtocolVersion: latestProtocolVersion,
-         requestTimeout: requestTimeout,
-         maxRequestBytes: maxRequestBytes,
-         maxResponseBytes: maxResponseBytes,
-         closeHttpClient: closeHttpClient,
-       );
+  }) {
+    return McpStreamableHttpClient.withAuthGrant(
+      endpoint,
+      grant,
+      httpClient: httpClient,
+      subscriptionHttpClientFactory: subscriptionHttpClientFactory,
+      headers: headers,
+      clientInfo: clientInfo,
+      clientCapabilities: clientCapabilities,
+      defaultProtocolVersion: latestProtocolVersion,
+      requestTimeout: requestTimeout,
+      maxRequestBytes: maxRequestBytes,
+      maxResponseBytes: maxResponseBytes,
+      closeHttpClient: closeHttpClient,
+    );
+  }
 
   factory McpStreamableHttpClient.withOAuthToken(
     Uri endpoint,
@@ -1869,7 +1876,7 @@ final class McpStreamableHttpClient {
     bool closeHttpClient = false,
   }) {
     _validateOAuthTokenGrant(endpoint, grant);
-    return McpStreamableHttpClient.withBearerToken(
+    final client = McpStreamableHttpClient.withBearerToken(
       endpoint,
       grant.accessToken,
       httpClient: httpClient,
@@ -1883,12 +1890,14 @@ final class McpStreamableHttpClient {
       maxResponseBytes: maxResponseBytes,
       closeHttpClient: closeHttpClient,
     );
+    client._authorizationExpiresAt = grant.expiresAt?.toUtc();
+    return client;
   }
 
   /// Creates a client for MCP HTTP endpoints using an HTTP auth bridge grant.
   ///
   /// The grant's issuing auth endpoint must share [endpoint]'s HTTP origin.
-  McpStreamableHttpClient.withAuthGrant(
+  factory McpStreamableHttpClient.withAuthGrant(
     Uri endpoint,
     ConnectanumHttpAuthGrant grant, {
     HttpClient? httpClient,
@@ -1901,19 +1910,23 @@ final class McpStreamableHttpClient {
     int maxRequestBytes = defaultMaxRequestBytes,
     int maxResponseBytes = defaultMaxResponseBytes,
     bool closeHttpClient = false,
-  }) : this(
-         endpoint,
-         httpClient: httpClient,
-         subscriptionHttpClientFactory: subscriptionHttpClientFactory,
-         headers: _headersWithAuthGrant(endpoint, headers, grant),
-         clientInfo: clientInfo,
-         clientCapabilities: clientCapabilities,
-         defaultProtocolVersion: defaultProtocolVersion,
-         requestTimeout: requestTimeout,
-         maxRequestBytes: maxRequestBytes,
-         maxResponseBytes: maxResponseBytes,
-         closeHttpClient: closeHttpClient,
-       );
+  }) {
+    final client = McpStreamableHttpClient(
+      endpoint,
+      httpClient: httpClient,
+      subscriptionHttpClientFactory: subscriptionHttpClientFactory,
+      headers: _headersWithAuthGrant(endpoint, headers, grant),
+      clientInfo: clientInfo,
+      clientCapabilities: clientCapabilities,
+      defaultProtocolVersion: defaultProtocolVersion,
+      requestTimeout: requestTimeout,
+      maxRequestBytes: maxRequestBytes,
+      maxResponseBytes: maxResponseBytes,
+      closeHttpClient: closeHttpClient,
+    );
+    client._authorizationExpiresAt = grant.accessTokenExpiresAt?.toUtc();
+    return client;
+  }
 
   /// Maximum raw byte length for each encoded JSON request body.
   final int maxRequestBytes;
@@ -1948,6 +1961,7 @@ final class McpStreamableHttpClient {
       <_McpPendingHttpResponseBody>{};
   Object _httpRequestStateToken = Object();
   String? _authorizationHeader;
+  DateTime? _authorizationExpiresAt;
   Object _authorizationStateToken = Object();
   final Set<McpStreamableSubscription> _subscriptions =
       <McpStreamableSubscription>{};
@@ -1991,6 +2005,7 @@ final class McpStreamableHttpClient {
       _McpAuthorizationStateSnapshot(
         _authorizationStateToken,
         _authorizationHeader,
+        _authorizationExpiresAt,
       );
 
   set protocolVersion(String value) {
@@ -2365,7 +2380,9 @@ final class McpStreamableHttpClient {
         grant,
       ),
     );
+    final authorizationExpiresAt = grant.accessTokenExpiresAt?.toUtc();
     _authorizationHeader = authorizationHeader;
+    _authorizationExpiresAt = authorizationExpiresAt;
     _authorizationStateToken = Object();
   }
 
@@ -2382,7 +2399,9 @@ final class McpStreamableHttpClient {
     final authorizationHeader = _authorizationHeaderFrom(
       _headersWithBearerToken(const <String, String>{}, grant.accessToken),
     );
+    final authorizationExpiresAt = grant.expiresAt?.toUtc();
     _authorizationHeader = authorizationHeader;
+    _authorizationExpiresAt = authorizationExpiresAt;
     _authorizationStateToken = Object();
   }
 
@@ -2570,6 +2589,7 @@ final class McpStreamableHttpClient {
           request = await _openTrackedHttpRequest(
             () => subscriptionHttpClient.postUrl(endpoint),
             operation,
+            requestAuthorizationState,
             enforceClientState: false,
           );
         } catch (_) {
@@ -3712,6 +3732,7 @@ final class McpStreamableHttpClient {
       final request = await _openTrackedHttpRequest(
         () => _httpClient.postUrl(endpoint),
         operation,
+        requestAuthorizationState,
       );
       final acceptsSse = streamable || protocolVersion == latestProtocolVersion;
       _applyHeaders(
@@ -3969,6 +3990,7 @@ final class McpStreamableHttpClient {
       final request = await _openTrackedHttpRequest(
         () => _httpClient.getUrl(endpoint),
         operation,
+        requestAuthorizationState,
       );
       _applyHeaders(
         request,
@@ -4047,6 +4069,7 @@ final class McpStreamableHttpClient {
       final request = await _openTrackedHttpRequest(
         () => _httpClient.deleteUrl(endpoint),
         operation,
+        requestAuthorizationState,
       );
       _applyHeaders(
         request,
@@ -4192,9 +4215,20 @@ final class McpStreamableHttpClient {
     return pending.future;
   }
 
+  void _throwIfAuthorizationExpired(
+    _McpAuthorizationStateSnapshot authorizationState,
+  ) {
+    final expiresAt = authorizationState.expiresAt;
+    if (expiresAt == null || DateTime.now().toUtc().isBefore(expiresAt)) {
+      return;
+    }
+    throw McpAuthorizationExpiredException(expiresAt);
+  }
+
   Future<HttpClientRequest> _openTrackedHttpRequest(
     Future<HttpClientRequest> Function() open,
-    _McpHttpOperationContext operation, {
+    _McpHttpOperationContext operation,
+    _McpAuthorizationStateSnapshot authorizationState, {
     bool enforceClientState = true,
   }) async {
     _throwIfClosed();
@@ -4202,6 +4236,7 @@ final class McpStreamableHttpClient {
     if (terminalError != null) {
       throw terminalError;
     }
+    _throwIfAuthorizationExpired(authorizationState);
     final requestStateToken = _httpRequestStateToken;
     final request = await open();
     final lateTerminalError = operation.terminalError;
@@ -5126,6 +5161,22 @@ final class McpStreamableHttpException implements Exception {
     final detail = error ?? (body.isEmpty ? reasonPhrase : body);
     return 'McpStreamableHttpException($statusCode): $detail';
   }
+}
+
+/// Thrown before a new HTTP request uses a locally known-expired grant.
+///
+/// Refresh the grant and replace it on the client to keep any active
+/// Streamable HTTP session and resume cursor. Existing listener streams are not
+/// closed merely because the grant used to establish them expires.
+final class McpAuthorizationExpiredException implements Exception {
+  const McpAuthorizationExpiredException(this.expiresAt);
+
+  final DateTime expiresAt;
+
+  @override
+  String toString() =>
+      'McpAuthorizationExpiredException: MCP authorization expired at '
+      '${expiresAt.toUtc().toIso8601String()}.';
 }
 
 /// A redacted failure to derive an OAuth step-up authorization request.

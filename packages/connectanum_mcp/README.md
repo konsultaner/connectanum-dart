@@ -73,6 +73,14 @@ The versioned state rejects changed issuers, foreign MCP origins, inconsistent
 absolute expiries, and known-expired grant-aware use. Storage and encryption
 remain the consumer application's responsibility because the state contains
 access and refresh credentials.
+
+Grant-aware clients retain a known access-token expiry after construction and
+throw `McpAuthorizationExpiredException` before opening any new HTTP request
+once that time is reached. Refresh the grant and call `replaceAuthGrant(...)`
+or `replaceOAuthToken(...)` to continue with the existing Streamable session
+and resume cursor. An already-established request-scoped listener is not closed
+only because its establishment grant expires. Raw bearer tokens and grants
+without expiry metadata remain caller-managed compatibility surfaces.
 Tool execution failures are returned as MCP tool results with `isError: true`;
 malformed JSON-RPC messages, unknown methods, and invalid parameters remain
 protocol errors.

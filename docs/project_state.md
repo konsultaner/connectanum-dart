@@ -24374,6 +24374,24 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-17: Grant-aware router HTTP-auth and OAuth MCP clients now retain a
+  known absolute access-token expiry after construction and replacement. Once
+  reached, the common request-open boundary raises the token-redacted
+  `McpAuthorizationExpiredException` before POST, GET, DELETE, direct JSON, or
+  request-scoped listener setup can create an HTTP request. Active Streamable
+  session and resume state remain available for caller-managed refresh and
+  in-place replacement; established listeners, raw bearer tokens, and grants
+  without expiry metadata retain their compatibility behavior. The required
+  pre-change `bin/test-fast` baseline, affected-package analysis, the complete
+  VM Streamable HTTP client regression file, and all 16 public MCP IO-entrypoint
+  tests pass. Canonical `bin/verify` also passes with zero formatting changes,
+  117 Rust core/serializer checks, all 52 FFI tests plus metrics mode, 366 Dart
+  core tests, 118 MCP package tests, the complete 319-case client/MCP suite, all
+  97 benchmark tests with 37 live WAMP workloads, all 454 router tests, six
+  remote-auth tests, 13 native follow-ups, every maintained consumer smoke,
+  Chrome, and Dart2Wasm. Clean-tree strict release readiness passes all seven
+  publishable packages at synchronized version `3.0.0-beta` with zero warnings
+  and no private workspace dependency blockers. Publication evidence remains.
 - 2026-08-17: Router-issued HTTP-auth grants now expose a versioned JSON state
   contract that preserves their exact issuer, authorization lineage, issue
   time, and absolute access/refresh expiry across a consumer application
@@ -24391,8 +24409,12 @@ at the older `47bbf9c` commit.
   package tests, the complete 318-case client/MCP suite, all 97 benchmark tests
   with 37 live WAMP workloads, all 454 router tests, six remote-auth tests, 13
   native follow-ups, every maintained consumer smoke, Chrome, and Dart2Wasm.
-  Clean-tree package readiness, publication, exact-head hosted evidence, and
-  deployment-chain audits remain.
+  Clean-tree strict release readiness passes all seven publishable packages
+  with zero warnings. Clean commit `a577ed17` is published to both maintained
+  feature-branch remotes; exact-head GitHub `CI` run `31996897743`, Dart Package
+  Publish Dry Run `31996897741`, retained coverage artifact `9277433897`, the
+  feature-branch clean-log deployment audit, and the comprehensive strict
+  protected-release baseline are green.
 - 2026-08-17: Grant-aware Streamable and modern stateless MCP clients now
   reject router HTTP-auth grants whose issuing endpoint is unknown or does not
   share the target MCP endpoint's HTTP origin. Construction fails before the
@@ -25354,6 +25376,21 @@ at the older `47bbf9c` commit.
 ## Active Plan
 
 - The active MCP downstream-readiness plan is
+  `docs/exec-plans/2026-08-17-mcp-grant-runtime-expiry-enforcement.md`. It closes
+  the post-construction lifetime gap for router HTTP-auth and OAuth grant-aware
+  clients by retaining access-token expiry in authorization snapshots and
+  rejecting every new POST, GET, DELETE, or request-scoped listener setup
+  immediately before HTTP request creation. Rejection must preserve active
+  Streamable session/resume state for caller-managed refresh and in-place grant
+  replacement; raw bearer APIs, unknown expiry, and established listeners keep
+  their compatibility behavior. Serena preflight, overlap checks, completed-
+  plan review, both-roadmap review, the required pre-change baseline, fail-
+  first coverage, implementation, affected-package analysis, the complete VM
+  client regression file, all public IO-entrypoint tests, and canonical
+  `bin/verify` pass. Clean-tree strict release readiness passes all seven
+  publishable packages with zero warnings. Publication and hosted evidence
+  remain.
+- The most recently completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-http-auth-grant-persistence.md`. It adds a
   versioned, issuer-bound persistence contract for router HTTP-auth grants so a
   consumer application can restart without discarding endpoint provenance,
@@ -25362,9 +25399,13 @@ at the older `47bbf9c` commit.
   canonical `bin/verify` pass. Full verification includes the complete 318-case
   client/MCP suite, all 97 benchmark tests with 37 live WAMP workloads, all 454
   router tests, every maintained consumer smoke, Chrome, and Dart2Wasm. Clean-
-  tree package verification, publication, exact-head hosted workflows, and
-  deployment-chain audits remain.
-- The most recently completed MCP downstream-readiness plan is
+  tree strict release readiness passes all seven packages with zero warnings.
+  Clean commit `a577ed17` is published to both maintained feature-branch
+  remotes; exact-head GitHub `CI` run `31996897743`, Dart Package Publish Dry
+  Run `31996897741`, retained coverage artifact `9277433897`, the feature-
+  branch clean-log deployment audit, and the comprehensive strict protected-
+  release baseline are green.
+- The preceding completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-http-auth-grant-mcp-origin-binding.md`. It
   closes the remaining public grant-authority gap by rejecting an endpoint-
   bound router HTTP-auth grant before it can authorize a Streamable or modern
@@ -25384,7 +25425,7 @@ at the older `47bbf9c` commit.
   Publish Dry Run `31991484403`, retained coverage artifact `9275787067`, the
   feature-branch clean-log deployment audit, and the strict protected-release
   baseline are green.
-- The preceding completed MCP downstream-readiness plan is
+- The earlier completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-http-auth-grant-endpoint-binding.md`. It
   prevents a downstream application from transmitting router-issued access or
   refresh credentials to a different HTTP-auth endpoint by attaching exact

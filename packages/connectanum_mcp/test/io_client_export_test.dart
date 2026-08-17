@@ -1082,6 +1082,60 @@ void main() {
     transport.close(force: true);
   });
 
+  test('IO entrypoint rejects locally expired grant requests', () async {
+    final endpoint = await _AuthBackedMcpEndpoint.bind();
+    addTearDown(endpoint.close);
+    final issuedAt = DateTime.now().toUtc();
+    const lifetime = Duration(seconds: 1);
+    final expiresAt = issuedAt.add(lifetime);
+    final client = McpStreamableHttpClient.withAuthGrant(
+      endpoint.mcpUri,
+      ConnectanumHttpAuthGrant(
+        accessToken: _ioAccessToken,
+        tokenType: 'Bearer',
+        authEndpoint: endpoint.authUri,
+        accessTokenExpiresIn: lifetime,
+        issuedAt: issuedAt,
+      ),
+    );
+    addTearDown(() => client.close(force: true));
+
+    final remaining = expiresAt.difference(DateTime.now().toUtc());
+    if (remaining > Duration.zero) {
+      await Future<void>.delayed(
+        remaining + const Duration(milliseconds: 50),
+      );
+    }
+    final requestCountAtExpiry = endpoint.mcpRequests.length;
+
+    await expectLater(
+      client.pingDirect(id: 'io-expired-grant-ping'),
+      throwsA(
+        isA<McpAuthorizationExpiredException>()
+            .having((error) => error.expiresAt, 'expiresAt', expiresAt)
+            .having(
+              (error) => error.toString(),
+              'redacted message',
+              isNot(contains(_ioAccessToken)),
+            ),
+      ),
+    );
+    expect(endpoint.mcpRequests, hasLength(requestCountAtExpiry));
+
+    client.replaceAuthGrant(
+      ConnectanumHttpAuthGrant(
+        accessToken: _ioAccessToken,
+        tokenType: 'Bearer',
+        authEndpoint: endpoint.authUri,
+      ),
+    );
+    expect(
+      await client.pingDirect(id: 'io-refreshed-after-expiry'),
+      isEmpty,
+    );
+    expect(endpoint.mcpRequests, hasLength(requestCountAtExpiry + 1));
+  });
+
   test('IO entrypoint discovers a router HTTP auth client', () async {
     final endpoint = await _AuthBackedMcpEndpoint.bind();
     addTearDown(endpoint.close);

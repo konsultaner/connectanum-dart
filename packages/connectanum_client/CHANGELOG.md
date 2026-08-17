@@ -35,6 +35,10 @@
 - Add versioned router HTTP-auth grant persistence with exact issuer and MCP-
   origin restore pins, absolute access/refresh expiry preservation, redacted
   state validation, and pre-I/O rejection of known-expired grant-aware use.
+- Retain known router HTTP-auth and OAuth access-token expiries in grant-aware
+  MCP clients, reject every new HTTP request after expiry through a redacted
+  typed exception, and preserve active Streamable session state for refresh and
+  in-place grant replacement.
 - Let typed Streamable HTTP and direct JSON WAMP API-list helpers send validated
   opaque cursors and reject malformed continuation cursors.
 - Re-export the shared MCP resource-URI-template utility so client-only

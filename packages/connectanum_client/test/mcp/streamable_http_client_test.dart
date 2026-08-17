@@ -5664,6 +5664,170 @@ void main() {
     });
 
     test(
+      'rejects new HTTP requests after grant expiry until replacement',
+      () async {
+        final endpoint = await _FakeMcpEndpoint.bind();
+        addTearDown(endpoint.close);
+        final issuedAt = DateTime.now().toUtc();
+        const lifetime = Duration(seconds: 2);
+        final expiresAt = issuedAt.add(lifetime);
+        final authEndpoint = endpoint.uri.replace(path: '/auth');
+
+        ConnectanumHttpAuthGrant httpGrant(String accessToken) =>
+            ConnectanumHttpAuthGrant(
+              accessToken: accessToken,
+              tokenType: 'Bearer',
+              authEndpoint: authEndpoint,
+              accessTokenExpiresIn: lifetime,
+              issuedAt: issuedAt,
+            );
+
+        final httpClient = McpStreamableHttpClient.withAuthGrant(
+          endpoint.uri,
+          httpGrant('expiring-http-token'),
+        );
+        final oauthClient = McpStreamableHttpClient.withOAuthToken(
+          endpoint.uri,
+          _testOAuthGrant(
+            endpoint.uri,
+            accessToken: 'expiring-oauth-token',
+            scopes: const <String>['tools:read'],
+            issuedAt: issuedAt,
+            expiresIn: lifetime,
+          ),
+        );
+        final statelessClient = McpStreamableHttpClient.statelessWithAuthGrant(
+          endpoint.uri,
+          httpGrant('expiring-stateless-token'),
+          clientInfo: const <String, Object?>{
+            'name': 'runtime-expiry-test',
+            'version': '1.0.0',
+          },
+        );
+        addTearDown(() => httpClient.close(force: true));
+        addTearDown(() => oauthClient.close(force: true));
+        addTearDown(() => statelessClient.close(force: true));
+
+        await httpClient.initialize(id: 'runtime-expiry-http-initialize');
+        await oauthClient.initialize(id: 'runtime-expiry-oauth-initialize');
+        httpClient.lastEventId = 'session-1:runtime-expiry-http:kept';
+        oauthClient.lastEventId = 'session-1:runtime-expiry-oauth:kept';
+
+        final remaining = expiresAt.difference(DateTime.now().toUtc());
+        if (remaining > Duration.zero) {
+          await Future<void>.delayed(
+            remaining + const Duration(milliseconds: 50),
+          );
+        }
+        final requestCountAtExpiry = endpoint.requests.length;
+        final expiredGrant = isA<McpAuthorizationExpiredException>()
+            .having((error) => error.expiresAt, 'expiresAt', expiresAt)
+            .having(
+              (error) => error.toString(),
+              'redacted message',
+              allOf(
+                isNot(contains('expiring-http-token')),
+                isNot(contains('expiring-oauth-token')),
+                isNot(contains('expiring-stateless-token')),
+              ),
+            );
+
+        await expectLater(
+          httpClient.ping(id: 'runtime-expiry-post'),
+          throwsA(expiredGrant),
+        );
+        await expectLater(httpClient.poll(), throwsA(expiredGrant));
+        await expectLater(httpClient.deleteSession(), throwsA(expiredGrant));
+        await expectLater(
+          oauthClient.ping(id: 'runtime-expiry-oauth-post'),
+          throwsA(expiredGrant),
+        );
+        await expectLater(
+          statelessClient.pingDirect(id: 'runtime-expiry-direct-json'),
+          throwsA(expiredGrant),
+        );
+        await expectLater(
+          statelessClient.listen(
+            id: 'runtime-expiry-listen',
+            toolsListChanged: true,
+          ),
+          throwsA(expiredGrant),
+        );
+
+        expect(endpoint.requests, hasLength(requestCountAtExpiry));
+        expect(httpClient.sessionId, 'session-1');
+        expect(
+          httpClient.lastEventId,
+          'session-1:runtime-expiry-http:kept',
+        );
+        expect(oauthClient.sessionId, 'session-1');
+        expect(
+          oauthClient.lastEventId,
+          'session-1:runtime-expiry-oauth:kept',
+        );
+
+        final rawBearerClient = McpStreamableHttpClient.withBearerToken(
+          endpoint.uri,
+          'caller-managed-token',
+        );
+        addTearDown(() => rawBearerClient.close(force: true));
+        await rawBearerClient.pingDirect(id: 'runtime-expiry-raw-bearer');
+        expect(
+          endpoint.requests.last.authorization,
+          'Bearer caller-managed-token',
+        );
+
+        httpClient.replaceAuthGrant(
+          ConnectanumHttpAuthGrant(
+            accessToken: 'refreshed-http-token',
+            tokenType: 'Bearer',
+            authEndpoint: authEndpoint,
+          ),
+        );
+        oauthClient.replaceOAuthToken(
+          _testOAuthGrant(
+            endpoint.uri,
+            accessToken: 'refreshed-oauth-token',
+            scopes: const <String>['tools:read'],
+          ),
+        );
+        statelessClient.replaceAuthGrant(
+          ConnectanumHttpAuthGrant(
+            accessToken: 'refreshed-stateless-token',
+            tokenType: 'Bearer',
+            authEndpoint: authEndpoint,
+          ),
+        );
+
+        await httpClient.ping(id: 'runtime-expiry-http-refreshed');
+        await oauthClient.ping(id: 'runtime-expiry-oauth-refreshed');
+        await statelessClient.pingDirect(
+          id: 'runtime-expiry-stateless-refreshed',
+        );
+        expect(httpClient.sessionId, 'session-1');
+        expect(
+          httpClient.lastEventId,
+          'session-1:runtime-expiry-http:kept',
+        );
+        expect(oauthClient.sessionId, 'session-1');
+        expect(
+          oauthClient.lastEventId,
+          'session-1:runtime-expiry-oauth:kept',
+        );
+        expect(
+          endpoint.requests
+              .skip(endpoint.requests.length - 3)
+              .map((request) => request.authorization),
+          <String?>[
+            'Bearer refreshed-http-token',
+            'Bearer refreshed-oauth-token',
+            'Bearer refreshed-stateless-token',
+          ],
+        );
+      },
+    );
+
+    test(
       'replaces refreshed HTTP auth grants on the same session atomically',
       () async {
         final endpoint = await _FakeMcpEndpoint.bind();

@@ -70,6 +70,9 @@
 - Re-export versioned router HTTP-auth grant persistence so consumer
   applications can restore issuer, lineage, and absolute expiry state across a
   restart before using direct JSON or Streamable HTTP grant-aware clients.
+- Re-export runtime grant-expiry enforcement so grant-aware clients stop before
+  opening a new Streamable, direct JSON, polling, delete, or listener request,
+  while refresh and in-place replacement can retain active session state.
 - Add isolated server, client, executable, and consumer application smokes.
 - Export the `2025-03-26` compatibility fallback for legacy HTTP requests that
   omit `MCP-Protocol-Version`.
