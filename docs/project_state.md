@@ -25375,7 +25375,8 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- The active MCP downstream-readiness plan is
+- There is no active execution plan. The most recently completed MCP
+  downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-grant-runtime-expiry-enforcement.md`. It closes
   the post-construction lifetime gap for router HTTP-auth and OAuth grant-aware
   clients by retaining access-token expiry in authorization snapshots and
@@ -25388,9 +25389,20 @@ at the older `47bbf9c` commit.
   first coverage, implementation, affected-package analysis, the complete VM
   client regression file, all public IO-entrypoint tests, and canonical
   `bin/verify` pass. Clean-tree strict release readiness passes all seven
-  publishable packages with zero warnings. Publication and hosted evidence
-  remain.
-- The most recently completed MCP downstream-readiness plan is
+  publishable packages with zero warnings. Clean commit `5ecd0f1d` is published
+  to both maintained feature-branch remotes; exact-head GitHub `CI` run
+  `32002152088`, Dart Package Publish Dry Run `32002152101`, retained coverage
+  artifact `9279199917`, the feature-branch clean-log deployment audit, and the
+  comprehensive strict protected-release baseline are green. Subsequent live
+  consumer-application validation found and fixed router-hosted MCP response
+  routing when an internal MCP caller selects an external WAMP callee. Final,
+  progressive, and error responses now return through the internal session
+  port with lazy payload and PPT metadata preserved. Focused regression,
+  package-aligned consumer smoke, post-change `bin/test-fast`, and canonical
+  `bin/verify` pass; the live smoke proves initialization, tool discovery, a
+  read procedure, and a guarded state-changing procedure over Streamable HTTP
+  MCP backed by an external WebSocket WAMP participant.
+- The previously completed MCP downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-http-auth-grant-persistence.md`. It adds a
   versioned, issuer-bound persistence contract for router HTTP-auth grants so a
   consumer application can restart without discarding endpoint provenance,

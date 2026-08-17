@@ -5733,6 +5733,166 @@ void main() {
     );
 
     test(
+      'forwards external callee results and errors to internal callers',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+        final callerPort = ReceivePort();
+        final callerMessages = StreamIterator<dynamic>(callerPort);
+        addTearDown(() async {
+          await callerMessages.cancel();
+          callerPort.close();
+        });
+
+        final listener = _buildListener();
+        final calleeState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        calleeState
+          ..serializer = NativeMessageSerializer.json
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 612;
+
+        _openSession(
+          stateStore,
+          sessionId: 611,
+          listener: listener,
+          connectionId: -611,
+          internalSendPort: callerPort.sendPort,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 612,
+          listener: listener,
+          connectionId: 42,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+        final context = realmContexts.contextFor('realm1');
+        await context.registerProcedure(
+          sessionId: 612,
+          procedure: 'com.example.internal_result',
+          details: const {},
+        );
+        await context.registerProcedure(
+          sessionId: 612,
+          procedure: 'com.example.internal_error',
+          details: const {},
+        );
+
+        final resultDispatch = await context.dispatchInvocation(
+          callerSessionId: 611,
+          requestId: 7101,
+          procedure: 'com.example.internal_result',
+          options: const {},
+        );
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: calleeState,
+          message: yield_msg.Yield(
+            resultDispatch.invocationId,
+            arguments: const ['ok'],
+          ),
+          connectionId: 42,
+        );
+
+        expect(await callerMessages.moveNext(), isTrue);
+        final resultMessage = callerMessages.current as Map<String, Object?>;
+        expect(resultMessage['type'], equals('call_result'));
+        expect(resultMessage['requestId'], equals(7101));
+        expect(resultMessage['progress'], isFalse);
+
+        final progressiveDispatch = await context.dispatchInvocation(
+          callerSessionId: 611,
+          requestId: 7103,
+          procedure: 'com.example.internal_result',
+          options: const {'receive_progress': true},
+        );
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: calleeState,
+          message: yield_msg.Yield(
+            progressiveDispatch.invocationId,
+            options: yield_msg.YieldOptions(progress: true),
+            arguments: const ['partial'],
+          ),
+          connectionId: 42,
+        );
+
+        expect(await callerMessages.moveNext(), isTrue);
+        final progressMessage = callerMessages.current as Map<String, Object?>;
+        expect(progressMessage['type'], equals('call_progress'));
+        expect(progressMessage['requestId'], equals(7103));
+        expect(progressMessage['progress'], isTrue);
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: calleeState,
+          message: yield_msg.Yield(
+            progressiveDispatch.invocationId,
+            arguments: const ['complete'],
+          ),
+          connectionId: 42,
+        );
+
+        expect(await callerMessages.moveNext(), isTrue);
+        final finalMessage = callerMessages.current as Map<String, Object?>;
+        expect(finalMessage['type'], equals('call_result'));
+        expect(finalMessage['requestId'], equals(7103));
+        expect(finalMessage['progress'], isFalse);
+
+        final errorDispatch = await context.dispatchInvocation(
+          callerSessionId: 611,
+          requestId: 7102,
+          procedure: 'com.example.internal_error',
+          options: const {},
+        );
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: calleeState,
+          message: error_msg.Error(
+            MessageTypes.codeInvocation,
+            errorDispatch.invocationId,
+            const {},
+            wamp_core.Error.runtimeError,
+            arguments: const ['failed'],
+          ),
+          connectionId: 42,
+        );
+
+        expect(await callerMessages.moveNext(), isTrue);
+        final errorMessage = callerMessages.current as Map<String, Object?>;
+        expect(errorMessage['type'], equals('call_error'));
+        expect(errorMessage['requestId'], equals(7102));
+        expect(errorMessage['error'], equals(wamp_core.Error.runtimeError));
+        expect(_extractForwardMessages(bossMessages), isEmpty);
+      },
+    );
+
+    test(
       'honors callee-requested caller disclosure without caller spoofing',
       () async {
         final bossMessages = <Map<String, Object?>>[];
@@ -8996,6 +9156,7 @@ void _openSession(
   int connectionId = 99,
   String? authRole = 'member',
   String? authId = 'tester',
+  SendPort? internalSendPort,
 }) {
   final session = SessionRecord(
     id: sessionId,
@@ -9006,6 +9167,7 @@ void _openSession(
     connectionId: connectionId,
     lastActivity: DateTime.now(),
     listener: listener,
+    internalSendPort: internalSendPort,
   );
   store.commandPort.send(
     SessionOpenCommand(realmUri: 'realm1', session: session),

@@ -2302,6 +2302,27 @@ Future<void> _handleYield({
       return;
     }
 
+    final callerPort = invocation.callerInternalSendPort;
+    if (callerPort != null) {
+      final options = message.options;
+      callerPort.send({
+        'type': isProgress ? _internalMsgCallProgress : _internalMsgCallResult,
+        'requestId': invocation.callerRequestId,
+        _internalMsgLazyPayload: _transferAbstractMessagePayload(message),
+        'progress': isProgress,
+        'pptScheme': options?.pptScheme,
+        'pptSerializer': options?.pptSerializer,
+        'pptCipher': options?.pptCipher,
+        'pptKeyId': options?.pptKeyId,
+        'details': options?.custom.isNotEmpty == true
+            ? _transferIsolateValue(
+                Map<String, Object?>.from(options!.custom),
+              )
+            : null,
+      });
+      return;
+    }
+
     final callerConnectionId = await _findConnectionIdForSession(
       context: context,
       sessionId: invocation.callerSessionId,
@@ -2464,6 +2485,19 @@ Future<void> _handleInvocationError({
       );
       return;
     }
+
+    final callerPort = invocation.callerInternalSendPort;
+    if (callerPort != null) {
+      callerPort.send({
+        'type': _internalMsgCallError,
+        'requestId': invocation.callerRequestId,
+        'error': message.error,
+        _internalMsgLazyPayload: _transferAbstractMessagePayload(message),
+        'details': _transferIsolateValue(message.details),
+      });
+      return;
+    }
+
     final callerConnectionId = await _findConnectionIdForSession(
       context: context,
       sessionId: invocation.callerSessionId,

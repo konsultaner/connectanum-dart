@@ -1,6 +1,6 @@
 # Exec Plan: MCP Grant Runtime Expiry Enforcement
 
-Status: active
+Status: completed
 Owner: Codex
 Created: 2026-08-17
 Last updated: 2026-08-17
@@ -94,9 +94,42 @@ state for a caller-managed refresh and in-place grant replacement.
 - 2026-08-17: Clean-tree strict release readiness passes all seven publishable
   packages at synchronized version `3.0.0-beta` with zero warnings, validated
   executable entrypoints, and no private workspace dependency blockers.
+- 2026-08-17: Clean commit `5ecd0f1d` (`Reject expired MCP grants before
+  requests`) is published to both maintained feature-branch remotes. Exact-head
+  GitHub `CI` run `32002152088` passes Fast Checks job `95304397082`, Full
+  Verify job `95305916439`, and Dart VM Coverage job `95305916459`, including
+  successful Codecov upload. Retained coverage artifact `9279199917` has digest
+  `sha256:c43685affc05e6aaa3af863bdd68dd638bdc3717b4a1f909ea11c473c31cb7f7`.
+  Dart Package Publish Dry Run `32002152101` passes job `95304397053` and
+  covers the exact head.
+- 2026-08-17: The feature-branch deployment-chain audit passes exact-head
+  CI/job/log cleanliness, current package-run relevance, checked-in workflow
+  visibility, and public router-package visibility. The comprehensive strict
+  protected-release baseline also passes from an isolated `master` worktree at
+  `ec53a327`, including required status checks, exact-head CI/log cleanliness,
+  relevant package/native/router-image/WAMP evidence, workflow visibility, and
+  public router-package visibility. Its non-gating RC summary correctly remains
+  not ready because no newly approved numeric RC tag targets that commit.
+- 2026-08-17: Post-completion consumer-application validation exposed a router
+  bridge gap when a router-hosted MCP internal caller selected an external WAMP
+  callee: final results, progressive results, and invocation errors attempted
+  to resolve a network connection for the internal session instead of using its
+  response port. The worker now returns all three response forms through the
+  existing internal-session message contract while preserving lazy payloads,
+  PPT metadata, and custom details. A focused worker regression and a live
+  consumer-application smoke prove MCP initialization, tool discovery, a read
+  procedure, and a guarded state-changing procedure against an external
+  WebSocket callee.
+- 2026-08-17: Canonical `bin/verify` passes after the bridge fix with zero
+  formatting changes, all native tests, 366 Dart core tests, 118 MCP package
+  tests, the complete 319-case client/MCP suite, all 97 benchmark tests with 37
+  live WAMP workloads, all 455 router tests, six remote-auth tests, 13 native
+  follow-ups, every maintained consumer smoke, Chrome, and Dart2Wasm.
 
 ## Handoff
 
-- Active. Implementation, focused checks, canonical verification, and clean-
-  tree package readiness pass. Publication and exact-head hosted evidence
-  remain.
+- Completed. Implementation, focused checks, canonical verification, clean-
+  tree package readiness, publication, exact-head hosted workflows, retained
+  coverage evidence, the feature-branch deployment audit, the strict protected-
+  release baseline, and post-completion external-callee integration hardening
+  pass.
