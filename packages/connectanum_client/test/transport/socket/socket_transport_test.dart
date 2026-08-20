@@ -58,6 +58,20 @@ void main() {
     });
   });
   group('Socket protocol negotiation', () {
+    test('upgrade exponent uses the documented low nibble', () {
+      for (final exponent in const <int>[25, 30, 40]) {
+        final handshake = Uint8List.fromList(
+          SocketHelper.getUpgradeHandshake(exponent),
+        );
+        expect(handshake[0], 0x3F);
+        expect(handshake[1] & 0xF0, 0);
+        expect(
+          SocketHelper.getMaxUpgradeMessageSizeExponent(handshake),
+          exponent,
+        );
+      }
+    });
+
     test('Opening with max header', () async {
       var handshakes = <Uint8List?>[null, null];
       var serializer = json_serializer.Serializer();

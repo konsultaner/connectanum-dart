@@ -1,6 +1,13 @@
+use std::fs::File;
 use std::io;
+use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(target_os = "linux")]
+use std::os::fd::{AsRawFd, OwnedFd};
+
+#[cfg(target_os = "linux")]
+use tokio::io::unix::AsyncFd;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::time;
 
@@ -33,10 +40,102 @@ pub enum Serializer {
 pub struct NegotiatedSession {
     pub reader: IoReadHalf,
     pub writer: IoWriteHalf,
+    pub file_sender: Option<RawSocketFileSender>,
     pub serializer: Serializer,
     pub max_message_size_exponent: u32,
     #[allow(dead_code)]
     pub upgraded: bool,
+}
+
+pub struct RawSocketFileSender {
+    #[cfg(target_os = "linux")]
+    socket: AsyncFd<OwnedFd>,
+}
+
+impl std::fmt::Debug for RawSocketFileSender {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RawSocketFileSender")
+            .finish_non_exhaustive()
+    }
+}
+
+impl RawSocketFileSender {
+    #[cfg(target_os = "linux")]
+    fn from_stream(stream: &IoStream) -> io::Result<Option<Self>> {
+        stream
+            .try_clone_plain_fd()?
+            .map(AsyncFd::new)
+            .transpose()
+            .map(|socket| socket.map(|socket| Self { socket }))
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn from_stream(_stream: &IoStream) -> io::Result<Option<Self>> {
+        Ok(None)
+    }
+
+    #[cfg(target_os = "linux")]
+    pub async fn send_file_segment(
+        &self,
+        file: &Arc<File>,
+        mut offset: u64,
+        mut remaining: usize,
+    ) -> io::Result<()> {
+        const MAX_SENDFILE_COUNT: usize = 0x7ffff000;
+
+        while remaining > 0 {
+            let mut readiness = self.socket.writable().await?;
+            let count = remaining.min(MAX_SENDFILE_COUNT);
+            let result = readiness.try_io(|socket| {
+                let mut file_offset = libc::off_t::try_from(offset).map_err(|_| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "file offset exceeds off_t")
+                })?;
+                let sent = unsafe {
+                    libc::sendfile(
+                        socket.get_ref().as_raw_fd(),
+                        file.as_raw_fd(),
+                        &mut file_offset,
+                        count,
+                    )
+                };
+                if sent < 0 {
+                    Err(io::Error::last_os_error())
+                } else {
+                    Ok(sent as usize)
+                }
+            });
+
+            match result {
+                Ok(Ok(0)) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "file ended before the queued RawSocket segment",
+                    ));
+                }
+                Ok(Ok(sent)) => {
+                    offset += sent as u64;
+                    remaining -= sent;
+                }
+                Ok(Err(err)) if err.kind() == io::ErrorKind::Interrupted => continue,
+                Ok(Err(err)) => return Err(err),
+                Err(_would_block) => continue,
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    pub async fn send_file_segment(
+        &self,
+        _file: &Arc<File>,
+        _offset: u64,
+        _remaining: usize,
+    ) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "zero-copy RawSocket file segments require Linux",
+        ))
+    }
 }
 
 #[derive(Debug)]
@@ -131,9 +230,10 @@ pub async fn negotiate(
                 final_exponent = negotiated_upgrade;
                 upgraded = true;
             }
-            Ok(Ok(_buf)) => {
-                send_error(&mut stream, ERROR_RESERVED_BITS).await?;
-                return Err(HandshakeError::Protocol("unexpected data during upgrade"));
+            Ok(Ok(buf)) => {
+                // Exponent-24 peers can start WAMP immediately; preserve the
+                // speculative bytes when they did not request the extension.
+                stream.buffer_front(&buf);
             }
             Ok(Err(err)) => return Err(HandshakeError::Io(err)),
             Err(_) => {
@@ -142,11 +242,17 @@ pub async fn negotiate(
         }
     }
 
+    let file_sender = if matches!(serializer, Serializer::MessagePack | Serializer::Cbor) {
+        RawSocketFileSender::from_stream(&stream)?
+    } else {
+        None
+    };
     let (reader, writer) = tokio::io::split(stream);
 
     Ok(NegotiatedSession {
         reader,
         writer,
+        file_sender,
         serializer,
         max_message_size_exponent: final_exponent,
         upgraded,
@@ -223,10 +329,16 @@ pub async fn connect(
     }
 
     let _ = stream.set_nodelay(true);
+    let file_sender = if matches!(serializer, Serializer::MessagePack | Serializer::Cbor) {
+        RawSocketFileSender::from_stream(&stream)?
+    } else {
+        None
+    };
     let (reader, writer) = tokio::io::split(stream);
     Ok(NegotiatedSession {
         reader,
         writer,
+        file_sender,
         serializer,
         max_message_size_exponent: final_exponent,
         upgraded,
@@ -410,6 +522,38 @@ mod tests {
         let session = rx.await.unwrap().expect("upgrade succeeds");
         assert_eq!(session.max_message_size_exponent, 30);
         assert!(session.upgraded);
+    }
+
+    #[tokio::test]
+    async fn negotiate_preserves_standard_peer_bytes_when_upgrade_is_available() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let config = runtime_config(Some(Duration::from_millis(500)), 30);
+        let (tx, rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let result = negotiate(IoStream::plain(stream), &config).await;
+            tx.send(result).ok();
+        });
+
+        let mut client = TcpStream::connect(addr).await.unwrap();
+        send_handshake(&mut client, 24).await;
+        let mut response = [0u8; 4];
+        client.read_exact(&mut response).await.unwrap();
+        client.write_all(&[0x00, 0x05]).await.unwrap();
+
+        let mut session = rx.await.unwrap().expect("standard handshake succeeds");
+        let mut first_frame_bytes = [0u8; 2];
+        session
+            .reader
+            .read_exact(&mut first_frame_bytes)
+            .await
+            .unwrap();
+
+        assert_eq!(session.max_message_size_exponent, 24);
+        assert!(!session.upgraded);
+        assert_eq!(first_frame_bytes, [0x00, 0x05]);
     }
 
     #[tokio::test]
@@ -621,5 +765,39 @@ mod tests {
         let _client = TcpStream::connect(addr).await.unwrap();
         let err = rx.await.unwrap().expect_err("handshake timeout");
         assert!(matches!(err, HandshakeError::Protocol(_)));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn file_sender_transfers_the_requested_file_range() {
+        use std::sync::Arc;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client = TcpStream::connect(addr).await.unwrap();
+        let (mut peer, _) = listener.accept().await.unwrap();
+        let stream = IoStream::plain(client);
+        let sender = RawSocketFileSender::from_stream(&stream)
+            .unwrap()
+            .expect("plain Linux TCP streams support sendfile");
+
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "connectanum-sendfile-{}-{nonce}.bin",
+            std::process::id()
+        ));
+        std::fs::write(&path, b"0123456789abcdef").unwrap();
+        let file = Arc::new(File::open(&path).unwrap());
+
+        sender.send_file_segment(&file, 3, 8).await.unwrap();
+        let mut received = [0u8; 8];
+        peer.read_exact(&mut received).await.unwrap();
+
+        assert_eq!(&received, b"3456789a");
+        std::fs::remove_file(path).unwrap();
     }
 }

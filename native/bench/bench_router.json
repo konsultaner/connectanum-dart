@@ -195,7 +195,7 @@
           ]
         },
         "rawsocket": {
-          "max_rawsocket_size_exponent": 18
+          "max_rawsocket_size_exponent": 30
         },
         "http": {
           "session_profile": "public-http",
@@ -328,7 +328,7 @@
         "authmethods": ["anonymous", "ticket"],
         "protocols": ["rawsocket", "websocket"],
         "rawsocket": {
-          "max_rawsocket_size_exponent": 18
+          "max_rawsocket_size_exponent": 30
         },
         "websocket": {
           "path": "/wamp",
@@ -350,7 +350,7 @@
           ]
         },
         "rawsocket": {
-          "max_rawsocket_size_exponent": 18
+          "max_rawsocket_size_exponent": 30
         },
         "websocket": {
           "path": "/wamp",

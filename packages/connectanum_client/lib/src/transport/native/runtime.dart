@@ -418,6 +418,15 @@ class NativeClientRuntime {
     return result;
   }
 
+  bool connectionSupportsFileSegments(int connectionId) {
+    ensureStarted();
+    final result = _bindings.ctConnectionSupportsFileSegments(connectionId);
+    if (result < 0) {
+      _throwForError(result, 'Failed to read native file segment capability');
+    }
+    return result == 1;
+  }
+
   void closeConnection(int connectionId) {
     ensureStarted();
     final result = _bindings.ctConnectionClose(connectionId);
@@ -474,6 +483,98 @@ class NativeClientRuntime {
       }
     } finally {
       malloc.free(dataPtr);
+    }
+  }
+
+  int openFile(String path, {required int expectedLength}) {
+    ensureStarted();
+    if (expectedLength < 0) {
+      throw ArgumentError.value(
+        expectedLength,
+        'expectedLength',
+        'must be non-negative',
+      );
+    }
+    final pathBytes = utf8.encode(path);
+    if (pathBytes.isEmpty) {
+      throw ArgumentError.value(path, 'path', 'path must not be empty');
+    }
+    final pathPtr = malloc<ffi.Char>(pathBytes.length);
+    try {
+      pathPtr
+          .cast<ffi.Uint8>()
+          .asTypedList(pathBytes.length)
+          .setAll(
+            0,
+            pathBytes,
+          );
+      final result = _bindings.ctFileOpen(
+        pathPtr,
+        pathBytes.length,
+        expectedLength,
+      );
+      if (result < 0) {
+        _throwForError(result, 'Failed to open native file segment source');
+      }
+      return result;
+    } finally {
+      malloc.free(pathPtr);
+    }
+  }
+
+  void releaseFile(int fileHandle) {
+    ensureStarted();
+    final result = _bindings.ctFileRelease(fileHandle);
+    if (result != NativeTransportErrorCode.success &&
+        result != NativeTransportErrorCode.handleUnavailable) {
+      _throwForError(result, 'Failed to release native file segment source');
+    }
+  }
+
+  void sendMessageFileSegment(
+    int connectionId, {
+    required Uint8List prefix,
+    required int fileHandle,
+    required int fileOffset,
+    required int fileLength,
+    Uint8List? suffix,
+  }) {
+    ensureStarted();
+    if (fileOffset < 0 || fileLength < 0) {
+      throw ArgumentError('fileOffset and fileLength must be non-negative');
+    }
+    final suffixBytes = suffix ?? Uint8List(0);
+    var prefixPtr = ffi.nullptr.cast<ffi.Uint8>();
+    var suffixPtr = ffi.nullptr.cast<ffi.Uint8>();
+    try {
+      if (prefix.isNotEmpty) {
+        prefixPtr = malloc<ffi.Uint8>(prefix.length);
+        prefixPtr.asTypedList(prefix.length).setAll(0, prefix);
+      }
+      if (suffixBytes.isNotEmpty) {
+        suffixPtr = malloc<ffi.Uint8>(suffixBytes.length);
+        suffixPtr.asTypedList(suffixBytes.length).setAll(0, suffixBytes);
+      }
+      final result = _bindings.ctSendMessageFileSegment(
+        connectionId,
+        prefixPtr,
+        prefix.length,
+        fileHandle,
+        fileOffset,
+        fileLength,
+        suffixPtr,
+        suffixBytes.length,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to send native file segment');
+      }
+    } finally {
+      if (prefixPtr != ffi.nullptr) {
+        malloc.free(prefixPtr);
+      }
+      if (suffixPtr != ffi.nullptr) {
+        malloc.free(suffixPtr);
+      }
     }
   }
 

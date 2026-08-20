@@ -13,6 +13,8 @@ Runs the canonical WAMP profile diagnostic throughput scenarios:
 2. Plain versus PPT payload mode throughput
 3. Mixed-serializer peer throughput
 4. Native WebSocket fragmentation throughput
+5. Filesystem-to-WAMP file-transfer throughput and buffered fallbacks
+6. Exponent-30 RawSocket frame throughput above 16 MiB
 
 Diagnostic scenarios are not release blockers by themselves. Each scenario
 writes transformed bench artifacts and validates them with the strict default
@@ -138,5 +140,13 @@ run_diagnostic \
 run_diagnostic \
   wamp_websocket_fragmentation_throughput \
   native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml
+
+run_diagnostic \
+  wamp_file_transfer_throughput \
+  native/bench/scenarios/wamp_file_transfer_throughput.toml
+
+run_diagnostic \
+  wamp_large_rawsocket_frames_throughput \
+  native/bench/scenarios/wamp_large_rawsocket_frames_throughput.toml
 
 printf 'WAMP profile diagnostic artifacts written to %s\n' "$out_dir"

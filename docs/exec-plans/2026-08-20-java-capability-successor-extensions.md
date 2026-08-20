@@ -66,10 +66,23 @@ Pattern-matching behavior from the Java implementation is explicitly excluded.
   to all ten standard lifecycle topics before bounded snapshot queries, replays
   queued events, tolerates `no_such_*` churn, deep-freezes snapshots, follows
   membership changes, and cannot hang cleanup after a session disconnect.
-- [ ] Progressive chunked file delivery.
+- [x] Progressive chunked file delivery. The public progressive-call contract
+  enforces bounded chunks, exact size, optional SHA-256, sink backpressure,
+  concurrency/buffer limits, idle timeout, and cancellation cleanup. Linux
+  cleartext native RawSocket MessagePack/CBOR sessions use `sendfile`-backed
+  frame segments; transformed, masked, secure, non-Linux, and unsupported paths
+  use bounded buffering.
 - [ ] Bounded retry deduplication.
-- [ ] Negotiated large RawSocket frames.
+- [x] Negotiated large RawSocket frames. Standard peers remain on exponent 24,
+  optional-upgrade prefetched data is preserved, and both Dart and Rust use the
+  documented low-nibble exponent encoding. Local 32 MiB and 64 MiB Dart/native
+  MessagePack/CBOR workloads pass.
 - [ ] Full local and hosted release evidence.
 
 The focused analyzer, four cache regressions, live native-router WebSocket
-integration, and post-change `bin/test-fast` pass on 2026-08-20.
+integration, generated client consumer package, 115 Rust core tests, 52 Rust
+FFI tests, Linux arm64 all-target compilation and `sendfile` loopback, file
+smoke, large-frame throughput matrix, and post-change `bin/test-fast` pass on
+2026-08-20. Full `bin/verify` also passes with the 457-test router suite, every
+generated consumer smoke, and Chrome/Dart2Wasm coverage. Hosted Linux
+throughput evidence remains before the evidence checkbox can close.

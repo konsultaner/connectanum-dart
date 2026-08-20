@@ -4,7 +4,8 @@ import 'package:connectanum_core/connectanum_core.dart';
 
 import '../abstract_transport.dart';
 
-class NativeRawSocketTransport extends AbstractTransport {
+class NativeRawSocketTransport extends AbstractTransport
+    implements FileSegmentTransport {
   NativeRawSocketTransport(
     String host,
     int port,
@@ -62,6 +63,24 @@ class NativeRawSocketTransport extends AbstractTransport {
   int get headerLength => 4;
 
   int? get maxMessageLength => 1 << 24;
+
+  @override
+  bool get supportsFileSegments => false;
+
+  @override
+  TransportFileSource openFileSegmentSource(String path, int expectedLength) {
+    throw UnsupportedError('Native transports require dart:io.');
+  }
+
+  @override
+  void sendFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+  }) {
+    throw UnsupportedError('Native transports require dart:io.');
+  }
 
   @override
   Future<void> get onReady =>

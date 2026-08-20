@@ -26,3 +26,22 @@ abstract class AbstractTransport {
     }
   }
 }
+
+/// An opened file source retained by a transport for file-backed frame sends.
+abstract interface class TransportFileSource {
+  void close();
+}
+
+/// Optional transport capability for file-backed WAMP message payloads.
+abstract interface class FileSegmentTransport {
+  bool get supportsFileSegments;
+
+  TransportFileSource openFileSegmentSource(String path, int expectedLength);
+
+  void sendFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+  });
+}

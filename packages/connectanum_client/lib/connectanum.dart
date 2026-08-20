@@ -1,6 +1,9 @@
 library;
 
 export 'src/client.dart';
+export 'src/file/file_transfer.dart';
+export 'src/file/file_transfer_stub.dart'
+    if (dart.library.io) 'src/file/file_transfer_io.dart';
 export 'src/meta/meta_state_cache.dart';
 export 'src/protocol/session.dart';
 export 'src/transport/local_transport.dart';

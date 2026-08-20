@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fs::File;
 use std::sync::{
     atomic::{AtomicU32, Ordering},
     Arc, Mutex, OnceLock,
@@ -56,6 +57,52 @@ pub fn clear_channels() {
     clear_http3_connections();
     clear_http3_streams();
     clear_http_connection_events();
+    clear_files();
+}
+
+struct FileStore {
+    next_id: AtomicU32,
+    files: DashMap<u32, Arc<File>>,
+}
+
+impl Default for FileStore {
+    fn default() -> Self {
+        Self {
+            next_id: AtomicU32::new(1),
+            files: DashMap::new(),
+        }
+    }
+}
+
+static FILES: OnceLock<FileStore> = OnceLock::new();
+
+fn file_store() -> &'static FileStore {
+    FILES.get_or_init(FileStore::default)
+}
+
+pub fn store_file(file: File) -> u32 {
+    let store = file_store();
+    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
+    store.files.insert(id, Arc::new(file));
+    id
+}
+
+pub fn get_file(id: u32) -> Option<Arc<File>> {
+    file_store()
+        .files
+        .get(&id)
+        .map(|entry| Arc::clone(entry.value()))
+}
+
+pub fn remove_file(id: u32) -> Option<Arc<File>> {
+    file_store().files.remove(&id).map(|(_, file)| file)
+}
+
+fn clear_files() {
+    if let Some(store) = FILES.get() {
+        store.files.clear();
+        store.next_id.store(1, Ordering::SeqCst);
+    }
 }
 
 #[derive(Default)]

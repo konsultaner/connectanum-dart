@@ -38,6 +38,7 @@ import 'package:connectanum_router/src/router/models/endpoint.dart';
 import 'package:connectanum_router/src/router/models/router_config.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
+import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
 import 'support/native_lib.dart';
@@ -358,6 +359,131 @@ void main() {
         expect(progress, equals(const [true, true, false]));
         expect(chunks, equals(const ['one', 'two', 'three']));
         expect(result.arguments, equals(const ['one|two|three']));
+      },
+      skip: skipReason,
+    );
+
+    test(
+      'delivers bounded files across websocket serializers',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+
+        final listener = binding.listeners.single;
+        final url = 'ws://127.0.0.1:${listener.port}/ws';
+        final key = List<int>.generate(32, (index) => 32 - index);
+        final calleeClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withMsgpackSerializer(url),
+          e2eeProvider: WampCborAes256GcmProvider.single(
+            keyId: 'file-key',
+            key: key,
+          ),
+        );
+        final callerClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+          e2eeProvider: WampCborAes256GcmProvider.single(
+            keyId: 'file-key',
+            key: key,
+          ),
+        );
+        final callee = await calleeClient.connect().first.timeout(
+          const Duration(seconds: 10),
+        );
+        final caller = await callerClient.connect().first.timeout(
+          const Duration(seconds: 10),
+        );
+        addTearDown(callee.close);
+        addTearDown(caller.close);
+
+        final sinks = <_IntegrationFileSink>[];
+        final receiver = await client_pkg.WampFileReceiver.register(
+          callee,
+          'com.example.ws.file_upload',
+          (_) {
+            final sink = _IntegrationFileSink();
+            sinks.add(sink);
+            return sink;
+          },
+          maxBufferedBytes: 256 * 1024,
+        );
+        addTearDown(receiver.close);
+        final bytes = Uint8List.fromList(
+          List<int>.generate(300 * 1024 + 17, (index) => index % 251),
+        );
+
+        final result = await client_pkg.WampFileSession(caller)
+            .setFile(
+              'com.example.ws.file_upload',
+              client_pkg.WampFileSource.bytes(
+                bytes,
+                name: 'serializer-boundary.bin',
+                sha256Digest: sha256.convert(bytes).toString(),
+              ),
+              chunkSize: 64 * 1024,
+            )
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('file transfer result timeout'),
+            );
+
+        expect(sinks.single.bytes, equals(bytes));
+        expect(sinks.single.receipt?.receivedBytes, equals(bytes.length));
+        expect(
+          result.argumentsKeywords?['file'],
+          equals(<String, dynamic>{
+            'name': 'serializer-boundary.bin',
+            'size': bytes.length,
+            'sha256': sha256.convert(bytes).toString(),
+          }),
+        );
+        expect(receiver.activeTransfers, equals(0));
+        expect(receiver.bufferedBytes, equals(0));
+
+        final protectedBytes = Uint8List.fromList(
+          List<int>.generate(96 * 1024 + 3, (index) => (index * 7) % 253),
+        );
+        final protectedResult = await client_pkg.WampFileSession(caller)
+            .setFile(
+              'com.example.ws.file_upload',
+              client_pkg.WampFileSource.bytes(
+                protectedBytes,
+                name: 'protected.bin',
+                sha256Digest: sha256.convert(protectedBytes).toString(),
+              ),
+              chunkSize: 32 * 1024,
+              options: CallOptions(
+                pptScheme: ConnectanumE2eeProfile.scheme,
+                pptSerializer: ConnectanumE2eeProfile.serializer,
+                pptCipher: ConnectanumE2eeProfile.aes256Gcm,
+                pptKeyId: 'file-key',
+              ),
+            )
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => fail('protected file transfer result timeout'),
+            );
+
+        expect(sinks, hasLength(2));
+        expect(sinks.last.bytes, equals(protectedBytes));
+        expect(
+          protectedResult.argumentsKeywords?['file'],
+          equals(<String, dynamic>{
+            'name': 'protected.bin',
+            'size': protectedBytes.length,
+            'sha256': sha256.convert(protectedBytes).toString(),
+          }),
+        );
       },
       skip: skipReason,
     );
@@ -2001,4 +2127,22 @@ class _WebSocketFrame {
   final bool fin;
   final int opcode;
   final List<int> payload;
+}
+
+class _IntegrationFileSink extends client_pkg.WampFileSink {
+  final BytesBuilder _bytes = BytesBuilder(copy: false);
+  client_pkg.WampFileReceipt? receipt;
+
+  Uint8List get bytes => _bytes.toBytes();
+
+  @override
+  void add(Uint8List chunk) {
+    _bytes.add(chunk);
+  }
+
+  @override
+  Map<String, dynamic>? close(client_pkg.WampFileReceipt receipt) {
+    this.receipt = receipt;
+    return null;
+  }
 }

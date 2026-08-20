@@ -1,0 +1,46 @@
+name = "wamp_file_transfer_heavy"
+description = "Manual multi-gigabyte Linux sendfile stress with large files and concurrent transfers."
+
+[[workloads]]
+name = "rawsocket_file_cbor_1g_native"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.file.set"
+iterations = 2
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 1073741824
+
+[[workloads]]
+name = "rawsocket_file_msgpack_256m_native_concurrent"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.file.set"
+iterations = 4
+concurrency = 4
+in_flight_per_session = 1
+request_bytes = 268435456
+
+[[workloads]]
+name = "rawsocket_file_cbor_256m_native_pipelined"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.file.set"
+iterations = 4
+concurrency = 1
+in_flight_per_session = 2
+request_bytes = 268435456
+
+[[workloads]]
+name = "rawsocket_file_cbor_128m_dart_buffered_reference"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.file.set"
+iterations = 1
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 134217728

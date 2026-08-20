@@ -16,14 +16,44 @@ class ProgressiveCall {
     required this.requestId,
     required this.results,
     required void Function(LazyMessagePayload payload, bool progress) send,
-  }) : _send = send;
+    TransportFileSource Function(String path, int expectedLength)?
+    openFileSource,
+    void Function(
+      TransportFileSource source,
+      int offset,
+      int length,
+      bool progress,
+    )?
+    sendFileSegment,
+  }) : _send = send,
+       _openFileSource = openFileSource,
+       _sendFileSegment = sendFileSegment;
 
   final int requestId;
   final Stream<Result> results;
   final void Function(LazyMessagePayload payload, bool progress) _send;
+  final TransportFileSource Function(String path, int expectedLength)?
+  _openFileSource;
+  final void Function(
+    TransportFileSource source,
+    int offset,
+    int length,
+    bool progress,
+  )?
+  _sendFileSegment;
   bool _finished = false;
 
   bool get isFinished => _finished;
+
+  bool get supportsFileSegments => _sendFileSegment != null;
+
+  TransportFileSource openFileSource(String path, int expectedLength) {
+    final open = _openFileSource;
+    if (open == null) {
+      throw UnsupportedError('This progressive call cannot send file segments');
+    }
+    return open(path, expectedLength);
+  }
 
   void sendChunk({
     List<dynamic>? arguments,
@@ -61,6 +91,37 @@ class ProgressiveCall {
       throw StateError('The progressive call is already finished');
     }
     _send(payload, false);
+    _finished = true;
+  }
+
+  void sendFileSegment(
+    TransportFileSource source, {
+    required int offset,
+    required int length,
+  }) {
+    if (_finished) {
+      throw StateError('The progressive call is already finished');
+    }
+    final send = _sendFileSegment;
+    if (send == null) {
+      throw UnsupportedError('This progressive call cannot send file segments');
+    }
+    send(source, offset, length, true);
+  }
+
+  void finishFileSegment(
+    TransportFileSource source, {
+    required int offset,
+    required int length,
+  }) {
+    if (_finished) {
+      throw StateError('The progressive call is already finished');
+    }
+    final send = _sendFileSegment;
+    if (send == null) {
+      throw UnsupportedError('This progressive call cannot send file segments');
+    }
+    send(source, offset, length, false);
     _finished = true;
   }
 }
@@ -654,6 +715,7 @@ class Session {
     Map<String, dynamic>? argumentsKeywords,
     CallOptions? options,
     Completer<String>? cancelCompleter,
+    bool enableFileSegments = false,
   }) {
     final initiatingOptions = CallOptions(
       progress: true,
@@ -690,27 +752,56 @@ class Session {
     _transport.send(call);
     _attachCallCancellation(call.requestId, cancelCompleter);
 
+    final fileTransport =
+        enableFileSegments &&
+            initiatingOptions.pptScheme == null &&
+            _transport is FileSegmentTransport &&
+            (_transport as FileSegmentTransport).supportsFileSegments
+        ? _transport as FileSegmentTransport
+        : null;
+
+    Call buildChunk(LazyMessagePayload payload, bool progress) {
+      if (!_pendingCalls.containsKey(call.requestId)) {
+        throw StateError('The progressive call is no longer active');
+      }
+      final chunk = Call(
+        call.requestId,
+        procedure,
+        options: CallOptions(progress: progress),
+      );
+      chunk.attachE2eeRuntimeContext(
+        _buildOutboundRuntimeContext(
+          messageType: WampE2eeMessageType.call,
+          uri: procedure,
+        ),
+      );
+      _applyOutboundLazyPayload(chunk, payload, initiatingOptions);
+      return chunk;
+    }
+
     return ProgressiveCall._(
       requestId: call.requestId,
       results: controller.stream,
       send: (payload, progress) {
-        if (!_pendingCalls.containsKey(call.requestId)) {
-          throw StateError('The progressive call is no longer active');
-        }
-        final chunk = Call(
-          call.requestId,
-          procedure,
-          options: CallOptions(progress: progress),
-        );
-        chunk.attachE2eeRuntimeContext(
-          _buildOutboundRuntimeContext(
-            messageType: WampE2eeMessageType.call,
-            uri: procedure,
-          ),
-        );
-        _applyOutboundLazyPayload(chunk, payload, initiatingOptions);
-        _transport.send(chunk);
+        _transport.send(buildChunk(payload, progress));
       },
+      openFileSource: fileTransport?.openFileSegmentSource,
+      sendFileSegment: fileTransport == null
+          ? null
+          : (source, offset, length, progress) {
+              final chunk = buildChunk(
+                LazyMessagePayload.materialized(
+                  arguments: <dynamic>[Uint8List(0)],
+                ),
+                progress,
+              );
+              fileTransport.sendFileSegment(
+                chunk,
+                source: source,
+                offset: offset,
+                length: length,
+              );
+            },
     );
   }
 
@@ -975,11 +1066,20 @@ class Session {
   /// This registers a [procedure] with the given [options] that may be called
   /// by other sessions.
   Future<Registered> register(String procedure, {RegisterOptions? options}) {
+    return _register(procedure, options: options);
+  }
+
+  Future<Registered> _register(
+    String procedure, {
+    RegisterOptions? options,
+    void Function(Registered registered)? configure,
+  }) {
     final register = Register(nextRegisterId++, procedure, options: options);
     final completer = Completer<Registered>();
     _pendingRegisters[register.requestId] = _PendingRegister(
       procedure: procedure,
       completer: completer,
+      configure: configure,
     );
     _transport.send(register);
     return completer.future;
@@ -991,10 +1091,12 @@ class Session {
     String procedure,
     FutureOr<void> Function(Invocation invocation) onInvoke, {
     RegisterOptions? options,
-  }) async {
-    final registered = await register(procedure, options: options);
-    registered.onInvoke(onInvoke);
-    return registered;
+  }) {
+    return _register(
+      procedure,
+      options: options,
+      configure: (registered) => registered.onInvoke(onInvoke),
+    );
   }
 
   /// This registers a [procedure] and routes invocation payloads directly to
@@ -1003,10 +1105,12 @@ class Session {
     String procedure,
     FutureOr<void> Function(InvocationPayload invocation) onInvoke, {
     RegisterOptions? options,
-  }) async {
-    final registered = await register(procedure, options: options);
-    registered.onInvokePayload(onInvoke);
-    return registered;
+  }) {
+    return _register(
+      procedure,
+      options: options,
+      configure: (registered) => registered.onInvokePayload(onInvoke),
+    );
   }
 
   /// This registers a [procedure] and routes invocation payloads directly to
@@ -1015,10 +1119,12 @@ class Session {
     String procedure,
     FutureOr<void> Function(LazyInvocationPayload invocation) onInvoke, {
     RegisterOptions? options,
-  }) async {
-    final registered = await register(procedure, options: options);
-    registered.onLazyInvokePayload(onInvoke);
-    return registered;
+  }) {
+    return _register(
+      procedure,
+      options: options,
+      configure: (registered) => registered.onLazyInvokePayload(onInvoke),
+    );
   }
 
   /// This unregisters a procedure by its [registrationId]. Use the [Registered.registrationId]
@@ -1115,12 +1221,13 @@ class Session {
       return;
     }
     if (message is Registered) {
-      registrations[message.registrationId] = message;
       final pending = _pendingRegisters.remove(message.registerRequestId);
       if (pending != null) {
         message.procedure = pending.procedure;
-        pending.completer.complete(message);
+        pending.configure?.call(message);
       }
+      registrations[message.registrationId] = message;
+      pending?.completer.complete(message);
       return;
     }
     if (message is Unregistered) {
@@ -2319,10 +2426,15 @@ class _PendingUnsubscribe {
 }
 
 class _PendingRegister {
-  _PendingRegister({required this.procedure, required this.completer});
+  _PendingRegister({
+    required this.procedure,
+    required this.completer,
+    this.configure,
+  });
 
   final String procedure;
   final Completer<Registered> completer;
+  final void Function(Registered registered)? configure;
 }
 
 class _PendingUnregister {

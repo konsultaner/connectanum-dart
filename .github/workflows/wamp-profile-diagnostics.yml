@@ -13,6 +13,8 @@ on:
       - native/bench/scenarios/wamp_payload_mode_throughput.toml
       - native/bench/scenarios/wamp_mixed_serializer_throughput.toml
       - native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml
+      - native/bench/scenarios/wamp_file_transfer_throughput.toml
+      - native/bench/scenarios/wamp_large_rawsocket_frames_throughput.toml
   workflow_dispatch:
     inputs:
       router_worker_counts:

@@ -2,6 +2,7 @@
 
 use std::{
     collections::{HashMap, VecDeque},
+    fs::File,
     io::{self, Cursor, Write},
     net::{IpAddr, SocketAddr, ToSocketAddrs},
     ops::Deref,
@@ -1484,6 +1485,9 @@ pub enum Error {
     /// Native runtime thread count env var is invalid.
     #[error("native runtime thread count invalid: {0}")]
     InvalidRuntimeThreadCount(String),
+    /// A file-backed outbound segment was invalid for the selected connection.
+    #[error("invalid outbound file segment: {0}")]
+    InvalidFileSegment(&'static str),
 }
 
 const NATIVE_RUNTIME_THREADS_ENV: &str = "CONNECTANUM_NATIVE_RUNTIME_THREADS";
@@ -1603,6 +1607,7 @@ enum ConnectionRecord {
     RawSocket {
         _serializer: rawsocket::Serializer,
         max_exponent: u32,
+        supports_file_segments: bool,
         frames: Arc<Mutex<mpsc::Receiver<wamp::ParsedMessage>>>,
         reader_abort: AbortHandle,
         writer_abort: AbortHandle,
@@ -1922,6 +1927,7 @@ impl ListenerRegistry {
         let (close_tx, mut close_rx) = mpsc::unbounded_channel::<ConnectionTaskSignal>();
         let serializer = negotiated.serializer;
         let max_exponent = negotiated.max_message_size_exponent;
+        let supports_file_segments = negotiated.file_sender.is_some();
         let (pong_tx, pong_rx) = mpsc::unbounded_channel::<Bytes>();
         let heartbeat_abort = endpoint_config.heartbeat_interval.map(|interval| {
             let timeout = endpoint_config
@@ -1956,6 +1962,7 @@ impl ListenerRegistry {
             handle,
             connection_id,
             negotiated.writer,
+            negotiated.file_sender,
             max_exponent,
             send_rx,
             close_tx,
@@ -1982,6 +1989,7 @@ impl ListenerRegistry {
                     record: ConnectionRecord::RawSocket {
                         _serializer: serializer,
                         max_exponent,
+                        supports_file_segments,
                         frames: Arc::new(Mutex::new(frame_rx)),
                         reader_abort,
                         writer_abort,
@@ -2396,6 +2404,26 @@ impl ListenerRegistry {
         }
     }
 
+    fn connection_supports_file_segments(
+        &self,
+        connection_id: ConnectionId,
+    ) -> Result<bool, Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::RawSocket {
+                supports_file_segments,
+                ..
+            } => Ok(*supports_file_segments),
+            _ => Ok(false),
+        }
+    }
+
     fn connection_protocol(
         &self,
         connection_id: ConnectionId,
@@ -2471,6 +2499,32 @@ impl ListenerRegistry {
         match &entry.record {
             ConnectionRecord::RawSocket { send_tx, .. }
             | ConnectionRecord::WebSocket { send_tx, .. } => match send_tx.try_send(frame) {
+                Ok(()) => Ok(()),
+                Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
+                Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
+            },
+            _ => Err(Error::UnsupportedProtocol(connection_id, entry.protocol)),
+        }
+    }
+
+    fn enqueue_file_frame(
+        &self,
+        connection_id: ConnectionId,
+        frame: OutboundFrame,
+    ) -> Result<(), Error> {
+        let connections = self
+            .connections
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner());
+        let entry = connections
+            .get(&connection_id)
+            .ok_or(Error::ConnectionNotFound(connection_id))?;
+        match &entry.record {
+            ConnectionRecord::RawSocket {
+                supports_file_segments: true,
+                send_tx,
+                ..
+            } => match send_tx.try_send(frame) {
                 Ok(()) => Ok(()),
                 Err(TrySendError::Full(_)) => Err(Error::SendQueueFull(connection_id)),
                 Err(TrySendError::Closed(_)) => Err(Error::ConnectionNotFound(connection_id)),
@@ -2916,11 +2970,20 @@ enum InboundFrame {
     Pong(Bytes),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
+struct OutboundFileSegment {
+    file: Arc<File>,
+    offset: u64,
+    len: usize,
+}
+
+#[derive(Debug)]
 struct OutboundFrame {
     frame_type: u8,
     payload_len: usize,
     segments: Vec<Bytes>,
+    file_segment: Option<OutboundFileSegment>,
+    suffix_segments: Vec<Bytes>,
 }
 
 impl OutboundFrame {
@@ -2930,6 +2993,8 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len: len,
             segments: vec![payload],
+            file_segment: None,
+            suffix_segments: Vec::new(),
         }
     }
 
@@ -2939,7 +3004,30 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len,
             segments,
+            file_segment: None,
+            suffix_segments: Vec::new(),
         }
+    }
+
+    fn message_file_segment(
+        prefix: Bytes,
+        file: Arc<File>,
+        offset: u64,
+        len: usize,
+        suffix: Bytes,
+    ) -> Result<Self, Error> {
+        let payload_len = prefix
+            .len()
+            .checked_add(len)
+            .and_then(|value| value.checked_add(suffix.len()))
+            .ok_or(Error::InvalidFileSegment("payload length overflow"))?;
+        Ok(Self {
+            frame_type: 0,
+            payload_len,
+            segments: vec![prefix],
+            file_segment: Some(OutboundFileSegment { file, offset, len }),
+            suffix_segments: vec![suffix],
+        })
     }
 
     fn control(frame_type: u8, payload: Bytes) -> Self {
@@ -2948,6 +3036,8 @@ impl OutboundFrame {
             frame_type,
             payload_len: len,
             segments: vec![payload],
+            file_segment: None,
+            suffix_segments: Vec::new(),
         }
     }
 
@@ -3054,13 +3144,14 @@ fn spawn_connection_writer(
     handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
     mut writer: IoWriteHalf,
+    file_sender: Option<rawsocket::RawSocketFileSender>,
     max_message_size_exponent: u32,
     mut rx: mpsc::Receiver<OutboundFrame>,
     close_tx: UnboundedSender<ConnectionTaskSignal>,
 ) -> AbortHandle {
     let task = handle.spawn(async move {
         let upgraded_protocol = max_message_size_exponent > 24;
-        while let Some(frame) = rx.recv().await {
+        'writer: while let Some(frame) = rx.recv().await {
             if frame.frame_type > 2 {
                 continue;
             }
@@ -3097,7 +3188,44 @@ fn spawn_connection_writer(
                             connection_id, err
                         );
                     }
+                    break 'writer;
+                }
+            }
+
+            if let Some(segment) = frame.file_segment {
+                let Some(sender) = file_sender.as_ref() else {
+                    eprintln!(
+                        "connection {:?} cannot send a queued file segment",
+                        connection_id
+                    );
                     break;
+                };
+                if let Err(err) = sender
+                    .send_file_segment(&segment.file, segment.offset, segment.len)
+                    .await
+                {
+                    if !is_benign_socket_shutdown(err.kind()) {
+                        eprintln!(
+                            "connection {:?} failed to send file segment: {}",
+                            connection_id, err
+                        );
+                    }
+                    break;
+                }
+            }
+
+            for segment in frame.suffix_segments {
+                if segment.is_empty() {
+                    continue;
+                }
+                if let Err(err) = writer.write_all(&segment).await {
+                    if !is_benign_socket_shutdown(err.kind()) {
+                        eprintln!(
+                            "connection {:?} failed to write frame suffix: {}",
+                            connection_id, err
+                        );
+                    }
+                    break 'writer;
                 }
             }
         }
@@ -3296,6 +3424,13 @@ fn spawn_websocket_writer(
         let mut write_failed = false;
         let mut mask_scratch = Vec::with_capacity(WEBSOCKET_MASK_CHUNK_SIZE);
         while let Some(frame) = rx.recv().await {
+            if frame.file_segment.is_some() || !frame.suffix_segments.is_empty() {
+                eprintln!(
+                    "connection {:?} received a RawSocket-only file frame",
+                    connection_id
+                );
+                break;
+            }
             let is_close_frame = frame.frame_type == 3;
             let opcode = match frame.frame_type {
                 0 => match serializer {
@@ -4570,6 +4705,16 @@ pub fn connection_rawsocket_max_exponent(connection_id: ConnectionId) -> Result<
     manager.with_state(|state| state.registry.connection_exponent(connection_id))
 }
 
+/// Reports whether a connection can enqueue Linux zero-copy file-backed frames.
+pub fn connection_supports_file_segments(connection_id: ConnectionId) -> Result<bool, Error> {
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| {
+        state
+            .registry
+            .connection_supports_file_segments(connection_id)
+    })
+}
+
 /// Returns the negotiated transport protocol for a connection.
 pub fn connection_protocol(connection_id: ConnectionId) -> Result<ConnectionProtocol, Error> {
     let manager = RuntimeManager::global();
@@ -4917,6 +5062,28 @@ pub fn send_wamp_segments(connection_id: ConnectionId, segments: Vec<Bytes>) -> 
             .registry
             .enqueue_frame(connection_id, OutboundFrame::message_segments(segments))
     })
+}
+
+/// Enqueues one RawSocket WAMP frame containing a file-backed payload segment.
+pub fn send_wamp_file_segment(
+    connection_id: ConnectionId,
+    prefix: Bytes,
+    file: Arc<File>,
+    offset: u64,
+    len: usize,
+    suffix: Bytes,
+) -> Result<(), Error> {
+    let end = offset
+        .checked_add(len as u64)
+        .ok_or(Error::InvalidFileSegment("file range overflow"))?;
+    if end > file.metadata()?.len() {
+        return Err(Error::InvalidFileSegment(
+            "file range exceeds the current file length",
+        ));
+    }
+    let frame = OutboundFrame::message_file_segment(prefix, file, offset, len, suffix)?;
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.enqueue_file_frame(connection_id, frame))
 }
 
 pub fn spawn_http_response(
@@ -7645,6 +7812,7 @@ mod tests {
                 record: ConnectionRecord::RawSocket {
                     _serializer: rawsocket::Serializer::Json,
                     max_exponent: exponent,
+                    supports_file_segments: false,
                     frames: Arc::new(Mutex::new(frame_rx)),
                     reader_abort,
                     writer_abort,

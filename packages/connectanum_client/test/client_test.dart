@@ -1739,6 +1739,30 @@ void main() {
       },
     );
     test(
+      'registerLazyPayloadHandler attaches before an immediate invocation',
+      () async {
+        final transport = _ImmediateInvocationTransport();
+        final client = Client(realm: 'test.realm', transport: transport);
+        final invocationCompleter = Completer<LazyInvocationPayload>();
+
+        final session = await client.connect().first;
+        final registered = await session.registerLazyPayloadHandler(
+          'immediate.proc',
+          (invocation) {
+            invocationCompleter.complete(invocation);
+            invocation.respondWith(arguments: const ['ready']);
+          },
+        );
+
+        final invocation = await invocationCompleter.future.timeout(
+          const Duration(seconds: 1),
+        );
+        expect(registered.registrationId, equals(20));
+        expect(invocation.requestId, equals(9001));
+        expect(invocation.procedure, equals('immediate.proc'));
+      },
+    );
+    test(
       'native direct invocation path keeps PPT lazy bytes and exposes unpacked payloads',
       () async {
         final yields = <Yield>[];
@@ -4547,6 +4571,25 @@ class _OutOfOrderResponseTransport extends _ImmediateResponseTransport {
   Duration _delayFor(int requestId) {
     final bounded = requestId.clamp(1, 3);
     return Duration(milliseconds: 5 - bounded);
+  }
+}
+
+class _ImmediateInvocationTransport extends _ImmediateResponseTransport {
+  @override
+  void send(AbstractMessage message) {
+    if (message is Register) {
+      outbound.add(message);
+      inbound.add(Registered(message.requestId, 20));
+      inbound.add(
+        Invocation(
+          9001,
+          20,
+          InvocationDetails(7, message.procedure, false),
+        ),
+      );
+      return;
+    }
+    super.send(message);
   }
 }
 

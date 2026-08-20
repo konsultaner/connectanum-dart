@@ -280,7 +280,122 @@ bool _isGoodbyeMessage(Object message) {
   return false;
 }
 
-class NativeRawSocketTransport extends _NativeTransportBase {
+@visibleForTesting
+Uint8List buildNativeFileSegmentPrefix(
+  Uint8List encodedMessage, {
+  required int serializerType,
+  required int fileLength,
+}) {
+  if (fileLength < 0) {
+    throw ArgumentError.value(fileLength, 'fileLength', 'must be non-negative');
+  }
+  late final List<int> expectedTail;
+  late final Uint8List binaryHeader;
+  late final int retainedTailBytes;
+  switch (serializerType) {
+    case SocketHelper.serializationMsgpack:
+      expectedTail = const [0x91, 0xc4, 0x00];
+      binaryHeader = _msgpackBinaryHeader(fileLength);
+      retainedTailBytes = 1;
+    case SocketHelper.serializationCbor:
+      expectedTail = const [0x81, 0x40];
+      binaryHeader = _cborBinaryHeader(fileLength);
+      retainedTailBytes = 1;
+    default:
+      throw UnsupportedError(
+        'Native file segments require MessagePack or CBOR',
+      );
+  }
+  if (!_endsWith(encodedMessage, expectedTail)) {
+    throw StateError(
+      'Serialized file chunk did not end in the expected empty binary argument',
+    );
+  }
+  final retainedLength =
+      encodedMessage.length - expectedTail.length + retainedTailBytes;
+  final prefix = Uint8List(retainedLength + binaryHeader.length);
+  prefix.setRange(0, retainedLength, encodedMessage);
+  prefix.setRange(retainedLength, prefix.length, binaryHeader);
+  return prefix;
+}
+
+bool _endsWith(Uint8List bytes, List<int> suffix) {
+  if (bytes.length < suffix.length) {
+    return false;
+  }
+  final start = bytes.length - suffix.length;
+  for (var index = 0; index < suffix.length; index += 1) {
+    if (bytes[start + index] != suffix[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+Uint8List _msgpackBinaryHeader(int length) {
+  if (length <= 0xff) {
+    return Uint8List.fromList([0xc4, length]);
+  }
+  if (length <= 0xffff) {
+    return Uint8List(3)
+      ..[0] = 0xc5
+      ..buffer.asByteData().setUint16(1, length);
+  }
+  if (length <= 0xffffffff) {
+    return Uint8List(5)
+      ..[0] = 0xc6
+      ..buffer.asByteData().setUint32(1, length);
+  }
+  throw ArgumentError.value(
+    length,
+    'length',
+    'MessagePack binary values are limited to 2^32 - 1 bytes',
+  );
+}
+
+Uint8List _cborBinaryHeader(int length) {
+  if (length <= 23) {
+    return Uint8List.fromList([0x40 | length]);
+  }
+  if (length <= 0xff) {
+    return Uint8List.fromList([0x58, length]);
+  }
+  if (length <= 0xffff) {
+    return Uint8List(3)
+      ..[0] = 0x59
+      ..buffer.asByteData().setUint16(1, length);
+  }
+  if (length <= 0xffffffff) {
+    return Uint8List(5)
+      ..[0] = 0x5a
+      ..buffer.asByteData().setUint32(1, length);
+  }
+  final header = Uint8List(9)..[0] = 0x5b;
+  header.buffer.asByteData().setUint64(1, length);
+  return header;
+}
+
+class _NativeTransportFileSource implements TransportFileSource {
+  _NativeTransportFileSource(this.runtime, this.handle);
+
+  final NativeClientRuntime runtime;
+  final int handle;
+  bool _closed = false;
+
+  bool get isClosed => _closed;
+
+  @override
+  void close() {
+    if (_closed) {
+      return;
+    }
+    _closed = true;
+    runtime.releaseFile(handle);
+  }
+}
+
+class NativeRawSocketTransport extends _NativeTransportBase
+    implements FileSegmentTransport {
   NativeRawSocketTransport(
     this._host,
     this._port,
@@ -363,6 +478,63 @@ class NativeRawSocketTransport extends _NativeTransportBase {
   int get headerLength => isUpgradedProtocol ? 5 : 4;
 
   int? get maxMessageLength => 1 << _messageLengthExponent;
+
+  @override
+  bool get supportsFileSegments {
+    final connectionId = this.connectionId;
+    return connectionId != null &&
+        _runtime.connectionSupportsFileSegments(connectionId);
+  }
+
+  @override
+  TransportFileSource openFileSegmentSource(String path, int expectedLength) {
+    if (!supportsFileSegments) {
+      throw UnsupportedError(
+        'This native RawSocket connection cannot send file segments',
+      );
+    }
+    return _NativeTransportFileSource(
+      _runtime,
+      _runtime.openFile(path, expectedLength: expectedLength),
+    );
+  }
+
+  @override
+  void sendFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+  }) {
+    final connectionId = this.connectionId;
+    if (connectionId == null) {
+      throw StateError('Transport is not connected.');
+    }
+    if (source is! _NativeTransportFileSource ||
+        !identical(source.runtime, _runtime)) {
+      throw ArgumentError.value(
+        source,
+        'source',
+        'belongs to another transport',
+      );
+    }
+    if (source.isClosed) {
+      throw StateError('The native file source is already closed');
+    }
+    final encoded = _encodeMessage(message);
+    final prefix = buildNativeFileSegmentPrefix(
+      encoded,
+      serializerType: _serializerType,
+      fileLength: length,
+    );
+    _runtime.sendMessageFileSegment(
+      connectionId,
+      prefix: prefix,
+      fileHandle: source.handle,
+      fileOffset: offset,
+      fileLength: length,
+    );
+  }
 
   @override
   Logger get logger => _logger;

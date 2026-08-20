@@ -29,14 +29,16 @@ use ct_core::{
     connect_websocket, connection_accept_websocket, connection_http3_connection,
     connection_http3_poll_request, connection_http3_poll_stream, connection_http_poll_request,
     connection_poll_http_event, connection_protocol, connection_rawsocket_max_exponent,
-    connection_reject_websocket, connection_take_http2_handshake, connection_take_http3_handshake,
+    connection_reject_websocket, connection_supports_file_segments,
+    connection_take_http2_handshake, connection_take_http3_handshake,
     connection_take_websocket_handshake, connection_websocket_protocol, listen,
     listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
-    send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
-    ConnectionId, ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
-    HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpRequestBodyStreamMetricsSnapshot,
-    HttpResponseBody, HttpResponseDispatch, HttpResponseStreamMetricsSnapshot, ListenerId,
-    RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
+    send_wamp_file_segment, send_wamp_message, send_wamp_segments, shutdown, start_runtime,
+    wait_connection_message, ConnectionId, ConnectionProtocol, Error as CoreError,
+    HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
+    HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
+    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, WampMessage,
+    RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -75,14 +77,14 @@ use crate::callbacks::{
 
 use super::constants::*;
 use super::state::{
-    clear_channels, clone_message, get_e2ee_keyring, remove_e2ee_keyring, remove_e2ee_session,
-    remove_http2_handshake, remove_http3_connection, remove_http3_handshake, remove_http3_stream,
-    remove_http_body, remove_http_connection_event, remove_http_handshake,
-    remove_http_response_stream, remove_message, remove_websocket_handshake, store_channel,
-    store_e2ee_keyring, store_e2ee_session, store_http2_handshake, store_http3_connection,
-    store_http3_handshake, store_http3_stream, store_http_body, store_http_connection_event,
-    store_http_request_metadata, store_http_response_stream, store_message,
-    store_websocket_handshake, with_channel, with_e2ee_keyring, with_e2ee_session,
+    clear_channels, clone_message, get_e2ee_keyring, get_file, remove_e2ee_keyring,
+    remove_e2ee_session, remove_file, remove_http2_handshake, remove_http3_connection,
+    remove_http3_handshake, remove_http3_stream, remove_http_body, remove_http_connection_event,
+    remove_http_handshake, remove_http_response_stream, remove_message, remove_websocket_handshake,
+    store_channel, store_e2ee_keyring, store_e2ee_session, store_file, store_http2_handshake,
+    store_http3_connection, store_http3_handshake, store_http3_stream, store_http_body,
+    store_http_connection_event, store_http_request_metadata, store_http_response_stream,
+    store_message, store_websocket_handshake, with_channel, with_e2ee_keyring, with_e2ee_session,
     with_http2_handshake, with_http3_handshake, with_http3_stream, with_http_body,
     with_http_connection_event, with_http_handshake, with_http_response_stream, with_message,
     with_websocket_handshake, HttpMetadata, StoredHttpHandshakePayload, StoredMessage,
@@ -338,6 +340,7 @@ fn map_error(err: CoreError) -> c_int {
         CoreError::Http3ResponseSend(_) => ERR_IO,
         CoreError::SendQueueFull(_) => ERR_SEND_QUEUE_FULL,
         CoreError::InvalidRuntimeThreadCount(_) => ERR_INVALID_ARGUMENT,
+        CoreError::InvalidFileSegment(_) => ERR_INVALID_ARGUMENT,
         CoreError::Io(_) => ERR_IO,
     }
 }
@@ -1883,6 +1886,16 @@ pub extern "C" fn ct_connection_max_rawsocket_exponent(connection_id: c_int) -> 
     let connection_id = ConnectionId(connection_id as u32);
     match connection_rawsocket_max_exponent(connection_id) {
         Ok(exponent) => exponent as c_int,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_connection_supports_file_segments(connection_id: c_int) -> c_int {
+    let connection_id = ConnectionId(connection_id as u32);
+    match connection_supports_file_segments(connection_id) {
+        Ok(true) => 1,
+        Ok(false) => 0,
         Err(err) => map_error(err),
     }
 }
@@ -4368,6 +4381,88 @@ pub extern "C" fn ct_send_message_fragmented(
         offset = end;
     }
     match send_wamp_segments(connection_id, segments) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_file_open(
+    path_ptr: *const c_char,
+    path_len: c_int,
+    expected_len: u64,
+) -> c_int {
+    let path = match read_optional_str(path_ptr, path_len) {
+        Ok(Some(path)) => path,
+        _ => return ERR_INVALID_ARGUMENT,
+    };
+    match std::fs::File::open(path) {
+        Ok(file) => match file.metadata() {
+            Ok(metadata) if metadata.is_file() && metadata.len() == expected_len => {
+                store_file(file) as c_int
+            }
+            Ok(_) => ERR_INVALID_ARGUMENT,
+            Err(_) => ERR_IO,
+        },
+        Err(_) => ERR_IO,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_file_release(file_handle: c_int) -> c_int {
+    if file_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match remove_file(file_handle as u32) {
+        Some(_) => SUCCESS,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+#[no_mangle]
+pub extern "C" fn ct_send_message_file_segment(
+    connection_id: c_int,
+    prefix_ptr: *const u8,
+    prefix_len: c_int,
+    file_handle: c_int,
+    file_offset: u64,
+    file_len: u64,
+    suffix_ptr: *const u8,
+    suffix_len: c_int,
+) -> c_int {
+    if prefix_len < 0 || suffix_len < 0 || file_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let prefix = if prefix_len == 0 {
+        Bytes::new()
+    } else if prefix_ptr.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    } else {
+        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(prefix_ptr, prefix_len as usize) })
+    };
+    let suffix = if suffix_len == 0 {
+        Bytes::new()
+    } else if suffix_ptr.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    } else {
+        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(suffix_ptr, suffix_len as usize) })
+    };
+    let file_len = match usize::try_from(file_len) {
+        Ok(file_len) => file_len,
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    let Some(file) = get_file(file_handle as u32) else {
+        return ERR_HANDLE_UNAVAILABLE;
+    };
+    match send_wamp_file_segment(
+        ConnectionId(connection_id as u32),
+        prefix,
+        file,
+        file_offset,
+        file_len,
+        suffix,
+    ) {
         Ok(()) => SUCCESS,
         Err(err) => map_error(err),
     }

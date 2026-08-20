@@ -27,8 +27,13 @@ void main() {
             .expand((endpoint) => endpoint.sniCertificates)
             .map((certificate) => certificate.hostname)
             .toList(growable: false);
+        final rawSocketExponents = settings.listeners
+            .map((listener) => listener.rawsocket?.maxFrameExponent)
+            .whereType<int>()
+            .toList(growable: false);
 
         expect(sniHosts.where((host) => host == 'localhost'), hasLength(2));
+        expect(rawSocketExponents, everyElement(30));
         expect(
           () => Router(RouterConfig(endpoints: endpoints), settings: settings),
           returnsNormally,

@@ -1,0 +1,73 @@
+name = "wamp_file_transfer_throughput"
+description = "Filesystem-to-WAMP throughput across Linux sendfile eligibility and buffered transform fallbacks."
+
+[[workloads]]
+name = "rawsocket_file_msgpack_64m_native"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.file.set"
+iterations = 8
+concurrency = 2
+in_flight_per_session = 1
+request_bytes = 67108864
+
+[[workloads]]
+name = "rawsocket_file_cbor_64m_native"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.file.set"
+iterations = 8
+concurrency = 2
+in_flight_per_session = 1
+request_bytes = 67108864
+
+[[workloads]]
+name = "rawsocket_file_cbor_64m_dart_buffered"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.file.set"
+iterations = 4
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 67108864
+
+[[workloads]]
+name = "rawsocket_tls_file_cbor_32m_native_buffered"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "cbor"
+secure_transport = true
+path = "bench.file.set"
+iterations = 4
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 33554432
+
+[[workloads]]
+name = "websocket_file_cbor_32m_native_buffered"
+protocol = "wamp_websocket_file_transfer"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.file.set"
+iterations = 4
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 33554432
+
+[[workloads]]
+name = "rawsocket_file_cbor_e2ee_32m_native_buffered"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.file.set"
+iterations = 4
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 33554432
+ppt_scheme = "x_connectanum_e2ee"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "bench-key"

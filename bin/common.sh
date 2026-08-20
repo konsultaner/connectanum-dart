@@ -2084,6 +2084,128 @@ PY
   printf 'Bearer-token router-hosted JSON-response MCP client live smoke completed.\n'
 )
 
+run_client_consumer_package_smoke() (
+  local pub_cache
+  local smoke_dir
+
+  require_command dart
+
+  smoke_dir="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-client-consumer-smoke.XXXXXX")"
+  pub_cache="$(mktemp -d "${TMPDIR:-/tmp}/connectanum-client-consumer-pub-cache.XXXXXX")"
+  trap "rm -rf '$smoke_dir' '$pub_cache'" EXIT
+
+  mkdir -p "$smoke_dir/bin"
+  cat >"$smoke_dir/pubspec.yaml" <<EOF
+name: connectanum_client_consumer_smoke
+publish_to: none
+environment:
+  sdk: '^3.9.2'
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_SKIP_NATIVE_BUILD: true
+dependencies:
+  connectanum_client: any
+dependency_overrides:
+  connectanum_core:
+    path: "$ROOT_DIR/packages/connectanum_core"
+  connectanum_client:
+    path: "$ROOT_DIR/packages/connectanum_client"
+EOF
+
+  cat >"$smoke_dir/bin/main.dart" <<'DART'
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:connectanum_client/connectanum.dart';
+
+Future<Result> sendFile(Session session, WampFileSource source) {
+  return session.setFile('consumer.file.store', source);
+}
+
+Future<WampFileReceiver> receiveFiles(Session session) {
+  return WampFileReceiver.register(
+    session,
+    'consumer.file.store',
+    (_) => _MemorySink(),
+  );
+}
+
+Future<void> main() async {
+  final directory = await Directory.systemTemp.createTemp(
+    'connectanum-file-consumer.',
+  );
+  try {
+    final bytes = Uint8List.fromList(<int>[0, 1, 2, 3, 4, 5]);
+    final file = File('${directory.path}/payload.bin');
+    await file.writeAsBytes(bytes, flush: true);
+    final source = await wampFileSourceFromPath(
+      file.path,
+      contentType: 'application/octet-stream',
+      custom: const <String, dynamic>{'consumer': true},
+    );
+    _expect(source.length == bytes.length, 'file source length mismatch');
+    _expect(source.nativePath == file.absolute.path, 'native path missing');
+
+    final metadata = WampFileMetadata(
+      name: source.name,
+      size: source.length,
+      chunkSize: 4,
+      contentType: source.contentType,
+      custom: source.custom,
+    );
+    _expect(metadata.toJson()['version'] == 1, 'metadata version mismatch');
+
+    final sink = _MemorySink();
+    await sink.add(bytes);
+    final receipt = WampFileReceipt(
+      metadata: metadata,
+      receivedBytes: bytes.length,
+      sha256Digest:
+          '17e88db187afd62c16e5debf3e0d0e4c515b36f21164a3c5a36a2c6fbd739334',
+    );
+    final result = await sink.close(receipt);
+    _expect(result['stored'] == bytes.length, 'sink receipt mismatch');
+    print('Connectanum client consumer package smoke completed.');
+  } finally {
+    await directory.delete(recursive: true);
+  }
+}
+
+class _MemorySink implements WampFileSink {
+  int storedBytes = 0;
+
+  @override
+  Future<void> add(Uint8List chunk) async {
+    storedBytes += chunk.length;
+  }
+
+  @override
+  Future<void> abort(Object error) async {}
+
+  @override
+  Future<Map<String, dynamic>> close(WampFileReceipt receipt) async {
+    return <String, dynamic>{'stored': storedBytes};
+  }
+}
+
+void _expect(bool condition, String message) {
+  if (!condition) {
+    throw StateError(message);
+  }
+}
+DART
+
+  printf 'Running client consumer package smoke from %s.\n' "$smoke_dir"
+  (
+    cd "$smoke_dir"
+    dart_pub_with_retry "Client consumer dependency resolution" \
+      env PUB_CACHE="$pub_cache" dart pub get
+    PUB_CACHE="$pub_cache" dart analyze
+    PUB_CACHE="$pub_cache" dart run bin/main.dart
+  )
+)
+
 run_mcp_server_package_smoke() (
   local pub_cache
   local smoke_dir

@@ -1505,6 +1505,7 @@ enum BenchWampMode {
     PubSub,
     Rpc,
     ProgressiveRpc,
+    FileTransfer,
     TimeoutRpc,
     MetaApi,
     PublishAck,
@@ -1520,6 +1521,7 @@ impl BenchWampMode {
             Self::PubSub => "pubsub",
             Self::Rpc => "rpc",
             Self::ProgressiveRpc => "progressive_rpc",
+            Self::FileTransfer => "file_transfer",
             Self::TimeoutRpc => "timeout_rpc",
             Self::MetaApi => "meta_api",
             Self::PublishAck => "publish_ack",
@@ -1544,6 +1546,9 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
         "wamp_progressive_rpc" | "wamp_rawsocket_progressive_rpc" => {
             Some((BenchWampTransport::RawSocket, BenchWampMode::ProgressiveRpc))
         }
+        "wamp_file_transfer" | "wamp_rawsocket_file_transfer" => {
+            Some((BenchWampTransport::RawSocket, BenchWampMode::FileTransfer))
+        }
         "wamp_timeout_rpc" | "wamp_rawsocket_timeout_rpc" => {
             Some((BenchWampTransport::RawSocket, BenchWampMode::TimeoutRpc))
         }
@@ -1567,6 +1572,9 @@ fn parse_wamp_protocol(protocol: &str) -> Option<(BenchWampTransport, BenchWampM
         "wamp_websocket_rpc" => Some((BenchWampTransport::WebSocket, BenchWampMode::Rpc)),
         "wamp_websocket_progressive_rpc" => {
             Some((BenchWampTransport::WebSocket, BenchWampMode::ProgressiveRpc))
+        }
+        "wamp_websocket_file_transfer" => {
+            Some((BenchWampTransport::WebSocket, BenchWampMode::FileTransfer))
         }
         "wamp_websocket_timeout_rpc" => {
             Some((BenchWampTransport::WebSocket, BenchWampMode::TimeoutRpc))
@@ -6266,6 +6274,10 @@ mod tests {
         assert_eq!(
             parse_wamp_protocol("wamp_rawsocket_progressive_rpc"),
             Some((BenchWampTransport::RawSocket, BenchWampMode::ProgressiveRpc))
+        );
+        assert_eq!(
+            parse_wamp_protocol("wamp_rawsocket_file_transfer"),
+            Some((BenchWampTransport::RawSocket, BenchWampMode::FileTransfer))
         );
         assert_eq!(
             parse_wamp_protocol("wamp_websocket_timeout_rpc"),

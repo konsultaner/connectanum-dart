@@ -54,7 +54,7 @@ class SocketHelper {
   static List<int> getUpgradeHandshake(int messageLengthExponent) {
     var upgradeHandShake = Uint8List(2);
     upgradeHandShake[0] = SocketHelper._upgradeHeader;
-    upgradeHandShake[1] = (max(0, min(15, messageLengthExponent - 25)) << 4);
+    upgradeHandShake[1] = max(0, min(15, messageLengthExponent - 25));
     return upgradeHandShake.toList(growable: false);
   }
 
@@ -157,7 +157,7 @@ class SocketHelper {
 
   /// gets the max upgrade message size exponent of the given [message]
   static int getMaxUpgradeMessageSizeExponent(Uint8List message) {
-    return ((message[1] & 0xFF) >> 4) + 25;
+    return (message[1] & 0x0F) + 25;
   }
 
   /// calculates the [message] payload length for a given [headerLength]

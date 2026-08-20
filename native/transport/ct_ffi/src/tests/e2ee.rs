@@ -1,4 +1,4 @@
-use std::ptr;
+use std::{ffi::c_char, ptr};
 
 use crate::runtime::{
     ct_byte_buffer_free, ct_e2ee_keyring_add_key, ct_e2ee_keyring_new, ct_e2ee_keyring_release,
@@ -12,7 +12,7 @@ use super::test_guard;
 fn add_key(handle: i32, key_id: &str, key: &[u8], make_default: bool) {
     let result = ct_e2ee_keyring_add_key(
         handle,
-        key_id.as_ptr() as *const i8,
+        key_id.as_ptr() as *const c_char,
         key_id.len() as i32,
         key.as_ptr(),
         key.len() as i32,
@@ -141,7 +141,7 @@ fn native_e2ee_uses_explicit_session_default_key_id() {
     add_key(keyring, "kid-a", &(1u8..=32u8).collect::<Vec<_>>(), false);
     add_key(keyring, "kid-b", &(33u8..=64u8).collect::<Vec<_>>(), false);
 
-    let session = ct_e2ee_session_new(keyring, "kid-b".as_ptr() as *const i8, 5);
+    let session = ct_e2ee_session_new(keyring, "kid-b".as_ptr() as *const c_char, 5);
     assert!(session > 0);
 
     let plaintext = b"session-default-key";
@@ -165,7 +165,7 @@ fn native_e2ee_uses_explicit_session_default_key_id() {
     };
     let decrypt_result = ct_e2ee_session_decrypt(
         session,
-        "kid-b".as_ptr() as *const i8,
+        "kid-b".as_ptr() as *const c_char,
         5,
         encrypted.ptr,
         encrypted.len as i32,
@@ -199,7 +199,7 @@ fn native_e2ee_reports_missing_keys_and_decrypt_failures() {
     assert_eq!(
         ct_e2ee_session_encrypt(
             session,
-            "missing".as_ptr() as *const i8,
+            "missing".as_ptr() as *const c_char,
             7,
             plaintext.as_ptr(),
             plaintext.len() as i32,
@@ -211,7 +211,7 @@ fn native_e2ee_reports_missing_keys_and_decrypt_failures() {
     assert_eq!(
         ct_e2ee_session_encrypt(
             session,
-            "kid-1".as_ptr() as *const i8,
+            "kid-1".as_ptr() as *const c_char,
             5,
             plaintext.as_ptr(),
             plaintext.len() as i32,
@@ -227,7 +227,7 @@ fn native_e2ee_reports_missing_keys_and_decrypt_failures() {
     assert_eq!(
         ct_e2ee_session_decrypt(
             session,
-            "kid-2".as_ptr() as *const i8,
+            "kid-2".as_ptr() as *const c_char,
             5,
             encrypted.ptr,
             encrypted.len as i32,

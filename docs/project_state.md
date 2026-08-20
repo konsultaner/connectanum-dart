@@ -4,11 +4,10 @@ Last updated: 2026-08-20
 Current branch: `codex/mcp-public-http-auth-discovery`
 Current milestone: extend the coordinated `3.0.0-beta` line with selected
 application-facing capabilities identified in the legacy Java implementation,
-starting with race-safe buffered standard WAMP Meta API state. Progressive
-file delivery and bounded retry deduplication will remain additive high-level
-contracts, while RawSocket frames beyond the standard maximum will remain an
-explicitly negotiated Connectanum-only extension. Java pattern-matching
-behavior is excluded. The active plan is
+including race-safe buffered standard WAMP Meta API state, progressive file
+delivery, and explicitly negotiated large RawSocket frames. Bounded retry
+deduplication remains the next additive high-level contract. Java
+pattern-matching behavior is excluded. The active plan is
 `docs/exec-plans/2026-08-20-java-capability-successor-extensions.md`.
 
 The promoted release line remains a coordinated prerelease while testers
@@ -47,6 +46,33 @@ callee/subscriber membership and session departure, and closes without waiting
 for unsubscribe replies after transport loss. Four focused regressions and a
 live native-router WebSocket lifecycle integration pass. Post-change
 `bin/test-fast` passes on 2026-08-20.
+
+The progressive file-delivery and large RawSocket frame slice is locally
+complete. The public client sends a versioned file contract over standard WAMP
+progressive calls and exposes a bounded receiver with exact-size and SHA-256
+validation, sink backpressure, concurrency and buffered-byte limits, idle
+timeouts, cancellation cleanup, and IO path sources. On Linux, native
+cleartext RawSocket MessagePack and CBOR sessions send file-backed frame
+segments with kernel `sendfile`; TLS, WebSocket masking, JSON/base64, E2EE
+transforms, non-Linux hosts, and unsupported peers deliberately use bounded
+buffered chunks. The native boundary rejects non-regular files and validates
+the opened file length before retaining a handle.
+
+The optional RawSocket extension remains off for standard peers and preserves
+speculatively read WAMP bytes when a peer does not upgrade. Dart now encodes
+and decodes the negotiated exponent in the documented low nibble. A generated
+standalone consumer package proves the public file source, metadata, receipt,
+sink, sender, and receiver surface without workspace-private imports.
+`bin/test-fast`, 115 Rust core tests, 52 Rust FFI tests, and the focused
+client/native regressions pass on 2026-08-20. A Linux arm64 container compiles
+all native targets and passes the real `sendfile` loopback test. On macOS, the
+four-workload file smoke passes through the expected buffered fallback. The
+local large-frame matrix passes 32 MiB MessagePack and 64 MiB CBOR frames for
+both Dart and native clients, with observed aggregate loopback throughput from
+1.02 to 2.66 Gbit/s. Full `bin/verify` passes on 2026-08-20, including 457
+router tests, all generated consumer smokes, and Chrome/Dart2Wasm coverage.
+Hosted Linux end-to-end sendfile throughput remains pending before this slice
+is promoted.
 
 The completed product-readiness checkpoint is MCP `2026-07-28` multi
 round-trip request (MRTR) support for non-sensitive form elicitation. Public

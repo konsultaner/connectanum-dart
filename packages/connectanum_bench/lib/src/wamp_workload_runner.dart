@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
@@ -130,6 +131,8 @@ class WampWorkloadRunner {
         return _runRpcScenario(scenario);
       case WampMode.progressiveRpc:
         return _runProgressiveRpcScenario(scenario);
+      case WampMode.fileTransfer:
+        return _runFileTransferScenario(scenario);
       case WampMode.timeoutRpc:
         return _runTimeoutRpcScenario(scenario);
       case WampMode.metaApi:
@@ -904,6 +907,156 @@ class WampWorkloadRunner {
     );
     final results = await Future.wait(workers);
     return results.expand((samples) => samples).toList(growable: false);
+  }
+
+  Future<List<WampSample>> _runFileTransferScenario(
+    WampScenario scenario,
+  ) async {
+    final directory = await Directory.systemTemp.createTemp(
+      'connectanum-file-bench-',
+    );
+    try {
+      final file = File('${directory.path}/payload.bin');
+      await _writeBenchmarkFile(file, scenario.payloadBytes);
+      final source = await wamp_client.wampFileSourceFromPath(
+        file.path,
+        name: 'payload.bin',
+        contentType: 'application/octet-stream',
+      );
+      final workers = List.generate(
+        scenario.concurrency,
+        (workerId) => _runFileTransferWorker(workerId, scenario, source),
+      );
+      final results = await Future.wait(workers);
+      return results.expand((samples) => samples).toList(growable: false);
+    } finally {
+      await directory.delete(recursive: true);
+    }
+  }
+
+  Future<List<WampSample>> _runFileTransferWorker(
+    int workerId,
+    WampScenario scenario,
+    wamp_client.WampFileSource source,
+  ) async {
+    WampSession? sender;
+    WampSession? receiver;
+    WampRegistration? registration;
+    final procedure = _externalProcedureUri(scenario.uri, workerId);
+    try {
+      sender = await _openSession(
+        scenario,
+        workerId: workerId,
+        timeoutLabel: 'file_sender',
+        logLabel: 'file sender',
+      );
+      final peerScenario = _peerScenario(scenario);
+      receiver = await _openSession(
+        peerScenario,
+        workerId: workerId,
+        timeoutLabel: 'file_receiver',
+        logLabel: 'file receiver',
+      );
+      registration = await (receiver as WampFileSession).registerFileReceiver(
+        procedure,
+        maxConcurrentTransfers: scenario.inFlightPerSession,
+      );
+      return await _runWithInFlightLimit(
+        iterations: scenario.iterations,
+        maxInFlight: scenario.inFlightPerSession,
+        launch: (iteration) => _runFileTransferIteration(
+          workerId,
+          iteration,
+          scenario,
+          procedure,
+          source,
+          sender!,
+        ),
+      );
+    } finally {
+      if (registration != null) {
+        await _runCleanupOperation(
+          registration.cancel,
+          logLabel: 'file receiver registration',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (receiver != null) {
+        await _runCleanupOperation(
+          receiver.close,
+          logLabel: 'file receiver session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+      if (sender != null) {
+        await _runCleanupOperation(
+          sender.close,
+          logLabel: 'file sender session',
+          details: _operationDetails(
+            scenario,
+            workerId: workerId,
+            targetUri: procedure,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<WampSample> _runFileTransferIteration(
+    int workerId,
+    int iteration,
+    WampScenario scenario,
+    String procedure,
+    wamp_client.WampFileSource source,
+    WampSession session,
+  ) async {
+    const chunkSize = 4 * 1024 * 1024;
+    final start = DateTime.now();
+    await (session as WampFileSession)
+        .sendFile(
+          procedure,
+          source,
+          chunkSize: chunkSize,
+          timeout: _eventTimeout,
+          options: _buildCallOptions(scenario),
+        )
+        .timeout(_eventTimeout);
+    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
+    return WampSample(
+      worker: workerId,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: scenario.payloadBytes,
+      responseBytes: 0,
+    );
+  }
+
+  Future<void> _writeBenchmarkFile(File file, int length) async {
+    final handle = await file.open(mode: FileMode.write);
+    try {
+      const blockSize = 1024 * 1024;
+      final block = Uint8List(blockSize);
+      for (var index = 0; index < block.length; index += 1) {
+        block[index] = index & 0xff;
+      }
+      var remaining = length;
+      while (remaining > 0) {
+        final writeLength = remaining < block.length ? remaining : block.length;
+        await handle.writeFrom(block, 0, writeLength);
+        remaining -= writeLength;
+      }
+      await handle.flush();
+    } finally {
+      await handle.close();
+    }
   }
 
   Future<List<WampSample>> _runTimeoutRpcWorker(
@@ -1925,6 +2078,21 @@ abstract class WampSession {
   Future<void> close();
 }
 
+abstract interface class WampFileSession {
+  Future<WampRegistration> registerFileReceiver(
+    String procedure, {
+    required int maxConcurrentTransfers,
+  });
+
+  Future<void> sendFile(
+    String procedure,
+    wamp_client.WampFileSource source, {
+    required int chunkSize,
+    required Duration timeout,
+    wamp_core.CallOptions? options,
+  });
+}
+
 class WampProgressiveCall {
   WampProgressiveCall({
     required this.results,
@@ -1953,6 +2121,14 @@ class WampRegistration {
   Future<void> cancel() => _cancel();
 }
 
+class _DiscardingWampFileSink extends wamp_client.WampFileSink {
+  @override
+  void add(Uint8List chunk) {}
+
+  @override
+  Map<String, dynamic>? close(wamp_client.WampFileReceipt receipt) => null;
+}
+
 class RawSocketWampSessionFactory {
   RawSocketWampSessionFactory({
     required this.host,
@@ -1964,6 +2140,8 @@ class RawSocketWampSessionFactory {
     this.clientImplementation = WampClientImplementation.dart,
     this.ssl = false,
     this.allowInsecureCertificates = false,
+    this.messageLengthExponent =
+        wamp_socket.SocketHelper.maxMessageLengthExponent,
     this.nativeLibraryPath,
     this.e2eeProviderFactory,
   });
@@ -1977,6 +2155,7 @@ class RawSocketWampSessionFactory {
   final WampClientImplementation clientImplementation;
   final bool ssl;
   final bool allowInsecureCertificates;
+  final int messageLengthExponent;
   final String? nativeLibraryPath;
   final WampE2eeProviderFactory? e2eeProviderFactory;
 
@@ -2013,6 +2192,7 @@ class RawSocketWampSessionFactory {
       serializerType,
       ssl: ssl,
       allowInsecureCertificates: allowInsecureCertificates,
+      messageLengthExponent: messageLengthExponent,
     );
   }
 
@@ -2024,6 +2204,7 @@ class RawSocketWampSessionFactory {
           port,
           ssl: ssl,
           allowInsecureCertificates: allowInsecureCertificates,
+          messageLengthExponent: messageLengthExponent,
           libraryPath: nativeLibraryPath,
         ),
       WampSerializer.msgpack =>
@@ -2032,6 +2213,7 @@ class RawSocketWampSessionFactory {
           port,
           ssl: ssl,
           allowInsecureCertificates: allowInsecureCertificates,
+          messageLengthExponent: messageLengthExponent,
           libraryPath: nativeLibraryPath,
         ),
       WampSerializer.cbor =>
@@ -2040,6 +2222,7 @@ class RawSocketWampSessionFactory {
           port,
           ssl: ssl,
           allowInsecureCertificates: allowInsecureCertificates,
+          messageLengthExponent: messageLengthExponent,
           libraryPath: nativeLibraryPath,
         ),
     };
@@ -2210,7 +2393,7 @@ void _releaseE2eeProvider(wamp_core.WampE2eeProvider? provider) {
   }
 }
 
-class _ClientBackedWampSession implements WampSession {
+class _ClientBackedWampSession implements WampSession, WampFileSession {
   _ClientBackedWampSession(
     this._client,
     this._session,
@@ -2474,6 +2657,40 @@ class _ClientBackedWampSession implements WampSession {
   }
 
   @override
+  Future<WampRegistration> registerFileReceiver(
+    String procedure, {
+    required int maxConcurrentTransfers,
+  }) async {
+    const chunkSize = 4 * 1024 * 1024;
+    final receiver = await wamp_client.WampFileReceiver.register(
+      _session,
+      procedure,
+      (_) => _DiscardingWampFileSink(),
+      maxConcurrentTransfers: maxConcurrentTransfers,
+      maxChunkSize: chunkSize,
+      maxBufferedBytes: chunkSize * maxConcurrentTransfers * 2,
+    );
+    return WampRegistration(cancel: receiver.close);
+  }
+
+  @override
+  Future<void> sendFile(
+    String procedure,
+    wamp_client.WampFileSource source, {
+    required int chunkSize,
+    required Duration timeout,
+    wamp_core.CallOptions? options,
+  }) async {
+    await _session.setFile(
+      procedure,
+      source,
+      chunkSize: chunkSize,
+      timeout: timeout,
+      options: options,
+    );
+  }
+
+  @override
   Future<void> close() async {
     if (_closed) {
       return;
@@ -2537,6 +2754,11 @@ class WampScenario {
   final String? pptSerializer;
   final String? pptCipher;
   final String? pptKeyId;
+
+  int get rawSocketMessageLengthExponent =>
+      payloadBytes > wamp_socket.SocketHelper.maxMessageLength
+      ? wamp_socket.SocketHelper.maxMessageLengthConnectanumExponent
+      : wamp_socket.SocketHelper.maxMessageLengthExponent;
 
   factory WampScenario.fromJson(Map<String, Object?> json) {
     final rawMode = json['mode'];
@@ -2832,6 +3054,7 @@ enum WampMode {
   pubsub,
   rpc,
   progressiveRpc,
+  fileTransfer,
   timeoutRpc,
   metaApi,
   publishAck,
@@ -2844,6 +3067,7 @@ enum WampMode {
     WampMode.pubsub => 'pubsub',
     WampMode.rpc => 'rpc',
     WampMode.progressiveRpc => 'progressive_rpc',
+    WampMode.fileTransfer => 'file_transfer',
     WampMode.timeoutRpc => 'timeout_rpc',
     WampMode.metaApi => 'meta_api',
     WampMode.publishAck => 'publish_ack',
@@ -2868,6 +3092,10 @@ enum WampMode {
       case 'progressiverpc':
       case 'wamp_progressive_rpc':
         return WampMode.progressiveRpc;
+      case 'file_transfer':
+      case 'filetransfer':
+      case 'wamp_file_transfer':
+        return WampMode.fileTransfer;
       case 'timeout_rpc':
       case 'timeoutrpc':
       case 'wamp_timeout_rpc':

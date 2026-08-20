@@ -1174,14 +1174,25 @@ void main() {
         'mode': 'meta_api',
         'uri': 'bench.meta',
       });
+      final file = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'cbor',
+        'mode': 'file_transfer',
+        'uri': 'bench.file',
+        'payload_bytes': 32 * 1024 * 1024,
+      });
 
       expect(progressive.mode, WampMode.progressiveRpc);
       expect(timeout.mode, WampMode.timeoutRpc);
       expect(timeout.callTimeoutMs, 40);
       expect(meta.mode, WampMode.metaApi);
+      expect(file.mode, WampMode.fileTransfer);
+      expect(file.rawSocketMessageLengthExponent, 30);
+      expect(progressive.rawSocketMessageLengthExponent, 24);
       expect(progressive.toJson()['mode'], 'progressive_rpc');
       expect(timeout.toJson()['call_timeout_ms'], 40);
       expect(meta.toJson()['mode'], 'meta_api');
+      expect(file.toJson()['mode'], 'file_transfer');
     });
 
     test('parses realm and WAMP auth fields', () {

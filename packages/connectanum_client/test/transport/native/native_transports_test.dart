@@ -15,7 +15,7 @@ import 'package:connectanum_client/src/transport/native/message_binding.dart'
 import 'package:connectanum_client/src/transport/native/message_protocol.dart'
     show NativeMessageSerializer;
 import 'package:connectanum_client/src/transport/native/native_transports_io.dart'
-    show collectNativeReceiveBatch;
+    show buildNativeFileSegmentPrefix, collectNativeReceiveBatch;
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
@@ -81,6 +81,86 @@ final _serializers = <_SerializerCase>[
 ];
 
 void main() {
+  group('native file segment serializer prefix', () {
+    for (final serializerCase in _serializers.where(
+      (serializerCase) => serializerCase.name != 'json',
+    )) {
+      test('${serializerCase.name} round-trips binary length tiers', () {
+        for (final length in const <int>[0, 1, 23, 24, 255, 256, 65535]) {
+          final call = Call(
+            42,
+            'files.set',
+            options: CallOptions(progress: true),
+          )..arguments = <dynamic>[Uint8List(0)];
+          final encoded = _encodePayload(serializerCase.serializer, call);
+          final prefix = buildNativeFileSegmentPrefix(
+            encoded,
+            serializerType: serializerCase.rawsocketType,
+            fileLength: length,
+          );
+          final payload = Uint8List(prefix.length + length)
+            ..setRange(0, prefix.length, prefix);
+
+          final decoded =
+              serializerCase.serializer.deserialize(payload) as Call;
+          expect(decoded.requestId, equals(42));
+          expect(decoded.procedure, equals('files.set'));
+          expect(decoded.arguments, hasLength(1));
+          expect(decoded.arguments!.single, isA<Uint8List>());
+          expect(
+            (decoded.arguments!.single as Uint8List).length,
+            equals(length),
+          );
+        }
+      });
+    }
+
+    test('encodes large MessagePack and CBOR binary headers', () {
+      const length = 128 * 1024 * 1024;
+      for (final serializerCase in _serializers.where(
+        (serializerCase) => serializerCase.name != 'json',
+      )) {
+        final call = Call(
+          42,
+          'files.set',
+          options: CallOptions(progress: false),
+        )..arguments = <dynamic>[Uint8List(0)];
+        final encoded = _encodePayload(serializerCase.serializer, call);
+        final prefix = buildNativeFileSegmentPrefix(
+          encoded,
+          serializerType: serializerCase.rawsocketType,
+          fileLength: length,
+        );
+        final expectedHeader = serializerCase.name == 'msgpack'
+            ? const <int>[0xc6, 0x08, 0x00, 0x00, 0x00]
+            : const <int>[0x5a, 0x08, 0x00, 0x00, 0x00];
+        expect(
+          prefix.sublist(prefix.length - expectedHeader.length),
+          equals(expectedHeader),
+        );
+      }
+    });
+
+    test('rejects JSON and non-binary placeholder payloads', () {
+      expect(
+        () => buildNativeFileSegmentPrefix(
+          Uint8List.fromList(const <int>[0x91, 0xc4, 0x00]),
+          serializerType: SocketHelper.serializationJson,
+          fileLength: 1,
+        ),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => buildNativeFileSegmentPrefix(
+          Uint8List.fromList(const <int>[0x91, 0x90]),
+          serializerType: SocketHelper.serializationMsgpack,
+          fileLength: 1,
+        ),
+        throwsStateError,
+      );
+    });
+  });
+
   group('collectNativeReceiveBatch', () {
     test('drains ready handles in order', () {
       final readyHandles = Queue<int>.from([2, 3, 0]);
@@ -126,6 +206,10 @@ void main() {
           expect(hello['realm'], equals('test.realm'));
           expect(transport.maxMessageLength, equals(1 << 24));
           expect(transport.headerLength, equals(4));
+          expect(
+            transport.supportsFileSegments,
+            equals(Platform.isLinux && config.name != 'json'),
+          );
 
           await client.disconnect();
         } finally {

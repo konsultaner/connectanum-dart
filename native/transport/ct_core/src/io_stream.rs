@@ -4,6 +4,9 @@ use std::{
     task::{Context, Poll},
 };
 
+#[cfg(target_os = "linux")]
+use std::os::fd::{AsFd, OwnedFd};
+
 use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::TcpStream;
@@ -110,6 +113,14 @@ impl IoStream {
             StreamInner::TlsClient(stream) => stream.get_ref().0.set_nodelay(enabled),
             #[cfg(target_os = "linux")]
             StreamInner::KtlsServer(_) => Ok(()),
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn try_clone_plain_fd(&self) -> io::Result<Option<OwnedFd>> {
+        match &self.inner {
+            StreamInner::Tcp(stream) => stream.as_fd().try_clone_to_owned().map(Some),
+            _ => Ok(None),
         }
     }
 

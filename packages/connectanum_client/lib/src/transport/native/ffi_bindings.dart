@@ -127,6 +127,9 @@ typedef CtConnectionCloseDart = int Function(int);
 typedef CtConnectionMaxRawsocketExponentNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionMaxRawsocketExponentDart = int Function(int);
 
+typedef CtConnectionSupportsFileSegmentsNative = ffi.Int32 Function(ffi.Int32);
+typedef CtConnectionSupportsFileSegmentsDart = int Function(int);
+
 typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
 
@@ -156,6 +159,36 @@ typedef CtSendMessageFragmentedNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32, ffi.Int32);
 typedef CtSendMessageFragmentedDart =
     int Function(int, ffi.Pointer<ffi.Uint8>, int, int);
+
+typedef CtFileOpenNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Char>, ffi.Int32, ffi.Uint64);
+typedef CtFileOpenDart = int Function(ffi.Pointer<ffi.Char>, int, int);
+
+typedef CtFileReleaseNative = ffi.Int32 Function(ffi.Int32);
+typedef CtFileReleaseDart = int Function(int);
+
+typedef CtSendMessageFileSegmentNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+    );
+typedef CtSendMessageFileSegmentDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      int,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
 
 final class CtHttpHeader extends ffi.Struct {
   external ffi.Pointer<ffi.Uint8> namePtr;
@@ -312,6 +345,11 @@ class CtFfiBindings {
             CtConnectionMaxRawsocketExponentNative,
             CtConnectionMaxRawsocketExponentDart
           >('ct_connection_max_rawsocket_exponent'),
+      ctConnectionSupportsFileSegments = library
+          .lookupFunction<
+            CtConnectionSupportsFileSegmentsNative,
+            CtConnectionSupportsFileSegmentsDart
+          >('ct_connection_supports_file_segments'),
       ctPollConnectionMessage = library
           .lookupFunction<
             CtPollConnectionMessageNative,
@@ -346,7 +384,19 @@ class CtFfiBindings {
           .lookupFunction<
             CtSendMessageFragmentedNative,
             CtSendMessageFragmentedDart
-          >('ct_send_message_fragmented');
+          >('ct_send_message_fragmented'),
+      ctFileOpen = library.lookupFunction<CtFileOpenNative, CtFileOpenDart>(
+        'ct_file_open',
+      ),
+      ctFileRelease = library
+          .lookupFunction<CtFileReleaseNative, CtFileReleaseDart>(
+            'ct_file_release',
+          ),
+      ctSendMessageFileSegment = library
+          .lookupFunction<
+            CtSendMessageFileSegmentNative,
+            CtSendMessageFileSegmentDart
+          >('ct_send_message_file_segment');
 
   final CtStartRuntimeDart ctStartRuntime;
   final CtShutdownDart ctShutdown;
@@ -364,6 +414,7 @@ class CtFfiBindings {
   final CtClientConnectWebSocketDart ctClientConnectWebSocket;
   final CtConnectionCloseDart ctConnectionClose;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
+  final CtConnectionSupportsFileSegmentsDart ctConnectionSupportsFileSegments;
   final CtPollConnectionMessageDart ctPollConnectionMessage;
   final CtWaitConnectionMessageDart ctWaitConnectionMessage;
   final CtMessageGetDart ctMessageGet;
@@ -372,4 +423,7 @@ class CtFfiBindings {
   final CtMessageRetainDart ctMessageRetain;
   final CtSendMessageDart ctSendMessage;
   final CtSendMessageFragmentedDart ctSendMessageFragmented;
+  final CtFileOpenDart ctFileOpen;
+  final CtFileReleaseDart ctFileRelease;
+  final CtSendMessageFileSegmentDart ctSendMessageFileSegment;
 }

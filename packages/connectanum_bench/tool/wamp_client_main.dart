@@ -68,6 +68,7 @@ Future<void> main(List<String> args) async {
             clientImplementation: scenario.clientImplementation,
             ssl: target.secure,
             allowInsecureCertificates: target.secure,
+            messageLengthExponent: scenario.rawSocketMessageLengthExponent,
             nativeLibraryPath: nativeLibraryPath,
             e2eeProviderFactory: e2eeProviderFactoryForScenario(scenario),
           ).call();
