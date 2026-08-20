@@ -772,6 +772,88 @@ void main() {
     );
 
     test(
+      'keeps buffered WAMP meta state current across live lifecycle changes',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+
+        final binding = Router(
+          _buildWebSocketConfig(),
+          settings: _buildWebSocketSettings(),
+        ).start(runtime, workerPollInterval: const Duration(milliseconds: 1));
+        addTearDown(binding.dispose);
+
+        final listener = binding.listeners.single;
+        final url = 'ws://127.0.0.1:${listener.port}/ws';
+        final observerClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+        );
+        final observer = await observerClient.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('observer connect timeout'),
+        );
+        addTearDown(observer.close);
+
+        final cache = await client_pkg.WampMetaStateCache.start(observer)
+            .timeout(
+              const Duration(seconds: 10),
+            );
+        addTearDown(cache.close);
+        expect(cache.snapshot.sessions, contains(observer.id));
+
+        final actorClient = client_pkg.Client(
+          realm: 'realm1',
+          transport: ws_transport.WebSocketTransport.withJsonSerializer(url),
+        );
+        final actor = await actorClient.connect().first.timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => fail('actor connect timeout'),
+        );
+        final registered = await actor
+            .register('com.example.ws.meta.cache.proc')
+            .timeout(const Duration(seconds: 10));
+        final subscribed = await actor
+            .subscribe('com.example.ws.meta.cache.topic')
+            .timeout(const Duration(seconds: 10));
+
+        await _waitForCondition(
+          () =>
+              cache.snapshot.sessions.containsKey(actor.id) &&
+              cache.snapshot.registrations[registered.registrationId]?.callees
+                      .contains(actor.id) ==
+                  true &&
+              cache
+                      .snapshot
+                      .subscriptions[subscribed.subscriptionId]
+                      ?.subscribers
+                      .contains(actor.id) ==
+                  true,
+          timeout: const Duration(seconds: 10),
+          reason: 'buffered Meta API state did not observe actor lifecycle',
+        );
+
+        await actor.close();
+        await _waitForCondition(
+          () =>
+              !cache.snapshot.sessions.containsKey(actor.id) &&
+              !cache.snapshot.registrations.containsKey(
+                registered.registrationId,
+              ) &&
+              !cache.snapshot.subscriptions.containsKey(
+                subscribed.subscriptionId,
+              ),
+          timeout: const Duration(seconds: 10),
+          reason: 'buffered Meta API state did not remove closed actor state',
+        );
+      },
+      skip: skipReason,
+    );
+
+    test(
       'preserves lazy payload bytes for internal session subscribers and callees',
       () async {
         final runtime = NativeTransportRuntime(libraryPath: nativeLib)..start();

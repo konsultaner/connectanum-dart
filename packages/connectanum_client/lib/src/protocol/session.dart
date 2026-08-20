@@ -835,11 +835,20 @@ class Session {
   /// while subscribing. The resulting events are passed to the [Subscribed.eventStream].
   /// The subscriber should therefore subscribe to that stream to receive the events.
   Future<Subscribed> subscribe(String topic, {SubscribeOptions? options}) {
+    return _subscribe(topic, options: options);
+  }
+
+  Future<Subscribed> _subscribe(
+    String topic, {
+    SubscribeOptions? options,
+    void Function(Subscribed subscribed)? configure,
+  }) {
     final subscribe = Subscribe(nextSubscribeId++, topic, options: options);
     final completer = Completer<Subscribed>();
     _pendingSubscribes[subscribe.requestId] = _PendingSubscribe(
       topic: topic,
       completer: completer,
+      configure: configure,
     );
     _transport.send(subscribe);
     return completer.future;
@@ -851,10 +860,12 @@ class Session {
     String topic,
     void Function(Event event) onEvent, {
     SubscribeOptions? options,
-  }) async {
-    final subscribed = await subscribe(topic, options: options);
-    subscribed.onEvent(onEvent);
-    return subscribed;
+  }) {
+    return _subscribe(
+      topic,
+      options: options,
+      configure: (subscribed) => subscribed.onEvent(onEvent),
+    );
   }
 
   /// This subscribes the session to a [topic] and routes payloads directly to
@@ -863,10 +874,12 @@ class Session {
     String topic,
     void Function(EventPayload event) onEvent, {
     SubscribeOptions? options,
-  }) async {
-    final subscribed = await subscribe(topic, options: options);
-    subscribed.onEventPayload(onEvent);
-    return subscribed;
+  }) {
+    return _subscribe(
+      topic,
+      options: options,
+      configure: (subscribed) => subscribed.onEventPayload(onEvent),
+    );
   }
 
   /// This subscribes the session to a [topic] and routes lazy payload views
@@ -876,10 +889,12 @@ class Session {
     String topic,
     void Function(LazyEventPayload event) onEvent, {
     SubscribeOptions? options,
-  }) async {
-    final subscribed = await subscribe(topic, options: options);
-    subscribed.onLazyEventPayload(onEvent);
-    return subscribed;
+  }) {
+    return _subscribe(
+      topic,
+      options: options,
+      configure: (subscribed) => subscribed.onLazyEventPayload(onEvent),
+    );
   }
 
   /// This unsubscribes the session from a subscription. Use the [Subscribed.subscriptionId]
@@ -1076,6 +1091,7 @@ class Session {
       final pending = _pendingSubscribes.remove(message.subscribeRequestId);
       if (pending != null) {
         message.topic = pending.topic;
+        pending.configure?.call(message);
         _subscriptionHandlers
             .putIfAbsent(message.subscriptionId, () => <Subscribed>[])
             .add(message);
@@ -2284,10 +2300,15 @@ class _PendingInvocationResponder {
 }
 
 class _PendingSubscribe {
-  _PendingSubscribe({required this.topic, required this.completer});
+  _PendingSubscribe({
+    required this.topic,
+    required this.completer,
+    this.configure,
+  });
 
   final String topic;
   final Completer<Subscribed> completer;
+  final void Function(Subscribed subscribed)? configure;
 }
 
 class _PendingUnsubscribe {

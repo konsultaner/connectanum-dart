@@ -1,6 +1,7 @@
 library;
 
 export 'src/client.dart';
+export 'src/meta/meta_state_cache.dart';
 export 'src/protocol/session.dart';
 export 'src/transport/local_transport.dart';
 export 'src/transport/abstract_transport.dart';

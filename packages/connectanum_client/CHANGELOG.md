@@ -1,5 +1,8 @@
 ### 3.0.0-beta
 
+- Add a race-safe buffered client for the standard WAMP Session,
+  Registration, and Subscription Meta APIs, including immutable lifecycle
+  snapshots and atomic direct subscription-handler attachment.
 - Complete router-initiated WAMP `GOODBYE` handshakes and reconnect after
   `wamp.close.system_shutdown`, emitting a fresh session for application
   registration recovery.

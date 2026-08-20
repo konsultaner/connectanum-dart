@@ -2,10 +2,18 @@
 
 Last updated: 2026-08-20
 Current branch: `codex/mcp-public-http-auth-discovery`
-Current milestone: maintain the promoted release line as a coordinated
-`3.0.0-beta` prerelease while testers exercise the public packages. The user
-approved merging `add-router` into `master` and requires every versioned
-package to share one version. All seven Dart
+Current milestone: extend the coordinated `3.0.0-beta` line with selected
+application-facing capabilities identified in the legacy Java implementation,
+starting with race-safe buffered standard WAMP Meta API state. Progressive
+file delivery and bounded retry deduplication will remain additive high-level
+contracts, while RawSocket frames beyond the standard maximum will remain an
+explicitly negotiated Connectanum-only extension. Java pattern-matching
+behavior is excluded. The active plan is
+`docs/exec-plans/2026-08-20-java-capability-successor-extensions.md`.
+
+The promoted release line remains a coordinated prerelease while testers
+exercise the public packages. The user approved merging `add-router` into
+`master` and requires every versioned package to share one version. All seven Dart
 packages, all three Rust crates, public workspace dependency constraints,
 runtime package self-identification, changelogs, and release validation are
 now synchronized at `3.0.0-beta`. A pre-promotion ancestry check found that
@@ -28,6 +36,17 @@ WebSocket regression proves two consecutive shutdown/reconnect cycles and a
 terminal realm close. Both `bin/test-fast` and `bin/verify` pass on 2026-08-20
 with Dart 3.13.1. The completed plan is
 `docs/exec-plans/2026-08-20-client-router-shutdown-reconnect.md`.
+
+The first Java-capability successor slice is complete. The public client now
+exposes `WampMetaStateCache`, a session-scoped immutable view of the standard
+WAMP Session, Registration, and Subscription Meta APIs. It atomically attaches
+direct event handlers during `SUBSCRIBED` processing, subscribes to all ten
+lifecycle topics before bounded snapshot hydration, replays queued events in
+receive order, tolerates objects disappearing during hydration, follows
+callee/subscriber membership and session departure, and closes without waiting
+for unsubscribe replies after transport loss. Four focused regressions and a
+live native-router WebSocket lifecycle integration pass. Post-change
+`bin/test-fast` passes on 2026-08-20.
 
 The completed product-readiness checkpoint is MCP `2026-07-28` multi
 round-trip request (MRTR) support for non-sensitive form elicitation. Public
