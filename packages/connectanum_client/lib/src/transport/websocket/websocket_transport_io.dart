@@ -130,6 +130,8 @@ class WebSocketTransport extends AbstractTransport {
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
+    _goodbyeSent = false;
+    _goodbyeReceived = false;
     try {
       final securityContext = _tlsSecurityContext as SecurityContext?;
       final client = securityContext != null || _allowInsecureCertificates
@@ -179,26 +181,29 @@ class WebSocketTransport extends AbstractTransport {
   /// objects.
   @override
   Stream<AbstractMessage?> receive() {
-    _socket!.done.then(
+    final socket = _socket!;
+    final onDisconnect = _onDisconnect!;
+    final onConnectionLost = _onConnectionLost!;
+    socket.done.then(
       (done) {
-        if ((_socket!.closeCode == null || _socket!.closeCode! > 1000) &&
+        if ((socket.closeCode == null || socket.closeCode! > 1000) &&
             !_goodbyeSent &&
             !_goodbyeReceived) {
-          complete(_onConnectionLost, null);
+          complete(onConnectionLost, null);
         } else {
-          complete(_onDisconnect, null);
+          complete(onDisconnect, null);
         }
       },
       onError: (error) {
-        if (!_onDisconnect!.isCompleted) {
-          complete(_onConnectionLost, error);
+        if (!onDisconnect.isCompleted) {
+          complete(onConnectionLost, error);
         }
       },
     );
-    return _socket!.map((messageEvent) {
+    return socket.map((messageEvent) {
       try {
         final message = _decodeInboundMessage(messageEvent);
-        if (message is Goodbye) {
+        if (message is Goodbye && identical(_socket, socket)) {
           _goodbyeReceived = true;
         }
         return message;

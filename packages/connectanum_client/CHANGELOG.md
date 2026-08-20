@@ -1,5 +1,8 @@
 ### 3.0.0-beta
 
+- Complete router-initiated WAMP `GOODBYE` handshakes and reconnect after
+  `wamp.close.system_shutdown`, emitting a fresh session for application
+  registration recovery.
 - Start the coordinated Connectanum 3.0 beta series.
 - Add progressive call invocations, call timeout handling, the versioned
   payload E2EE profile, and native/Dart transport parity.

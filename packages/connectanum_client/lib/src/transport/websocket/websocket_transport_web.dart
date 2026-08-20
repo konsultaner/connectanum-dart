@@ -118,6 +118,8 @@ class WebSocketTransport extends AbstractTransport {
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
+    _goodbyeSent = false;
+    _goodbyeReceived = false;
     var openCompleter = Completer();
     _socket = WebSocket(_url, [_serializerType.toJS].toJS);
     if (pingInterval != null) {
@@ -158,19 +160,22 @@ class WebSocketTransport extends AbstractTransport {
   /// objects.
   @override
   Stream<AbstractMessage?> receive() {
-    _socket.onClose.listen((closeEvent) {
+    final socket = _socket;
+    final onDisconnect = _onDisconnect!;
+    final onConnectionLost = _onConnectionLost!;
+    socket.onClose.listen((closeEvent) {
       if (closeEvent.code > 1000 && !_goodbyeSent && !_goodbyeReceived) {
-        // a status code other then 1000 indicates that the server tried to quit
-        complete(_onConnectionLost, null);
+        // A status code other than 1000 indicates that the server tried to quit.
+        complete(onConnectionLost, null);
       } else {
-        complete(_onDisconnect, null);
+        complete(onDisconnect, null);
       }
       _logger.info('The connection has been closed with ${closeEvent.code}');
     });
-    return _socket.onMessage.asyncMap((messageEvent) async {
+    return socket.onMessage.asyncMap((messageEvent) async {
       try {
         final message = await _decodeInboundMessage(messageEvent);
-        if (message is Goodbye) {
+        if (message is Goodbye && identical(_socket, socket)) {
           _goodbyeReceived = true;
         }
         return message;

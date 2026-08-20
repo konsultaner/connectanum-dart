@@ -164,6 +164,8 @@ class SocketTransport extends AbstractTransport {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     _handshakeCompleter = Completer();
+    _goodbyeSent = false;
+    _goodbyeReceived = false;
     try {
       if (_ssl) {
         _socket = await SecureSocket.connect(
@@ -186,29 +188,32 @@ class SocketTransport extends AbstractTransport {
 
   @override
   Stream<AbstractMessage> receive() {
-    _socket!.done.then(
+    final socket = _socket!;
+    final onDisconnect = _onDisconnect!;
+    final onConnectionLost = _onConnectionLost!;
+    socket.done.then(
       (done) {
         if (!_goodbyeSent &&
             !_goodbyeReceived &&
-            !_onDisconnect!.isCompleted &&
-            !_onConnectionLost!.isCompleted) {
-          _onConnectionLost!.complete();
-        } else if (!_onDisconnect!.isCompleted) {
-          _onDisconnect!.complete();
+            !onDisconnect.isCompleted &&
+            !onConnectionLost.isCompleted) {
+          onConnectionLost.complete();
+        } else if (!onDisconnect.isCompleted) {
+          onDisconnect.complete();
         }
       },
       onError: (error) {
         if (!_goodbyeSent &&
             !_goodbyeReceived &&
-            !_onDisconnect!.isCompleted &&
-            !_onConnectionLost!.isCompleted) {
-          _onConnectionLost!.complete(error);
+            !onDisconnect.isCompleted &&
+            !onConnectionLost.isCompleted) {
+          onConnectionLost.complete(error);
         }
       },
     );
     // TODO set keep alive to true
     //_socket.setOption(RawSocketOption.fromBool(??, SO_KEEPALIVE, true), true)
-    return _socket!.expand(_consumeInboundChunk);
+    return socket.expand(_consumeInboundChunk);
   }
 
   List<AbstractMessage> _consumeInboundChunk(List<int> message) {

@@ -2,10 +2,12 @@ import 'abstract_message.dart';
 import 'message_types.dart';
 
 class Goodbye extends AbstractMessage {
-  static final String reasonGoodbyeAndOut = 'wamp.error.goodbye_and_out';
-  static final String reasonCloseRealm = 'wamp.error.close_realm';
-  static final String reasonTimeout = 'wamp.error.timeout';
-  static final String reasonSystemShutdown = 'wamp.error.system_shutdown';
+  static const String reasonNormal = 'wamp.close.normal';
+  static const String reasonGoodbyeAndOut = 'wamp.close.goodbye_and_out';
+  static const String reasonCloseRealm = 'wamp.close.close_realm';
+  static const String reasonKilled = 'wamp.close.killed';
+  static const String reasonTimeout = 'wamp.error.timeout';
+  static const String reasonSystemShutdown = 'wamp.close.system_shutdown';
 
   GoodbyeMessage? message;
   String reason;

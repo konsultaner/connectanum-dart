@@ -38,6 +38,8 @@ class Client {
   int isolateCount;
 
   _ClientState _state = _ClientState.none;
+  bool _reconnectPending = false;
+  int _connectionAttempt = 0;
 
   final StreamController<ClientConnectOptions> _connectStreamController =
       StreamController<ClientConnectOptions>.broadcast();
@@ -142,24 +144,44 @@ class Client {
   Future<void> _reconnect(
     ClientConnectOptions options, {
     Duration? duration,
+    bool reportConnectionFailure = true,
   }) async {
-    if (options.reconnectCount == 0 || options.reconnectTime == null) {
-      return await _onNoReconnectsLeft('Ran out of reconnect attempts');
+    if (_state == _ClientState.done || _reconnectPending) {
+      return;
     }
+    _reconnectPending = true;
+    ++_connectionAttempt;
+    options.minusReconnectRetry();
+    try {
+      if (options.reconnectCount == 0 || options.reconnectTime == null) {
+        if (reportConnectionFailure) {
+          await _onNoReconnectsLeft('Ran out of reconnect attempts');
+        } else {
+          await disconnect();
+        }
+        return;
+      }
 
-    _changeState(_ClientState.waiting);
+      _changeState(_ClientState.waiting);
 
-    if (duration != null) {
-      _logger.info('Waiting for (overridden) $duration before reconnecting');
-      await Future.delayed(duration);
-    } else {
-      _logger.info('Waiting for ${options.reconnectTime!} before reconnecting');
-      await Future.delayed(options.reconnectTime!);
+      if (duration != null) {
+        _logger.info('Waiting for (overridden) $duration before reconnecting');
+        await Future.delayed(duration);
+      } else {
+        _logger.info(
+          'Waiting for ${options.reconnectTime!} before reconnecting',
+        );
+        await Future.delayed(options.reconnectTime!);
+      }
+
+      // Check in case the client has been closed while we were waiting.
+      if (_state == _ClientState.done) {
+        return;
+      }
+      _connectStreamController.add(options);
+    } finally {
+      _reconnectPending = false;
     }
-
-    // Check in case the client has been closed while we were waiting;
-    if (_state == _ClientState.done) return;
-    return _connectStreamController.add(options);
   }
 
   void _changeState(_ClientState newState) {
@@ -170,6 +192,7 @@ class Client {
   }
 
   Future<void> _connect(ClientConnectOptions options) async {
+    final connectionAttempt = ++_connectionAttempt;
     _logger.info('Connecting, attempts remaining: ${options.reconnectCount}');
     await transport.open(pingInterval: options.pingInterval);
 
@@ -179,20 +202,25 @@ class Client {
         _logger.shout(
           'Unable to reconnect - reconnectTime is null or reconnectCount is 0',
         );
-        return await _onNoReconnectsLeft(
+        await _onNoReconnectsLeft(
           'Please configure reconnectTime to retry automatically',
         );
+        return;
       }
 
-      return _reconnect(options.minusReconnectRetry());
+      await _reconnect(options);
+      return;
     }
 
     /// Listen to on connection lost
     transport.onConnectionLost!.future.then((_) {
-      if (_state == _ClientState.done) return;
+      if (_state == _ClientState.done ||
+          connectionAttempt != _connectionAttempt) {
+        return;
+      }
       _logger.info('Transport connection lost, client state is: $_state');
 
-      _reconnect(options.minusReconnectRetry());
+      unawaited(_reconnect(options));
     });
 
     try {
@@ -207,12 +235,24 @@ class Client {
         e2eeProvider: e2eeProvider,
         e2eeProviderResolver: e2eeProviderResolver,
       );
-      _controller.add(session);
+      if (_state == _ClientState.done ||
+          connectionAttempt != _connectionAttempt) {
+        await session.close(timeout: Duration.zero);
+        return;
+      }
+      session.onGoodbye.then((goodbye) {
+        if (_state == _ClientState.done ||
+            connectionAttempt != _connectionAttempt) {
+          return;
+        }
+        unawaited(_onSessionGoodbye(goodbye, options));
+      });
       _changeState(_ClientState.active);
+      _controller.add(session);
     } on Abort catch (abort) {
       _onSessionAbort(abort, options);
     } on Goodbye catch (goodbye) {
-      _onSessionGoodbye(goodbye);
+      await _onSessionGoodbye(goodbye, options);
     } on SessionE2eeNegotiationException catch (error, stackTrace) {
       _controller.addError(error, stackTrace);
       await disconnect();
@@ -246,11 +286,27 @@ class Client {
     }
 
     // if the router restarts we should wait until it has been initialized, hence custom duration
-    _reconnect(options.minusReconnectRetry(), duration: Duration(seconds: 2));
+    unawaited(
+      _reconnect(
+        options,
+        duration: Duration(seconds: 2),
+        reportConnectionFailure: false,
+      ),
+    );
   }
 
-  Future<void> _onSessionGoodbye(Goodbye goodbye) async {
-    _logger.shout('Goodbye reason: ${goodbye.reason}');
+  Future<void> _onSessionGoodbye(
+    Goodbye goodbye,
+    ClientConnectOptions options,
+  ) async {
+    _logger.info('Goodbye reason: ${goodbye.reason}');
+    if (_state == _ClientState.done) {
+      return;
+    }
+    if (goodbye.reason == Goodbye.reasonSystemShutdown) {
+      await _reconnect(options, reportConnectionFailure: false);
+      return;
+    }
     await disconnect();
   }
 }

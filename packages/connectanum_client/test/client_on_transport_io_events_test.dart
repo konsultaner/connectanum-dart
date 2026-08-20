@@ -463,6 +463,97 @@ void main() {
 
   group('Reconnection testing', () {
     test(
+      'WebSocket - reconnects after router shutdown and stops on realm close',
+      () async {
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        final sockets = <WebSocket>[];
+        final clientGoodbyes = <List<dynamic>>[];
+        final firstSessionReady = Completer<void>();
+        final secondSessionReady = Completer<void>();
+        final thirdSessionReady = Completer<void>();
+        final terminalClose = Completer<void>();
+        var helloCount = 0;
+        var sessionCount = 0;
+
+        server.listen((request) async {
+          if (request.uri.path != '/wamp') {
+            request.response.statusCode = HttpStatus.notFound;
+            await request.response.close();
+            return;
+          }
+          final socket = await WebSocketTransformer.upgrade(request);
+          sockets.add(socket);
+          socket.listen((payload) {
+            final message = jsonDecode(payload as String) as List<dynamic>;
+            if (message[0] == MessageTypes.codeHello) {
+              helloCount++;
+              socket.add('[2,${1000 + helloCount},{}]');
+              return;
+            }
+            if (message[0] == MessageTypes.codeGoodbye) {
+              clientGoodbyes.add(message);
+              unawaited(socket.close());
+            }
+          });
+        });
+
+        final transport = WebSocketTransport.withJsonSerializer(
+          'ws://${InternetAddress.loopbackIPv4.address}:${server.port}/wamp',
+        );
+        final client = Client(
+          realm: 'com.connectanum',
+          transport: transport,
+        );
+        final subscription = client
+            .connect(
+              options: ClientConnectOptions(
+                reconnectTime: Duration.zero,
+                reconnectCount: 2,
+              ),
+            )
+            .listen(
+              (_) {
+                sessionCount++;
+                if (sessionCount == 1) {
+                  firstSessionReady.complete();
+                } else if (sessionCount == 2) {
+                  secondSessionReady.complete();
+                } else if (sessionCount == 3) {
+                  thirdSessionReady.complete();
+                }
+              },
+              onDone: terminalClose.complete,
+            );
+
+        addTearDown(() async {
+          await subscription.cancel();
+          await client.disconnect();
+          for (final socket in sockets) {
+            await socket.close();
+          }
+          await server.close(force: true);
+        });
+
+        await firstSessionReady.future.timeout(const Duration(seconds: 2));
+        sockets.last.add('[6,{},"wamp.close.system_shutdown"]');
+        await secondSessionReady.future.timeout(const Duration(seconds: 2));
+        sockets.last.add('[6,{},"wamp.close.system_shutdown"]');
+        await thirdSessionReady.future.timeout(const Duration(seconds: 2));
+        sockets.last.add('[6,{},"wamp.close.close_realm"]');
+        await terminalClose.future.timeout(const Duration(seconds: 2));
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+
+        expect(helloCount, equals(3));
+        expect(clientGoodbyes, hasLength(3));
+        expect(
+          clientGoodbyes.map((message) => message[2]),
+          everyElement('wamp.close.goodbye_and_out'),
+        );
+      },
+      timeout: const Timeout(Duration(seconds: 5)),
+    );
+
+    test(
       'WebSocket - stop on authorization error',
       () async {
         final suite = WebSocketTestSuite((msgType) {

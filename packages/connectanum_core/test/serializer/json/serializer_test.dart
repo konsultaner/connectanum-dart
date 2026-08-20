@@ -804,19 +804,19 @@ void main() {
         serializer.serializeToString(
           Goodbye(GoodbyeMessage('cya'), Goodbye.reasonGoodbyeAndOut),
         ),
-        equals('[6,{"message":"cya"},"wamp.error.goodbye_and_out"]'),
+        equals('[6,{"message":"cya"},"wamp.close.goodbye_and_out"]'),
       );
       expect(
         serializer.serializeToString(
           Goodbye(GoodbyeMessage(null), Goodbye.reasonCloseRealm),
         ),
-        equals('[6,{},"wamp.error.close_realm"]'),
+        equals('[6,{},"wamp.close.close_realm"]'),
       );
       expect(
         serializer.serializeToString(
           Goodbye(null, Goodbye.reasonSystemShutdown),
         ),
-        equals('[6,{},"wamp.error.system_shutdown"]'),
+        equals('[6,{},"wamp.close.system_shutdown"]'),
       );
     });
     test('Abort', () {

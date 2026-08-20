@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-17
+Last updated: 2026-08-20
 Current branch: `codex/mcp-public-http-auth-discovery`
 Current milestone: maintain the promoted release line as a coordinated
 `3.0.0-beta` prerelease while testers exercise the public packages. The user
@@ -16,6 +16,18 @@ default and UTF-16 remains an explicit legacy compatibility mode. Review also
 identified and fixed a pre-existing SCRAM channel-binding crash by preserving
 decoded binding bytes instead of casting them to `String`. The promotion plan
 is `docs/exec-plans/2026-07-17-3.0.0-beta-promotion.md`.
+
+The completed client lifecycle checkpoint aligns router-initiated shutdown
+with the WAMP closing handshake. Established sessions now reply to `GOODBYE`
+with `wamp.close.goodbye_and_out`; `wamp.close.system_shutdown` schedules one
+configured reconnect and emits a fresh `Session`, while terminal reasons such
+as `wamp.close.close_realm` stop the client. Registrations and subscriptions
+remain scoped to the old router session, so consumer applications recreate
+them from the fresh session instead of reusing router-assigned IDs. A real
+WebSocket regression proves two consecutive shutdown/reconnect cycles and a
+terminal realm close. Both `bin/test-fast` and `bin/verify` pass on 2026-08-20
+with Dart 3.13.1. The completed plan is
+`docs/exec-plans/2026-08-20-client-router-shutdown-reconnect.md`.
 
 The completed product-readiness checkpoint is MCP `2026-07-28` multi
 round-trip request (MRTR) support for non-sensitive form elicitation. Public

@@ -167,7 +167,9 @@ class Session {
   final Map<int, _PendingUnsubscribe> _pendingUnsubscribes = {};
   final Map<int, _PendingRegister> _pendingRegisters = {};
   final Map<int, _PendingUnregister> _pendingUnregisters = {};
+  final Completer<Goodbye> _goodbyeCompleter = Completer<Goodbye>();
   bool _incomingClosed = false;
+  bool _goodbyeSent = false;
 
   Session(
     this.realm,
@@ -334,11 +336,11 @@ class Session {
         }
 
         if (materialized is Goodbye) {
-          try {
-            transport.close();
-          } catch (_) {
-            /* transport may already be closed */
+          if (!welcomeCompleter.isCompleted) {
+            welcomeCompleter.completeError(materialized);
           }
+          session._handleGoodbye(materialized);
+          return;
         }
       },
       cancelOnError: true,
@@ -369,6 +371,9 @@ class Session {
 
   Future<dynamic> get onDisconnect => _transport.onDisconnect!.future;
   Future<dynamic> get onConnectionLost => _transport.onConnectionLost!.future;
+
+  /// Completes when the peer sends `GOODBYE`, after the reply is queued.
+  Future<Goodbye> get onGoodbye => _goodbyeCompleter.future;
 
   Future<void> _initializeSessionE2eeProvider() async {
     final resolver = _e2eeProviderResolver;
@@ -1016,20 +1021,40 @@ class Session {
 
   /// Sends a goodbye message and closes the transport after a given [timeout].
   /// If no timeout is set, the client waits for the server to close the transport forever.
-  Future<void> close({String message = 'Regular closing', Duration? timeout}) {
-    final goodbye = Goodbye(
-      GoodbyeMessage(message),
-      Goodbye.reasonGoodbyeAndOut,
+  Future<void> close({
+    String message = 'Regular closing',
+    Duration? timeout,
+  }) {
+    if (_goodbyeSent) {
+      return Future<void>.value();
+    }
+    _goodbyeSent = true;
+    _transport.send(
+      Goodbye(GoodbyeMessage(message), Goodbye.reasonNormal),
     );
-    _transport.send(goodbye);
     if (timeout != null) {
       return Future.delayed(timeout, () => _transport.close());
     }
     return Future<void>.value();
   }
 
+  void _handleGoodbye(Goodbye goodbye) {
+    if (!_goodbyeSent) {
+      _goodbyeSent = true;
+      _transport.send(Goodbye(null, Goodbye.reasonGoodbyeAndOut));
+    }
+    if (!_goodbyeCompleter.isCompleted) {
+      _goodbyeCompleter.complete(goodbye);
+    }
+    unawaited(_transport.close());
+  }
+
   void _handleTransportMessage(Object? message) {
     if (message == null) {
+      return;
+    }
+    if (message is Goodbye) {
+      _handleGoodbye(message);
       return;
     }
     if (message is AbstractMessageWithPayload) {

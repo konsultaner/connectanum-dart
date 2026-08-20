@@ -1,5 +1,7 @@
 ## 3.0.0-beta
 
+- Correct standard WAMP session-closing reason URIs to `wamp.close.*` and add
+  normal and administratively killed close constants.
 - Join the synchronized Connectanum 3.0 beta package graph.
 - Add the final WAMP wire models for progressive invocations, call timeouts,
   statistics Meta APIs, payload passthrough, and the versioned E2EE profile.
