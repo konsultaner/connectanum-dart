@@ -187,6 +187,29 @@ void main() {
     );
 
     test(
+      'native CBOR RPC opens concurrent standard peers on an extended endpoint',
+      () async {
+        final samples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 2,
+            concurrency: 6,
+            inFlightPerSession: 2,
+            payloadBytes: 64 * 1024,
+          ),
+        );
+
+        expect(samples, hasLength(12));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
       'native timeout RPC workload runs against a real router',
       () async {
         final samples = await harness!.runNative(
@@ -1011,7 +1034,7 @@ class _WampTransportHarness {
             ..addAuthMethod('ticket')
             ..addProtocol(ListenerProtocol.rawsocket)
             ..setRawSocketOptions(
-              const RawSocketListenerSettings(maxFrameExponent: 18),
+              const RawSocketListenerSettings(maxFrameExponent: 30),
             ),
         )
         .addListenerFromBuilder(
@@ -1055,7 +1078,7 @@ class _WampTransportHarness {
           host: '127.0.0.1',
           port: rawSocketPort,
           tlsMode: TlsMode.disabled,
-          maxRawSocketSizeExponent: 18,
+          maxRawSocketSizeExponent: 30,
         ),
         Endpoint(
           host: '127.0.0.1',

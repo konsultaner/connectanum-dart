@@ -80,9 +80,15 @@ Pattern-matching behavior from the Java implementation is explicitly excluded.
 - [ ] Full local and hosted release evidence.
 
 The focused analyzer, four cache regressions, live native-router WebSocket
-integration, generated client consumer package, 115 Rust core tests, 52 Rust
+integration, generated client consumer package, 117 Rust core tests, 52 Rust
 FFI tests, Linux arm64 all-target compilation and `sendfile` loopback, file
 smoke, large-frame throughput matrix, and post-change `bin/test-fast` pass on
 2026-08-20. Full `bin/verify` also passes with the 457-test router suite, every
 generated consumer smoke, and Chrome/Dart2Wasm coverage. Hosted Linux
-throughput evidence remains before the evidence checkbox can close.
+throughput evidence remains before the evidence checkbox can close. The first
+hosted diagnostic run revealed that inline protocol negotiation could
+head-of-line block the listener when concurrent standard peers connected to an
+extended endpoint. Negotiation is now backlog-bounded and concurrent; the exact
+six-peer native CBOR workload fails before and passes after the fix in Linux
+x86_64, with standard-peer fallback regressions and another full `bin/verify`
+green locally.

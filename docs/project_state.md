@@ -63,7 +63,7 @@ speculatively read WAMP bytes when a peer does not upgrade. Dart now encodes
 and decodes the negotiated exponent in the documented low nibble. A generated
 standalone consumer package proves the public file source, metadata, receipt,
 sink, sender, and receiver surface without workspace-private imports.
-`bin/test-fast`, 115 Rust core tests, 52 Rust FFI tests, and the focused
+`bin/test-fast`, 117 Rust core tests, 52 Rust FFI tests, and the focused
 client/native regressions pass on 2026-08-20. A Linux arm64 container compiles
 all native targets and passes the real `sendfile` loopback test. On macOS, the
 four-workload file smoke passes through the expected buffered fallback. The
@@ -73,6 +73,17 @@ both Dart and native clients, with observed aggregate loopback throughput from
 router tests, all generated consumer smokes, and Chrome/Dart2Wasm coverage.
 Hosted Linux end-to-end sendfile throughput remains pending before this slice
 is promoted.
+
+The first hosted diagnostics attempt exposed a listener head-of-line stall
+before the new workloads: protocol negotiation was performed inline in the TCP
+accept loop, so one standard exponent-24 native peer waiting to send `HELLO`
+could prevent the router from accepting the next peer on an exponent-30
+endpoint. Negotiation now runs in backlog-bounded concurrent tasks while the
+listener continues accepting connections. The exact six-peer CBOR RPC shape
+reproduced the failure in a Linux x86_64 container before the fix and passes
+after it; low-level standard-peer and runtime-level exponent fallback
+regressions also pass. A post-fix full `bin/verify` is green. Fresh hosted Linux
+diagnostics remain required for throughput evidence.
 
 The completed product-readiness checkpoint is MCP `2026-07-28` multi
 round-trip request (MRTR) support for non-sensitive form elicitation. Public

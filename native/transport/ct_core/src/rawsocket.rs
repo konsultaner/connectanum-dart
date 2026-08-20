@@ -557,6 +557,43 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn native_cbor_peer_starts_wamp_without_optional_upgrade() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let config = runtime_config(Some(Duration::from_millis(500)), 30);
+
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            negotiate(IoStream::plain(stream), &config).await
+        });
+
+        let stream = TcpStream::connect(addr).await.unwrap();
+        let mut client = connect(
+            IoStream::plain(stream),
+            Serializer::Cbor,
+            24,
+            Duration::from_millis(500),
+        )
+        .await
+        .expect("native handshake succeeds");
+        client.writer.write_all(&[0x00, 0x05]).await.unwrap();
+
+        let mut server = server.await.unwrap().expect("router handshake succeeds");
+        let mut first_frame_bytes = [0u8; 2];
+        server
+            .reader
+            .read_exact(&mut first_frame_bytes)
+            .await
+            .unwrap();
+
+        assert_eq!(client.max_message_size_exponent, 24);
+        assert_eq!(server.max_message_size_exponent, 24);
+        assert!(!client.upgraded);
+        assert!(!server.upgraded);
+        assert_eq!(first_frame_bytes, [0x00, 0x05]);
+    }
+
+    #[tokio::test]
     async fn negotiate_supports_all_serializers() {
         let serializers = [
             (SERIALIZER_JSON, Serializer::Json),

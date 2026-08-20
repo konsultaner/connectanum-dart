@@ -44,7 +44,7 @@ use tokio::{
         },
         oneshot,
     },
-    task::{AbortHandle, JoinHandle},
+    task::{AbortHandle, JoinHandle, JoinSet},
     time,
 };
 use tokio_rustls::TlsAcceptor;
@@ -4364,6 +4364,177 @@ pub fn shutdown() -> Result<(), Error> {
     Ok(())
 }
 
+async fn negotiate_accepted_connection(
+    stream: tokio::net::TcpStream,
+    addr: SocketAddr,
+    listener_id: ListenerId,
+    config_state: Arc<ListenerConfigState>,
+    registry: Arc<ListenerRegistry>,
+    runtime_handle: tokio::runtime::Handle,
+    tx: mpsc::Sender<ConnectionId>,
+) {
+    let _ = stream.set_nodelay(true);
+    let endpoint = config_state.endpoint_config();
+    let tls_acceptor = config_state.tls_acceptor();
+    let io_stream = match tls_acceptor.as_ref() {
+        Some(acceptor) => {
+            let ktls_requested = ktls::server_runtime_requested(endpoint.as_ref());
+            let ktls_required = ktls::server_runtime_required(endpoint.as_ref());
+            if ktls_requested {
+                match time::timeout(
+                    endpoint.handshake_timeout,
+                    ktls::accept_server_stream(acceptor.config().clone(), stream),
+                )
+                .await
+                {
+                    Ok(Ok(io_stream)) => io_stream,
+                    Ok(Err(err)) => {
+                        eprintln!(
+                            "{} kTLS handoff failed for connection from {}: {}",
+                            if ktls_required {
+                                "required"
+                            } else {
+                                "optional"
+                            },
+                            addr,
+                            err
+                        );
+                        return;
+                    }
+                    Err(_) => {
+                        eprintln!(
+                            "{} kTLS handshake timed out for connection from {}",
+                            if ktls_required {
+                                "required"
+                            } else {
+                                "optional"
+                            },
+                            addr
+                        );
+                        return;
+                    }
+                }
+            } else {
+                let handshake = acceptor.accept(stream);
+                match time::timeout(endpoint.handshake_timeout, handshake).await {
+                    Ok(Ok(tls_stream)) => IoStream::tls(tls_stream),
+                    Ok(Err(err)) => {
+                        eprintln!("tls handshake failed for connection from {}: {}", addr, err);
+                        return;
+                    }
+                    Err(_) => {
+                        eprintln!("tls handshake timed out for connection from {}", addr);
+                        return;
+                    }
+                }
+            }
+        }
+        None => IoStream::plain(stream),
+    };
+
+    match protocol::negotiate_connection(io_stream, endpoint.as_ref()).await {
+        Ok(protocol::NegotiatedConnection::RawSocket(negotiated)) => {
+            let connection_id = registry.next_connection_id();
+            Arc::clone(&registry).register_rawsocket_connection(
+                runtime_handle.clone(),
+                listener_id,
+                connection_id,
+                Arc::clone(&endpoint),
+                negotiated,
+                addr,
+            );
+            let _ = tx.send(connection_id).await;
+        }
+        Ok(protocol::NegotiatedConnection::WebSocket(handshake)) => {
+            let connection_id = registry.next_connection_id();
+            registry.register_websocket_connection(
+                listener_id,
+                connection_id,
+                Arc::clone(&endpoint),
+                handshake,
+                addr,
+            );
+            let _ = tx.send(connection_id).await;
+        }
+        Ok(protocol::NegotiatedConnection::Http2(handshake)) => {
+            let (stream, metadata) = handshake.split();
+            let connection_id = registry.next_connection_id();
+            registry.register_http2_connection(
+                listener_id,
+                connection_id,
+                Arc::clone(&endpoint),
+                metadata,
+                addr,
+            );
+            let registry_for_connection = Arc::clone(&registry);
+            let endpoint_for_connection = Arc::clone(&endpoint);
+            runtime_handle.spawn(async move {
+                serve_http2_connection(
+                    listener_id,
+                    connection_id,
+                    stream,
+                    endpoint_for_connection,
+                    registry_for_connection,
+                )
+                .await;
+            });
+            let _ = tx.send(connection_id).await;
+        }
+        Ok(protocol::NegotiatedConnection::Http3(handshake)) => {
+            let connection_id = registry.next_connection_id();
+            registry.register_http3_connection(
+                listener_id,
+                connection_id,
+                Arc::clone(&endpoint),
+                handshake,
+                None,
+                addr,
+            );
+            let _ = tx.send(connection_id).await;
+        }
+        Ok(protocol::NegotiatedConnection::Http(handshake)) => {
+            let connection_id = registry.next_connection_id();
+            registry.register_http_connection(
+                listener_id,
+                connection_id,
+                Arc::clone(&endpoint),
+                addr,
+            );
+            let registry_for_connection = Arc::clone(&registry);
+            let endpoint_for_connection = Arc::clone(&endpoint);
+            runtime_handle.spawn(async move {
+                serve_http_connection(
+                    listener_id,
+                    connection_id,
+                    handshake,
+                    endpoint_for_connection,
+                    registry_for_connection,
+                )
+                .await;
+            });
+            let _ = tx.send(connection_id).await;
+        }
+        Err(protocol::NegotiationError::Timeout) => {
+            eprintln!(
+                "protocol negotiation timed out for connection from {}",
+                addr
+            );
+        }
+        Err(protocol::NegotiationError::Protocol(msg)) => {
+            eprintln!(
+                "protocol negotiation failed for connection from {}: {}",
+                addr, msg
+            );
+        }
+        Err(protocol::NegotiationError::Io(err)) => {
+            eprintln!(
+                "protocol negotiation IO error for connection from {}: {}",
+                addr, err
+            );
+        }
+    }
+}
+
 /// Starts listening on the provided address and returns the allocated listener id.
 pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> {
     if backlog <= 0 {
@@ -4396,196 +4567,31 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                 let listener = tokio::net::TcpListener::from_std(std_listener)
                     .expect("failed to convert listener to tokio");
                 let tx = async_sender;
+                let mut negotiation_tasks = JoinSet::new();
                 loop {
+                    if tx.is_closed() {
+                        break;
+                    }
+                    while negotiation_tasks.try_join_next().is_some() {}
+                    if negotiation_tasks.len() >= backlog as usize {
+                        let _ = negotiation_tasks.join_next().await;
+                        continue;
+                    }
                     match listener.accept().await {
                         Ok((stream, addr)) => {
-                            let _ = stream.set_nodelay(true);
-                            let runtime_config_for_task = config_state_for_task.endpoint_config();
-                            let tls_acceptor_for_task = config_state_for_task.tls_acceptor();
-                            let io_stream = match tls_acceptor_for_task.as_ref() {
-                                Some(acceptor) => {
-                                    let ktls_requested =
-                                        ktls::server_runtime_requested(runtime_config_for_task.as_ref());
-                                    let ktls_required =
-                                        ktls::server_runtime_required(runtime_config_for_task.as_ref());
-                                    if ktls_requested {
-                                        match time::timeout(
-                                            runtime_config_for_task.handshake_timeout,
-                                            ktls::accept_server_stream(
-                                                acceptor.config().clone(),
-                                                stream,
-                                            ),
-                                        )
-                                        .await
-                                        {
-                                            Ok(Ok(io_stream)) => io_stream,
-                                            Ok(Err(err)) => {
-                                                eprintln!(
-                                                    "{} kTLS handoff failed for connection from {}: {}",
-                                                    if ktls_required { "required" } else { "optional" },
-                                                    addr,
-                                                    err
-                                                );
-                                                continue;
-                                            }
-                                            Err(_) => {
-                                                eprintln!(
-                                                    "{} kTLS handshake timed out for connection from {}",
-                                                    if ktls_required { "required" } else { "optional" },
-                                                    addr
-                                                );
-                                                continue;
-                                            }
-                                        }
-                                    } else {
-                                        let handshake = acceptor.accept(stream);
-                                        match time::timeout(
-                                            runtime_config_for_task.handshake_timeout,
-                                            handshake,
-                                        )
-                                        .await
-                                        {
-                                            Ok(Ok(tls_stream)) => IoStream::tls(tls_stream),
-                                            Ok(Err(err)) => {
-                                                eprintln!(
-                                                    "tls handshake failed for connection from {}: {}",
-                                                    addr, err
-                                                );
-                                                continue;
-                                            }
-                                            Err(_) => {
-                                                eprintln!(
-                                                    "tls handshake timed out for connection from {}",
-                                                    addr
-                                                );
-                                                continue;
-                                            }
-                                        }
-                                    }
-                                }
-                                None => IoStream::plain(stream),
-                            };
-
-                            match protocol::negotiate_connection(
-                                io_stream,
-                                runtime_config_for_task.as_ref(),
-                            )
-                            .await
-                            {
-                                Ok(protocol::NegotiatedConnection::RawSocket(negotiated)) => {
-                                    let connection_id = accept_registry.next_connection_id();
-                                    Arc::clone(&accept_registry).register_rawsocket_connection(
-                                        runtime_handle.clone(),
-                                        listener_id,
-                                        connection_id,
-                                        Arc::clone(&runtime_config_for_task),
-                                        negotiated,
-                                        addr,
-                                    );
-                                    if tx.send(connection_id).await.is_err() {
-                                        break;
-                                    }
-                                }
-                                Ok(protocol::NegotiatedConnection::WebSocket(handshake)) => {
-                                    let connection_id = accept_registry.next_connection_id();
-                                    accept_registry.register_websocket_connection(
-                                        listener_id,
-                                        connection_id,
-                                        Arc::clone(&runtime_config_for_task),
-                                        handshake,
-                                        addr,
-                                    );
-                                    if tx.send(connection_id).await.is_err() {
-                                        break;
-                                    }
-                                }
-                                Ok(protocol::NegotiatedConnection::Http2(handshake)) => {
-                                    let (stream, metadata) = handshake.split();
-                                    let connection_id = accept_registry.next_connection_id();
-                                    accept_registry.register_http2_connection(
-                                        listener_id,
-                                        connection_id,
-                                        Arc::clone(&runtime_config_for_task),
-                                        metadata,
-                                        addr,
-                                    );
-                                    let registry_for_connection = Arc::clone(&accept_registry);
-                                    let endpoint_for_connection =
-                                        Arc::clone(&runtime_config_for_task);
-                                    let http_handle = runtime_handle.clone();
-                                    http_handle.spawn(async move {
-                                        serve_http2_connection(
-                                            listener_id,
-                                            connection_id,
-                                            stream,
-                                            endpoint_for_connection,
-                                            registry_for_connection,
-                                        )
-                                        .await;
-                                    });
-                                    if tx.send(connection_id).await.is_err() {
-                                        break;
-                                    }
-                                }
-                                Ok(protocol::NegotiatedConnection::Http3(handshake)) => {
-                                    let connection_id = accept_registry.next_connection_id();
-                                    accept_registry.register_http3_connection(
-                                        listener_id,
-                                        connection_id,
-                                        Arc::clone(&runtime_config_for_task),
-                                        handshake,
-                                        None,
-                                        addr,
-                                    );
-                                    if tx.send(connection_id).await.is_err() {
-                                        break;
-                                    }
-                                }
-                                Ok(protocol::NegotiatedConnection::Http(handshake)) => {
-                                    let connection_id = accept_registry.next_connection_id();
-                                    accept_registry.register_http_connection(
-                                        listener_id,
-                                        connection_id,
-                                        Arc::clone(&runtime_config_for_task),
-                                        addr,
-                                    );
-                                    let registry_for_connection = Arc::clone(&accept_registry);
-                                    let endpoint_for_connection =
-                                        Arc::clone(&runtime_config_for_task);
-                                    let http_handle = runtime_handle.clone();
-                                    http_handle.spawn(async move {
-                                        serve_http_connection(
-                                            listener_id,
-                                            connection_id,
-                                            handshake,
-                                            endpoint_for_connection,
-                                            registry_for_connection,
-                                        )
-                                        .await;
-                                    });
-                                    if tx.send(connection_id).await.is_err() {
-                                        break;
-                                    }
-                                }
-                                Err(protocol::NegotiationError::Timeout) => {
-                                    eprintln!(
-                                        "protocol negotiation timed out for connection from {}",
-                                        addr
-                                    );
-                                }
-                                Err(protocol::NegotiationError::Protocol(msg)) => {
-                                    eprintln!(
-                                        "protocol negotiation failed for connection from {}: {}",
-                                        addr, msg
-                                    );
-                                }
-                                Err(protocol::NegotiationError::Io(err)) => {
-                                    eprintln!(
-                                        "protocol negotiation IO error for connection from {}: {}",
-                                        addr, err
-                                    );
-                                }
-                            }
+                            let accept_registry = Arc::clone(&accept_registry);
+                            let config_state_for_task = Arc::clone(&config_state_for_task);
+                            let runtime_handle = runtime_handle.clone();
+                            let tx = tx.clone();
+                            negotiation_tasks.spawn(negotiate_accepted_connection(
+                                stream,
+                                addr,
+                                listener_id,
+                                config_state_for_task,
+                                accept_registry,
+                                runtime_handle,
+                                tx,
+                            ));
                         }
                         Err(_) => break,
                     }
@@ -8462,6 +8468,51 @@ mod tests {
             other => panic!("unexpected client message: {other:?}"),
         }
 
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn connect_rawsocket_standard_cbor_peer_uses_extended_router_endpoint() {
+        let _guard = test_guard();
+        shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
+        )
+        .unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let client_connection_id = connect_rawsocket(
+            "127.0.0.1",
+            addr.port(),
+            false,
+            false,
+            RawSocketSerializer::Cbor,
+            24,
+            None,
+            None,
+        )
+        .unwrap();
+        send_wamp_message(
+            client_connection_id,
+            Bytes::from_static(&[0x83, 0x01, 0x65, b'r', b'e', b'a', b'l', b'm', 0xa0]),
+        )
+        .unwrap();
+
+        let server_connection_id = receiver.recv().await.expect("server connection");
+        assert_eq!(
+            connection_rawsocket_max_exponent(client_connection_id).unwrap(),
+            24
+        );
+        assert_eq!(
+            connection_rawsocket_max_exponent(server_connection_id).unwrap(),
+            24
+        );
+
+        let server_message = wait_for_polled_message(server_connection_id).await;
+        assert!(matches!(server_message.message, WampMessage::Hello { .. }));
         shutdown().unwrap();
     }
 
