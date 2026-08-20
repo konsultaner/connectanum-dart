@@ -1074,6 +1074,7 @@ class Session {
     RegisterOptions? options,
     void Function(Registered registered)? configure,
   }) {
+    options?.verify();
     final register = Register(nextRegisterId++, procedure, options: options);
     final completer = Completer<Registered>();
     _pendingRegisters[register.requestId] = _PendingRegister(
@@ -1906,6 +1907,7 @@ class Session {
     required LazyMessagePayload payload,
     CallOptions? options,
   }) {
+    options?.verify();
     final call = Call(nextCallId++, procedure, options: options);
     call.attachE2eeRuntimeContext(
       _buildOutboundRuntimeContext(

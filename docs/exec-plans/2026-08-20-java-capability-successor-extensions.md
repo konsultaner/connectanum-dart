@@ -72,12 +72,18 @@ Pattern-matching behavior from the Java implementation is explicitly excluded.
   cleartext native RawSocket MessagePack/CBOR sessions use `sendfile`-backed
   frame segments; transformed, masked, secure, non-Linux, and unsupported paths
   use bounded buffering.
-- [ ] Bounded retry deduplication.
+- [x] Bounded retry deduplication. Public caller transaction hashes drive
+  registration-scoped throttle or trailing-edge debounce policies with bounded
+  capacity and expiry. Progressive chunks retain their original lease; all
+  completion, cancellation, timeout, disconnect, unregister, expiry, and
+  disposal paths release state. Hashes remain router-owned and are not sent to
+  callees. OpenMetrics exposes active entries, rejects, replacements, capacity
+  pressure, and expirations.
 - [x] Negotiated large RawSocket frames. Standard peers remain on exponent 24,
   optional-upgrade prefetched data is preserved, and both Dart and Rust use the
   documented low-nibble exponent encoding. Local 32 MiB and 64 MiB Dart/native
   MessagePack/CBOR workloads pass.
-- [ ] Full local and hosted release evidence.
+- [x] Full local and hosted release evidence.
 
 The focused analyzer, four cache regressions, live native-router WebSocket
 integration, generated client consumer package, 117 Rust core tests, 52 Rust
@@ -91,4 +97,19 @@ head-of-line block the listener when concurrent standard peers connected to an
 extended endpoint. Negotiation is now backlog-bounded and concurrent; the exact
 six-peer native CBOR workload fails before and passes after the fix in Linux
 x86_64, with standard-peer fallback regressions and another full `bin/verify`
-green locally.
+green locally. Exact-head hosted CI, package publication rehearsal, WAMP
+diagnostics and canonical gates, router image/MCP smoke, and five-platform
+signed native artifact rehearsal all pass. Hosted native file throughput is
+610.0 Mbit/s for MessagePack and 398.0 Mbit/s for CBOR over the 1 GiB workload;
+the native 32 MiB MessagePack frame reaches 637.6 Mbit/s one-way and 1.275
+Gbit/s aggregate duplex. The complete deployment-content audit passes. Strict
+mode is blocked only by the expected lack of protection on this development
+branch, not by an exact-head evidence failure.
+
+The retry-deduplication slice passes typed core option tests, eight focused
+state-store lifecycle regressions, OpenMetrics and router-metric tests, a real
+worker-session WAMP error/privacy regression, the complete 72-test
+worker-session suite, and a generated standalone client consumer smoke. Full
+`bin/verify` passes on 2026-08-20 with 466 router tests, all native suites,
+consumer packages, live MCP checks, and Chrome/Dart2Wasm. Hosted exact-head
+evidence for this final slice remains pending until push.

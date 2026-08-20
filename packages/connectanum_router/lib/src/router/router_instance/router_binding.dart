@@ -7719,6 +7719,49 @@ class _MetricsService {
         'connectanum_router_pending_invocations ${routerSnapshot.pendingInvocationCount}',
       )
       ..writeln(
+        '# HELP connectanum_router_retry_deduplication_active Active retry-deduplication throttle leases and pending debounces',
+      )
+      ..writeln('# TYPE connectanum_router_retry_deduplication_active gauge')
+      ..writeln(
+        'connectanum_router_retry_deduplication_active ${routerSnapshot.retryDeduplicationActiveCount}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_retry_deduplication_throttle_rejects Duplicate retry calls rejected by throttle policies',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_retry_deduplication_throttle_rejects counter',
+      )
+      ..writeln(
+        'connectanum_router_retry_deduplication_throttle_rejects_total ${routerSnapshot.totalRetryDeduplicationThrottleRejects}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_retry_deduplication_debounce_replacements Pending debounce calls replaced by newer calls',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_retry_deduplication_debounce_replacements counter',
+      )
+      ..writeln(
+        'connectanum_router_retry_deduplication_debounce_replacements_total ${routerSnapshot.totalRetryDeduplicationDebounceReplacements}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_retry_deduplication_capacity_rejects Calls rejected because a retry-deduplication cache was full',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_retry_deduplication_capacity_rejects counter',
+      )
+      ..writeln(
+        'connectanum_router_retry_deduplication_capacity_rejects_total ${routerSnapshot.totalRetryDeduplicationCapacityRejects}',
+      )
+      ..writeln(
+        '# HELP connectanum_router_retry_deduplication_expirations Retry-deduplication entries reclaimed by their retention deadline',
+      )
+      ..writeln(
+        '# TYPE connectanum_router_retry_deduplication_expirations counter',
+      )
+      ..writeln(
+        'connectanum_router_retry_deduplication_expirations_total ${routerSnapshot.totalRetryDeduplicationExpirations}',
+      )
+      ..writeln(
         '# HELP connectanum_router_total_invocations_dispatched Total invocations dispatched since router start',
       )
       ..writeln(

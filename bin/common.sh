@@ -2132,6 +2132,7 @@ Future<WampFileReceiver> receiveFiles(Session session) {
 }
 
 Future<void> main() async {
+  _smokeRetryDeduplicationOptions();
   final directory = await Directory.systemTemp.createTemp(
     'connectanum-file-consumer.',
   );
@@ -2170,6 +2171,27 @@ Future<void> main() async {
   } finally {
     await directory.delete(recursive: true);
   }
+}
+
+void _smokeRetryDeduplicationOptions() {
+  final registration = RegisterOptions(
+    autoDeduplication: RetryDeduplication.throttle(
+      capacity: 32,
+      expiry: const Duration(minutes: 2),
+    ),
+  );
+  final call = CallOptions(transactionHash: 'consumer:retry:42');
+  _expect(
+    registration.custom['auto_deduplication'] == 0 &&
+        registration.custom['auto_deduplication_capacity'] == 32 &&
+        registration.custom['auto_deduplication_expiry'] == 120000,
+    'retry deduplication registration options mismatch',
+  );
+  _expect(
+    call.custom['transaction_hash'] == 'consumer:retry:42',
+    'transaction hash call option mismatch',
+  );
+  _expect(registration.verify() && call.verify(), 'option validation failed');
 }
 
 class _MemorySink implements WampFileSink {

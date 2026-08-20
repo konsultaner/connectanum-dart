@@ -315,6 +315,11 @@ class RouterStateMetrics {
     required this.pendingInvocationCount,
     required this.totalInvocationsDispatched,
     required this.totalPublicationsRouted,
+    required this.retryDeduplicationActiveCount,
+    required this.totalRetryDeduplicationThrottleRejects,
+    required this.totalRetryDeduplicationDebounceReplacements,
+    required this.totalRetryDeduplicationCapacityRejects,
+    required this.totalRetryDeduplicationExpirations,
   });
 
   final int realmCount;
@@ -324,6 +329,11 @@ class RouterStateMetrics {
   final int pendingInvocationCount;
   final int totalInvocationsDispatched;
   final int totalPublicationsRouted;
+  final int retryDeduplicationActiveCount;
+  final int totalRetryDeduplicationThrottleRejects;
+  final int totalRetryDeduplicationDebounceReplacements;
+  final int totalRetryDeduplicationCapacityRejects;
+  final int totalRetryDeduplicationExpirations;
 }
 
 class StateChangedEvent {

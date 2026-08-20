@@ -466,6 +466,28 @@ void main() {
       );
       expect(metrics.status, equals(200));
       expect(metrics.bodyText, contains('connectanum_router_realms'));
+      expect(
+        metrics.bodyText,
+        contains('connectanum_router_retry_deduplication_active'),
+      );
+      expect(
+        metrics.bodyText,
+        contains('connectanum_router_retry_deduplication_throttle_rejects'),
+      );
+      expect(
+        metrics.bodyText,
+        contains(
+          'connectanum_router_retry_deduplication_debounce_replacements',
+        ),
+      );
+      expect(
+        metrics.bodyText,
+        contains('connectanum_router_retry_deduplication_capacity_rejects'),
+      );
+      expect(
+        metrics.bodyText,
+        contains('connectanum_router_retry_deduplication_expirations'),
+      );
       expect(metrics.bodyText, contains('connectanum_router_process_info'));
       expect(
         metrics.bodyText,

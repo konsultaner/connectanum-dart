@@ -5,9 +5,9 @@ Current branch: `codex/mcp-public-http-auth-discovery`
 Current milestone: extend the coordinated `3.0.0-beta` line with selected
 application-facing capabilities identified in the legacy Java implementation,
 including race-safe buffered standard WAMP Meta API state, progressive file
-delivery, and explicitly negotiated large RawSocket frames. Bounded retry
-deduplication remains the next additive high-level contract. Java
-pattern-matching behavior is excluded. The active plan is
+delivery, bounded application-level retry deduplication, and explicitly
+negotiated large RawSocket frames. Java pattern-matching behavior is excluded.
+The active plan is
 `docs/exec-plans/2026-08-20-java-capability-successor-extensions.md`.
 
 The promoted release line remains a coordinated prerelease while testers
@@ -47,6 +47,21 @@ for unsubscribe replies after transport loss. Four focused regressions and a
 live native-router WebSocket lifecycle integration pass. Post-change
 `bin/test-fast` passes on 2026-08-20.
 
+The bounded retry-deduplication slice is locally complete. Callers can attach a
+validated `transaction_hash`; registrations opt into bounded throttle or
+trailing-edge debounce behavior with explicit per-registration capacity and
+expiry. Deduplication is shared by the logical registration, remains transparent
+to progressive invocation chunks, and never exposes transaction hashes to
+callees. Completion, cancellation, timeout, caller/callee disconnect,
+unregistration, expiry, and router disposal release state. Shared registrations
+must agree on one policy. Router metrics expose active entries, throttle
+rejections, debounce replacements, capacity rejections, and expirations. The
+generated standalone client consumer validates the public typed options, and
+focused core, state-store, OpenMetrics, real worker-session, and full 72-test
+worker-session evidence passes. Full `bin/verify` passes on 2026-08-20 with 466
+router tests and all generated consumer and browser smokes. Exact-head hosted
+evidence remains pending until this implementation is committed and pushed.
+
 The progressive file-delivery and large RawSocket frame slice is locally
 complete. The public client sends a versioned file contract over standard WAMP
 progressive calls and exposes a bounded receiver with exact-size and SHA-256
@@ -71,8 +86,15 @@ local large-frame matrix passes 32 MiB MessagePack and 64 MiB CBOR frames for
 both Dart and native clients, with observed aggregate loopback throughput from
 1.02 to 2.66 Gbit/s. Full `bin/verify` passes on 2026-08-20, including 457
 router tests, all generated consumer smokes, and Chrome/Dart2Wasm coverage.
-Hosted Linux end-to-end sendfile throughput remains pending before this slice
-is promoted.
+Hosted Linux end-to-end evidence is complete at exact head `8d6f4b6`. The
+native 1 GiB file workloads sustained 610.0 Mbit/s with MessagePack and 398.0
+Mbit/s with CBOR; the 32 MiB native MessagePack frame workload sustained 637.6
+Mbit/s one-way and 1.275 Gbit/s aggregate duplex, while the 64 MiB native CBOR
+workload sustained 268.0 Mbit/s one-way and 536.1 Mbit/s aggregate duplex.
+Every file and large-frame workload completed without transport errors,
+backpressure failures, or router alerts. The 64 MiB matrix reached about 1.07
+GiB process maximum RSS, so reducing large-frame memory amplification remains
+the primary optimization target rather than a release correctness blocker.
 
 The first hosted diagnostics attempt exposed a listener head-of-line stall
 before the new workloads: protocol negotiation was performed inline in the TCP
@@ -83,7 +105,12 @@ listener continues accepting connections. The exact six-peer CBOR RPC shape
 reproduced the failure in a Linux x86_64 container before the fix and passes
 after it; low-level standard-peer and runtime-level exponent fallback
 regressions also pass. A post-fix full `bin/verify` is green. Fresh hosted Linux
-diagnostics remain required for throughput evidence.
+diagnostics `32393919175`, CI `32393914045`, Dart package publish dry run
+`32393914023`, WAMP profile benchmarks `32395917550`, router image dry run
+`32395908294`, and tagged non-publishing native release rehearsal `32398875574`
+all pass on exact head. The complete deployment-content audit passes. Strict
+mode reports only that the development branch is unprotected; all exact-head
+build, log, artifact, preview, benchmark, and runtime-smoke gates are clean.
 
 The completed product-readiness checkpoint is MCP `2026-07-28` multi
 round-trip request (MRTR) support for non-sensitive form elicitation. Public

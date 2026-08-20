@@ -12,6 +12,11 @@ class RouterMetricsSnapshot {
     required this.pendingInvocationCount,
     required this.totalInvocationsDispatched,
     required this.totalPublicationsRouted,
+    required this.retryDeduplicationActiveCount,
+    required this.totalRetryDeduplicationThrottleRejects,
+    required this.totalRetryDeduplicationDebounceReplacements,
+    required this.totalRetryDeduplicationCapacityRejects,
+    required this.totalRetryDeduplicationExpirations,
     required this.activeConnections,
     required this.workerCount,
     this.shutdown = const RouterShutdownMetrics(),
@@ -44,6 +49,21 @@ class RouterMetricsSnapshot {
   /// Total publications routed since router start.
   final int totalPublicationsRouted;
 
+  /// Active retry-deduplication throttle leases and pending debounces.
+  final int retryDeduplicationActiveCount;
+
+  /// Duplicate calls rejected by throttle policies since router start.
+  final int totalRetryDeduplicationThrottleRejects;
+
+  /// Pending debounce calls replaced by newer calls since router start.
+  final int totalRetryDeduplicationDebounceReplacements;
+
+  /// Calls rejected because a deduplication cache was full.
+  final int totalRetryDeduplicationCapacityRejects;
+
+  /// Deduplication entries reclaimed by their retention deadline.
+  final int totalRetryDeduplicationExpirations;
+
   /// Number of TCP connections currently assigned to workers.
   final int activeConnections;
 
@@ -71,6 +91,11 @@ class RouterMetricsSnapshot {
     int? pendingInvocationCount,
     int? totalInvocationsDispatched,
     int? totalPublicationsRouted,
+    int? retryDeduplicationActiveCount,
+    int? totalRetryDeduplicationThrottleRejects,
+    int? totalRetryDeduplicationDebounceReplacements,
+    int? totalRetryDeduplicationCapacityRejects,
+    int? totalRetryDeduplicationExpirations,
     int? activeConnections,
     int? workerCount,
     RouterShutdownMetrics? shutdown,
@@ -90,6 +115,20 @@ class RouterMetricsSnapshot {
           totalInvocationsDispatched ?? this.totalInvocationsDispatched,
       totalPublicationsRouted:
           totalPublicationsRouted ?? this.totalPublicationsRouted,
+      retryDeduplicationActiveCount:
+          retryDeduplicationActiveCount ?? this.retryDeduplicationActiveCount,
+      totalRetryDeduplicationThrottleRejects:
+          totalRetryDeduplicationThrottleRejects ??
+          this.totalRetryDeduplicationThrottleRejects,
+      totalRetryDeduplicationDebounceReplacements:
+          totalRetryDeduplicationDebounceReplacements ??
+          this.totalRetryDeduplicationDebounceReplacements,
+      totalRetryDeduplicationCapacityRejects:
+          totalRetryDeduplicationCapacityRejects ??
+          this.totalRetryDeduplicationCapacityRejects,
+      totalRetryDeduplicationExpirations:
+          totalRetryDeduplicationExpirations ??
+          this.totalRetryDeduplicationExpirations,
       activeConnections: activeConnections ?? this.activeConnections,
       workerCount: workerCount ?? this.workerCount,
       shutdown: shutdown ?? this.shutdown,
@@ -108,6 +147,14 @@ class RouterMetricsSnapshot {
     'pending_invocation_count': pendingInvocationCount,
     'total_invocations_dispatched': totalInvocationsDispatched,
     'total_publications_routed': totalPublicationsRouted,
+    'retry_deduplication_active_count': retryDeduplicationActiveCount,
+    'total_retry_deduplication_throttle_rejects':
+        totalRetryDeduplicationThrottleRejects,
+    'total_retry_deduplication_debounce_replacements':
+        totalRetryDeduplicationDebounceReplacements,
+    'total_retry_deduplication_capacity_rejects':
+        totalRetryDeduplicationCapacityRejects,
+    'total_retry_deduplication_expirations': totalRetryDeduplicationExpirations,
     'active_connections': activeConnections,
     'worker_count': workerCount,
     'shutdown': shutdown.toJson(),

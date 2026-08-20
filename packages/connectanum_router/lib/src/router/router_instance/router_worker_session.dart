@@ -22,6 +22,7 @@ const Set<String> _routerOwnedInvocationDetailKeys = {
   'ppt_serializer',
   'ppt_cipher',
   'ppt_keyid',
+  'transaction_hash',
 };
 
 bool _parseForwardNativePublishFlag(String? raw) {
@@ -446,6 +447,7 @@ Future<void> _handleRegister({
   }
 
   try {
+    message.options?.verify();
     final context = realmContexts.contextFor(state.realmUri!);
     final matchPolicy = _matchPolicyFromRegisterOptions(message.options);
     _validateProcedureUri(message.procedure, matchPolicy);
@@ -1566,6 +1568,7 @@ Future<void> _handleCall({
     }
     if (!dispatch.progressiveInvocation &&
         !dispatch.timeoutForwarded &&
+        message.options?.transactionHash == null &&
         message.options?.pptScheme != 'wamp' &&
         _canUseNativeForwardPath(
           connectionStates: connectionStates,
@@ -2789,8 +2792,12 @@ Map<String, Object?> _callOptionsToMap(call_msg.CallOptions? options) {
   if (options == null) {
     return const {};
   }
+  final transactionHash = options.transactionHash;
   final map = Map<String, Object?>.from(options.custom)
     ..removeWhere((key, _) => _routerOwnedInvocationDetailKeys.contains(key));
+  if (transactionHash != null) {
+    map[call_msg.CallOptions.transactionHashWireField] = transactionHash;
+  }
   if (options.progress != null) {
     map['progress'] = options.progress;
   }
@@ -2963,6 +2970,9 @@ String _reasonForInvocationDispatchError(String? message) {
   if (message == null) {
     return wamp_core.Error.unknown;
   }
+  if (message.contains(wamp_core.Error.autoDeduplication)) {
+    return wamp_core.Error.autoDeduplication;
+  }
   if (message.contains('No registration') ||
       message.contains('No available callee')) {
     return wamp_core.Error.noSuchProcedure;
@@ -2971,6 +2981,9 @@ String _reasonForInvocationDispatchError(String? message) {
     return wamp_core.Error.noSuchSession;
   }
   if (message.contains('Invalid progressive invocation')) {
+    return wamp_core.Error.invalidArgument;
+  }
+  if (message.contains('Invalid transaction_hash')) {
     return wamp_core.Error.invalidArgument;
   }
   return wamp_core.Error.unknown;
@@ -2985,6 +2998,9 @@ String _reasonForRegisterStateError(String? message) {
   }
   if (message.contains('Session')) {
     return wamp_core.Error.noSuchSession;
+  }
+  if (message.contains('Invalid auto_deduplication')) {
+    return wamp_core.Error.invalidArgument;
   }
   return wamp_core.Error.unknown;
 }

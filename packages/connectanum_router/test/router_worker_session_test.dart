@@ -6375,6 +6375,123 @@ void main() {
     );
 
     test(
+      'maps retry deduplication to WAMP ERROR and hides transaction hashes',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final firstCaller =
+            createWorkerStateForTest(
+                    listener: listener,
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState
+              ..serializer = NativeMessageSerializer.json
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 8811;
+        final secondCaller =
+            createWorkerStateForTest(
+                    listener: listener,
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState
+              ..serializer = NativeMessageSerializer.json
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 8812;
+        _openSession(
+          stateStore,
+          sessionId: 8811,
+          listener: listener,
+          connectionId: 81,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 8812,
+          listener: listener,
+          connectionId: 82,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 8813,
+          listener: listener,
+          connectionId: 83,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+        await realmContexts
+            .contextFor('realm1')
+            .registerProcedure(
+              sessionId: 8813,
+              procedure: 'com.example.deduplicated',
+              details: const {
+                'auto_deduplication': 0,
+                'auto_deduplication_capacity': 8,
+                'auto_deduplication_expiry': 1000,
+              },
+            );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: firstCaller,
+          message: call_msg.Call(
+            9061,
+            'com.example.deduplicated',
+            options: call_msg.CallOptions(transactionHash: 'order:42'),
+          ),
+          connectionId: 81,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final invocationForwards = _extractForwardMessages(bossMessages);
+        expect(invocationForwards, hasLength(1));
+        final invocation =
+            invocationForwards.single['message'] as invocation_msg.Invocation;
+        expect(invocation.details.custom, isNot(contains('transaction_hash')));
+
+        bossMessages.clear();
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: secondCaller,
+          message: call_msg.Call(
+            9062,
+            'com.example.deduplicated',
+            options: call_msg.CallOptions(transactionHash: 'order:42'),
+          ),
+          connectionId: 82,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+
+        final workerSend = _extractWorkerSend(bossMessages);
+        final frame =
+            jsonDecode(utf8.decode(workerSend['payload'] as Uint8List))
+                as List<dynamic>;
+        expect(frame.first, MessageTypes.codeError);
+        expect(frame[1], MessageTypes.codeCall);
+        expect(frame[2], 9062);
+        expect(frame[4], wamp_core.Error.autoDeduplication);
+      },
+    );
+
+    test(
       'returns no_such_procedure when CALL targets missing registration',
       () async {
         final bossMessages = <Map<String, Object?>>[];

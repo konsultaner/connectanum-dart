@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:isolate';
 
+import 'package:connectanum_core/connectanum_core.dart' as wamp;
+
 import '../config/router_settings.dart';
 import 'commands.dart';
 import 'ids.dart';
@@ -12,6 +14,8 @@ import 'subscription.dart';
 
 /// Maintains all WAMP realm/session/subscription/registration state.
 class RouterStateStore {
+  static const int _maxGlobalRetryDeduplicationEntries = 16384;
+
   RouterStateStore({required this.settings})
     : _commandPort = ReceivePort(),
       _eventController = StreamController<StateChangedEvent>.broadcast(),
@@ -38,8 +42,17 @@ class RouterStateStore {
   final Map<String, RealmRecord> _realms = {};
   final Map<(String, int), Timer> _invocationTimeouts = {};
   final Map<String, RealmSettings> _realmConfigs;
+  final Map<_RetryDeduplicationKey, _RetryThrottleLease> _retryThrottleLeases =
+      {};
+  final Map<int, _RetryDeduplicationKey> _retryThrottleKeysByInvocation = {};
+  final Map<_RetryDeduplicationKey, _PendingRetryDebounce>
+  _pendingRetryDebounces = {};
   int _totalInvocationsDispatched = 0;
   int _totalPublicationsRouted = 0;
+  int _totalRetryDeduplicationThrottleRejects = 0;
+  int _totalRetryDeduplicationDebounceReplacements = 0;
+  int _totalRetryDeduplicationCapacityRejects = 0;
+  int _totalRetryDeduplicationExpirations = 0;
 
   Stream<StateChangedEvent> get events => _eventController.stream;
   Stream<SessionMetaEvent> get sessionMetaEvents =>
@@ -61,6 +74,17 @@ class RouterStateStore {
       timer.cancel();
     }
     _invocationTimeouts.clear();
+    for (final pending in _pendingRetryDebounces.values) {
+      pending.timer?.cancel();
+      pending.replyPort.send(
+        StoreErrorResponse(
+          StoreCommandError('Router state store disposed').toString(),
+        ),
+      );
+    }
+    _pendingRetryDebounces.clear();
+    _retryThrottleLeases.clear();
+    _retryThrottleKeysByInvocation.clear();
     _commandPort.close();
     _eventController.close();
     _sessionMetaController.close();
@@ -168,19 +192,7 @@ class RouterStateStore {
           command.registrationId,
         );
       case InvocationDispatchCommand():
-        try {
-          final dispatch = _dispatchInvocation(
-            command.realmUri,
-            command.callerSessionId,
-            command.requestId,
-            command.procedure,
-            command.options,
-          );
-          command.replyPort.send(dispatch);
-        } catch (error) {
-          command.replyPort.send(StoreErrorResponse(error.toString()));
-          _reportStoreError(error, StackTrace.current, command: command);
-        }
+        _handleInvocationDispatch(command);
       case InvocationFindByCallerCommand():
         _sendGuardedReply(
           command: command,
@@ -289,6 +301,7 @@ class RouterStateStore {
       registrationCount += realm.proceduresById.length;
       pendingInvocationCount += realm.invocations.length;
     }
+    _reapExpiredRetryThrottleLeases(DateTime.now());
     return RouterStateMetrics(
       realmCount: _realms.length,
       sessionCount: sessionCount,
@@ -297,6 +310,15 @@ class RouterStateStore {
       pendingInvocationCount: pendingInvocationCount,
       totalInvocationsDispatched: _totalInvocationsDispatched,
       totalPublicationsRouted: _totalPublicationsRouted,
+      retryDeduplicationActiveCount:
+          _retryThrottleLeases.length + _pendingRetryDebounces.length,
+      totalRetryDeduplicationThrottleRejects:
+          _totalRetryDeduplicationThrottleRejects,
+      totalRetryDeduplicationDebounceReplacements:
+          _totalRetryDeduplicationDebounceReplacements,
+      totalRetryDeduplicationCapacityRejects:
+          _totalRetryDeduplicationCapacityRejects,
+      totalRetryDeduplicationExpirations: _totalRetryDeduplicationExpirations,
     );
   }
 
@@ -347,11 +369,33 @@ class RouterStateStore {
     );
   }
 
+  void _removeInvocationsForSession(String realmUri, int sessionId) {
+    final realm = _realms[realmUri];
+    if (realm == null) {
+      return;
+    }
+    final invocationIds = realm.invocations.values
+        .where(
+          (invocation) =>
+              invocation.callerSessionId == sessionId ||
+              invocation.calleeSessionId == sessionId,
+        )
+        .map((invocation) => invocation.invocationId)
+        .toList(growable: false);
+    for (final invocationId in invocationIds) {
+      _cancelInvocationTimeout(realmUri, invocationId);
+      realm.invocations.remove(invocationId);
+      _releaseRetryThrottleLease(invocationId);
+    }
+  }
+
   void _closeSession(String realmUri, int sessionId) {
     final realm = _realms[realmUri];
     if (realm == null) {
       return;
     }
+    _cancelPendingRetryDebouncesForCaller(realmUri, sessionId);
+    _removeInvocationsForSession(realmUri, sessionId);
     final session = realm.sessions.remove(sessionId);
     if (session == null) {
       return;
@@ -495,6 +539,7 @@ class RouterStateStore {
         ));
     final policy = _policyFromDetails(details);
     final matchPolicy = _matchPolicyFromDetails(details);
+    final retryDeduplication = _retryDeduplicationFromDetails(details);
     final registrationId = ids.registration.next();
     final entry = realm.findOrCreateProcedure(
       procedure,
@@ -519,6 +564,16 @@ class RouterStateStore {
         throw StoreCommandError(
           'Procedure $procedure already registered with policy '
           '${entry.policy.name}',
+        );
+      }
+      final existingRetryDeduplication = _retryDeduplicationForEntry(entry);
+      if (!_sameRetryDeduplication(
+        existingRetryDeduplication,
+        retryDeduplication,
+      )) {
+        throw StoreCommandError(
+          'Procedure $procedure already registered with different '
+          'auto_deduplication settings',
         );
       }
     }
@@ -618,12 +673,307 @@ class RouterStateStore {
           sessionId: sessionId,
         ),
       );
+      _clearRetryDeduplicationForRegistration(
+        realmUri,
+        entry.registrationId,
+      );
       realm.removeProcedure(entry);
     }
     realm.bumpVersion();
     _eventController.add(
       StateChangedEvent(realmUri: realmUri, version: realm.version),
     );
+  }
+
+  void _handleInvocationDispatch(InvocationDispatchCommand command) {
+    try {
+      final existing = _findInvocationByCaller(
+        command.realmUri,
+        command.callerSessionId,
+        command.requestId,
+      );
+      if (existing != null) {
+        command.replyPort.send(
+          _dispatchInvocation(
+            command.realmUri,
+            command.callerSessionId,
+            command.requestId,
+            command.procedure,
+            command.options,
+          ),
+        );
+        return;
+      }
+
+      final transactionHash = _transactionHashFromOptions(command.options);
+      final realm = _getOrCreateRealm(command.realmUri);
+      final entry = realm.procedureAtlas.match(command.procedure);
+      if (transactionHash == null || entry == null || entry.callees.isEmpty) {
+        command.replyPort.send(
+          _dispatchInvocation(
+            command.realmUri,
+            command.callerSessionId,
+            command.requestId,
+            command.procedure,
+            command.options,
+          ),
+        );
+        return;
+      }
+
+      final policy = _retryDeduplicationForEntry(entry);
+      if (policy == null) {
+        command.replyPort.send(
+          _dispatchInvocation(
+            command.realmUri,
+            command.callerSessionId,
+            command.requestId,
+            command.procedure,
+            command.options,
+          ),
+        );
+        return;
+      }
+
+      final now = DateTime.now();
+      _reapExpiredRetryThrottleLeases(now);
+      final key = (
+        realmUri: command.realmUri,
+        registrationId: entry.registrationId,
+        transactionHash: transactionHash,
+      );
+      if (policy.isThrottle) {
+        if (_retryThrottleLeases.containsKey(key)) {
+          _totalRetryDeduplicationThrottleRejects += 1;
+          throw StoreCommandError(wamp.Error.autoDeduplication);
+        }
+        _ensureRetryDeduplicationCapacity(entry, policy);
+        final dispatch = _dispatchInvocation(
+          command.realmUri,
+          command.callerSessionId,
+          command.requestId,
+          command.procedure,
+          command.options,
+        );
+        _retryThrottleLeases[key] = _RetryThrottleLease(
+          invocationId: dispatch.invocationId,
+          expiresAt: now.add(policy.expiry),
+        );
+        _retryThrottleKeysByInvocation[dispatch.invocationId] = key;
+        command.replyPort.send(dispatch);
+        return;
+      }
+
+      final previous = _pendingRetryDebounces.remove(key);
+      final expiresAt = previous?.expiresAt ?? now.add(policy.expiry);
+      if (previous != null) {
+        previous.timer?.cancel();
+        previous.replyPort.send(
+          StoreErrorResponse(
+            StoreCommandError(wamp.Error.autoDeduplication).toString(),
+          ),
+        );
+        _totalRetryDeduplicationDebounceReplacements += 1;
+      } else {
+        _ensureRetryDeduplicationCapacity(entry, policy);
+      }
+
+      final quietAt = now.add(policy.debounce!);
+      final fireAt = quietAt.isBefore(expiresAt) ? quietAt : expiresAt;
+      final pending = _PendingRetryDebounce(
+        realmUri: command.realmUri,
+        callerSessionId: command.callerSessionId,
+        requestId: command.requestId,
+        procedure: command.procedure,
+        options: Map<String, Object?>.from(command.options),
+        replyPort: command.replyPort,
+        expiresAt: expiresAt,
+      );
+      _pendingRetryDebounces[key] = pending;
+      pending.timer = Timer(
+        fireAt.difference(now),
+        () => _dispatchPendingRetryDebounce(
+          key,
+          expired: !quietAt.isBefore(expiresAt),
+        ),
+      );
+    } catch (error, stackTrace) {
+      command.replyPort.send(StoreErrorResponse(error.toString()));
+      _reportStoreError(error, stackTrace, command: command);
+    }
+  }
+
+  void _dispatchPendingRetryDebounce(
+    _RetryDeduplicationKey key, {
+    required bool expired,
+  }) {
+    final pending = _pendingRetryDebounces.remove(key);
+    if (pending == null) {
+      return;
+    }
+    pending.timer?.cancel();
+    if (expired) {
+      _totalRetryDeduplicationExpirations += 1;
+    }
+    try {
+      final dispatch = _dispatchInvocation(
+        pending.realmUri,
+        pending.callerSessionId,
+        pending.requestId,
+        pending.procedure,
+        pending.options,
+      );
+      pending.replyPort.send(dispatch);
+    } catch (error, stackTrace) {
+      pending.replyPort.send(StoreErrorResponse(error.toString()));
+      _reportStoreError(error, stackTrace);
+    }
+  }
+
+  void _ensureRetryDeduplicationCapacity(
+    ProcedureEntry entry,
+    wamp.RetryDeduplication policy,
+  ) {
+    final registrationCount =
+        _retryThrottleLeases.keys
+            .where((key) => key.registrationId == entry.registrationId)
+            .length +
+        _pendingRetryDebounces.keys
+            .where((key) => key.registrationId == entry.registrationId)
+            .length;
+    final globalCount =
+        _retryThrottleLeases.length + _pendingRetryDebounces.length;
+    if (registrationCount >= policy.capacity ||
+        globalCount >= _maxGlobalRetryDeduplicationEntries) {
+      _totalRetryDeduplicationCapacityRejects += 1;
+      throw StoreCommandError(
+        '${wamp.Error.autoDeduplication}: capacity exceeded',
+      );
+    }
+  }
+
+  void _reapExpiredRetryThrottleLeases(DateTime now) {
+    final expiredKeys = _retryThrottleLeases.entries
+        .where((entry) => !entry.value.expiresAt.isAfter(now))
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    for (final key in expiredKeys) {
+      final lease = _retryThrottleLeases.remove(key);
+      if (lease == null) {
+        continue;
+      }
+      _retryThrottleKeysByInvocation.remove(lease.invocationId);
+      _totalRetryDeduplicationExpirations += 1;
+    }
+  }
+
+  void _releaseRetryThrottleLease(int invocationId) {
+    final key = _retryThrottleKeysByInvocation.remove(invocationId);
+    if (key != null) {
+      _retryThrottleLeases.remove(key);
+    }
+  }
+
+  void _cancelPendingRetryDebouncesForCaller(
+    String realmUri,
+    int callerSessionId,
+  ) {
+    final keys = _pendingRetryDebounces.entries
+        .where(
+          (entry) =>
+              entry.value.realmUri == realmUri &&
+              entry.value.callerSessionId == callerSessionId,
+        )
+        .map((entry) => entry.key)
+        .toList(growable: false);
+    for (final key in keys) {
+      final pending = _pendingRetryDebounces.remove(key);
+      pending?.timer?.cancel();
+      pending?.replyPort.send(
+        StoreErrorResponse(
+          StoreCommandError(
+            'Caller session $callerSessionId closed',
+          ).toString(),
+        ),
+      );
+    }
+  }
+
+  void _clearRetryDeduplicationForRegistration(
+    String realmUri,
+    int registrationId,
+  ) {
+    final throttleKeys = _retryThrottleLeases.keys
+        .where(
+          (key) =>
+              key.realmUri == realmUri && key.registrationId == registrationId,
+        )
+        .toList(growable: false);
+    for (final key in throttleKeys) {
+      final lease = _retryThrottleLeases.remove(key);
+      if (lease != null) {
+        _retryThrottleKeysByInvocation.remove(lease.invocationId);
+      }
+    }
+
+    final debounceKeys = _pendingRetryDebounces.keys
+        .where(
+          (key) =>
+              key.realmUri == realmUri && key.registrationId == registrationId,
+        )
+        .toList(growable: false);
+    for (final key in debounceKeys) {
+      final pending = _pendingRetryDebounces.remove(key);
+      pending?.timer?.cancel();
+      pending?.replyPort.send(
+        StoreErrorResponse(
+          StoreCommandError('Registration $registrationId removed').toString(),
+        ),
+      );
+    }
+  }
+
+  String? _transactionHashFromOptions(Map<String, Object?> options) {
+    try {
+      return wamp.CallOptions(
+        custom: Map<String, dynamic>.from(options),
+      ).transactionHash;
+    } catch (error) {
+      throw StoreCommandError('Invalid transaction_hash: $error');
+    }
+  }
+
+  wamp.RetryDeduplication? _retryDeduplicationFromDetails(
+    Map<String, Object?> details,
+  ) {
+    try {
+      return wamp.RegisterOptions(
+        custom: Map<String, dynamic>.from(details),
+      ).autoDeduplication;
+    } catch (error) {
+      throw StoreCommandError('Invalid auto_deduplication: $error');
+    }
+  }
+
+  wamp.RetryDeduplication? _retryDeduplicationForEntry(
+    ProcedureEntry entry,
+  ) {
+    if (entry.callees.isEmpty) {
+      return null;
+    }
+    return _retryDeduplicationFromDetails(entry.callees.values.first.details);
+  }
+
+  bool _sameRetryDeduplication(
+    wamp.RetryDeduplication? left,
+    wamp.RetryDeduplication? right,
+  ) {
+    if (left == null || right == null) {
+      return left == right;
+    }
+    return left.debounce == right.debounce &&
+        left.capacity == right.capacity &&
+        left.expiry == right.expiry;
   }
 
   InvocationDispatchResult _dispatchInvocation(
@@ -702,7 +1052,8 @@ class RouterStateStore {
         options['disclose_me'] == true ||
         callee.details['disclose_caller'] == true;
     final initiatingOptions = Map<String, Object?>.from(options)
-      ..remove('progress');
+      ..remove('progress')
+      ..remove(wamp.CallOptions.transactionHashWireField);
     final calleeConnectionId = _connectionIdForSession(realm, callee.sessionId);
     final record = PendingInvocation(
       invocationId: invocationId,
@@ -748,10 +1099,17 @@ class RouterStateStore {
     );
   }
 
-  PendingInvocation? _completeInvocation(String realmUri, int invocationId) {
+  PendingInvocation? _completeInvocation(
+    String realmUri,
+    int invocationId,
+  ) {
     final realm = _realms[realmUri];
     _cancelInvocationTimeout(realmUri, invocationId);
-    return realm?.invocations.remove(invocationId);
+    final invocation = realm?.invocations.remove(invocationId);
+    if (invocation != null) {
+      _releaseRetryThrottleLease(invocationId);
+    }
+    return invocation;
   }
 
   bool _touchInvocation(String realmUri, int invocationId) {
@@ -793,6 +1151,7 @@ class RouterStateStore {
     if (realm == null || invocation == null) {
       return;
     }
+    _releaseRetryThrottleLease(invocationId);
     realm.bumpVersion();
     _eventController.add(
       StateChangedEvent(realmUri: realmUri, version: realm.version),
@@ -856,6 +1215,7 @@ class RouterStateStore {
     _cancelInvocationTimeout(realmUri, invocationId);
     if (!waitForAck) {
       realm.invocations.remove(invocationId);
+      _releaseRetryThrottleLease(invocationId);
     }
     return true;
   }
@@ -1032,6 +1392,43 @@ class RouterStateStore {
     }
     return null;
   }
+}
+
+typedef _RetryDeduplicationKey = ({
+  String realmUri,
+  int registrationId,
+  String transactionHash,
+});
+
+class _RetryThrottleLease {
+  const _RetryThrottleLease({
+    required this.invocationId,
+    required this.expiresAt,
+  });
+
+  final int invocationId;
+  final DateTime expiresAt;
+}
+
+class _PendingRetryDebounce {
+  _PendingRetryDebounce({
+    required this.realmUri,
+    required this.callerSessionId,
+    required this.requestId,
+    required this.procedure,
+    required this.options,
+    required this.replyPort,
+    required this.expiresAt,
+  });
+
+  final String realmUri;
+  final int callerSessionId;
+  final int requestId;
+  final String procedure;
+  final Map<String, Object?> options;
+  final SendPort replyPort;
+  final DateTime expiresAt;
+  Timer? timer;
 }
 
 /// Holds all mutable state for a single realm.

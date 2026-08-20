@@ -19,7 +19,7 @@ abstract class PPTOptions {
       );
     }
 
-    if (pptScheme! == 'wamp' &&
+    if (pptScheme == 'wamp' &&
         (pptSerializer == null || pptSerializer != 'cbor')) {
       // WAMP E2EE works over cbor or flatbuffers, but we support only cbor
       // So checking only against it

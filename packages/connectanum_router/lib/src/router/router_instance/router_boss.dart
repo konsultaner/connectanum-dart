@@ -1616,6 +1616,15 @@ class _RouterBoss {
       pendingInvocationCount: stateMetrics.pendingInvocationCount,
       totalInvocationsDispatched: stateMetrics.totalInvocationsDispatched,
       totalPublicationsRouted: stateMetrics.totalPublicationsRouted,
+      retryDeduplicationActiveCount: stateMetrics.retryDeduplicationActiveCount,
+      totalRetryDeduplicationThrottleRejects:
+          stateMetrics.totalRetryDeduplicationThrottleRejects,
+      totalRetryDeduplicationDebounceReplacements:
+          stateMetrics.totalRetryDeduplicationDebounceReplacements,
+      totalRetryDeduplicationCapacityRejects:
+          stateMetrics.totalRetryDeduplicationCapacityRejects,
+      totalRetryDeduplicationExpirations:
+          stateMetrics.totalRetryDeduplicationExpirations,
       activeConnections: _connectionOwners.length,
       workerCount: _workers.length,
       alerts: _buildAlertMetrics(),
