@@ -178,6 +178,11 @@ abstract class _NativeTransportBase extends AbstractTransport
     if (message is Goodbye) {
       _goodbyeSent = true;
     }
+    final fragments = _serializer.serializeFragments(message);
+    if (fragments != null &&
+        _runtime.trySendMessageSegments(connectionId, fragments)) {
+      return;
+    }
     _runtime.sendMessage(connectionId, _encodeMessage(message));
   }
 
@@ -816,6 +821,15 @@ class NativeWebSocketTransport extends _NativeTransportBase
     }
     if (message is Goodbye) {
       _goodbyeSent = true;
+    }
+    final fragments = _serializer.serializeFragments(message);
+    if (fragments != null &&
+        _runtime.trySendMessageSegments(
+          connectionId,
+          fragments,
+          fragmentSize: _fragmentSize ?? 0,
+        )) {
+      return;
     }
     final encoded = _encodeMessage(message);
     final fragmentSize = _fragmentSize;

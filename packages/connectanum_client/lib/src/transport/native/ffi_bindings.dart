@@ -196,9 +196,48 @@ typedef CtSendMessageNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtSendMessageDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
 
+typedef CtOutboundBufferAllocNative =
+    ffi.Pointer<ffi.Uint8> Function(ffi.Int32);
+typedef CtOutboundBufferAllocDart = ffi.Pointer<ffi.Uint8> Function(int);
+
+typedef CtOutboundBufferFreeNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtOutboundBufferFreeDart = int Function(ffi.Pointer<ffi.Uint8>, int);
+
+typedef CtSendMessageOwnedNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtSendMessageOwnedDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
+typedef CtSendMessageSegmentsOwnedNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Pointer<ffi.Uint8>>,
+      ffi.Pointer<ffi.Int32>,
+      ffi.Int32,
+      ffi.Int32,
+    );
+typedef CtSendMessageSegmentsOwnedDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Pointer<ffi.Uint8>>,
+      ffi.Pointer<ffi.Int32>,
+      int,
+      int,
+    );
+
 typedef CtSendMessageFragmentedNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32, ffi.Int32);
 typedef CtSendMessageFragmentedDart =
+    int Function(int, ffi.Pointer<ffi.Uint8>, int, int);
+
+typedef CtSendMessageFragmentedOwnedNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Int32,
+    );
+typedef CtSendMessageFragmentedOwnedDart =
     int Function(int, ffi.Pointer<ffi.Uint8>, int, int);
 
 typedef CtFileOpenNative =
@@ -496,11 +535,45 @@ class CtFfiBindings {
           .lookupFunction<CtSendMessageNative, CtSendMessageDart>(
             'ct_send_message',
           ),
+      ctOutboundBufferAlloc = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtOutboundBufferAllocNative,
+              CtOutboundBufferAllocDart
+            >('ct_outbound_buffer_alloc'),
+      ),
+      ctOutboundBufferFree = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtOutboundBufferFreeNative,
+              CtOutboundBufferFreeDart
+            >('ct_outbound_buffer_free'),
+      ),
+      ctSendMessageOwned = _tryLookup(
+        () => library
+            .lookupFunction<CtSendMessageOwnedNative, CtSendMessageOwnedDart>(
+              'ct_send_message_owned',
+            ),
+      ),
+      ctSendMessageSegmentsOwned = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtSendMessageSegmentsOwnedNative,
+              CtSendMessageSegmentsOwnedDart
+            >('ct_send_message_segments_owned'),
+      ),
       ctSendMessageFragmented = library
           .lookupFunction<
             CtSendMessageFragmentedNative,
             CtSendMessageFragmentedDart
           >('ct_send_message_fragmented'),
+      ctSendMessageFragmentedOwned = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtSendMessageFragmentedOwnedNative,
+              CtSendMessageFragmentedOwnedDart
+            >('ct_send_message_fragmented_owned'),
+      ),
       ctFileOpen = library.lookupFunction<CtFileOpenNative, CtFileOpenDart>(
         'ct_file_open',
       ),
@@ -554,10 +627,23 @@ class CtFfiBindings {
   final CtSha256FinalizeDart ctSha256Finalize;
   final CtSha256ReleaseDart ctSha256Release;
   final CtSendMessageDart ctSendMessage;
+  final CtOutboundBufferAllocDart? ctOutboundBufferAlloc;
+  final CtOutboundBufferFreeDart? ctOutboundBufferFree;
+  final CtSendMessageOwnedDart? ctSendMessageOwned;
+  final CtSendMessageSegmentsOwnedDart? ctSendMessageSegmentsOwned;
   final CtSendMessageFragmentedDart ctSendMessageFragmented;
+  final CtSendMessageFragmentedOwnedDart? ctSendMessageFragmentedOwned;
   final CtFileOpenDart ctFileOpen;
   final CtFileReleaseDart ctFileRelease;
   final CtSendMessageFileSegmentDart ctSendMessageFileSegment;
   final CtSendMessageNativeE2eeFileSegmentDart
   ctSendMessageNativeE2eeFileSegment;
+}
+
+T? _tryLookup<T>(T Function() lookup) {
+  try {
+    return lookup();
+  } on ArgumentError {
+    return null;
+  }
 }

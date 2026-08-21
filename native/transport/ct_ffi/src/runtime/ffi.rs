@@ -4520,6 +4520,125 @@ pub extern "C" fn ct_send_message(
 }
 
 #[no_mangle]
+pub extern "C" fn ct_outbound_buffer_alloc(payload_len: c_int) -> *mut u8 {
+    if payload_len <= 0 {
+        return ptr::null_mut();
+    }
+    let Ok(layout) = std::alloc::Layout::array::<u8>(payload_len as usize) else {
+        return ptr::null_mut();
+    };
+    unsafe { std::alloc::alloc(layout) }
+}
+
+unsafe fn take_owned_outbound_buffer(
+    payload_ptr: *mut u8,
+    payload_len: c_int,
+) -> Result<Bytes, c_int> {
+    if payload_len < 0 || (payload_len > 0 && payload_ptr.is_null()) {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    if payload_len == 0 {
+        if payload_ptr.is_null() {
+            return Ok(Bytes::new());
+        }
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let payload_len = payload_len as usize;
+    let payload = unsafe { Vec::from_raw_parts(payload_ptr, payload_len, payload_len) };
+    Ok(Bytes::from(payload))
+}
+
+#[no_mangle]
+pub extern "C" fn ct_outbound_buffer_free(payload_ptr: *mut u8, payload_len: c_int) -> c_int {
+    match unsafe { take_owned_outbound_buffer(payload_ptr, payload_len) } {
+        Ok(_) => SUCCESS,
+        Err(error) => error,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_send_message_owned(
+    connection_id: c_int,
+    payload_ptr: *mut u8,
+    payload_len: c_int,
+) -> c_int {
+    let payload = match unsafe { take_owned_outbound_buffer(payload_ptr, payload_len) } {
+        Ok(payload) => payload,
+        Err(error) => return error,
+    };
+    match send_wamp_message(ConnectionId(connection_id as u32), payload) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+unsafe fn take_owned_outbound_segments(
+    segment_ptrs: *const *mut u8,
+    segment_lens: *const c_int,
+    segment_count: c_int,
+) -> Result<Vec<Bytes>, c_int> {
+    if segment_count <= 0 || segment_ptrs.is_null() || segment_lens.is_null() {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let mut segments = Vec::with_capacity(segment_count as usize);
+    let mut first_error = None;
+    for index in 0..segment_count as usize {
+        let payload_ptr = unsafe { *segment_ptrs.add(index) };
+        let payload_len = unsafe { *segment_lens.add(index) };
+        match unsafe { take_owned_outbound_buffer(payload_ptr, payload_len) } {
+            Ok(payload) => segments.push(payload),
+            Err(error) => {
+                first_error.get_or_insert(error);
+            }
+        };
+    }
+    match first_error {
+        Some(error) => Err(error),
+        None => Ok(segments),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_send_message_segments_owned(
+    connection_id: c_int,
+    segment_ptrs: *const *mut u8,
+    segment_lens: *const c_int,
+    segment_count: c_int,
+    fragment_len: c_int,
+) -> c_int {
+    if fragment_len < 0 {
+        let _ = unsafe { take_owned_outbound_segments(segment_ptrs, segment_lens, segment_count) };
+        return ERR_INVALID_ARGUMENT;
+    }
+    let mut segments =
+        match unsafe { take_owned_outbound_segments(segment_ptrs, segment_lens, segment_count) } {
+            Ok(segments) => segments,
+            Err(error) => return error,
+        };
+    if fragment_len > 0 {
+        let fragment_len = fragment_len as usize;
+        let fragment_count: usize = segments
+            .iter()
+            .map(|segment| segment.len().div_ceil(fragment_len))
+            .sum();
+        let mut fragments = Vec::with_capacity(fragment_count);
+        for segment in segments {
+            let mut offset = 0usize;
+            while offset < segment.len() {
+                let end = (offset + fragment_len).min(segment.len());
+                fragments.push(segment.slice(offset..end));
+                offset = end;
+            }
+        }
+        segments = fragments;
+    }
+    match send_wamp_segments(ConnectionId(connection_id as u32), segments) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn ct_send_message_fragmented(
     connection_id: c_int,
     payload_ptr: *const u8,
@@ -4539,6 +4658,44 @@ pub extern "C" fn ct_send_message_fragmented(
         let slice = unsafe { std::slice::from_raw_parts(payload_ptr, payload_len as usize) };
         Bytes::copy_from_slice(slice)
     };
+    if payload.is_empty() || fragment_len as usize >= payload.len() {
+        return match send_wamp_message(connection_id, payload) {
+            Ok(()) => SUCCESS,
+            Err(err) => map_error(err),
+        };
+    }
+    let fragment_len = fragment_len as usize;
+    let mut segments = Vec::with_capacity(payload.len().div_ceil(fragment_len));
+    let mut offset = 0usize;
+    while offset < payload.len() {
+        let end = (offset + fragment_len).min(payload.len());
+        segments.push(payload.slice(offset..end));
+        offset = end;
+    }
+    match send_wamp_segments(connection_id, segments) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_send_message_fragmented_owned(
+    connection_id: c_int,
+    payload_ptr: *mut u8,
+    payload_len: c_int,
+    fragment_len: c_int,
+) -> c_int {
+    if fragment_len <= 0 {
+        if payload_len >= 0 && (payload_len == 0 || !payload_ptr.is_null()) {
+            let _ = unsafe { take_owned_outbound_buffer(payload_ptr, payload_len) };
+        }
+        return ERR_INVALID_ARGUMENT;
+    }
+    let payload = match unsafe { take_owned_outbound_buffer(payload_ptr, payload_len) } {
+        Ok(payload) => payload,
+        Err(error) => return error,
+    };
+    let connection_id = ConnectionId(connection_id as u32);
     if payload.is_empty() || fragment_len as usize >= payload.len() {
         return match send_wamp_message(connection_id, payload) {
             Ok(()) => SUCCESS,
@@ -5625,6 +5782,53 @@ mod tests {
         let msgpack_payload = msgpack_single_binary_argument(&msgpack).unwrap();
         assert_eq!(msgpack_payload, b"abc");
         assert_eq!(msgpack_payload.as_ptr(), msgpack[3..].as_ptr());
+    }
+
+    #[test]
+    fn owned_outbound_buffer_becomes_bytes_without_copying() {
+        let payload_ptr = ct_outbound_buffer_alloc(4);
+        assert!(!payload_ptr.is_null());
+        unsafe {
+            std::ptr::copy_nonoverlapping([1_u8, 2, 3, 4].as_ptr(), payload_ptr, 4);
+        }
+
+        let payload = unsafe { take_owned_outbound_buffer(payload_ptr, 4) }.unwrap();
+
+        assert_eq!(payload.as_ref(), [1, 2, 3, 4]);
+        assert_eq!(payload.as_ptr(), payload_ptr);
+    }
+
+    #[test]
+    fn owned_outbound_buffer_validates_empty_and_missing_allocations() {
+        assert!(ct_outbound_buffer_alloc(0).is_null());
+        assert!(ct_outbound_buffer_alloc(-1).is_null());
+        assert_eq!(ct_outbound_buffer_free(ptr::null_mut(), 0), SUCCESS);
+        assert_eq!(
+            ct_outbound_buffer_free(ptr::null_mut(), 1),
+            ERR_INVALID_ARGUMENT
+        );
+    }
+
+    #[test]
+    fn owned_outbound_segments_preserve_each_allocation() {
+        let first_ptr = ct_outbound_buffer_alloc(2);
+        let second_ptr = ct_outbound_buffer_alloc(3);
+        unsafe {
+            std::ptr::copy_nonoverlapping([1_u8, 2].as_ptr(), first_ptr, 2);
+            std::ptr::copy_nonoverlapping([3_u8, 4, 5].as_ptr(), second_ptr, 3);
+        }
+        let pointers = [first_ptr, second_ptr];
+        let lengths = [2, 3];
+
+        let segments =
+            unsafe { take_owned_outbound_segments(pointers.as_ptr(), lengths.as_ptr(), 2) }
+                .unwrap();
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].as_ref(), [1, 2]);
+        assert_eq!(segments[1].as_ref(), [3, 4, 5]);
+        assert_eq!(segments[0].as_ptr(), first_ptr);
+        assert_eq!(segments[1].as_ptr(), second_ptr);
     }
 
     #[test]

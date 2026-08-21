@@ -538,6 +538,14 @@ class NativeClientRuntime {
 
   void sendMessage(int connectionId, Uint8List payload) {
     ensureStarted();
+    final ownedResult = _sendOwnedMessage(connectionId, payload);
+    if (ownedResult != null) {
+      if (ownedResult != NativeTransportErrorCode.success) {
+        _throwForError(ownedResult, 'Failed to send native transport message');
+      }
+      return;
+    }
+
     final dataPtr = malloc<ffi.Uint8>(payload.length);
     try {
       dataPtr.asTypedList(payload.length).setAll(0, payload);
@@ -567,6 +575,21 @@ class NativeClientRuntime {
         'fragmentSize must be > 0',
       );
     }
+    final ownedResult = _sendOwnedMessage(
+      connectionId,
+      payload,
+      fragmentSize: fragmentSize,
+    );
+    if (ownedResult != null) {
+      if (ownedResult != NativeTransportErrorCode.success) {
+        _throwForError(
+          ownedResult,
+          'Failed to send fragmented native transport message',
+        );
+      }
+      return;
+    }
+
     final dataPtr = malloc<ffi.Uint8>(payload.length);
     try {
       dataPtr.asTypedList(payload.length).setAll(0, payload);
@@ -584,6 +607,119 @@ class NativeClientRuntime {
       }
     } finally {
       malloc.free(dataPtr);
+    }
+  }
+
+  bool trySendMessageSegments(
+    int connectionId,
+    List<Uint8List> segments, {
+    int fragmentSize = 0,
+  }) {
+    ensureStarted();
+    if (segments.isEmpty) {
+      return false;
+    }
+    if (fragmentSize < 0) {
+      throw ArgumentError.value(
+        fragmentSize,
+        'fragmentSize',
+        'fragmentSize must be >= 0',
+      );
+    }
+    final allocate = _bindings.ctOutboundBufferAlloc;
+    final release = _bindings.ctOutboundBufferFree;
+    final sendSegments = _bindings.ctSendMessageSegmentsOwned;
+    if (allocate == null || release == null || sendSegments == null) {
+      return false;
+    }
+
+    final pointers = malloc<ffi.Pointer<ffi.Uint8>>(segments.length);
+    final lengths = malloc<ffi.Int32>(segments.length);
+    var allocated = 0;
+    var consumed = false;
+    try {
+      for (var index = 0; index < segments.length; index += 1) {
+        final segment = segments[index];
+        final segmentPtr = allocate(segment.length);
+        if (segment.isNotEmpty && segmentPtr == ffi.nullptr) {
+          throw NativeTransportException(
+            NativeTransportErrorCode.io,
+            'Failed to allocate native outbound message segment',
+          );
+        }
+        pointers[index] = segmentPtr;
+        lengths[index] = segment.length;
+        allocated += 1;
+        if (segment.isNotEmpty) {
+          segmentPtr.asTypedList(segment.length).setAll(0, segment);
+        }
+      }
+
+      consumed = true;
+      final result = sendSegments(
+        connectionId,
+        pointers,
+        lengths,
+        segments.length,
+        fragmentSize,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to send native transport segments');
+      }
+      return true;
+    } finally {
+      if (!consumed) {
+        for (var index = 0; index < allocated; index += 1) {
+          release(pointers[index], lengths[index]);
+        }
+      }
+      malloc.free(lengths);
+      malloc.free(pointers);
+    }
+  }
+
+  int? _sendOwnedMessage(
+    int connectionId,
+    Uint8List payload, {
+    int? fragmentSize,
+  }) {
+    final allocate = _bindings.ctOutboundBufferAlloc;
+    final release = _bindings.ctOutboundBufferFree;
+    final send = _bindings.ctSendMessageOwned;
+    final sendFragmented = _bindings.ctSendMessageFragmentedOwned;
+    if (allocate == null ||
+        release == null ||
+        send == null ||
+        (fragmentSize != null && sendFragmented == null)) {
+      return null;
+    }
+
+    final payloadPtr = allocate(payload.length);
+    if (payload.isNotEmpty && payloadPtr == ffi.nullptr) {
+      throw NativeTransportException(
+        NativeTransportErrorCode.io,
+        'Failed to allocate native outbound message buffer',
+      );
+    }
+
+    var consumed = false;
+    try {
+      if (payload.isNotEmpty) {
+        payloadPtr.asTypedList(payload.length).setAll(0, payload);
+      }
+      consumed = true;
+      return fragmentSize == null
+          ? send(connectionId, payloadPtr, payload.length)
+          : sendFragmented!(
+              connectionId,
+              payloadPtr,
+              payload.length,
+              fragmentSize,
+            );
+    } finally {
+      if (!consumed) {
+        release(payloadPtr, payload.length);
+      }
     }
   }
 

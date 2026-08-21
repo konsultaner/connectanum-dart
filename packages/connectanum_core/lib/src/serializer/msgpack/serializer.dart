@@ -871,6 +871,27 @@ class Serializer extends AbstractSerializer {
 
   /// Converts a WAMP message object into a uint8 msgpack message
   @override
+  List<Uint8List>? serializeFragments(AbstractMessage message) {
+    if (message is Call) {
+      return _serializeMsgPackPayloadSegments(4, [
+        msgpack_dart.serialize(MessageTypes.codeCall),
+        msgpack_dart.serialize(message.requestId),
+        _serializeCallOptions(message.options),
+        msgpack_dart.serialize(message.procedure),
+      ], message);
+    }
+    if (message is Publish) {
+      return _serializeMsgPackPayloadSegments(4, [
+        msgpack_dart.serialize(MessageTypes.codePublish),
+        msgpack_dart.serialize(message.requestId),
+        _serializePublish(message.options),
+        msgpack_dart.serialize(message.topic),
+      ], message);
+    }
+    return null;
+  }
+
+  @override
   Uint8List serialize(AbstractMessage message) {
     if (message is Hello) {
       return _buildMessage(3, [
@@ -1127,6 +1148,47 @@ class Serializer extends AbstractSerializer {
       builder.add(payload.payload);
     }
     return builder.takeBytes();
+  }
+
+  List<Uint8List>? _serializeMsgPackPayloadSegments(
+    int fixedLength,
+    List<Uint8List> fixedParts,
+    AbstractMessageWithPayload message,
+  ) {
+    if (message.lazyPayloadEncoding != LazyPayloadEncoding.messagePack) {
+      return null;
+    }
+    final encodedArgs = message.debugEncodedArgumentsBytes;
+    final encodedKwargs = message.debugEncodedArgumentsKeywordsBytes;
+    if (encodedArgs == null && encodedKwargs == null) {
+      return null;
+    }
+
+    final arguments = encodedArgs == null
+        ? _messagePackEncodablePayloadFragment(message.wireArguments)
+        : null;
+    final argumentsKeywords = encodedKwargs == null
+        ? _messagePackEncodablePayloadFragment(message.wireArgumentsKeywords)
+        : null;
+    final argsBytes =
+        encodedArgs ?? msgpack_dart.serialize(arguments ?? const <dynamic>[]);
+    final kwargsBytes =
+        encodedKwargs ??
+        (argumentsKeywords == null
+            ? null
+            : msgpack_dart.serialize(argumentsKeywords));
+    final prefix = BytesBuilder(copy: false)
+      ..add([
+        _fixArrayHeader(fixedLength + (kwargsBytes == null ? 1 : 2)),
+      ]);
+    for (final part in fixedParts) {
+      prefix.add(part);
+    }
+    return <Uint8List>[
+      prefix.takeBytes(),
+      argsBytes,
+      ?kwargsBytes,
+    ];
   }
 
   int _fixArrayHeader(int length) {

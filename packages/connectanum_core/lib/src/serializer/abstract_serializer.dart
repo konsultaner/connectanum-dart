@@ -10,6 +10,10 @@ abstract class AbstractSerializer {
   /// send either a string or a binary message.
   dynamic serialize(AbstractMessage message);
 
+  /// Returns encoded message fragments when the serializer can preserve an
+  /// already-encoded payload without assembling one contiguous frame.
+  List<Uint8List>? serializeFragments(AbstractMessage message) => null;
+
   /// Deserialize a given message
   AbstractMessage? deserialize(Uint8List? message);
 

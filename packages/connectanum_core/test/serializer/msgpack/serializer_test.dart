@@ -56,6 +56,64 @@ void main() {
         ]),
       );
     });
+    test(
+      'Call exposes lazy MsgPack arguments as an unchanged frame segment',
+      () {
+        final argumentsBytes = Uint8List.fromList(
+          msgpack_dart.serialize(['segmented']),
+        );
+        final argumentsKeywordsBytes = Uint8List.fromList(
+          msgpack_dart.serialize({'worker': 1}),
+        );
+        final call = Call(7814135, 'com.myapp.ping');
+        call.setLazyPayload(
+          argumentsBytes: argumentsBytes,
+          argumentsDecoder: (_) => throw StateError('should not decode args'),
+          argumentsKeywordsBytes: argumentsKeywordsBytes,
+          argumentsKeywordsDecoder: (_) =>
+              throw StateError('should not decode kwargs'),
+          encoding: LazyPayloadEncoding.messagePack,
+        );
+
+        final fragments = serializer.serializeFragments(call)!;
+        final joined = BytesBuilder(copy: false);
+        for (final fragment in fragments) {
+          joined.add(fragment);
+        }
+
+        expect(fragments, hasLength(3));
+        expect(fragments[1], same(argumentsBytes));
+        expect(fragments[2], same(argumentsKeywordsBytes));
+        expect(joined.takeBytes(), orderedEquals(serializer.serialize(call)));
+      },
+    );
+    test(
+      'Publish exposes lazy MsgPack arguments as an unchanged frame segment',
+      () {
+        final argumentsBytes = Uint8List.fromList(
+          msgpack_dart.serialize(['segmented']),
+        );
+        final publish = Publish(239714735, 'com.myapp.mytopic1');
+        publish.setLazyPayload(
+          argumentsBytes: argumentsBytes,
+          argumentsDecoder: (_) => throw StateError('should not decode args'),
+          encoding: LazyPayloadEncoding.messagePack,
+        );
+
+        final fragments = serializer.serializeFragments(publish)!;
+        final joined = BytesBuilder(copy: false);
+        for (final fragment in fragments) {
+          joined.add(fragment);
+        }
+
+        expect(fragments, hasLength(2));
+        expect(fragments.last, same(argumentsBytes));
+        expect(
+          joined.takeBytes(),
+          orderedEquals(serializer.serialize(publish)),
+        );
+      },
+    );
     test('Call reuses lazy MsgPack kwargs bytes without decoding', () {
       final call = Call(7814135, 'com.myapp.ping');
       call.setLazyPayload(

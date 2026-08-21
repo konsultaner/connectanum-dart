@@ -895,6 +895,27 @@ class Serializer extends AbstractSerializer {
   }
 
   @override
+  List<Uint8List>? serializeFragments(AbstractMessage message) {
+    if (message is Call) {
+      return _serializeCborPayloadSegments(4, [
+        MessageTypes.codeCall,
+        message.requestId,
+        _serializeCallOptions(message.options),
+        message.procedure,
+      ], message);
+    }
+    if (message is Publish) {
+      return _serializeCborPayloadSegments(4, [
+        MessageTypes.codePublish,
+        message.requestId,
+        _serializePublish(message.options),
+        message.topic,
+      ], message);
+    }
+    return null;
+  }
+
+  @override
   Uint8List serialize(AbstractMessage message) {
     if (message is Hello) {
       return Uint8List.fromList(
@@ -1264,6 +1285,26 @@ class Serializer extends AbstractSerializer {
     List<Object?> fixedValues,
     AbstractMessageWithPayload message,
   ) {
+    final segments = _serializeCborPayloadSegments(
+      fixedLength,
+      fixedValues,
+      message,
+    );
+    if (segments == null) {
+      return null;
+    }
+    final builder = BytesBuilder(copy: false);
+    for (final segment in segments) {
+      builder.add(segment);
+    }
+    return builder.takeBytes();
+  }
+
+  List<Uint8List>? _serializeCborPayloadSegments(
+    int fixedLength,
+    List<Object?> fixedValues,
+    AbstractMessageWithPayload message,
+  ) {
     final payloadFragments = _lazyCborPayloadFragments(message);
     final binaryArgument = payloadFragments == null
         ? _materializedSingleBinaryArgument(message)
@@ -1271,26 +1312,24 @@ class Serializer extends AbstractSerializer {
     if (payloadFragments == null && binaryArgument == null) {
       return null;
     }
-    final builder = BytesBuilder(copy: false)
+
+    final prefix = BytesBuilder(copy: false)
       ..add([
         _fixArrayHeader(
           fixedLength + (payloadFragments?.length ?? 1),
         ),
       ]);
     for (final value in fixedValues) {
-      builder.add(_encodeCborValue(value));
+      prefix.add(_encodeCborValue(value));
     }
     if (payloadFragments != null) {
-      for (final fragment in payloadFragments) {
-        builder.add(fragment);
-      }
-    } else {
-      builder
-        ..add(const [0x81])
-        ..add(_encodeCborByteStringHeader(binaryArgument!.length))
-        ..add(binaryArgument);
+      return <Uint8List>[prefix.takeBytes(), ...payloadFragments];
     }
-    return builder.takeBytes();
+
+    prefix
+      ..add(const [0x81])
+      ..add(_encodeCborByteStringHeader(binaryArgument!.length));
+    return <Uint8List>[prefix.takeBytes(), binaryArgument];
   }
 
   Uint8List? _materializedSingleBinaryArgument(

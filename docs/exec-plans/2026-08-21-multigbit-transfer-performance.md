@@ -148,7 +148,25 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   insertion. A deterministic same-shard regression, all 63 ordinary FFI tests,
   50 consecutive focused real-router repetitions, the full 30-test transport
   integration, `bin/test-fast`, and full `bin/verify` pass locally; fresh hosted
-  evidence remains pending for the concurrency correction.
+  CI, package, native artifact, Router Image, and standard WAMP evidence passes
+  at `799ce1d0`. Heavy diagnostics stalled once in the first TLS file sample,
+  then passed unchanged on attempt two. Clear native MessagePack/CBOR file paths
+  reach 2.87/2.40 Gbit/s, bounded TLS/WebSocket paths reach 2.17/2.20 Gbit/s,
+  and E2EE remains a measured boundary at 353 Mbit/s. Native large RawSocket
+  MessagePack reaches 3.43 Gbit/s one-way, while hosted native CBOR remains below
+  target at 1.54 Gbit/s and Dart MessagePack/CBOR reach 1.76/0.92 Gbit/s. The
+  exact-head content audit and protected `master` strict audit both pass.
+- Native Call and Publish request frames with retained MessagePack or CBOR
+  payloads now remain segmented through serializer output and the native send
+  queue. Dart fills exact-size Rust-owned buffers once; RawSocket and WebSocket
+  consume the resulting `Bytes` without a second FFI-side copy or contiguous
+  frame assembly. Optional symbols retain compatibility with older native
+  libraries. Three final local repetitions produce median one-way response
+  throughput of 8.00 Gbit/s for native 32 MiB MessagePack and 2.97 Gbit/s for
+  native 64 MiB CBOR, versus 3.50/1.56 Gbit/s for Dart. Full `bin/verify`
+  passes; one first-run HTTP/3 direct-JSON helper timeout passed in isolation
+  and did not recur in the unchanged complete retry. Exact-head hosted evidence
+  remains required for the prior 1.54 Gbit/s native CBOR boundary.
 
 ## Plan
 
@@ -206,6 +224,15 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   large-frame routing. The message-store clone releases its shard guard before
   inserting the new handle, with a deterministic same-shard regression and
   repeated real-router evidence.
+- [x] Remove contiguous-frame assembly and the second FFI copy from native
+  retained MessagePack/CBOR Call and Publish sends. Rust-owned exact-size
+  buffers have explicit consume-on-call ownership, serializer reconstruction
+  covers arguments and keyword arguments, and local native 32/64 MiB
+  MessagePack/CBOR medians reach 8.00/2.97 Gbit/s one-way.
+- [x] Complete full local verification for the owned-segment send revision.
+  All 66 ordinary FFI tests, serializer/native transport regressions, live WAMP
+  integration, the 467-test router suite, consumer smokes, remote auth,
+  zero-copy follow-ups, and Chrome Dart2Wasm pass.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

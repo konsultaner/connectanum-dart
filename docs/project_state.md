@@ -90,8 +90,37 @@ lock and the router subsequently stopped making progress. Cloning now copies the
 the new handle. A deterministic same-shard regression, all 63 ordinary FFI
 tests, 50 consecutive focused real-router reproductions, the complete 30-test
 WAMP transport integration, `bin/test-fast`, and full `bin/verify` pass. Fresh
-exact-head hosted evidence remains required for this native concurrency
-correction.
+exact-head CI `32520641861`, Dart Package Publish Dry Run `32520693668`, WAMP
+Profile Benchmarks `32520699784`, Native Artifacts `32520714560`, and Router
+Image dry run `32520722101` pass at `799ce1d0`. Heavy diagnostics
+`32520707100` stalled once in the first TLS file sample, then passed unchanged
+on attempt two; its clear native MessagePack/CBOR file paths reach 2.87/2.40
+Gbit/s, bounded TLS/WebSocket paths reach 2.17/2.20 Gbit/s, and native AES-GCM
+E2EE remains a measured boundary at 353 Mbit/s. Native large RawSocket
+MessagePack reaches 3.43 Gbit/s one-way, while native CBOR remains below target
+at 1.54 Gbit/s and Dart MessagePack/CBOR reach 1.76/0.92 Gbit/s. The exact-head
+deployment-content audit and protected `master` strict audit both pass.
+
+Native Call and Publish sends with retained MessagePack or CBOR payload bytes
+now avoid contiguous WAMP-frame assembly and the second Dart-to-Rust payload
+copy. Serializers expose exact prefix/argument/keyword segments, Dart fills
+exact-size Rust-owned buffers once, and the native RawSocket/WebSocket writers
+consume those `Bytes` segments directly. Optional symbol lookup preserves the
+validated copying fallback with older native libraries; every accepted native
+buffer has one consume/free owner on both success and error paths. Exact
+serializer reconstruction tests cover Call, Publish, arguments, and keyword
+arguments; owned-buffer pointer-identity tests, all 46 focused native transport
+tests, the 30-test live WAMP matrix, and `bin/test-fast` pass. Three final local
+repetitions of the 32/64 MiB RawSocket matrix produce median one-way response
+throughput of 8.00 Gbit/s for native MessagePack and 2.97 Gbit/s for native
+CBOR, versus 3.50/1.56 Gbit/s for Dart. Native CBOR median latency is 35.31 ms
+versus the 38.87 ms pre-change sample. Full `bin/verify` passes, including all
+66 ordinary FFI tests, isolated consumers, the 467-test router suite, remote
+auth, zero-copy forwarding follow-ups, and Chrome Dart2Wasm. The first full run
+hit one transient 30-second HTTP/3 direct-JSON helper timeout; the exact test
+passed alone in under one second and the unchanged complete retry passed.
+Exact-head hosted evidence remains required because the previous Linux result
+was only 1.54 Gbit/s for native CBOR.
 
 Corrected exact-head hosted evidence at `9bf8cbb8` is complete. CI
 `32500570350`, WAMP Profile Benchmarks `32500580587`, WAMP Profile Diagnostics
