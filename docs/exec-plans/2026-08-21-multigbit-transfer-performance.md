@@ -81,6 +81,9 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   unsupported CPUs. A local 4 MiB transform probe improved AES-GCM from about
   23 ms to about 2.5 ms and SHA-256 from about 9 ms to about 1.75 ms. A chunk
   sweep found 4 MiB remains the best tested encrypted transfer granularity.
+  The first exact-head artifact rehearsal passed Linux and macOS but confirmed
+  GNU SHA assembly cannot compile with Windows MSVC, so the assembly feature is
+  target-scoped to AArch64 Linux/macOS and Windows retains portable SHA-256.
 - The latest local canonical file matrix moves 1 GiB per native workload and
   passes every transport and metric gate: clear RawSocket reaches 8.94 Gbit/s
   with MessagePack and 6.89 Gbit/s with CBOR, TLS RawSocket CBOR reaches 6.43
@@ -152,6 +155,7 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   127 Rust core tests, 61 ordinary Rust FFI tests, the focused `ffi-test`
   metrics regression, 372 Dart core tests, 118 MCP tests, 105 benchmark tests,
   the 466-test router suite, isolated consumers, live WAMP/MCP smokes, remote
-  auth, zero-copy router follow-ups, and Chrome Dart2Wasm.
+  auth, zero-copy router follow-ups, and Chrome Dart2Wasm. A second full run
+  passes after target-scoping SHA assembly away from Windows MSVC.
 - [ ] Complete exact-head hosted workflow evidence and the strict deployment
   audit for the E2EE, crypto-dispatch, and heavy-scenario revision.

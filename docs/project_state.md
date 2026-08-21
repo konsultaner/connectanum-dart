@@ -40,8 +40,13 @@ Full post-change `bin/verify` passes on 2026-08-21 with 127 Rust core tests, 61
 ordinary Rust FFI tests, the focused `ffi-test` metrics regression, 372 Dart
 core tests, 118 MCP tests, 105 benchmark tests, the 466-test router suite,
 isolated consumers, live WAMP/MCP smokes, remote auth, zero-copy router
-follow-ups, and Chrome Dart2Wasm. Exact-head hosted workflows and the strict
-audit remain pending for this implementation revision.
+follow-ups, and Chrome Dart2Wasm. The first exact-head Native Artifacts rehearsal
+at `66457ae9` passed Linux x64/arm64 and macOS x64/arm64 but exposed that the
+globally enabled SHA assembly dependency cannot compile its GNU sources with
+Windows MSVC. SHA assembly is now target-scoped to AArch64 Linux/macOS; Cargo
+dependency graphs confirm Windows uses the portable implementation, and a
+second full `bin/verify` passes. Corrected exact-head hosted workflows and the
+strict audit remain pending for this implementation revision.
 
 At `1e3f1d743c448a9de680e6edad55f629f69e7bb9`, the benchmark file receiver
 inherits the configured scenario deadline while its public client default stays

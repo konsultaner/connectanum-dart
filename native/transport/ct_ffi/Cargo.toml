@@ -29,6 +29,9 @@ futures-util = { version = "0.3", default-features = false, features = ["std"], 
 rand_core = { version = "0.6", features = ["getrandom"] }
 aes-gcm = "0.10"
 xsalsa20poly1305 = "0.9"
+sha2 = "0.10"
+
+[target.'cfg(all(target_arch = "aarch64", any(target_os = "macos", target_os = "linux")))'.dependencies]
 sha2 = { version = "0.10", features = ["asm"] }
 
 [dev-dependencies]
