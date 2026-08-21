@@ -136,6 +136,10 @@ typedef CtForwardResultFromYieldNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64, ffi.Int32);
 typedef CtForwardResultFromYieldDart = int Function(int, int, int, int);
 
+typedef CtForwardResultFromCallNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64);
+typedef CtForwardResultFromCallDart = int Function(int, int, int);
+
 typedef CtForwardErrorFromErrorNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64, ffi.Uint64);
 typedef CtForwardErrorFromErrorDart = int Function(int, int, int, int);
@@ -954,6 +958,11 @@ class CtFfiBindings {
             CtForwardResultFromYieldNative,
             CtForwardResultFromYieldDart
           >('ct_forward_result_from_yield'),
+      ctForwardResultFromCall = library
+          .lookupFunction<
+            CtForwardResultFromCallNative,
+            CtForwardResultFromCallDart
+          >('ct_forward_result_from_call'),
       ctForwardErrorFromError = library
           .lookupFunction<
             CtForwardErrorFromErrorNative,
@@ -1202,6 +1211,7 @@ class CtFfiBindings {
   final CtForwardPublishEventDart ctForwardPublishEvent;
   final CtForwardCallInvocationDart ctForwardCallInvocation;
   final CtForwardResultFromYieldDart ctForwardResultFromYield;
+  final CtForwardResultFromCallDart ctForwardResultFromCall;
   final CtForwardErrorFromErrorDart ctForwardErrorFromError;
   final CtSendMessageDart ctSendMessage;
   final CtApplyRouterConfigDart ctApplyRouterConfig;

@@ -1425,6 +1425,36 @@ fn encode_result_segments(
     }
 }
 
+fn encode_result_segments_from_call(
+    message: &StoredMessage,
+    request_id: u64,
+) -> Result<Vec<Bytes>, c_int> {
+    let payload = match &message.message {
+        WampMessage::Call { payload, .. } => payload,
+        _ => return Err(ERR_INVALID_ARGUMENT),
+    };
+    let details = std::collections::BTreeMap::<SerdeValue, SerdeValue>::new();
+    match message.serializer {
+        RawSocketSerializer::Json => {
+            let details_json = serde_json::to_vec(&details).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            Ok(build_result_segments_json(
+                payload,
+                request_id,
+                Bytes::from(details_json),
+            ))
+        }
+        RawSocketSerializer::MessagePack => {
+            let details_msgpack = rmp_serde::to_vec(&details).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            build_result_segments_msgpack(payload, request_id, details_msgpack)
+        }
+        RawSocketSerializer::Cbor => {
+            let details_cbor = serde_cbor::to_vec(&details).map_err(|_| ERR_INVALID_ARGUMENT)?;
+            build_result_segments_cbor(payload, request_id, details_cbor)
+        }
+        _ => Err(ERR_UNSUPPORTED),
+    }
+}
+
 fn build_error_segments_json(
     payload: &ct_core::WampPayload,
     request_type: u64,
@@ -5509,6 +5539,30 @@ pub extern "C" fn ct_forward_result_from_yield(
 }
 
 #[no_mangle]
+pub extern "C" fn ct_forward_result_from_call(
+    handle: c_int,
+    connection_id: c_int,
+    request_id: u64,
+) -> c_int {
+    if handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let handle_u32 = handle as u32;
+    let segments = match with_message(handle_u32, |msg| {
+        encode_result_segments_from_call(msg, request_id)
+    }) {
+        Some(Ok(parts)) => parts,
+        Some(Err(code)) => return code,
+        None => return ERR_INVALID_ARGUMENT,
+    };
+    let connection_id = ConnectionId(connection_id as u32);
+    match send_wamp_segments(connection_id, segments) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn ct_forward_error_from_error(
     handle: c_int,
     connection_id: c_int,
@@ -6021,6 +6075,77 @@ mod tests {
                 ["payload"],
                 {"flag": true}
             ])
+        );
+    }
+
+    #[test]
+    fn call_result_segments_reuse_msgpack_and_cbor_payload_slices() {
+        let _guard = test_guard();
+
+        let msgpack_args = Bytes::from(rmp_serde::to_vec(&vec!["payload"]).unwrap());
+        let msgpack_kwargs = Bytes::from(rmp_serde::to_vec(&json!({"flag": true})).unwrap());
+        let msgpack_call = StoredMessage {
+            serializer: RawSocketSerializer::MessagePack,
+            code: 48,
+            raw: StoredRawFrame::from_bytes(Bytes::new()),
+            message: WampMessage::Call {
+                request_id: 1,
+                options: std::collections::BTreeMap::new(),
+                procedure: "bench.rpc.echo".into(),
+                payload: WampPayload {
+                    args: Some(msgpack_args.clone()),
+                    kwargs: Some(msgpack_kwargs.clone()),
+                },
+            },
+            details: None,
+            args: Some(msgpack_args.clone()),
+            kwargs: Some(msgpack_kwargs.clone()),
+        };
+        let msgpack_segments = encode_result_segments_from_call(&msgpack_call, 101).unwrap();
+        assert!(msgpack_segments
+            .iter()
+            .any(|segment| segment.as_ptr() == msgpack_args.as_ptr()));
+        assert!(msgpack_segments
+            .iter()
+            .any(|segment| segment.as_ptr() == msgpack_kwargs.as_ptr()));
+        let decoded_msgpack: serde_json::Value =
+            rmp_serde::from_slice(&concat_segments(msgpack_segments)).unwrap();
+        assert_eq!(
+            decoded_msgpack,
+            json!([50, 101, {}, ["payload"], {"flag": true}])
+        );
+
+        let cbor_args = Bytes::from(serde_cbor::to_vec(&vec!["payload"]).unwrap());
+        let cbor_kwargs = Bytes::from(serde_cbor::to_vec(&json!({"flag": true})).unwrap());
+        let cbor_call = StoredMessage {
+            serializer: RawSocketSerializer::Cbor,
+            code: 48,
+            raw: StoredRawFrame::from_bytes(Bytes::new()),
+            message: WampMessage::Call {
+                request_id: 2,
+                options: std::collections::BTreeMap::new(),
+                procedure: "bench.rpc.echo".into(),
+                payload: WampPayload {
+                    args: Some(cbor_args.clone()),
+                    kwargs: Some(cbor_kwargs.clone()),
+                },
+            },
+            details: None,
+            args: Some(cbor_args.clone()),
+            kwargs: Some(cbor_kwargs.clone()),
+        };
+        let cbor_segments = encode_result_segments_from_call(&cbor_call, 102).unwrap();
+        assert!(cbor_segments
+            .iter()
+            .any(|segment| segment.as_ptr() == cbor_args.as_ptr()));
+        assert!(cbor_segments
+            .iter()
+            .any(|segment| segment.as_ptr() == cbor_kwargs.as_ptr()));
+        let decoded_cbor: serde_json::Value =
+            serde_cbor::from_slice(&concat_segments(cbor_segments)).unwrap();
+        assert_eq!(
+            decoded_cbor,
+            json!([50, 102, {}, ["payload"], {"flag": true}])
         );
     }
 

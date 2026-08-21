@@ -129,6 +129,14 @@ abstract class NativeRuntimeWithHandles implements NativeRuntime {
   /// once the native transport supports them.
 }
 
+abstract class NativeRuntimeWithInternalCallForwarding {
+  void forwardResultFromCall({
+    required int handle,
+    required int connectionId,
+    required int requestId,
+  });
+}
+
 /// Error codes exposed by the native layer.
 abstract final class NativeTransportErrorCode {
   static const success = 0;
@@ -1943,7 +1951,10 @@ abstract final class NativeLibraryLoader {
 }
 
 /// Thin wrapper around the native runtime exposed through ct_ffi.
-class NativeTransportRuntime implements NativeRuntimeWithHandles {
+class NativeTransportRuntime
+    implements
+        NativeRuntimeWithHandles,
+        NativeRuntimeWithInternalCallForwarding {
   factory NativeTransportRuntime({String? libraryPath}) {
     if (_instance != null) {
       throw StateError('NativeTransportRuntime already initialised');
@@ -3461,6 +3472,22 @@ class NativeTransportRuntime implements NativeRuntimeWithHandles {
     );
     if (result != NativeTransportErrorCode.success) {
       _throwForError(result, 'Failed to forward result message');
+    }
+  }
+
+  @override
+  void forwardResultFromCall({
+    required int handle,
+    required int connectionId,
+    required int requestId,
+  }) {
+    final result = _bindings.ctForwardResultFromCall(
+      handle,
+      connectionId,
+      requestId,
+    );
+    if (result != NativeTransportErrorCode.success) {
+      _throwForError(result, 'Failed to forward internal CALL result');
     }
   }
 

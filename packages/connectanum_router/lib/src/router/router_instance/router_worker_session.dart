@@ -1563,6 +1563,7 @@ Future<void> _handleCall({
         message: message,
         dispatch: dispatch,
         connectionId: connectionId,
+        incomingMessage: nativeMessage,
       );
       return;
     }
@@ -1869,6 +1870,7 @@ Future<void> _handleInternalInvocation({
   required call_msg.Call message,
   required InvocationDispatchResult dispatch,
   required int connectionId,
+  NativeIncomingMessage? incomingMessage,
 }) async {
   final realmUri = callerState.realmUri;
   final callerSessionId = callerState.sessionId;
@@ -1885,7 +1887,28 @@ Future<void> _handleInternalInvocation({
     return;
   }
   final replyPort = ReceivePort();
-  final transferredPayload = _transferAbstractMessagePayload(message);
+  var retainedHandle = 0;
+  var retainedHandleTransferred = false;
+  Object? transferredPayload;
+  final nativeMessage = incomingMessage;
+  if (!dispatch.progressiveInvocation &&
+      !dispatch.timeoutForwarded &&
+      nativeMessage != null &&
+      nativeMessage.hasNativeHandle) {
+    retainedHandle = nativeMessage.retainHandle();
+    if (retainedHandle > 0) {
+      transferredPayload = _buildTransferredNativeCallPayload(
+        message: message,
+        incomingMessage: nativeMessage,
+        retainedHandle: retainedHandle,
+      );
+      if (transferredPayload == null) {
+        nativeMessage.releaseRetainedHandle(retainedHandle);
+        retainedHandle = 0;
+      }
+    }
+  }
+  transferredPayload ??= _transferAbstractMessagePayload(message);
   final invocationOptions = Map<String, Object?>.from(
     dispatch.initiatingOptions,
   );
@@ -1912,12 +1935,13 @@ Future<void> _handleInternalInvocation({
     });
     final response = await replyPort.first;
     if (response is Map<String, Object?> && response['type'] == 'result') {
-      await _sendInternalInvocationResult(
+      retainedHandleTransferred = await _sendInternalInvocationResult(
         bossPort: bossPort,
         realmContexts: realmContexts,
         realmUri: realmUri,
         invocationId: dispatch.invocationId,
         calleeSessionId: dispatch.calleeSessionId,
+        retainedNativeHandle: retainedHandle,
         transferredPayload: response[_internalMsgLazyPayload],
         arguments: response['arguments'] as List<dynamic>?,
         argumentsKeywords:
@@ -1960,6 +1984,9 @@ Future<void> _handleInternalInvocation({
     }
   } finally {
     replyPort.close();
+    if (retainedHandle > 0 && !retainedHandleTransferred) {
+      nativeMessage!.releaseRetainedHandle(retainedHandle);
+    }
   }
 }
 
@@ -1982,12 +2009,13 @@ Future<void> _sendCancelAck({
   );
 }
 
-Future<void> _sendInternalInvocationResult({
+Future<bool> _sendInternalInvocationResult({
   required SendPort bossPort,
   required RealmContextCache realmContexts,
   required String realmUri,
   required int invocationId,
   required int calleeSessionId,
+  int retainedNativeHandle = 0,
   Object? transferredPayload,
   List<dynamic>? arguments,
   Map<String, Object?>? argumentsKeywords,
@@ -2002,11 +2030,11 @@ Future<void> _sendInternalInvocationResult({
     final context = realmContexts.contextFor(realmUri);
     final invocation = await context.getInvocation(invocationId);
     if (invocation == null) {
-      return;
+      return false;
     }
     if (invocation.calleeSessionId != calleeSessionId) {
       await context.completeInvocation(invocationId);
-      return;
+      return false;
     }
     final callerPort = invocation.callerInternalSendPort;
     if (invocation.cancelRequested) {
@@ -2032,7 +2060,7 @@ Future<void> _sendInternalInvocationResult({
           arguments: const ['Invocation cancelled'],
         );
       }
-      return;
+      return false;
     }
     if (progress && !invocation.allowProgress) {
       await context.completeInvocation(invocationId);
@@ -2057,21 +2085,29 @@ Future<void> _sendInternalInvocationResult({
           arguments: const ['Invocation does not allow progress'],
         );
       }
-      return;
+      return false;
     }
     if (progress) {
       if (!await context.touchInvocation(invocationId)) {
-        return;
+        return false;
       }
     } else if (await context.completeInvocation(invocationId) == null) {
-      return;
+      return false;
+    }
+    final receivedNativeHandle = _transferredNativeCallHandle(
+      transferredPayload,
+    );
+    if (receivedNativeHandle != null &&
+        (retainedNativeHandle <= 0 ||
+            receivedNativeHandle != retainedNativeHandle)) {
+      transferredPayload = null;
     }
     if (callerPort != null) {
       callerPort.send({
         'type': progress ? 'call_progress' : 'call_result',
         'requestId': invocation.callerRequestId,
         _internalMsgLazyPayload:
-            transferredPayload ??
+            _copyTransferredNativeCallPayload(transferredPayload) ??
             _buildTransferredLazyPayload(
               arguments: arguments,
               argumentsKeywords: argumentsKeywords?.cast<String, dynamic>(),
@@ -2085,7 +2121,7 @@ Future<void> _sendInternalInvocationResult({
         'pptKeyId': pptKeyId,
         'details': details,
       });
-      return;
+      return false;
     }
     final callerConnectionId = await _findConnectionIdForSession(
       context: context,
@@ -2093,7 +2129,23 @@ Future<void> _sendInternalInvocationResult({
       forceRefresh: true,
     );
     if (callerConnectionId == null) {
-      return;
+      return false;
+    }
+    if (retainedNativeHandle > 0 &&
+        receivedNativeHandle == retainedNativeHandle &&
+        !progress &&
+        pptScheme == null &&
+        pptSerializer == null &&
+        pptCipher == null &&
+        pptKeyId == null &&
+        (details == null || details.isEmpty)) {
+      bossPort.send({
+        'type': 'worker_forward_native_internal_result',
+        'connectionId': callerConnectionId,
+        'handle': retainedNativeHandle,
+        'requestId': invocation.callerRequestId,
+      });
+      return true;
     }
     final result = result_msg.Result(
       invocation.callerRequestId,
@@ -2124,6 +2176,7 @@ Future<void> _sendInternalInvocationResult({
       connectionId: callerConnectionId,
       message: result,
     );
+    return false;
   } catch (error) {
     await _sendInternalInvocationError(
       bossPort: bossPort,
@@ -2134,6 +2187,7 @@ Future<void> _sendInternalInvocationResult({
       errorUri: wamp_core.Error.unknown,
       arguments: [error.toString()],
     );
+    return false;
   }
 }
 

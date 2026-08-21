@@ -377,9 +377,16 @@ class RouterSession {
           if (response.options?.custom.isNotEmpty == true) {
             details.addAll(response.options!.custom);
           }
+          final retainedNativePayload = _reuseTransferredNativeCallPayload(
+            response,
+            invocation,
+            transferredPayload,
+          );
           replyPort.send({
             'type': 'result',
-            _internalMsgLazyPayload: _transferAbstractMessagePayload(response),
+            _internalMsgLazyPayload:
+                retainedNativePayload ??
+                _transferAbstractMessagePayload(response),
             'progress': response.options?.progress ?? false,
             'pptScheme': response.options?.pptScheme,
             'pptSerializer': response.options?.pptSerializer,
@@ -956,6 +963,14 @@ const String _transferredLazyPayloadPackedPayloadBytesKey =
 const String _transferredLazyPayloadArgumentsKey = 'arguments';
 const String _transferredLazyPayloadArgumentsKeywordsKey = 'argumentsKeywords';
 const String _transferredLazyPayloadPptDecodedKey = 'pptDecoded';
+const String _transferredNativeCallPayloadKey = 'retainedNativeCallPayload';
+const String _transferredNativeCallHandleKey = 'nativeCallHandle';
+const String _transferredNativeArgumentsAddressKey = 'argumentsAddress';
+const String _transferredNativeArgumentsLengthKey = 'argumentsLength';
+const String _transferredNativeArgumentsKeywordsAddressKey =
+    'argumentsKeywordsAddress';
+const String _transferredNativeArgumentsKeywordsLengthKey =
+    'argumentsKeywordsLength';
 
 Object? _transferLazyMessagePayload(LazyMessagePayload? payload) {
   if (payload == null) {
@@ -1016,6 +1031,88 @@ Object? _transferAbstractMessagePayload(
   );
 }
 
+Object? _buildTransferredNativeCallPayload({
+  required call_msg.Call message,
+  required NativeIncomingMessage incomingMessage,
+  required int retainedHandle,
+}) {
+  final options = message.options;
+  if (retainedHandle <= 0 ||
+      message.lazyPayloadEncoding == null ||
+      message.hasDecodedPptPayload ||
+      message.transparentBinaryPayload != null ||
+      options?.pptScheme != null ||
+      options?.pptSerializer != null ||
+      options?.pptCipher != null ||
+      options?.pptKeyId != null) {
+    return null;
+  }
+  final argumentsBytes = message.debugEncodedArgumentsBytes;
+  final argumentsKeywordsBytes = message.debugEncodedArgumentsKeywordsBytes;
+  if (!_sameByteView(argumentsBytes, incomingMessage.argumentsBytes) ||
+      !_sameByteView(
+        argumentsKeywordsBytes,
+        incomingMessage.argumentsKeywordsBytes,
+      ) ||
+      (argumentsBytes == null && argumentsKeywordsBytes == null) ||
+      (argumentsBytes != null && incomingMessage.argumentsAddress <= 0) ||
+      (argumentsKeywordsBytes != null &&
+          incomingMessage.argumentsKeywordsAddress <= 0)) {
+    return null;
+  }
+  return <String, Object?>{
+    _transferredLazyPayloadMarkerKey: true,
+    _transferredLazyPayloadEncodingKey: message.lazyPayloadEncoding!.name,
+    _transferredNativeCallPayloadKey: true,
+    _transferredNativeCallHandleKey: retainedHandle,
+    if (argumentsBytes != null) ...{
+      _transferredNativeArgumentsAddressKey: incomingMessage.argumentsAddress,
+      _transferredNativeArgumentsLengthKey: argumentsBytes.lengthInBytes,
+    },
+    if (argumentsKeywordsBytes != null) ...{
+      _transferredNativeArgumentsKeywordsAddressKey:
+          incomingMessage.argumentsKeywordsAddress,
+      _transferredNativeArgumentsKeywordsLengthKey:
+          argumentsKeywordsBytes.lengthInBytes,
+    },
+  };
+}
+
+bool _sameByteView(Uint8List? left, Uint8List? right) {
+  if (identical(left, right)) {
+    return true;
+  }
+  if (left == null || right == null) {
+    return false;
+  }
+  return identical(left.buffer, right.buffer) &&
+      left.offsetInBytes == right.offsetInBytes &&
+      left.lengthInBytes == right.lengthInBytes;
+}
+
+Object? _reuseTransferredNativeCallPayload(
+  yield_msg.Yield response,
+  invocation_msg.Invocation invocation,
+  Object? transferredPayload,
+) {
+  if (!_isTransferredNativeCallPayload(transferredPayload) ||
+      response.options != null ||
+      response.hasDecodedPptPayload ||
+      response.transparentBinaryPayload != null ||
+      response.lazyPayloadEncoding != invocation.lazyPayloadEncoding ||
+      !_sameByteView(
+        response.debugEncodedArgumentsBytes,
+        invocation.debugEncodedArgumentsBytes,
+      ) ||
+      !_sameByteView(
+        response.debugEncodedArgumentsKeywordsBytes,
+        invocation.debugEncodedArgumentsKeywordsBytes,
+      )) {
+    return null;
+  }
+  return transferredPayload;
+}
+
 Object? _buildTransferredLazyPayload({
   LazyPayloadEncoding? encoding,
   bool pptDecoded = false,
@@ -1057,6 +1154,59 @@ bool _isTransferredLazyPayload(Object? value) {
   return value is Map && value[_transferredLazyPayloadMarkerKey] == true;
 }
 
+bool _isTransferredNativeCallPayload(Object? value) {
+  return _isTransferredLazyPayload(value) &&
+      (value as Map)[_transferredNativeCallPayloadKey] == true;
+}
+
+int? _transferredNativeCallHandle(Object? value) {
+  if (!_isTransferredNativeCallPayload(value)) {
+    return null;
+  }
+  return (value as Map)[_transferredNativeCallHandleKey] as int?;
+}
+
+Uint8List? _borrowTransferredNativeBytes(
+  Map<Object?, Object?> raw, {
+  required String addressKey,
+  required String lengthKey,
+}) {
+  final address = raw[addressKey] as int?;
+  final length = raw[lengthKey] as int?;
+  if (address == null || address <= 0 || length == null || length <= 0) {
+    return null;
+  }
+  return ffi.Pointer<ffi.Uint8>.fromAddress(address).asTypedList(length);
+}
+
+Object? _copyTransferredNativeCallPayload(Object? value) {
+  if (!_isTransferredNativeCallPayload(value)) {
+    return value;
+  }
+  final raw = (value as Map).cast<Object?, Object?>();
+  final argumentsBytes = _borrowTransferredNativeBytes(
+    raw,
+    addressKey: _transferredNativeArgumentsAddressKey,
+    lengthKey: _transferredNativeArgumentsLengthKey,
+  );
+  final argumentsKeywordsBytes = _borrowTransferredNativeBytes(
+    raw,
+    addressKey: _transferredNativeArgumentsKeywordsAddressKey,
+    lengthKey: _transferredNativeArgumentsKeywordsLengthKey,
+  );
+  return _buildTransferredLazyPayload(
+    encoding: _lazyPayloadEncodingFromName(
+      raw[_transferredLazyPayloadEncodingKey] as String?,
+    ),
+    argumentsBytes: argumentsBytes == null
+        ? null
+        : Uint8List.fromList(argumentsBytes),
+    argumentsKeywordsBytes: argumentsKeywordsBytes == null
+        ? null
+        : Uint8List.fromList(argumentsKeywordsBytes),
+  );
+}
+
 LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   Object? value, {
   String? pptScheme,
@@ -1071,16 +1221,30 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   final encoding = _lazyPayloadEncodingFromName(
     raw[_transferredLazyPayloadEncodingKey] as String?,
   );
+  final retainedNativeCallPayload =
+      raw[_transferredNativeCallPayloadKey] == true;
   final transparentBinaryPayload = _coerceTransferredBytes(
     raw[_transferredLazyPayloadTransparentBinaryKey],
   );
   final pptDecoded = raw[_transferredLazyPayloadPptDecodedKey] == true;
-  final argumentsBytes = _coerceTransferredBytes(
-    raw[_transferredLazyPayloadArgumentsBytesKey],
-  );
-  final argumentsKeywordsBytes = _coerceTransferredBytes(
-    raw[_transferredLazyPayloadArgumentsKeywordsBytesKey],
-  );
+  final argumentsBytes = retainedNativeCallPayload
+      ? _borrowTransferredNativeBytes(
+          raw,
+          addressKey: _transferredNativeArgumentsAddressKey,
+          lengthKey: _transferredNativeArgumentsLengthKey,
+        )
+      : _coerceTransferredBytes(
+          raw[_transferredLazyPayloadArgumentsBytesKey],
+        );
+  final argumentsKeywordsBytes = retainedNativeCallPayload
+      ? _borrowTransferredNativeBytes(
+          raw,
+          addressKey: _transferredNativeArgumentsKeywordsAddressKey,
+          lengthKey: _transferredNativeArgumentsKeywordsLengthKey,
+        )
+      : _coerceTransferredBytes(
+          raw[_transferredLazyPayloadArgumentsKeywordsBytesKey],
+        );
   final packedPayloadBytes = _coerceTransferredBytes(
     raw[_transferredLazyPayloadPackedPayloadBytesKey],
   );
@@ -1143,6 +1307,7 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
       argumentsKeywords: argumentsKeywordsBytes == null
           ? argumentsKeywords
           : null,
+      anchor: retainedNativeCallPayload ? value : null,
     );
   }
   return LazyMessagePayload.materialized(

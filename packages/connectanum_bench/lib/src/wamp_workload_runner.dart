@@ -272,7 +272,8 @@ class WampWorkloadRunner {
         subscription.onEvent((event) {
           _logger.finer(
             'PUBSUB event received worker=$workerId peer=$peerIndex '
-            'args=${event.arguments} kwargs=${event.argumentsKeywords}',
+            'args_bytes=${event.argumentsBytes?.length ?? 0} '
+            'kwargs_bytes=${event.argumentsKeywordsBytes?.length ?? 0}',
           );
           eventBuffer.add(event);
         });
@@ -601,9 +602,10 @@ class WampWorkloadRunner {
 
   Future<List<WampSample>> _runRpcScenario(WampScenario scenario) async {
     final payload = _buildPayloadString(scenario.payloadBytes);
+    final lazyPayload = _buildLazyPayload(scenario, arguments: [payload]);
     final workers = List.generate(
       scenario.concurrency,
-      (workerId) => _runRpcWorker(workerId, scenario, payload),
+      (workerId) => _runRpcWorker(workerId, scenario, lazyPayload),
     );
     final results = await Future.wait(workers);
     return results.expand((samples) => samples).toList(growable: false);
@@ -612,7 +614,7 @@ class WampWorkloadRunner {
   Future<List<WampSample>> _runRpcWorker(
     int workerId,
     WampScenario scenario,
-    String payload,
+    wamp_core.LazyMessagePayload payload,
   ) async {
     WampSession? session;
     WampSession? calleeSession;
@@ -710,7 +712,7 @@ class WampWorkloadRunner {
     int iteration,
     WampScenario scenario,
     String procedure,
-    String payload,
+    wamp_core.LazyMessagePayload payload,
     WampSession session,
   ) async {
     _logger.fine(
@@ -720,7 +722,7 @@ class WampWorkloadRunner {
     final result = await session
         .callSingleWithLazyPayload(
           procedure,
-          payload: _buildLazyPayload(scenario, arguments: [payload]),
+          payload: payload,
           options: _buildCallOptions(scenario),
         )
         .timeout(
@@ -733,10 +735,21 @@ class WampWorkloadRunner {
             throw TimeoutException('rpc_call_timeout');
           },
         );
+    List<dynamic>? decodedArguments;
+    Map<String, dynamic>? decodedArgumentsKeywords;
+    if (scenario.pptScheme != null) {
+      // Transformed payload benchmarks must include receive-side unpacking.
+      decodedArguments = result.arguments;
+      decodedArgumentsKeywords = result.argumentsKeywords;
+    }
     final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
     _logger.fine(
       'RPC call done worker=$workerId iteration=$iteration uri=$procedure '
-      'latency_ms=$latencyMs args=${result.arguments}',
+      'latency_ms=$latencyMs '
+      'args_bytes=${result.argumentsBytes?.length ?? 0} '
+      'kwargs_bytes=${result.argumentsKeywordsBytes?.length ?? 0} '
+      'decoded_args=${decodedArguments?.length ?? 0} '
+      'decoded_kwargs=${decodedArgumentsKeywords?.length ?? 0}',
     );
     return WampSample(
       worker: workerId,

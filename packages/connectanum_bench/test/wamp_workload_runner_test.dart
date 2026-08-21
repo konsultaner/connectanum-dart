@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/connectanum.dart' as wamp_client;
@@ -283,6 +284,85 @@ void main() {
       expect(samples, hasLength(6));
       expect(broker.callCounts['bench.rpc.echo'], 6);
       expect(broker.maxConcurrentCalls, greaterThanOrEqualTo(2));
+      expect(broker.lazyCallPayloads.toSet(), hasLength(1));
+    });
+
+    test('keeps lazy RPC results encoded after timing completes', () async {
+      var decoded = false;
+      final broker = _FakeWampBroker(
+        lazyResultFactory: (_) => wamp_core.LazyResultPayload(
+          callRequestId: 1,
+          progress: false,
+          payload: wamp_core.LazyMessagePayload.encoded(
+            encoding: wamp_core.LazyPayloadEncoding.cbor,
+            argumentsBytes: Uint8List.fromList(const [0x81, 0x01]),
+            argumentsDecoder: (_) {
+              decoded = true;
+              throw StateError('benchmark must not decode a lazy RPC result');
+            },
+          ),
+        ),
+      );
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('rpc_lazy_result_test'),
+      );
+
+      final samples = await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.cbor,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 2,
+          concurrency: 1,
+          payloadBytes: 16,
+        ),
+      );
+
+      expect(samples, hasLength(2));
+      expect(decoded, isFalse);
+    });
+
+    test('materializes transformed RPC results while timing', () async {
+      var decoded = false;
+      final broker = _FakeWampBroker(
+        lazyResultFactory: (_) => wamp_core.LazyResultPayload(
+          callRequestId: 1,
+          progress: false,
+          payload: wamp_core.LazyMessagePayload.encoded(
+            encoding: wamp_core.LazyPayloadEncoding.cbor,
+            argumentsBytes: Uint8List.fromList(const [0x81, 0x01]),
+            argumentsDecoder: (_) {
+              decoded = true;
+              return const <dynamic>[1];
+            },
+          ),
+        ),
+      );
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('rpc_transformed_result_test'),
+      );
+
+      final samples = await runner.run(
+        WampScenario(
+          transport: WampTransport.rawsocket,
+          serializer: WampSerializer.cbor,
+          mode: WampMode.rpc,
+          uri: 'bench.rpc.echo',
+          iterations: 1,
+          concurrency: 1,
+          payloadBytes: 16,
+          pptScheme: 'wamp',
+          pptSerializer: 'cbor',
+          pptCipher: 'aes256gcm',
+          pptKeyId: 'benchmark-key',
+        ),
+      );
+
+      expect(samples, hasLength(1));
+      expect(decoded, isTrue);
     });
 
     test('warms up three-chunk progressive RPC workloads', () async {
@@ -1429,6 +1509,7 @@ class _FakeWampBroker {
     this.dropMetadata = false,
     this.callDelay = Duration.zero,
     this.publishDelay = Duration.zero,
+    this.lazyResultFactory,
   });
 
   final Map<String, List<StreamController<wamp_core.Event>>> _subscribers = {};
@@ -1439,9 +1520,12 @@ class _FakeWampBroker {
   final Map<String, List<void Function(wamp_core.LazyEventPayload event)>>
   _payloadCallbackSubscribers = {};
   final Map<String, int> callCounts = {};
+  final List<wamp_core.LazyMessagePayload> lazyCallPayloads = [];
   final bool dropMetadata;
   final Duration callDelay;
   final Duration publishDelay;
+  final wamp_core.LazyResultPayload Function(wamp_core.LazyMessagePayload)?
+  lazyResultFactory;
   wamp_core.CallOptions? lastCallOptions;
   wamp_core.PublishOptions? lastPublishOptions;
   wamp_core.SubscribeOptions? lastSubscribeOptions;
@@ -1650,11 +1734,16 @@ class _FakeWampBroker {
     wamp_core.CallOptions? options,
   }) async {
     lastCallOptions = options;
+    lazyCallPayloads.add(payload);
     recordCall(procedure);
     beginCall();
     try {
       if (callDelay > Duration.zero) {
         await Future<void>.delayed(callDelay);
+      }
+      final factory = lazyResultFactory;
+      if (factory != null) {
+        return factory(payload);
       }
       final handler = _lazyRegistrations[procedure];
       if (handler == null) {

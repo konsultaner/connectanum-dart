@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 import 'dart:math' show Random;
 import 'dart:typed_data';

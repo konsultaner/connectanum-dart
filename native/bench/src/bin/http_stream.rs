@@ -6297,11 +6297,11 @@ mod tests {
         );
         let scenario = load_scenario(&scenario_path).unwrap();
         let expected = [
-            ("rawsocket_rpc_msgpack_128m_native", 128, 8),
-            ("rawsocket_rpc_cbor_128m_native", 128, 8),
+            ("rawsocket_rpc_msgpack_128m_native", 128, 16),
+            ("rawsocket_rpc_cbor_128m_native", 128, 16),
             ("rawsocket_rpc_cbor_128m_dart_reference", 128, 4),
-            ("rawsocket_rpc_msgpack_256m_native", 256, 4),
-            ("rawsocket_rpc_cbor_256m_native", 256, 4),
+            ("rawsocket_rpc_msgpack_256m_native", 256, 8),
+            ("rawsocket_rpc_cbor_256m_native", 256, 8),
         ];
 
         assert_eq!(scenario.workloads.len(), expected.len());

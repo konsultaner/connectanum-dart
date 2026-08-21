@@ -797,6 +797,174 @@ void main() {
       },
     );
 
+    test(
+      'reuses retained native CALL payload for exact internal lazy result',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final invocationPort = ReceivePort();
+        addTearDown(invocationPort.close);
+        var returnExactPayload = true;
+        Object? seenTransferredPayload;
+        invocationPort.listen((dynamic rawMessage) {
+          final message = (rawMessage as Map).cast<String, Object?>();
+          seenTransferredPayload = message['lazyPayload'];
+          final replyPort = message['replyPort'] as SendPort;
+          if (returnExactPayload) {
+            replyPort.send({
+              'type': 'result',
+              'lazyPayload': message['lazyPayload'],
+            });
+          } else {
+            replyPort.send({
+              'type': 'result',
+              'arguments': const ['modified'],
+            });
+          }
+        });
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                  listener: listener,
+                  listenerSettings: routerSettings.listeners.first,
+                )
+                as WorkerConnectionState;
+        callerState
+          ..serializer = NativeMessageSerializer.messagePack
+          ..phase = HandshakePhase.open
+          ..realmUri = 'realm1'
+          ..realmSettings = routerSettings.realms.first
+          ..sessionId = 925;
+        _openSession(
+          stateStore,
+          sessionId: 925,
+          listener: listener,
+          connectionId: 51,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 926,
+          listener: listener,
+          connectionId: -1,
+          internalSendPort: invocationPort.sendPort,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final registerReply = ReceivePort();
+        stateStore.commandPort.send(
+          ProcedureRegisterCommand(
+            realmUri: 'realm1',
+            sessionId: 926,
+            procedure: 'com.example.native.internal.echo',
+            details: const {},
+            replyPort: registerReply.sendPort,
+          ),
+        );
+        await registerReply.first;
+        registerReply.close();
+
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+        final encodedArguments = Uint8List.fromList(
+          const [0x91, 0xa7, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64],
+        );
+        final releasedHandles = <int>[];
+        final call = call_msg.Call(
+          9201,
+          'com.example.native.internal.echo',
+        );
+        call.setLazyPayload(
+          argumentsBytes: encodedArguments,
+          argumentsDecoder: (_) => const ['payload'],
+          encoding: LazyPayloadEncoding.messagePack,
+        );
+        final incoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.messagePack,
+          message: call,
+          handle: 411,
+          argumentsBytes: encodedArguments,
+          onRetain: (_) => 412,
+          onRelease: releasedHandles.add,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: call,
+          connectionId: 51,
+          incomingMessage: incoming,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        final transferred = seenTransferredPayload as Map;
+        expect(transferred.values.whereType<Uint8List>(), isEmpty);
+        final nativeResults = bossMessages.where(
+          (message) =>
+              message['type'] == 'worker_forward_native_internal_result',
+        );
+        expect(nativeResults, hasLength(1));
+        expect(nativeResults.single['connectionId'], 51);
+        expect(nativeResults.single['handle'], 412);
+        expect(nativeResults.single['requestId'], 9201);
+        expect(releasedHandles, isEmpty);
+
+        bossMessages.clear();
+        returnExactPayload = false;
+        final fallbackCall = call_msg.Call(
+          9202,
+          'com.example.native.internal.echo',
+        );
+        fallbackCall.setLazyPayload(
+          argumentsBytes: encodedArguments,
+          argumentsDecoder: (_) => const ['payload'],
+          encoding: LazyPayloadEncoding.messagePack,
+        );
+        final fallbackIncoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.messagePack,
+          message: fallbackCall,
+          handle: 413,
+          argumentsBytes: encodedArguments,
+          onRetain: (_) => 414,
+          onRelease: releasedHandles.add,
+        );
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          state: callerState,
+          message: fallbackCall,
+          connectionId: 51,
+          incomingMessage: fallbackIncoming,
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(
+          bossMessages.where(
+            (message) =>
+                message['type'] == 'worker_forward_native_internal_result',
+          ),
+          isEmpty,
+        );
+        final fallback = _extractForwardMessages(bossMessages).single;
+        final fallbackResult = fallback['message'] as result_msg.Result;
+        expect(fallbackResult.arguments, const ['modified']);
+        expect(releasedHandles, [414]);
+      },
+    );
+
     test('closing session removes subscriptions and registrations', () async {
       final bossMessages = <Map<String, Object?>>[];
       final bossPort = ReceivePort()

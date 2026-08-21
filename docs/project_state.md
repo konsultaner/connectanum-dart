@@ -28,25 +28,57 @@ Gbit/s, WebSocket CBOR reaches 5.78 Gbit/s, and true native AES-GCM E2EE CBOR
 reaches 810.91 Mbit/s. The Dart buffered CBOR reference reaches 514.37 Mbit/s.
 The heavy file matrix reaches 8.82 Gbit/s for repeated 1 GiB native CBOR, 9.73
 Gbit/s for concurrent native MessagePack, and 7.35 Gbit/s for pipelined native
-CBOR. The heavy 128/256 MiB RawSocket frame matrix passes all 28 samples, but
-one-way throughput remains below target: native MessagePack reaches 1.87/1.57
-Gbit/s and native CBOR reaches 928/813 Mbit/s. Aggregate duplex values are not
-used to claim the 2 Gbit/s target. E2EE and giant frame serialization remain
-measured optimization boundaries, not hidden production-readiness claims.
+CBOR.
+
+Exact native internal RPC echoes now retain the incoming CALL handle across
+router isolates and compose the final RESULT from the original MessagePack or
+CBOR argument slices. This path is used only for unchanged encoded byte views,
+the same serializer, and an ordinary final YIELD. Progressive, PPT, error, and
+modified responses retain the existing fallback; worker and boss tests cover
+direct forwarding, spoof rejection, fallback, and single-owner release.
+
+The benchmark runner now encodes one immutable lazy RPC request before timing
+and reports encoded lengths without eagerly decoding ordinary lazy results for
+disabled debug logs. Transformed payloads are explicitly unpacked before the
+timer stops so E2EE measurements still include receive-side decryption. That
+removed a repeatable retention/materialization stall after
+roughly eight 128 MiB calls. The corrected heavy local matrix doubles native
+sample volume and moves 16 GiB bidirectionally: one-way response throughput is
+8.48/5.19 Gbit/s for 128 MiB MessagePack/CBOR and 5.53/3.60 Gbit/s for 256 MiB.
+The standard matrix reaches 3.33/6.83 Gbit/s for Dart/native 32 MiB MessagePack
+and 1.52/2.83 Gbit/s for Dart/native 64 MiB CBOR. The 128 MiB Dart CBOR
+reference reaches 1.19 Gbit/s. Native giant frames now exceed the 2 Gbit/s
+target across both serializers; Dart CBOR and E2EE remain explicit measured
+boundaries rather than hidden production-readiness claims.
 
 Focused exact-range, canonical CBOR PPT, external-buffer ownership, provider,
 real-router E2EE file, benchmark-runner, and release-profile Rust tests pass.
-Full post-change `bin/verify` passes on 2026-08-21 with 127 Rust core tests, 61
+Full post-change `bin/verify` passes on 2026-08-21 with 127 Rust core tests, 62
 ordinary Rust FFI tests, the focused `ffi-test` metrics regression, 372 Dart
-core tests, 118 MCP tests, 105 benchmark tests, the 466-test router suite,
+core tests, 118 MCP tests, 107 benchmark tests, the 467-test router suite,
 isolated consumers, live WAMP/MCP smokes, remote auth, zero-copy router
 follow-ups, and Chrome Dart2Wasm. The first exact-head Native Artifacts rehearsal
 at `66457ae9` passed Linux x64/arm64 and macOS x64/arm64 but exposed that the
 globally enabled SHA assembly dependency cannot compile its GNU sources with
 Windows MSVC. SHA assembly is now target-scoped to AArch64 Linux/macOS; Cargo
 dependency graphs confirm Windows uses the portable implementation, and a
-second full `bin/verify` passes. Corrected exact-head hosted workflows and the
-strict audit remain pending for this implementation revision.
+second full `bin/verify` passes.
+
+Corrected exact-head hosted evidence at `9bf8cbb8` is complete. CI
+`32500570350`, WAMP Profile Benchmarks `32500580587`, WAMP Profile Diagnostics
+`32500587107`, Router Image dry run `32500602434`, and the five-platform native
+prerelease dry run `32503716277` all pass; the latter also validates the
+`v3.0.0-beta` release intent and non-publishing release preview. Dart Package
+Publish Dry Run `32499298980` remains relevant because the follow-up changed no
+publish-sensitive paths. The hosted Linux file matrix reaches 2.98/2.49 Gbit/s
+for native MessagePack/CBOR, 2.13 Gbit/s over TLS, and 2.17 Gbit/s over
+WebSocket. True native AES-GCM E2EE improves from the preceding 147 Mbit/s to
+347 Mbit/s but remains below target; Dart buffered CBOR reaches 262 Mbit/s.
+Hosted standard large-frame one-way throughput also remains below target at
+665/818 Mbit/s for Dart/native 32 MiB MessagePack and 380/457 Mbit/s for
+Dart/native 64 MiB CBOR. Every workload passes its transport and metric gates.
+The comprehensive deployment-content audit is clean; literal strict mode exits
+only because this development branch is intentionally unprotected.
 
 At `1e3f1d743c448a9de680e6edad55f629f69e7bb9`, the benchmark file receiver
 inherits the configured scenario deadline while its public client default stays

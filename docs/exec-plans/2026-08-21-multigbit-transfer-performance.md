@@ -99,6 +99,37 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   native CBOR reaches 928 and 813 Mbit/s respectively. Aggregate duplex values
   reach 3.75/3.13 Gbit/s for MessagePack and 1.86/1.63 Gbit/s for CBOR, but no
   large-frame workload reaches the 2 Gbit/s one-way target.
+- Corrected exact-head hosted Linux diagnostics at `9bf8cbb8` pass every file,
+  transport, and metric gate. Native MessagePack/CBOR file transfer reaches
+  2.98/2.49 Gbit/s, segmented TLS/WebSocket reaches 2.13/2.17 Gbit/s, Dart
+  buffered CBOR reaches 262 Mbit/s, and true native AES-GCM E2EE reaches 347
+  Mbit/s. The E2EE result is more than twice the preceding 147 Mbit/s hosted
+  baseline but remains below target.
+- The hosted standard large-frame matrix also confirms the remaining boundary:
+  one-way throughput reaches 665/818 Mbit/s for Dart/native 32 MiB MessagePack
+  and 380/457 Mbit/s for Dart/native 64 MiB CBOR. All workloads pass without
+  transport alerts; aggregate duplex figures are not used for the target.
+- Exact native internal RPC echoes now retain the incoming CALL handle across
+  router isolates and compose the final RESULT from the original MessagePack or
+  CBOR payload slices. The fast path is restricted to an unchanged serializer,
+  exact argument/keyword byte views, and an ordinary final YIELD; progressive,
+  PPT, error, and modified responses retain the existing validated fallback and
+  every clone has one explicit release owner.
+- The large-frame runner now encodes one immutable lazy request before timing
+  and logs encoded lengths without forcing ordinary lazy result materialization.
+  Transformed payloads are still unpacked inside the timed operation so E2EE
+  measurements include receive-side decryption. The
+  previous debug interpolation retained or decoded each giant result and could
+  stall after roughly eight 128 MiB calls. A regression proves RPC timing does
+  not invoke the result decoder, and the native heavy sample volume is doubled
+  to 16 x 128 MiB and 8 x 256 MiB per serializer.
+- The corrected local heavy matrix moves 16 GiB bidirectionally across native
+  workloads and passes: one-way response throughput reaches 8.48/5.19 Gbit/s
+  for 128 MiB MessagePack/CBOR and 5.53/3.60 Gbit/s for 256 MiB. The standard
+  matrix reaches 6.83 Gbit/s for 32 MiB native MessagePack and 2.83 Gbit/s for
+  64 MiB native CBOR. Dart reaches 3.33 Gbit/s for 32 MiB MessagePack, but CBOR
+  remains a measured boundary at 1.52 Gbit/s for 64 MiB and 1.19 Gbit/s for
+  128 MiB; native giant frames now clear the target across both serializers.
 
 ## Plan
 
@@ -146,16 +177,25 @@ measured boundary rather than hidden by aggregate-duplex accounting.
 - [x] Complete the strengthened local canonical and heavy file and large-frame
   matrices. Clear native file paths exceed the multi-gigabit target; true E2EE
   and giant one-way RawSocket frames remain explicit measured boundaries.
+- [x] Remove router-isolate copies from exact native internal RPC echoes and
+  correct large-frame benchmark payload/result lifetime amplification. The
+  repeated 128/256 MiB native MessagePack and CBOR matrix now clears 2 Gbit/s
+  one-way while preserving fallback semantics and handle ownership tests.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native
   MessagePack/CBOR and segmented native TLS/WebSocket exceed 2 Gbit/s; Dart,
   E2EE, and large-frame serializer paths remain measured optimization work.
 - [x] Complete full post-change local verification. `bin/verify` passes with
-  127 Rust core tests, 61 ordinary Rust FFI tests, the focused `ffi-test`
-  metrics regression, 372 Dart core tests, 118 MCP tests, 105 benchmark tests,
-  the 466-test router suite, isolated consumers, live WAMP/MCP smokes, remote
+  127 Rust core tests, 62 ordinary Rust FFI tests, the focused `ffi-test`
+  metrics regression, 372 Dart core tests, 118 MCP tests, 107 benchmark tests,
+  the 467-test router suite, isolated consumers, live WAMP/MCP smokes, remote
   auth, zero-copy router follow-ups, and Chrome Dart2Wasm. A second full run
   passes after target-scoping SHA assembly away from Windows MSVC.
-- [ ] Complete exact-head hosted workflow evidence and the strict deployment
-  audit for the E2EE, crypto-dispatch, and heavy-scenario revision.
+- [x] Complete exact-head hosted workflow evidence and the deployment audit for
+  the E2EE, crypto-dispatch, and heavy-scenario revision. CI `32500570350`, WAMP
+  Profile Benchmarks `32500580587`, WAMP Profile Diagnostics `32500587107`,
+  Router Image `32500602434`, and Native Artifacts prerelease dry run
+  `32503716277` are clean at `9bf8cbb8`; package dry run `32499298980` remains
+  relevant. The comprehensive content audit passes, while literal strict mode
+  reports only the expected unprotected development branch.

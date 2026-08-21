@@ -1870,6 +1870,36 @@ class _RouterBoss {
       } finally {
         runtime.releaseMessageHandle(handle);
       }
+    } else if (type == 'worker_forward_native_internal_result') {
+      final connectionId = message['connectionId'] as int;
+      final handle = message['handle'] as int;
+      final requestId = message['requestId'] as int;
+      try {
+        final forwardingRuntime = runtime;
+        if (forwardingRuntime is! NativeRuntimeWithInternalCallForwarding) {
+          throw NativeTransportException(
+            NativeTransportErrorCode.unsupported,
+            'Zero-copy internal CALL results are not supported by this runtime',
+          );
+        }
+        (forwardingRuntime as NativeRuntimeWithInternalCallForwarding)
+            .forwardResultFromCall(
+              handle: handle,
+              connectionId: connectionId,
+              requestId: requestId,
+            );
+        payload
+          ..['type'] = 'worker_forward_native_internal_result'
+          ..['connectionId'] = connectionId
+          ..['requestId'] = requestId;
+      } on NativeTransportException catch (error) {
+        payload
+          ..['type'] = 'worker_forward_native_internal_result_error'
+          ..['connectionId'] = connectionId
+          ..['error'] = error.toString();
+      } finally {
+        runtime.releaseMessageHandle(handle);
+      }
     } else if (type == 'worker_forward_native_error') {
       final connectionId = message['connectionId'] as int;
       final handle = message['handle'] as int;
