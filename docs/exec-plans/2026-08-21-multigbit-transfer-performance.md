@@ -115,10 +115,12 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   exact argument/keyword byte views, and an ordinary final YIELD; progressive,
   PPT, error, and modified responses retain the existing validated fallback and
   every clone has one explicit release owner.
-- The large-frame runner now encodes one immutable lazy request before timing
-  and logs encoded lengths without forcing ordinary lazy result materialization.
-  Transformed payloads are still unpacked inside the timed operation so E2EE
-  measurements include receive-side decryption. The
+- The large-frame runner now prepares one immutable encoded request-byte
+  template before timing and creates a fresh lazy payload wrapper per call.
+  Concurrent calls share only the encoded `Uint8List`, not mutable decode,
+  anchor, or provider state. It logs encoded lengths without forcing ordinary
+  lazy result materialization. Transformed payloads are still unpacked inside
+  the timed operation so E2EE measurements include receive-side decryption. The
   previous debug interpolation retained or decoded each giant result and could
   stall after roughly eight 128 MiB calls. A regression proves RPC timing does
   not invoke the result decoder, and the native heavy sample volume is doubled
@@ -130,6 +132,14 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   64 MiB native CBOR. Dart reaches 3.33 Gbit/s for 32 MiB MessagePack, but CBOR
   remains a measured boundary at 1.52 Gbit/s for 64 MiB and 1.19 Gbit/s for
   128 MiB; native giant frames now clear the target across both serializers.
+- Exact-head CI `32510532801` at `307f0743` exposed that sharing the original
+  mutable lazy wrapper across six concurrent native CBOR RPC peers could time
+  out the first call group and poison later session setup until the Fast Checks
+  job limit. The per-call wrapper correction retains the shared encoded bytes.
+  A focused identity regression, six consecutive exact real-router repro runs,
+  the full 30-test transport integration, `bin/test-fast`, and full
+  `bin/verify` pass locally; fresh hosted evidence remains pending for the
+  follow-up commit.
 
 ## Plan
 
@@ -181,6 +191,8 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   correct large-frame benchmark payload/result lifetime amplification. The
   repeated 128/256 MiB native MessagePack and CBOR matrix now clears 2 Gbit/s
   one-way while preserving fallback semantics and handle ownership tests.
+  Encoded request bytes are shared across samples, while every concurrent call
+  receives an independent mutable lazy wrapper.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

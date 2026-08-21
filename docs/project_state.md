@@ -37,11 +37,15 @@ the same serializer, and an ordinary final YIELD. Progressive, PPT, error, and
 modified responses retain the existing fallback; worker and boss tests cover
 direct forwarding, spoof rejection, fallback, and single-owner release.
 
-The benchmark runner now encodes one immutable lazy RPC request before timing
-and reports encoded lengths without eagerly decoding ordinary lazy results for
-disabled debug logs. Transformed payloads are explicitly unpacked before the
-timer stops so E2EE measurements still include receive-side decryption. That
-removed a repeatable retention/materialization stall after
+The benchmark runner now prepares one immutable encoded RPC byte template
+before timing and constructs a fresh lazy payload wrapper for every call. The
+wrappers share the same encoded `Uint8List` but not their mutable lazy decode,
+anchor, or provider state, so concurrent sessions retain zero-copy request-byte
+reuse without sharing call-local ownership. The runner reports encoded lengths
+without eagerly decoding ordinary lazy results for disabled debug logs.
+Transformed payloads are explicitly unpacked before the timer stops so E2EE
+measurements still include receive-side decryption. That removed a repeatable
+retention/materialization stall after
 roughly eight 128 MiB calls. The corrected heavy local matrix doubles native
 sample volume and moves 16 GiB bidirectionally: one-way response throughput is
 8.48/5.19 Gbit/s for 128 MiB MessagePack/CBOR and 5.53/3.60 Gbit/s for 256 MiB.
@@ -63,6 +67,18 @@ globally enabled SHA assembly dependency cannot compile its GNU sources with
 Windows MSVC. SHA assembly is now target-scoped to AArch64 Linux/macOS; Cargo
 dependency graphs confirm Windows uses the portable implementation, and a
 second full `bin/verify` passes.
+
+The first exact-head CI for the native large-frame revision, run `32510532801`
+at `307f0743`, exposed a hosted Linux concurrency regression after the earlier
+workloads passed: six native CBOR RPC peers shared one mutable
+`LazyMessagePayload`, the first call group timed out, and the remaining suite
+could no longer open sessions before the 20-minute Fast Checks limit. The
+follow-up keeps one pre-encoded buffer but creates a distinct wrapper per call.
+The focused identity regression proves six wrappers reuse the identical byte
+buffer, the exact real-router failure shape passes six consecutive runs, the
+complete 30-test WAMP transport integration passes, and both `bin/test-fast`
+and full `bin/verify` pass. Fresh exact-head hosted evidence is required after
+the follow-up commit.
 
 Corrected exact-head hosted evidence at `9bf8cbb8` is complete. CI
 `32500570350`, WAMP Profile Benchmarks `32500580587`, WAMP Profile Diagnostics

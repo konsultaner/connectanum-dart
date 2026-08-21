@@ -602,10 +602,13 @@ class WampWorkloadRunner {
 
   Future<List<WampSample>> _runRpcScenario(WampScenario scenario) async {
     final payload = _buildPayloadString(scenario.payloadBytes);
-    final lazyPayload = _buildLazyPayload(scenario, arguments: [payload]);
+    final payloadFactory = _buildLazyPayloadFactory(
+      scenario,
+      arguments: [payload],
+    );
     final workers = List.generate(
       scenario.concurrency,
-      (workerId) => _runRpcWorker(workerId, scenario, lazyPayload),
+      (workerId) => _runRpcWorker(workerId, scenario, payloadFactory),
     );
     final results = await Future.wait(workers);
     return results.expand((samples) => samples).toList(growable: false);
@@ -614,7 +617,7 @@ class WampWorkloadRunner {
   Future<List<WampSample>> _runRpcWorker(
     int workerId,
     WampScenario scenario,
-    wamp_core.LazyMessagePayload payload,
+    wamp_core.LazyMessagePayload Function() payloadFactory,
   ) async {
     WampSession? session;
     WampSession? calleeSession;
@@ -657,7 +660,7 @@ class WampWorkloadRunner {
             iteration,
             scenario,
             procedure,
-            payload,
+            payloadFactory,
             session!,
           ),
         ),
@@ -712,7 +715,7 @@ class WampWorkloadRunner {
     int iteration,
     WampScenario scenario,
     String procedure,
-    wamp_core.LazyMessagePayload payload,
+    wamp_core.LazyMessagePayload Function() payloadFactory,
     WampSession session,
   ) async {
     _logger.fine(
@@ -722,7 +725,7 @@ class WampWorkloadRunner {
     final result = await session
         .callSingleWithLazyPayload(
           procedure,
-          payload: payload,
+          payload: payloadFactory(),
           options: _buildCallOptions(scenario),
         )
         .timeout(
@@ -1844,25 +1847,42 @@ class WampWorkloadRunner {
     required List<dynamic>? arguments,
     Map<String, Object?>? argumentsKeywords,
   }) {
+    return _buildLazyPayloadFactory(
+      scenario,
+      arguments: arguments,
+      argumentsKeywords: argumentsKeywords,
+    )();
+  }
+
+  wamp_core.LazyMessagePayload Function() _buildLazyPayloadFactory(
+    WampScenario scenario, {
+    required List<dynamic>? arguments,
+    Map<String, Object?>? argumentsKeywords,
+  }) {
     final encoding = switch (scenario.serializer) {
       WampSerializer.json => wamp_core.LazyPayloadEncoding.json,
       WampSerializer.msgpack => wamp_core.LazyPayloadEncoding.messagePack,
       WampSerializer.cbor => wamp_core.LazyPayloadEncoding.cbor,
     };
-    final argsBytes = arguments == null
+    final immutableArguments = arguments == null
         ? null
-        : _encodePayloadFragment(scenario.serializer, arguments);
-    final kwargsMap = argumentsKeywords?.cast<String, dynamic>();
+        : List<dynamic>.unmodifiable(arguments);
+    final argsBytes = immutableArguments == null
+        ? null
+        : _encodePayloadFragment(scenario.serializer, immutableArguments);
+    final kwargsMap = argumentsKeywords == null
+        ? null
+        : Map<String, dynamic>.unmodifiable(argumentsKeywords);
     final kwargsBytes = kwargsMap == null
         ? null
         : _encodePayloadFragment(scenario.serializer, kwargsMap);
-    return wamp_core.LazyMessagePayload.encoded(
+    return () => wamp_core.LazyMessagePayload.encoded(
       encoding: encoding,
       argumentsBytes: argsBytes,
       argumentsKeywordsBytes: kwargsBytes,
-      argumentsDecoder: argsBytes == null ? null : (_) => arguments!,
+      argumentsDecoder: argsBytes == null ? null : (_) => immutableArguments!,
       argumentsKeywordsDecoder: kwargsBytes == null ? null : (_) => kwargsMap!,
-      arguments: argsBytes == null ? arguments : null,
+      arguments: argsBytes == null ? immutableArguments : null,
       argumentsKeywords: kwargsBytes == null ? kwargsMap : null,
     );
   }

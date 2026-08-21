@@ -284,7 +284,15 @@ void main() {
       expect(samples, hasLength(6));
       expect(broker.callCounts['bench.rpc.echo'], 6);
       expect(broker.maxConcurrentCalls, greaterThanOrEqualTo(2));
-      expect(broker.lazyCallPayloads.toSet(), hasLength(1));
+      expect(broker.lazyCallPayloads.toSet(), hasLength(6));
+      final argumentsBytes = broker.lazyCallPayloads.first.argumentsBytes;
+      expect(argumentsBytes, isNotNull);
+      expect(
+        broker.lazyCallPayloads.every(
+          (payload) => identical(payload.argumentsBytes, argumentsBytes),
+        ),
+        isTrue,
+      );
     });
 
     test('keeps lazy RPC results encoded after timing completes', () async {
