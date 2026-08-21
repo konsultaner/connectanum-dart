@@ -54,6 +54,7 @@ class NativeIncomingMessage {
     required this.message,
     required this.bytes,
     required this.handle,
+    required this.runtimeIdentity,
     required CtFfiBindings bindings,
     this.argumentsBytes,
     this.argumentsKeywordsBytes,
@@ -63,6 +64,7 @@ class NativeIncomingMessage {
   final Object message;
   final Uint8List bytes;
   final int handle;
+  final Object runtimeIdentity;
   final Uint8List? argumentsBytes;
   final Uint8List? argumentsKeywordsBytes;
   final Uint8List? singleBinaryArgumentBytes;
@@ -77,6 +79,21 @@ class NativeIncomingMessage {
     _released = true;
     _bindings.ctMessageRelease(handle);
   }
+}
+
+final Expando<_NativeExternalBytesReference> _nativeExternalBytes =
+    Expando<_NativeExternalBytesReference>('connectanum.native.external-bytes');
+
+class _NativeExternalBytesReference {
+  const _NativeExternalBytesReference({
+    required this.runtimeIdentity,
+    required this.pointer,
+    required this.length,
+  });
+
+  final Object runtimeIdentity;
+  final ffi.Pointer<ffi.Uint8> pointer;
+  final int length;
 }
 
 class _MessageFinalizerToken {
@@ -344,6 +361,88 @@ class NativeClientRuntime {
     }
   }
 
+  Uint8List? decryptE2eeMessageSingleBinaryArgument(
+    int sessionHandle,
+    NativeIncomingMessage incoming, {
+    String? keyId,
+    String cipher = 'xsalsa20poly1305',
+  }) {
+    ensureStarted();
+    if (!identical(incoming.runtimeIdentity, this)) {
+      return null;
+    }
+    final cipherCode = switch (cipher) {
+      'xsalsa20poly1305' => 1,
+      'aes256gcm' => 2,
+      _ => throw ArgumentError.value(
+        cipher,
+        'cipher',
+        'Unsupported E2EE cipher',
+      ),
+    };
+    final keyIdBytes = keyId == null ? null : utf8.encode(keyId);
+    final keyIdPtr = keyId?.toNativeUtf8().cast<ffi.Char>() ?? ffi.nullptr;
+    final outputPtr = calloc<CtExternalByteBuffer>();
+    try {
+      final result = _bindings.ctE2eeSessionDecryptMessageSingleBinaryArgument(
+        sessionHandle,
+        keyIdPtr,
+        keyIdBytes?.length ?? 0,
+        incoming.handle,
+        cipherCode,
+        outputPtr,
+      );
+      if (result == NativeTransportErrorCode.unsupported) {
+        return null;
+      }
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(
+          result,
+          'Failed to decrypt native message binary argument',
+        );
+      }
+      final output = outputPtr.ref;
+      if (output.owner == ffi.nullptr) {
+        throw NativeTransportException(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native E2EE decrypt returned no external buffer owner',
+        );
+      }
+      if (output.len == 0) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        return Uint8List(0);
+      }
+      if (output.ptr == ffi.nullptr) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        throw NativeTransportException(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native E2EE decrypt returned no external buffer bytes',
+        );
+      }
+      try {
+        final bytes = output.ptr.asTypedList(
+          output.len,
+          finalizer: _bindings.ctExternalByteBufferFreePointer,
+          token: output.owner,
+        );
+        _nativeExternalBytes[bytes] = _NativeExternalBytesReference(
+          runtimeIdentity: this,
+          pointer: output.ptr,
+          length: output.len,
+        );
+        return bytes;
+      } catch (_) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        rethrow;
+      }
+    } finally {
+      if (keyIdPtr != ffi.nullptr) {
+        malloc.free(keyIdPtr);
+      }
+      calloc.free(outputPtr);
+    }
+  }
+
   int connectWebSocket({
     required String host,
     required int port,
@@ -580,6 +679,55 @@ class NativeClientRuntime {
     }
   }
 
+  void sendMessageNativeE2eeFileSegment(
+    int connectionId, {
+    required Uint8List prefix,
+    required int fileHandle,
+    required int fileOffset,
+    required int fileLength,
+    required int sessionHandle,
+    required String keyId,
+    required String cipher,
+  }) {
+    ensureStarted();
+    if (fileOffset < 0 || fileLength < 0) {
+      throw ArgumentError('fileOffset and fileLength must be non-negative');
+    }
+    final cipherCode = switch (cipher) {
+      'xsalsa20poly1305' => 1,
+      'aes256gcm' => 2,
+      _ => throw ArgumentError.value(cipher, 'cipher', 'is unsupported'),
+    };
+    var prefixPtr = ffi.nullptr.cast<ffi.Uint8>();
+    final keyIdPtr = keyId.toNativeUtf8().cast<ffi.Char>();
+    try {
+      if (prefix.isNotEmpty) {
+        prefixPtr = malloc<ffi.Uint8>(prefix.length);
+        prefixPtr.asTypedList(prefix.length).setAll(0, prefix);
+      }
+      final result = _bindings.ctSendMessageNativeE2eeFileSegment(
+        connectionId,
+        prefixPtr,
+        prefix.length,
+        fileHandle,
+        fileOffset,
+        fileLength,
+        sessionHandle,
+        keyIdPtr,
+        utf8.encode(keyId).length,
+        cipherCode,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to send native E2EE file segment');
+      }
+    } finally {
+      if (prefixPtr != ffi.nullptr) {
+        malloc.free(prefixPtr);
+      }
+      malloc.free(keyIdPtr);
+    }
+  }
+
   int pollMessageHandle(int connectionId) {
     ensureStarted();
     final result = _bindings.ctPollConnectionMessage(connectionId);
@@ -654,6 +802,7 @@ class NativeClientRuntime {
         message: message,
         bytes: frame,
         handle: handle,
+        runtimeIdentity: this,
         bindings: _bindings,
         argumentsBytes: args,
         argumentsKeywordsBytes: kwargs,
@@ -702,6 +851,39 @@ class NativeClientRuntime {
       );
     }
     return result;
+  }
+
+  int updateSha256(int sha256Handle, Uint8List bytes) {
+    ensureStarted();
+    final nativeBytes = _nativeExternalBytes[bytes];
+    if (nativeBytes != null &&
+        identical(nativeBytes.runtimeIdentity, this) &&
+        nativeBytes.length == bytes.length) {
+      final result = _bindings.ctSha256Update(
+        sha256Handle,
+        nativeBytes.pointer,
+        nativeBytes.length,
+      );
+      if (result < 0) {
+        _throwForError(result, 'Failed to hash native external byte payload');
+      }
+      return result;
+    }
+    final bytesPtr = malloc<ffi.Uint8>(bytes.length);
+    try {
+      bytesPtr.asTypedList(bytes.length).setAll(0, bytes);
+      final result = _bindings.ctSha256Update(
+        sha256Handle,
+        bytesPtr,
+        bytes.length,
+      );
+      if (result < 0) {
+        _throwForError(result, 'Failed to hash native byte payload');
+      }
+      return result;
+    } finally {
+      malloc.free(bytesPtr);
+    }
   }
 
   Uint8List finalizeSha256State(int sha256Handle) {

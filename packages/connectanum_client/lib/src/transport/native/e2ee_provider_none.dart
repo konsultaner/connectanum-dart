@@ -1,11 +1,17 @@
 import 'package:connectanum_core/connectanum_core.dart';
 
+import 'e2ee_file_segment.dart';
+
 class NativeWampCborXsalsa20Poly1305Provider
-    implements DisposableWampE2eeProvider, WampE2eeProfileSupport {
+    implements
+        DisposableWampE2eeProvider,
+        WampE2eeProfileSupport,
+        NativeE2eeFileSegmentProvider {
   NativeWampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
     String? defaultKeyId,
     WampE2eeKeySelectionPolicy? keySelectionPolicy,
+    String? libraryPath,
   }) {
     throw UnsupportedError(
       'Native WAMP E2EE provider requires dart:io and the ct_ffi runtime',
@@ -16,6 +22,7 @@ class NativeWampCborXsalsa20Poly1305Provider
     required String keyId,
     required List<int> key,
     WampE2eeKeySelectionPolicy? keySelectionPolicy,
+    String? libraryPath,
   }) {
     throw UnsupportedError(
       'Native WAMP E2EE provider requires dart:io and the ct_ffi runtime',
@@ -45,6 +52,17 @@ class NativeWampCborXsalsa20Poly1305Provider
   void release() {}
 
   @override
+  bool get supportsNativeE2eeFileSegments => false;
+
+  @override
+  NativeE2eeFileSegmentContext prepareNativeE2eeFileSegment(
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) => throw UnsupportedError(
+    'Native WAMP E2EE file segments require dart:io and the ct_ffi runtime',
+  );
+
+  @override
   bool supportsE2eeProfile({
     required int version,
     required String scheme,
@@ -64,12 +82,14 @@ class NativeWampCborAes256GcmProvider
     required super.keys,
     super.defaultKeyId,
     super.keySelectionPolicy,
+    super.libraryPath,
   });
 
   NativeWampCborAes256GcmProvider.single({
     required super.keyId,
     required super.key,
     super.keySelectionPolicy,
+    super.libraryPath,
   }) : super.single();
 
   @override

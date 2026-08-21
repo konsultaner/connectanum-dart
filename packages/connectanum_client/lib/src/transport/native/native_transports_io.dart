@@ -13,6 +13,7 @@ import 'package:meta/meta.dart';
 import '../abstract_transport.dart';
 import '../socket/socket_helper.dart';
 import '../websocket/websocket_transport_serialization.dart';
+import 'e2ee_file_segment.dart';
 import 'message_binding.dart';
 import 'message_protocol.dart';
 import 'runtime.dart';
@@ -407,7 +408,7 @@ class _NativeTransportFileSource implements TransportFileSource {
 }
 
 class NativeRawSocketTransport extends _NativeTransportBase
-    implements FileSegmentTransport {
+    implements NativeE2eeFileSegmentTransport {
   NativeRawSocketTransport(
     this._host,
     this._port,
@@ -555,6 +556,50 @@ class NativeRawSocketTransport extends _NativeTransportBase
   }
 
   @override
+  void sendNativeE2eeFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+    required NativeE2eeFileSegmentContext e2ee,
+  }) {
+    final connectionId = this.connectionId;
+    if (connectionId == null) {
+      throw StateError('Transport is not connected.');
+    }
+    if (_serializerType != SocketHelper.serializationCbor ||
+        source is! _NativeTransportFileSource ||
+        !identical(source.runtime, _runtime) ||
+        !identical(e2ee.runtimeIdentity, _runtime)) {
+      throw UnsupportedError(
+        'Native E2EE file segments require one CBOR transport/runtime',
+      );
+    }
+    if (source.isClosed) {
+      throw StateError('The native file source is already closed');
+    }
+    final ciphertextLength = nativeE2eeFileSegmentCiphertextLength(
+      length,
+      e2ee.cipher,
+    );
+    final prefix = buildNativeFileSegmentPrefix(
+      _encodeMessage(message),
+      serializerType: _serializerType,
+      fileLength: ciphertextLength,
+    );
+    _runtime.sendMessageNativeE2eeFileSegment(
+      connectionId,
+      prefix: prefix,
+      fileHandle: source.handle,
+      fileOffset: offset,
+      fileLength: length,
+      sessionHandle: e2ee.sessionHandle,
+      keyId: e2ee.keyId,
+      cipher: e2ee.cipher,
+    );
+  }
+
+  @override
   Logger get logger => _logger;
 
   @override
@@ -577,7 +622,7 @@ class NativeRawSocketTransport extends _NativeTransportBase
 }
 
 class NativeWebSocketTransport extends _NativeTransportBase
-    implements FileSegmentTransport {
+    implements NativeE2eeFileSegmentTransport {
   NativeWebSocketTransport(
     this._url,
     AbstractSerializer serializer,
@@ -716,6 +761,50 @@ class NativeWebSocketTransport extends _NativeTransportBase
       fileHandle: source.handle,
       fileOffset: offset,
       fileLength: length,
+    );
+  }
+
+  @override
+  void sendNativeE2eeFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+    required NativeE2eeFileSegmentContext e2ee,
+  }) {
+    final connectionId = this.connectionId;
+    if (connectionId == null) {
+      throw StateError('Transport is not connected.');
+    }
+    if (_fileSegmentSerializerType != SocketHelper.serializationCbor ||
+        source is! _NativeTransportFileSource ||
+        !identical(source.runtime, _runtime) ||
+        !identical(e2ee.runtimeIdentity, _runtime)) {
+      throw UnsupportedError(
+        'Native E2EE file segments require one CBOR transport/runtime',
+      );
+    }
+    if (source.isClosed) {
+      throw StateError('The native file source is already closed');
+    }
+    final ciphertextLength = nativeE2eeFileSegmentCiphertextLength(
+      length,
+      e2ee.cipher,
+    );
+    final prefix = buildNativeFileSegmentPrefix(
+      _encodeMessage(message),
+      serializerType: _fileSegmentSerializerType,
+      fileLength: ciphertextLength,
+    );
+    _runtime.sendMessageNativeE2eeFileSegment(
+      connectionId,
+      prefix: prefix,
+      fileHandle: source.handle,
+      fileOffset: offset,
+      fileLength: length,
+      sessionHandle: e2ee.sessionHandle,
+      keyId: e2ee.keyId,
+      cipher: e2ee.cipher,
     );
   }
 

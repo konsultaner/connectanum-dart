@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart';
 import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
@@ -63,6 +64,38 @@ void main() {
       );
     });
 
+    test('setFile coalesces fragmented source blocks to chunkSize', () async {
+      final transport = _FileTransferTransport();
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+      final source = WampFileSource(
+        name: 'fragmented.bin',
+        length: 5,
+        openRead: () => Stream<Uint8List>.fromIterable(<Uint8List>[
+          Uint8List.fromList(const <int>[0, 1]),
+          Uint8List.fromList(const <int>[2, 3, 4]),
+        ]),
+      );
+
+      await session.setFile('files.set', source, chunkSize: 3);
+
+      expect(
+        transport.calls
+            .skip(1)
+            .map((call) => (call.arguments!.single as Uint8List).toList()),
+        equals(const <List<int>>[
+          <int>[0, 1, 2],
+          <int>[3, 4],
+        ]),
+      );
+      expect(
+        transport.calls.skip(1).map((call) => call.options?.progress),
+        equals(const <bool>[true, false]),
+      );
+    });
+
     test(
       'setFile terminates an empty file with an empty binary chunk',
       () async {
@@ -118,6 +151,99 @@ void main() {
         expect(transport.source?.closed, isTrue);
       },
     );
+
+    test(
+      'setFile uses native E2EE file segments without opening buffered bytes',
+      () async {
+        final transport = _NativeE2eeFileSegmentTransferTransport();
+        final provider = _NativeFileSegmentE2eeProvider();
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        ).connect().first;
+        final source = WampFileSource(
+          name: 'encrypted.bin',
+          length: 5,
+          nativePath: '/tmp/encrypted.bin',
+          openRead: () =>
+              throw StateError('buffered source must not be opened'),
+        );
+
+        final result = await session.setFile(
+          'files.set',
+          source,
+          chunkSize: 2,
+          options: CallOptions(
+            pptScheme: ConnectanumE2eeProfile.scheme,
+            pptSerializer: 'cbor',
+            pptCipher: ConnectanumE2eeProfile.aes256Gcm,
+            pptKeyId: 'test-key',
+          ),
+        );
+
+        expect(result.arguments, equals(const <dynamic>['ok']));
+        expect(transport.openedPath, equals('/tmp/encrypted.bin'));
+        expect(transport.segments, isEmpty);
+        expect(
+          transport.nativeSegments,
+          equals(const <_SentFileSegment>[
+            _SentFileSegment(offset: 0, length: 2, progress: true),
+            _SentFileSegment(offset: 2, length: 2, progress: true),
+            _SentFileSegment(offset: 4, length: 1, progress: false),
+          ]),
+        );
+        expect(
+          transport.contexts.map((context) => context.sessionHandle),
+          everyElement(17),
+        );
+        expect(provider.preparedOptions, hasLength(3));
+        expect(transport.source?.closed, isTrue);
+      },
+    );
+
+    test('native E2EE segment lengths cover CBOR header boundaries', () {
+      const aesOverheadWithoutFile = 15 + 12 + 16;
+      const xsalsaOverheadWithoutFile = 15 + 24 + 16;
+      const cases = <int, int>{
+        0: 1,
+        23: 1,
+        24: 2,
+        255: 2,
+        256: 3,
+        65535: 3,
+        65536: 5,
+      };
+
+      for (final MapEntry(key: fileLength, value: headerLength)
+          in cases.entries) {
+        expect(
+          nativeE2eeFileSegmentCiphertextLength(
+            fileLength,
+            ConnectanumE2eeProfile.aes256Gcm,
+          ),
+          fileLength + headerLength + aesOverheadWithoutFile,
+        );
+        expect(
+          nativeE2eeFileSegmentCiphertextLength(
+            fileLength,
+            ConnectanumE2eeProfile.xsalsa20Poly1305,
+          ),
+          fileLength + headerLength + xsalsaOverheadWithoutFile,
+        );
+      }
+      expect(
+        () => nativeE2eeFileSegmentCiphertextLength(
+          -1,
+          ConnectanumE2eeProfile.aes256Gcm,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => nativeE2eeFileSegmentCiphertextLength(0, 'unsupported'),
+        throwsArgumentError,
+      );
+    });
 
     test('setFile cancels when the source is shorter than declared', () async {
       final transport = _FileTransferTransport();
@@ -575,5 +701,85 @@ class _FileSegmentTransferTransport extends _FileTransferTransport
         ),
       );
     }
+  }
+}
+
+class _NativeE2eeFileSegmentTransferTransport
+    extends _FileSegmentTransferTransport
+    implements NativeE2eeFileSegmentTransport {
+  final List<_SentFileSegment> nativeSegments = <_SentFileSegment>[];
+  final List<NativeE2eeFileSegmentContext> contexts =
+      <NativeE2eeFileSegmentContext>[];
+
+  @override
+  void sendNativeE2eeFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+    required NativeE2eeFileSegmentContext e2ee,
+  }) {
+    final call = message as Call;
+    calls.add(call);
+    nativeSegments.add(
+      _SentFileSegment(
+        offset: offset,
+        length: length,
+        progress: call.options?.progress ?? false,
+      ),
+    );
+    contexts.add(e2ee);
+    if (call.options?.progress == false) {
+      _inbound.add(
+        Result(
+          call.requestId,
+          ResultDetails(progress: false),
+          arguments: const <dynamic>['ok'],
+        ),
+      );
+    }
+  }
+}
+
+class _NativeFileSegmentE2eeProvider
+    implements WampE2eeProvider, NativeE2eeFileSegmentProvider {
+  final List<PPTOptions> preparedOptions = <PPTOptions>[];
+
+  @override
+  bool get supportsNativeE2eeFileSegments => true;
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    return <dynamic>[
+      Uint8List.fromList(const <int>[1]),
+    ];
+  }
+
+  @override
+  NativeE2eeFileSegmentContext prepareNativeE2eeFileSegment(
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    preparedOptions.add(options);
+    return const NativeE2eeFileSegmentContext(
+      runtimeIdentity: 'test-runtime',
+      sessionHandle: 17,
+      keyId: 'test-key',
+      cipher: ConnectanumE2eeProfile.aes256Gcm,
+    );
+  }
+
+  @override
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    throw UnsupportedError('The test transport does not receive E2EE payloads');
   }
 }

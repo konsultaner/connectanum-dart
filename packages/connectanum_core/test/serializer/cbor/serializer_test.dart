@@ -38,6 +38,23 @@ void main() {
 
       expect(frame[4][0], orderedEquals(const [1, 2, 3, 4]));
     });
+    test('Call serializes a large materialized binary argument directly', () {
+      final payload = Uint8List.fromList(
+        List<int>.generate(65536, (index) => index & 0xff),
+      );
+      final call = Call(
+        7814135,
+        'com.myapp.encrypted',
+        arguments: <dynamic>[payload],
+      );
+
+      final frame =
+          (cbor.decode(serializer.serialize(call)) as CborList).toObject()
+              as List<dynamic>;
+
+      expect(frame, hasLength(5));
+      expect(frame[4][0], orderedEquals(payload));
+    });
     test('Call reuses lazy CBOR argument bytes without decoding', () {
       final call = Call(7814135, 'com.myapp.ping');
       call.setLazyPayload(
@@ -2632,6 +2649,27 @@ void main() {
           ]),
         ),
       );
+    });
+    test('serializePPT handles direct binary CBOR length boundaries', () {
+      for (final length in const <int>[0, 23, 24, 255, 256, 65535, 65536]) {
+        final payload = Uint8List.fromList(
+          List<int>.generate(length, (index) => index & 0xff),
+        );
+
+        final encoded = serializer.serializePPT(
+          PPTPayload(arguments: <dynamic>[payload]),
+        );
+        final decoded = serializer.deserializePPT(encoded);
+
+        expect(decoded, isNotNull, reason: 'length $length');
+        expect(decoded!.arguments, hasLength(1), reason: 'length $length');
+        expect(
+          decoded.arguments!.single,
+          orderedEquals(payload),
+          reason: 'length $length',
+        );
+        expect(decoded.argumentsKeywords, isNull, reason: 'length $length');
+      }
     });
     test('Call serializes custom options', () {
       final encoded = serializer.serialize(

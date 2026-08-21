@@ -1,7 +1,9 @@
 use std::ffi::CStr;
+use std::fs::File;
+use std::io;
 #[cfg(feature = "ffi-test")]
 use std::io::Cursor;
-use std::os::raw::{c_char, c_int, c_uint};
+use std::os::raw::{c_char, c_int, c_uint, c_void};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 #[allow(unused_imports)]
@@ -21,7 +23,7 @@ use std::collections::VecDeque;
 #[cfg(feature = "ffi-test")]
 use tokio::runtime::Runtime as TokioRuntime;
 
-use aes_gcm::{Aes256Gcm, Key as AesKey, Nonce as AesNonce};
+use aes_gcm::{aead::AeadInPlace, Aes256Gcm, Key as AesKey, Nonce as AesNonce};
 #[cfg(feature = "ffi-test")]
 use ct_core::parse_message;
 use ct_core::{
@@ -99,6 +101,7 @@ use sha2::{Digest, Sha256};
 const E2EE_KEY_LEN: usize = 32;
 const E2EE_NONCE_LEN: usize = 24;
 const E2EE_AES256_GCM_NONCE_LEN: usize = 12;
+const E2EE_AUTH_TAG_LEN: usize = 16;
 const SHA256_DIGEST_LEN: usize = 32;
 
 struct Sha256StateStore {
@@ -168,6 +171,13 @@ pub struct CtHttpHandshakeInfo {
 pub struct CtByteBuffer {
     pub ptr: *mut u8,
     pub len: usize,
+}
+
+#[repr(C)]
+pub struct CtExternalByteBuffer {
+    pub ptr: *mut u8,
+    pub len: usize,
+    pub owner: *mut c_void,
 }
 
 #[repr(C)]
@@ -629,6 +639,13 @@ fn read_required_bytes(ptr: *const u8, len: c_int) -> Result<Vec<u8>, c_int> {
     Ok(unsafe { slice::from_raw_parts(ptr, len as usize) }.to_vec())
 }
 
+unsafe fn read_required_bytes_slice<'a>(ptr: *const u8, len: c_int) -> Result<&'a [u8], c_int> {
+    if ptr.is_null() || len < 0 {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    Ok(unsafe { slice::from_raw_parts(ptr, len as usize) })
+}
+
 fn write_byte_buffer(out: *mut CtByteBuffer, bytes: Vec<u8>) -> c_int {
     if out.is_null() {
         return ERR_INVALID_ARGUMENT;
@@ -690,12 +707,14 @@ fn encrypt_e2ee_aes256_gcm_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u
     let cipher = Aes256Gcm::new(&normalize_aes256_gcm_key_material(key)?);
     let mut nonce = AesNonce::default();
     OsRng.fill_bytes(nonce.as_mut_slice());
-    let ciphertext = cipher
-        .encrypt(&nonce, plaintext)
-        .map_err(|_| ERR_INTERNAL)?;
-    let mut combined = Vec::with_capacity(E2EE_AES256_GCM_NONCE_LEN + ciphertext.len());
+    let mut combined =
+        Vec::with_capacity(E2EE_AES256_GCM_NONCE_LEN + plaintext.len() + E2EE_AUTH_TAG_LEN);
     combined.extend_from_slice(nonce.as_slice());
-    combined.extend_from_slice(&ciphertext);
+    combined.extend_from_slice(plaintext);
+    let tag = cipher
+        .encrypt_in_place_detached(&nonce, b"", &mut combined[E2EE_AES256_GCM_NONCE_LEN..])
+        .map_err(|_| ERR_INTERNAL)?;
+    combined.extend_from_slice(tag.as_slice());
     Ok(combined)
 }
 
@@ -1600,6 +1619,16 @@ pub extern "C" fn ct_byte_buffer_free(ptr: *mut u8, len: usize) {
 }
 
 #[no_mangle]
+pub extern "C" fn ct_external_byte_buffer_free(owner: *mut c_void) {
+    if owner.is_null() {
+        return;
+    }
+    unsafe {
+        drop(Box::from_raw(owner as *mut Vec<u8>));
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn ct_e2ee_keyring_new() -> c_int {
     store_e2ee_keyring() as c_int
 }
@@ -1698,7 +1727,7 @@ pub extern "C" fn ct_e2ee_session_encrypt(
         Ok(value) => value,
         Err(code) => return code,
     };
-    let plaintext = match read_required_bytes(plaintext_ptr, plaintext_len) {
+    let plaintext = match unsafe { read_required_bytes_slice(plaintext_ptr, plaintext_len) } {
         Ok(value) => value,
         Err(code) => return code,
     };
@@ -1706,7 +1735,7 @@ pub extern "C" fn ct_e2ee_session_encrypt(
         let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
             return Err(ERR_KEY_NOT_FOUND);
         };
-        encrypt_e2ee_payload(key.as_ref(), &plaintext)
+        encrypt_e2ee_payload(key.as_ref(), plaintext)
     });
     match result {
         Some(Ok(bytes)) => write_byte_buffer(out, bytes),
@@ -1731,7 +1760,7 @@ pub extern "C" fn ct_e2ee_session_decrypt(
         Ok(value) => value,
         Err(code) => return code,
     };
-    let ciphertext = match read_required_bytes(ciphertext_ptr, ciphertext_len) {
+    let ciphertext = match unsafe { read_required_bytes_slice(ciphertext_ptr, ciphertext_len) } {
         Ok(value) => value,
         Err(code) => return code,
     };
@@ -1739,7 +1768,7 @@ pub extern "C" fn ct_e2ee_session_decrypt(
         let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
             return Err(ERR_KEY_NOT_FOUND);
         };
-        decrypt_e2ee_payload(key.as_ref(), &ciphertext)
+        decrypt_e2ee_payload(key.as_ref(), ciphertext)
     });
     match result {
         Some(Ok(bytes)) => write_byte_buffer(out, bytes),
@@ -1764,7 +1793,7 @@ pub extern "C" fn ct_e2ee_session_encrypt_aes256gcm(
         Ok(value) => value,
         Err(code) => return code,
     };
-    let plaintext = match read_required_bytes(plaintext_ptr, plaintext_len) {
+    let plaintext = match unsafe { read_required_bytes_slice(plaintext_ptr, plaintext_len) } {
         Ok(value) => value,
         Err(code) => return code,
     };
@@ -1772,7 +1801,7 @@ pub extern "C" fn ct_e2ee_session_encrypt_aes256gcm(
         let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
             return Err(ERR_KEY_NOT_FOUND);
         };
-        encrypt_e2ee_aes256_gcm_payload(key.as_ref(), &plaintext)
+        encrypt_e2ee_aes256_gcm_payload(key.as_ref(), plaintext)
     });
     match result {
         Some(Ok(bytes)) => write_byte_buffer(out, bytes),
@@ -1797,7 +1826,7 @@ pub extern "C" fn ct_e2ee_session_decrypt_aes256gcm(
         Ok(value) => value,
         Err(code) => return code,
     };
-    let ciphertext = match read_required_bytes(ciphertext_ptr, ciphertext_len) {
+    let ciphertext = match unsafe { read_required_bytes_slice(ciphertext_ptr, ciphertext_len) } {
         Ok(value) => value,
         Err(code) => return code,
     };
@@ -1805,13 +1834,87 @@ pub extern "C" fn ct_e2ee_session_decrypt_aes256gcm(
         let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
             return Err(ERR_KEY_NOT_FOUND);
         };
-        decrypt_e2ee_aes256_gcm_payload(key.as_ref(), &ciphertext)
+        decrypt_e2ee_aes256_gcm_payload(key.as_ref(), ciphertext)
     });
     match result {
         Some(Ok(bytes)) => write_byte_buffer(out, bytes),
         Some(Err(code)) => code,
         None => ERR_HANDLE_UNAVAILABLE,
     }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_e2ee_session_decrypt_message_single_binary_argument(
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    message_handle: c_int,
+    cipher_code: c_int,
+    out: *mut CtExternalByteBuffer,
+) -> c_int {
+    #[cfg(feature = "ffi-test")]
+    if session_handle <= 0 || message_handle <= 0 || out.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe {
+        (*out).ptr = ptr::null_mut();
+        (*out).len = 0;
+        (*out).owner = ptr::null_mut();
+    }
+    let key_id = match read_optional_str(key_id_ptr, key_id_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let decrypted = with_message(message_handle as u32, |message| {
+        if message.kwargs.is_some() {
+            return Err(ERR_UNSUPPORTED);
+        }
+        let args = message.args.as_deref().ok_or(ERR_UNSUPPORTED)?;
+        let ciphertext =
+            single_binary_argument(message.serializer, args).map_err(|_| ERR_UNSUPPORTED)?;
+        with_e2ee_session(session_handle as u32, |session| {
+            let Some((key, _)) = session.resolve_key(key_id.as_deref()) else {
+                return Err(ERR_KEY_NOT_FOUND);
+            };
+            let plaintext = match cipher_code {
+                1 => decrypt_e2ee_payload(key.as_ref(), ciphertext),
+                2 => decrypt_e2ee_aes256_gcm_payload(key.as_ref(), ciphertext),
+                _ => Err(ERR_INVALID_ARGUMENT),
+            }?;
+            let (payload_offset, payload_len) = {
+                let payload = cbor_ppt_single_binary_argument(&plaintext).ok_or(ERR_UNSUPPORTED)?;
+                (
+                    payload.as_ptr() as usize - plaintext.as_ptr() as usize,
+                    payload.len(),
+                )
+            };
+            Ok((plaintext, payload_offset, payload_len))
+        })
+        .unwrap_or(Err(ERR_HANDLE_UNAVAILABLE))
+    });
+    let (mut plaintext, payload_offset, payload_len) = match decrypted {
+        Some(Ok(value)) => value,
+        Some(Err(code)) => return code,
+        None => return ERR_HANDLE_UNAVAILABLE,
+    };
+    let payload_end = match payload_offset.checked_add(payload_len) {
+        Some(value) if value <= plaintext.len() => value,
+        _ => return ERR_INTERNAL,
+    };
+    let payload_ptr = if payload_len == 0 {
+        plaintext.as_mut_ptr()
+    } else {
+        plaintext[payload_offset..payload_end].as_mut_ptr()
+    };
+    let mut owner = Box::new(plaintext);
+    let owner_ptr = owner.as_mut() as *mut Vec<u8> as *mut c_void;
+    let _ = Box::into_raw(owner);
+    unsafe {
+        (*out).ptr = payload_ptr;
+        (*out).len = payload_len;
+        (*out).owner = owner_ptr;
+    }
+    SUCCESS
 }
 
 #[no_mangle]
@@ -4508,6 +4611,207 @@ pub extern "C" fn ct_send_message_file_segment(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+#[no_mangle]
+pub extern "C" fn ct_send_message_native_e2ee_file_segment(
+    connection_id: c_int,
+    prefix_ptr: *const u8,
+    prefix_len: c_int,
+    file_handle: c_int,
+    file_offset: u64,
+    file_len: u64,
+    session_handle: c_int,
+    key_id_ptr: *const c_char,
+    key_id_len: c_int,
+    cipher_code: c_int,
+) -> c_int {
+    #[cfg(feature = "ffi-test")]
+    if connection_id <= 0 || prefix_len < 0 || file_handle <= 0 || session_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let prefix = if prefix_len == 0 {
+        Bytes::new()
+    } else if prefix_ptr.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    } else {
+        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(prefix_ptr, prefix_len as usize) })
+    };
+    let file_len = match usize::try_from(file_len) {
+        Ok(value) => value,
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    let Some(file) = get_file(file_handle as u32) else {
+        return ERR_HANDLE_UNAVAILABLE;
+    };
+    let key_id = match read_optional_str(key_id_ptr, key_id_len) {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let key = match with_e2ee_session(session_handle as u32, |session| {
+        session.resolve_key(key_id.as_deref()).map(|(key, _)| key)
+    }) {
+        Some(Some(key)) => key,
+        Some(None) => return ERR_KEY_NOT_FOUND,
+        None => return ERR_HANDLE_UNAVAILABLE,
+    };
+    let encrypted = match cipher_code {
+        1 => read_native_e2ee_file_payload(&file, file_offset, file_len)
+            .and_then(|plaintext| encrypt_e2ee_payload(key.as_ref(), &plaintext)),
+        2 => encrypt_e2ee_aes256_gcm_file_payload(key.as_ref(), &file, file_offset, file_len),
+        _ => Err(ERR_INVALID_ARGUMENT),
+    };
+    let encrypted = match encrypted {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    match send_wamp_segments(
+        ConnectionId(connection_id as u32),
+        vec![prefix, Bytes::from(encrypted)],
+    ) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+fn read_native_e2ee_file_payload(
+    file: &File,
+    file_offset: u64,
+    file_len: usize,
+) -> Result<Vec<u8>, c_int> {
+    let end = file_offset
+        .checked_add(file_len as u64)
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+    if end > file.metadata().map_err(|_| ERR_IO)?.len() {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let binary_header = cbor_byte_string_header(file_len)?;
+    let mut plaintext = Vec::with_capacity(file_len + binary_header.len() + 15);
+    plaintext.extend_from_slice(&[0xa2, 0x64, b'a', b'r', b'g', b's', 0x81]);
+    plaintext.extend_from_slice(&binary_header);
+    let payload_start = plaintext.len();
+    plaintext.resize(payload_start + file_len, 0);
+    read_file_exact_at_sync(
+        file,
+        file_offset,
+        &mut plaintext[payload_start..payload_start + file_len],
+    )
+    .map_err(|_| ERR_IO)?;
+    plaintext.extend_from_slice(&[0x66, b'k', b'w', b'a', b'r', b'g', b's', 0xf6]);
+    Ok(plaintext)
+}
+
+fn encrypt_e2ee_aes256_gcm_file_payload(
+    key: &[u8],
+    file: &File,
+    file_offset: u64,
+    file_len: usize,
+) -> Result<Vec<u8>, c_int> {
+    let end = file_offset
+        .checked_add(file_len as u64)
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+    if end > file.metadata().map_err(|_| ERR_IO)?.len() {
+        return Err(ERR_INVALID_ARGUMENT);
+    }
+    let binary_header = cbor_byte_string_header(file_len)?;
+    let plaintext_len = file_len
+        .checked_add(binary_header.len())
+        .and_then(|length| length.checked_add(15))
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+    let capacity = E2EE_AES256_GCM_NONCE_LEN
+        .checked_add(plaintext_len)
+        .and_then(|length| length.checked_add(E2EE_AUTH_TAG_LEN))
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+
+    let cipher = Aes256Gcm::new(&normalize_aes256_gcm_key_material(key)?);
+    let mut nonce = AesNonce::default();
+    OsRng.fill_bytes(nonce.as_mut_slice());
+    let mut combined = Vec::with_capacity(capacity);
+    combined.extend_from_slice(nonce.as_slice());
+    combined.extend_from_slice(&[0xa2, 0x64, b'a', b'r', b'g', b's', 0x81]);
+    combined.extend_from_slice(&binary_header);
+    let payload_start = combined.len();
+    let payload_end = payload_start
+        .checked_add(file_len)
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+    combined.resize(payload_end, 0);
+    read_file_exact_at_sync(file, file_offset, &mut combined[payload_start..payload_end])
+        .map_err(|_| ERR_IO)?;
+    combined.extend_from_slice(&[0x66, b'k', b'w', b'a', b'r', b'g', b's', 0xf6]);
+
+    let tag = cipher
+        .encrypt_in_place_detached(&nonce, b"", &mut combined[E2EE_AES256_GCM_NONCE_LEN..])
+        .map_err(|_| ERR_INTERNAL)?;
+    combined.extend_from_slice(tag.as_slice());
+    Ok(combined)
+}
+
+fn cbor_byte_string_header(length: usize) -> Result<Vec<u8>, c_int> {
+    if length < 24 {
+        return Ok(vec![0x40 | length as u8]);
+    }
+    if let Ok(value) = u8::try_from(length) {
+        return Ok(vec![0x58, value]);
+    }
+    if let Ok(value) = u16::try_from(length) {
+        let mut header = vec![0x59];
+        header.extend_from_slice(&value.to_be_bytes());
+        return Ok(header);
+    }
+    if let Ok(value) = u32::try_from(length) {
+        let mut header = vec![0x5a];
+        header.extend_from_slice(&value.to_be_bytes());
+        return Ok(header);
+    }
+    let value = u64::try_from(length).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    let mut header = vec![0x5b];
+    header.extend_from_slice(&value.to_be_bytes());
+    Ok(header)
+}
+
+#[cfg(unix)]
+fn read_file_exact_at_sync(file: &File, mut offset: u64, mut buffer: &mut [u8]) -> io::Result<()> {
+    use std::os::unix::fs::FileExt;
+
+    while !buffer.is_empty() {
+        let read = file.read_at(buffer, offset)?;
+        if read == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "file segment ended early",
+            ));
+        }
+        offset += read as u64;
+        buffer = &mut buffer[read..];
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn read_file_exact_at_sync(file: &File, mut offset: u64, mut buffer: &mut [u8]) -> io::Result<()> {
+    use std::os::windows::fs::FileExt;
+
+    while !buffer.is_empty() {
+        let read = file.seek_read(buffer, offset)?;
+        if read == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "file segment ended early",
+            ));
+        }
+        offset += read as u64;
+        buffer = &mut buffer[read..];
+    }
+    Ok(())
+}
+
+#[cfg(not(any(unix, windows)))]
+fn read_file_exact_at_sync(_file: &File, _offset: u64, _buffer: &mut [u8]) -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "positional file reads are unsupported on this platform",
+    ))
+}
+
 fn read_cbor_length(bytes: &[u8], offset: &mut usize, expected_major: u8) -> Option<usize> {
     let initial = *bytes.get(*offset)?;
     *offset += 1;
@@ -4542,6 +4846,26 @@ fn read_cbor_length(bytes: &[u8], offset: &mut usize, expected_major: u8) -> Opt
         _ => 0,
     };
     usize::try_from(value).ok()
+}
+
+fn cbor_ppt_single_binary_argument(bytes: &[u8]) -> Option<&[u8]> {
+    const PREFIX: &[u8] = &[0xa2, 0x64, b'a', b'r', b'g', b's', 0x81];
+    const SUFFIX: &[u8] = &[0x66, b'k', b'w', b'a', b'r', b'g', b's', 0xf6];
+    if !bytes.starts_with(PREFIX) {
+        return None;
+    }
+    let header_start = PREFIX.len();
+    let mut payload_start = header_start;
+    let payload_len = read_cbor_length(bytes, &mut payload_start, 2)?;
+    let canonical_header = cbor_byte_string_header(payload_len).ok()?;
+    if bytes.get(header_start..payload_start)? != canonical_header.as_slice() {
+        return None;
+    }
+    let payload_end = payload_start.checked_add(payload_len)?;
+    if bytes.get(payload_end..)? != SUFFIX {
+        return None;
+    }
+    bytes.get(payload_start..payload_end)
 }
 
 fn cbor_single_binary_argument(bytes: &[u8]) -> Option<&[u8]> {
@@ -4658,6 +4982,27 @@ pub extern "C" fn ct_sha256_update_message_binary_argument(
         Some(result) => result.unwrap_or_else(|error| error),
         None => ERR_HANDLE_UNAVAILABLE,
     }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_sha256_update(
+    sha256_handle: c_int,
+    bytes_ptr: *const u8,
+    bytes_len: c_int,
+) -> c_int {
+    if sha256_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let bytes = match unsafe { read_required_bytes_slice(bytes_ptr, bytes_len) } {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let store = sha256_state_store();
+    let Some(mut state) = store.states.get_mut(&(sha256_handle as u32)) else {
+        return ERR_HANDLE_UNAVAILABLE;
+    };
+    state.update(bytes);
+    bytes_len
 }
 
 #[no_mangle]
@@ -5242,6 +5587,164 @@ mod tests {
     }
 
     #[test]
+    fn native_e2ee_file_payload_reads_the_exact_range_as_canonical_cbor() {
+        let path = std::env::temp_dir().join(format!(
+            "connectanum-native-e2ee-file-payload-{}.bin",
+            std::process::id()
+        ));
+        std::fs::write(&path, [0_u8, 1, 2, 3, 4, 5, 6]).unwrap();
+        let file = File::open(&path).unwrap();
+
+        let payload = read_native_e2ee_file_payload(&file, 2, 4).unwrap();
+
+        assert_eq!(
+            payload,
+            [
+                0xa2, 0x64, b'a', b'r', b'g', b's', 0x81, 0x44, 2, 3, 4, 5, 0x66, b'k', b'w', b'a',
+                b'r', b'g', b's', 0xf6,
+            ]
+        );
+        assert_eq!(
+            read_native_e2ee_file_payload(&file, 5, 3),
+            Err(ERR_INVALID_ARGUMENT)
+        );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn native_e2ee_aes_file_payload_encrypts_the_exact_range_in_place() {
+        let path = std::env::temp_dir().join(format!(
+            "connectanum-native-e2ee-aes-file-payload-{}.bin",
+            std::process::id()
+        ));
+        std::fs::write(&path, [0_u8, 1, 2, 3, 4, 5, 6]).unwrap();
+        let file = File::open(&path).unwrap();
+        let key = (1_u8..=32).collect::<Vec<_>>();
+
+        let encrypted = encrypt_e2ee_aes256_gcm_file_payload(&key, &file, 2, 4).unwrap();
+        let plaintext = decrypt_e2ee_aes256_gcm_payload(&key, &encrypted).unwrap();
+
+        assert_eq!(
+            cbor_ppt_single_binary_argument(&plaintext),
+            Some(&[2, 3, 4, 5][..])
+        );
+        assert_eq!(encrypted.len(), 12 + plaintext.len() + 16);
+        assert_eq!(
+            encrypt_e2ee_aes256_gcm_file_payload(&key, &file, 5, 3),
+            Err(ERR_INVALID_ARGUMENT)
+        );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn native_e2ee_file_payload_uses_canonical_byte_string_headers() {
+        assert_eq!(cbor_byte_string_header(0).unwrap(), [0x40]);
+        assert_eq!(cbor_byte_string_header(23).unwrap(), [0x57]);
+        assert_eq!(cbor_byte_string_header(24).unwrap(), [0x58, 24]);
+        assert_eq!(cbor_byte_string_header(255).unwrap(), [0x58, 0xff]);
+        assert_eq!(cbor_byte_string_header(256).unwrap(), [0x59, 0x01, 0x00]);
+        assert_eq!(cbor_byte_string_header(65_535).unwrap(), [0x59, 0xff, 0xff]);
+        assert_eq!(
+            cbor_byte_string_header(65_536).unwrap(),
+            [0x5a, 0x00, 0x01, 0x00, 0x00]
+        );
+    }
+
+    #[test]
+    fn native_e2ee_file_payload_parser_rejects_noncanonical_or_extra_data() {
+        assert_eq!(
+            cbor_ppt_single_binary_argument(&[
+                0xa2, 0x64, b'a', b'r', b'g', b's', 0x81, 0x41, 7, 0x66, b'k', b'w', b'a', b'r',
+                b'g', b's', 0xf6,
+            ]),
+            Some(&[7][..])
+        );
+        assert!(cbor_ppt_single_binary_argument(&[
+            0xa2, 0x64, b'a', b'r', b'g', b's', 0x81, 0x58, 0x01, 7, 0x66, b'k', b'w', b'a', b'r',
+            b'g', b's', 0xf6,
+        ])
+        .is_none());
+        assert!(cbor_ppt_single_binary_argument(&[
+            0xa2, 0x64, b'a', b'r', b'g', b's', 0x81, 0x41, 7, 0x66, b'k', b'w', b'a', b'r', b'g',
+            b's', 0xf6, 0,
+        ])
+        .is_none());
+        assert!(cbor_ppt_single_binary_argument(&[
+            0xa2, 0x64, b'a', b'r', b'g', b's', 0x81, 0x41, 7, 0x66, b'k', b'w', b'a', b'r', b'g',
+            b's', 0xf5,
+        ])
+        .is_none());
+    }
+
+    #[test]
+    fn native_e2ee_decrypts_retained_message_to_external_file_bytes() {
+        let _guard = test_guard();
+        let key = (1_u8..=32).collect::<Vec<_>>();
+        let keyring = ct_e2ee_keyring_new();
+        assert!(keyring > 0);
+        assert_eq!(
+            ct_e2ee_keyring_add_key(
+                keyring,
+                b"file-key".as_ptr() as *const c_char,
+                8,
+                key.as_ptr(),
+                key.len() as c_int,
+                1,
+            ),
+            SUCCESS
+        );
+        let session = ct_e2ee_session_new(keyring, ptr::null(), 0);
+        assert!(session > 0);
+        let plaintext = [
+            0xa2, 0x64, b'a', b'r', b'g', b's', 0x81, 0x44, 2, 3, 4, 5, 0x66, b'k', b'w', b'a',
+            b'r', b'g', b's', 0xf6,
+        ];
+        let ciphertext = encrypt_e2ee_aes256_gcm_payload(&key, &plaintext).unwrap();
+        assert!(ciphertext.len() <= u8::MAX as usize);
+        let mut args = vec![0x81, 0x58, ciphertext.len() as u8];
+        args.extend_from_slice(&ciphertext);
+        let message_handle = store_message(StoredMessage {
+            serializer: RawSocketSerializer::Cbor,
+            code: 68,
+            raw: StoredRawFrame::from_bytes(Bytes::new()),
+            message: WampMessage::Unknown {
+                code: 68,
+                fields: Vec::new(),
+            },
+            details: None,
+            args: Some(Bytes::from(args)),
+            kwargs: None,
+        }) as c_int;
+        let mut output = CtExternalByteBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+            owner: ptr::null_mut(),
+        };
+
+        assert_eq!(
+            ct_e2ee_session_decrypt_message_single_binary_argument(
+                session,
+                b"file-key".as_ptr() as *const c_char,
+                8,
+                message_handle,
+                2,
+                &mut output,
+            ),
+            SUCCESS
+        );
+        assert_eq!(
+            unsafe { slice::from_raw_parts(output.ptr, output.len) },
+            &[2, 3, 4, 5]
+        );
+        assert!(!output.owner.is_null());
+
+        ct_external_byte_buffer_free(output.owner);
+        remove_message(message_handle as u32);
+        assert_eq!(ct_e2ee_session_release(session), SUCCESS);
+        assert_eq!(ct_e2ee_keyring_release(keyring), SUCCESS);
+    }
+
+    #[test]
     fn native_sha256_hashes_retained_message_payload_and_consumes_state() {
         let _guard = test_guard();
         let message = StoredMessage {
@@ -5288,6 +5791,29 @@ mod tests {
             ERR_HANDLE_UNAVAILABLE
         );
         remove_message(message_handle as u32);
+    }
+
+    #[test]
+    fn native_sha256_hashes_borrowed_byte_chunks() {
+        let _guard = test_guard();
+        let sha256_handle = ct_sha256_new();
+        assert!(sha256_handle > 0);
+        assert_eq!(ct_sha256_update(sha256_handle, b"ab".as_ptr(), 2), 2);
+        assert_eq!(ct_sha256_update(sha256_handle, b"c".as_ptr(), 1), 1);
+
+        let mut digest = [0_u8; SHA256_DIGEST_LEN];
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            SUCCESS
+        );
+        assert_eq!(
+            digest,
+            [
+                0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae,
+                0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
+                0xf2, 0x00, 0x15, 0xad,
+            ]
+        );
     }
 
     #[cfg(feature = "ffi-test")]

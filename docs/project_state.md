@@ -8,48 +8,63 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
-The active transfer-performance slice removes RawSocket receive-buffer
-zero-fill, keeps contiguous CBOR WAMP payloads as retained-frame slices, and
-hashes native MessagePack/CBOR file receipts in Rust without materializing a
-second Dart payload. Cleartext native RawSocket file sends use kernel
-`sendfile` on Linux and macOS. Native TLS RawSocket and WebSocket
-MessagePack/CBOR now accept file-backed frames and stream them with bounded 4
-MiB positional reads; WebSocket preserves one RFC 6455 frame and continuous
-masking across prefix, file, and suffix. Positional reads preserve shared file
-handle cursors and keep disk IO off reactor threads. Dart filters JSON because
-binary splicing would violate JSON/base64 framing.
+The active transfer-performance slice keeps unchanged native cleartext
+MessagePack/CBOR file frames on Linux and macOS kernel `sendfile`, while native
+TLS and WebSocket use bounded positional file reads. Required E2EE transforms
+cannot preserve filesystem-to-socket zero copy, so the client now passes file
+ranges to a fused Rust path that reads directly into the final canonical CBOR
+PPT allocation, encrypts in place with a detached AES-GCM tag, hashes the
+transformed bytes, and sends one native-backed argument. Incoming canonical
+single-binary E2EE payloads decrypt into externally owned Rust memory anchored
+to the message and are hashed without a second Dart copy. Unsupported shapes
+retain the validated Dart fallback. Production AArch64 macOS and Linux builds
+enable runtime-detected ARMv8 AES and POLYVAL plus SHA-256 assembly with safe
+software fallback.
 
-The corrected one-thread local matrix moves 1 GiB per native workload and
-passes its transport-counter gate: clear RawSocket reaches 3.37 Gbit/s with
-MessagePack and 3.01 Gbit/s with CBOR, TLS RawSocket CBOR reaches 2.77 Gbit/s,
-and WebSocket CBOR reaches 2.73 Gbit/s. Dart RawSocket CBOR remains at 450
-Mbit/s and native E2EE CBOR AES-GCM at 367 Mbit/s. The strengthened 4 GiB
-aggregate-duplex large-frame matrix also passes, but one-way throughput remains
-below target: 1.55/1.86 Gbit/s for Dart/native 32 MiB MessagePack and 748/874
-Mbit/s for Dart/native 64 MiB CBOR. An auto-sized runtime repeatedly times out
-on the 1 GiB TLS file workload after RSS approaches 1 GiB, while the canonical
-one-thread runtime passes the same focused workload at 3.16 Gbit/s. That
-receive/retention scaling issue and hosted Linux evidence remain active work;
-this is not yet a universal production-readiness claim. Post-fix `bin/verify`
-passes on 2026-08-21 with 127 Rust core tests, 55 Rust FFI tests, the 466-test
-router suite, all generated package and CLI consumers, live WAMP/MCP smokes,
-and Chrome Dart2Wasm.
+The latest one-thread local file matrix moves 1 GiB per native workload and
+passes every transport and metric gate. Clear RawSocket reaches 8.94 Gbit/s
+with MessagePack and 6.89 Gbit/s with CBOR, TLS RawSocket CBOR reaches 6.43
+Gbit/s, WebSocket CBOR reaches 5.78 Gbit/s, and true native AES-GCM E2EE CBOR
+reaches 810.91 Mbit/s. The Dart buffered CBOR reference reaches 514.37 Mbit/s.
+The heavy file matrix reaches 8.82 Gbit/s for repeated 1 GiB native CBOR, 9.73
+Gbit/s for concurrent native MessagePack, and 7.35 Gbit/s for pipelined native
+CBOR. The heavy 128/256 MiB RawSocket frame matrix passes all 28 samples, but
+one-way throughput remains below target: native MessagePack reaches 1.87/1.57
+Gbit/s and native CBOR reaches 928/813 Mbit/s. Aggregate duplex values are not
+used to claim the 2 Gbit/s target. E2EE and giant frame serialization remain
+measured optimization boundaries, not hidden production-readiness claims.
 
-Exact-head Dart Package Publish Dry Run `32484220167` and WAMP Profile
-Benchmarks `32484243998` pass at
-`a332d0e90f437ff0013ec4413e8424d350b1ecd2`. Its heavy hosted Linux diagnostic
-`32484241351` moved 1 GiB over clear native RawSocket at 2.61 Gbit/s with
-MessagePack and 2.25 Gbit/s with CBOR, while Dart CBOR reached 223 Mbit/s. TLS
-then stopped after about 33 seconds because the benchmark file receiver retained
-its public 30-second idle default instead of the configured 300-second scenario
-deadline. The benchmark now applies the scenario deadline to receiver idleness
-while preserving the public default. All 56 WAMP runner tests pass, and a
-focused one-thread local TLS workload moves 1 GiB at 3.08 Gbit/s. A fresh hosted
-diagnostic is required to distinguish a real hosted TLS progress issue from the
-removed benchmark cutoff and to collect hosted large-frame evidence. Full local
-`bin/verify` passes after the receiver-idle fix with 127 Rust core tests, 55 Rust
-FFI tests, the 466-test router suite, generated consumers, live WAMP/MCP smokes,
-remote-auth integration, and Chrome Dart2Wasm.
+Focused exact-range, canonical CBOR PPT, external-buffer ownership, provider,
+real-router E2EE file, benchmark-runner, and release-profile Rust tests pass.
+Full post-change `bin/verify` passes on 2026-08-21 with 127 Rust core tests, 61
+ordinary Rust FFI tests, the focused `ffi-test` metrics regression, 372 Dart
+core tests, 118 MCP tests, 105 benchmark tests, the 466-test router suite,
+isolated consumers, live WAMP/MCP smokes, remote auth, zero-copy router
+follow-ups, and Chrome Dart2Wasm. Exact-head hosted workflows and the strict
+audit remain pending for this implementation revision.
+
+At `1e3f1d743c448a9de680e6edad55f629f69e7bb9`, the benchmark file receiver
+inherits the configured scenario deadline while its public client default stays
+unchanged. Full local `bin/verify` passes with 127 Rust core tests, 55 Rust FFI
+tests, all 56 WAMP runner tests, the 466-test router suite, generated consumers,
+live WAMP/MCP smokes, remote-auth integration, and Chrome Dart2Wasm. Exact-head
+CI `32486546334`, Dart Package Publish Dry Run `32486546332`, heavy WAMP Profile
+Diagnostics `32486559408`, and WAMP Profile Benchmarks `32486560262` pass. The
+standard benchmark's first attempt had one 1.186 Mbit/s Dart AES pub/sub sample
+against a 1.2 Mbit/s gate; an unchanged retry recovered to 1.438 Mbit/s, close
+to the preceding 1.453 Mbit/s result, and passed all nine benchmark families.
+
+The successful hosted Linux heavy artifact covers 50 workloads with no
+transport or metric findings. Native file transfer reaches 2.93/2.48 Gbit/s for
+clear MessagePack/CBOR, 2.16 Gbit/s over TLS, and 2.09 Gbit/s over WebSocket.
+Dart buffered CBOR remains at 217 Mbit/s and native E2EE at 147 Mbit/s. Hosted
+large-frame one-way throughput remains below target at 645/830 Mbit/s for
+Dart/native 32 MiB MessagePack and 379/422 Mbit/s for Dart/native 64 MiB CBOR.
+The comprehensive exact-head deployment-chain audit passes with clean CI logs,
+relevant package and WAMP artifacts, and visible workflows; the protected
+`master` strict audit also passes. Remaining work is measured optimization of
+Dart, E2EE, large-frame serializer, and auto-sized runtime receive/retention
+paths rather than missing hosted evidence.
 
 The promoted release line remains a coordinated prerelease while testers
 exercise the public packages. The user approved merging `add-router` into

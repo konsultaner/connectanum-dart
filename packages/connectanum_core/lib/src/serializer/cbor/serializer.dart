@@ -1265,18 +1265,46 @@ class Serializer extends AbstractSerializer {
     AbstractMessageWithPayload message,
   ) {
     final payloadFragments = _lazyCborPayloadFragments(message);
-    if (payloadFragments == null) {
+    final binaryArgument = payloadFragments == null
+        ? _materializedSingleBinaryArgument(message)
+        : null;
+    if (payloadFragments == null && binaryArgument == null) {
       return null;
     }
     final builder = BytesBuilder(copy: false)
-      ..add([_fixArrayHeader(fixedLength + payloadFragments.length)]);
+      ..add([
+        _fixArrayHeader(
+          fixedLength + (payloadFragments?.length ?? 1),
+        ),
+      ]);
     for (final value in fixedValues) {
       builder.add(_encodeCborValue(value));
     }
-    for (final fragment in payloadFragments) {
-      builder.add(fragment);
+    if (payloadFragments != null) {
+      for (final fragment in payloadFragments) {
+        builder.add(fragment);
+      }
+    } else {
+      builder
+        ..add(const [0x81])
+        ..add(_encodeCborByteStringHeader(binaryArgument!.length))
+        ..add(binaryArgument);
     }
     return builder.takeBytes();
+  }
+
+  Uint8List? _materializedSingleBinaryArgument(
+    AbstractMessageWithPayload message,
+  ) {
+    if (message.hasLazyArguments || message.hasLazyArgumentsKeywords) {
+      return null;
+    }
+    final arguments = message.wireArguments;
+    if (message.wireArgumentsKeywords != null || arguments?.length != 1) {
+      return null;
+    }
+    final argument = arguments!.single;
+    return argument is Uint8List ? argument : null;
   }
 
   List<Uint8List>? _lazyCborPayloadFragments(
@@ -1317,6 +1345,28 @@ class Serializer extends AbstractSerializer {
     return Uint8List.fromList(
       cbor.encode(CborValue(_cborEncodablePayloadFragment(value))),
     );
+  }
+
+  Uint8List _encodeCborByteStringHeader(int length) {
+    if (length < 24) {
+      return Uint8List.fromList(<int>[0x40 | length]);
+    }
+    if (length <= 0xff) {
+      return Uint8List.fromList(<int>[0x58, length]);
+    }
+    if (length <= 0xffff) {
+      final bytes = Uint8List(3)..[0] = 0x59;
+      ByteData.sublistView(bytes).setUint16(1, length);
+      return bytes;
+    }
+    if (length <= 0xffffffff) {
+      final bytes = Uint8List(5)..[0] = 0x5a;
+      ByteData.sublistView(bytes).setUint32(1, length);
+      return bytes;
+    }
+    final bytes = Uint8List(9)..[0] = 0x5b;
+    ByteData.sublistView(bytes).setUint64(1, length);
+    return bytes;
   }
 
   Object? _cborEncodablePayloadFragment(Object? value) {
@@ -1906,6 +1956,10 @@ class Serializer extends AbstractSerializer {
   /// Converts a uint8 data into a PPT Payload Object
   @override
   PPTPayload? deserializePPT(Uint8List binPayload) {
+    final binaryPayload = _deserializeSingleBinaryPpt(binPayload);
+    if (binaryPayload != null) {
+      return binaryPayload;
+    }
     List<dynamic>? arguments;
     Map<String, dynamic>? argumentsKeywords;
 
@@ -1950,6 +2004,25 @@ class Serializer extends AbstractSerializer {
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
   }) {
+    final binaryArgument =
+        argumentsBytes == null &&
+            argumentsKeywordsBytes == null &&
+            argumentsKeywords == null &&
+            arguments?.length == 1 &&
+            arguments!.single is Uint8List
+        ? arguments.single as Uint8List
+        : null;
+    if (binaryArgument != null) {
+      return (BytesBuilder(copy: false)
+            ..add(const [0xa2])
+            ..add(_pptArgsKeyBytes)
+            ..add(const [0x81])
+            ..add(_encodeCborByteStringHeader(binaryArgument.length))
+            ..add(binaryArgument)
+            ..add(_pptKwargsKeyBytes)
+            ..add(_nullBytes))
+          .takeBytes();
+    }
     final argsBytes = argumentsBytes ?? _encodeCborValue(arguments);
     final kwargsBytes =
         argumentsKeywordsBytes ?? _encodeCborValue(argumentsKeywords);
@@ -1960,6 +2033,53 @@ class Serializer extends AbstractSerializer {
       ..add(_pptKwargsKeyBytes)
       ..add(kwargsBytes.isEmpty ? _nullBytes : kwargsBytes);
     return builder.takeBytes();
+  }
+
+  PPTPayload? _deserializeSingleBinaryPpt(Uint8List bytes) {
+    var offset = 0;
+    if (bytes.isEmpty || bytes[offset++] != 0xa2) {
+      return null;
+    }
+    if (!_matchesAt(bytes, offset, _pptArgsKeyBytes)) {
+      return null;
+    }
+    offset += _pptArgsKeyBytes.length;
+    if (offset >= bytes.length || bytes[offset++] != 0x81) {
+      return null;
+    }
+    if (offset >= bytes.length || bytes[offset] >> 5 != 2) {
+      return null;
+    }
+    final lead = bytes[offset++];
+    final lengthInfo = _readCborLength(bytes, offset, lead & 0x1f);
+    final length = lengthInfo?.length;
+    if (length == null) {
+      return null;
+    }
+    final start = lengthInfo!.nextOffset;
+    final end = start + length;
+    if (end > bytes.length || !_matchesAt(bytes, end, _pptKwargsKeyBytes)) {
+      return null;
+    }
+    offset = end + _pptKwargsKeyBytes.length;
+    if (offset + 1 != bytes.length || bytes[offset] != 0xf6) {
+      return null;
+    }
+    return PPTPayload(
+      arguments: <dynamic>[Uint8List.sublistView(bytes, start, end)],
+    );
+  }
+
+  bool _matchesAt(Uint8List bytes, int offset, Uint8List expected) {
+    if (offset + expected.length > bytes.length) {
+      return false;
+    }
+    for (var index = 0; index < expected.length; index++) {
+      if (bytes[offset + index] != expected[index]) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Map<String, Object?> _challengeExtraToMap(Extra extra) {

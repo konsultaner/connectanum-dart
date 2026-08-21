@@ -57,6 +57,7 @@ void main() {
         broker.fileReceiverIdleTimeout,
         const Duration(milliseconds: 200),
       );
+      expect(broker.fileReceiverMaxChunkSize, scenario.fileChunkBytes);
     });
 
     test('completes pubsub scenario after receiving matching events', () async {
@@ -1447,6 +1448,7 @@ class _FakeWampBroker {
   wamp_core.RegisterOptions? lastRegisterOptions;
   String? lastCancelMode;
   Duration? fileReceiverIdleTimeout;
+  int? fileReceiverMaxChunkSize;
   int _activeCalls = 0;
   int maxConcurrentCalls = 0;
   int _activePublishes = 0;
@@ -2208,9 +2210,11 @@ class _FakeWampSession implements WampSession, WampFileSession {
   Future<WampRegistration> registerFileReceiver(
     String procedure, {
     required int maxConcurrentTransfers,
+    required int maxChunkSize,
     required Duration idleTimeout,
   }) async {
     _broker.fileReceiverIdleTimeout = idleTimeout;
+    _broker.fileReceiverMaxChunkSize = maxChunkSize;
     return WampRegistration(cancel: () async {});
   }
 

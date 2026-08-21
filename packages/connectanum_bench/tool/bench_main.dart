@@ -395,7 +395,10 @@ class _BenchControlRegistry {
           allowInsecureCertificates: target.secure,
           messageLengthExponent: scenario.rawSocketMessageLengthExponent,
           nativeLibraryPath: nativeLibraryPath,
-          e2eeProviderFactory: e2eeProviderFactoryForScenario(scenario),
+          e2eeProviderFactory: e2eeProviderFactoryForScenario(
+            scenario,
+            nativeLibraryPath: nativeLibraryPath,
+          ),
         );
         return factory.call();
       case WampTransport.websocket:
@@ -409,7 +412,10 @@ class _BenchControlRegistry {
           headers: const {'x-connectanum-bench': '1'},
           allowInsecureCertificates: target.secure,
           nativeLibraryPath: nativeLibraryPath,
-          e2eeProviderFactory: e2eeProviderFactoryForScenario(scenario),
+          e2eeProviderFactory: e2eeProviderFactoryForScenario(
+            scenario,
+            nativeLibraryPath: nativeLibraryPath,
+          ),
         );
         return factory.call();
     }

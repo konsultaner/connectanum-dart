@@ -11,6 +11,8 @@ import 'package:connectanum_bench/connectanum_bench.dart';
 import 'package:connectanum_bench/src/native_wamp_worker.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_client/src/transport/native/e2ee_file_segment.dart'
+    as native_e2ee;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:logging/logging.dart';
@@ -134,6 +136,62 @@ void main() {
 
         expect(samples, hasLength(1));
         expect(harness!.e2eeTrace.pendingCiphertexts, isZero);
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native same-serializer CBOR E2EE RPC uses the selected FFI library',
+      () async {
+        final samples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            peerSerializer: WampSerializer.cbor,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 1024,
+            pptScheme: 'wamp',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes256gcm',
+            pptKeyId: 'benchmark-key',
+          ),
+        );
+
+        expect(samples, hasLength(1));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native CBOR E2EE file transfer uses native file segments',
+      () async {
+        final samples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            peerSerializer: WampSerializer.cbor,
+            mode: WampMode.fileTransfer,
+            uri: 'bench.file.receive',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 2 * 1024 * 1024,
+            fileChunkBytes: 256 * 1024,
+            pptScheme: 'wamp',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes256gcm',
+            pptKeyId: 'benchmark-key',
+          ),
+        );
+
+        expect(samples, hasLength(1));
+        expect(samples.single.requestBytes, 2 * 1024 * 1024);
       },
       skip: skipReason,
       timeout: const Timeout(Duration(seconds: 45)),
@@ -1125,7 +1183,10 @@ class _WampTransportHarness {
     final runner = WampWorkloadRunner(
       sessionFactory: (scenario) {
         final e2eeProviderFactory = e2eeTrace.wrapFactory(
-          e2eeProviderFactoryForScenario(scenario),
+          e2eeProviderFactoryForScenario(
+            scenario,
+            nativeLibraryPath: nativeLib,
+          ),
         );
         switch (scenario.transport) {
           case WampTransport.rawsocket:
@@ -1306,7 +1367,9 @@ final class _E2eeTrace {
 }
 
 final class _TracingE2eeProvider extends wamp_core.DisposableWampE2eeProvider
-    implements wamp_core.WampE2eeProfileSupport {
+    implements
+        wamp_core.WampE2eeProfileSupport,
+        native_e2ee.NativeE2eeFileSegmentProvider {
   _TracingE2eeProvider({
     required this.delegate,
     required this.providerId,
@@ -1316,6 +1379,13 @@ final class _TracingE2eeProvider extends wamp_core.DisposableWampE2eeProvider
   final wamp_core.WampE2eeProvider delegate;
   final int providerId;
   final _E2eeTrace trace;
+
+  @override
+  bool get supportsNativeE2eeFileSegments {
+    final nativeDelegate = delegate as Object;
+    return nativeDelegate is native_e2ee.NativeE2eeFileSegmentProvider &&
+        nativeDelegate.supportsNativeE2eeFileSegments;
+  }
 
   @override
   List<dynamic> packPayload(
@@ -1343,6 +1413,22 @@ final class _TracingE2eeProvider extends wamp_core.DisposableWampE2eeProvider
     trace.recordUnpack(providerId, arguments);
     return delegate.unpackPayload(
       arguments,
+      options,
+      runtimeContext: runtimeContext,
+    );
+  }
+
+  @override
+  native_e2ee.NativeE2eeFileSegmentContext prepareNativeE2eeFileSegment(
+    wamp_core.PPTOptions options, {
+    wamp_core.WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    final nativeDelegate = delegate as Object;
+    if (nativeDelegate is! native_e2ee.NativeE2eeFileSegmentProvider ||
+        !nativeDelegate.supportsNativeE2eeFileSegments) {
+      throw UnsupportedError('The traced E2EE provider is not native');
+    }
+    return nativeDelegate.prepareNativeE2eeFileSegment(
       options,
       runtimeContext: runtimeContext,
     );

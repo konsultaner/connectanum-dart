@@ -186,7 +186,10 @@ class BenchmarkRunner {
           allowInsecureCertificates: target.secure,
           messageLengthExponent: scenario.rawSocketMessageLengthExponent,
           nativeLibraryPath: nativeLibraryPath,
-          e2eeProviderFactory: e2eeProviderFactoryForScenario(scenario),
+          e2eeProviderFactory: e2eeProviderFactoryForScenario(
+            scenario,
+            nativeLibraryPath: nativeLibraryPath,
+          ),
         ).call();
       case WampTransport.websocket:
         return WebSocketWampSessionFactory(
@@ -199,7 +202,10 @@ class BenchmarkRunner {
           headers: const {'x-connectanum-bench': '1'},
           allowInsecureCertificates: target.secure,
           nativeLibraryPath: nativeLibraryPath,
-          e2eeProviderFactory: e2eeProviderFactoryForScenario(scenario),
+          e2eeProviderFactory: e2eeProviderFactoryForScenario(
+            scenario,
+            nativeLibraryPath: nativeLibraryPath,
+          ),
         ).call();
     }
   }

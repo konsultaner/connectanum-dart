@@ -5,6 +5,7 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 
 import '../transport/abstract_transport.dart';
+import '../transport/native/e2ee_file_segment.dart';
 import '../transport/native/message_binding.dart';
 import '../transport/native/message_protocol.dart';
 
@@ -555,12 +556,14 @@ class Session {
       return _buildInboundRuntimeContext(
         messageType: WampE2eeMessageType.result,
         uri: _pendingCalls[metadata.primaryId]?.procedure,
+        payloadAnchor: message,
       );
     }
     if (metadata.messageCode == MessageTypes.codeEvent) {
       return _buildInboundRuntimeContext(
         messageType: WampE2eeMessageType.event,
         uri: metadata.stringA ?? subscriptions[metadata.primaryId]?.topic,
+        payloadAnchor: message,
         peer: _partyContextFromNativeMetadata(
           metadata,
           sessionIdFlag: NativeMessageMetadata.flagDetailNumberAPresent,
@@ -572,6 +575,7 @@ class Session {
       return _buildInboundRuntimeContext(
         messageType: WampE2eeMessageType.invocation,
         uri: metadata.stringA ?? registrations[metadata.secondaryId]?.procedure,
+        payloadAnchor: message,
         peer: _partyContextFromNativeMetadata(
           metadata,
           sessionIdFlag: NativeMessageMetadata.flagDetailNumberAPresent,
@@ -585,6 +589,7 @@ class Session {
     required WampE2eeMessageType messageType,
     String? uri,
     WampE2eePartyContext? peer,
+    Object? payloadAnchor,
   }) {
     return WampE2eeRuntimeContext(
       direction: WampE2eeDirection.inbound,
@@ -594,6 +599,7 @@ class Session {
       local: _localE2eePartyContext(),
       peer: peer,
       negotiated: _negotiatedE2eeRaw(),
+      payloadAnchor: payloadAnchor,
     );
   }
 
@@ -752,13 +758,29 @@ class Session {
     _transport.send(call);
     _attachCallCancellation(call.requestId, cancelCompleter);
 
-    final fileTransport =
+    final availableFileTransport =
         enableFileSegments &&
-            initiatingOptions.pptScheme == null &&
             _transport is FileSegmentTransport &&
             (_transport as FileSegmentTransport).supportsFileSegments
         ? _transport as FileSegmentTransport
         : null;
+    final fileTransport = initiatingOptions.pptScheme == null
+        ? availableFileTransport
+        : null;
+    final outboundE2eeProvider = call.e2eeProvider;
+    final nativeE2eeCandidate = outboundE2eeProvider as Object?;
+    NativeE2eeFileSegmentProvider? nativeE2eeProvider;
+    if (initiatingOptions.pptScheme == ConnectanumE2eeProfile.scheme &&
+        nativeE2eeCandidate is NativeE2eeFileSegmentProvider &&
+        nativeE2eeCandidate.supportsNativeE2eeFileSegments) {
+      nativeE2eeProvider = nativeE2eeCandidate;
+    }
+    NativeE2eeFileSegmentTransport? nativeE2eeFileTransport;
+    if (nativeE2eeProvider != null &&
+        availableFileTransport is NativeE2eeFileSegmentTransport) {
+      nativeE2eeFileTransport = availableFileTransport;
+    }
+    final sourceTransport = fileTransport ?? nativeE2eeFileTransport;
 
     Call buildChunk(LazyMessagePayload payload, bool progress) {
       if (!_pendingCalls.containsKey(call.requestId)) {
@@ -785,17 +807,51 @@ class Session {
       send: (payload, progress) {
         _transport.send(buildChunk(payload, progress));
       },
-      openFileSource: fileTransport?.openFileSegmentSource,
-      sendFileSegment: fileTransport == null
+      openFileSource: sourceTransport?.openFileSegmentSource,
+      sendFileSegment: sourceTransport == null
           ? null
           : (source, offset, length, progress) {
+              if (nativeE2eeFileTransport != null &&
+                  nativeE2eeProvider != null) {
+                final options = CallOptions(
+                  progress: progress,
+                  pptScheme: initiatingOptions.pptScheme,
+                  pptSerializer: initiatingOptions.pptSerializer,
+                  pptCipher: initiatingOptions.pptCipher,
+                  pptKeyId: initiatingOptions.pptKeyId,
+                );
+                final chunk = Call(
+                  call.requestId,
+                  procedure,
+                  options: options,
+                  arguments: <dynamic>[Uint8List(0)],
+                );
+                final runtimeContext = _buildOutboundRuntimeContext(
+                  messageType: WampE2eeMessageType.call,
+                  uri: procedure,
+                );
+                chunk.attachE2eeProvider(outboundE2eeProvider);
+                chunk.attachE2eeRuntimeContext(runtimeContext);
+                final e2ee = nativeE2eeProvider.prepareNativeE2eeFileSegment(
+                  options,
+                  runtimeContext: runtimeContext,
+                );
+                nativeE2eeFileTransport.sendNativeE2eeFileSegment(
+                  chunk,
+                  source: source,
+                  offset: offset,
+                  length: length,
+                  e2ee: e2ee,
+                );
+                return;
+              }
               final chunk = buildChunk(
                 LazyMessagePayload.materialized(
                   arguments: <dynamic>[Uint8List(0)],
                 ),
                 progress,
               );
-              fileTransport.sendFileSegment(
+              fileTransport!.sendFileSegment(
                 chunk,
                 source: source,
                 offset: offset,
@@ -2191,7 +2247,8 @@ class NegotiatedSessionE2ee {
   }
 }
 
-class _NegotiatedSessionE2eeProvider implements WampE2eeProvider {
+class _NegotiatedSessionE2eeProvider
+    implements WampE2eeProvider, NativeE2eeFileSegmentProvider {
   _NegotiatedSessionE2eeProvider({
     required this.provider,
     required this.negotiated,
@@ -2247,6 +2304,35 @@ class _NegotiatedSessionE2eeProvider implements WampE2eeProvider {
     );
     return provider.unpackPayload(
       arguments,
+      options,
+      runtimeContext: mergedRuntimeContext,
+    );
+  }
+
+  @override
+  bool get supportsNativeE2eeFileSegments {
+    final nativeProvider = provider as Object;
+    return nativeProvider is NativeE2eeFileSegmentProvider &&
+        nativeProvider.supportsNativeE2eeFileSegments;
+  }
+
+  @override
+  NativeE2eeFileSegmentContext prepareNativeE2eeFileSegment(
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    final nativeProvider = provider as Object;
+    if (nativeProvider is! NativeE2eeFileSegmentProvider ||
+        !nativeProvider.supportsNativeE2eeFileSegments) {
+      throw UnsupportedError('The negotiated E2EE provider is not native');
+    }
+    final mergedRuntimeContext = _mergeRuntimeContext(runtimeContext);
+    _applyDefaults(
+      options,
+      outbound: true,
+      runtimeContext: mergedRuntimeContext,
+    );
+    return nativeProvider.prepareNativeE2eeFileSegment(
       options,
       runtimeContext: mergedRuntimeContext,
     );

@@ -1,0 +1,2 @@
+[target.'cfg(all(target_arch = "aarch64", any(target_os = "macos", target_os = "linux")))']
+rustflags = ["--cfg", "aes_armv8", "--cfg", "polyval_armv8"]

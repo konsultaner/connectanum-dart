@@ -6267,6 +6267,59 @@ mod tests {
     }
 
     #[test]
+    fn file_transfer_e2ee_workload_uses_release_profile() {
+        let scenario_path = format!(
+            "{}/scenarios/wamp_file_transfer_throughput.toml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let scenario = load_scenario(&scenario_path).unwrap();
+        let workload = scenario
+            .workloads
+            .iter()
+            .find(|workload| workload.name == "rawsocket_file_cbor_e2ee_64m_native_segmented")
+            .expect("missing E2EE file-transfer workload");
+
+        assert_eq!(workload.ppt_scheme.as_deref(), Some("wamp"));
+        assert_eq!(workload.ppt_serializer.as_deref(), Some("cbor"));
+        assert_eq!(workload.ppt_cipher.as_deref(), Some("aes256gcm"));
+        assert_eq!(workload.ppt_keyid.as_deref(), Some("bench-key"));
+        assert_eq!(workload.request_bytes, 64 * 1024 * 1024);
+        assert_eq!(workload.request_chunk_bytes, 4 * 1024 * 1024);
+        assert_eq!(workload.iterations, 8);
+        assert_eq!(workload.concurrency, 2);
+    }
+
+    #[test]
+    fn heavy_rawsocket_frame_scenario_keeps_large_repeated_samples() {
+        let scenario_path = format!(
+            "{}/scenarios/wamp_large_rawsocket_frames_heavy.toml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let scenario = load_scenario(&scenario_path).unwrap();
+        let expected = [
+            ("rawsocket_rpc_msgpack_128m_native", 128, 8),
+            ("rawsocket_rpc_cbor_128m_native", 128, 8),
+            ("rawsocket_rpc_cbor_128m_dart_reference", 128, 4),
+            ("rawsocket_rpc_msgpack_256m_native", 256, 4),
+            ("rawsocket_rpc_cbor_256m_native", 256, 4),
+        ];
+
+        assert_eq!(scenario.workloads.len(), expected.len());
+        for (name, request_mib, iterations) in expected {
+            let workload = scenario
+                .workloads
+                .iter()
+                .find(|workload| workload.name == name)
+                .unwrap_or_else(|| panic!("missing heavy RawSocket workload {name}"));
+            assert_eq!(workload.protocol, "wamp_rawsocket_rpc");
+            assert_eq!(workload.request_bytes, request_mib * 1024 * 1024);
+            assert_eq!(workload.iterations, iterations);
+            assert_eq!(workload.concurrency, 1);
+            assert_eq!(workload.in_flight_per_session, 1);
+        }
+    }
+
+    #[test]
     fn parse_wamp_protocol_supports_transport_specific_labels() {
         assert_eq!(
             parse_wamp_protocol("wamp_rawsocket_auth"),

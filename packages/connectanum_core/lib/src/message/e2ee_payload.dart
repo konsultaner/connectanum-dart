@@ -145,6 +145,7 @@ class WampE2eeRuntimeContext {
     this.local,
     this.peer,
     this.negotiated,
+    this.payloadAnchor,
   });
 
   final WampE2eeDirection direction;
@@ -154,6 +155,7 @@ class WampE2eeRuntimeContext {
   final WampE2eePartyContext? local;
   final WampE2eePartyContext? peer;
   final Map<String, dynamic>? negotiated;
+  final Object? payloadAnchor;
 
   WampE2eeRuntimeContext copyWith({
     WampE2eeDirection? direction,
@@ -163,6 +165,7 @@ class WampE2eeRuntimeContext {
     Object? local = _unsetContextValue,
     Object? peer = _unsetContextValue,
     Object? negotiated = _unsetContextValue,
+    Object? payloadAnchor = _unsetContextValue,
   }) {
     return WampE2eeRuntimeContext(
       direction: direction ?? this.direction,
@@ -180,6 +183,9 @@ class WampE2eeRuntimeContext {
       negotiated: identical(negotiated, _unsetContextValue)
           ? this.negotiated
           : negotiated as Map<String, dynamic>?,
+      payloadAnchor: identical(payloadAnchor, _unsetContextValue)
+          ? this.payloadAnchor
+          : payloadAnchor,
     );
   }
 }

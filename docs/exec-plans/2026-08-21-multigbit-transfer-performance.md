@@ -59,17 +59,43 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   after process RSS approaches 1 GiB. This is a separate receive/retention
   scaling boundary that must be diagnosed before claiming every runtime
   configuration is production-ready.
-- Exact-head package dry run and standard WAMP benchmarks pass at
-  `a332d0e90f437ff0013ec4413e8424d350b1ecd2`. Its heavy hosted Linux
-  diagnostic moves clear native MessagePack/CBOR at 2.61/2.25 Gbit/s and Dart
-  CBOR at 223 Mbit/s, then exposes a third benchmark-side 30-second boundary:
-  the file receiver retained its public default idle timeout instead of the
-  configured 300-second scenario deadline. The benchmark now forwards that
-  deadline to receiver idleness while leaving the public default unchanged.
-  All 56 WAMP runner tests pass, and a focused one-thread local TLS workload
-  moves 1 GiB at 3.08 Gbit/s. A fresh hosted diagnostic remains required to
-  determine whether TLS progresses on hosted Linux and to collect large-frame
-  evidence; the local result is not a hosted transport-health claim.
+- Exact-head heavy hosted Linux diagnostics pass at
+  `1e3f1d743c448a9de680e6edad55f629f69e7bb9` after the benchmark file
+  receiver inherits the configured scenario deadline. Native clear file
+  transfer reaches 2.93/2.48 Gbit/s for MessagePack/CBOR, native TLS reaches
+  2.16 Gbit/s, and native WebSocket reaches 2.09 Gbit/s. Dart buffered CBOR and
+  native E2EE remain hard boundaries at 217 and 147 Mbit/s. Hosted large-frame
+  one-way throughput is also below target: 645/830 Mbit/s for Dart/native 32
+  MiB MessagePack and 379/422 Mbit/s for Dart/native 64 MiB CBOR. All 50 heavy
+  workloads pass their transport and metric gates without findings.
+- Native E2EE file delivery now bypasses Dart file reads and intermediate
+  plaintext/ciphertext copies. The client passes positional file ranges to a
+  fused Rust path that reads into the final canonical CBOR PPT allocation,
+  encrypts in place with a detached AES-GCM tag, hashes the transformed bytes,
+  and sends one native-backed WAMP argument. Incoming canonical single-binary
+  E2EE payloads decrypt into an externally owned Rust buffer that remains
+  anchored to the message and is hashed without a second Dart copy. Unsupported
+  shapes retain the validated Dart fallback.
+- Production AArch64 macOS and Linux builds enable runtime-detected ARMv8 AES
+  and POLYVAL dispatch plus SHA-256 assembly, with safe software fallback on
+  unsupported CPUs. A local 4 MiB transform probe improved AES-GCM from about
+  23 ms to about 2.5 ms and SHA-256 from about 9 ms to about 1.75 ms. A chunk
+  sweep found 4 MiB remains the best tested encrypted transfer granularity.
+- The latest local canonical file matrix moves 1 GiB per native workload and
+  passes every transport and metric gate: clear RawSocket reaches 8.94 Gbit/s
+  with MessagePack and 6.89 Gbit/s with CBOR, TLS RawSocket CBOR reaches 6.43
+  Gbit/s, WebSocket CBOR reaches 5.78 Gbit/s, and true native AES-GCM E2EE CBOR
+  reaches 810.91 Mbit/s. The Dart buffered CBOR reference reaches 514.37
+  Mbit/s. E2EE is materially faster but remains below the 2 Gbit/s target.
+- The heavy local file matrix passes at 8.82 Gbit/s for repeated 1 GiB native
+  CBOR, 9.73 Gbit/s for concurrent 256 MiB native MessagePack, and 7.35 Gbit/s
+  for pipelined 256 MiB native CBOR. The Dart buffered 128 MiB reference reaches
+  513.75 Mbit/s.
+- The heavy large-frame matrix passes all 28 samples. Native MessagePack reaches
+  1.87 Gbit/s one-way for 128 MiB frames and 1.57 Gbit/s for 256 MiB frames;
+  native CBOR reaches 928 and 813 Mbit/s respectively. Aggregate duplex values
+  reach 3.75/3.13 Gbit/s for MessagePack and 1.86/1.63 Gbit/s for CBOR, but no
+  large-frame workload reaches the 2 Gbit/s one-way target.
 
 ## Plan
 
@@ -109,16 +135,23 @@ measured boundary rather than hidden by aggregate-duplex accounting.
 - [x] Add native file-backed TLS and WebSocket sending with positional reads,
   continuous WebSocket masking, serializer capability checks, and multi-chunk
   correctness regressions.
+- [x] Add fused native E2EE file segments, in-place canonical PPT encryption,
+  retained-message zero-copy decryption, transformed-byte hashing, exact-range
+  regressions, and real-router encrypted file smoke coverage.
+- [x] Enable runtime-detected AArch64 AES, POLYVAL, and SHA-256 acceleration for
+  production macOS and Linux builds while preserving portable fallback.
+- [x] Complete the strengthened local canonical and heavy file and large-frame
+  matrices. Clear native file paths exceed the multi-gigabit target; true E2EE
+  and giant one-way RawSocket frames remain explicit measured boundaries.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
-- [ ] Complete heavy hosted matrix evidence. The corrected local file and
-  large-frame matrices pass their transport-counter gates. Hosted clear native
-  MessagePack and CBOR exceed 2 Gbit/s; the control-client, worker-operation,
-  and receiver-idle deadline fixes must be rerun for TLS and large-frame
-  evidence.
-- [ ] Complete full verification and deployment audit. Local `bin/verify`
-  passes after the receiver-idle fix with 127 Rust core tests, 55 Rust FFI
-  tests, all 56 WAMP runner tests, the 466-test router suite, generated
-  consumers, live WAMP/MCP smokes, and Chrome Dart2Wasm. Exact-head package dry
-  run and standard WAMP benchmarks pass at the preceding revision; hosted
-  diagnostics must pass after the receiver-idle fix before the final
-  feature-branch and protected-branch audits are repeated.
+- [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
+  large-frame matrices pass all transport and metric gates. Clear native
+  MessagePack/CBOR and segmented native TLS/WebSocket exceed 2 Gbit/s; Dart,
+  E2EE, and large-frame serializer paths remain measured optimization work.
+- [x] Complete full post-change local verification. `bin/verify` passes with
+  127 Rust core tests, 61 ordinary Rust FFI tests, the focused `ffi-test`
+  metrics regression, 372 Dart core tests, 118 MCP tests, 105 benchmark tests,
+  the 466-test router suite, isolated consumers, live WAMP/MCP smokes, remote
+  auth, zero-copy router follow-ups, and Chrome Dart2Wasm.
+- [ ] Complete exact-head hosted workflow evidence and the strict deployment
+  audit for the E2EE, crypto-dispatch, and heavy-scenario revision.

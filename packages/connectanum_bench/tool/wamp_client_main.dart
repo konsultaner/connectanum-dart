@@ -70,7 +70,10 @@ Future<void> main(List<String> args) async {
             allowInsecureCertificates: target.secure,
             messageLengthExponent: scenario.rawSocketMessageLengthExponent,
             nativeLibraryPath: nativeLibraryPath,
-            e2eeProviderFactory: e2eeProviderFactoryForScenario(scenario),
+            e2eeProviderFactory: e2eeProviderFactoryForScenario(
+              scenario,
+              nativeLibraryPath: nativeLibraryPath,
+            ),
           ).call();
         case WampTransport.websocket:
           final scenarioRealm = scenario.realmUri.isEmpty
@@ -87,7 +90,10 @@ Future<void> main(List<String> args) async {
             allowInsecureCertificates: target.secure,
             websocketFragmentSize: scenario.websocketFragmentSize,
             nativeLibraryPath: nativeLibraryPath,
-            e2eeProviderFactory: e2eeProviderFactoryForScenario(scenario),
+            e2eeProviderFactory: e2eeProviderFactoryForScenario(
+              scenario,
+              nativeLibraryPath: nativeLibraryPath,
+            ),
           ).call();
       }
     },

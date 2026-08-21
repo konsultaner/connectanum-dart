@@ -3,22 +3,27 @@ import 'dart:typed_data';
 import 'package:connectanum_core/cbor_serializer.dart' as cbor_serializer;
 import 'package:connectanum_core/connectanum_core.dart';
 
+import 'e2ee_file_segment.dart';
+import 'native_transports_io.dart';
 import 'runtime.dart';
 
 class NativeWampCborXsalsa20Poly1305Provider
     implements
         DisposableWampE2eeProvider,
         WampE2eePolicyAwareProvider,
-        WampE2eeProfileSupport {
+        WampE2eeProfileSupport,
+        NativeE2eeFileSegmentProvider {
   NativeWampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
     String? defaultKeyId,
     WampE2eeKeySelectionPolicy? keySelectionPolicy,
+    String? libraryPath,
     NativeClientRuntime? runtime,
   }) : this._(
          keys: keys,
          defaultKeyId: defaultKeyId,
          keySelectionPolicy: keySelectionPolicy,
+         libraryPath: libraryPath,
          runtime: runtime,
          cipher: supportedCipher,
        );
@@ -28,8 +33,10 @@ class NativeWampCborXsalsa20Poly1305Provider
     required String cipher,
     String? defaultKeyId,
     WampE2eeKeySelectionPolicy? keySelectionPolicy,
+    String? libraryPath,
     NativeClientRuntime? runtime,
-  }) : _runtime = runtime ?? NativeClientRuntime.instance(),
+  }) : _runtime =
+           runtime ?? NativeClientRuntime.instance(libraryPath: libraryPath),
        _defaultKeyId = _resolveDefaultKeyId(keys, defaultKeyId),
        _knownKeyIds = Set.unmodifiable(keys.keys),
        _keySelectionPolicy = keySelectionPolicy,
@@ -65,11 +72,13 @@ class NativeWampCborXsalsa20Poly1305Provider
     required String keyId,
     required List<int> key,
     WampE2eeKeySelectionPolicy? keySelectionPolicy,
+    String? libraryPath,
     NativeClientRuntime? runtime,
   }) : this(
          keys: {keyId: key},
          defaultKeyId: keyId,
          keySelectionPolicy: keySelectionPolicy,
+         libraryPath: libraryPath,
          runtime: runtime,
        );
 
@@ -113,6 +122,36 @@ class NativeWampCborXsalsa20Poly1305Provider
     PPTOptions options, {
     WampE2eeRuntimeContext? runtimeContext,
   }) {
+    final segment = prepareNativeE2eeFileSegment(
+      options,
+      runtimeContext: runtimeContext,
+    );
+
+    final plaintext = _serializer.serializePPT(
+      PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
+    );
+    try {
+      return <dynamic>[
+        _runtime.encryptE2ee(
+          segment.sessionHandle,
+          plaintext,
+          keyId: segment.keyId,
+          cipher: segment.cipher,
+        ),
+      ];
+    } on NativeTransportException catch (error) {
+      throw _mapNativeException('pack', options, error);
+    }
+  }
+
+  @override
+  bool get supportsNativeE2eeFileSegments => true;
+
+  @override
+  NativeE2eeFileSegmentContext prepareNativeE2eeFileSegment(
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
     _ensureOpen();
     _verifyScheme(options);
     _verifySerializer(options);
@@ -122,29 +161,16 @@ class NativeWampCborXsalsa20Poly1305Provider
       runtimeContext: runtimeContext,
     );
     _resolveCipher(options, operation: 'pack');
-
     options.pptScheme ??= 'wamp';
     options.pptSerializer ??= supportedSerializer;
     options.pptCipher ??= _cipher;
     options.pptKeyId ??= keyId;
-
-    final plaintext = Uint8List.fromList(
-      _serializer.serializePPT(
-        PPTPayload(arguments: arguments, argumentsKeywords: argumentsKeywords),
-      ),
+    return NativeE2eeFileSegmentContext(
+      runtimeIdentity: _runtime,
+      sessionHandle: _sessionHandle,
+      keyId: options.pptKeyId!,
+      cipher: _cipher,
     );
-    try {
-      return <dynamic>[
-        _runtime.encryptE2ee(
-          _sessionHandle,
-          plaintext,
-          keyId: options.pptKeyId,
-          cipher: _cipher,
-        ),
-      ];
-    } on NativeTransportException catch (error) {
-      throw _mapNativeException('pack', options, error);
-    }
   }
 
   @override
@@ -162,8 +188,25 @@ class NativeWampCborXsalsa20Poly1305Provider
       operation: 'unpack',
       runtimeContext: runtimeContext,
     );
-    final encryptedBytes = _coerceEncryptedPayload(arguments, options);
     try {
+      final incoming = nativeIncomingMessageForAnchor(
+        runtimeContext?.payloadAnchor,
+      );
+      if (incoming != null) {
+        final directBytes = _runtime.decryptE2eeMessageSingleBinaryArgument(
+          _sessionHandle,
+          incoming,
+          keyId: keyId,
+          cipher: _cipher,
+        );
+        if (directBytes != null) {
+          return (
+            arguments: <dynamic>[directBytes],
+            argumentsKeywords: null,
+          );
+        }
+      }
+      final encryptedBytes = _coerceEncryptedPayload(arguments, options);
       final plaintext = _runtime.decryptE2ee(
         _sessionHandle,
         encryptedBytes,
@@ -376,6 +419,7 @@ class NativeWampCborAes256GcmProvider
     required super.keys,
     super.defaultKeyId,
     super.keySelectionPolicy,
+    super.libraryPath,
     super.runtime,
   }) : super._(cipher: supportedCipher);
 
@@ -383,11 +427,13 @@ class NativeWampCborAes256GcmProvider
     required String keyId,
     required List<int> key,
     WampE2eeKeySelectionPolicy? keySelectionPolicy,
+    String? libraryPath,
     NativeClientRuntime? runtime,
   }) : this(
          keys: {keyId: key},
          defaultKeyId: keyId,
          keySelectionPolicy: keySelectionPolicy,
+         libraryPath: libraryPath,
          runtime: runtime,
        );
 

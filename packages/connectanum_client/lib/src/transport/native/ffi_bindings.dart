@@ -10,6 +10,10 @@ typedef CtByteBufferFreeNative =
     ffi.Void Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
 typedef CtByteBufferFreeDart = void Function(ffi.Pointer<ffi.Uint8>, int);
 
+typedef CtExternalByteBufferFreeNative =
+    ffi.Void Function(ffi.Pointer<ffi.Void>);
+typedef CtExternalByteBufferFreeDart = void Function(ffi.Pointer<ffi.Void>);
+
 typedef CtE2eeKeyringNewNative = ffi.Int32 Function();
 typedef CtE2eeKeyringNewDart = int Function();
 
@@ -78,6 +82,25 @@ typedef CtE2eeSessionDecryptDart =
       ffi.Pointer<ffi.Uint8>,
       int,
       ffi.Pointer<CtByteBuffer>,
+    );
+
+typedef CtE2eeSessionDecryptMessageSingleBinaryArgumentNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<CtExternalByteBuffer>,
+    );
+typedef CtE2eeSessionDecryptMessageSingleBinaryArgumentDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      int,
+      int,
+      ffi.Pointer<CtExternalByteBuffer>,
     );
 
 typedef CtClientConnectRawsocketNative =
@@ -154,6 +177,10 @@ typedef CtMessageRetainDart = int Function(int);
 typedef CtSha256NewNative = ffi.Int32 Function();
 typedef CtSha256NewDart = int Function();
 
+typedef CtSha256UpdateNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtSha256UpdateDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
 typedef CtSha256UpdateMessageBinaryArgumentNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32);
 typedef CtSha256UpdateMessageBinaryArgumentDart = int Function(int, int);
@@ -204,6 +231,33 @@ typedef CtSendMessageFileSegmentDart =
       int,
     );
 
+typedef CtSendMessageNativeE2eeFileSegmentNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int32,
+    );
+typedef CtSendMessageNativeE2eeFileSegmentDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      int,
+      int,
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      int,
+    );
+
 final class CtHttpHeader extends ffi.Struct {
   external ffi.Pointer<ffi.Uint8> namePtr;
 
@@ -221,6 +275,15 @@ final class CtByteBuffer extends ffi.Struct {
 
   @ffi.Size()
   external int len;
+}
+
+final class CtExternalByteBuffer extends ffi.Struct {
+  external ffi.Pointer<ffi.Uint8> ptr;
+
+  @ffi.Size()
+  external int len;
+
+  external ffi.Pointer<ffi.Void> owner;
 }
 
 final class CtMessageInfo extends ffi.Struct {
@@ -309,6 +372,15 @@ class CtFfiBindings {
           .lookupFunction<CtByteBufferFreeNative, CtByteBufferFreeDart>(
             'ct_byte_buffer_free',
           ),
+      ctExternalByteBufferFree = library
+          .lookupFunction<
+            CtExternalByteBufferFreeNative,
+            CtExternalByteBufferFreeDart
+          >('ct_external_byte_buffer_free'),
+      ctExternalByteBufferFreePointer = library
+          .lookup<ffi.NativeFunction<CtExternalByteBufferFreeNative>>(
+            'ct_external_byte_buffer_free',
+          ),
       ctE2eeKeyringNew = library
           .lookupFunction<CtE2eeKeyringNewNative, CtE2eeKeyringNewDart>(
             'ct_e2ee_keyring_new',
@@ -345,6 +417,11 @@ class CtFfiBindings {
           .lookupFunction<CtE2eeSessionDecryptNative, CtE2eeSessionDecryptDart>(
             'ct_e2ee_session_decrypt_aes256gcm',
           ),
+      ctE2eeSessionDecryptMessageSingleBinaryArgument = library
+          .lookupFunction<
+            CtE2eeSessionDecryptMessageSingleBinaryArgumentNative,
+            CtE2eeSessionDecryptMessageSingleBinaryArgumentDart
+          >('ct_e2ee_session_decrypt_message_single_binary_argument'),
       ctClientConnectRawsocket = library
           .lookupFunction<
             CtClientConnectRawsocketNative,
@@ -398,6 +475,10 @@ class CtFfiBindings {
       ctSha256New = library.lookupFunction<CtSha256NewNative, CtSha256NewDart>(
         'ct_sha256_new',
       ),
+      ctSha256Update = library
+          .lookupFunction<CtSha256UpdateNative, CtSha256UpdateDart>(
+            'ct_sha256_update',
+          ),
       ctSha256UpdateMessageBinaryArgument = library
           .lookupFunction<
             CtSha256UpdateMessageBinaryArgumentNative,
@@ -431,11 +512,19 @@ class CtFfiBindings {
           .lookupFunction<
             CtSendMessageFileSegmentNative,
             CtSendMessageFileSegmentDart
-          >('ct_send_message_file_segment');
+          >('ct_send_message_file_segment'),
+      ctSendMessageNativeE2eeFileSegment = library
+          .lookupFunction<
+            CtSendMessageNativeE2eeFileSegmentNative,
+            CtSendMessageNativeE2eeFileSegmentDart
+          >('ct_send_message_native_e2ee_file_segment');
 
   final CtStartRuntimeDart ctStartRuntime;
   final CtShutdownDart ctShutdown;
   final CtByteBufferFreeDart ctByteBufferFree;
+  final CtExternalByteBufferFreeDart ctExternalByteBufferFree;
+  final ffi.Pointer<ffi.NativeFunction<CtExternalByteBufferFreeNative>>
+  ctExternalByteBufferFreePointer;
   final CtE2eeKeyringNewDart ctE2eeKeyringNew;
   final CtE2eeKeyringAddKeyDart ctE2eeKeyringAddKey;
   final CtE2eeKeyringReleaseDart ctE2eeKeyringRelease;
@@ -445,6 +534,8 @@ class CtFfiBindings {
   final CtE2eeSessionDecryptDart ctE2eeSessionDecrypt;
   final CtE2eeSessionEncryptDart ctE2eeSessionEncryptAes256Gcm;
   final CtE2eeSessionDecryptDart ctE2eeSessionDecryptAes256Gcm;
+  final CtE2eeSessionDecryptMessageSingleBinaryArgumentDart
+  ctE2eeSessionDecryptMessageSingleBinaryArgument;
   final CtClientConnectRawsocketDart ctClientConnectRawsocket;
   final CtClientConnectWebSocketDart ctClientConnectWebSocket;
   final CtConnectionCloseDart ctConnectionClose;
@@ -457,6 +548,7 @@ class CtFfiBindings {
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;
   final CtSha256NewDart ctSha256New;
+  final CtSha256UpdateDart ctSha256Update;
   final CtSha256UpdateMessageBinaryArgumentDart
   ctSha256UpdateMessageBinaryArgument;
   final CtSha256FinalizeDart ctSha256Finalize;
@@ -466,4 +558,6 @@ class CtFfiBindings {
   final CtFileOpenDart ctFileOpen;
   final CtFileReleaseDart ctFileRelease;
   final CtSendMessageFileSegmentDart ctSendMessageFileSegment;
+  final CtSendMessageNativeE2eeFileSegmentDart
+  ctSendMessageNativeE2eeFileSegment;
 }

@@ -21,7 +21,10 @@ typedef WampSessionFactory =
     Future<WampSession> Function(WampScenario scenario);
 typedef WampE2eeProviderFactory = wamp_core.WampE2eeProvider Function();
 
-WampE2eeProviderFactory? e2eeProviderFactoryForScenario(WampScenario scenario) {
+WampE2eeProviderFactory? e2eeProviderFactoryForScenario(
+  WampScenario scenario, {
+  String? nativeLibraryPath,
+}) {
   if (scenario.pptScheme != wamp_core.ConnectanumE2eeProfile.scheme) {
     return null;
   }
@@ -87,6 +90,7 @@ WampE2eeProviderFactory? e2eeProviderFactoryForScenario(WampScenario scenario) {
       () => wamp_client.NativeWampCborXsalsa20Poly1305Provider.single(
         keyId: keyId,
         key: key,
+        libraryPath: nativeLibraryPath,
       ),
     (
       WampClientImplementation.native,
@@ -95,6 +99,7 @@ WampE2eeProviderFactory? e2eeProviderFactoryForScenario(WampScenario scenario) {
       () => wamp_client.NativeWampCborAes256GcmProvider.single(
         keyId: keyId,
         key: key,
+        libraryPath: nativeLibraryPath,
       ),
     _ => throw StateError('Unsupported WAMP E2EE benchmark cipher $cipher'),
   };
@@ -970,6 +975,7 @@ class WampWorkloadRunner {
       registration = await (receiver as WampFileSession).registerFileReceiver(
         procedure,
         maxConcurrentTransfers: scenario.inFlightPerSession,
+        maxChunkSize: scenario.fileChunkBytes,
         idleTimeout: _eventTimeout,
       );
       return await _runWithInFlightLimit(
@@ -2093,6 +2099,7 @@ abstract interface class WampFileSession {
   Future<WampRegistration> registerFileReceiver(
     String procedure, {
     required int maxConcurrentTransfers,
+    required int maxChunkSize,
     required Duration idleTimeout,
   });
 
@@ -2672,16 +2679,16 @@ class _ClientBackedWampSession implements WampSession, WampFileSession {
   Future<WampRegistration> registerFileReceiver(
     String procedure, {
     required int maxConcurrentTransfers,
+    required int maxChunkSize,
     required Duration idleTimeout,
   }) async {
-    const chunkSize = 4 * 1024 * 1024;
     final receiver = await wamp_client.WampFileReceiver.register(
       _session,
       procedure,
       (_) => _DiscardingWampFileSink(),
       maxConcurrentTransfers: maxConcurrentTransfers,
-      maxChunkSize: chunkSize,
-      maxBufferedBytes: chunkSize * maxConcurrentTransfers * 2,
+      maxChunkSize: maxChunkSize,
+      maxBufferedBytes: maxChunkSize * maxConcurrentTransfers * 2,
       idleTimeout: idleTimeout,
     );
     return WampRegistration(cancel: receiver.close);

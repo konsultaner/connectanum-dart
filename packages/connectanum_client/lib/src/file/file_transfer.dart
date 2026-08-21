@@ -244,26 +244,18 @@ extension WampFileSession on Session {
         }
         return await finalResult;
       }
-      await for (final sourceChunk in source.openRead()) {
-        var offset = 0;
-        while (offset < sourceChunk.length) {
-          final end = (offset + chunkSize).clamp(0, sourceChunk.length);
-          final chunk = offset == 0 && end == sourceChunk.length
-              ? sourceChunk
-              : Uint8List.sublistView(sourceChunk, offset, end);
-          sentBytes += chunk.length;
-          if (sentBytes > source.length) {
-            throw WampFileTransferException(
-              'Source emitted more than its declared ${source.length} bytes',
-            );
-          }
-          final previous = pending;
-          if (previous != null) {
-            call.sendLazyChunk(_fileChunkPayload(previous));
-          }
-          pending = chunk;
-          offset = end;
+      await for (final chunk in _rechunkBytes(source.openRead(), chunkSize)) {
+        sentBytes += chunk.length;
+        if (sentBytes > source.length) {
+          throw WampFileTransferException(
+            'Source emitted more than its declared ${source.length} bytes',
+          );
         }
+        final previous = pending;
+        if (previous != null) {
+          call.sendLazyChunk(_fileChunkPayload(previous));
+        }
+        pending = chunk;
       }
       if (sentBytes != source.length) {
         throw WampFileTransferException(
@@ -279,6 +271,47 @@ extension WampFileSession on Session {
       unawaited(finalResult.then<void>((_) {}, onError: (_, _) {}));
       rethrow;
     }
+  }
+}
+
+Stream<Uint8List> _rechunkBytes(
+  Stream<Uint8List> source,
+  int chunkSize,
+) async* {
+  var buffered = BytesBuilder(copy: false);
+  var bufferedBytes = 0;
+  await for (final sourceChunk in source) {
+    var offset = 0;
+    while (offset < sourceChunk.length) {
+      final remaining = sourceChunk.length - offset;
+      if (bufferedBytes == 0 && remaining >= chunkSize) {
+        final end = offset + chunkSize;
+        yield offset == 0 && end == sourceChunk.length
+            ? sourceChunk
+            : Uint8List.sublistView(sourceChunk, offset, end);
+        offset = end;
+        continue;
+      }
+
+      final missing = chunkSize - bufferedBytes;
+      final take = remaining < missing ? remaining : missing;
+      final end = offset + take;
+      buffered.add(
+        offset == 0 && end == sourceChunk.length
+            ? sourceChunk
+            : Uint8List.sublistView(sourceChunk, offset, end),
+      );
+      bufferedBytes += take;
+      offset = end;
+      if (bufferedBytes == chunkSize) {
+        yield buffered.takeBytes();
+        buffered = BytesBuilder(copy: false);
+        bufferedBytes = 0;
+      }
+    }
+  }
+  if (bufferedBytes > 0) {
+    yield buffered.takeBytes();
   }
 }
 

@@ -10,9 +10,6 @@ FileTransferDigest createFileTransferDigest({
   required Object? anchor,
   required bool allowNative,
 }) {
-  if (!allowNative) {
-    return DartFileTransferDigest();
-  }
   final incoming = nativeIncomingMessageForAnchor(anchor);
   final message = incoming?.message;
   if (message is! NativeSessionMessage ||
@@ -21,7 +18,10 @@ FileTransferDigest createFileTransferDigest({
     return DartFileTransferDigest();
   }
   try {
-    return _NativeFileTransferDigest(NativeClientRuntime.instance());
+    final runtime = NativeClientRuntime.instance();
+    return allowNative
+        ? _NativeFileTransferDigest(runtime)
+        : _NativeBytesFileTransferDigest(runtime);
   } on NativeTransportException {
     return DartFileTransferDigest();
   }
@@ -30,25 +30,44 @@ FileTransferDigest createFileTransferDigest({
 Uint8List? nativeFileChunkBytes(Object? anchor) =>
     nativeSingleBinaryArgumentForAnchor(anchor);
 
-class _NativeFileTransferDigest implements FileTransferDigest {
-  _NativeFileTransferDigest(this._runtime)
-    : _handle = _runtime.createSha256State();
-
-  final NativeClientRuntime _runtime;
-  final int _handle;
-  bool _finished = false;
+class _NativeBytesFileTransferDigest extends _NativeFileTransferDigest {
+  _NativeBytesFileTransferDigest(super.runtime);
 
   @override
   void add(Uint8List bytes, {Object? anchor}) {
+    ensureOpen();
+    final hashedBytes = runtime.updateSha256(handle, bytes);
+    if (hashedBytes != bytes.length) {
+      throw StateError(
+        'Native file digest hashed $hashedBytes of ${bytes.length} bytes',
+      );
+    }
+  }
+}
+
+class _NativeFileTransferDigest implements FileTransferDigest {
+  _NativeFileTransferDigest(this.runtime)
+    : handle = runtime.createSha256State();
+
+  final NativeClientRuntime runtime;
+  final int handle;
+  bool _finished = false;
+
+  void ensureOpen() {
     if (_finished) {
       throw StateError('File transfer digest is already finalized');
     }
+  }
+
+  @override
+  void add(Uint8List bytes, {Object? anchor}) {
+    ensureOpen();
     final incoming = nativeIncomingMessageForAnchor(anchor);
     if (incoming == null) {
       throw StateError('Native file chunk lost its retained message handle');
     }
-    final hashedBytes = _runtime.updateSha256WithMessageBinaryArgument(
-      _handle,
+    final hashedBytes = runtime.updateSha256WithMessageBinaryArgument(
+      handle,
       incoming.handle,
     );
     if (hashedBytes != bytes.length) {
@@ -63,7 +82,7 @@ class _NativeFileTransferDigest implements FileTransferDigest {
     if (_finished) {
       throw StateError('File transfer digest is already finalized');
     }
-    final digest = _runtime.finalizeSha256State(_handle);
+    final digest = runtime.finalizeSha256State(handle);
     _finished = true;
     return encodeSha256Digest(digest);
   }
@@ -74,6 +93,6 @@ class _NativeFileTransferDigest implements FileTransferDigest {
       return;
     }
     _finished = true;
-    _runtime.releaseSha256State(_handle);
+    runtime.releaseSha256State(handle);
   }
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:connectanum_core/connectanum_core.dart';
 
+import 'native/e2ee_file_segment.dart';
+
 abstract class AbstractTransport {
   // make it possible to have a connection state in the transport
   Completer? get onDisconnect;
@@ -43,5 +45,16 @@ abstract interface class FileSegmentTransport {
     required TransportFileSource source,
     required int offset,
     required int length,
+  });
+}
+
+abstract interface class NativeE2eeFileSegmentTransport
+    implements FileSegmentTransport {
+  void sendNativeE2eeFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+    required NativeE2eeFileSegmentContext e2ee,
   });
 }
