@@ -35,6 +35,20 @@ passes on 2026-08-21 with 127 Rust core tests, 55 Rust FFI tests, the 466-test
 router suite, all generated package and CLI consumers, live WAMP/MCP smokes,
 and Chrome Dart2Wasm.
 
+Exact-head GitHub CI `32476733978`, Dart Package Publish Dry Run
+`32476733924`, and WAMP Profile Benchmarks `32476803873` pass at
+`d326cd875e5e865ed1053e885d050ba3fa2d3805`. The first heavy hosted Linux
+diagnostic moved 1 GiB over clear native RawSocket at 2.60 Gbit/s with
+MessagePack and 2.26 Gbit/s with CBOR, then stopped the TLS workload after 30
+seconds before the large-frame matrix ran. That stop was a benchmark-harness
+bug rather than a transport failure: the blocking WAMP control client ignored
+the configured 300-second workload timeout and imposed its own 30-second
+request deadline. The harness now gives the long-running WAMP POST the
+configured workload timeout plus a 30-second response grace while retaining
+the short default for health, metrics, and stop requests. Focused timeout
+regressions and all 56 `http_stream` tests pass; a fresh hosted diagnostic is
+required before accepting the TLS and large-frame Linux results.
+
 The promoted release line remains a coordinated prerelease while testers
 exercise the public packages. The user approved merging `add-router` into
 `master` and requires every versioned package to share one version. All seven Dart

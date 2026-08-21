@@ -58,6 +58,18 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   after process RSS approaches 1 GiB. This is a separate receive/retention
   scaling boundary that must be diagnosed before claiming every runtime
   configuration is production-ready.
+- Exact-head GitHub CI, package dry run, and the standard WAMP benchmark
+  workflow pass at `d326cd875e5e865ed1053e885d050ba3fa2d3805`. The first heavy
+  hosted Linux diagnostic reaches 2.60 Gbit/s for clear native MessagePack and
+  2.26 Gbit/s for clear native CBOR over 1 GiB, then terminates the TLS
+  workload at exactly 30 seconds before the large-frame suite runs. The
+  configured workload timeout was 300 seconds, but the blocking WAMP control
+  client imposed a separate hard-coded 30-second request timeout. The harness
+  now applies the configured workload timeout plus a 30-second response grace
+  only to the long-running WAMP POST; health, metrics, and stop requests retain
+  their 30-second default. All 56 `http_stream` tests pass, including delayed
+  response and timeout regressions. A fresh hosted diagnostic remains required
+  for actual TLS and large-frame Linux evidence.
 
 ## Plan
 
@@ -99,8 +111,12 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   correctness regressions.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [ ] Complete heavy hosted matrix evidence. The corrected local file and
-  large-frame matrices pass their transport-counter gates.
+  large-frame matrices pass their transport-counter gates. Hosted clear native
+  MessagePack and CBOR now exceed 2 Gbit/s; the benchmark control-timeout fix
+  must be rerun for TLS and large-frame evidence.
 - [ ] Complete full verification and deployment audit. Local `bin/verify`
   passes on 2026-08-21 with 127 Rust core tests, 55 Rust FFI tests, the
   466-test router suite, generated consumers, live WAMP/MCP smokes, and Chrome
-  Dart2Wasm; hosted Linux workflows and the strict audit remain.
+  Dart2Wasm. Exact-head CI, package dry run, and standard WAMP benchmarks pass;
+  the heavy hosted diagnostic must pass after the harness fix before the final
+  feature-branch and protected-branch audits are repeated.

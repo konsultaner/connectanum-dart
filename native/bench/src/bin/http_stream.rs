@@ -72,6 +72,8 @@ const HTTP3_CONNECTION_RECEIVE_WINDOW: u32 = 64 * 1024 * 1024;
 const HTTP3_SEND_WINDOW: u64 = 64 * 1024 * 1024;
 const HTTP3_DATAGRAM_BUFFER_BYTES: usize = 8 * 1024 * 1024;
 const HTTP3_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
+const BENCH_CONTROL_TIMEOUT: Duration = Duration::from_secs(30);
+const WAMP_CONTROL_TIMEOUT_GRACE: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Copy)]
 struct H2ResponseDrainStats {
@@ -444,7 +446,7 @@ fn run_bench_suite(
                 let started_at = now_millis();
                 let execution = if prepared.is_wamp() {
                     WorkloadExecution::samples_only(
-                        run_wamp_workload(&http_control, &prepared)
+                        run_wamp_workload(&http_control, &prepared, workload_timeout)
                             .with_context(|| format!("workload \"{}\" failed", workload.name))?,
                     )
                 } else if prepared.is_rawsocket_auth_frames() {
@@ -2999,6 +3001,7 @@ fn split_metrics_payload(mut value: Value) -> (Value, Option<String>) {
 fn run_wamp_workload(
     http_control: &BenchHttpClient,
     workload: &PreparedWorkload,
+    workload_timeout: Duration,
 ) -> Result<Vec<WorkloadSample>> {
     let (transport, mode) = parse_wamp_protocol(&workload.protocol)
         .ok_or_else(|| anyhow!("unsupported WAMP workload {}", workload.protocol))?;
@@ -3034,7 +3037,7 @@ fn run_wamp_workload(
         "ppt_cipher": workload.ppt_cipher.clone(),
         "ppt_keyid": workload.ppt_keyid.clone(),
     });
-    let response = http_control.post_json("wamp", &body)?;
+    let response = http_control.post_json("wamp", &body, wamp_control_timeout(workload_timeout))?;
     let samples_value = response
         .get("samples")
         .cloned()
@@ -3042,6 +3045,10 @@ fn run_wamp_workload(
     let samples: Vec<WorkloadSample> =
         serde_json::from_value(samples_value).context("failed to decode WAMP workload samples")?;
     Ok(samples)
+}
+
+fn wamp_control_timeout(workload_timeout: Duration) -> Duration {
+    workload_timeout.saturating_add(WAMP_CONTROL_TIMEOUT_GRACE)
 }
 
 async fn run_rawsocket_auth_frame_workload(
@@ -7889,6 +7896,54 @@ mod tests {
     }
 
     #[test]
+    fn bench_http_client_honors_per_request_timeout() {
+        fn delayed_json_response(delay: Duration) -> (String, thread::JoinHandle<()>) {
+            use std::io::Read;
+
+            let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0u8; 4096];
+                let _ = stream.read(&mut request);
+                thread::sleep(delay);
+                let _ = stream.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 14\r\nConnection: close\r\n\r\n{\"samples\":[]}",
+                );
+            });
+            (format!("http://{address}/bench"), server)
+        }
+
+        let (base, server) = delayed_json_response(Duration::from_millis(50));
+        let client = BenchHttpClient::new(&base).unwrap();
+        let response = client
+            .post_json("wamp", &json!({}), Duration::from_secs(1))
+            .unwrap();
+        assert_eq!(response["samples"], json!([]));
+        server.join().unwrap();
+
+        let (base, server) = delayed_json_response(Duration::from_millis(100));
+        let client = BenchHttpClient::new(&base).unwrap();
+        let started = Instant::now();
+        let error = client
+            .post_json("wamp", &json!({}), Duration::from_millis(10))
+            .unwrap_err();
+        assert!(format!("{error:#}").contains("timed out"));
+        assert!(started.elapsed() < Duration::from_secs(1));
+        server.join().unwrap();
+    }
+
+    #[test]
+    fn wamp_control_timeout_includes_response_grace_and_saturates() {
+        assert_eq!(
+            wamp_control_timeout(Duration::from_secs(300)),
+            Duration::from_secs(330)
+        );
+        assert_eq!(wamp_control_timeout(Duration::MAX), Duration::MAX);
+        assert_eq!(BENCH_CONTROL_TIMEOUT, Duration::from_secs(30));
+    }
+
+    #[test]
     fn sort_socket_addrs_places_ipv4_first() {
         let mut addrs = vec![
             SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST), 8443),
@@ -8049,13 +8104,13 @@ impl BenchHttpClient {
         Ok(response.json().context("failed to decode JSON response")?)
     }
 
-    fn post_json(&self, path: &str, body: &Value) -> Result<Value> {
+    fn post_json(&self, path: &str, body: &Value, request_timeout: Duration) -> Result<Value> {
         let url = self
             .base
             .join(path)
             .map_err(|err| anyhow!("invalid control_base path {path}: {err}"))?;
         let response = self
-            .build_client()?
+            .build_client_with_timeout(request_timeout)?
             .post(url)
             .header(hyper::http::header::CONNECTION, "close")
             .json(body)
@@ -8066,16 +8121,23 @@ impl BenchHttpClient {
     }
 
     fn build_client(&self) -> Result<BlockingHttpClient> {
-        build_control_http_client(self.base.scheme())
+        self.build_client_with_timeout(BENCH_CONTROL_TIMEOUT)
+    }
+
+    fn build_client_with_timeout(&self, request_timeout: Duration) -> Result<BlockingHttpClient> {
+        build_control_http_client(self.base.scheme(), request_timeout)
     }
 }
 
-fn build_control_http_client(scheme: &str) -> Result<BlockingHttpClient> {
+fn build_control_http_client(
+    scheme: &str,
+    request_timeout: Duration,
+) -> Result<BlockingHttpClient> {
     let mut builder = BlockingHttpClient::builder()
         // Keep benchmark control traffic off HTTP/2 so control-plane TLS
         // shutdown noise cannot pollute workload transport-alert deltas.
         .http1_only()
-        .timeout(Duration::from_secs(30))
+        .timeout(request_timeout)
         .pool_max_idle_per_host(0)
         .pool_idle_timeout(Duration::from_secs(0));
     if scheme.eq_ignore_ascii_case("https") {
