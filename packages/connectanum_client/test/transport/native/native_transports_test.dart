@@ -274,6 +274,11 @@ void main() {
           expect(hello['realm'], equals('test.realm'));
           expect(hello['header'], equals('native-client'));
           expect(hello['protocol'], equals(config.websocketProtocol));
+          expect(transport, isA<FileSegmentTransport>());
+          expect(
+            (transport as FileSegmentTransport).supportsFileSegments,
+            equals(config.name != 'json'),
+          );
 
           await client.disconnect();
         } finally {

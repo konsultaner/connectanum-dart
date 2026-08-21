@@ -1,5 +1,5 @@
 name = "wamp_file_transfer_throughput"
-description = "Filesystem-to-WAMP throughput across Linux sendfile eligibility and buffered transform fallbacks."
+description = "Sustained filesystem-to-WAMP throughput across sendfile, native transformed segments, and buffered fallbacks."
 
 [[workloads]]
 name = "rawsocket_file_msgpack_64m_native"
@@ -38,28 +38,28 @@ request_bytes = 67108864
 request_chunk_bytes = 4194304
 
 [[workloads]]
-name = "rawsocket_tls_file_cbor_32m_native_buffered"
+name = "rawsocket_tls_file_cbor_64m_native_segmented"
 protocol = "wamp_rawsocket_file_transfer"
 client_impl = "native"
 serializer = "cbor"
 secure_transport = true
 path = "bench.file.set"
-iterations = 4
-concurrency = 1
+iterations = 8
+concurrency = 2
 in_flight_per_session = 1
-request_bytes = 33554432
+request_bytes = 67108864
 request_chunk_bytes = 4194304
 
 [[workloads]]
-name = "websocket_file_cbor_32m_native_buffered"
+name = "websocket_file_cbor_64m_native_segmented"
 protocol = "wamp_websocket_file_transfer"
 client_impl = "native"
 serializer = "cbor"
 path = "bench.file.set"
-iterations = 4
-concurrency = 1
+iterations = 8
+concurrency = 2
 in_flight_per_session = 1
-request_bytes = 33554432
+request_bytes = 67108864
 request_chunk_bytes = 4194304
 
 [[workloads]]

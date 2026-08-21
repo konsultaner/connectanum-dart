@@ -494,7 +494,8 @@ class NativeRawSocketTransport extends _NativeTransportBase
   @override
   bool get supportsFileSegments {
     final connectionId = this.connectionId;
-    return connectionId != null &&
+    return _serializerType != SocketHelper.serializationJson &&
+        connectionId != null &&
         _runtime.connectionSupportsFileSegments(connectionId);
   }
 
@@ -521,6 +522,11 @@ class NativeRawSocketTransport extends _NativeTransportBase
     final connectionId = this.connectionId;
     if (connectionId == null) {
       throw StateError('Transport is not connected.');
+    }
+    if (!supportsFileSegments) {
+      throw UnsupportedError(
+        'This native RawSocket connection cannot send file segments',
+      );
     }
     if (source is! _NativeTransportFileSource ||
         !identical(source.runtime, _runtime)) {
@@ -570,7 +576,8 @@ class NativeRawSocketTransport extends _NativeTransportBase
   }
 }
 
-class NativeWebSocketTransport extends _NativeTransportBase {
+class NativeWebSocketTransport extends _NativeTransportBase
+    implements FileSegmentTransport {
   NativeWebSocketTransport(
     this._url,
     AbstractSerializer serializer,
@@ -593,6 +600,13 @@ class NativeWebSocketTransport extends _NativeTransportBase {
   final int? _fragmentSize;
 
   static final _logger = Logger('Connectanum.NativeWebSocketTransport');
+
+  int get _fileSegmentSerializerType => switch (_serializerType) {
+    WebSocketSerialization.serializationMsgpack =>
+      SocketHelper.serializationMsgpack,
+    WebSocketSerialization.serializationCbor => SocketHelper.serializationCbor,
+    _ => SocketHelper.serializationJson,
+  };
 
   factory NativeWebSocketTransport.withJsonSerializer(
     String url, [
@@ -641,6 +655,69 @@ class NativeWebSocketTransport extends _NativeTransportBase {
     libraryPath,
     fragmentSize,
   );
+
+  @override
+  bool get supportsFileSegments {
+    final connectionId = this.connectionId;
+    return _serializerType != WebSocketSerialization.serializationJson &&
+        connectionId != null &&
+        _runtime.connectionSupportsFileSegments(connectionId);
+  }
+
+  @override
+  TransportFileSource openFileSegmentSource(String path, int expectedLength) {
+    if (!supportsFileSegments) {
+      throw UnsupportedError(
+        'This native WebSocket connection cannot send file segments',
+      );
+    }
+    return _NativeTransportFileSource(
+      _runtime,
+      _runtime.openFile(path, expectedLength: expectedLength),
+    );
+  }
+
+  @override
+  void sendFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+  }) {
+    final connectionId = this.connectionId;
+    if (connectionId == null) {
+      throw StateError('Transport is not connected.');
+    }
+    if (!supportsFileSegments) {
+      throw UnsupportedError(
+        'This native WebSocket connection cannot send file segments',
+      );
+    }
+    if (source is! _NativeTransportFileSource ||
+        !identical(source.runtime, _runtime)) {
+      throw ArgumentError.value(
+        source,
+        'source',
+        'belongs to another transport',
+      );
+    }
+    if (source.isClosed) {
+      throw StateError('The native file source is already closed');
+    }
+    final encoded = _encodeMessage(message);
+    final prefix = buildNativeFileSegmentPrefix(
+      encoded,
+      serializerType: _fileSegmentSerializerType,
+      fileLength: length,
+    );
+    _runtime.sendMessageFileSegment(
+      connectionId,
+      prefix: prefix,
+      fileHandle: source.handle,
+      fileOffset: offset,
+      fileLength: length,
+    );
+  }
 
   @override
   void send(AbstractMessage message) {

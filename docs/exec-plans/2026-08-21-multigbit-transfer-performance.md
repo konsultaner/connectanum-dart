@@ -27,11 +27,12 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   1.11 Gbit/s after native receipt hashing, to 1.73 Gbit/s after exposing the
   retained binary argument directly, and to 3.41 Gbit/s after enabling the BSD
   `sendfile` path on macOS.
-- The local file matrix sustains 3.27 Gbit/s for native cleartext RawSocket
-  MessagePack and 2.92 Gbit/s for native cleartext RawSocket CBOR. The same
-  workload reaches 427 Mbit/s for Dart RawSocket CBOR, 778 Mbit/s for native
-  TLS RawSocket CBOR, 887 Mbit/s for native WebSocket CBOR, and 354 Mbit/s for
-  native E2EE CBOR with AES-GCM.
+- The corrected sustained local file matrix uses 1 GiB per native workload and
+  one native runtime thread. It reaches 3.39 Gbit/s for cleartext RawSocket
+  MessagePack, 3.05 Gbit/s for cleartext RawSocket CBOR, 2.85 Gbit/s for TLS
+  RawSocket CBOR, and 2.92 Gbit/s for WebSocket CBOR. Dart RawSocket CBOR
+  remains at 461 Mbit/s and native E2EE CBOR with AES-GCM remains at 381
+  Mbit/s because those paths still transform or copy complete payload chunks.
 - Local repeated 64 MiB native CBOR RawSocket RPC reaches about 982 Mbit/s
   one-way after the first parser/allocation change, about 1.5% above the exact
   pre-change worktree on the stable repeated workload. Hosted Linux evidence
@@ -41,10 +42,22 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   Gbit/s at 32 MiB and 1.22 Gbit/s at 128 MiB one-way. CBOR reaches 580 Mbit/s
   for Dart at 64 MiB and 454 Mbit/s for native at 256 MiB, confirming that
   serializer and full-frame memory amplification remain active bottlenecks.
+- The strengthened repeated large-frame matrix moves 4 GiB aggregate duplex
+  traffic. One-way throughput reaches 1.44 Gbit/s for Dart and 1.76 Gbit/s for
+  native 32 MiB MessagePack frames, plus 704 Mbit/s for Dart and 881 Mbit/s for
+  native 64 MiB CBOR frames. Every workload passes the transport-counter gate,
+  but none yet meets the 2 Gbit/s one-way target.
 - Linux and macOS cleartext native RawSocket MessagePack and CBOR sending uses
-  `sendfile`. TLS encryption, WebSocket masking, JSON/base64, E2EE, Dart-only,
-  and unsupported-platform paths transform or buffer bytes and cannot use that
-  filesystem-to-socket kernel path unchanged.
+  `sendfile`. Native TLS and WebSocket MessagePack/CBOR now accept the same
+  file-backed frames and stream them through bounded 4 MiB positional reads;
+  WebSocket keeps one RFC 6455 frame and continuous masking state across the
+  prefix, file, and suffix. JSON/base64, E2EE, Dart-only, and unsupported
+  paths still cannot use the filesystem-to-socket kernel path unchanged.
+- A repeated 1 GiB TLS file workload passes at 3.16 Gbit/s with the canonical
+  one-thread native runtime but times out with the auto-sized local runtime
+  after process RSS approaches 1 GiB. This is a separate receive/retention
+  scaling boundary that must be diagnosed before claiming every runtime
+  configuration is production-ready.
 
 ## Plan
 
@@ -81,7 +94,13 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   for transformed and non-native payloads.
 - [x] Add a tested macOS `sendfile` path while retaining Linux `sendfile` and
   bounded fallback behavior elsewhere.
+- [x] Add native file-backed TLS and WebSocket sending with positional reads,
+  continuous WebSocket masking, serializer capability checks, and multi-chunk
+  correctness regressions.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
-- [ ] Complete heavy local and hosted matrix evidence.
+- [ ] Complete heavy hosted matrix evidence. The corrected local file and
+  large-frame matrices pass their transport-counter gates.
 - [ ] Complete full verification and deployment audit. Local `bin/verify`
-  passes on 2026-08-21; hosted Linux workflows and the strict audit remain.
+  passes on 2026-08-21 with 127 Rust core tests, 55 Rust FFI tests, the
+  466-test router suite, generated consumers, live WAMP/MCP smokes, and Chrome
+  Dart2Wasm; hosted Linux workflows and the strict audit remain.

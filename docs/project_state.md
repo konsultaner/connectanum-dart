@@ -8,27 +8,32 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
-The first local optimization slice removes RawSocket receive-buffer zero-fill,
-keeps contiguous CBOR WAMP argument/keyword payloads as retained-frame slices,
-and exposes exact single-binary INVOCATION arguments without materializing a
-second Dart payload. Native MessagePack/CBOR file receivers hash those retained
-slices incrementally in Rust while preserving exact-size, digest, sink
-backpressure, cancellation, and fallback behavior. Cleartext native RawSocket
-file sends now use kernel `sendfile` on Linux and macOS. A local 256 MiB CBOR
-workload improved from about 670 Mbit/s to 3.41 Gbit/s; the full local file
-matrix reaches 3.27 Gbit/s for MessagePack and 2.92 Gbit/s for CBOR. Required
-transforms remain measured bottlenecks: Dart RawSocket CBOR reaches 427 Mbit/s,
-native TLS RawSocket CBOR 778 Mbit/s, native WebSocket CBOR 887 Mbit/s, and
-native E2EE CBOR AES-GCM 354 Mbit/s. A stable repeated 64 MiB native CBOR
-RawSocket RPC comparison improves only about 1.5%, from 971 to 982 Mbit/s
-one-way. Post-change 32/64 MiB and 128/256 MiB RawSocket artifact bundles pass
-their transport-counter gates without alerts: native MessagePack reaches 1.43
-Gbit/s at 32 MiB and 1.22 Gbit/s at 128 MiB, while Dart CBOR reaches 580 Mbit/s
-at 64 MiB and native CBOR reaches 454 Mbit/s at 256 MiB. Full `bin/verify`
-passes on 2026-08-21 with 125 Rust core tests, 55 Rust FFI tests, the 466-test
-router suite, generated package and CLI consumers, live WAMP/MCP smokes, and
-Chrome Dart2Wasm. Hosted Linux evidence remains active work rather than a
-release-readiness claim.
+The active transfer-performance slice removes RawSocket receive-buffer
+zero-fill, keeps contiguous CBOR WAMP payloads as retained-frame slices, and
+hashes native MessagePack/CBOR file receipts in Rust without materializing a
+second Dart payload. Cleartext native RawSocket file sends use kernel
+`sendfile` on Linux and macOS. Native TLS RawSocket and WebSocket
+MessagePack/CBOR now accept file-backed frames and stream them with bounded 4
+MiB positional reads; WebSocket preserves one RFC 6455 frame and continuous
+masking across prefix, file, and suffix. Positional reads preserve shared file
+handle cursors and keep disk IO off reactor threads. Dart filters JSON because
+binary splicing would violate JSON/base64 framing.
+
+The corrected one-thread local matrix moves 1 GiB per native workload and
+passes its transport-counter gate: clear RawSocket reaches 3.39 Gbit/s with
+MessagePack and 3.05 Gbit/s with CBOR, TLS RawSocket CBOR reaches 2.85 Gbit/s,
+and WebSocket CBOR reaches 2.92 Gbit/s. Dart RawSocket CBOR remains at 461
+Mbit/s and native E2EE CBOR AES-GCM at 381 Mbit/s. The strengthened 4 GiB
+aggregate-duplex large-frame matrix also passes, but one-way throughput remains
+below target: 1.44/1.76 Gbit/s for Dart/native 32 MiB MessagePack and 704/881
+Mbit/s for Dart/native 64 MiB CBOR. An auto-sized runtime repeatedly times out
+on the 1 GiB TLS file workload after RSS approaches 1 GiB, while the canonical
+one-thread runtime passes the same focused workload at 3.16 Gbit/s. That
+receive/retention scaling issue and hosted Linux evidence remain active work;
+this is not yet a universal production-readiness claim. Full `bin/verify`
+passes on 2026-08-21 with 127 Rust core tests, 55 Rust FFI tests, the 466-test
+router suite, all generated package and CLI consumers, live WAMP/MCP smokes,
+and Chrome Dart2Wasm.
 
 The promoted release line remains a coordinated prerelease while testers
 exercise the public packages. The user approved merging `add-router` into
