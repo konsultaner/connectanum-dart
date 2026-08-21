@@ -80,6 +80,19 @@ complete 30-test WAMP transport integration passes, and both `bin/test-fast`
 and full `bin/verify` pass. Fresh exact-head hosted evidence is required after
 the follow-up commit.
 
+The follow-up exact-head CI at `dec8af426be174ab9af0c9605081b42fde04b39e`
+confirmed the independent wrappers but exposed a lower-level native retention
+deadlock during the cross-connection Dart CBOR large-payload test. The native
+message store retained a `DashMap` read guard while inserting the cloned handle;
+when both handle IDs selected the same shard, the worker waited on its own read
+lock and the router subsequently stopped making progress. Cloning now copies the
+`Arc` inside a narrow scope and drops the guard before allocating and inserting
+the new handle. A deterministic same-shard regression, all 63 ordinary FFI
+tests, 50 consecutive focused real-router reproductions, the complete 30-test
+WAMP transport integration, `bin/test-fast`, and full `bin/verify` pass. Fresh
+exact-head hosted evidence remains required for this native concurrency
+correction.
+
 Corrected exact-head hosted evidence at `9bf8cbb8` is complete. CI
 `32500570350`, WAMP Profile Benchmarks `32500580587`, WAMP Profile Diagnostics
 `32500587107`, Router Image dry run `32500602434`, and the five-platform native

@@ -1164,10 +1164,63 @@ pub fn clear_messages() {
 }
 
 pub fn clone_message(id: u32) -> Option<u32> {
-    let store = message_store();
-    let message = store.messages.get(&id)?;
-    let cloned = Arc::clone(message.value());
+    clone_message_in_store(message_store(), id)
+}
+
+fn clone_message_in_store(store: &MessageStore, id: u32) -> Option<u32> {
+    let cloned = {
+        let message = store.messages.get(&id)?;
+        Arc::clone(message.value())
+    };
     let new_id = store.next_id.fetch_add(1, Ordering::SeqCst);
     store.messages.insert(new_id, cloned);
     Some(new_id)
+}
+
+#[cfg(test)]
+mod message_store_tests {
+    use super::*;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
+
+    #[test]
+    fn cloning_releases_the_source_shard_before_insert() {
+        let store = Arc::new(MessageStore {
+            next_id: AtomicU32::new(1),
+            messages: DashMap::new(),
+        });
+        // Reusing the initial next ID forces get and insert onto the same shard.
+        store.messages.insert(
+            1,
+            Arc::new(StoredMessage {
+                serializer: RawSocketSerializer::Json,
+                code: 7,
+                raw: StoredRawFrame::from_bytes(Bytes::from_static(
+                    b"[7,{},\"wamp.close.normal\"]",
+                )),
+                message: WampMessage::Goodbye {
+                    details: Default::default(),
+                    reason: "wamp.close.normal".to_string(),
+                    payload: Default::default(),
+                },
+                details: None,
+                args: None,
+                kwargs: None,
+            }),
+        );
+
+        let (tx, rx) = mpsc::channel();
+        let thread_store = Arc::clone(&store);
+        thread::spawn(move || {
+            tx.send(clone_message_in_store(&thread_store, 1))
+                .expect("clone result receiver remains available");
+        });
+
+        assert_eq!(
+            rx.recv_timeout(Duration::from_secs(10))
+                .expect("message cloning must not deadlock its DashMap shard"),
+            Some(1),
+        );
+    }
 }

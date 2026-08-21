@@ -140,6 +140,15 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   the full 30-test transport integration, `bin/test-fast`, and full
   `bin/verify` pass locally; fresh hosted evidence remains pending for the
   follow-up commit.
+- Follow-up CI at `dec8af426be174ab9af0c9605081b42fde04b39e` reached the
+  unchanged Dart CBOR cross-connection large-payload case, then exposed a
+  native message-retention self-deadlock. `clone_message` kept a `DashMap` read
+  guard while inserting the retained handle, so source and destination IDs on
+  one shard could block forever. The clone now scopes and drops the guard before
+  insertion. A deterministic same-shard regression, all 63 ordinary FFI tests,
+  50 consecutive focused real-router repetitions, the full 30-test transport
+  integration, `bin/test-fast`, and full `bin/verify` pass locally; fresh hosted
+  evidence remains pending for the concurrency correction.
 
 ## Plan
 
@@ -193,6 +202,10 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   one-way while preserving fallback semantics and handle ownership tests.
   Encoded request bytes are shared across samples, while every concurrent call
   receives an independent mutable lazy wrapper.
+- [x] Remove the native retained-message self-deadlock revealed by concurrent
+  large-frame routing. The message-store clone releases its shard guard before
+  inserting the new handle, with a deterministic same-shard regression and
+  repeated real-router evidence.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native
