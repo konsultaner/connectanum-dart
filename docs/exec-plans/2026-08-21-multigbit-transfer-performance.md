@@ -60,17 +60,16 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   scaling boundary that must be diagnosed before claiming every runtime
   configuration is production-ready.
 - Exact-head package dry run and standard WAMP benchmarks pass at
-  `b5dc81709a5c3a5380865df22d4592b42e4738d4`. Its heavy hosted Linux
-  diagnostic improves clear native MessagePack/CBOR to 3.09/2.58 Gbit/s, then
-  exposes a second independent 30-second deadline inside the Dart WAMP worker.
-  The worker times out the TLS call, closes its sessions, and a late benchmark
-  cancellation tries to send on the closed transport. Each scenario now
-  receives the configured workload deadline, isolated through its asynchronous
-  zone, and late cancellation is a no-op once the call is no longer pending or
-  the session is disconnected. Focused cancellation regressions, all 55 WAMP
-  runner tests, all 56 `http_stream` tests, the complete local file matrix, and
-  the complete local large-frame matrix pass. A fresh hosted diagnostic remains
-  required for actual TLS and large-frame Linux evidence.
+  `a332d0e90f437ff0013ec4413e8424d350b1ecd2`. Its heavy hosted Linux
+  diagnostic moves clear native MessagePack/CBOR at 2.61/2.25 Gbit/s and Dart
+  CBOR at 223 Mbit/s, then exposes a third benchmark-side 30-second boundary:
+  the file receiver retained its public default idle timeout instead of the
+  configured 300-second scenario deadline. The benchmark now forwards that
+  deadline to receiver idleness while leaving the public default unchanged.
+  All 56 WAMP runner tests pass, and a focused one-thread local TLS workload
+  moves 1 GiB at 3.08 Gbit/s. A fresh hosted diagnostic remains required to
+  determine whether TLS progresses on hosted Linux and to collect large-frame
+  evidence; the local result is not a hosted transport-health claim.
 
 ## Plan
 
@@ -113,12 +112,13 @@ measured boundary rather than hidden by aggregate-duplex accounting.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [ ] Complete heavy hosted matrix evidence. The corrected local file and
   large-frame matrices pass their transport-counter gates. Hosted clear native
-  MessagePack and CBOR now exceed 2 Gbit/s; both the control-client and
-  worker-operation timeout fixes must be rerun for TLS and large-frame evidence.
+  MessagePack and CBOR exceed 2 Gbit/s; the control-client, worker-operation,
+  and receiver-idle deadline fixes must be rerun for TLS and large-frame
+  evidence.
 - [ ] Complete full verification and deployment audit. Local `bin/verify`
-  passes after the worker-deadline fix with 127 Rust core tests, 55 Rust FFI
-  tests, the 466-test router suite, generated consumers, live WAMP/MCP smokes,
-  and Chrome Dart2Wasm. Exact-head CI, package dry run, and standard WAMP
-  benchmarks pass at the preceding control-timeout fix; the heavy hosted
-  diagnostic must pass after both harness fixes before the final feature-branch
-  and protected-branch audits are repeated.
+  passes after the receiver-idle fix with 127 Rust core tests, 55 Rust FFI
+  tests, all 56 WAMP runner tests, the 466-test router suite, generated
+  consumers, live WAMP/MCP smokes, and Chrome Dart2Wasm. Exact-head package dry
+  run and standard WAMP benchmarks pass at the preceding revision; hosted
+  diagnostics must pass after the receiver-idle fix before the final
+  feature-branch and protected-branch audits are repeated.

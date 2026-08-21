@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
+import 'package:connectanum_client/connectanum.dart' as wamp_client;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
@@ -32,6 +33,30 @@ void main() {
 
       await expectLater(shortRun, throwsA(isA<TimeoutException>()));
       expect(await longRun, hasLength(1));
+    });
+
+    test('applies the scenario timeout to file receiver idleness', () async {
+      final broker = _FakeWampBroker();
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('file_receiver_timeout_test'),
+      );
+      final scenario = WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.cbor,
+        mode: WampMode.fileTransfer,
+        uri: 'bench.file.set',
+        iterations: 1,
+        concurrency: 1,
+        payloadBytes: 0,
+        eventTimeoutMs: 200,
+      );
+
+      expect(await runner.run(scenario), hasLength(1));
+      expect(
+        broker.fileReceiverIdleTimeout,
+        const Duration(milliseconds: 200),
+      );
     });
 
     test('completes pubsub scenario after receiving matching events', () async {
@@ -1421,6 +1446,7 @@ class _FakeWampBroker {
   wamp_core.SubscribeOptions? lastSubscribeOptions;
   wamp_core.RegisterOptions? lastRegisterOptions;
   String? lastCancelMode;
+  Duration? fileReceiverIdleTimeout;
   int _activeCalls = 0;
   int maxConcurrentCalls = 0;
   int _activePublishes = 0;
@@ -1754,7 +1780,7 @@ class _FakeWampBroker {
   }
 }
 
-class _FakeWampSession implements WampSession {
+class _FakeWampSession implements WampSession, WampFileSession {
   _FakeWampSession(
     this._broker, {
     this.useDirectEventHandler = false,
@@ -2177,6 +2203,25 @@ class _FakeWampSession implements WampSession {
       options: options,
     );
   }
+
+  @override
+  Future<WampRegistration> registerFileReceiver(
+    String procedure, {
+    required int maxConcurrentTransfers,
+    required Duration idleTimeout,
+  }) async {
+    _broker.fileReceiverIdleTimeout = idleTimeout;
+    return WampRegistration(cancel: () async {});
+  }
+
+  @override
+  Future<void> sendFile(
+    String procedure,
+    wamp_client.WampFileSource source, {
+    required int chunkSize,
+    required Duration timeout,
+    wamp_core.CallOptions? options,
+  }) async {}
 
   @override
   Future<void> close() async {

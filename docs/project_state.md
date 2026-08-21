@@ -35,20 +35,21 @@ passes on 2026-08-21 with 127 Rust core tests, 55 Rust FFI tests, the 466-test
 router suite, all generated package and CLI consumers, live WAMP/MCP smokes,
 and Chrome Dart2Wasm.
 
-Exact-head GitHub CI `32480961472`, Dart Package Publish Dry Run `32480995129`,
-and WAMP Profile Benchmarks `32480992448` pass at
-`b5dc81709a5c3a5380865df22d4592b42e4738d4`. Its heavy hosted Linux diagnostic
-moved 1 GiB over clear native RawSocket at 3.09 Gbit/s with MessagePack and
-2.58 Gbit/s with CBOR, then exposed a second independent deadline: the Dart
-WAMP worker still timed each operation out after 30 seconds, closed its
-sessions, and let a late benchmark cancellation try to send on the closed
-transport. The scenario contract now receives the configured 300-second
-workload deadline with concurrent-run isolation, and cancellation becomes a
-no-op once the call is no longer pending or the session is disconnected.
-Focused cancellation regressions, all 55 WAMP runner tests, all 56
-`http_stream` tests, and complete local file and large-frame matrices pass. A
-fresh hosted diagnostic is required before accepting the TLS and large-frame
-Linux results.
+Exact-head Dart Package Publish Dry Run `32484220167` and WAMP Profile
+Benchmarks `32484243998` pass at
+`a332d0e90f437ff0013ec4413e8424d350b1ecd2`. Its heavy hosted Linux diagnostic
+`32484241351` moved 1 GiB over clear native RawSocket at 2.61 Gbit/s with
+MessagePack and 2.25 Gbit/s with CBOR, while Dart CBOR reached 223 Mbit/s. TLS
+then stopped after about 33 seconds because the benchmark file receiver retained
+its public 30-second idle default instead of the configured 300-second scenario
+deadline. The benchmark now applies the scenario deadline to receiver idleness
+while preserving the public default. All 56 WAMP runner tests pass, and a
+focused one-thread local TLS workload moves 1 GiB at 3.08 Gbit/s. A fresh hosted
+diagnostic is required to distinguish a real hosted TLS progress issue from the
+removed benchmark cutoff and to collect hosted large-frame evidence. Full local
+`bin/verify` passes after the receiver-idle fix with 127 Rust core tests, 55 Rust
+FFI tests, the 466-test router suite, generated consumers, live WAMP/MCP smokes,
+remote-auth integration, and Chrome Dart2Wasm.
 
 The promoted release line remains a coordinated prerelease while testers
 exercise the public packages. The user approved merging `add-router` into

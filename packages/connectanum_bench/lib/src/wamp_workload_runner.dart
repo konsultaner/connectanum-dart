@@ -970,6 +970,7 @@ class WampWorkloadRunner {
       registration = await (receiver as WampFileSession).registerFileReceiver(
         procedure,
         maxConcurrentTransfers: scenario.inFlightPerSession,
+        idleTimeout: _eventTimeout,
       );
       return await _runWithInFlightLimit(
         iterations: scenario.iterations,
@@ -2092,6 +2093,7 @@ abstract interface class WampFileSession {
   Future<WampRegistration> registerFileReceiver(
     String procedure, {
     required int maxConcurrentTransfers,
+    required Duration idleTimeout,
   });
 
   Future<void> sendFile(
@@ -2670,6 +2672,7 @@ class _ClientBackedWampSession implements WampSession, WampFileSession {
   Future<WampRegistration> registerFileReceiver(
     String procedure, {
     required int maxConcurrentTransfers,
+    required Duration idleTimeout,
   }) async {
     const chunkSize = 4 * 1024 * 1024;
     final receiver = await wamp_client.WampFileReceiver.register(
@@ -2679,6 +2682,7 @@ class _ClientBackedWampSession implements WampSession, WampFileSession {
       maxConcurrentTransfers: maxConcurrentTransfers,
       maxChunkSize: chunkSize,
       maxBufferedBytes: chunkSize * maxConcurrentTransfers * 2,
+      idleTimeout: idleTimeout,
     );
     return WampRegistration(cancel: receiver.close);
   }
