@@ -5470,6 +5470,43 @@ void main() {
       );
       expect(result.argumentsKeywords!['count'], equals(3));
     });
+    test('Result defers decoding a malformed nested CBOR argument', () {
+      final encoded = Uint8List.fromList(const [
+        0x84,
+        0x18,
+        0x32,
+        0x01,
+        0xa0,
+        0x81,
+        0x61,
+        0xff,
+      ]);
+
+      final result = serializer.deserialize(encoded) as Result;
+
+      expect(result.hasLazyArguments, isTrue);
+      expect(result.debugEncodedArgumentsBytes, isNotNull);
+      expect(() => result.arguments, throwsA(anything));
+    });
+    test('Result preserves a direct CBOR binary payload', () {
+      final encoded = Uint8List.fromList(
+        cbor.encode(
+          CborValue([
+            MessageTypes.codeResult,
+            44,
+            <String, Object?>{},
+            CborBytes(const [1, 2, 3, 4]),
+          ]),
+        ),
+      );
+
+      final result = serializer.deserialize(encoded) as Result;
+
+      expect(result.transparentBinaryPayload, equals(const [1, 2, 3, 4]));
+      encoded[encoded.length - 1] = 9;
+      expect(result.transparentBinaryPayload!.last, equals(9));
+      expect(result.hasLazyArguments, isFalse);
+    });
     test('Event retains lazy CBOR payload slices on decode', () {
       final encoded = serializer.serialize(
         Event(

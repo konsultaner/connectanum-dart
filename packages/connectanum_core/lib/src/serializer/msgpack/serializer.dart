@@ -802,10 +802,12 @@ class Serializer extends AbstractSerializer {
     }
     if (hasArguments && !hasArgumentsKeywords) {
       final argumentsBytes = _sliceRange(msgPack, ranges[argumentsOffset]);
-      final decodedArguments = _decodeMsgPackFragment(argumentsBytes);
-      if (decodedArguments is Uint8List) {
-        message.transparentBinaryPayload = decodedArguments;
-        return;
+      if (_isDirectMessagePackBinaryFragment(argumentsBytes)) {
+        final decodedArguments = _decodeMsgPackFragment(argumentsBytes);
+        if (decodedArguments is Uint8List) {
+          message.transparentBinaryPayload = decodedArguments;
+          return;
+        }
       }
     }
     message.setLazyPayload(
@@ -1805,6 +1807,16 @@ class _MsgPackArrayHeader {
 
 Uint8List _sliceRange(Uint8List bytes, _ByteRange range) {
   return Uint8List.sublistView(bytes, range.start, range.end);
+}
+
+bool _isDirectMessagePackBinaryFragment(Uint8List bytes) {
+  if (bytes.isEmpty) {
+    return false;
+  }
+  return switch (bytes.first) {
+    0xc4 || 0xc5 || 0xc6 => true,
+    _ => false,
+  };
 }
 
 List<_ByteRange>? _parseMsgPackTopLevelRanges(Uint8List bytes) {

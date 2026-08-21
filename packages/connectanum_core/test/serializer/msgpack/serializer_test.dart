@@ -3228,6 +3228,40 @@ void main() {
       expect(result.argumentsKeywords!['count'], equals(3));
     });
 
+    test('Result defers decoding a malformed nested MsgPack argument', () {
+      final encoded = Uint8List.fromList(const [
+        0x94,
+        0x32,
+        0x01,
+        0x80,
+        0x91,
+        0xa1,
+        0xff,
+      ]);
+
+      final result = serializer.deserialize(encoded) as Result;
+
+      expect(result.hasLazyArguments, isTrue);
+      expect(result.debugEncodedArgumentsBytes, isNotNull);
+      expect(() => result.arguments, throwsA(anything));
+    });
+
+    test('Result preserves a direct MsgPack binary payload', () {
+      final encoded = msgpack_dart.serialize([
+        MessageTypes.codeResult,
+        44,
+        <String, Object?>{},
+        Uint8List.fromList(const [1, 2, 3, 4]),
+      ]);
+
+      final result = serializer.deserialize(encoded) as Result;
+
+      expect(result.transparentBinaryPayload, equals(const [1, 2, 3, 4]));
+      encoded[encoded.length - 1] = 9;
+      expect(result.transparentBinaryPayload!.last, equals(9));
+      expect(result.hasLazyArguments, isFalse);
+    });
+
     test('Event retains lazy MsgPack payload slices on decode', () {
       final encoded = serializer.serialize(
         Event(

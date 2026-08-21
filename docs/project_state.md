@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-21
+Last updated: 2026-08-22
 Current branch: `codex/mcp-public-http-auth-discovery`
 Current milestone: remove avoidable copies and CPU amplification from large
 WAMP frames and progressive file delivery, then establish repeatable
@@ -119,8 +119,32 @@ versus the 38.87 ms pre-change sample. Full `bin/verify` passes, including all
 auth, zero-copy forwarding follow-ups, and Chrome Dart2Wasm. The first full run
 hit one transient 30-second HTTP/3 direct-JSON helper timeout; the exact test
 passed alone in under one second and the unchanged complete retry passed.
-Exact-head hosted evidence remains required because the previous Linux result
-was only 1.54 Gbit/s for native CBOR.
+Exact-head `3cd390c9` CI `32527978307`, Dart Package Publish Dry Run
+`32527978404`, WAMP Profile Benchmarks `32528033679`, WAMP Profile Diagnostics
+`32528040226`, Native Artifacts `32528046766`, and Router Image
+`32528052041` all pass. The hosted heavy matrix reaches 3.62/1.55 Gbit/s for
+native MessagePack/CBOR large frames and 2.84/2.32 Gbit/s for clear native
+MessagePack/CBOR file transfer. TLS and WebSocket CBOR file paths reach
+2.07/2.12 Gbit/s. Dart CBOR large frames, Dart buffered file transfer, and
+native E2EE file transfer remain measured boundaries at 823, 247, and 332
+Mbit/s. The exact-head comprehensive audit and protected `master` strict audit
+both pass.
+
+Pure-Dart CBOR and MessagePack receive fast paths no longer decode a sole
+arguments fragment merely to distinguish the direct-binary extension. They
+inspect the outer wire token instead, preserve ordinary arrays as lazy encoded
+views, and expose definite direct CBOR byte strings as aliases into the
+received frame rather than copied object-model values. Malformed nested
+arguments now fail on first payload access, matching the existing lazy
+contract; focused regressions preserve direct-binary behavior and prove storage
+aliasing. Three complete 32/64 MiB RawSocket repetitions pass all 144 calls and
+produce median one-way response throughput of 4.63/7.90 Gbit/s for Dart/native
+MessagePack and 2.79/2.95 Gbit/s for Dart/native CBOR. Relative to the
+preceding local medians, Dart MessagePack improves from 3.50 Gbit/s and Dart
+CBOR from 1.56 Gbit/s without moving either native control materially. Full
+`bin/verify` passes with the expanded 380-test core serializer suite, the
+467-test router suite, consumer/live MCP smokes, remote-auth and zero-copy
+follow-ups, and Chrome Dart2Wasm.
 
 Corrected exact-head hosted evidence at `9bf8cbb8` is complete. CI
 `32500570350`, WAMP Profile Benchmarks `32500580587`, WAMP Profile Diagnostics

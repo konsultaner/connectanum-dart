@@ -833,10 +833,14 @@ class Serializer extends AbstractSerializer {
     }
     if (hasArguments && !hasArgumentsKeywords) {
       final argumentsBytes = _sliceRange(bytes, ranges[argumentsOffset]);
-      final decodedArguments = _decodePayloadFragment(argumentsBytes);
-      if (decodedArguments is Uint8List) {
-        message.transparentBinaryPayload = decodedArguments;
-        return;
+      if (_isDirectCborBinaryFragment(argumentsBytes)) {
+        final decodedArguments =
+            _definiteCborBinaryView(argumentsBytes) ??
+            _decodePayloadFragment(argumentsBytes);
+        if (decodedArguments is Uint8List) {
+          message.transparentBinaryPayload = decodedArguments;
+          return;
+        }
       }
     }
     message.setLazyPayload(
@@ -2142,6 +2146,26 @@ class _CborArrayHeader {
 
 Uint8List _sliceRange(Uint8List bytes, _ByteRange range) {
   return Uint8List.sublistView(bytes, range.start, range.end);
+}
+
+bool _isDirectCborBinaryFragment(Uint8List bytes) {
+  return bytes.isNotEmpty && bytes.first >> 5 == 2;
+}
+
+Uint8List? _definiteCborBinaryView(Uint8List bytes) {
+  if (!_isDirectCborBinaryFragment(bytes)) {
+    return null;
+  }
+  final lengthInfo = _readCborLength(bytes, 1, bytes.first & 0x1f);
+  final length = lengthInfo?.length;
+  if (lengthInfo == null || length == null) {
+    return null;
+  }
+  final end = lengthInfo.nextOffset + length;
+  if (end != bytes.length) {
+    return null;
+  }
+  return Uint8List.sublistView(bytes, lengthInfo.nextOffset, end);
 }
 
 List<_ByteRange>? _parseCborTopLevelRanges(Uint8List bytes) {

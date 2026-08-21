@@ -165,8 +165,23 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   throughput of 8.00 Gbit/s for native 32 MiB MessagePack and 2.97 Gbit/s for
   native 64 MiB CBOR, versus 3.50/1.56 Gbit/s for Dart. Full `bin/verify`
   passes; one first-run HTTP/3 direct-JSON helper timeout passed in isolation
-  and did not recur in the unchanged complete retry. Exact-head hosted evidence
-  remains required for the prior 1.54 Gbit/s native CBOR boundary.
+  and did not recur in the unchanged complete retry. Exact-head `3cd390c9`
+  hosted CI, package dry run, standard/heavy WAMP workflows, five-platform
+  native artifact rehearsal, Router Image dry run, comprehensive audit, and
+  protected `master` strict audit all pass. Hosted native large-frame
+  MessagePack/CBOR reach 3.62/1.55 Gbit/s; hosted clear native file paths remain
+  above target at 2.84/2.32 Gbit/s for MessagePack/CBOR.
+- The pure-Dart CBOR and MessagePack fast paths now inspect the outer arguments
+  token before considering the direct-binary extension. Ordinary single-field
+  argument arrays remain encoded and lazy instead of being fully decoded and
+  discarded on every Result, Event, or Invocation; definite direct CBOR byte
+  strings are exposed as frame-backed views. Deferred-malformed-payload and
+  direct-binary aliasing regressions pass. Three complete local 32/64 MiB
+  RawSocket repetitions produce median one-way response throughput of
+  4.63/7.90 Gbit/s for Dart/native MessagePack and 2.79/2.95 Gbit/s for
+  Dart/native CBOR, clearing the target in every current large-frame row. Full
+  `bin/verify` passes, including the 380-test core suite, the 467-test router
+  suite, consumer/live MCP smokes, remote auth, and Chrome Dart2Wasm.
 
 ## Plan
 
@@ -233,6 +248,10 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   All 66 ordinary FFI tests, serializer/native transport regressions, live WAMP
   integration, the 467-test router suite, consumer smokes, remote auth,
   zero-copy follow-ups, and Chrome Dart2Wasm pass.
+- [x] Remove eager single-arguments decode from Dart MessagePack and CBOR
+  receive fast paths and expose definite direct CBOR binary values as
+  frame-backed views. Focused lazy-error and aliasing regressions pass, and all
+  four standard large RawSocket rows exceed 2 Gbit/s across three local runs.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native
