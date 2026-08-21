@@ -2,6 +2,7 @@ use std::ffi::CStr;
 #[cfg(feature = "ffi-test")]
 use std::io::Cursor;
 use std::os::raw::{c_char, c_int, c_uint};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 #[allow(unused_imports)]
 use bytes::Buf;
@@ -12,7 +13,6 @@ use std::{ptr, slice, str};
 #[cfg(feature = "ffi-test")]
 use std::net::SocketAddr;
 
-#[cfg(feature = "ffi-test")]
 use dashmap::DashMap;
 #[cfg(feature = "ffi-test")]
 use futures_util::future;
@@ -94,10 +94,38 @@ use rmp::encode::{write_array_len, write_u64};
 use serde::Serialize;
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use serde_value::Value as SerdeValue;
+use sha2::{Digest, Sha256};
 
 const E2EE_KEY_LEN: usize = 32;
 const E2EE_NONCE_LEN: usize = 24;
 const E2EE_AES256_GCM_NONCE_LEN: usize = 12;
+const SHA256_DIGEST_LEN: usize = 32;
+
+struct Sha256StateStore {
+    next_id: AtomicU32,
+    states: DashMap<u32, Sha256>,
+}
+
+impl Default for Sha256StateStore {
+    fn default() -> Self {
+        Self {
+            next_id: AtomicU32::new(1),
+            states: DashMap::new(),
+        }
+    }
+}
+
+static SHA256_STATE_STORE: OnceLock<Sha256StateStore> = OnceLock::new();
+
+fn sha256_state_store() -> &'static Sha256StateStore {
+    SHA256_STATE_STORE.get_or_init(Sha256StateStore::default)
+}
+
+fn clear_sha256_states() {
+    if let Some(store) = SHA256_STATE_STORE.get() {
+        store.states.clear();
+    }
+}
 
 // The router image builds with Rust 1.85, where raw pointers do not implement
 // Default. These repr(C) FFI output structs only contain scalar fields and raw
@@ -1550,6 +1578,7 @@ pub extern "C" fn ct_shutdown() -> c_int {
     match shutdown() {
         Ok(()) => {
             clear_channels();
+            clear_sha256_states();
             #[cfg(feature = "ffi-test")]
             {
                 clear_test_messages();
@@ -2857,6 +2886,8 @@ pub struct CtMessageInfo {
     pub string_d_len: usize,
     pub string_e_ptr: *const u8,
     pub string_e_len: usize,
+    pub binary_arg_ptr: *const u8,
+    pub binary_arg_len: usize,
 }
 
 impl_zeroed_ffi_default!(CtMessageInfo);
@@ -3429,6 +3460,13 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
     let (args_ptr, args_len) = option_bytes_ptr(&msg.args);
     let (kwargs_ptr, kwargs_len) = option_bytes_ptr(&msg.kwargs);
     let (details_ptr, details_len) = option_bytes_ptr(&msg.details);
+    let binary_argument = if msg.code == 68 && msg.kwargs.is_none() {
+        msg.args
+            .as_deref()
+            .and_then(|args| single_binary_argument(msg.serializer, args).ok())
+    } else {
+        None
+    };
     let mut info = CtMessageInfo {
         serializer: serializer_id(msg.serializer),
         message_code: msg.code,
@@ -3440,6 +3478,8 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
         kwargs_len,
         details_ptr,
         details_len,
+        binary_arg_ptr: binary_argument.map_or(ptr::null(), <[u8]>::as_ptr),
+        binary_arg_len: binary_argument.map_or(0, <[u8]>::len),
         ..CtMessageInfo::default()
     };
     match &msg.message {
@@ -4468,6 +4508,189 @@ pub extern "C" fn ct_send_message_file_segment(
     }
 }
 
+fn read_cbor_length(bytes: &[u8], offset: &mut usize, expected_major: u8) -> Option<usize> {
+    let initial = *bytes.get(*offset)?;
+    *offset += 1;
+    if initial >> 5 != expected_major {
+        return None;
+    }
+    let additional = initial & 0x1f;
+    let value = match additional {
+        value @ 0..=23 => u64::from(value),
+        24 => u64::from(*bytes.get(*offset)?),
+        25 => {
+            let raw = bytes.get(*offset..*offset + 2)?;
+            u64::from(u16::from_be_bytes([raw[0], raw[1]]))
+        }
+        26 => {
+            let raw = bytes.get(*offset..*offset + 4)?;
+            u64::from(u32::from_be_bytes([raw[0], raw[1], raw[2], raw[3]]))
+        }
+        27 => {
+            let raw = bytes.get(*offset..*offset + 8)?;
+            u64::from_be_bytes([
+                raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7],
+            ])
+        }
+        _ => return None,
+    };
+    *offset += match additional {
+        24 => 1,
+        25 => 2,
+        26 => 4,
+        27 => 8,
+        _ => 0,
+    };
+    usize::try_from(value).ok()
+}
+
+fn cbor_single_binary_argument(bytes: &[u8]) -> Option<&[u8]> {
+    let mut offset = 0;
+    if read_cbor_length(bytes, &mut offset, 4)? != 1 {
+        return None;
+    }
+    let length = read_cbor_length(bytes, &mut offset, 2)?;
+    let end = offset.checked_add(length)?;
+    if end != bytes.len() {
+        return None;
+    }
+    bytes.get(offset..end)
+}
+
+fn read_msgpack_array_length(bytes: &[u8], offset: &mut usize) -> Option<usize> {
+    let marker = *bytes.get(*offset)?;
+    *offset += 1;
+    match marker {
+        0x90..=0x9f => Some(usize::from(marker & 0x0f)),
+        0xdc => {
+            let raw = bytes.get(*offset..*offset + 2)?;
+            *offset += 2;
+            Some(usize::from(u16::from_be_bytes([raw[0], raw[1]])))
+        }
+        0xdd => {
+            let raw = bytes.get(*offset..*offset + 4)?;
+            *offset += 4;
+            usize::try_from(u32::from_be_bytes([raw[0], raw[1], raw[2], raw[3]])).ok()
+        }
+        _ => None,
+    }
+}
+
+fn read_msgpack_binary_length(bytes: &[u8], offset: &mut usize) -> Option<usize> {
+    let marker = *bytes.get(*offset)?;
+    *offset += 1;
+    match marker {
+        0xc4 => {
+            let length = usize::from(*bytes.get(*offset)?);
+            *offset += 1;
+            Some(length)
+        }
+        0xc5 => {
+            let raw = bytes.get(*offset..*offset + 2)?;
+            *offset += 2;
+            Some(usize::from(u16::from_be_bytes([raw[0], raw[1]])))
+        }
+        0xc6 => {
+            let raw = bytes.get(*offset..*offset + 4)?;
+            *offset += 4;
+            usize::try_from(u32::from_be_bytes([raw[0], raw[1], raw[2], raw[3]])).ok()
+        }
+        _ => None,
+    }
+}
+
+fn msgpack_single_binary_argument(bytes: &[u8]) -> Option<&[u8]> {
+    let mut offset = 0;
+    if read_msgpack_array_length(bytes, &mut offset)? != 1 {
+        return None;
+    }
+    let length = read_msgpack_binary_length(bytes, &mut offset)?;
+    let end = offset.checked_add(length)?;
+    if end != bytes.len() {
+        return None;
+    }
+    bytes.get(offset..end)
+}
+
+fn single_binary_argument(serializer: RawSocketSerializer, args: &[u8]) -> Result<&[u8], c_int> {
+    match serializer {
+        RawSocketSerializer::MessagePack => {
+            msgpack_single_binary_argument(args).ok_or(ERR_INVALID_ARGUMENT)
+        }
+        RawSocketSerializer::Cbor => cbor_single_binary_argument(args).ok_or(ERR_INVALID_ARGUMENT),
+        _ => Err(ERR_UNSUPPORTED),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_sha256_new() -> c_int {
+    let store = sha256_state_store();
+    let handle = store.next_id.fetch_add(1, Ordering::SeqCst);
+    if handle == 0 {
+        return ERR_HANDLE_UNAVAILABLE;
+    }
+    store.states.insert(handle, Sha256::new());
+    handle as c_int
+}
+
+#[no_mangle]
+pub extern "C" fn ct_sha256_update_message_binary_argument(
+    sha256_handle: c_int,
+    message_handle: c_int,
+) -> c_int {
+    if sha256_handle <= 0 || message_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let store = sha256_state_store();
+    let Some(mut state) = store.states.get_mut(&(sha256_handle as u32)) else {
+        return ERR_HANDLE_UNAVAILABLE;
+    };
+    match with_message(message_handle as u32, |message| {
+        if message.code != 68 {
+            return Err(ERR_INVALID_ARGUMENT);
+        }
+        let args = message.args.as_deref().ok_or(ERR_INVALID_ARGUMENT)?;
+        let payload = single_binary_argument(message.serializer, args)?;
+        let length = c_int::try_from(payload.len()).map_err(|_| ERR_INVALID_ARGUMENT)?;
+        state.update(payload);
+        Ok(length)
+    }) {
+        Some(result) => result.unwrap_or_else(|error| error),
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_sha256_finalize(
+    sha256_handle: c_int,
+    out_digest: *mut u8,
+    out_len: usize,
+) -> c_int {
+    if sha256_handle <= 0 || out_digest.is_null() || out_len < SHA256_DIGEST_LEN {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let store = sha256_state_store();
+    let Some((_, state)) = store.states.remove(&(sha256_handle as u32)) else {
+        return ERR_HANDLE_UNAVAILABLE;
+    };
+    let digest = state.finalize();
+    unsafe {
+        ptr::copy_nonoverlapping(digest.as_ptr(), out_digest, SHA256_DIGEST_LEN);
+    }
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_sha256_release(sha256_handle: c_int) -> c_int {
+    if sha256_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match sha256_state_store().states.remove(&(sha256_handle as u32)) {
+        Some(_) => SUCCESS,
+        None => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn ct_message_get(handle: c_int, out_info: *mut CtMessageInfo) -> c_int {
     if out_info.is_null() || handle <= 0 {
@@ -4991,6 +5214,81 @@ mod tests {
     use std::collections::BTreeMap;
     #[cfg(feature = "ffi-test")]
     use std::collections::HashMap;
+
+    #[test]
+    fn single_binary_argument_parsers_borrow_the_exact_payload() {
+        let cbor = [0x81, 0x43, b'a', b'b', b'c'];
+        let cbor_payload = cbor_single_binary_argument(&cbor).unwrap();
+        assert_eq!(cbor_payload, b"abc");
+        assert_eq!(cbor_payload.as_ptr(), cbor[2..].as_ptr());
+
+        let msgpack = [0x91, 0xc4, 0x03, b'a', b'b', b'c'];
+        let msgpack_payload = msgpack_single_binary_argument(&msgpack).unwrap();
+        assert_eq!(msgpack_payload, b"abc");
+        assert_eq!(msgpack_payload.as_ptr(), msgpack[3..].as_ptr());
+    }
+
+    #[test]
+    fn single_binary_argument_parsers_reject_noncanonical_file_chunks() {
+        assert!(cbor_single_binary_argument(&[0x82, 0x41, 0x01, 0x41, 0x02]).is_none());
+        assert!(cbor_single_binary_argument(&[0x81, 0x61, b'a']).is_none());
+        assert!(cbor_single_binary_argument(&[0x81, 0x42, 0x01]).is_none());
+        assert!(cbor_single_binary_argument(&[0x9f, 0x41, 0x01, 0xff]).is_none());
+
+        assert!(msgpack_single_binary_argument(&[0x92, 0xc4, 0x01, 0x01]).is_none());
+        assert!(msgpack_single_binary_argument(&[0x91, 0xa1, b'a']).is_none());
+        assert!(msgpack_single_binary_argument(&[0x91, 0xc4, 0x02, 0x01]).is_none());
+        assert!(msgpack_single_binary_argument(&[0x91, 0xc4, 0x01, 0x01, 0x02]).is_none());
+    }
+
+    #[test]
+    fn native_sha256_hashes_retained_message_payload_and_consumes_state() {
+        let _guard = test_guard();
+        let message = StoredMessage {
+            serializer: RawSocketSerializer::Cbor,
+            code: 68,
+            raw: StoredRawFrame::from_bytes(Bytes::new()),
+            message: WampMessage::Unknown {
+                code: 68,
+                fields: Vec::new(),
+            },
+            details: None,
+            args: Some(Bytes::from_static(&[0x81, 0x43, b'a', b'b', b'c'])),
+            kwargs: None,
+        };
+        let info = build_message_info(&message, false);
+        assert_eq!(info.binary_arg_len, 3);
+        assert_eq!(
+            unsafe { slice::from_raw_parts(info.binary_arg_ptr, info.binary_arg_len) },
+            b"abc"
+        );
+        let message_handle = store_message(message) as c_int;
+        let sha256_handle = ct_sha256_new();
+        assert!(sha256_handle > 0);
+        assert_eq!(
+            ct_sha256_update_message_binary_argument(sha256_handle, message_handle),
+            3
+        );
+
+        let mut digest = [0_u8; SHA256_DIGEST_LEN];
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            SUCCESS
+        );
+        assert_eq!(
+            digest,
+            [
+                0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae,
+                0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
+                0xf2, 0x00, 0x15, 0xad,
+            ]
+        );
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            ERR_HANDLE_UNAVAILABLE
+        );
+        remove_message(message_handle as u32);
+    }
 
     #[cfg(feature = "ffi-test")]
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

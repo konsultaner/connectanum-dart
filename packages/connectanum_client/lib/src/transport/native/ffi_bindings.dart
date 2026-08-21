@@ -151,6 +151,20 @@ typedef CtMessageReleaseDart = void Function(int);
 typedef CtMessageRetainNative = ffi.Int32 Function(ffi.Int32);
 typedef CtMessageRetainDart = int Function(int);
 
+typedef CtSha256NewNative = ffi.Int32 Function();
+typedef CtSha256NewDart = int Function();
+
+typedef CtSha256UpdateMessageBinaryArgumentNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Int32);
+typedef CtSha256UpdateMessageBinaryArgumentDart = int Function(int, int);
+
+typedef CtSha256FinalizeNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef CtSha256FinalizeDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
+typedef CtSha256ReleaseNative = ffi.Int32 Function(ffi.Int32);
+typedef CtSha256ReleaseDart = int Function(int);
+
 typedef CtSendMessageNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtSendMessageDart = int Function(int, ffi.Pointer<ffi.Uint8>, int);
@@ -275,6 +289,11 @@ final class CtMessageInfo extends ffi.Struct {
 
   @ffi.Size()
   external int stringELen;
+
+  external ffi.Pointer<ffi.Uint8> binaryArgPtr;
+
+  @ffi.Size()
+  external int binaryArgLen;
 }
 
 class CtFfiBindings {
@@ -376,6 +395,22 @@ class CtFfiBindings {
           .lookupFunction<CtMessageRetainNative, CtMessageRetainDart>(
             'ct_message_retain',
           ),
+      ctSha256New = library.lookupFunction<CtSha256NewNative, CtSha256NewDart>(
+        'ct_sha256_new',
+      ),
+      ctSha256UpdateMessageBinaryArgument = library
+          .lookupFunction<
+            CtSha256UpdateMessageBinaryArgumentNative,
+            CtSha256UpdateMessageBinaryArgumentDart
+          >('ct_sha256_update_message_binary_argument'),
+      ctSha256Finalize = library
+          .lookupFunction<CtSha256FinalizeNative, CtSha256FinalizeDart>(
+            'ct_sha256_finalize',
+          ),
+      ctSha256Release = library
+          .lookupFunction<CtSha256ReleaseNative, CtSha256ReleaseDart>(
+            'ct_sha256_release',
+          ),
       ctSendMessage = library
           .lookupFunction<CtSendMessageNative, CtSendMessageDart>(
             'ct_send_message',
@@ -421,6 +456,11 @@ class CtFfiBindings {
   final CtMessagePeekDart ctMessagePeek;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;
+  final CtSha256NewDart ctSha256New;
+  final CtSha256UpdateMessageBinaryArgumentDart
+  ctSha256UpdateMessageBinaryArgument;
+  final CtSha256FinalizeDart ctSha256Finalize;
+  final CtSha256ReleaseDart ctSha256Release;
   final CtSendMessageDart ctSendMessage;
   final CtSendMessageFragmentedDart ctSendMessageFragmented;
   final CtFileOpenDart ctFileOpen;

@@ -1,5 +1,5 @@
 use bytes::Bytes;
-use serde::Deserialize;
+use serde::{de::IgnoredAny, Deserialize};
 use serde_value::Value;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
@@ -351,7 +351,7 @@ fn parse_message_frame(
     match serializer {
         Serializer::Json => parse_json_message(raw_payload),
         Serializer::MessagePack => parse_msgpack_message(raw_payload),
-        Serializer::Cbor => parse_value_message(serializer, raw_payload),
+        Serializer::Cbor => parse_cbor_message(raw_payload),
         other => parse_value_message(other, raw_payload),
     }
 }
@@ -370,6 +370,19 @@ fn parse_value_message(
     }
     let (code_value, rest) = seq.split_first().unwrap();
     let code = value_as_u64(code_value, "message code")?;
+    let message = parse_value_parts(serializer, code, rest)?;
+    Ok(ParsedMessage {
+        message,
+        raw: raw_payload,
+        serializer,
+    })
+}
+
+fn parse_value_parts(
+    serializer: Serializer,
+    code: u64,
+    rest: &[Value],
+) -> Result<WampMessage, ParseError> {
     let message = match code {
         1 => parse_hello(rest)?,
         2 => parse_welcome(rest)?,
@@ -401,11 +414,251 @@ fn parse_value_message(
             fields: rest.to_vec(),
         },
     };
+    Ok(message)
+}
+
+fn parse_cbor_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError> {
+    let Some(raw) = raw_payload.as_contiguous() else {
+        return parse_value_message(Serializer::Cbor, raw_payload);
+    };
+    let ranges = cbor_top_level_ranges(raw.as_ref())?;
+    if ranges.is_empty() {
+        return Err(ParseError::MissingElement("message code"));
+    }
+    let code_value = cbor_value(&raw_payload, &ranges[0])?;
+    let code = value_as_u64(&code_value, "message code")?;
+    let payload_spec = cbor_payload_spec(code);
+    let payload = payload_spec
+        .map(|spec| cbor_payload(&raw_payload, &ranges, spec))
+        .transpose()?;
+
+    let mut rest = Vec::with_capacity(ranges.len().saturating_sub(1));
+    for (index, range) in ranges.iter().enumerate().skip(1) {
+        let value = match (payload_spec, payload.as_ref()) {
+            (Some(spec), Some(payload)) if index == spec.args_index => {
+                if payload.args.is_some() {
+                    Value::Seq(Vec::new())
+                } else {
+                    Value::Unit
+                }
+            }
+            (Some(spec), Some(payload)) if index == spec.kwargs_index => {
+                if payload.kwargs.is_some() {
+                    Value::Map(BTreeMap::new())
+                } else {
+                    Value::Unit
+                }
+            }
+            _ => cbor_value(&raw_payload, range)?,
+        };
+        rest.push(value);
+    }
+
+    let mut message = parse_value_parts(Serializer::Cbor, code, &rest)?;
+    if let Some(payload) = payload {
+        replace_message_payload(&mut message, payload);
+    }
     Ok(ParsedMessage {
         message,
         raw: raw_payload,
-        serializer,
+        serializer: Serializer::Cbor,
     })
+}
+
+#[derive(Clone, Copy)]
+struct CborPayloadSpec {
+    args_index: usize,
+    args_label: &'static str,
+    kwargs_index: usize,
+    kwargs_label: &'static str,
+}
+
+fn cbor_payload_spec(code: u64) -> Option<CborPayloadSpec> {
+    let (args_index, args_label, kwargs_index, kwargs_label) = match code {
+        3 => (3, "abort.arguments", 4, "abort.argumentsKw"),
+        6 => (3, "goodbye.arguments", 4, "goodbye.argumentsKw"),
+        8 => (5, "error.arguments", 6, "error.argumentsKw"),
+        16 => (4, "publish.arguments", 5, "publish.argumentsKw"),
+        36 => (4, "event.arguments", 5, "event.argumentsKw"),
+        48 => (4, "call.arguments", 5, "call.argumentsKw"),
+        50 => (3, "result.arguments", 4, "result.argumentsKw"),
+        68 => (4, "invocation.arguments", 5, "invocation.argumentsKw"),
+        70 => (3, "yield.arguments", 4, "yield.argumentsKw"),
+        _ => return None,
+    };
+    Some(CborPayloadSpec {
+        args_index,
+        args_label,
+        kwargs_index,
+        kwargs_label,
+    })
+}
+
+fn cbor_payload(
+    raw_payload: &RawFrame,
+    ranges: &[Range<usize>],
+    spec: CborPayloadSpec,
+) -> Result<Payload, ParseError> {
+    let args = cbor_payload_part(
+        raw_payload,
+        ranges.get(spec.args_index),
+        4,
+        spec.args_label,
+        ParseError::ExpectedList,
+    )?;
+    let kwargs = cbor_payload_part(
+        raw_payload,
+        ranges.get(spec.kwargs_index),
+        5,
+        spec.kwargs_label,
+        ParseError::ExpectedMap,
+    )?;
+    Ok(Payload { args, kwargs })
+}
+
+fn cbor_payload_part(
+    raw_payload: &RawFrame,
+    range: Option<&Range<usize>>,
+    expected_major: u8,
+    label: &'static str,
+    wrong_type: fn(&'static str) -> ParseError,
+) -> Result<Option<Bytes>, ParseError> {
+    let Some(range) = range else {
+        return Ok(None);
+    };
+    let slice = raw_payload.slice_or_copy(range)?;
+    if slice.as_ref() == [0xf6] {
+        return Ok(None);
+    }
+    if slice.first().map(|byte| byte >> 5) != Some(expected_major) {
+        return Err(wrong_type(label));
+    }
+    Ok(Some(raw_payload.slice_or_copy(range)?))
+}
+
+fn replace_message_payload(message: &mut WampMessage, payload: Payload) {
+    match message {
+        WampMessage::Abort {
+            payload: current, ..
+        }
+        | WampMessage::Goodbye {
+            payload: current, ..
+        }
+        | WampMessage::Error {
+            payload: current, ..
+        }
+        | WampMessage::Publish {
+            payload: current, ..
+        }
+        | WampMessage::Event {
+            payload: current, ..
+        }
+        | WampMessage::Call {
+            payload: current, ..
+        }
+        | WampMessage::Result {
+            payload: current, ..
+        }
+        | WampMessage::Invocation {
+            payload: current, ..
+        }
+        | WampMessage::Yield {
+            payload: current, ..
+        } => *current = payload,
+        _ => {}
+    }
+}
+
+fn cbor_value(raw_payload: &RawFrame, range: &Range<usize>) -> Result<Value, ParseError> {
+    let slice = raw_payload.slice_or_copy(range)?;
+    let mut de = serde_cbor::Deserializer::from_slice(slice.as_ref());
+    Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
+}
+
+fn cbor_top_level_ranges(data: &[u8]) -> Result<Vec<Range<usize>>, ParseError> {
+    let (mut offset, length) = cbor_array_header(data)?;
+    let mut ranges = Vec::with_capacity(length.unwrap_or(8).min(data.len()));
+    loop {
+        if let Some(length) = length {
+            if ranges.len() == length {
+                break;
+            }
+        } else if data.get(offset) == Some(&0xff) {
+            break;
+        }
+        if offset >= data.len() {
+            return Err(ParseError::Deserialize(
+                "unexpected end of CBOR message array".into(),
+            ));
+        }
+        let start = offset;
+        let mut de = serde_cbor::Deserializer::from_slice(&data[offset..]);
+        IgnoredAny::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))?;
+        let consumed = de.byte_offset();
+        if consumed == 0 {
+            return Err(ParseError::Deserialize(
+                "CBOR value parser made no progress".into(),
+            ));
+        }
+        offset = offset
+            .checked_add(consumed)
+            .ok_or_else(|| ParseError::Deserialize("CBOR value range overflow".into()))?;
+        ranges.push(start..offset);
+    }
+    let message_end = if length.is_some() {
+        offset
+    } else {
+        offset
+            .checked_add(1)
+            .ok_or_else(|| ParseError::Deserialize("CBOR message range overflow".into()))?
+    };
+    if message_end != data.len() {
+        return Err(ParseError::Deserialize(
+            "trailing data after CBOR message array".into(),
+        ));
+    }
+    Ok(ranges)
+}
+
+fn cbor_array_header(data: &[u8]) -> Result<(usize, Option<usize>), ParseError> {
+    let Some(&initial) = data.first() else {
+        return Err(ParseError::Deserialize("empty CBOR message".into()));
+    };
+    if initial >> 5 != 4 {
+        return Err(ParseError::ExpectedArray);
+    }
+    let additional = initial & 0x1f;
+    if additional == 31 {
+        return Ok((1, None));
+    }
+    let (header_len, length) = match additional {
+        0..=23 => (1, additional as u64),
+        24 => (2, cbor_header_integer(data, 1)?),
+        25 => (3, cbor_header_integer(data, 2)?),
+        26 => (5, cbor_header_integer(data, 4)?),
+        27 => (9, cbor_header_integer(data, 8)?),
+        _ => {
+            return Err(ParseError::Deserialize(
+                "reserved CBOR array additional information".into(),
+            ));
+        }
+    };
+    let length = usize::try_from(length)
+        .map_err(|_| ParseError::Deserialize("CBOR array length exceeds usize".into()))?;
+    Ok((header_len, Some(length)))
+}
+
+fn cbor_header_integer(data: &[u8], byte_count: usize) -> Result<u64, ParseError> {
+    if data.len() < 1 + byte_count {
+        return Err(ParseError::Deserialize(
+            "truncated CBOR array header".into(),
+        ));
+    }
+    let mut value = 0u64;
+    for byte in &data[1..1 + byte_count] {
+        value = (value << 8) | u64::from(*byte);
+    }
+    Ok(value)
 }
 
 #[derive(Deserialize)]
@@ -2369,6 +2622,163 @@ mod tests {
             }
             other => panic!("unexpected message: {:?}", other),
         }
+    }
+
+    #[test]
+    fn cbor_payload_retains_raw_slices_without_materializing_binary_data() {
+        use serde_cbor::Value as CborValue;
+
+        let binary = vec![0x5a; 4 * 1024 * 1024];
+        let value = CborValue::Array(vec![
+            CborValue::Integer(16),
+            CborValue::Integer(999),
+            CborValue::Map(BTreeMap::new()),
+            CborValue::Text("com.example.topic".into()),
+            CborValue::Array(vec![CborValue::Bytes(binary.clone())]),
+            CborValue::Map(BTreeMap::from([(
+                CborValue::Text("flag".into()),
+                CborValue::Bool(false),
+            )])),
+        ]);
+        let bytes = Bytes::from(serde_cbor::to_vec(&value).unwrap());
+        let parsed = parse_message(Serializer::Cbor, bytes.clone()).unwrap();
+        let raw = parsed
+            .raw
+            .as_contiguous()
+            .expect("contiguous CBOR input should stay contiguous");
+        assert_eq!(raw.as_ptr(), bytes.as_ptr());
+        assert_eq!(raw.len(), bytes.len());
+
+        match parsed.message {
+            WampMessage::Publish { payload, .. } => {
+                let args = payload.args.expect("payload args missing");
+                let kwargs = payload.kwargs.expect("payload kwargs missing");
+                assert_slice_points_into(&parsed.raw, &args);
+                assert_slice_points_into(&parsed.raw, &kwargs);
+                assert_eq!(
+                    serde_cbor::from_slice::<CborValue>(&args).unwrap(),
+                    CborValue::Array(vec![CborValue::Bytes(binary)])
+                );
+                assert_eq!(
+                    serde_cbor::from_slice::<CborValue>(&kwargs).unwrap(),
+                    CborValue::Map(BTreeMap::from([(
+                        CborValue::Text("flag".into()),
+                        CborValue::Bool(false),
+                    )]))
+                );
+            }
+            other => panic!("unexpected message: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cbor_payload_preserves_missing_null_and_empty_semantics() {
+        let missing = Bytes::from(
+            serde_cbor::to_vec(&serde_json::json!([16, 1, {}, "com.example.topic"])).unwrap(),
+        );
+        let null = Bytes::from(
+            serde_cbor::to_vec(&serde_json::json!([
+                16,
+                1,
+                {},
+                "com.example.topic",
+                null,
+                null
+            ]))
+            .unwrap(),
+        );
+        let empty = Bytes::from(
+            serde_cbor::to_vec(&serde_json::json!([16, 1, {}, "com.example.topic", [], {}]))
+                .unwrap(),
+        );
+
+        for bytes in [missing, null] {
+            match parse_message(Serializer::Cbor, bytes).unwrap().message {
+                WampMessage::Publish { payload, .. } => {
+                    assert!(payload.args.is_none());
+                    assert!(payload.kwargs.is_none());
+                }
+                other => panic!("unexpected message: {:?}", other),
+            }
+        }
+        match parse_message(Serializer::Cbor, empty).unwrap().message {
+            WampMessage::Publish { payload, .. } => {
+                assert_eq!(
+                    decode_option(Serializer::Cbor, &payload.args),
+                    Some(json!([]))
+                );
+                assert_eq!(
+                    decode_option(Serializer::Cbor, &payload.kwargs),
+                    Some(json!({}))
+                );
+            }
+            other => panic!("unexpected message: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn cbor_payload_rejects_wrong_argument_shapes() {
+        let wrong_args = Bytes::from(
+            serde_cbor::to_vec(&serde_json::json!([
+                16,
+                1,
+                {},
+                "com.example.topic",
+                "not-a-list"
+            ]))
+            .unwrap(),
+        );
+        assert!(matches!(
+            parse_message(Serializer::Cbor, wrong_args),
+            Err(ParseError::ExpectedList("publish.arguments"))
+        ));
+
+        let wrong_kwargs = Bytes::from(
+            serde_cbor::to_vec(&serde_json::json!([16, 1, {}, "com.example.topic", [], []]))
+                .unwrap(),
+        );
+        assert!(matches!(
+            parse_message(Serializer::Cbor, wrong_kwargs),
+            Err(ParseError::ExpectedMap("publish.argumentsKw"))
+        ));
+    }
+
+    #[test]
+    fn cbor_range_parser_rejects_truncated_values_without_panicking() {
+        let mut bytes = serde_cbor::to_vec(&serde_json::json!([
+            48,
+            1,
+            {},
+            "com.example.procedure",
+            ["payload"]
+        ]))
+        .unwrap();
+        bytes.pop();
+        assert!(matches!(
+            parse_message(Serializer::Cbor, Bytes::from(bytes)),
+            Err(ParseError::Deserialize(_))
+        ));
+    }
+
+    #[test]
+    fn cbor_range_parser_rejects_trailing_data_after_array() {
+        let mut definite =
+            serde_cbor::to_vec(&serde_json::json!([48, 1, {}, "com.example.procedure"])).unwrap();
+        definite.push(0x00);
+        assert!(matches!(
+            parse_message(Serializer::Cbor, Bytes::from(definite)),
+            Err(ParseError::Deserialize(_))
+        ));
+
+        let indefinite = Bytes::from_static(&[
+            0x9f, 0x18, 0x30, 0x01, 0xa0, 0x75, b'c', b'o', b'm', b'.', b'e', b'x', b'a', b'm',
+            b'p', b'l', b'e', b'.', b'p', b'r', b'o', b'c', b'e', b'd', b'u', b'r', b'e', 0xff,
+            0x00,
+        ]);
+        assert!(matches!(
+            parse_message(Serializer::Cbor, indefinite),
+            Err(ParseError::Deserialize(_))
+        ));
     }
 
     #[test]

@@ -1098,6 +1098,32 @@ void main() {
       expect(scenario.toJson()['websocket_fragment_size'], 4096);
     });
 
+    test('parses file chunk size overrides', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'cbor',
+        'mode': 'file_transfer',
+        'uri': 'bench.file.set',
+        'file_chunk_bytes': 2 * 1024 * 1024,
+      });
+
+      expect(scenario.fileChunkBytes, 2 * 1024 * 1024);
+      expect(scenario.toJson()['file_chunk_bytes'], 2 * 1024 * 1024);
+    });
+
+    test('rejects non-positive file chunk sizes', () {
+      expect(
+        () => WampScenario.fromJson({
+          'transport': 'rawsocket',
+          'serializer': 'cbor',
+          'mode': 'file_transfer',
+          'uri': 'bench.file.set',
+          'file_chunk_bytes': 0,
+        }),
+        throwsFormatException,
+      );
+    });
+
     test('parses control custom field overrides', () {
       final scenario = WampScenario.fromJson({
         'transport': 'rawsocket',

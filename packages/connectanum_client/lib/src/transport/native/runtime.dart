@@ -57,6 +57,7 @@ class NativeIncomingMessage {
     required CtFfiBindings bindings,
     this.argumentsBytes,
     this.argumentsKeywordsBytes,
+    this.singleBinaryArgumentBytes,
   }) : _bindings = bindings;
 
   final Object message;
@@ -64,6 +65,7 @@ class NativeIncomingMessage {
   final int handle;
   final Uint8List? argumentsBytes;
   final Uint8List? argumentsKeywordsBytes;
+  final Uint8List? singleBinaryArgumentBytes;
   final CtFfiBindings _bindings;
 
   bool _released = false;
@@ -616,6 +618,9 @@ class NativeClientRuntime {
           ? null
           : info.kwargsPtr.asTypedList(info.kwargsLen);
       final metadata = _metadataFromFfi(info);
+      final singleBinaryArgument = info.binaryArgPtr == ffi.nullptr
+          ? null
+          : info.binaryArgPtr.asTypedList(info.binaryArgLen);
 
       Uint8List frame;
       Object message;
@@ -652,6 +657,7 @@ class NativeClientRuntime {
         bindings: _bindings,
         argumentsBytes: args,
         argumentsKeywordsBytes: kwargs,
+        singleBinaryArgumentBytes: singleBinaryArgument,
       );
       final token = _MessageFinalizerToken(_bindings, handle);
       _messageFinalizer.attach(incoming, token, detach: incoming);
@@ -669,6 +675,61 @@ class NativeClientRuntime {
       code,
       _buildNativeErrorMessage(code, context),
     );
+  }
+
+  int createSha256State() {
+    ensureStarted();
+    final handle = _bindings.ctSha256New();
+    if (handle < 0) {
+      _throwForError(handle, 'Failed to create native SHA-256 state');
+    }
+    return handle;
+  }
+
+  int updateSha256WithMessageBinaryArgument(
+    int sha256Handle,
+    int messageHandle,
+  ) {
+    ensureStarted();
+    final result = _bindings.ctSha256UpdateMessageBinaryArgument(
+      sha256Handle,
+      messageHandle,
+    );
+    if (result < 0) {
+      _throwForError(
+        result,
+        'Failed to hash native message binary argument',
+      );
+    }
+    return result;
+  }
+
+  Uint8List finalizeSha256State(int sha256Handle) {
+    ensureStarted();
+    const digestLength = 32;
+    final digestPtr = calloc<ffi.Uint8>(digestLength);
+    try {
+      final result = _bindings.ctSha256Finalize(
+        sha256Handle,
+        digestPtr,
+        digestLength,
+      );
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to finalize native SHA-256 state');
+      }
+      return Uint8List.fromList(digestPtr.asTypedList(digestLength));
+    } finally {
+      calloc.free(digestPtr);
+    }
+  }
+
+  void releaseSha256State(int sha256Handle) {
+    ensureStarted();
+    final result = _bindings.ctSha256Release(sha256Handle);
+    if (result != NativeTransportErrorCode.success &&
+        result != NativeTransportErrorCode.handleUnavailable) {
+      _throwForError(result, 'Failed to release native SHA-256 state');
+    }
   }
 
   void releaseMessageHandle(int handle) {

@@ -1,6 +1,6 @@
 # Java Capability Successor Extensions
 
-Status: active
+Status: completed
 Started: 2026-08-20
 
 ## Goal
@@ -68,10 +68,10 @@ Pattern-matching behavior from the Java implementation is explicitly excluded.
   membership changes, and cannot hang cleanup after a session disconnect.
 - [x] Progressive chunked file delivery. The public progressive-call contract
   enforces bounded chunks, exact size, optional SHA-256, sink backpressure,
-  concurrency/buffer limits, idle timeout, and cancellation cleanup. Linux
-  cleartext native RawSocket MessagePack/CBOR sessions use `sendfile`-backed
-  frame segments; transformed, masked, secure, non-Linux, and unsupported paths
-  use bounded buffering.
+  concurrency/buffer limits, idle timeout, and cancellation cleanup. Linux and
+  macOS cleartext native RawSocket MessagePack/CBOR sessions use
+  `sendfile`-backed frame segments; transformed, masked, secure, and unsupported
+  paths use bounded buffering.
 - [x] Bounded retry deduplication. Public caller transaction hashes drive
   registration-scoped throttle or trailing-edge debounce policies with bounded
   capacity and expiry. Progressive chunks retain their original lease; all
@@ -111,5 +111,9 @@ state-store lifecycle regressions, OpenMetrics and router-metric tests, a real
 worker-session WAMP error/privacy regression, the complete 72-test
 worker-session suite, and a generated standalone client consumer smoke. Full
 `bin/verify` passes on 2026-08-20 with 466 router tests, all native suites,
-consumer packages, live MCP checks, and Chrome/Dart2Wasm. Hosted exact-head
-evidence for this final slice remains pending until push.
+consumer packages, live MCP checks, and Chrome/Dart2Wasm. Exact-head hosted CI
+`32403920765`, Dart Package Publish Dry Run `32403920746`, WAMP Profile
+Benchmarks `32404095467`, and Router Image dry run `32404103531` all pass at
+`d7f3d1a0`. The comprehensive deployment-content audit passes with clean CI
+logs and artifacts. Literal strict mode is blocked only by the expected lack of
+protection on this development branch.

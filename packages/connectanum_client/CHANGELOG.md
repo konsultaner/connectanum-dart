@@ -3,9 +3,10 @@
 - Add bounded high-level file delivery over standard WAMP progressive call
   invocations, with binary argument chunks, exact-size and SHA-256 validation,
   sink backpressure, cancellation cleanup, and Dart IO path sources. Native
-  cleartext RawSocket connections use Linux `sendfile` for MessagePack and
-  CBOR file segments; TLS, WebSocket, JSON, E2EE, non-Linux, and unsupported
-  peers retain the bounded buffered path.
+  cleartext RawSocket connections use Linux or macOS `sendfile` for MessagePack
+  and CBOR file segments; TLS, WebSocket, JSON, E2EE, and unsupported peers
+  retain the bounded buffered path. Native receivers hash retained binary
+  arguments without a second Dart payload copy when the wire shape permits it.
 - Fix optional large-frame RawSocket upgrade interoperability by preserving
   prefetched standard-peer data and encoding the extension exponent in the
   documented low nibble.

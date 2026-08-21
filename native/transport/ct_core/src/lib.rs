@@ -34,7 +34,7 @@ use http02::{
 use sha1::{Digest, Sha1};
 use thiserror::Error;
 use tokio::{
-    io::{AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     runtime::Runtime,
     sync::{
         mpsc::{
@@ -3547,14 +3547,7 @@ async fn read_inbound_frame(
         )));
     }
 
-    let payload = if length_u64 == 0 {
-        Bytes::new()
-    } else {
-        let mut buf = BytesMut::with_capacity(length_u64 as usize);
-        buf.resize(length_u64 as usize, 0);
-        stream.read_exact(&mut buf).await?;
-        buf.freeze()
-    };
+    let payload = read_exact_frame_payload(stream, length_u64 as usize).await?;
 
     match frame_type {
         0 => Ok(InboundFrame::Message(payload)),
@@ -3565,6 +3558,23 @@ async fn read_inbound_frame(
             frame_type
         ))),
     }
+}
+
+async fn read_exact_frame_payload<R>(stream: &mut R, length: usize) -> io::Result<Bytes>
+where
+    R: AsyncRead + Unpin,
+{
+    let mut payload = BytesMut::with_capacity(length);
+    while payload.len() < length {
+        let read = stream.read_buf(&mut payload).await?;
+        if read == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "connection closed before RawSocket frame payload completed",
+            ));
+        }
+    }
+    Ok(payload.freeze())
 }
 
 #[derive(Debug)]
@@ -4711,7 +4721,7 @@ pub fn connection_rawsocket_max_exponent(connection_id: ConnectionId) -> Result<
     manager.with_state(|state| state.registry.connection_exponent(connection_id))
 }
 
-/// Reports whether a connection can enqueue Linux zero-copy file-backed frames.
+/// Reports whether a connection can enqueue zero-copy file-backed frames.
 pub fn connection_supports_file_segments(connection_id: ConnectionId) -> Result<bool, Error> {
     let manager = RuntimeManager::global();
     manager.with_state(|state| {
@@ -7498,6 +7508,31 @@ mod tests {
             .get_or_init(|| Mutex::new(()))
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    #[tokio::test]
+    async fn exact_frame_payload_read_handles_fragmented_input_without_padding() {
+        let (mut writer, mut reader) = tokio::io::duplex(4);
+        let write = tokio::spawn(async move {
+            writer.write_all(b"abc").await.unwrap();
+            writer.write_all(b"defghi").await.unwrap();
+        });
+
+        let payload = read_exact_frame_payload(&mut reader, 9).await.unwrap();
+        write.await.unwrap();
+        assert_eq!(payload.as_ref(), b"abcdefghi");
+    }
+
+    #[tokio::test]
+    async fn exact_frame_payload_read_reports_truncated_input() {
+        let (mut writer, mut reader) = tokio::io::duplex(4);
+        writer.write_all(b"abc").await.unwrap();
+        drop(writer);
+
+        let error = read_exact_frame_payload(&mut reader, 4)
+            .await
+            .expect_err("truncated frame must fail");
+        assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
     }
 
     #[test]

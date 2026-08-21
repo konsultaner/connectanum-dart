@@ -3026,6 +3026,7 @@ fn run_wamp_workload(
         "in_flight_per_session": workload.in_flight_per_session,
         "peer_count": workload.peer_count,
         "payload_bytes": workload.request_bytes,
+        "file_chunk_bytes": workload.request_chunk_bytes,
         "websocket_fragment_size": workload.websocket_fragment_size,
         "secure_transport": workload.secure_transport,
         "ppt_scheme": workload.ppt_scheme.clone(),

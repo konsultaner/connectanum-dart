@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
-import 'package:crypto/crypto.dart';
 
 import '../protocol/session.dart';
+import 'file_transfer_digest.dart';
+import 'file_transfer_digest_stub.dart'
+    if (dart.library.io) 'file_transfer_digest_io.dart'
+    as digest_factory;
 
 /// Metadata key used by the Connectanum progressive file-transfer contract.
 const String wampFileMetadataKey = 'x_connectanum_file';
@@ -501,14 +503,21 @@ class WampFileReceiver {
       );
       return;
     }
-    final decoded = invocation.toPayload();
-    final decodedArguments = decoded.arguments;
-    final decodedKeywords = decoded.argumentsKeywords;
-    final bytes = _singleBinaryArgument(decodedArguments);
-    if (bytes == null ||
+    final directBytes = invocation.pptScheme == null
+        ? digest_factory.nativeFileChunkBytes(invocation.payload.anchor)
+        : null;
+    Uint8List? bytes = directBytes;
+    Map<String, dynamic>? decodedKeywords;
+    if (bytes == null) {
+      final decoded = invocation.toPayload();
+      bytes = _singleBinaryArgument(decoded.arguments);
+      decodedKeywords = decoded.argumentsKeywords;
+    }
+    final chunk = bytes;
+    if (chunk == null ||
         invocation.payload.transparentBinaryPayload != null ||
         decodedKeywords?.isNotEmpty == true ||
-        (invocation.progress && bytes.isEmpty)) {
+        (invocation.progress && chunk.isEmpty)) {
       _failState(
         state,
         invocation,
@@ -517,9 +526,9 @@ class WampFileReceiver {
       );
       return;
     }
-    if (bytes.length > state.metadata.chunkSize ||
-        bytes.length > maxChunkSize ||
-        state.acceptedBytes + bytes.length > state.metadata.size) {
+    if (chunk.length > state.metadata.chunkSize ||
+        chunk.length > maxChunkSize ||
+        state.acceptedBytes + chunk.length > state.metadata.size) {
       _failState(
         state,
         invocation,
@@ -528,7 +537,7 @@ class WampFileReceiver {
       );
       return;
     }
-    if (_bufferedBytes + bytes.length > maxBufferedBytes) {
+    if (_bufferedBytes + chunk.length > maxBufferedBytes) {
       _failState(
         state,
         invocation,
@@ -539,9 +548,9 @@ class WampFileReceiver {
     }
 
     state.lastInvocation = invocation;
-    state.acceptedBytes += bytes.length;
-    state.queuedBytes += bytes.length;
-    _bufferedBytes += bytes.length;
+    state.acceptedBytes += chunk.length;
+    state.queuedBytes += chunk.length;
+    _bufferedBytes += chunk.length;
     if (!invocation.progress) {
       state.finalizing = true;
     }
@@ -556,12 +565,12 @@ class WampFileReceiver {
           if (sink == null) {
             throw StateError('File sink was not initialized');
           }
-          await sink.add(bytes);
+          await sink.add(chunk);
           if (state.failed) {
             return;
           }
-          state.hashInput.add(bytes);
-          state.receivedBytes += bytes.length;
+          state.digest.add(chunk, anchor: invocation.payload.anchor);
+          state.receivedBytes += chunk.length;
           if (!invocation.progress) {
             await _finishState(state, invocation);
           }
@@ -576,8 +585,8 @@ class WampFileReceiver {
           );
         })
         .whenComplete(() {
-          state.queuedBytes -= bytes.length;
-          _bufferedBytes -= bytes.length;
+          state.queuedBytes -= chunk.length;
+          _bufferedBytes -= chunk.length;
         });
   }
 
@@ -594,8 +603,7 @@ class WampFileReceiver {
       );
       return;
     }
-    state.closeHash();
-    final actualDigest = state.digest.toString();
+    final actualDigest = state.finishDigest();
     final expectedDigest = state.metadata.sha256Digest?.toLowerCase();
     if (expectedDigest != null && expectedDigest != actualDigest) {
       _failState(
@@ -656,6 +664,7 @@ class WampFileReceiver {
     }
     state.failed = true;
     state.failure = cause ?? WampFileTransferException(message);
+    state.abortDigest();
     state.timer?.cancel();
     final requestId = state.lastInvocation.requestId;
     if (identical(_transfers[requestId], state)) {
@@ -717,17 +726,14 @@ Uint8List? _singleBinaryArgument(List<dynamic>? arguments) {
 }
 
 class _WampFileTransferState {
-  _WampFileTransferState(this.metadata, this.lastInvocation) {
-    hashInput = sha256.startChunkedConversion(
-      ChunkedConversionSink<Digest>.withCallback((digests) {
-        digest = digests.single;
-      }),
-    );
-  }
+  _WampFileTransferState(this.metadata, this.lastInvocation)
+    : digest = digest_factory.createFileTransferDigest(
+        anchor: lastInvocation.payload.anchor,
+        allowNative: lastInvocation.pptScheme == null,
+      );
 
   final WampFileMetadata metadata;
-  late final ByteConversionSink hashInput;
-  late Digest digest;
+  final FileTransferDigest digest;
   Future<void> tail = Future<void>.value();
   WampFileSink? sink;
   LazyInvocationPayload lastInvocation;
@@ -736,17 +742,32 @@ class _WampFileTransferState {
   int acceptedBytes = 0;
   int receivedBytes = 0;
   int queuedBytes = 0;
-  bool hashClosed = false;
+  bool digestClosed = false;
   bool finalizing = false;
   bool failed = false;
   bool completed = false;
   bool abortStarted = false;
 
-  void closeHash() {
-    if (hashClosed) {
+  String finishDigest() {
+    if (digestClosed) {
+      throw StateError('File transfer digest is already finalized');
+    }
+    try {
+      final result = digest.finish();
+      digestClosed = true;
+      return result;
+    } catch (_) {
+      digest.abort();
+      digestClosed = true;
+      rethrow;
+    }
+  }
+
+  void abortDigest() {
+    if (digestClosed) {
       return;
     }
-    hashClosed = true;
-    hashInput.close();
+    digestClosed = true;
+    digest.abort();
   }
 }

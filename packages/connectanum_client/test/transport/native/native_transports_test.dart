@@ -208,7 +208,9 @@ void main() {
           expect(transport.headerLength, equals(4));
           expect(
             transport.supportsFileSegments,
-            equals(Platform.isLinux && config.name != 'json'),
+            equals(
+              (Platform.isLinux || Platform.isMacOS) && config.name != 'json',
+            ),
           );
 
           await client.disconnect();

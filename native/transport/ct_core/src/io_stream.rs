@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::os::fd::{AsFd, OwnedFd};
 
 use bytes::BytesMut;
@@ -116,7 +116,7 @@ impl IoStream {
         }
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub(crate) fn try_clone_plain_fd(&self) -> io::Result<Option<OwnedFd>> {
         match &self.inner {
             StreamInner::Tcp(stream) => stream.as_fd().try_clone_to_owned().map(Some),

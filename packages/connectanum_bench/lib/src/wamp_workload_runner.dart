@@ -1018,7 +1018,7 @@ class WampWorkloadRunner {
     wamp_client.WampFileSource source,
     WampSession session,
   ) async {
-    const chunkSize = 4 * 1024 * 1024;
+    final chunkSize = scenario.fileChunkBytes;
     final start = DateTime.now();
     await (session as WampFileSession)
         .sendFile(
@@ -2723,6 +2723,7 @@ class WampScenario {
     this.peerCount = 1,
     required this.payloadBytes,
     this.websocketFragmentSize,
+    this.fileChunkBytes = 4 * 1024 * 1024,
     this.callTimeoutMs,
     this.controlCustomFields = false,
     this.pptScheme,
@@ -2748,6 +2749,7 @@ class WampScenario {
   final int peerCount;
   final int payloadBytes;
   final int? websocketFragmentSize;
+  final int fileChunkBytes;
   final int? callTimeoutMs;
   final bool controlCustomFields;
   final String? pptScheme;
@@ -2827,6 +2829,10 @@ class WampScenario {
       websocketFragmentSize: _readOptionalPositiveInt(
         json['websocket_fragment_size'],
       ),
+      fileChunkBytes: _readStrictPositiveInt(
+        json['file_chunk_bytes'],
+        fallback: 4 * 1024 * 1024,
+      ),
       callTimeoutMs: _readOptionalPositiveInt(json['call_timeout_ms']),
       controlCustomFields: json['control_custom_fields'] == true,
       pptScheme: pptScheme,
@@ -2855,6 +2861,14 @@ class WampScenario {
     }
     final parsed = _readPositiveInt(value, fallback: 0);
     return parsed > 0 ? parsed : null;
+  }
+
+  static int _readStrictPositiveInt(Object? value, {required int fallback}) {
+    final parsed = _readPositiveInt(value, fallback: fallback);
+    if (parsed <= 0) {
+      throw FormatException('Expected positive integer, got $value');
+    }
+    return parsed;
   }
 
   static String? _readOptionalString(Object? value) {
@@ -2886,6 +2900,7 @@ class WampScenario {
     'payload_bytes': payloadBytes,
     if (websocketFragmentSize != null)
       'websocket_fragment_size': websocketFragmentSize,
+    'file_chunk_bytes': fileChunkBytes,
     if (callTimeoutMs != null) 'call_timeout_ms': callTimeoutMs,
     if (controlCustomFields) 'control_custom_fields': true,
     if (pptScheme != null) 'ppt_scheme': pptScheme,
@@ -2912,6 +2927,7 @@ class WampScenario {
     int? peerCount,
     int? payloadBytes,
     Object? websocketFragmentSize = _copySentinel,
+    int? fileChunkBytes,
     Object? callTimeoutMs = _copySentinel,
     bool? controlCustomFields,
     Object? pptScheme = _copySentinel,
@@ -2945,6 +2961,7 @@ class WampScenario {
       websocketFragmentSize: identical(websocketFragmentSize, _copySentinel)
           ? this.websocketFragmentSize
           : websocketFragmentSize as int?,
+      fileChunkBytes: fileChunkBytes ?? this.fileChunkBytes,
       callTimeoutMs: identical(callTimeoutMs, _copySentinel)
           ? this.callTimeoutMs
           : callTimeoutMs as int?,

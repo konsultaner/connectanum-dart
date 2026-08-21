@@ -40,6 +40,18 @@ List<int> collectNativeReceiveBatch(
   return batch;
 }
 
+@internal
+NativeIncomingMessage? nativeIncomingMessageForAnchor(Object? anchor) {
+  if (anchor == null) {
+    return null;
+  }
+  return _nativeMessageAnchor[anchor];
+}
+
+@internal
+Uint8List? nativeSingleBinaryArgumentForAnchor(Object? anchor) =>
+    nativeIncomingMessageForAnchor(anchor)?.singleBinaryArgumentBytes;
+
 abstract class _NativeTransportBase extends AbstractTransport
     implements SessionOptimizedTransport {
   _NativeTransportBase(

@@ -417,6 +417,11 @@ final class CtMessageInfo extends ffi.Struct {
 
   @ffi.Size()
   external int stringELen;
+
+  external ffi.Pointer<ffi.Uint8> binaryArgPtr;
+
+  @ffi.Size()
+  external int binaryArgLen;
 }
 
 final class CtHttpHandshakeInfo extends ffi.Struct {

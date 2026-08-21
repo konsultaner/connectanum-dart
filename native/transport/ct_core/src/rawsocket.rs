@@ -3,10 +3,10 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::os::fd::{AsRawFd, OwnedFd};
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use tokio::io::unix::AsyncFd;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::time;
@@ -48,7 +48,7 @@ pub struct NegotiatedSession {
 }
 
 pub struct RawSocketFileSender {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     socket: AsyncFd<OwnedFd>,
 }
 
@@ -60,7 +60,7 @@ impl std::fmt::Debug for RawSocketFileSender {
 }
 
 impl RawSocketFileSender {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn from_stream(stream: &IoStream) -> io::Result<Option<Self>> {
         stream
             .try_clone_plain_fd()?
@@ -69,7 +69,7 @@ impl RawSocketFileSender {
             .map(|socket| socket.map(|socket| Self { socket }))
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     fn from_stream(_stream: &IoStream) -> io::Result<Option<Self>> {
         Ok(None)
     }
@@ -124,7 +124,68 @@ impl RawSocketFileSender {
         Ok(())
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    pub async fn send_file_segment(
+        &self,
+        file: &Arc<File>,
+        mut offset: u64,
+        mut remaining: usize,
+    ) -> io::Result<()> {
+        const MAX_SENDFILE_COUNT: usize = 0x7ffff000;
+
+        while remaining > 0 {
+            let mut readiness = self.socket.writable().await?;
+            let count = remaining.min(MAX_SENDFILE_COUNT);
+            let result = readiness.try_io(|socket| {
+                let file_offset = libc::off_t::try_from(offset).map_err(|_| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "file offset exceeds off_t")
+                })?;
+                let mut sent = libc::off_t::try_from(count).map_err(|_| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "file length exceeds off_t")
+                })?;
+                let status = unsafe {
+                    libc::sendfile(
+                        file.as_raw_fd(),
+                        socket.get_ref().as_raw_fd(),
+                        file_offset,
+                        &mut sent,
+                        std::ptr::null_mut(),
+                        0,
+                    )
+                };
+                let sent = usize::try_from(sent).map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "sendfile returned negative length",
+                    )
+                })?;
+                if status == 0 || sent > 0 {
+                    Ok(sent)
+                } else {
+                    Err(io::Error::last_os_error())
+                }
+            });
+
+            match result {
+                Ok(Ok(0)) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "file ended before the queued RawSocket segment",
+                    ));
+                }
+                Ok(Ok(sent)) => {
+                    offset += sent as u64;
+                    remaining -= sent;
+                }
+                Ok(Err(err)) if err.kind() == io::ErrorKind::Interrupted => continue,
+                Ok(Err(err)) => return Err(err),
+                Err(_would_block) => continue,
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     pub async fn send_file_segment(
         &self,
         _file: &Arc<File>,
@@ -133,7 +194,7 @@ impl RawSocketFileSender {
     ) -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "zero-copy RawSocket file segments require Linux",
+            "zero-copy RawSocket file segments require Linux or macOS",
         ))
     }
 }
@@ -804,7 +865,7 @@ mod tests {
         assert!(matches!(err, HandshakeError::Protocol(_)));
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     #[tokio::test]
     async fn file_sender_transfers_the_requested_file_range() {
         use std::sync::Arc;
@@ -817,7 +878,7 @@ mod tests {
         let stream = IoStream::plain(client);
         let sender = RawSocketFileSender::from_stream(&stream)
             .unwrap()
-            .expect("plain Linux TCP streams support sendfile");
+            .expect("plain Linux and macOS TCP streams support sendfile");
 
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
