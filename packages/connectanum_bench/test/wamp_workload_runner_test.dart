@@ -7,6 +7,33 @@ import 'package:test/test.dart';
 
 void main() {
   group('WampWorkloadRunner', () {
+    test('isolates concurrent per-scenario event timeouts', () async {
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          return _FakeWampSession(_FakeWampBroker());
+        },
+        logger: Logger.detached('scenario_timeout_isolation_test'),
+        eventTimeout: const Duration(seconds: 1),
+      );
+      WampScenario scenario(int eventTimeoutMs) => WampScenario(
+        transport: WampTransport.rawsocket,
+        serializer: WampSerializer.json,
+        mode: WampMode.authenticate,
+        uri: 'bench.auth',
+        iterations: 1,
+        concurrency: 1,
+        payloadBytes: 0,
+        eventTimeoutMs: eventTimeoutMs,
+      );
+
+      final shortRun = runner.run(scenario(10));
+      final longRun = runner.run(scenario(200));
+
+      await expectLater(shortRun, throwsA(isA<TimeoutException>()));
+      expect(await longRun, hasLength(1));
+    });
+
     test('completes pubsub scenario after receiving matching events', () async {
       final broker = _FakeWampBroker();
       final runner = WampWorkloadRunner(
@@ -1119,6 +1146,30 @@ void main() {
           'mode': 'file_transfer',
           'uri': 'bench.file.set',
           'file_chunk_bytes': 0,
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('parses and validates event timeout overrides', () {
+      final scenario = WampScenario.fromJson({
+        'transport': 'rawsocket',
+        'serializer': 'cbor',
+        'mode': 'file_transfer',
+        'uri': 'bench.file.set',
+        'event_timeout_ms': 300000,
+      });
+
+      expect(scenario.eventTimeoutMs, 300000);
+      expect(scenario.toJson()['event_timeout_ms'], 300000);
+      expect(scenario.copyWith().eventTimeoutMs, 300000);
+      expect(
+        () => WampScenario.fromJson({
+          'transport': 'rawsocket',
+          'serializer': 'cbor',
+          'mode': 'file_transfer',
+          'uri': 'bench.file.set',
+          'event_timeout_ms': 0,
         }),
         throwsFormatException,
       );

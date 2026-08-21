@@ -20,34 +20,35 @@ handle cursors and keep disk IO off reactor threads. Dart filters JSON because
 binary splicing would violate JSON/base64 framing.
 
 The corrected one-thread local matrix moves 1 GiB per native workload and
-passes its transport-counter gate: clear RawSocket reaches 3.39 Gbit/s with
-MessagePack and 3.05 Gbit/s with CBOR, TLS RawSocket CBOR reaches 2.85 Gbit/s,
-and WebSocket CBOR reaches 2.92 Gbit/s. Dart RawSocket CBOR remains at 461
-Mbit/s and native E2EE CBOR AES-GCM at 381 Mbit/s. The strengthened 4 GiB
+passes its transport-counter gate: clear RawSocket reaches 3.37 Gbit/s with
+MessagePack and 3.01 Gbit/s with CBOR, TLS RawSocket CBOR reaches 2.77 Gbit/s,
+and WebSocket CBOR reaches 2.73 Gbit/s. Dart RawSocket CBOR remains at 450
+Mbit/s and native E2EE CBOR AES-GCM at 367 Mbit/s. The strengthened 4 GiB
 aggregate-duplex large-frame matrix also passes, but one-way throughput remains
-below target: 1.44/1.76 Gbit/s for Dart/native 32 MiB MessagePack and 704/881
+below target: 1.55/1.86 Gbit/s for Dart/native 32 MiB MessagePack and 748/874
 Mbit/s for Dart/native 64 MiB CBOR. An auto-sized runtime repeatedly times out
 on the 1 GiB TLS file workload after RSS approaches 1 GiB, while the canonical
 one-thread runtime passes the same focused workload at 3.16 Gbit/s. That
 receive/retention scaling issue and hosted Linux evidence remain active work;
-this is not yet a universal production-readiness claim. Full `bin/verify`
+this is not yet a universal production-readiness claim. Post-fix `bin/verify`
 passes on 2026-08-21 with 127 Rust core tests, 55 Rust FFI tests, the 466-test
 router suite, all generated package and CLI consumers, live WAMP/MCP smokes,
 and Chrome Dart2Wasm.
 
-Exact-head GitHub CI `32476733978`, Dart Package Publish Dry Run
-`32476733924`, and WAMP Profile Benchmarks `32476803873` pass at
-`d326cd875e5e865ed1053e885d050ba3fa2d3805`. The first heavy hosted Linux
-diagnostic moved 1 GiB over clear native RawSocket at 2.60 Gbit/s with
-MessagePack and 2.26 Gbit/s with CBOR, then stopped the TLS workload after 30
-seconds before the large-frame matrix ran. That stop was a benchmark-harness
-bug rather than a transport failure: the blocking WAMP control client ignored
-the configured 300-second workload timeout and imposed its own 30-second
-request deadline. The harness now gives the long-running WAMP POST the
-configured workload timeout plus a 30-second response grace while retaining
-the short default for health, metrics, and stop requests. Focused timeout
-regressions and all 56 `http_stream` tests pass; a fresh hosted diagnostic is
-required before accepting the TLS and large-frame Linux results.
+Exact-head GitHub CI `32480961472`, Dart Package Publish Dry Run `32480995129`,
+and WAMP Profile Benchmarks `32480992448` pass at
+`b5dc81709a5c3a5380865df22d4592b42e4738d4`. Its heavy hosted Linux diagnostic
+moved 1 GiB over clear native RawSocket at 3.09 Gbit/s with MessagePack and
+2.58 Gbit/s with CBOR, then exposed a second independent deadline: the Dart
+WAMP worker still timed each operation out after 30 seconds, closed its
+sessions, and let a late benchmark cancellation try to send on the closed
+transport. The scenario contract now receives the configured 300-second
+workload deadline with concurrent-run isolation, and cancellation becomes a
+no-op once the call is no longer pending or the session is disconnected.
+Focused cancellation regressions, all 55 WAMP runner tests, all 56
+`http_stream` tests, and complete local file and large-frame matrices pass. A
+fresh hosted diagnostic is required before accepting the TLS and large-frame
+Linux results.
 
 The promoted release line remains a coordinated prerelease while testers
 exercise the public packages. The user approved merging `add-router` into

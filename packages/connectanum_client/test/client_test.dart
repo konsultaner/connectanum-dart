@@ -979,6 +979,50 @@ void main() {
       expect(cancel.requestId, equals(call.requestId));
       expect(cancel.options?.mode, equals('killall'));
     });
+    test('ignores call cancellation after the final result', () async {
+      final transport = _ImmediateResponseTransport();
+      final sent = <AbstractMessage>[];
+      final outboundSubscription = transport.outbound.stream.listen(sent.add);
+      addTearDown(outboundSubscription.cancel);
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+      final requestedCancel = Completer<String>();
+
+      await session
+          .call('bench.completed', cancelCompleter: requestedCancel)
+          .first;
+      requestedCancel.complete(CancelOptions.modeKillNoWait);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(sent.whereType<Cancel>(), isEmpty);
+    });
+    test('ignores call cancellation after the transport closes', () async {
+      final transport = _PendingCloseTransport();
+      final sent = <AbstractMessage>[];
+      final outboundSubscription = transport.outbound.stream.listen(sent.add);
+      addTearDown(outboundSubscription.cancel);
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+      final requestedCancel = Completer<String>();
+      final pendingCall = session
+          .call('bench.hang', cancelCompleter: requestedCancel)
+          .first;
+      final pendingFailure = expectLater(
+        pendingCall,
+        throwsA(isA<StateError>()),
+      );
+
+      await transport.close();
+      await pendingFailure;
+      requestedCancel.complete(CancelOptions.modeKillNoWait);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(sent.whereType<Cancel>(), isEmpty);
+    });
     test('ignores interrupt messages without closing the session', () async {
       final transport = _MockTransport();
       final client = Client(realm: 'test.realm', transport: transport);

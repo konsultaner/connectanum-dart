@@ -108,44 +108,54 @@ class WampWorkloadRunner {
     Duration cancelCleanupTimeout = const Duration(seconds: 2),
   }) : _sessionFactory = sessionFactory,
        _logger = logger ?? Logger('WampWorkloadRunner'),
-       _eventTimeout = eventTimeout,
+       _defaultEventTimeout = eventTimeout,
        _cancelCleanupTimeout = cancelCleanupTimeout;
+
+  static final Object _eventTimeoutZoneKey = Object();
 
   final WampSessionFactory _sessionFactory;
   final Logger _logger;
-  final Duration _eventTimeout;
+  final Duration _defaultEventTimeout;
   final Duration _cancelCleanupTimeout;
 
-  Future<List<WampSample>> run(WampScenario scenario) async {
-    _logger.fine(
-      'Running ${scenario.mode} workload '
-      'uri=${scenario.uri} concurrency=${scenario.concurrency} '
-      'iterations=${scenario.iterations}',
-    );
-    switch (scenario.mode) {
-      case WampMode.authenticate:
-        return _runAuthenticateScenario(scenario);
-      case WampMode.pubsub:
-        return _runPubSubScenario(scenario);
-      case WampMode.rpc:
-        return _runRpcScenario(scenario);
-      case WampMode.progressiveRpc:
-        return _runProgressiveRpcScenario(scenario);
-      case WampMode.fileTransfer:
-        return _runFileTransferScenario(scenario);
-      case WampMode.timeoutRpc:
-        return _runTimeoutRpcScenario(scenario);
-      case WampMode.metaApi:
-        return _runMetaApiScenario(scenario);
-      case WampMode.publishAck:
-        return _runPublishAckScenario(scenario);
-      case WampMode.subscribeCycle:
-        return _runSubscribeCycleScenario(scenario);
-      case WampMode.registerCycle:
-        return _runRegisterCycleScenario(scenario);
-      case WampMode.cancelCycle:
-        return _runCancelCycleScenario(scenario);
-    }
+  Duration get _eventTimeout =>
+      Zone.current[_eventTimeoutZoneKey] as Duration? ?? _defaultEventTimeout;
+
+  Future<List<WampSample>> run(WampScenario scenario) {
+    final eventTimeout = scenario.eventTimeoutMs == null
+        ? _defaultEventTimeout
+        : Duration(milliseconds: scenario.eventTimeoutMs!);
+    return runZoned(() async {
+      _logger.fine(
+        'Running ${scenario.mode} workload '
+        'uri=${scenario.uri} concurrency=${scenario.concurrency} '
+        'iterations=${scenario.iterations}',
+      );
+      switch (scenario.mode) {
+        case WampMode.authenticate:
+          return _runAuthenticateScenario(scenario);
+        case WampMode.pubsub:
+          return _runPubSubScenario(scenario);
+        case WampMode.rpc:
+          return _runRpcScenario(scenario);
+        case WampMode.progressiveRpc:
+          return _runProgressiveRpcScenario(scenario);
+        case WampMode.fileTransfer:
+          return _runFileTransferScenario(scenario);
+        case WampMode.timeoutRpc:
+          return _runTimeoutRpcScenario(scenario);
+        case WampMode.metaApi:
+          return _runMetaApiScenario(scenario);
+        case WampMode.publishAck:
+          return _runPublishAckScenario(scenario);
+        case WampMode.subscribeCycle:
+          return _runSubscribeCycleScenario(scenario);
+        case WampMode.registerCycle:
+          return _runRegisterCycleScenario(scenario);
+        case WampMode.cancelCycle:
+          return _runCancelCycleScenario(scenario);
+      }
+    }, zoneValues: {_eventTimeoutZoneKey: eventTimeout});
   }
 
   Future<List<WampSample>> _runPubSubScenario(WampScenario scenario) async {
@@ -2724,6 +2734,7 @@ class WampScenario {
     required this.payloadBytes,
     this.websocketFragmentSize,
     this.fileChunkBytes = 4 * 1024 * 1024,
+    this.eventTimeoutMs,
     this.callTimeoutMs,
     this.controlCustomFields = false,
     this.pptScheme,
@@ -2750,6 +2761,7 @@ class WampScenario {
   final int payloadBytes;
   final int? websocketFragmentSize;
   final int fileChunkBytes;
+  final int? eventTimeoutMs;
   final int? callTimeoutMs;
   final bool controlCustomFields;
   final String? pptScheme;
@@ -2833,6 +2845,9 @@ class WampScenario {
         json['file_chunk_bytes'],
         fallback: 4 * 1024 * 1024,
       ),
+      eventTimeoutMs: _readOptionalStrictPositiveInt(
+        json['event_timeout_ms'],
+      ),
       callTimeoutMs: _readOptionalPositiveInt(json['call_timeout_ms']),
       controlCustomFields: json['control_custom_fields'] == true,
       pptScheme: pptScheme,
@@ -2871,6 +2886,13 @@ class WampScenario {
     return parsed;
   }
 
+  static int? _readOptionalStrictPositiveInt(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    return _readStrictPositiveInt(value, fallback: 0);
+  }
+
   static String? _readOptionalString(Object? value) {
     if (value == null) {
       return null;
@@ -2901,6 +2923,7 @@ class WampScenario {
     if (websocketFragmentSize != null)
       'websocket_fragment_size': websocketFragmentSize,
     'file_chunk_bytes': fileChunkBytes,
+    if (eventTimeoutMs != null) 'event_timeout_ms': eventTimeoutMs,
     if (callTimeoutMs != null) 'call_timeout_ms': callTimeoutMs,
     if (controlCustomFields) 'control_custom_fields': true,
     if (pptScheme != null) 'ppt_scheme': pptScheme,
@@ -2928,6 +2951,7 @@ class WampScenario {
     int? payloadBytes,
     Object? websocketFragmentSize = _copySentinel,
     int? fileChunkBytes,
+    Object? eventTimeoutMs = _copySentinel,
     Object? callTimeoutMs = _copySentinel,
     bool? controlCustomFields,
     Object? pptScheme = _copySentinel,
@@ -2962,6 +2986,9 @@ class WampScenario {
           ? this.websocketFragmentSize
           : websocketFragmentSize as int?,
       fileChunkBytes: fileChunkBytes ?? this.fileChunkBytes,
+      eventTimeoutMs: identical(eventTimeoutMs, _copySentinel)
+          ? this.eventTimeoutMs
+          : eventTimeoutMs as int?,
       callTimeoutMs: identical(callTimeoutMs, _copySentinel)
           ? this.callTimeoutMs
           : callTimeoutMs as int?,

@@ -3030,6 +3030,7 @@ fn run_wamp_workload(
         "peer_count": workload.peer_count,
         "payload_bytes": workload.request_bytes,
         "file_chunk_bytes": workload.request_chunk_bytes,
+        "event_timeout_ms": duration_millis_u64(workload_timeout),
         "websocket_fragment_size": workload.websocket_fragment_size,
         "secure_transport": workload.secure_transport,
         "ppt_scheme": workload.ppt_scheme.clone(),
@@ -3049,6 +3050,10 @@ fn run_wamp_workload(
 
 fn wamp_control_timeout(workload_timeout: Duration) -> Duration {
     workload_timeout.saturating_add(WAMP_CONTROL_TIMEOUT_GRACE)
+}
+
+fn duration_millis_u64(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
 async fn run_rawsocket_auth_frame_workload(
@@ -7941,6 +7946,8 @@ mod tests {
         );
         assert_eq!(wamp_control_timeout(Duration::MAX), Duration::MAX);
         assert_eq!(BENCH_CONTROL_TIMEOUT, Duration::from_secs(30));
+        assert_eq!(duration_millis_u64(Duration::from_secs(300)), 300_000);
+        assert_eq!(duration_millis_u64(Duration::MAX), u64::MAX);
     }
 
     #[test]

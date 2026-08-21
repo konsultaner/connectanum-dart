@@ -28,10 +28,10 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   retained binary argument directly, and to 3.41 Gbit/s after enabling the BSD
   `sendfile` path on macOS.
 - The corrected sustained local file matrix uses 1 GiB per native workload and
-  one native runtime thread. It reaches 3.39 Gbit/s for cleartext RawSocket
-  MessagePack, 3.05 Gbit/s for cleartext RawSocket CBOR, 2.85 Gbit/s for TLS
-  RawSocket CBOR, and 2.92 Gbit/s for WebSocket CBOR. Dart RawSocket CBOR
-  remains at 461 Mbit/s and native E2EE CBOR with AES-GCM remains at 381
+  one native runtime thread. Its latest complete run reaches 3.37 Gbit/s for
+  cleartext RawSocket MessagePack, 3.01 Gbit/s for cleartext RawSocket CBOR,
+  2.77 Gbit/s for TLS RawSocket CBOR, and 2.73 Gbit/s for WebSocket CBOR. Dart
+  RawSocket CBOR remains at 450 Mbit/s and native E2EE CBOR with AES-GCM at 367
   Mbit/s because those paths still transform or copy complete payload chunks.
 - Local repeated 64 MiB native CBOR RawSocket RPC reaches about 982 Mbit/s
   one-way after the first parser/allocation change, about 1.5% above the exact
@@ -43,10 +43,11 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   for Dart at 64 MiB and 454 Mbit/s for native at 256 MiB, confirming that
   serializer and full-frame memory amplification remain active bottlenecks.
 - The strengthened repeated large-frame matrix moves 4 GiB aggregate duplex
-  traffic. One-way throughput reaches 1.44 Gbit/s for Dart and 1.76 Gbit/s for
-  native 32 MiB MessagePack frames, plus 704 Mbit/s for Dart and 881 Mbit/s for
-  native 64 MiB CBOR frames. Every workload passes the transport-counter gate,
-  but none yet meets the 2 Gbit/s one-way target.
+  traffic. Its latest complete run reaches 1.55/1.86 Gbit/s one-way for
+  Dart/native 32 MiB MessagePack frames and 748/874 Mbit/s one-way for
+  Dart/native 64 MiB CBOR frames. Aggregate duplex throughput is 3.10/3.72
+  Gbit/s for MessagePack and 1.50/1.75 Gbit/s for CBOR. Every workload passes
+  the transport-counter gate, but none yet meets the 2 Gbit/s one-way target.
 - Linux and macOS cleartext native RawSocket MessagePack and CBOR sending uses
   `sendfile`. Native TLS and WebSocket MessagePack/CBOR now accept the same
   file-backed frames and stream them through bounded 4 MiB positional reads;
@@ -58,18 +59,18 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   after process RSS approaches 1 GiB. This is a separate receive/retention
   scaling boundary that must be diagnosed before claiming every runtime
   configuration is production-ready.
-- Exact-head GitHub CI, package dry run, and the standard WAMP benchmark
-  workflow pass at `d326cd875e5e865ed1053e885d050ba3fa2d3805`. The first heavy
-  hosted Linux diagnostic reaches 2.60 Gbit/s for clear native MessagePack and
-  2.26 Gbit/s for clear native CBOR over 1 GiB, then terminates the TLS
-  workload at exactly 30 seconds before the large-frame suite runs. The
-  configured workload timeout was 300 seconds, but the blocking WAMP control
-  client imposed a separate hard-coded 30-second request timeout. The harness
-  now applies the configured workload timeout plus a 30-second response grace
-  only to the long-running WAMP POST; health, metrics, and stop requests retain
-  their 30-second default. All 56 `http_stream` tests pass, including delayed
-  response and timeout regressions. A fresh hosted diagnostic remains required
-  for actual TLS and large-frame Linux evidence.
+- Exact-head package dry run and standard WAMP benchmarks pass at
+  `b5dc81709a5c3a5380865df22d4592b42e4738d4`. Its heavy hosted Linux
+  diagnostic improves clear native MessagePack/CBOR to 3.09/2.58 Gbit/s, then
+  exposes a second independent 30-second deadline inside the Dart WAMP worker.
+  The worker times out the TLS call, closes its sessions, and a late benchmark
+  cancellation tries to send on the closed transport. Each scenario now
+  receives the configured workload deadline, isolated through its asynchronous
+  zone, and late cancellation is a no-op once the call is no longer pending or
+  the session is disconnected. Focused cancellation regressions, all 55 WAMP
+  runner tests, all 56 `http_stream` tests, the complete local file matrix, and
+  the complete local large-frame matrix pass. A fresh hosted diagnostic remains
+  required for actual TLS and large-frame Linux evidence.
 
 ## Plan
 
@@ -112,11 +113,12 @@ measured boundary rather than hidden by aggregate-duplex accounting.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [ ] Complete heavy hosted matrix evidence. The corrected local file and
   large-frame matrices pass their transport-counter gates. Hosted clear native
-  MessagePack and CBOR now exceed 2 Gbit/s; the benchmark control-timeout fix
-  must be rerun for TLS and large-frame evidence.
+  MessagePack and CBOR now exceed 2 Gbit/s; both the control-client and
+  worker-operation timeout fixes must be rerun for TLS and large-frame evidence.
 - [ ] Complete full verification and deployment audit. Local `bin/verify`
-  passes on 2026-08-21 with 127 Rust core tests, 55 Rust FFI tests, the
-  466-test router suite, generated consumers, live WAMP/MCP smokes, and Chrome
-  Dart2Wasm. Exact-head CI, package dry run, and standard WAMP benchmarks pass;
-  the heavy hosted diagnostic must pass after the harness fix before the final
-  feature-branch and protected-branch audits are repeated.
+  passes after the worker-deadline fix with 127 Rust core tests, 55 Rust FFI
+  tests, the 466-test router suite, generated consumers, live WAMP/MCP smokes,
+  and Chrome Dart2Wasm. Exact-head CI, package dry run, and standard WAMP
+  benchmarks pass at the preceding control-timeout fix; the heavy hosted
+  diagnostic must pass after both harness fixes before the final feature-branch
+  and protected-branch audits are repeated.

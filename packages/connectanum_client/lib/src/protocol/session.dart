@@ -2070,6 +2070,9 @@ class Session {
     }
     unawaited(
       cancelCompleter.future.then((cancelMode) {
+        if (!_pendingCalls.containsKey(requestId) || !isConnected()) {
+          return;
+        }
         final options = CancelOptions()..mode = cancelMode;
         _transport.send(Cancel(requestId, options: options));
       }),
