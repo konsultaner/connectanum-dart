@@ -8,6 +8,42 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+The current follow-up removes a TLS frame-tail stall from progressive native
+file delivery. Two concurrent native RawSocket/TLS senders could enqueue and
+write every 8 MiB file-backed frame while the final TLS record tail remained
+buffered because the connection writer waited for the next queue item without
+flushing the completed WAMP frame. A deterministic two-client Rust regression
+fails before the correction and passes five consecutive runs after RawSocket
+and WebSocket writers flush once per complete frame; plain TCP flush remains a
+no-op. The router now also retains same-serializer plain progressive CALL
+payloads across the worker boundary and emits the required `progress` field in
+`INVOCATION.Details` for JSON, MessagePack, and CBOR. The existing
+`ct_forward_call_invocation` ABI is unchanged, while the coordinated
+`3.0.0-beta` packages use a new v2 symbol for the progressive flag. PPT,
+custom-detail, timeout-forwarded, transaction-hash, and mixed-serializer cases
+retain the validated Dart fallback.
+
+Post-fix local benchmark evidence passes all four transport/metric artifact
+gates. The canonical 64 MiB file matrix reaches 12.94/8.77 Gbit/s for native
+clear MessagePack/CBOR, 6.58 Gbit/s for native TLS CBOR, and 4.99 Gbit/s for
+native WebSocket CBOR. The repeated TLS failure shape completes 10/10 samples
+at 10.17 Gbit/s aggregate. Heavy native file paths reach 13.24 Gbit/s for 1
+GiB CBOR, 13.49 Gbit/s for four concurrent 256 MiB MessagePack transfers, and
+9.07 Gbit/s for pipelined 256 MiB CBOR. Standard large RawSocket frames reach
+3.88/7.60 Gbit/s for Dart/native 32 MiB MessagePack and 2.49/2.91 Gbit/s for
+Dart/native 64 MiB CBOR. Heavy native 128/256 MiB frames remain above target
+at 9.29/5.78 Gbit/s for MessagePack and 5.71/3.77 Gbit/s for CBOR. Dart
+buffered file delivery (607-630 Mbit/s), native AES-GCM E2EE file delivery
+(811 Mbit/s), and the 128 MiB Dart CBOR reference (1.68 Gbit/s) remain explicit
+measured boundaries because those paths cannot use unchanged kernel `sendfile`.
+
+Full exact-tree `bin/verify` passes on 2026-08-22 with formatting unchanged,
+128 Rust core tests, 67 ordinary Rust FFI tests, the dedicated `ffi-test`
+metrics regression, 380 Dart core tests, 118 MCP tests, 108 benchmark tests,
+the 468-test router suite, generated and globally activated consumer smokes,
+live WAMP/MCP coverage, remote auth, zero-copy follow-ups, and Chrome
+Dart2Wasm.
+
 The active transfer-performance slice keeps unchanged native cleartext
 MessagePack/CBOR file frames on Linux and macOS kernel `sendfile`, while native
 TLS and WebSocket use bounded positional file reads. Required E2EE transforms

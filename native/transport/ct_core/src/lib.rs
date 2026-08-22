@@ -3233,6 +3233,15 @@ fn spawn_connection_writer(
                     break 'writer;
                 }
             }
+            if let Err(err) = writer.flush().await {
+                if !is_benign_socket_shutdown(err.kind()) {
+                    eprintln!(
+                        "connection {:?} failed to flush frame: {}",
+                        connection_id, err
+                    );
+                }
+                break;
+            }
         }
         let _ = close_tx.send(ConnectionTaskSignal::WriterClosed);
     });
@@ -3469,6 +3478,16 @@ fn spawn_websocket_writer(
                 if !is_benign_socket_shutdown(err.kind()) {
                     eprintln!(
                         "connection {:?} failed to write websocket frame: {}",
+                        connection_id, err
+                    );
+                }
+                write_failed = true;
+                break;
+            }
+            if let Err(err) = writer.flush().await {
+                if !is_benign_socket_shutdown(err.kind()) {
+                    eprintln!(
+                        "connection {:?} failed to flush websocket frame: {}",
                         connection_id, err
                     );
                 }
@@ -8830,6 +8849,102 @@ mod tests {
                 assert!(realm.bytes().all(|byte| byte == b'r'));
             }
             other => panic!("unexpected tls server message: {other:?}"),
+        }
+
+        std::fs::remove_file(path).unwrap();
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn native_tls_rawsocket_flushes_concurrent_file_frame_tails() {
+        let _guard = test_guard();
+        shutdown().ok();
+        let cert_pem = include_str!("../../../bench/bench_tls.crt");
+        let key_pem = include_str!("../../../bench/bench_tls.key");
+        let config = json!({
+            "schema":"connectanum.router",
+            "version":1,
+            "endpoints":[{
+                "host":"127.0.0.1",
+                "port":0,
+                "tls_mode":"native",
+                "max_rawsocket_size_exponent":24,
+                "sni_certificates":[{
+                    "hostname":"localhost",
+                    "certificate_chain_pem":cert_pem,
+                    "private_key_pem":key_pem
+                }]
+            }]
+        });
+        super::apply_router_config(&serde_json::to_vec(&config).unwrap()).unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let first_client = connect_rawsocket(
+            "localhost",
+            addr.port(),
+            true,
+            true,
+            RawSocketSerializer::Json,
+            24,
+            None,
+            None,
+        )
+        .unwrap();
+        let first_server = receiver.recv().await.expect("first server connection");
+        let second_client = connect_rawsocket(
+            "localhost",
+            addr.port(),
+            true,
+            true,
+            RawSocketSerializer::Json,
+            24,
+            None,
+            None,
+        )
+        .unwrap();
+        let second_server = receiver.recv().await.expect("second server connection");
+
+        const FRAME_COUNT: usize = 8;
+        const FRAME_BYTES: usize = 8 * 1024 * 1024;
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "connectanum-tls-concurrent-file-{}-{nonce}.bin",
+            std::process::id()
+        ));
+        std::fs::write(&path, vec![b'r'; FRAME_BYTES]).unwrap();
+        let file = Arc::new(File::open(&path).unwrap());
+
+        for _ in 0..FRAME_COUNT {
+            for connection_id in [first_client, second_client] {
+                send_wamp_file_segment(
+                    connection_id,
+                    Bytes::from_static(b"[1,\""),
+                    Arc::clone(&file),
+                    0,
+                    FRAME_BYTES,
+                    Bytes::from_static(b"\",{}]"),
+                )
+                .unwrap();
+            }
+        }
+
+        for connection_id in [first_server, second_server] {
+            for _ in 0..FRAME_COUNT {
+                let parsed = wait_for_polled_message(connection_id).await;
+                match parsed.message {
+                    WampMessage::Hello { realm, .. } => {
+                        assert_eq!(realm.len(), FRAME_BYTES);
+                        assert!(realm.bytes().all(|byte| byte == b'r'));
+                    }
+                    other => panic!("unexpected tls server message: {other:?}"),
+                }
+            }
         }
 
         std::fs::remove_file(path).unwrap();

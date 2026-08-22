@@ -198,6 +198,31 @@ void main() {
     );
 
     test(
+      'Dart CBOR file transfer uses native progressive invocation forwarding',
+      () async {
+        final samples = await harness!.runDart(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.dart,
+            serializer: WampSerializer.cbor,
+            peerSerializer: WampSerializer.cbor,
+            mode: WampMode.fileTransfer,
+            uri: 'bench.file.native_progressive',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 2 * 1024 * 1024,
+            fileChunkBytes: 256 * 1024,
+          ),
+        );
+
+        expect(samples, hasLength(1));
+        expect(samples.single.requestBytes, 2 * 1024 * 1024);
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
       'Dart progressive RPC workload runs against a real router',
       () async {
         final samples = await harness!.runDart(

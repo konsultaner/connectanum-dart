@@ -645,6 +645,7 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
     String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
+    bool? progress,
   }) {
     forwardedInvocations.add({
       'handle': handle,
@@ -656,6 +657,7 @@ class _HandleRuntime extends _FakeRuntime implements NativeRuntimeWithHandles {
       'callerAuthRole': callerAuthRole,
       'procedure': procedure,
       'receiveProgress': receiveProgress,
+      'progress': progress,
     });
   }
 

@@ -1820,6 +1820,7 @@ class _RouterBoss {
       final callerAuthRole = message['callerAuthRole'] as String?;
       final procedure = message['procedure'] as String?;
       final receiveProgress = message['receiveProgress'] as bool?;
+      final progress = message['progress'] as bool?;
       try {
         runtime.forwardCallInvocation(
           handle: handle,
@@ -1831,12 +1832,16 @@ class _RouterBoss {
           callerAuthRole: callerAuthRole,
           procedure: procedure,
           receiveProgress: receiveProgress,
+          progress: progress,
         );
         payload
           ..['type'] = 'worker_forward_native_invocation'
           ..['connectionId'] = connectionId
           ..['invocationId'] = invocationId
           ..['registrationId'] = registrationId;
+        if (progress != null) {
+          payload['progress'] = progress;
+        }
       } on NativeTransportException catch (error) {
         payload
           ..['type'] = 'worker_forward_native_invocation_error'

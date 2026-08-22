@@ -131,6 +131,40 @@ typedef CtForwardCallInvocationDart =
       int,
       int,
     );
+typedef CtForwardCallInvocationV2Native =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Int32,
+    );
+typedef CtForwardCallInvocationV2Dart =
+    int Function(
+      int,
+      int,
+      int,
+      int,
+      int,
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      int,
+      int,
+    );
 
 typedef CtForwardResultFromYieldNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32, ffi.Uint64, ffi.Int32);
@@ -953,6 +987,11 @@ class CtFfiBindings {
             CtForwardCallInvocationNative,
             CtForwardCallInvocationDart
           >('ct_forward_call_invocation'),
+      ctForwardCallInvocationV2 = library
+          .lookupFunction<
+            CtForwardCallInvocationV2Native,
+            CtForwardCallInvocationV2Dart
+          >('ct_forward_call_invocation_v2'),
       ctForwardResultFromYield = library
           .lookupFunction<
             CtForwardResultFromYieldNative,
@@ -1210,6 +1249,7 @@ class CtFfiBindings {
   final CtMessageRetainDart ctMessageRetain;
   final CtForwardPublishEventDart ctForwardPublishEvent;
   final CtForwardCallInvocationDart ctForwardCallInvocation;
+  final CtForwardCallInvocationV2Dart ctForwardCallInvocationV2;
   final CtForwardResultFromYieldDart ctForwardResultFromYield;
   final CtForwardResultFromCallDart ctForwardResultFromCall;
   final CtForwardErrorFromErrorDart ctForwardErrorFromError;

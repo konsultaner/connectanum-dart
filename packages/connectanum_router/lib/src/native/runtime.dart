@@ -110,6 +110,7 @@ abstract class NativeRuntimeWithHandles implements NativeRuntime {
     String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
+    bool? progress,
   });
   void forwardResultFromYield({
     required int handle,
@@ -3427,12 +3428,13 @@ class NativeTransportRuntime
     String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
+    bool? progress,
   }) {
     final callerAuthIdBuffer = _toNativeString(callerAuthId);
     final callerAuthRoleBuffer = _toNativeString(callerAuthRole);
     final procedureBuffer = _toNativeString(procedure);
     try {
-      final result = _bindings.ctForwardCallInvocation(
+      final result = _bindings.ctForwardCallInvocationV2(
         handle,
         connectionId,
         invocationId,
@@ -3446,6 +3448,7 @@ class NativeTransportRuntime
         procedureBuffer.charPtr,
         procedureBuffer.length,
         receiveProgress == null ? -1 : (receiveProgress ? 1 : 0),
+        progress == null ? -1 : (progress ? 1 : 0),
       );
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to forward call invocation');

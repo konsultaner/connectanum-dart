@@ -1003,6 +1003,7 @@ fn encode_invocation_segments_json(
     caller_authrole: Option<&str>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
+    invocation_progress: Option<bool>,
     options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Result<Vec<Bytes>, c_int> {
     let mut details = JsonMap::new();
@@ -1029,6 +1030,9 @@ fn encode_invocation_segments_json(
     }
     if let Some(progress) = receive_progress {
         details.insert("receive_progress".into(), JsonValue::Bool(progress));
+    }
+    if let Some(progress) = invocation_progress {
+        details.insert("progress".into(), JsonValue::Bool(progress));
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1076,6 +1080,7 @@ fn encode_invocation_segments_msgpack(
     caller_authrole: Option<&str>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
+    invocation_progress: Option<bool>,
     options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Result<Vec<Bytes>, c_int> {
     let mut details = JsonMap::new();
@@ -1102,6 +1107,9 @@ fn encode_invocation_segments_msgpack(
     }
     if let Some(progress) = receive_progress {
         details.insert("receive_progress".into(), JsonValue::Bool(progress));
+    }
+    if let Some(progress) = invocation_progress {
+        details.insert("progress".into(), JsonValue::Bool(progress));
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1149,6 +1157,7 @@ fn encode_invocation_segments_cbor(
     caller_authrole: Option<&str>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
+    invocation_progress: Option<bool>,
     options: &std::collections::BTreeMap<SerdeValue, SerdeValue>,
 ) -> Result<Vec<Bytes>, c_int> {
     let mut details = JsonMap::new();
@@ -1175,6 +1184,9 @@ fn encode_invocation_segments_cbor(
     }
     if let Some(progress) = receive_progress {
         details.insert("receive_progress".into(), JsonValue::Bool(progress));
+    }
+    if let Some(progress) = invocation_progress {
+        details.insert("progress".into(), JsonValue::Bool(progress));
     }
     insert_ppt_details_from_options(&mut details, options)?;
     let details_value = JsonValue::Object(details);
@@ -1225,6 +1237,7 @@ fn encode_invocation_segments(
     caller_authrole: Option<&str>,
     procedure: Option<&str>,
     receive_progress: Option<bool>,
+    invocation_progress: Option<bool>,
 ) -> Result<Vec<Bytes>, c_int> {
     let (payload, options) = match &message.message {
         WampMessage::Call {
@@ -1242,6 +1255,7 @@ fn encode_invocation_segments(
             caller_authrole,
             procedure,
             receive_progress,
+            invocation_progress,
             options,
         ),
         RawSocketSerializer::MessagePack => encode_invocation_segments_msgpack(
@@ -1253,6 +1267,7 @@ fn encode_invocation_segments(
             caller_authrole,
             procedure,
             receive_progress,
+            invocation_progress,
             options,
         ),
         RawSocketSerializer::Cbor => encode_invocation_segments_cbor(
@@ -1264,6 +1279,7 @@ fn encode_invocation_segments(
             caller_authrole,
             procedure,
             receive_progress,
+            invocation_progress,
             options,
         ),
         _ => Err(ERR_UNSUPPORTED),
@@ -5620,6 +5636,76 @@ pub extern "C" fn ct_forward_call_invocation(
     procedure_len: c_int,
     receive_progress_flag: c_int,
 ) -> c_int {
+    forward_call_invocation_impl(
+        handle,
+        connection_id,
+        invocation_id,
+        registration_id,
+        caller_present,
+        caller_session,
+        caller_authid_ptr,
+        caller_authid_len,
+        caller_authrole_ptr,
+        caller_authrole_len,
+        procedure_ptr,
+        procedure_len,
+        receive_progress_flag,
+        -1,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn ct_forward_call_invocation_v2(
+    handle: c_int,
+    connection_id: c_int,
+    invocation_id: u64,
+    registration_id: u64,
+    caller_present: c_int,
+    caller_session: u64,
+    caller_authid_ptr: *const c_char,
+    caller_authid_len: c_int,
+    caller_authrole_ptr: *const c_char,
+    caller_authrole_len: c_int,
+    procedure_ptr: *const c_char,
+    procedure_len: c_int,
+    receive_progress_flag: c_int,
+    invocation_progress_flag: c_int,
+) -> c_int {
+    forward_call_invocation_impl(
+        handle,
+        connection_id,
+        invocation_id,
+        registration_id,
+        caller_present,
+        caller_session,
+        caller_authid_ptr,
+        caller_authid_len,
+        caller_authrole_ptr,
+        caller_authrole_len,
+        procedure_ptr,
+        procedure_len,
+        receive_progress_flag,
+        invocation_progress_flag,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn forward_call_invocation_impl(
+    handle: c_int,
+    connection_id: c_int,
+    invocation_id: u64,
+    registration_id: u64,
+    caller_present: c_int,
+    caller_session: u64,
+    caller_authid_ptr: *const c_char,
+    caller_authid_len: c_int,
+    caller_authrole_ptr: *const c_char,
+    caller_authrole_len: c_int,
+    procedure_ptr: *const c_char,
+    procedure_len: c_int,
+    receive_progress_flag: c_int,
+    invocation_progress_flag: c_int,
+) -> c_int {
     if handle <= 0 {
         return ERR_INVALID_ARGUMENT;
     }
@@ -5645,6 +5731,11 @@ pub extern "C" fn ct_forward_call_invocation(
         0 => Some(false),
         _ => Some(true),
     };
+    let invocation_progress = match invocation_progress_flag {
+        -1 => None,
+        0 => Some(false),
+        _ => Some(true),
+    };
     let handle_u32 = handle as u32;
     let segments = match with_message(handle_u32, |msg| {
         encode_invocation_segments(
@@ -5656,6 +5747,7 @@ pub extern "C" fn ct_forward_call_invocation(
             caller_authrole.as_deref(),
             procedure.as_deref(),
             receive_progress,
+            invocation_progress,
         )
     }) {
         Some(Ok(parts)) => parts,
@@ -6257,6 +6349,7 @@ mod tests {
                 Some("member"),
                 Some("bench.rpc.echo"),
                 Some(true),
+                None,
             )
             .unwrap(),
         );
@@ -6280,6 +6373,58 @@ mod tests {
                 {"flag": true}
             ])
         );
+    }
+
+    #[test]
+    fn invocation_segments_preserve_progress_for_all_serializers() {
+        let _guard = test_guard();
+
+        for serializer in [
+            RawSocketSerializer::Json,
+            RawSocketSerializer::MessagePack,
+            RawSocketSerializer::Cbor,
+        ] {
+            for progress in [true, false] {
+                let call = StoredMessage {
+                    serializer,
+                    code: 48,
+                    raw: StoredRawFrame::from_bytes(Bytes::new()),
+                    message: WampMessage::Call {
+                        request_id: 2,
+                        options: BTreeMap::new(),
+                        procedure: "bench.rpc.upload".into(),
+                        payload: WampPayload {
+                            args: None,
+                            kwargs: None,
+                        },
+                    },
+                    details: None,
+                    args: None,
+                    kwargs: None,
+                };
+                let encoded = concat_segments(
+                    encode_invocation_segments(
+                        &call,
+                        99,
+                        101,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        Some(progress),
+                    )
+                    .unwrap(),
+                );
+                let decoded: serde_json::Value = match serializer {
+                    RawSocketSerializer::Json => serde_json::from_slice(&encoded).unwrap(),
+                    RawSocketSerializer::MessagePack => rmp_serde::from_slice(&encoded).unwrap(),
+                    RawSocketSerializer::Cbor => serde_cbor::from_slice(&encoded).unwrap(),
+                    _ => unreachable!(),
+                };
+                assert_eq!(decoded[3]["progress"], json!(progress));
+            }
+        }
     }
 
     #[test]

@@ -212,6 +212,7 @@ class _NoopHandleRuntime extends _FakeRuntime
     String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
+    bool? progress,
   }) {}
 
   @override

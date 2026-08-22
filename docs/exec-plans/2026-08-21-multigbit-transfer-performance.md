@@ -182,6 +182,19 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   Dart/native CBOR, clearing the target in every current large-frame row. Full
   `bin/verify` passes, including the 380-test core suite, the 467-test router
   suite, consumer/live MCP smokes, remote auth, and Chrome Dart2Wasm.
+- Concurrent native TLS file transfers now flush each completed WAMP frame
+  before waiting for the next queue item. A deterministic two-client 16-frame
+  regression reproduced the missing terminal frame before the fix and passes
+  five consecutive runs after it. Same-serializer plain progressive CALL
+  chunks retain native payload forwarding through an ABI-safe v2 invocation
+  export; all serializers preserve `INVOCATION.Details.progress`, while PPT,
+  custom-detail, timeout, transaction-hash, and mixed-serializer cases keep the
+  Dart fallback. The post-fix canonical and heavy file/large-frame matrices all
+  pass their artifact gates. Native file paths reach 4.99-13.49 Gbit/s across
+  clear/TLS/WebSocket workloads, and native 32-256 MiB RawSocket frames reach
+  2.91-9.29 Gbit/s. Dart buffered file transfer, native E2EE, and 128 MiB Dart
+  CBOR remain measured sub-target boundaries at 607-630 Mbit/s, 811 Mbit/s,
+  and 1.68 Gbit/s respectively.
 
 ## Plan
 
@@ -252,6 +265,15 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   receive fast paths and expose definite direct CBOR binary values as
   frame-backed views. Focused lazy-error and aliasing regressions pass, and all
   four standard large RawSocket rows exceed 2 Gbit/s across three local runs.
+- [x] Fix native TLS/WebSocket terminal frame delivery by flushing complete
+  frames, preserve progressive invocation payloads through the native router
+  path with a versioned FFI export, and rerun the canonical/heavy file and
+  32-256 MiB RawSocket matrices with clean artifact gates.
+- [x] Complete the exact post-fix local verification. `bin/verify` passes with
+  128 Rust core tests, 67 ordinary FFI tests, 380 Dart core tests, 118 MCP
+  tests, 108 benchmark tests, the 468-test router suite, package-consumer and
+  live WAMP/MCP smokes, remote auth, zero-copy follow-ups, and Chrome
+  Dart2Wasm.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

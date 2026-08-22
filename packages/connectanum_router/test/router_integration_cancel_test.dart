@@ -155,6 +155,7 @@ class _QueueRuntime implements NativeRuntimeWithHandles {
     String? callerAuthRole,
     String? procedure,
     bool? receiveProgress,
+    bool? progress,
   }) {}
 
   @override

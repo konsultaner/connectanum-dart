@@ -3762,6 +3762,133 @@ void main() {
     );
 
     test(
+      'uses native forwarding for plain progressive invocation chunks',
+      () async {
+        final bossMessages = <Map<String, Object?>>[];
+        final bossPort = ReceivePort()
+          ..listen((dynamic message) {
+            if (message is Map<String, Object?>) {
+              bossMessages.add(message);
+            }
+          });
+        addTearDown(bossPort.close);
+
+        final listener = _buildListener();
+        final callerState =
+            createWorkerStateForTest(
+                    listener: listener,
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState
+              ..serializer = NativeMessageSerializer.cbor
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 821;
+        final calleeState =
+            createWorkerStateForTest(
+                    listener: listener,
+                    listenerSettings: routerSettings.listeners.first,
+                  )
+                  as WorkerConnectionState
+              ..serializer = NativeMessageSerializer.cbor
+              ..phase = HandshakePhase.open
+              ..realmUri = 'realm1'
+              ..realmSettings = routerSettings.realms.first
+              ..sessionId = 822;
+        _openSession(
+          stateStore,
+          sessionId: 821,
+          listener: listener,
+          connectionId: 41,
+        );
+        _openSession(
+          stateStore,
+          sessionId: 822,
+          listener: listener,
+          connectionId: 42,
+        );
+        await Future<void>.delayed(Duration.zero);
+        final connectionStates = <int, WorkerConnectionState>{
+          41: callerState,
+          42: calleeState,
+        };
+        final realmContexts = RealmContextCache(
+          statePort: stateStore.commandPort,
+        );
+        addTearDown(realmContexts.dispose);
+
+        await handleSessionMessageForTest(
+          bossPort: bossPort.sendPort,
+          statePort: stateStore.commandPort,
+          realmContexts: realmContexts,
+          connectionStates: connectionStates,
+          state: calleeState,
+          message: register_msg.Register(7201, 'com.native.upload'),
+          connectionId: 42,
+        );
+        await Future<void>.delayed(Duration.zero);
+        bossMessages.clear();
+
+        final takenHandles = <int>[];
+        Future<Map<String, Object?>> sendChunk({
+          required bool progress,
+          required int handle,
+        }) async {
+          final call = call_msg.Call(
+            8201,
+            'com.native.upload',
+            options: call_msg.CallOptions(progress: progress),
+            arguments: [Uint8List(32)],
+          );
+          final incoming = NativeIncomingMessage.test(
+            serializer: NativeMessageSerializer.cbor,
+            message: call,
+            handle: handle,
+            onTake: (taken) {
+              takenHandles.add(taken);
+              return taken;
+            },
+          );
+          await handleSessionMessageForTest(
+            bossPort: bossPort.sendPort,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            connectionStates: connectionStates,
+            state: callerState,
+            message: call,
+            connectionId: 41,
+            incomingMessage: incoming,
+          );
+          await Future<void>.delayed(Duration.zero);
+          final nativeCommands = bossMessages
+              .where(
+                (message) =>
+                    message['type'] == 'worker_forward_native_invocation',
+              )
+              .toList();
+          expect(nativeCommands, hasLength(1));
+          expect(
+            bossMessages.where(
+              (message) => message['type'] == 'worker_forward_message',
+            ),
+            isEmpty,
+          );
+          bossMessages.clear();
+          return nativeCommands.single;
+        }
+
+        final first = await sendChunk(progress: true, handle: 288);
+        final last = await sendChunk(progress: false, handle: 289);
+        expect(first['invocationId'], equals(last['invocationId']));
+        expect(first['registrationId'], equals(last['registrationId']));
+        expect(first['progress'], isTrue);
+        expect(last['progress'], isFalse);
+        expect(takenHandles, equals([288, 289]));
+      },
+    );
+
+    test(
       'falls back to Dart forwarding for mixed-serializer invocations',
       () async {
         final bossMessages = <Map<String, Object?>>[];
@@ -7178,16 +7305,40 @@ void main() {
         );
         addTearDown(realmContexts.dispose);
 
+        final connectionStates = <int, WorkerConnectionState>{
+          116: callerState,
+          117: calleeA,
+        };
+        final takenHandles = <int>[];
+        var nextHandle = 388;
         Future<invocation_msg.Invocation> sendChunk(call_msg.Call chunk) async {
+          final incoming = NativeIncomingMessage.test(
+            serializer: NativeMessageSerializer.json,
+            message: chunk,
+            handle: nextHandle++,
+            onTake: (handle) {
+              takenHandles.add(handle);
+              return handle;
+            },
+          );
           await handleSessionMessageForTest(
             bossPort: bossPort.sendPort,
             statePort: stateStore.commandPort,
             realmContexts: realmContexts,
+            connectionStates: connectionStates,
             state: callerState,
             message: chunk,
             connectionId: 116,
+            incomingMessage: incoming,
           );
           await Future<void>.delayed(Duration.zero);
+          expect(
+            bossMessages.where(
+              (message) =>
+                  message['type'] == 'worker_forward_native_invocation',
+            ),
+            isEmpty,
+          );
           final forwards = _extractForwardMessages(bossMessages);
           expect(forwards, hasLength(1));
           expect(forwards.single['connectionId'], equals(117));
@@ -7274,6 +7425,7 @@ void main() {
         expect(last.registrationId, equals(first.registrationId));
         expect(last.details.progress, isFalse);
         expect(last.details.receiveProgress, isTrue);
+        expect(takenHandles, isEmpty);
 
         await handleSessionMessageForTest(
           bossPort: bossPort.sendPort,
