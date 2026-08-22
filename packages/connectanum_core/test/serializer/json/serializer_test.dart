@@ -1612,5 +1612,194 @@ void main() {
         equals('[36,1,2,{},"\\u0000EOP/kFMHXFJvX8BtT+N82w=="]'),
       );
     });
+    test(
+      'deserializes large single binary payloads without losing metadata',
+      () {
+        final binary = Uint8List.fromList(
+          List<int>.generate(4097, (index) => (index * 29 + 11) & 0xff),
+        );
+        final messages = <AbstractMessageWithPayload>[
+          Invocation(
+            10,
+            20,
+            InvocationDetails(
+              30,
+              'com.example.file',
+              true,
+              null,
+              null,
+              null,
+              null,
+              {
+                'trace_id': 'invocation',
+              },
+            ),
+            arguments: [binary],
+          ),
+          Result(
+            40,
+            ResultDetails(progress: true, custom: {'trace_id': 'result'}),
+            arguments: [binary],
+          ),
+          Event(
+            50,
+            60,
+            EventDetails(
+              publisher: 70,
+              topic: 'com.example.file',
+              custom: {'trace_id': 'event'},
+            ),
+            arguments: [binary],
+          ),
+        ];
+
+        final invocation =
+            serializer.deserialize(
+                  Uint8List.fromList(
+                    utf8.encode(serializer.serializeToString(messages[0])),
+                  ),
+                )
+                as Invocation;
+        expect(invocation.requestId, 10);
+        expect(invocation.registrationId, 20);
+        expect(invocation.details.caller, 30);
+        expect(invocation.details.procedure, 'com.example.file');
+        expect(invocation.details.receiveProgress, isTrue);
+        expect(
+          invocation.details.custom,
+          containsPair('trace_id', 'invocation'),
+        );
+        expect(invocation.arguments!.single, orderedEquals(binary));
+
+        final result =
+            serializer.deserialize(
+                  Uint8List.fromList(
+                    utf8.encode(serializer.serializeToString(messages[1])),
+                  ),
+                )
+                as Result;
+        expect(result.callRequestId, 40);
+        expect(result.details.progress, isTrue);
+        expect(result.details.custom, containsPair('trace_id', 'result'));
+        expect(result.arguments!.single, orderedEquals(binary));
+
+        final event =
+            serializer.deserialize(
+                  Uint8List.fromList(
+                    utf8.encode(serializer.serializeToString(messages[2])),
+                  ),
+                )
+                as Event;
+        expect(event.subscriptionId, 50);
+        expect(event.publicationId, 60);
+        expect(event.details.publisher, 70);
+        expect(event.details.topic, 'com.example.file');
+        expect(event.details.custom, containsPair('trace_id', 'event'));
+        expect(event.arguments!.single, orderedEquals(binary));
+      },
+    );
+
+    test('large binary byte path preserves compatible payload fallbacks', () {
+      final binary = Uint8List.fromList(
+        List<int>.generate(2048, (index) => (index * 31 + 251) & 0xff),
+      );
+      final encoded = base64.encode(binary);
+      final urlSafe = encoded.replaceAll('+', '-').replaceAll('/', '_');
+      final urlSafeResult =
+          serializer.deserialize(
+                Uint8List.fromList(
+                  utf8.encode('[50,1,{},["\\u0000$urlSafe"]]'),
+                ),
+              )
+              as Result;
+      expect(urlSafeResult.arguments!.single, orderedEquals(binary));
+
+      final withKwargs = Result(
+        2,
+        ResultDetails(),
+        arguments: [binary],
+        argumentsKeywords: {'complete': true},
+      );
+      final kwargsResult =
+          serializer.deserialize(
+                Uint8List.fromList(
+                  utf8.encode(serializer.serializeToString(withKwargs)),
+                ),
+              )
+              as Result;
+      expect(kwargsResult.arguments!.single, orderedEquals(binary));
+      expect(kwargsResult.argumentsKeywords, containsPair('complete', true));
+
+      final detailsBinary = base64.encode(binary);
+      final withBinaryDetail =
+          serializer.deserialize(
+                Uint8List.fromList(
+                  utf8.encode(
+                    '[68,3,4,{"probe":["\\u0000$detailsBinary"]},["\\u0000$detailsBinary"]]',
+                  ),
+                ),
+              )
+              as Invocation;
+      expect(
+        (withBinaryDetail.details.custom['probe'] as List).single,
+        orderedEquals(binary),
+      );
+      expect(withBinaryDetail.arguments!.single, orderedEquals(binary));
+    });
+    test('large binary byte path uses an installed canonical decoder', () {
+      var decodeCalls = 0;
+      final accelerated = Serializer(
+        canonicalBase64ByteDecoder: (input, start, end) {
+          decodeCalls++;
+          return Uint8List.fromList(
+            base64.decode(
+              ascii.decode(
+                Uint8List.sublistView(input, start, end),
+                allowInvalid: false,
+              ),
+            ),
+          );
+        },
+      );
+      final binary = Uint8List.fromList(
+        List<int>.generate(2048, (index) => (index * 17) & 0xff),
+      );
+      final encoded = base64.encode(binary);
+
+      final result =
+          accelerated.deserialize(
+                Uint8List.fromList(
+                  utf8.encode('[50,1,{},["\\u0000$encoded"]]'),
+                ),
+              )
+              as Result;
+
+      expect(decodeCalls, 1);
+      expect(result.arguments!.single, orderedEquals(binary));
+    });
+    test('large binary byte path falls back when an accelerator declines', () {
+      var decodeCalls = 0;
+      final accelerated = Serializer(
+        canonicalBase64ByteDecoder: (input, start, end) {
+          decodeCalls++;
+          return null;
+        },
+      );
+      final binary = Uint8List.fromList(
+        List<int>.generate(2048, (index) => (index * 19) & 0xff),
+      );
+      final encoded = base64.encode(binary);
+
+      final result =
+          accelerated.deserialize(
+                Uint8List.fromList(
+                  utf8.encode('[50,1,{},["\\u0000$encoded"]]'),
+                ),
+              )
+              as Result;
+
+      expect(decodeCalls, 1);
+      expect(result.arguments!.single, orderedEquals(binary));
+    });
   });
 }

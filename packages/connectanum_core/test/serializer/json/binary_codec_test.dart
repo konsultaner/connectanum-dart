@@ -33,4 +33,53 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('canonical byte decoder supports boundaries and byte subranges', () {
+    for (final length in const [0, 1, 2, 3, 4, 4095, 4096, 4097]) {
+      final bytes = Uint8List.fromList(
+        List<int>.generate(length, (index) => (index * 43 + 7) & 0xff),
+      );
+      final encoded = ascii.encode(base64.encode(bytes));
+      final wrapped = Uint8List.fromList([1, 2, ...encoded, 3, 4]);
+
+      expect(
+        tryDecodeCanonicalBase64Bytes(wrapped, 2, 2 + encoded.length),
+        orderedEquals(bytes),
+      );
+    }
+  });
+
+  test('canonical byte decoder rejects noncanonical input for fallback', () {
+    Uint8List bytes(String value) => Uint8List.fromList(ascii.encode(value));
+
+    for (final value in const [
+      'A',
+      'AA=A',
+      'AA-A',
+      'AA_A',
+      'AAA===',
+      'AB==',
+      'AAB=',
+      '!!!!',
+    ]) {
+      final input = bytes(value);
+      expect(
+        tryDecodeCanonicalBase64Bytes(input, 0, input.length),
+        isNull,
+        reason: value,
+      );
+    }
+  });
+
+  test('canonical byte decoder validates its byte range', () {
+    final input = Uint8List.fromList(ascii.encode('AAAA'));
+    expect(
+      () => tryDecodeCanonicalBase64Bytes(input, -1, input.length),
+      throwsRangeError,
+    );
+    expect(
+      () => tryDecodeCanonicalBase64Bytes(input, 0, input.length + 1),
+      throwsRangeError,
+    );
+  });
 }

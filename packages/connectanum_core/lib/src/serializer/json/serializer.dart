@@ -39,13 +39,23 @@ import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
 import 'binary_codec.dart';
 
+typedef CanonicalBase64ByteDecoder =
+    Uint8List? Function(Uint8List input, int start, int end);
+
 /// This is a serializer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
 class Serializer extends AbstractSerializer {
+  Serializer({CanonicalBase64ByteDecoder? canonicalBase64ByteDecoder})
+    : _canonicalBase64ByteDecoder = canonicalBase64ByteDecoder;
+
   static final String _binaryPrefix = '\u0000';
   static const String _escapedBinaryPrefix = r'\u0000';
   static final Logger _logger = Logger('Connectanum.Serializer');
   static const Utf8Decoder _utf8Decoder = Utf8Decoder();
+  static const int _minimumSingleBinaryFastPathBytes = 1024;
+  static final Uint8List _singleBinaryArgumentsPrefix = Uint8List.fromList(
+    const [0x5b, 0x22, 0x5c, 0x75, 0x30, 0x30, 0x30, 0x30],
+  );
   static const Set<String> _invocationDetailKeys = {
     'caller',
     'procedure',
@@ -117,11 +127,84 @@ class Serializer extends AbstractSerializer {
     'ppt_cipher',
     'ppt_keyid',
   };
+  CanonicalBase64ByteDecoder? _canonicalBase64ByteDecoder;
+
+  /// Installs a transport-provided accelerator without replacing an explicit
+  /// decoder supplied by the application.
+  void installCanonicalBase64ByteDecoder(
+    CanonicalBase64ByteDecoder decoder,
+  ) {
+    _canonicalBase64ByteDecoder ??= decoder;
+  }
 
   /// Converts a uint8 JSON message into a WAMP message object
   @override
   AbstractMessage? deserialize(Uint8List? jsonMessage) {
-    return deserializeFromString(Utf8Decoder().convert(jsonMessage!));
+    final payload = jsonMessage!;
+    return _deserializeSingleBinaryPayload(payload) ??
+        deserializeFromString(_utf8Decoder.convert(payload));
+  }
+
+  AbstractMessage? _deserializeSingleBinaryPayload(Uint8List payload) {
+    if (payload.length < _minimumSingleBinaryFastPathBytes ||
+        payload[0] != 0x5b ||
+        payload[payload.length - 3] != 0x22 ||
+        payload[payload.length - 2] != 0x5d ||
+        payload[payload.length - 1] != 0x5d) {
+      return null;
+    }
+
+    final prefix = _singleBinaryArgumentsPrefix;
+    var argumentsStart = -1;
+    final searchEnd = payload.length - prefix.length - 3;
+    for (var index = 1; index <= searchEnd; index++) {
+      if (payload[index - 1] != 0x2c || payload[index] != prefix[0]) {
+        continue;
+      }
+      var prefixIndex = 1;
+      while (prefixIndex < prefix.length &&
+          payload[index + prefixIndex] == prefix[prefixIndex]) {
+        prefixIndex++;
+      }
+      if (prefixIndex == prefix.length) {
+        argumentsStart = index;
+        break;
+      }
+    }
+    if (argumentsStart < 0) {
+      return null;
+    }
+
+    final metadata = Uint8List(argumentsStart + 3);
+    metadata.setRange(0, argumentsStart, payload);
+    metadata.setRange(argumentsStart, metadata.length, const [
+      0x5b,
+      0x5d,
+      0x5d,
+    ]);
+
+    AbstractMessage? message;
+    try {
+      message = deserializeFromString(_utf8Decoder.convert(metadata));
+    } catch (_) {
+      return null;
+    }
+    if (message is! AbstractMessageWithPayload ||
+        message.wireArguments?.isNotEmpty != false ||
+        message.wireArgumentsKeywords != null) {
+      return null;
+    }
+
+    final binaryStart = argumentsStart + prefix.length;
+    final binaryEnd = payload.length - 3;
+    final binary =
+        _canonicalBase64ByteDecoder?.call(payload, binaryStart, binaryEnd) ??
+        tryDecodeCanonicalBase64Bytes(payload, binaryStart, binaryEnd);
+    if (binary == null) {
+      return null;
+    }
+    message.arguments = <dynamic>[binary];
+    return message;
   }
 
   /// Converts a string JSON message into a WAMP message object

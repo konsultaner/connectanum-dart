@@ -5278,6 +5278,46 @@ fn decode_canonical_json_single_binary_argument(bytes: &[u8]) -> Option<Vec<u8>>
     Base64Engine.decode(encoded).ok()
 }
 
+fn write_external_byte_buffer(mut bytes: Vec<u8>, out: *mut CtExternalByteBuffer) -> c_int {
+    let bytes_ptr = bytes.as_mut_ptr();
+    let bytes_len = bytes.len();
+    let mut owner = Box::new(bytes);
+    let owner_ptr = owner.as_mut() as *mut Vec<u8> as *mut c_void;
+    let _ = Box::into_raw(owner);
+    unsafe {
+        (*out).ptr = bytes_ptr;
+        (*out).len = bytes_len;
+        (*out).owner = owner_ptr;
+    }
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn ct_base64_decode_canonical(
+    input_ptr: *const u8,
+    input_len: c_int,
+    out: *mut CtExternalByteBuffer,
+) -> c_int {
+    if input_len < 0 || out.is_null() || (input_len > 0 && input_ptr.is_null()) {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe {
+        (*out).ptr = ptr::null_mut();
+        (*out).len = 0;
+        (*out).owner = ptr::null_mut();
+    }
+    let input = if input_len == 0 {
+        &[]
+    } else {
+        unsafe { slice::from_raw_parts(input_ptr, input_len as usize) }
+    };
+    let decoded = match Base64Engine.decode(input) {
+        Ok(decoded) => decoded,
+        Err(_) => return ERR_UNSUPPORTED,
+    };
+    write_external_byte_buffer(decoded, out)
+}
+
 #[no_mangle]
 pub extern "C" fn ct_message_decode_single_binary_argument(
     message_handle: c_int,
@@ -5304,22 +5344,12 @@ pub extern "C" fn ct_message_decode_single_binary_argument(
             .and_then(decode_canonical_json_single_binary_argument)
             .ok_or(ERR_UNSUPPORTED)
     });
-    let mut decoded = match decoded {
+    let decoded = match decoded {
         Some(Ok(value)) => value,
         Some(Err(code)) => return code,
         None => return ERR_HANDLE_UNAVAILABLE,
     };
-    let decoded_ptr = decoded.as_mut_ptr();
-    let decoded_len = decoded.len();
-    let mut owner = Box::new(decoded);
-    let owner_ptr = owner.as_mut() as *mut Vec<u8> as *mut c_void;
-    let _ = Box::into_raw(owner);
-    unsafe {
-        (*out).ptr = decoded_ptr;
-        (*out).len = decoded_len;
-        (*out).owner = owner_ptr;
-    }
-    SUCCESS
+    write_external_byte_buffer(decoded, out)
 }
 
 #[no_mangle]
@@ -6067,6 +6097,8 @@ mod tests {
         }
         assert!(decode_canonical_json_single_binary_argument(br#"["plain"]"#).is_none());
         assert!(decode_canonical_json_single_binary_argument(br#"["\u0000-_8="]"#).is_none());
+        assert!(decode_canonical_json_single_binary_argument(br#"["\u0000AB=="]"#).is_none());
+        assert!(decode_canonical_json_single_binary_argument(br#"["\u0000AAB="]"#).is_none());
         assert!(decode_canonical_json_single_binary_argument(br#"["\\u0000AA=="]"#).is_none());
     }
 
@@ -6098,6 +6130,48 @@ mod tests {
 
             ct_external_byte_buffer_free(output.owner);
             ct_message_release(handle);
+        }
+    }
+
+    #[test]
+    fn canonical_base64_decode_returns_owned_external_bytes() {
+        for bytes in [
+            Vec::new(),
+            vec![0],
+            vec![0, 1],
+            vec![0, 1, 2],
+            (0..4097).map(|index| (index % 251) as u8).collect(),
+        ] {
+            let encoded = Base64Engine.encode(&bytes);
+            let mut output = CtExternalByteBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+
+            assert_eq!(
+                ct_base64_decode_canonical(encoded.as_ptr(), encoded.len() as c_int, &mut output,),
+                SUCCESS
+            );
+            assert!(!output.owner.is_null());
+            assert_eq!(
+                unsafe { slice::from_raw_parts(output.ptr, output.len) },
+                bytes.as_slice()
+            );
+            ct_external_byte_buffer_free(output.owner);
+        }
+
+        for invalid in [b"-_8=".as_slice(), b"AB==", b"AAB=", b"!!!!"] {
+            let mut output = CtExternalByteBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+            assert_eq!(
+                ct_base64_decode_canonical(invalid.as_ptr(), invalid.len() as c_int, &mut output,),
+                ERR_UNSUPPORTED
+            );
+            assert!(output.owner.is_null());
         }
     }
 

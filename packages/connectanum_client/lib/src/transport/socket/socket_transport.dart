@@ -5,10 +5,12 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/json_serializer.dart' as json_serializer;
 import 'package:logging/logging.dart';
 import '../../transport/socket/socket_helper.dart';
 import '../abstract_transport.dart';
 import '../native/external_byte_buffer.dart';
+import '../native/runtime.dart';
 
 /// This class implements the raw socket transport for wamp messages. It is also
 /// capable of using connectanums own upgrade method to allow more then 16MB of
@@ -65,6 +67,12 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     _ssl = ssl;
     _allowInsecureCertificates = allowInsecureCertificates;
     _messageLengthExponent = messageLengthExponent;
+    final serializer = _serializer;
+    if (serializer is json_serializer.Serializer) {
+      serializer.installCanonicalBase64ByteDecoder(
+        _decodeCanonicalBase64WithNative,
+      );
+    }
   }
 
   /// Sends a handshake of the morphology
@@ -425,6 +433,7 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
           message.length,
         );
         if (messageType == SocketHelper.messageWamp) {
+          retainNativeExternalBytes(payload, inboundData);
           var deserializedMessage = _serializer.deserialize(payload);
           if (deserializedMessage == null) {
             throw FormatException(
@@ -631,5 +640,25 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     );
     builder.add(payload);
     return builder.takeBytes();
+  }
+}
+
+Uint8List? _decodeCanonicalBase64WithNative(
+  Uint8List input,
+  int start,
+  int end,
+) {
+  try {
+    return NativeClientRuntime.instance().decodeCanonicalBase64Bytes(
+      input,
+      start,
+      end,
+    );
+  } on NativeTransportException {
+    return null;
+  } on ArgumentError {
+    return null;
+  } on UnsupportedError {
+    return null;
   }
 }

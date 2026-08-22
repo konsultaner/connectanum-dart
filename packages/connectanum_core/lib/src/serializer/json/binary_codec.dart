@@ -3,6 +3,15 @@ import 'dart:typed_data';
 
 const _base64Alphabet =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+final Int8List _base64DecodeTable = _createBase64DecodeTable();
+
+Int8List _createBase64DecodeTable() {
+  final table = Int8List(256)..fillRange(0, 256, -1);
+  for (var index = 0; index < _base64Alphabet.length; index++) {
+    table[_base64Alphabet.codeUnitAt(index)] = index;
+  }
+  return table;
+}
 
 Uint8List encodeBase64Bytes(Uint8List input) {
   final output = Uint8List(((input.length + 2) ~/ 3) * 4);
@@ -108,6 +117,87 @@ Uint8List decodeBase64Bytes(String input, int start) {
   final d = _decodeBase64CodeUnit(input.codeUnitAt(inputIndex + 3));
   if (d < 0) {
     return base64.decoder.convert(input, start);
+  }
+  output[outputIndex + 2] = (c << 6) | d;
+  return output;
+}
+
+/// Decodes canonical base64 directly from an ASCII byte range.
+///
+/// Returns `null` when the range uses a compatible noncanonical form that
+/// should be handled by the SDK decoder instead.
+Uint8List? tryDecodeCanonicalBase64Bytes(
+  Uint8List input,
+  int start,
+  int end,
+) {
+  RangeError.checkValidRange(start, end, input.length);
+  final length = end - start;
+  if (length == 0) {
+    return Uint8List(0);
+  }
+  if ((length & 3) != 0) {
+    return null;
+  }
+
+  var padding = 0;
+  if (input[end - 1] == 0x3d) {
+    padding++;
+    if (input[end - 2] == 0x3d) {
+      padding++;
+    }
+  }
+  final output = Uint8List((length ~/ 4) * 3 - padding);
+  var inputIndex = start;
+  var outputIndex = 0;
+  final finalQuartet = end - 4;
+  while (inputIndex < finalQuartet) {
+    final a = _base64DecodeTable[input[inputIndex]];
+    final b = _base64DecodeTable[input[inputIndex + 1]];
+    final c = _base64DecodeTable[input[inputIndex + 2]];
+    final d = _base64DecodeTable[input[inputIndex + 3]];
+    if ((a | b | c | d) < 0) {
+      return null;
+    }
+    final bits = (a << 18) | (b << 12) | (c << 6) | d;
+    output[outputIndex] = bits >> 16;
+    output[outputIndex + 1] = bits >> 8;
+    output[outputIndex + 2] = bits;
+    inputIndex += 4;
+    outputIndex += 3;
+  }
+
+  final a = _base64DecodeTable[input[inputIndex]];
+  final b = _base64DecodeTable[input[inputIndex + 1]];
+  if ((a | b) < 0) {
+    return null;
+  }
+  if (padding == 2) {
+    if (input[inputIndex + 2] != 0x3d ||
+        input[inputIndex + 3] != 0x3d ||
+        (b & 0x0f) != 0) {
+      return null;
+    }
+    output[outputIndex] = (a << 2) | (b >> 4);
+    return output;
+  }
+
+  final c = _base64DecodeTable[input[inputIndex + 2]];
+  if (c < 0) {
+    return null;
+  }
+  output[outputIndex] = (a << 2) | (b >> 4);
+  output[outputIndex + 1] = (b << 4) | (c >> 2);
+  if (padding == 1) {
+    if (input[inputIndex + 3] != 0x3d || (c & 0x03) != 0) {
+      return null;
+    }
+    return output;
+  }
+
+  final d = _base64DecodeTable[input[inputIndex + 3]];
+  if (d < 0) {
+    return null;
   }
   output[outputIndex + 2] = (c << 6) | d;
   return output;

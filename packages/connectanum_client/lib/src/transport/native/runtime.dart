@@ -420,8 +420,9 @@ class NativeClientRuntime {
           'Native E2EE decrypt returned no external buffer bytes',
         );
       }
+      Uint8List? bytes;
       try {
-        final bytes = output.ptr.asTypedList(
+        bytes = output.ptr.asTypedList(
           output.len,
           finalizer: _bindings.ctExternalByteBufferFreePointer,
           token: output.owner,
@@ -433,7 +434,10 @@ class NativeClientRuntime {
         );
         return bytes;
       } catch (_) {
-        _bindings.ctExternalByteBufferFree(output.owner);
+        // Once asTypedList succeeds, its finalizer exclusively owns the token.
+        if (bytes == null) {
+          _bindings.ctExternalByteBufferFree(output.owner);
+        }
         rethrow;
       }
     } finally {
@@ -924,8 +928,9 @@ class NativeClientRuntime {
           'Native JSON decode returned no external buffer bytes',
         );
       }
+      Uint8List? bytes;
       try {
-        final bytes = output.ptr.asTypedList(
+        bytes = output.ptr.asTypedList(
           output.len,
           finalizer: _bindings.ctExternalByteBufferFreePointer,
           token: output.owner,
@@ -937,10 +942,95 @@ class NativeClientRuntime {
         );
         return bytes;
       } catch (_) {
-        _bindings.ctExternalByteBufferFree(output.owner);
+        // Once asTypedList succeeds, its finalizer exclusively owns the token.
+        if (bytes == null) {
+          _bindings.ctExternalByteBufferFree(output.owner);
+        }
         rethrow;
       }
     } finally {
+      calloc.free(outputPtr);
+    }
+  }
+
+  Uint8List? decodeCanonicalBase64Bytes(
+    Uint8List input,
+    int start,
+    int end,
+  ) {
+    RangeError.checkValidRange(start, end, input.length);
+    final decode = _bindings.ctBase64DecodeCanonical;
+    if (decode == null) {
+      return null;
+    }
+
+    final length = end - start;
+    final externalInput = nativeExternalByteSlice(input, anchor: input);
+    ffi.Pointer<ffi.Uint8> ownedInput = ffi.nullptr;
+    final inputPtr = externalInput != null
+        ? externalInput.pointer + start
+        : (() {
+            if (length == 0) {
+              return ffi.nullptr;
+            }
+            ownedInput = malloc<ffi.Uint8>(length);
+            ownedInput.asTypedList(length).setRange(0, length, input, start);
+            return ownedInput;
+          })();
+    final outputPtr = calloc<CtExternalByteBuffer>();
+    try {
+      final result = decode(inputPtr, length, outputPtr);
+      if (result == NativeTransportErrorCode.unsupported) {
+        return null;
+      }
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to decode canonical base64 bytes');
+      }
+      final output = outputPtr.ref;
+      if (output.owner == ffi.nullptr) {
+        throw NativeTransportException(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native base64 decode returned no external buffer owner',
+        );
+      }
+      if (output.len == 0) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        return Uint8List(0);
+      }
+      if (output.ptr == ffi.nullptr) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        throw NativeTransportException(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native base64 decode returned no external buffer bytes',
+        );
+      }
+      Uint8List? bytes;
+      try {
+        bytes = output.ptr.asTypedList(
+          output.len,
+          finalizer: _bindings.ctExternalByteBufferFreePointer,
+          token: output.owner,
+        );
+        _nativeExternalBytes[bytes] = _NativeExternalBytesReference(
+          runtimeIdentity: this,
+          pointer: output.ptr,
+          length: output.len,
+        );
+        return bytes;
+      } catch (_) {
+        // Once asTypedList succeeds, its finalizer exclusively owns the token.
+        if (bytes == null) {
+          _bindings.ctExternalByteBufferFree(output.owner);
+        }
+        rethrow;
+      }
+    } finally {
+      if (ownedInput != ffi.nullptr) {
+        malloc.free(ownedInput);
+      }
+      if (externalInput != null) {
+        identityHashCode(externalInput.owner);
+      }
       calloc.free(outputPtr);
     }
   }

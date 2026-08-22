@@ -2,6 +2,7 @@
 library;
 
 import 'dart:ffi';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/src/transport/native/external_byte_buffer.dart';
@@ -60,6 +61,38 @@ void main() {
     expect(() => allocateNativeExternalBytes(-1), throwsRangeError);
     expect(allocateNativeExternalBytes(0), isEmpty);
   });
+
+  test(
+    'native base64 decoder accepts anchored ranges and owns its result',
+    () {
+      final source = Uint8List.fromList(
+        List<int>.generate(256 * 1024 + 1, (index) => (index * 31) & 0xff),
+      );
+      final encoded = ascii.encode(base64.encode(source));
+      final root = allocateNativeExternalBytes(encoded.length + 37);
+      root.setRange(19, 19 + encoded.length, encoded);
+      final view = Uint8List.sublistView(root, 19, 19 + encoded.length);
+      retainNativeExternalBytes(view, root);
+
+      final runtime = NativeClientRuntime.instance();
+      final decoded = runtime.decodeCanonicalBase64Bytes(
+        view,
+        0,
+        view.length,
+      );
+
+      expect(decoded, orderedEquals(source));
+      expect(
+        runtime.decodeCanonicalBase64Bytes(
+          Uint8List.fromList(ascii.encode('AB==')),
+          0,
+          4,
+        ),
+        isNull,
+      );
+    },
+    skip: _nativeShaRuntimeSkipReason(),
+  );
 
   test(
     'native SHA-256 hashes anchored subviews without changing the digest',

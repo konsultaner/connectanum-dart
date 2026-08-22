@@ -380,6 +380,17 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   filesystem-backed rows reach 6.03-14.41 Gbit/s across clear RawSocket, TLS,
   and WebSocket, and the pure-Dart JSON fallback remains an explicit 1.20
   Gbit/s measured boundary.
+- [x] Remove the remaining buffered-Dart JSON receive bottleneck. Canonical
+  terminal binary arguments now bypass whole-frame UTF-8/string materialization,
+  retained external RawSocket frames can be decoded into FFI-finalized native
+  buffers, and ordinary Dart consumers use a direct canonical ASCII decoder.
+  Noncanonical, ambiguous, and kwargs-bearing payloads retain the exact SDK
+  fallback. The canonical and sustained Dart JSON file rows reach 2.18 and 2.43
+  Gbit/s; the refreshed 32/64 MiB and 128/256 MiB RawSocket matrices pass every
+  row at 2.34-17.02 Gbit/s aggregate with zero transport alerts. Full exact-tree
+  `bin/verify` passes with 134 Rust core, 75 ordinary Rust FFI, 395 Dart core,
+  118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus isolated consumer,
+  remote-auth, native-forwarding, and Chrome Dart2Wasm coverage.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

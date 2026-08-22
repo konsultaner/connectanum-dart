@@ -12,19 +12,26 @@ Native JSON progressive file delivery now stays out of the Dart heap on both
 sides of the transfer. Native clients stream positional file reads through
 3-byte-aligned RFC 4648 base64 chunks, preserve exact JSON framing across
 RawSocket, TLS, and masked WebSocket, and expose canonical JSON invocation
-binary arguments as independently owned FFI-finalized buffers. Clear
-MessagePack/CBOR RawSocket file delivery still selects kernel `sendfile`;
+binary arguments as independently owned FFI-finalized buffers. Buffered Dart
+RawSocket clients now scan the canonical terminal binary-argument shape without
+materializing the full JSON string and can decode directly from the retained
+external frame through the native library; pure-Dart consumers retain a direct
+ASCII decoder, and every noncanonical or ambiguous shape falls back to the SDK
+parser. Clear MessagePack/CBOR RawSocket file delivery still selects kernel
+`sendfile`;
 noncanonical JSON peers retain the compatible Dart decoder fallback. The exact
 final 64 MiB matrix reaches 6.59/6.50/6.03 Gbit/s for native JSON over clear
 RawSocket/TLS/WebSocket, 8.56-14.41 Gbit/s for native MessagePack/CBOR, and
-3.75-4.19 Gbit/s for Dart MessagePack/CBOR. The sustained heavy matrix reaches
-8.95 Gbit/s for 4 GiB of native JSON, 10.12-15.62 Gbit/s for native identity
-paths, and 2.16 Gbit/s for native AES-GCM E2EE. The pure-Dart JSON file
-reference remains transform-bound at 1.20-1.26 Gbit/s. Repeated 32-256 MiB
-RawSocket JSON/MessagePack/CBOR frames all exceed 2 Gbit/s aggregate locally;
-the heavy matrix reaches 2.55-17.05 Gbit/s aggregate. Full exact-tree
-`bin/verify` passes with 134 Rust core tests, 74 ordinary Rust FFI tests,
-consumer package and live WAMP/MCP smokes, benchmark integration, remote auth,
+3.75-4.19 Gbit/s for Dart MessagePack/CBOR. The refreshed canonical Dart JSON
+file row reaches 2.18 Gbit/s, and its 3 GiB sustained row reaches 2.43 Gbit/s.
+The sustained heavy matrix reaches 8.95 Gbit/s for 4 GiB of native JSON,
+10.12-15.62 Gbit/s for native identity paths, and 2.14-2.16 Gbit/s for native
+AES-GCM E2EE. Repeated 32-256 MiB RawSocket JSON/MessagePack/CBOR frames all
+exceed 2 Gbit/s aggregate locally; the refreshed heavy matrix reaches
+2.34-17.02 Gbit/s aggregate. Full exact-tree `bin/verify` passes with 134 Rust
+core tests, 75 ordinary Rust FFI tests, 395 Dart core tests, 118 MCP tests, 108
+benchmark/live-WAMP tests, and 468 router tests plus consumer package and live
+WAMP/MCP smokes, benchmark integration, remote auth,
 router-native follow-ups, and Chrome Dart2Wasm coverage.
 
 The current buffered-Dart receive follow-up stores fragmented RawSocket frames
