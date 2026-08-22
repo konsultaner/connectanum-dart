@@ -445,6 +445,17 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   than being represented as native production-path failures. Exact-tree
   `bin/verify` passes with text/binary frame regressions, package consumers,
   live WAMP/MCP, router integration, remote auth, and Chrome Dart2Wasm.
+- [x] Repeat the complete 24 GiB matrix against the current release library and
+  add a focused 6 GiB secure-Dart scenario. Both artifact gates pass without
+  transport or protocol errors. The focused TLS RawSocket/WSS rows remain at
+  0.531-0.874 Gbit/s lifecycle across JSON, MessagePack, and CBOR. Dart SDK
+  inspection identifies its asynchronous 8 KiB plaintext/10 KiB encrypted
+  `SecureSocket` filter pipeline as the non-application boundary. Exact A/B
+  native-base64 and one-allocation WebSocket JSON experiments were discarded:
+  repeated samples overlapped baseline variance, and the concurrency stress
+  measured 1.535 Gbit/s baseline versus 1.528 Gbit/s with the reduced
+  allocation path. Multi-gigabit secure production use remains on the native
+  transport implementation.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

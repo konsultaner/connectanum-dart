@@ -1,0 +1,98 @@
+name = "wamp_dart_secure_transport_heavy"
+description = "Focused 6 GiB pure-Dart TLS stress across RawSocket/WebSocket and JSON/MsgPack/CBOR; RawSocket uses 64 MiB frames and WebSocket uses 8 MiB frames below the default 16 MiB safety cap."
+
+[[workloads]]
+name = "rawsocket_tls_rpc_json_64m_dart"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 16
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 67108864
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "rawsocket_tls_rpc_msgpack_64m_dart"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 16
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 67108864
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "rawsocket_tls_rpc_cbor_64m_dart"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 16
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 67108864
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_rpc_json_8m_dart"
+protocol = "wamp_websocket_rpc"
+client_impl = "dart"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 128
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 8388608
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_rpc_msgpack_8m_dart"
+protocol = "wamp_websocket_rpc"
+client_impl = "dart"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 128
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 8388608
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_rpc_cbor_8m_dart"
+protocol = "wamp_websocket_rpc"
+client_impl = "dart"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 128
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 8388608
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true

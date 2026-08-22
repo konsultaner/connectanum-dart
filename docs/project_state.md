@@ -38,14 +38,22 @@ The checked-in manual `wamp_large_transport_frames_heavy` scenario now moves
 MessagePack, CBOR, RawSocket, WebSocket, cleartext, and TLS. RawSocket rows use
 64 MiB payloads; WebSocket rows use 8 MiB payloads so they remain below the
 router's deliberate 16 MiB message-safety cap. The complete artifact gate
-passes with zero transport, backpressure, or protocol errors. Native production
-rows reach 2.225-4.608 Gbit/s including lifecycle across every combination.
-Pure-Dart clear RawSocket reaches 2.312-6.118 Gbit/s and binary WebSocket rows
-reach 4.684-4.859 Gbit/s, while Dart WebSocket JSON and all Dart TLS rows remain
-measured runtime boundaries. Reusing lazy serializer fragments for Dart
-WebSocket sends improves clear JSON from 0.925 to 1.213 Gbit/s lifecycle and
-WSS JSON from 0.464 to 0.532 Gbit/s without decoding the lazy payload or
-changing the required JSON text-frame type.
+passes with zero transport, backpressure, or protocol errors. The current
+exact-tree repeat reaches 2.215-4.674 Gbit/s lifecycle throughput for every
+native production row, 2.297-5.867 Gbit/s for pure-Dart clear RawSocket, and
+4.772-4.965 Gbit/s for pure-Dart binary WebSocket. Dart WebSocket JSON remains
+at 1.214 Gbit/s lifecycle, pure-Dart TLS RawSocket at 0.681-0.833 Gbit/s, and
+WSS at 0.538-0.814 Gbit/s. A new focused 6 GiB secure-Dart scenario repeats
+those six boundaries at 0.531-0.874 Gbit/s lifecycle and passes the artifact
+gate. Dart SDK inspection confirms that `SecureSocket` processes TLS through
+8 KiB plaintext and 10 KiB encrypted filter buffers with asynchronous
+`sslProcessFilter` I/O-service dispatch, so application-level buffering cannot
+turn that implementation into a multi-gigabit path. Exact A/B experiments with
+native base64 encoding and one-allocation JSON WebSocket assembly were both
+discarded: repeated results overlapped baseline variance, including
+1.535 Gbit/s baseline versus 1.528 Gbit/s one-allocation throughput under four
+concurrent WebSocket sessions. Native TLS remains the supported multi-gigabit
+production choice.
 
 Full exact-tree `bin/verify` passes with formatting unchanged, 134 Rust core
 tests, 75 ordinary FFI tests plus the dedicated metrics regression, 397 Dart
