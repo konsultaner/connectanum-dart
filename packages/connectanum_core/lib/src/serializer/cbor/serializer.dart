@@ -883,6 +883,15 @@ class Serializer extends AbstractSerializer {
   }
 
   List<dynamic> _decodeCborArgumentListFragment(Uint8List bytes) {
+    final ranges = _parseCborTopLevelRanges(bytes);
+    if (ranges?.length == 1) {
+      final binary = _definiteCborBinaryView(
+        _sliceRange(bytes, ranges!.single),
+      );
+      if (binary != null) {
+        return <dynamic>[binary];
+      }
+    }
     final decoded = _decodePayloadFragment(bytes);
     if (decoded is List) {
       return List<dynamic>.from(decoded);

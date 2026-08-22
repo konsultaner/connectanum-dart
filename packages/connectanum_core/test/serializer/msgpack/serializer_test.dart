@@ -3337,6 +3337,24 @@ void main() {
       expect(() => result.arguments, throwsA(anything));
     });
 
+    test('Result exposes a single MsgPack binary argument as a frame view', () {
+      final encoded = serializer.serialize(
+        Result(
+          44,
+          ResultDetails(),
+          arguments: <dynamic>[
+            Uint8List.fromList(const [1, 2, 3, 4]),
+          ],
+        ),
+      );
+
+      final result = serializer.deserialize(encoded) as Result;
+      final payload = result.arguments!.single as Uint8List;
+
+      encoded[encoded.length - 1] = 9;
+      expect(payload, equals(const [1, 2, 3, 9]));
+    });
+
     test('Result preserves a direct MsgPack binary payload', () {
       final encoded = msgpack_dart.serialize([
         MessageTypes.codeResult,

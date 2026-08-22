@@ -14,6 +14,7 @@ import 'package:connectanum_core/src/serializer/msgpack/serializer.dart'
     as msgpack_serializer;
 import 'package:connectanum_core/src/serializer/cbor/serializer.dart'
     as cbor_serializer;
+import 'package:connectanum_client/src/transport/native/external_byte_buffer.dart';
 import 'package:connectanum_client/src/transport/socket/socket_helper.dart';
 import 'package:connectanum_client/src/transport/socket/socket_transport.dart';
 import 'package:test/test.dart';
@@ -562,7 +563,17 @@ void main() {
             unawaited(() async {
               const retainedTailLength = 11;
               final fragmentedLength = firstFrame.length - retainedTailLength;
-              var offset = 0;
+              const forcedFirstChunkLength = 4093;
+              socket.add(
+                Uint8List.sublistView(
+                  firstFrame,
+                  0,
+                  forcedFirstChunkLength,
+                ),
+              );
+              await socket.flush();
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+              var offset = forcedFirstChunkLength;
               while (offset < fragmentedLength) {
                 final end = min(offset + 4093, fragmentedLength);
                 socket.add(Uint8List.sublistView(firstFrame, offset, end));
@@ -604,9 +615,14 @@ void main() {
         expect(messages, hasLength(2));
         expect(messages.first, isA<Result>());
         expect(messages.last, isA<Goodbye>());
+        expect(hasRetainedNativeExternalBytes(messages.first), isTrue);
         final receivedPayload =
             (messages.first as Result).arguments!.single as Uint8List;
         expect(receivedPayload, orderedEquals(payload));
+        expect(
+          nativeExternalByteSlice(receivedPayload, anchor: messages.first),
+          isNotNull,
+        );
       },
     );
 

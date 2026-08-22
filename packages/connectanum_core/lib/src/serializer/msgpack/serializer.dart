@@ -826,6 +826,16 @@ class Serializer extends AbstractSerializer {
   }
 
   List<dynamic> _decodeMsgPackArguments(Uint8List bytes) {
+    final ranges = _parseMsgPackTopLevelRanges(bytes);
+    if (ranges?.length == 1) {
+      final binaryFragment = _sliceRange(bytes, ranges!.single);
+      if (_isDirectMessagePackBinaryFragment(binaryFragment)) {
+        final binary = _decodeMsgPackFragment(binaryFragment);
+        if (binary is Uint8List) {
+          return <dynamic>[binary];
+        }
+      }
+    }
     final decoded = _decodeMsgPackFragment(bytes);
     if (decoded is List) {
       return List<dynamic>.from(decoded);

@@ -39,7 +39,7 @@ class _NativeBytesFileTransferDigest extends _NativeFileTransferDigest {
   @override
   void add(Uint8List bytes, {Object? anchor}) {
     ensureOpen();
-    final hashedBytes = runtime.updateSha256(handle, bytes);
+    final hashedBytes = runtime.updateSha256(handle, bytes, anchor: anchor);
     if (hashedBytes != bytes.length) {
       throw StateError(
         'Native file digest hashed $hashedBytes of ${bytes.length} bytes',

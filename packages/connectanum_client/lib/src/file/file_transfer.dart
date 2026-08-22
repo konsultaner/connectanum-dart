@@ -12,6 +12,9 @@ import 'file_transfer_digest_stub.dart'
 /// Metadata key used by the Connectanum progressive file-transfer contract.
 const String wampFileMetadataKey = 'x_connectanum_file';
 
+/// Default chunk size for production file transfers.
+const int defaultWampFileChunkSize = 4 * 1024 * 1024;
+
 /// Versioned metadata for a progressive WAMP file transfer.
 class WampFileMetadata {
   WampFileMetadata({
@@ -184,7 +187,7 @@ extension WampFileSession on Session {
   Future<Result> setFile(
     String procedure,
     WampFileSource source, {
-    int chunkSize = 256 * 1024,
+    int chunkSize = defaultWampFileChunkSize,
     Duration timeout = const Duration(minutes: 5),
     CallOptions? options,
   }) async {
@@ -265,6 +268,7 @@ extension WampFileSession on Session {
         final previous = pending;
         if (previous != null) {
           call.sendLazyChunk(_fileChunkPayload(previous));
+          await call.drain();
         }
         pending = chunk;
       }
@@ -363,7 +367,7 @@ class WampFileReceiver {
     RegisterOptions? options,
     int maxConcurrentTransfers = 8,
     int maxFileSize = 16 * 1024 * 1024 * 1024,
-    int maxChunkSize = 4 * 1024 * 1024,
+    int maxChunkSize = defaultWampFileChunkSize,
     int maxBufferedBytes = 8 * 1024 * 1024,
     Duration idleTimeout = const Duration(seconds: 30),
   }) async {

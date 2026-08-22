@@ -8,6 +8,25 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+The current buffered-Dart receive follow-up stores fragmented RawSocket frames
+of at least 64 KiB in FFI-finalized external memory, exposes direct CBOR and
+MessagePack binary arguments as frame-backed views, and hashes those anchored
+ranges with the packaged native SHA-256 implementation without a Dart copy.
+Benchmark child processes now inherit the exact selected native library.
+Buffered progressive file senders use a local cooperative transport pacing
+point and a 4 MiB default chunk, preventing sustained multi-gigabyte transfers
+from overrunning bounded receivers; native file segments, kernel `sendfile`,
+and native E2EE segments bypass that pacing path. The final local heavy file
+gate passes at 15.28 Gbit/s for native CBOR, 15.49 Gbit/s for concurrent native
+MessagePack, 9.82 Gbit/s for pipelined native CBOR, 4.57 Gbit/s for Dart CBOR,
+4.56 Gbit/s for Dart MessagePack, and 2.14 Gbit/s for sustained E2EE. The heavy
+128/256 MiB RawSocket gate passes at 2.82-9.67 Gbit/s one-way and 5.64-19.35
+Gbit/s aggregate. Full exact-tree `bin/verify` passes with 132 Rust core tests,
+72 ordinary Rust FFI tests, the dedicated `ffi-test` metrics regression, 385
+Dart core tests, 118 MCP tests, 108 benchmark/live-WAMP tests, the 468-test
+router suite, consumer and remote-auth smokes, native forwarding follow-ups,
+and Chrome Dart2Wasm. Fresh exact-head hosted evidence remains pending.
+
 The current Dart MessagePack follow-up now emits materialized single-binary
 Call and Publish payloads as a small encoded prefix plus the caller's original
 `Uint8List`, matching the existing CBOR segmented-send behavior and avoiding a

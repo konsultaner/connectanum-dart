@@ -17,6 +17,7 @@ class ProgressiveCall {
     required this.requestId,
     required this.results,
     required void Function(LazyMessagePayload payload, bool progress) send,
+    Future<void> Function()? drain,
     TransportFileSource Function(String path, int expectedLength)?
     openFileSource,
     void Function(
@@ -27,12 +28,14 @@ class ProgressiveCall {
     )?
     sendFileSegment,
   }) : _send = send,
+       _drain = drain,
        _openFileSource = openFileSource,
        _sendFileSegment = sendFileSegment;
 
   final int requestId;
   final Stream<Result> results;
   final void Function(LazyMessagePayload payload, bool progress) _send;
+  final Future<void> Function()? _drain;
   final TransportFileSource Function(String path, int expectedLength)?
   _openFileSource;
   final void Function(
@@ -74,6 +77,11 @@ class ProgressiveCall {
     }
     _send(payload, true);
   }
+
+  /// Gives a capable transport a local write-pacing opportunity.
+  ///
+  /// Completion is not an acknowledgement from the remote peer.
+  Future<void> drain() => _drain?.call() ?? Future<void>.value();
 
   void finish({
     List<dynamic>? arguments,
@@ -807,6 +815,9 @@ class Session {
       send: (payload, progress) {
         _transport.send(buildChunk(payload, progress));
       },
+      drain: _transport is DrainableTransport
+          ? (_transport as DrainableTransport).drain
+          : null,
       openFileSource: sourceTransport?.openFileSegmentSource,
       sendFileSegment: sourceTransport == null
           ? null

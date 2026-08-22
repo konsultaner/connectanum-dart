@@ -8,13 +8,15 @@ import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 import '../../transport/socket/socket_helper.dart';
 import '../abstract_transport.dart';
+import '../native/external_byte_buffer.dart';
 
 /// This class implements the raw socket transport for wamp messages. It is also
 /// capable of using connectanums own upgrade method to allow more then 16MB of
 /// payload.
-class SocketTransport extends AbstractTransport {
+class SocketTransport extends AbstractTransport implements DrainableTransport {
   static final _logger = Logger('Connectanum.SocketTransport');
   static const _segmentedSendThreshold = 64 * 1024;
+  static const _nativeInboundFrameThreshold = 64 * 1024;
 
   late bool _ssl;
   late bool _allowInsecureCertificates;
@@ -278,7 +280,7 @@ class SocketTransport extends AbstractTransport {
     }
     final frameLength = headerLength + payloadLength;
     if (negotiatedData.length < frameLength) {
-      final buffer = Uint8List(frameLength);
+      final buffer = _allocateInboundFrameBuffer(frameLength);
       buffer.setRange(0, negotiatedData.length, negotiatedData);
       _inboundBuffer = Uint8List(0);
       _inboundFrameBuffer = buffer;
@@ -300,6 +302,13 @@ class SocketTransport extends AbstractTransport {
     merged.setRange(_inboundBuffer.length, merged.length, typedMessage);
     _inboundBuffer = Uint8List(0);
     return merged;
+  }
+
+  Uint8List _allocateInboundFrameBuffer(int frameLength) {
+    if (frameLength >= _nativeInboundFrameThreshold) {
+      return allocateNativeExternalBytes(frameLength);
+    }
+    return Uint8List(frameLength);
   }
 
   Uint8List _consumeNegotiation(Uint8List message) {
@@ -426,6 +435,7 @@ class SocketTransport extends AbstractTransport {
           if (deserializedMessage is Goodbye) {
             _goodbyeReceived = true;
           }
+          retainNativeExternalBytes(deserializedMessage, inboundData);
           _logger.finest('Received message type ${deserializedMessage.id}');
           messages.add(deserializedMessage);
         } else if (messageType == SocketHelper.messagePing) {
@@ -504,7 +514,7 @@ class SocketTransport extends AbstractTransport {
         );
       } else {
         final frameLength = headerLength + messageLength;
-        final buffer = Uint8List(frameLength);
+        final buffer = _allocateInboundFrameBuffer(frameLength);
         buffer.setRange(0, remaining, inboundData, offset);
         _inboundBuffer = Uint8List(0);
         _inboundFrameBuffer = buffer;
@@ -598,6 +608,16 @@ class SocketTransport extends AbstractTransport {
 
   void _send0(List<int> data) {
     _socket!.add(data);
+  }
+
+  @override
+  Future<void> drain() async {
+    final socket = _socket;
+    if (socket == null) {
+      return;
+    }
+    await socket.flush();
+    await Future<void>.delayed(const Duration(milliseconds: 1));
   }
 
   Uint8List _buildWampFrame(List<int> payload) {

@@ -96,6 +96,58 @@ void main() {
       );
     });
 
+    test('setFile drains buffered progressive chunks', () async {
+      final transport = _DrainableFileTransferTransport();
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+
+      await session.setFile(
+        'files.set',
+        WampFileSource.bytes(
+          Uint8List.fromList(const <int>[0, 1, 2, 3, 4]),
+          name: 'drained.bin',
+        ),
+        chunkSize: 2,
+      );
+
+      expect(transport.drainCount, equals(2));
+      expect(
+        transport.calls.skip(1).map((call) => call.options?.progress),
+        equals(const <bool>[true, true, false]),
+      );
+    });
+
+    test('setFile cancels when draining buffered writes fails', () async {
+      final failure = StateError('socket drain failed');
+      final transport = _DrainableFileTransferTransport(failure: failure);
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+
+      await expectLater(
+        session.setFile(
+          'files.set',
+          WampFileSource.bytes(
+            Uint8List.fromList(const <int>[0, 1, 2]),
+            name: 'drain-failure.bin',
+          ),
+          chunkSize: 1,
+        ),
+        throwsA(same(failure)),
+      );
+
+      await _waitUntil(() => transport.cancels.isNotEmpty);
+      expect(transport.drainCount, equals(1));
+      expect(transport.calls, hasLength(2));
+      expect(
+        transport.cancels.single.options?.mode,
+        CancelOptions.modeKillNoWait,
+      );
+    });
+
     test(
       'setFile uses source-provided exact chunks without rechunking',
       () async {
@@ -133,6 +185,29 @@ void main() {
         );
       },
     );
+
+    test('setFile requests the production default chunk size', () async {
+      final transport = _FileTransferTransport();
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+      var requestedChunkSize = 0;
+      final source = WampFileSource(
+        name: 'default.bin',
+        length: 1,
+        openRead: () => throw StateError('fallback source must not be opened'),
+        openReadChunks: (chunkSize) {
+          requestedChunkSize = chunkSize;
+          return Stream<Uint8List>.value(Uint8List(1));
+        },
+      );
+
+      await session.setFile('files.set', source);
+
+      expect(requestedChunkSize, equals(defaultWampFileChunkSize));
+      expect(defaultWampFileChunkSize, equals(4 * 1024 * 1024));
+    });
 
     test('setFile rejects oversized source-provided chunks', () async {
       final transport = _FileTransferTransport();
@@ -186,7 +261,7 @@ void main() {
     test(
       'setFile uses file-backed segments when the transport supports them',
       () async {
-        final transport = _FileSegmentTransferTransport();
+        final transport = _DrainableFileSegmentTransferTransport();
         final session = await Client(
           realm: 'test.realm',
           transport: transport,
@@ -213,6 +288,7 @@ void main() {
           ]),
         );
         expect(transport.source?.closed, isTrue);
+        expect(transport.drainCount, equals(0));
       },
     );
 
@@ -720,6 +796,23 @@ class _FileTransferTransport extends AbstractTransport {
   }
 }
 
+class _DrainableFileTransferTransport extends _FileTransferTransport
+    implements DrainableTransport {
+  _DrainableFileTransferTransport({this.failure});
+
+  final Object? failure;
+  int drainCount = 0;
+
+  @override
+  Future<void> drain() async {
+    drainCount++;
+    final error = failure;
+    if (error != null) {
+      throw error;
+    }
+  }
+}
+
 class _TestTransportFileSource implements TransportFileSource {
   bool closed = false;
 
@@ -793,6 +886,17 @@ class _FileSegmentTransferTransport extends _FileTransferTransport
         ),
       );
     }
+  }
+}
+
+class _DrainableFileSegmentTransferTransport
+    extends _FileSegmentTransferTransport
+    implements DrainableTransport {
+  int drainCount = 0;
+
+  @override
+  Future<void> drain() async {
+    drainCount++;
   }
 }
 

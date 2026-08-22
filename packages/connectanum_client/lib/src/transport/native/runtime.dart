@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
+import 'external_byte_buffer.dart';
 import 'ffi_bindings.dart';
 import 'message_binding.dart';
 import 'message_protocol.dart';
@@ -989,7 +990,11 @@ class NativeClientRuntime {
     return result;
   }
 
-  int updateSha256(int sha256Handle, Uint8List bytes) {
+  int updateSha256(
+    int sha256Handle,
+    Uint8List bytes, {
+    Object? anchor,
+  }) {
     ensureStarted();
     final nativeBytes = _nativeExternalBytes[bytes];
     if (nativeBytes != null &&
@@ -1004,6 +1009,25 @@ class NativeClientRuntime {
         _throwForError(result, 'Failed to hash native external byte payload');
       }
       return result;
+    }
+    final externalBytes = nativeExternalByteSlice(bytes, anchor: anchor);
+    if (externalBytes != null) {
+      try {
+        final result = _bindings.ctSha256Update(
+          sha256Handle,
+          externalBytes.pointer,
+          externalBytes.length,
+        );
+        if (result < 0) {
+          _throwForError(
+            result,
+            'Failed to hash external byte payload',
+          );
+        }
+        return result;
+      } finally {
+        identityHashCode(externalBytes.owner);
+      }
     }
     final bytesPtr = malloc<ffi.Uint8>(bytes.length);
     try {

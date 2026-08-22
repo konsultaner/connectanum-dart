@@ -312,14 +312,7 @@ fn run_bench_suite(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
-    if native_runtime_threads == 0 {
-        command.env_remove(NATIVE_RUNTIME_THREADS_ENV);
-    } else {
-        command.env(
-            NATIVE_RUNTIME_THREADS_ENV,
-            native_runtime_threads.to_string(),
-        );
-    }
+    configure_bench_child_environment(&mut command, &args.native_lib, native_runtime_threads);
     let mut child_process = command.spawn().context("failed to spawn bench_main")?;
 
     let mut child_stdin = child_process.stdin.take();
@@ -565,6 +558,22 @@ enum BenchMainStdoutEvent {
     Ready,
     Eof,
     Error(String),
+}
+
+fn configure_bench_child_environment(
+    command: &mut Command,
+    native_library_path: &str,
+    native_runtime_threads: u32,
+) {
+    command.env("CONNECTANUM_NATIVE_LIB", native_library_path);
+    if native_runtime_threads == 0 {
+        command.env_remove(NATIVE_RUNTIME_THREADS_ENV);
+    } else {
+        command.env(
+            NATIVE_RUNTIME_THREADS_ENV,
+            native_runtime_threads.to_string(),
+        );
+    }
 }
 
 fn is_bench_ready_line(trimmed: &str) -> bool {
@@ -6004,6 +6013,43 @@ mod tests {
     }
 
     #[test]
+    fn bench_child_uses_requested_native_library_and_runtime_threads() {
+        let mut command = Command::new("dart");
+        configure_bench_child_environment(&mut command, "/tmp/libct_ffi.so", 4);
+
+        let native_library = command
+            .get_envs()
+            .find_map(|(key, value)| {
+                (key == std::ffi::OsStr::new("CONNECTANUM_NATIVE_LIB")).then_some(value)
+            })
+            .flatten();
+        let runtime_threads = command
+            .get_envs()
+            .find_map(|(key, value)| {
+                (key == std::ffi::OsStr::new(NATIVE_RUNTIME_THREADS_ENV)).then_some(value)
+            })
+            .flatten();
+
+        assert_eq!(
+            native_library,
+            Some(std::ffi::OsStr::new("/tmp/libct_ffi.so"))
+        );
+        assert_eq!(runtime_threads, Some(std::ffi::OsStr::new("4")));
+    }
+
+    #[test]
+    fn bench_child_removes_runtime_thread_override_for_auto_mode() {
+        let mut command = Command::new("dart");
+        configure_bench_child_environment(&mut command, "/tmp/libct_ffi.so", 0);
+
+        let runtime_threads = command.get_envs().find_map(|(key, value)| {
+            (key == std::ffi::OsStr::new(NATIVE_RUNTIME_THREADS_ENV)).then_some(value)
+        });
+
+        assert_eq!(runtime_threads, Some(None));
+    }
+
+    #[test]
     fn wait_for_bench_ready_times_out_without_ready() {
         let (_tx, rx) = mpsc::channel::<BenchMainStdoutEvent>();
         let error = wait_for_bench_ready(&rx, Duration::from_millis(5)).unwrap_err();
@@ -6317,6 +6363,37 @@ mod tests {
                 * u64::from(workload.concurrency)
                 >= 4 * 1024 * 1024 * 1024
         );
+    }
+
+    #[test]
+    fn heavy_file_transfer_scenario_keeps_sustained_dart_coverage() {
+        let scenario_path = format!(
+            "{}/scenarios/wamp_file_transfer_heavy.toml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let scenario = load_scenario(&scenario_path).unwrap();
+
+        for (name, serializer) in [
+            ("rawsocket_file_cbor_128m_dart_buffered_reference", "cbor"),
+            (
+                "rawsocket_file_msgpack_128m_dart_buffered_reference",
+                "msgpack",
+            ),
+        ] {
+            let workload = scenario
+                .workloads
+                .iter()
+                .find(|workload| workload.name == name)
+                .unwrap_or_else(|| panic!("missing sustained Dart workload {name}"));
+
+            assert_eq!(workload.client_impl, "dart");
+            assert_eq!(workload.serializer, serializer);
+            assert_eq!(workload.request_bytes, 128 * 1024 * 1024);
+            assert_eq!(workload.request_chunk_bytes, 4 * 1024 * 1024);
+            assert!(
+                workload.request_bytes * u64::from(workload.iterations) >= 3 * 1024 * 1024 * 1024
+            );
+        }
     }
 
     #[test]

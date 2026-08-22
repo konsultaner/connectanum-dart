@@ -214,6 +214,18 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   and 7.62-19.10 Gbit/s aggregate across CBOR and MessagePack. Its 128 MiB
   Dart CBOR reference reaches 2.80 Gbit/s one-way and 5.60 Gbit/s aggregate.
   Transformed paths cannot preserve literal kernel zero copy.
+- Fragmented pure-Dart RawSocket frames of at least 64 KiB now accumulate in
+  FFI-finalized external memory. Direct CBOR and MessagePack binary arguments
+  remain frame-backed and native SHA-256 hashes their anchored ranges without a
+  Dart copy. Buffered file senders use a local cooperative drain and a 4 MiB
+  default chunk, while native file, `sendfile`, and E2EE segments remain on
+  their existing native paths. The final heavy file gate passes at 15.28-15.49
+  Gbit/s for repeated/concurrent native paths, 9.82 Gbit/s pipelined, 4.57/4.56
+  Gbit/s for Dart CBOR/MessagePack, and 2.14 Gbit/s for E2EE. The heavy 128/256
+  MiB RawSocket gate passes all rows at 2.82-9.67 Gbit/s one-way. Full
+  `bin/verify` passes with 132 Rust core, 72 ordinary Rust FFI, 385 Dart core,
+  118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus consumer,
+  remote-auth, native-forwarding, and Chrome Dart2Wasm coverage.
 
 ## Plan
 
@@ -332,6 +344,13 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   `bin/verify` passes with 132 Rust core, 72 ordinary Rust FFI, 383 Dart core,
   118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus consumer,
   remote-auth, zero-copy, and Chrome Dart2Wasm coverage.
+- [x] Remove the remaining large buffered-Dart receive copy by accumulating
+  fragmented frames in externally finalized memory, expose direct CBOR and
+  MessagePack binary views to native SHA-256, propagate the exact native
+  library into benchmark children, and pace buffered progressive sends without
+  affecting native segment paths. Sustained 3 GiB-per-serializer file rows now
+  reach 4.56-4.57 Gbit/s and the heavy 128/256 MiB RawSocket rows all pass at
+  2.82-9.67 Gbit/s one-way. Full exact-tree `bin/verify` passes.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

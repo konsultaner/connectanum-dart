@@ -29,6 +29,12 @@ abstract class AbstractTransport {
   }
 }
 
+/// Optional cooperative flow-control point after buffered writes are handed to
+/// the underlying connection. Completion does not acknowledge remote receipt.
+abstract interface class DrainableTransport {
+  Future<void> drain();
+}
+
 /// An opened file source retained by a transport for file-backed frame sends.
 abstract interface class TransportFileSource {
   void close();
