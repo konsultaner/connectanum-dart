@@ -77,6 +77,24 @@ lifecycle window; the slowest row remains sustained native AES-GCM E2EE. The
 3.147-22.114 Gbit/s data-window and 2.652-9.652 Gbit/s lifecycle throughput,
 with zero transport findings in either gate.
 
+Exact-head hosted diagnostics `32598079549` exposed an important scope error in
+the first strict file policy rather than a transport regression. The four
+native non-E2EE production rows clear both 2 Gbit/s windows at
+3.480-9.456 Gbit/s data-window and 3.203-6.737 Gbit/s lifecycle throughput,
+while the explicitly named pure-Dart JSON reference reaches 1.223/1.217 Gbit/s
+and native AES-GCM E2EE reaches 1.025/1.000 Gbit/s on the two-vCPU shared
+runner. The unchanged 2 Gbit/s policy is now workload-scoped to the native
+production paths that are designed to meet it; Dart fallback and E2EE remain in
+the same heavy artifact as explicit measured transform boundaries. The E2EE
+row still moves 4 GiB but now uses eight concurrent sessions after local
+scaling showed 4 MiB chunks at concurrency eight outperforming both larger
+chunks and lower concurrency, reaching 2.233/2.028 Gbit/s in the focused probe.
+The complete updated 24 GiB matrix passes its scoped artifact gate; the four
+gated native rows reach 8.993-20.559/8.212-16.464 Gbit/s data/lifecycle and the
+reshaped E2EE row reaches 2.317/2.253 Gbit/s. The exact updated tree also passes
+`bin/verify`, including the full Rust, Dart, FFI, router, MCP, consumer-smoke,
+and browser verification flow.
+
 Buffered Dart progressive senders now preserve their per-chunk
 `Socket.flush()` and cooperative event-loop pacing without imposing a fixed
 1 ms timer delay after every nonterminal chunk. A deterministic regression

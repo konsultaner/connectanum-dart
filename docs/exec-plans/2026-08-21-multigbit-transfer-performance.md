@@ -262,6 +262,20 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   `32585919054`, WAMP profile benchmarks `32585942593`, WAMP profile
   diagnostics `32585946481`, the comprehensive feature-head audit, and the
   protected `master` strict audit are clean.
+- Exact-head hosted diagnostics `32598079549` showed why host-permitted
+  boundaries must not be hidden inside one scenario-wide threshold. All four
+  native non-E2EE production rows clear 2 Gbit/s over both windows, while the
+  pure-Dart JSON fallback reaches 1.223/1.217 Gbit/s and native AES-GCM E2EE
+  reaches 1.025/1.000 Gbit/s on the shared two-vCPU runner. The 2 Gbit/s value
+  is unchanged and now selects the four intended production workloads; the
+  reference and encrypted transform rows remain present and reported in the
+  heavy artifact. A local chunk/concurrency sweep found 4 MiB at eight
+  concurrent sessions is the first encrypted shape to clear both windows at
+  2.233/2.028 Gbit/s, while 16-64 MiB chunks regress to
+  1.280-1.453 Gbit/s. The checked-in E2EE stress keeps the same 4 GiB volume
+  and adopts that measured eight-session shape. The complete updated 24 GiB
+  matrix passes locally at 8.993-20.559/8.212-16.464 Gbit/s data/lifecycle for
+  the four gated native rows and 2.317/2.253 Gbit/s for E2EE.
 
 ## Plan
 
@@ -463,6 +477,14 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   2.178-20.741/2.127-16.472 Gbit/s data/lifecycle throughput, and the 36 GiB
   bidirectional RawSocket run passes all nine rows at
   3.147-22.114/2.652-9.652 Gbit/s with zero transport findings.
+- [x] Correct the hosted heavy-file policy scope after exact-head evidence.
+  Keep the 2 Gbit/s threshold unchanged for every native non-E2EE production
+  row, retain Dart fallback and native E2EE rows as measured transform
+  boundaries, and reshape the encrypted 4 GiB stress row to the best measured
+  4 MiB/eight-session configuration without reducing its byte volume. The
+  complete revised matrix passes locally, including E2EE at
+  2.317/2.253 Gbit/s data/lifecycle throughput, and the exact updated tree
+  passes `bin/verify`.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

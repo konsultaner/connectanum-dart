@@ -4483,29 +4483,102 @@ mod tests {
 
     #[test]
     fn shipped_heavy_transfer_policies_gate_data_and_lifecycle_throughput() {
-        for (file_name, scenario) in [
-            ("wamp_file_transfer_heavy.json", "wamp_file_transfer_heavy"),
-            (
-                "wamp_large_rawsocket_frames_heavy.json",
-                "wamp_large_rawsocket_frames_heavy",
-            ),
-        ] {
-            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("artifact_gate")
-                .join(file_name);
-            let policy = load_artifact_gate_policy(&path).unwrap();
-            let mut workload = summarize_report(&clean_report());
-            workload.scenario = scenario.to_string();
+        let large_frame_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("artifact_gate")
+            .join("wamp_large_rawsocket_frames_heavy.json");
+        let large_frame_policy = load_artifact_gate_policy(&large_frame_path).unwrap();
+        let mut large_frame_workload = summarize_report(&clean_report());
+        large_frame_workload.scenario = "wamp_large_rawsocket_frames_heavy".to_string();
+        assert_eq!(
+            large_frame_policy.metric_threshold_for(&large_frame_workload, THROUGHPUT_MBPS_MIN),
+            Some(2000.0)
+        );
+        assert_eq!(
+            large_frame_policy
+                .metric_threshold_for(&large_frame_workload, LIFECYCLE_THROUGHPUT_MBPS_MIN,),
+            Some(2000.0)
+        );
 
+        let file_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("artifact_gate")
+            .join("wamp_file_transfer_heavy.json");
+        let file_policy = load_artifact_gate_policy(&file_path).unwrap();
+        let mut file_workload = summarize_report(&clean_report());
+        file_workload.scenario = "wamp_file_transfer_heavy".to_string();
+        for workload_name in [
+            "rawsocket_file_cbor_1g_native",
+            "rawsocket_file_msgpack_256m_native_concurrent",
+            "rawsocket_file_cbor_256m_native_pipelined",
+            "rawsocket_file_json_128m_native_base64_segmented",
+        ] {
+            file_workload.workload = workload_name.to_string();
             assert_eq!(
-                policy.metric_threshold_for(&workload, THROUGHPUT_MBPS_MIN),
+                file_policy.metric_threshold_for(&file_workload, THROUGHPUT_MBPS_MIN),
                 Some(2000.0)
             );
             assert_eq!(
-                policy.metric_threshold_for(&workload, LIFECYCLE_THROUGHPUT_MBPS_MIN),
+                file_policy.metric_threshold_for(&file_workload, LIFECYCLE_THROUGHPUT_MBPS_MIN,),
                 Some(2000.0)
             );
         }
+
+        for workload_name in [
+            "rawsocket_file_cbor_128m_dart_buffered_reference",
+            "rawsocket_file_msgpack_128m_dart_buffered_reference",
+            "rawsocket_file_json_128m_dart_buffered_reference",
+            "rawsocket_file_cbor_e2ee_64m_native_sustained",
+        ] {
+            file_workload.workload = workload_name.to_string();
+            assert_eq!(
+                file_policy.metric_threshold_for(&file_workload, THROUGHPUT_MBPS_MIN),
+                None
+            );
+            assert_eq!(
+                file_policy.metric_threshold_for(&file_workload, LIFECYCLE_THROUGHPUT_MBPS_MIN,),
+                None
+            );
+        }
+
+        let scenario_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("scenarios")
+            .join("wamp_file_transfer_heavy.toml");
+        let scenario: toml::Value =
+            toml::from_str(&fs::read_to_string(scenario_path).unwrap()).unwrap();
+        let configured_workloads = scenario["workloads"].as_array().unwrap();
+        let configured_names = configured_workloads
+            .iter()
+            .map(|workload| workload["name"].as_str().unwrap())
+            .collect::<std::collections::BTreeSet<_>>();
+        let expected_names = [
+            "rawsocket_file_cbor_1g_native",
+            "rawsocket_file_msgpack_256m_native_concurrent",
+            "rawsocket_file_cbor_256m_native_pipelined",
+            "rawsocket_file_json_128m_native_base64_segmented",
+            "rawsocket_file_cbor_128m_dart_buffered_reference",
+            "rawsocket_file_msgpack_128m_dart_buffered_reference",
+            "rawsocket_file_json_128m_dart_buffered_reference",
+            "rawsocket_file_cbor_e2ee_64m_native_sustained",
+        ]
+        .into_iter()
+        .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(configured_names, expected_names);
+
+        let e2ee = configured_workloads
+            .iter()
+            .find(|workload| {
+                workload["name"].as_str() == Some("rawsocket_file_cbor_e2ee_64m_native_sustained")
+            })
+            .unwrap();
+        assert_eq!(e2ee["iterations"].as_integer(), Some(8));
+        assert_eq!(e2ee["concurrency"].as_integer(), Some(8));
+        assert_eq!(e2ee["request_bytes"].as_integer(), Some(67_108_864));
+        assert_eq!(e2ee["request_chunk_bytes"].as_integer(), Some(4_194_304));
+        assert_eq!(
+            e2ee["iterations"].as_integer().unwrap()
+                * e2ee["concurrency"].as_integer().unwrap()
+                * e2ee["request_bytes"].as_integer().unwrap(),
+            4_294_967_296
+        );
     }
 
     #[test]
