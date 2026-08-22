@@ -168,6 +168,29 @@ class WebSocketTransport extends AbstractTransport {
     if (message is Goodbye) {
       _goodbyeSent = true;
     }
+    final fragments = _serializer.serializeFragments(message);
+    if (fragments != null && fragments.isNotEmpty) {
+      // dart:io accepts only complete WebSocket messages, not frame segments.
+      final builder = BytesBuilder(copy: false);
+      for (final fragment in fragments) {
+        builder.add(fragment);
+      }
+      final serializedMessage = builder.takeBytes();
+      if (serializedMessage.isEmpty) {
+        _sendSerializedMessage(message);
+        return;
+      }
+      if (_serializerType == WebSocketSerialization.serializationJson) {
+        _socket!.addUtf8Text(serializedMessage);
+      } else {
+        _socket!.add(serializedMessage);
+      }
+      return;
+    }
+    _sendSerializedMessage(message);
+  }
+
+  void _sendSerializedMessage(AbstractMessage message) {
     if (_serializerType == WebSocketSerialization.serializationJson) {
       _socket!.addUtf8Text(
         utf8.encoder.convert(_serializer.serialize(message)),

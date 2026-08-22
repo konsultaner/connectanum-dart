@@ -258,7 +258,10 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   sustained native AES-GCM E2EE row reaches 2.200/2.147 Gbit/s. The same run
   exposed and fixed premature remote-error observation and false receiver
   capacity failures for synchronous sinks; focused regressions and full
-  `bin/verify` pass.
+  `bin/verify` pass. Exact-head CI `32585919050`, package dry run
+  `32585919054`, WAMP profile benchmarks `32585942593`, WAMP profile
+  diagnostics `32585946481`, the comprehensive feature-head audit, and the
+  protected `master` strict audit are clean.
 
 ## Plan
 
@@ -431,6 +434,17 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   weakening bounded async backpressure. The final heavy file suite clears 2
   Gbit/s over both data and lifecycle windows for every row, and every heavy
   large-frame row clears 2 Gbit/s over the measured data window.
+- [x] Add a manual 24 GiB large-transport matrix covering native/Dart,
+  JSON/MessagePack/CBOR, RawSocket/WebSocket, and clear/TLS paths. The 64 MiB
+  RawSocket and safety-cap-compatible 8 MiB WebSocket rows complete without
+  transport errors; every native production row reaches 2.225-4.608 Gbit/s
+  lifecycle throughput. Reuse lazy serializer fragments for Dart WebSocket
+  sends while retaining JSON text frames, improving focused clear JSON from
+  0.925 to 1.213 Gbit/s lifecycle and WSS JSON from 0.464 to 0.532 Gbit/s.
+  Pure-Dart TLS and WebSocket JSON remain explicit runtime boundaries rather
+  than being represented as native production-path failures. Exact-tree
+  `bin/verify` passes with text/binary frame regressions, package consumers,
+  live WAMP/MCP, router integration, remote auth, and Chrome Dart2Wasm.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

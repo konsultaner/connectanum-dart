@@ -33,11 +33,29 @@ clear native MessagePack/CBOR RawSocket file frames use kernel `sendfile` on
 Linux and macOS; JSON/base64, TLS, WebSocket masking, and E2EE require
 transforms and cannot be literal filesystem-to-socket zero-copy paths.
 
+The checked-in manual `wamp_large_transport_frames_heavy` scenario now moves
+24 GiB through a 24-row RPC matrix spanning native and Dart clients, JSON,
+MessagePack, CBOR, RawSocket, WebSocket, cleartext, and TLS. RawSocket rows use
+64 MiB payloads; WebSocket rows use 8 MiB payloads so they remain below the
+router's deliberate 16 MiB message-safety cap. The complete artifact gate
+passes with zero transport, backpressure, or protocol errors. Native production
+rows reach 2.225-4.608 Gbit/s including lifecycle across every combination.
+Pure-Dart clear RawSocket reaches 2.312-6.118 Gbit/s and binary WebSocket rows
+reach 4.684-4.859 Gbit/s, while Dart WebSocket JSON and all Dart TLS rows remain
+measured runtime boundaries. Reusing lazy serializer fragments for Dart
+WebSocket sends improves clear JSON from 0.925 to 1.213 Gbit/s lifecycle and
+WSS JSON from 0.464 to 0.532 Gbit/s without decoding the lazy payload or
+changing the required JSON text-frame type.
+
 Full exact-tree `bin/verify` passes with formatting unchanged, 134 Rust core
 tests, 75 ordinary FFI tests plus the dedicated metrics regression, 397 Dart
 core tests, 118 MCP tests, 319 client/MCP integration cases, 116 benchmark
 tests, 468 router tests, consumer/live WAMP and MCP smokes, remote auth,
-native-forwarding follow-ups, Chrome, and Dart2Wasm.
+native-forwarding follow-ups, Chrome, and Dart2Wasm. Exact-head CI
+`32585919050`, package dry run `32585919054`, WAMP profile benchmarks
+`32585942593`, and WAMP profile diagnostics `32585946481` pass. The
+comprehensive feature-head deployment audit and protected `master` strict
+audit are clean.
 
 Buffered Dart progressive senders now preserve their per-chunk
 `Socket.flush()` and cooperative event-loop pacing without imposing a fixed
@@ -24857,6 +24875,16 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-22: A checked-in 24 GiB manual large-transport matrix now exercises
+  64 MiB RawSocket and 8 MiB WebSocket RPC payloads across native/Dart,
+  JSON/MessagePack/CBOR, and clear/TLS combinations. All 24 workloads complete
+  with clean artifact gates and no transport errors. Native lifecycle
+  throughput is 2.225-4.608 Gbit/s across the complete matrix. Pure-Dart TLS
+  and Dart WebSocket JSON remain explicit runtime boundaries; serializer
+  fragment reuse raises focused clear Dart WebSocket JSON from 0.925 to 1.213
+  Gbit/s lifecycle and WSS JSON from 0.464 to 0.532 Gbit/s while preserving
+  lazy arguments and WebSocket text framing. Post-change `bin/test-fast`
+  and exact-tree `bin/verify` pass.
 - 2026-08-22: Heavy WAMP samples now report validated data-window throughput
   and separate setup/teardown lifecycle throughput, with compatible fallback
   for timing-free legacy results and dominant-direction upload accounting. The
@@ -24868,8 +24896,10 @@ at the older `47bbf9c` commit.
   Regressions cover remote progressive-call errors, synchronous receiver
   capacity release, operation-window aggregation, legacy JSON compatibility,
   malformed timing, and upload-only reports. `bin/test-fast` and exact-tree
-  `bin/verify` pass; hosted exact-head evidence and the strict deployment audit
-  remain pending for this commit.
+  `bin/verify` pass. Exact-head CI `32585919050`, package dry run `32585919054`,
+  WAMP profile benchmarks `32585942593`, and WAMP profile diagnostics
+  `32585946481` pass; the comprehensive feature-head deployment audit and
+  protected `master` strict audit are clean.
 - 2026-08-17: Grant-aware router HTTP-auth and OAuth MCP clients now retain a
   known absolute access-token expiry after construction and replacement. Once
   reached, the common request-open boundary raises the token-redacted
