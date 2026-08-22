@@ -322,6 +322,16 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   exact-tree `bin/verify` passes with 132 Rust core, 72 ordinary Rust FFI, 380
   Dart core, 118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus
   consumer, remote-auth, zero-copy, and Chrome Dart2Wasm coverage.
+- [x] Preserve materialized Dart MessagePack binary arguments as unchanged
+  RawSocket fragments, cover every MessagePack binary-length tier and fallback
+  shape, and add repeated Dart MessagePack controls to the heavy file and
+  128 MiB frame matrices. The heavy file suite moves 12.5 GiB and passes at
+  968 Mbit/s for Dart MessagePack, 721 Mbit/s for Dart CBOR, 2.15 Gbit/s for
+  sustained E2EE, and 9.87-15.64 Gbit/s for clear native paths. The 17 GiB
+  duplex heavy frame suite passes every row at 3.68-10.03 Gbit/s one-way. Full
+  `bin/verify` passes with 132 Rust core, 72 ordinary Rust FFI, 383 Dart core,
+  118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus consumer,
+  remote-auth, zero-copy, and Chrome Dart2Wasm coverage.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

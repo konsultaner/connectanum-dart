@@ -6330,6 +6330,7 @@ mod tests {
             ("rawsocket_rpc_msgpack_128m_native", 128, 16),
             ("rawsocket_rpc_cbor_128m_native", 128, 16),
             ("rawsocket_rpc_cbor_128m_dart_reference", 128, 4),
+            ("rawsocket_rpc_msgpack_128m_dart_reference", 128, 4),
             ("rawsocket_rpc_msgpack_256m_native", 256, 8),
             ("rawsocket_rpc_cbor_256m_native", 256, 8),
         ];

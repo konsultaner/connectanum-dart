@@ -1157,6 +1157,19 @@ class Serializer extends AbstractSerializer {
     List<Uint8List> fixedParts,
     AbstractMessageWithPayload message,
   ) {
+    final binaryArgument = _materializedSingleBinaryArgument(message);
+    if (binaryArgument != null) {
+      final prefix = BytesBuilder(copy: false)
+        ..add([_fixArrayHeader(fixedLength + 1)]);
+      for (final part in fixedParts) {
+        prefix.add(part);
+      }
+      prefix
+        ..add(const [0x91])
+        ..add(_encodeMessagePackBinaryHeader(binaryArgument.length));
+      return <Uint8List>[prefix.takeBytes(), binaryArgument];
+    }
+
     if (message.lazyPayloadEncoding != LazyPayloadEncoding.messagePack) {
       return null;
     }
@@ -1191,6 +1204,39 @@ class Serializer extends AbstractSerializer {
       argsBytes,
       ?kwargsBytes,
     ];
+  }
+
+  Uint8List? _materializedSingleBinaryArgument(
+    AbstractMessageWithPayload message,
+  ) {
+    if (message.hasLazyArguments || message.hasLazyArgumentsKeywords) {
+      return null;
+    }
+    final arguments = message.wireArguments;
+    if (message.wireArgumentsKeywords != null || arguments?.length != 1) {
+      return null;
+    }
+    final argument = arguments!.single;
+    return argument is Uint8List ? argument : null;
+  }
+
+  Uint8List _encodeMessagePackBinaryHeader(int length) {
+    if (length <= 0xff) {
+      return Uint8List.fromList([0xc4, length]);
+    }
+    if (length <= 0xffff) {
+      return Uint8List.fromList([0xc5, length >> 8, length]);
+    }
+    if (length <= 0xffffffff) {
+      return Uint8List.fromList([
+        0xc6,
+        length >> 24,
+        length >> 16,
+        length >> 8,
+        length,
+      ]);
+    }
+    throw RangeError.range(length, 0, 0xffffffff, 'length');
   }
 
   int _fixArrayHeader(int length) {

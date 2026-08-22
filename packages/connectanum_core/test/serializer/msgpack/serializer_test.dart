@@ -37,6 +37,97 @@ void main() {
 
       expect(frame[4][0], orderedEquals(const [1, 2, 3, 4]));
     });
+    test('Call exposes materialized binary arguments without copying', () {
+      const expectedHeaders = <int, List<int>>{
+        0: [0x91, 0xc4, 0x00],
+        255: [0x91, 0xc4, 0xff],
+        256: [0x91, 0xc5, 0x01, 0x00],
+        65535: [0x91, 0xc5, 0xff, 0xff],
+        65536: [0x91, 0xc6, 0x00, 0x01, 0x00, 0x00],
+      };
+
+      for (final entry in expectedHeaders.entries) {
+        final payload = Uint8List(entry.key);
+        final call = Call(
+          7814135,
+          'com.myapp.binary',
+          arguments: <dynamic>[payload],
+        );
+
+        final fragments = serializer.serializeFragments(call)!;
+        final prefix = fragments.first;
+        final joined = BytesBuilder(copy: false);
+        for (final fragment in fragments) {
+          joined.add(fragment);
+        }
+
+        expect(fragments, hasLength(2), reason: 'length ${entry.key}');
+        expect(fragments.last, same(payload), reason: 'length ${entry.key}');
+        expect(
+          prefix.sublist(prefix.length - entry.value.length),
+          orderedEquals(entry.value),
+          reason: 'length ${entry.key}',
+        );
+        final decoded = msgpack_dart.deserialize(joined.takeBytes()) as List;
+        expect(decoded[4][0], orderedEquals(payload));
+      }
+    });
+    test('Publish exposes a materialized binary argument without copying', () {
+      final payload = Uint8List.fromList(const [1, 2, 3, 4]);
+      final publish = Publish(
+        239714735,
+        'com.myapp.binary',
+        arguments: <dynamic>[payload],
+      );
+
+      final fragments = serializer.serializeFragments(publish)!;
+      final joined = BytesBuilder(copy: false);
+      for (final fragment in fragments) {
+        joined.add(fragment);
+      }
+
+      expect(fragments, hasLength(2));
+      expect(fragments.last, same(payload));
+      final decoded = msgpack_dart.deserialize(joined.takeBytes()) as List;
+      expect(decoded[4][0], orderedEquals(payload));
+    });
+    test('materialized binary segmentation rejects mixed payload shapes', () {
+      expect(
+        serializer.serializeFragments(
+          Call(1, 'com.myapp.empty'),
+        ),
+        isNull,
+      );
+      expect(
+        serializer.serializeFragments(
+          Call(1, 'com.myapp.multiple', arguments: <dynamic>[Uint8List(1), 2]),
+        ),
+        isNull,
+      );
+      expect(
+        serializer.serializeFragments(
+          Call(
+            1,
+            'com.myapp.kwargs',
+            arguments: <dynamic>[Uint8List(1)],
+            argumentsKeywords: <String, dynamic>{'worker': 1},
+          ),
+        ),
+        isNull,
+      );
+      expect(
+        serializer.serializeFragments(
+          Call(
+            1,
+            'com.myapp.list',
+            arguments: <dynamic>[
+              <int>[1, 2, 3],
+            ],
+          ),
+        ),
+        isNull,
+      );
+    });
     test('Call reuses lazy MsgPack argument bytes without decoding', () {
       final call = Call(7814135, 'com.myapp.ping');
       call.setLazyPayload(

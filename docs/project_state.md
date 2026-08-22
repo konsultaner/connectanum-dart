@@ -8,6 +8,26 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+The current Dart MessagePack follow-up now emits materialized single-binary
+Call and Publish payloads as a small encoded prefix plus the caller's original
+`Uint8List`, matching the existing CBOR segmented-send behavior and avoiding a
+contiguous MessagePack frame copy. Wire-equivalence, buffer-identity, fallback,
+and bin8/bin16/bin32 boundary regressions pass. The checked-in heavy matrices
+now include repeated 128 MiB Dart MessagePack file and RawSocket-frame rows and
+repeat the Dart CBOR file control four times. The complete local heavy file
+matrix moves 12.5 GiB and passes all six transport/metric gates: native clear
+paths reach 9.87-15.64 Gbit/s, sustained native AES-GCM E2EE reaches 2.15
+Gbit/s, and Dart MessagePack/CBOR reach 968/721 Mbit/s. The heavy large-frame
+matrix moves 17 GiB bidirectionally and passes all six gates at 3.68-10.03
+Gbit/s one-way for 128/256 MiB MessagePack/CBOR frames. A focused A/B against
+the pushed head improves repeated Dart MessagePack file delivery from 910 to
+968-985 Mbit/s; the pure-Dart progressive file path remains below the
+multi-gigabit target and is still active optimization work. Full exact-tree
+`bin/verify` passes with 132 Rust core tests, 72 ordinary Rust FFI tests, the
+dedicated `ffi-test` metrics regression, 383 Dart core tests, 118 MCP tests, 108
+benchmark/live-WAMP tests, the 468-test router suite, consumer and remote-auth
+smokes, zero-copy follow-ups, and Chrome Dart2Wasm.
+
 The latest native E2EE file follow-up moves file reads and encryption off the
 async socket runtime, validates the exact transformed length before emitting a
 frame header, and uses the platform-accelerated `ring` AES-256-GCM and SHA-256
