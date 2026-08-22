@@ -509,6 +509,180 @@ void main() {
       await server.close();
     });
 
+    test(
+      'retains fragmented CBOR payloads when the final chunk includes another frame',
+      () async {
+        final serializer = cbor_serializer.Serializer();
+        final payload = Uint8List.fromList(
+          List<int>.generate(256 * 1024, (index) => index & 0xff),
+        );
+        final firstPayload = serializer.serialize(
+          Result(7, ResultDetails(), arguments: <dynamic>[payload]),
+        );
+        final secondPayload = serializer.serialize(
+          Goodbye(GoodbyeMessage('bye'), Goodbye.reasonGoodbyeAndOut),
+        );
+        Uint8List frame(Uint8List encoded) {
+          final builder = BytesBuilder(copy: false)
+            ..add(
+              SocketHelper.buildMessageHeader(
+                SocketHelper.messageWamp,
+                encoded.length,
+                false,
+              ),
+            )
+            ..add(encoded);
+          return builder.takeBytes();
+        }
+
+        final firstFrame = frame(firstPayload);
+        final secondFrame = frame(secondPayload);
+        final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+        final acceptedSockets = <Socket>[];
+        addTearDown(() async {
+          for (final socket in acceptedSockets) {
+            socket.destroy();
+          }
+          await server.close();
+        });
+        server.listen((socket) {
+          acceptedSockets.add(socket);
+          var handshakeDone = false;
+          socket.listen((message) {
+            if (handshakeDone) {
+              return;
+            }
+            handshakeDone = true;
+            socket.add(
+              SocketHelper.getInitialHandshake(
+                SocketHelper.maxMessageLengthExponent,
+                SocketHelper.serializationCbor,
+              ),
+            );
+            unawaited(() async {
+              const retainedTailLength = 11;
+              final fragmentedLength = firstFrame.length - retainedTailLength;
+              var offset = 0;
+              while (offset < fragmentedLength) {
+                final end = min(offset + 4093, fragmentedLength);
+                socket.add(Uint8List.sublistView(firstFrame, offset, end));
+                await socket.flush();
+                offset = end;
+              }
+              final combined = BytesBuilder(copy: false)
+                ..add(
+                  Uint8List.sublistView(
+                    firstFrame,
+                    fragmentedLength,
+                    firstFrame.length,
+                  ),
+                )
+                ..add(secondFrame);
+              socket.add(combined.takeBytes());
+            }());
+          });
+        });
+
+        final transport = SocketTransport(
+          InternetAddress.loopbackIPv4.address,
+          server.port,
+          serializer,
+          SocketHelper.serializationCbor,
+          messageLengthExponent: SocketHelper.maxMessageLengthExponent,
+        );
+        addTearDown(() => transport.close());
+        await transport.open();
+
+        final messages = await transport
+            .receive()
+            .take(2)
+            .toList()
+            .timeout(
+              const Duration(seconds: 5),
+            );
+
+        expect(messages, hasLength(2));
+        expect(messages.first, isA<Result>());
+        expect(messages.last, isA<Goodbye>());
+        final receivedPayload =
+            (messages.first as Result).arguments!.single as Uint8List;
+        expect(receivedPayload, orderedEquals(payload));
+      },
+    );
+
+    test('sends a large CBOR call as one segmented RawSocket frame', () async {
+      final serializer = cbor_serializer.Serializer();
+      final receivedFrame = Completer<Uint8List>();
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final acceptedSockets = <Socket>[];
+      addTearDown(() async {
+        for (final socket in acceptedSockets) {
+          socket.destroy();
+        }
+        await server.close();
+      });
+      server.listen((socket) {
+        acceptedSockets.add(socket);
+        var handshakeDone = false;
+        final received = <int>[];
+        int? frameLength;
+        socket.listen((message) {
+          if (!handshakeDone) {
+            handshakeDone = true;
+            socket.add(
+              SocketHelper.getInitialHandshake(
+                SocketHelper.maxMessageLengthExponent,
+                SocketHelper.serializationCbor,
+              ),
+            );
+            return;
+          }
+          received.addAll(message);
+          if (frameLength == null && received.length >= 4) {
+            final prefix = Uint8List.fromList(received.take(4).toList());
+            frameLength = 4 + SocketHelper.getPayloadLength(prefix, 4);
+          }
+          if (frameLength case final expected?
+              when received.length >= expected && !receivedFrame.isCompleted) {
+            receivedFrame.complete(Uint8List.fromList(received));
+          }
+        });
+      });
+
+      final transport = SocketTransport(
+        InternetAddress.loopbackIPv4.address,
+        server.port,
+        serializer,
+        SocketHelper.serializationCbor,
+        messageLengthExponent: SocketHelper.maxMessageLengthExponent,
+      );
+      addTearDown(() => transport.close());
+      await transport.open();
+      transport.receive().listen((_) {});
+      await transport.onReady;
+      final payload = Uint8List.fromList(
+        List<int>.generate(256 * 1024, (index) => index & 0xff),
+      );
+
+      transport.send(
+        Call(11, 'bench.rpc.echo', arguments: <dynamic>[payload]),
+      );
+      final rawFrame = await receivedFrame.future.timeout(
+        const Duration(seconds: 5),
+      );
+
+      expect(rawFrame.first, SocketHelper.messageWamp);
+      final encodedLength = SocketHelper.getPayloadLength(rawFrame, 4);
+      expect(rawFrame, hasLength(4 + encodedLength));
+      final call =
+          serializer.deserialize(
+                Uint8List.sublistView(rawFrame, 4, rawFrame.length),
+              )
+              as Call;
+      expect(call.procedure, equals('bench.rpc.echo'));
+      expect(call.arguments!.single, orderedEquals(payload));
+    });
+
     test('closes connection when inbound WAMP frame is malformed', () async {
       final serializer = json_serializer.Serializer();
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);

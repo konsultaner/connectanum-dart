@@ -97,6 +97,70 @@ void main() {
     });
 
     test(
+      'setFile uses source-provided exact chunks without rechunking',
+      () async {
+        final transport = _FileTransferTransport();
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        var requestedChunkSize = 0;
+        final source = WampFileSource(
+          name: 'exact.bin',
+          length: 5,
+          openRead: () =>
+              throw StateError('fallback source must not be opened'),
+          openReadChunks: (chunkSize) {
+            requestedChunkSize = chunkSize;
+            return Stream<Uint8List>.fromIterable(<Uint8List>[
+              Uint8List.fromList(const <int>[0, 1, 2]),
+              Uint8List.fromList(const <int>[3, 4]),
+            ]);
+          },
+        );
+
+        await session.setFile('files.set', source, chunkSize: 3);
+
+        expect(requestedChunkSize, equals(3));
+        expect(
+          transport.calls
+              .skip(1)
+              .map((call) => (call.arguments!.single as Uint8List).toList()),
+          equals(const <List<int>>[
+            <int>[0, 1, 2],
+            <int>[3, 4],
+          ]),
+        );
+      },
+    );
+
+    test('setFile rejects oversized source-provided chunks', () async {
+      final transport = _FileTransferTransport();
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+      final source = WampFileSource(
+        name: 'oversized.bin',
+        length: 4,
+        openRead: () => throw StateError('fallback source must not be opened'),
+        openReadChunks: (_) => Stream<Uint8List>.value(
+          Uint8List.fromList(const <int>[0, 1, 2, 3]),
+        ),
+      );
+
+      await expectLater(
+        session.setFile('files.set', source, chunkSize: 3),
+        throwsA(isA<WampFileTransferException>()),
+      );
+      await _waitUntil(() => transport.cancels.isNotEmpty);
+      expect(
+        transport.cancels.single.options?.mode,
+        CancelOptions.modeKillNoWait,
+      );
+    });
+
+    test(
       'setFile terminates an empty file with an empty binary chunk',
       () async {
         final transport = _FileTransferTransport();
@@ -443,16 +507,44 @@ void main() {
       addTearDown(() => directory.delete(recursive: true));
       final file = File('${directory.path}/source.bin');
       await file.writeAsBytes(const <int>[4, 5, 6], flush: true);
+      final exactFile = File('${directory.path}/exact.bin');
+      await exactFile.writeAsBytes(const <int>[1, 2, 3, 4], flush: true);
+      final emptyFile = File('${directory.path}/empty.bin');
+      await emptyFile.writeAsBytes(const <int>[], flush: true);
 
       final source = await wampFileSourceFromPath(file.path);
       final streamed = <int>[];
       await for (final chunk in source.openRead()) {
         streamed.addAll(chunk);
       }
+      final exactChunks = await source.openReadChunks!(2)
+          .map((chunk) => chunk.toList())
+          .toList();
+      final exactSource = await wampFileSourceFromPath(exactFile.path);
+      final boundaryChunks = await exactSource.openReadChunks!(2)
+          .map((chunk) => chunk.toList())
+          .toList();
+      final emptySource = await wampFileSourceFromPath(emptyFile.path);
+      final emptyChunks = await emptySource.openReadChunks!(2).toList();
 
       expect(source.name, equals('source.bin'));
       expect(source.length, equals(3));
       expect(streamed, equals(const <int>[4, 5, 6]));
+      expect(
+        exactChunks,
+        equals(const <List<int>>[
+          <int>[4, 5],
+          <int>[6],
+        ]),
+      );
+      expect(
+        boundaryChunks,
+        equals(const <List<int>>[
+          <int>[1, 2],
+          <int>[3, 4],
+        ]),
+      );
+      expect(emptyChunks, isEmpty);
     });
   });
 }

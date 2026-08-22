@@ -99,6 +99,7 @@ class WampFileSource {
     required this.name,
     required this.length,
     required this.openRead,
+    this.openReadChunks,
     this.contentType,
     this.sha256Digest,
     this.nativePath,
@@ -127,6 +128,7 @@ class WampFileSource {
   final String name;
   final int length;
   final Stream<Uint8List> Function() openRead;
+  final Stream<Uint8List> Function(int chunkSize)? openReadChunks;
   final String? contentType;
   final String? sha256Digest;
   final String? nativePath;
@@ -244,7 +246,16 @@ extension WampFileSession on Session {
         }
         return await finalResult;
       }
-      await for (final chunk in _rechunkBytes(source.openRead(), chunkSize)) {
+      final chunks =
+          source.openReadChunks?.call(chunkSize) ??
+          _rechunkBytes(source.openRead(), chunkSize);
+      await for (final chunk in chunks) {
+        if (chunk.length > chunkSize) {
+          throw WampFileTransferException(
+            'Source emitted a ${chunk.length}-byte chunk above the '
+            '$chunkSize-byte limit',
+          );
+        }
         sentBytes += chunk.length;
         if (sentBytes > source.length) {
           throw WampFileTransferException(

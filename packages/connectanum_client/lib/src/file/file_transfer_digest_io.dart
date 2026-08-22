@@ -12,17 +12,20 @@ FileTransferDigest createFileTransferDigest({
 }) {
   final incoming = nativeIncomingMessageForAnchor(anchor);
   final message = incoming?.message;
-  if (message is! NativeSessionMessage ||
-      (message.serializer != NativeMessageSerializer.messagePack &&
-          message.serializer != NativeMessageSerializer.cbor)) {
-    return DartFileTransferDigest();
-  }
   try {
     final runtime = NativeClientRuntime.instance();
-    return allowNative
+    final canHashRetainedArgument =
+        message is NativeSessionMessage &&
+        (message.serializer == NativeMessageSerializer.messagePack ||
+            message.serializer == NativeMessageSerializer.cbor);
+    return allowNative && canHashRetainedArgument
         ? _NativeFileTransferDigest(runtime)
         : _NativeBytesFileTransferDigest(runtime);
   } on NativeTransportException {
+    return DartFileTransferDigest();
+  } on ArgumentError {
+    return DartFileTransferDigest();
+  } on UnsupportedError {
     return DartFileTransferDigest();
   }
 }

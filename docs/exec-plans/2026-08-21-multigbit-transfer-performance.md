@@ -274,6 +274,20 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   tests, 108 benchmark tests, the 468-test router suite, package-consumer and
   live WAMP/MCP smokes, remote auth, zero-copy follow-ups, and Chrome
   Dart2Wasm.
+- [x] Remove quadratic pure-Dart RawSocket fragmented-frame assembly, segment
+  large MessagePack/CBOR sends without creating a contiguous payload, read
+  path-backed buffered file chunks directly into exact-size buffers, and use
+  packaged native SHA-256 for ordinary Dart file-receive buffers when
+  available. The heavy 128 MiB Dart CBOR reference improves from 1.91 to 2.83
+  Gbit/s while native controls remain stable. Native clear/TLS/WebSocket file
+  paths reach 5.05-14.44 Gbit/s, while Dart CBOR and native AES-GCM E2EE remain
+  measured boundaries at 715 and 812 Mbit/s.
+- [x] Complete full local verification for the exact-accumulator and buffered
+  file-source revision. `bin/verify` passes with 128 Rust core tests, 67
+  ordinary Rust FFI tests, the focused `ffi-test` metrics regression, 380 Dart
+  core tests, 118 MCP tests, 108 benchmark tests, the 468-test router suite,
+  consumer and live WAMP/MCP smokes, remote auth, zero-copy follow-ups, and
+  Chrome Dart2Wasm.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

@@ -8,6 +8,32 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+The latest pure-Dart RawSocket follow-up removes quadratic fragmented-frame
+assembly and avoids joining large MessagePack/CBOR Call and Publish payloads
+before writing them to the socket. An exact-size accumulator now copies each
+incoming fragment once after the RawSocket header is known, while preserving
+frame-backed lazy payload ownership across coalesced trailing messages. The
+heavy 128 MiB Dart CBOR reference improves from 1.91 to 2.83 Gbit/s; native
+128/256 MiB MessagePack and CBOR controls remain stable at 3.87-9.87 Gbit/s.
+
+Path-backed buffered file sources now fill each requested WAMP chunk directly
+from a `RandomAccessFile`, including short-read, exact-boundary, empty-file,
+oversized-provider, and cancellation coverage. Pure-Dart file receivers use
+the packaged native SHA-256 implementation when available and preserve the
+Dart fallback when it is not. The canonical Dart CBOR result improves from
+665 to 715 Mbit/s, but a 4/16/64 MiB chunk sweep remains effectively flat at
+715/733/741 Mbit/s. Native clear, TLS, and WebSocket file paths remain between
+5.05 and 14.44 Gbit/s; native AES-GCM E2EE remains transform-bound near 812
+Mbit/s. Reaching 2 Gbit/s for those last two paths requires a larger
+native-owned receive/file pipeline or faster required transforms, not a larger
+default chunk. Focused socket, file, native-runtime, and fallback regressions
+pass;
+full exact-tree `bin/verify` also passes with 128 Rust core tests, 67 ordinary
+Rust FFI tests, the dedicated `ffi-test` metrics regression, 380 Dart core
+tests, 118 MCP tests, 108 benchmark tests, the 468-test router suite,
+consumer and live WAMP/MCP smokes, remote auth, zero-copy follow-ups, and
+Chrome Dart2Wasm.
+
 The current follow-up removes a TLS frame-tail stall from progressive native
 file delivery. Two concurrent native RawSocket/TLS senders could enqueue and
 write every 8 MiB file-backed frame while the final TLS record tail remained

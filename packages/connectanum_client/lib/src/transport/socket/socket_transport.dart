@@ -14,6 +14,7 @@ import '../abstract_transport.dart';
 /// payload.
 class SocketTransport extends AbstractTransport {
   static final _logger = Logger('Connectanum.SocketTransport');
+  static const _segmentedSendThreshold = 64 * 1024;
 
   late bool _ssl;
   late bool _allowInsecureCertificates;
@@ -29,6 +30,8 @@ class SocketTransport extends AbstractTransport {
   Duration? _pingInterval;
   final AbstractSerializer _serializer;
   Uint8List _inboundBuffer = Uint8List(0);
+  Uint8List? _inboundFrameBuffer;
+  int _inboundFrameLength = 0;
   Uint8List? _outboundBuffer = Uint8List(0);
   late Completer _handshakeCompleter;
   Completer? _pingCompleter;
@@ -164,6 +167,9 @@ class SocketTransport extends AbstractTransport {
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     _handshakeCompleter = Completer();
+    _inboundBuffer = Uint8List(0);
+    _inboundFrameBuffer = null;
+    _inboundFrameLength = 0;
     _goodbyeSent = false;
     _goodbyeReceived = false;
     try {
@@ -217,7 +223,37 @@ class SocketTransport extends AbstractTransport {
   }
 
   List<AbstractMessage> _consumeInboundChunk(List<int> message) {
-    final inboundData = _mergeInboundChunk(message);
+    final typedMessage = message is Uint8List
+        ? message
+        : Uint8List.fromList(message);
+    final frameBuffer = _inboundFrameBuffer;
+    if (frameBuffer != null) {
+      final missing = frameBuffer.length - _inboundFrameLength;
+      final take = min(missing, typedMessage.length);
+      frameBuffer.setRange(
+        _inboundFrameLength,
+        _inboundFrameLength + take,
+        typedMessage,
+      );
+      _inboundFrameLength += take;
+      if (_inboundFrameLength < frameBuffer.length) {
+        return const [];
+      }
+
+      _inboundFrameBuffer = null;
+      _inboundFrameLength = 0;
+      final messages = _handleMessage(frameBuffer);
+      if (take < typedMessage.length && !_onConnectionLost!.isCompleted) {
+        messages.addAll(
+          _consumeInboundChunk(
+            Uint8List.sublistView(typedMessage, take, typedMessage.length),
+          ),
+        );
+      }
+      return messages;
+    }
+
+    final inboundData = _mergeInboundChunk(typedMessage);
     final negotiatedData = _consumeNegotiation(inboundData);
     if (negotiatedData.isEmpty) {
       return const [];
@@ -240,8 +276,13 @@ class SocketTransport extends AbstractTransport {
       );
       return const [];
     }
-    if (negotiatedData.length < headerLength + payloadLength) {
-      _inboundBuffer = negotiatedData;
+    final frameLength = headerLength + payloadLength;
+    if (negotiatedData.length < frameLength) {
+      final buffer = Uint8List(frameLength);
+      buffer.setRange(0, negotiatedData.length, negotiatedData);
+      _inboundBuffer = Uint8List(0);
+      _inboundFrameBuffer = buffer;
+      _inboundFrameLength = negotiatedData.length;
       return const [];
     }
     return _handleMessage(negotiatedData);
@@ -462,12 +503,12 @@ class SocketTransport extends AbstractTransport {
           ),
         );
       } else {
-        // send the rest of the message back to the buffer
-        _inboundBuffer = Uint8List.sublistView(
-          inboundData,
-          offset,
-          inboundData.length,
-        );
+        final frameLength = headerLength + messageLength;
+        final buffer = Uint8List(frameLength);
+        buffer.setRange(0, remaining, inboundData, offset);
+        _inboundBuffer = Uint8List(0);
+        _inboundFrameBuffer = buffer;
+        _inboundFrameLength = remaining;
         break;
       }
       offset += headerLength + messageLength;
@@ -507,11 +548,41 @@ class SocketTransport extends AbstractTransport {
     if (message is Goodbye) {
       _goodbyeSent = true;
     }
-    var serialalizedMessage = _serializer.serialize(message);
-    if (serialalizedMessage is String) {
-      serialalizedMessage = utf8.encoder.convert(serialalizedMessage);
+    final fragments = _handshakeCompleter.isCompleted
+        ? _serializer.serializeFragments(message)
+        : null;
+    Uint8List? fragmentedPayload;
+    if (fragments != null) {
+      var payloadLength = 0;
+      for (final fragment in fragments) {
+        payloadLength += fragment.length;
+      }
+      if (payloadLength >= _segmentedSendThreshold) {
+        _send0(
+          SocketHelper.buildMessageHeader(
+            SocketHelper.messageWamp,
+            payloadLength,
+            isUpgradedProtocol,
+          ),
+        );
+        for (final fragment in fragments) {
+          if (fragment.isNotEmpty) {
+            _send0(fragment);
+          }
+        }
+        return;
+      }
+      final builder = BytesBuilder(copy: false);
+      for (final fragment in fragments) {
+        builder.add(fragment);
+      }
+      fragmentedPayload = builder.takeBytes();
     }
-    final frame = _buildWampFrame(serialalizedMessage as List<int>);
+    var serializedMessage = fragmentedPayload ?? _serializer.serialize(message);
+    if (serializedMessage is String) {
+      serializedMessage = utf8.encoder.convert(serializedMessage);
+    }
+    final frame = _buildWampFrame(serializedMessage as List<int>);
     if (!_handshakeCompleter.isCompleted) {
       if (_outboundBuffer!.isEmpty) {
         _handshakeCompleter.future.then((aVoid) {
