@@ -1489,6 +1489,9 @@ pub enum Error {
     /// A file-backed outbound segment was invalid for the selected connection.
     #[error("invalid outbound file segment: {0}")]
     InvalidFileSegment(&'static str),
+    /// A deferred outbound segment had an invalid length.
+    #[error("invalid deferred outbound segment: {0}")]
+    InvalidDeferredSegment(&'static str),
 }
 
 const NATIVE_RUNTIME_THREADS_ENV: &str = "CONNECTANUM_NATIVE_RUNTIME_THREADS";
@@ -2984,11 +2987,11 @@ struct OutboundFileSegment {
     len: usize,
 }
 
-#[derive(Debug)]
 struct OutboundFrame {
     frame_type: u8,
     payload_len: usize,
     segments: Vec<Bytes>,
+    deferred_segment: Option<Box<dyn FnOnce() -> Result<Bytes, String> + Send + 'static>>,
     file_segment: Option<OutboundFileSegment>,
     suffix_segments: Vec<Bytes>,
 }
@@ -3000,6 +3003,7 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len: len,
             segments: vec![payload],
+            deferred_segment: None,
             file_segment: None,
             suffix_segments: Vec::new(),
         }
@@ -3011,9 +3015,32 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len,
             segments,
+            deferred_segment: None,
             file_segment: None,
             suffix_segments: Vec::new(),
         }
+    }
+
+    fn message_deferred_segment<F>(
+        prefix: Bytes,
+        deferred_len: usize,
+        prepare: F,
+    ) -> Result<Self, Error>
+    where
+        F: FnOnce() -> Result<Bytes, String> + Send + 'static,
+    {
+        let payload_len = prefix
+            .len()
+            .checked_add(deferred_len)
+            .ok_or(Error::InvalidDeferredSegment("payload length overflow"))?;
+        Ok(Self {
+            frame_type: 0,
+            payload_len,
+            segments: vec![prefix],
+            deferred_segment: Some(Box::new(prepare)),
+            file_segment: None,
+            suffix_segments: Vec::new(),
+        })
     }
 
     fn message_file_segment(
@@ -3032,6 +3059,7 @@ impl OutboundFrame {
             frame_type: 0,
             payload_len,
             segments: vec![prefix],
+            deferred_segment: None,
             file_segment: Some(OutboundFileSegment { file, offset, len }),
             suffix_segments: vec![suffix],
         })
@@ -3043,6 +3071,7 @@ impl OutboundFrame {
             frame_type,
             payload_len: len,
             segments: vec![payload],
+            deferred_segment: None,
             file_segment: None,
             suffix_segments: Vec::new(),
         }
@@ -3147,6 +3176,33 @@ fn spawn_connection_reader(
     task.abort_handle()
 }
 
+async fn resolve_deferred_segment(mut frame: OutboundFrame) -> Result<OutboundFrame, String> {
+    let Some(prepare) = frame.deferred_segment.take() else {
+        return Ok(frame);
+    };
+    let segment = tokio::task::spawn_blocking(prepare)
+        .await
+        .map_err(|err| format!("preparation task failed: {err}"))??;
+    let actual_len = frame
+        .segments
+        .iter()
+        .chain(std::iter::once(&segment))
+        .chain(frame.suffix_segments.iter())
+        .try_fold(
+            frame.file_segment.as_ref().map_or(0usize, |file| file.len),
+            |sum, part| sum.checked_add(part.len()),
+        )
+        .ok_or_else(|| "prepared payload length overflow".to_string())?;
+    if actual_len != frame.payload_len {
+        return Err(format!(
+            "prepared payload length {actual_len} did not match expected {}",
+            frame.payload_len
+        ));
+    }
+    frame.segments.push(segment);
+    Ok(frame)
+}
+
 fn spawn_connection_writer(
     handle: tokio::runtime::Handle,
     connection_id: ConnectionId,
@@ -3160,6 +3216,16 @@ fn spawn_connection_writer(
         let upgraded_protocol = max_message_size_exponent > 24;
         let mut file_scratch = Vec::new();
         'writer: while let Some(frame) = rx.recv().await {
+            let frame = match resolve_deferred_segment(frame).await {
+                Ok(frame) => frame,
+                Err(err) => {
+                    eprintln!(
+                        "connection {:?} failed to prepare deferred frame: {}",
+                        connection_id, err
+                    );
+                    break;
+                }
+            };
             if frame.frame_type > 2 {
                 continue;
             }
@@ -3439,6 +3505,17 @@ fn spawn_websocket_writer(
         let mut mask_scratch = Vec::new();
         let mut file_scratch = Vec::new();
         while let Some(frame) = rx.recv().await {
+            let frame = match resolve_deferred_segment(frame).await {
+                Ok(frame) => frame,
+                Err(err) => {
+                    eprintln!(
+                        "connection {:?} failed to prepare deferred websocket frame: {}",
+                        connection_id, err
+                    );
+                    write_failed = true;
+                    break;
+                }
+            };
             let is_close_frame = frame.frame_type == 3;
             let opcode = match frame.frame_type {
                 0 => match serializer {
@@ -5306,6 +5383,21 @@ pub fn send_wamp_segments(connection_id: ConnectionId, segments: Vec<Bytes>) -> 
             .registry
             .enqueue_frame(connection_id, OutboundFrame::message_segments(segments))
     })
+}
+
+/// Enqueues a WAMP message whose final segment is prepared off the async runtime.
+pub fn send_wamp_deferred_segment<F>(
+    connection_id: ConnectionId,
+    prefix: Bytes,
+    deferred_len: usize,
+    prepare: F,
+) -> Result<(), Error>
+where
+    F: FnOnce() -> Result<Bytes, String> + Send + 'static,
+{
+    let frame = OutboundFrame::message_deferred_segment(prefix, deferred_len, prepare)?;
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.enqueue_frame(connection_id, frame))
 }
 
 /// Enqueues one WAMP frame containing a file-backed payload segment.
@@ -7738,6 +7830,66 @@ mod tests {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn deferred_segment_resolves_off_runtime_with_exact_length() {
+        let runtime_thread = std::thread::current().id();
+        let frame =
+            OutboundFrame::message_deferred_segment(Bytes::from_static(b"prefix"), 7, move || {
+                assert_ne!(std::thread::current().id(), runtime_thread);
+                Ok(Bytes::from_static(b"payload"))
+            })
+            .unwrap();
+
+        let resolved = resolve_deferred_segment(frame).await.unwrap();
+        assert_eq!(resolved.payload_len, 13);
+        assert_eq!(resolved.segments.len(), 2);
+        assert_eq!(resolved.segments[0].as_ref(), b"prefix");
+        assert_eq!(resolved.segments[1].as_ref(), b"payload");
+        assert!(resolved.deferred_segment.is_none());
+    }
+
+    #[tokio::test]
+    async fn deferred_segment_rejects_prepared_length_mismatch() {
+        let frame =
+            OutboundFrame::message_deferred_segment(Bytes::from_static(b"prefix"), 7, || {
+                Ok(Bytes::from_static(b"short"))
+            })
+            .unwrap();
+
+        let err = match resolve_deferred_segment(frame).await {
+            Ok(_) => panic!("expected deferred length mismatch"),
+            Err(err) => err,
+        };
+        assert!(err.contains("prepared payload length 11 did not match expected 13"));
+    }
+
+    #[tokio::test]
+    async fn deferred_segment_propagates_preparation_error() {
+        let frame =
+            OutboundFrame::message_deferred_segment(Bytes::from_static(b"prefix"), 7, || {
+                Err("encryption failed".to_string())
+            })
+            .unwrap();
+
+        let err = match resolve_deferred_segment(frame).await {
+            Ok(_) => panic!("expected deferred preparation error"),
+            Err(err) => err,
+        };
+        assert_eq!(err, "encryption failed");
+    }
+
+    #[test]
+    fn deferred_segment_rejects_payload_length_overflow() {
+        let result =
+            OutboundFrame::message_deferred_segment(Bytes::from_static(b"x"), usize::MAX, || {
+                Ok(Bytes::new())
+            });
+        assert!(matches!(
+            result,
+            Err(Error::InvalidDeferredSegment("payload length overflow"))
+        ));
+    }
+
     #[tokio::test]
     async fn exact_frame_payload_read_handles_fragmented_input_without_padding() {
         let (mut writer, mut reader) = tokio::io::duplex(4);
@@ -8091,13 +8243,18 @@ mod tests {
             },
         );
 
-        match registry.enqueue_frame(
-            connection_id,
-            OutboundFrame::message(Bytes::from_static(b"two")),
-        ) {
+        let prepared = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let prepared_by_closure = Arc::clone(&prepared);
+        let deferred = OutboundFrame::message_deferred_segment(Bytes::new(), 3, move || {
+            prepared_by_closure.store(true, Ordering::SeqCst);
+            Ok(Bytes::from_static(b"two"))
+        })
+        .unwrap();
+        match registry.enqueue_frame(connection_id, deferred) {
             Err(Error::SendQueueFull(id)) => assert_eq!(id, connection_id),
             other => panic!("expected SendQueueFull, got {other:?}"),
         }
+        assert!(!prepared.load(Ordering::SeqCst));
     }
 
     #[test]

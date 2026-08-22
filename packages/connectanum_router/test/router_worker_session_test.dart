@@ -3762,7 +3762,7 @@ void main() {
     );
 
     test(
-      'uses native forwarding for plain progressive invocation chunks',
+      'uses native forwarding for complete E2EE progressive chunks',
       () async {
         final bossMessages = <Map<String, Object?>>[];
         final bossPort = ReceivePort()
@@ -3838,7 +3838,13 @@ void main() {
           final call = call_msg.Call(
             8201,
             'com.native.upload',
-            options: call_msg.CallOptions(progress: progress),
+            options: call_msg.CallOptions(
+              progress: progress,
+              pptScheme: 'wamp',
+              pptSerializer: 'cbor',
+              pptCipher: 'aes256gcm',
+              pptKeyId: 'upload-key',
+            ),
             arguments: [Uint8List(32)],
           );
           final incoming = NativeIncomingMessage.test(

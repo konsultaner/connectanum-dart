@@ -1569,7 +1569,6 @@ Future<void> _handleCall({
     }
     if (!dispatch.timeoutForwarded &&
         message.options?.transactionHash == null &&
-        message.options?.pptScheme != 'wamp' &&
         _canUseNativeProgressiveInvocationForwarding(
           dispatch: dispatch,
           message: message,
@@ -2673,17 +2672,13 @@ bool _canUseNativeProgressiveInvocationForwarding({
   required call_msg.Call message,
 }) {
   if (!dispatch.progressiveInvocation) {
-    return true;
+    return message.options?.pptScheme != 'wamp';
   }
   final options = message.options;
-  return dispatch.initiatingOptions['ppt_scheme'] == null &&
-      dispatch.initiatingOptions['ppt_serializer'] == null &&
-      dispatch.initiatingOptions['ppt_cipher'] == null &&
-      dispatch.initiatingOptions['ppt_keyid'] == null &&
-      options?.pptScheme == null &&
-      options?.pptSerializer == null &&
-      options?.pptCipher == null &&
-      options?.pptKeyId == null &&
+  return dispatch.initiatingOptions['ppt_scheme'] == options?.pptScheme &&
+      dispatch.initiatingOptions['ppt_serializer'] == options?.pptSerializer &&
+      dispatch.initiatingOptions['ppt_cipher'] == options?.pptCipher &&
+      dispatch.initiatingOptions['ppt_keyid'] == options?.pptKeyId &&
       _filteredInvocationOptionDetails(dispatch.initiatingOptions).isEmpty;
 }
 

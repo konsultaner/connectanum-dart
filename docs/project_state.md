@@ -8,6 +8,29 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+The latest native E2EE file follow-up moves file reads and encryption off the
+async socket runtime, validates the exact transformed length before emitting a
+frame header, and uses the platform-accelerated `ring` AES-256-GCM backend while
+retaining cross-backend wire-compatibility coverage. Progressive `wamp` PPT
+chunks now keep retained native CALL-to-INVOCATION forwarding only when every
+chunk repeats the initiating serializer, cipher, and key ID exactly; changed,
+omitted, or custom metadata retains the validated Dart fallback. A sustained 4
+GiB AES-GCM file run improves from 791.90 Mbit/s to 2.087 Gbit/s. The complete
+64 MiB file matrix reaches 13.11/8.85 Gbit/s for clear native
+MessagePack/CBOR, 6.88 Gbit/s for native TLS CBOR, 5.02 Gbit/s for native
+WebSocket CBOR, and 700 Mbit/s for the pure-Dart buffered fallback. Heavy
+native 128/256 MiB RawSocket frames reach 9.55/6.14 Gbit/s one-way for
+MessagePack and 5.85/3.81 Gbit/s one-way for CBOR, with aggregate duplex rates
+of 19.10/12.28 and 11.70/7.62 Gbit/s respectively. The 128 MiB Dart CBOR
+reference reaches 2.80 Gbit/s one-way and 5.60 Gbit/s aggregate. Clear native
+RawSocket files continue to use kernel `sendfile` on Linux and macOS. TLS,
+WebSocket masking, JSON/base64, and E2EE must transform bytes and therefore
+cannot provide literal filesystem-to-socket zero copy. Full exact-code
+`bin/verify` passes with 132 Rust core tests, 69 ordinary Rust FFI tests, the
+dedicated `ffi-test` metrics regression, 380 Dart core tests, 118 MCP tests,
+108 benchmark tests with live WAMP workloads, the 468-test router suite,
+consumer smokes, remote auth, zero-copy follow-ups, and Chrome Dart2Wasm.
+
 The latest pure-Dart RawSocket follow-up removes quadratic fragmented-frame
 assembly and avoids joining large MessagePack/CBOR Call and Publish payloads
 before writing them to the socket. An exact-size accumulator now copies each

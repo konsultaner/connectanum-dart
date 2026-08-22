@@ -195,6 +195,17 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   2.91-9.29 Gbit/s. Dart buffered file transfer, native E2EE, and 128 MiB Dart
   CBOR remain measured sub-target boundaries at 607-630 Mbit/s, 811 Mbit/s,
   and 1.68 Gbit/s respectively.
+- Native E2EE file preparation now runs off the async socket runtime, validates
+  exact transformed lengths before framing, and uses `ring` AES-256-GCM.
+  Progressive PPT chunks retain native router forwarding only when their
+  scheme, serializer, cipher, and key ID exactly match the initiating CALL.
+  A sustained 4 GiB run improves from 791.90 Mbit/s to 2.087 Gbit/s. The full
+  file matrix reaches 5.02-13.11 Gbit/s across native clear/TLS/WebSocket
+  paths, while the pure-Dart buffered path remains a 700 Mbit/s boundary. The
+  heavy native 128/256 MiB RawSocket matrix reaches 3.81-9.55 Gbit/s one-way
+  and 7.62-19.10 Gbit/s aggregate across CBOR and MessagePack. Its 128 MiB
+  Dart CBOR reference reaches 2.80 Gbit/s one-way and 5.60 Gbit/s aggregate.
+  Transformed paths cannot preserve literal kernel zero copy.
 
 ## Plan
 
@@ -288,6 +299,14 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   core tests, 118 MCP tests, 108 benchmark tests, the 468-test router suite,
   consumer and live WAMP/MCP smokes, remote auth, zero-copy follow-ups, and
   Chrome Dart2Wasm.
+- [x] Move native E2EE file preparation off the async runtime, accelerate
+  AES-256-GCM with the `ring` backend, and retain complete progressive PPT
+  chunks across router workers without weakening metadata fallback rules.
+  Sustained E2EE file throughput now exceeds 2 Gbit/s locally, and the repeated
+  128/256 MiB native RawSocket matrix reaches 3.81-9.55 Gbit/s one-way. Full
+  `bin/verify` passes with 132 Rust core, 69 ordinary Rust FFI, 380 Dart core,
+  118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus consumer,
+  remote-auth, zero-copy, and Chrome Dart2Wasm coverage.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

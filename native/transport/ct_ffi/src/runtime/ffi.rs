@@ -23,7 +23,11 @@ use std::collections::VecDeque;
 #[cfg(feature = "ffi-test")]
 use tokio::runtime::Runtime as TokioRuntime;
 
-use aes_gcm::{aead::AeadInPlace, Aes256Gcm, Key as AesKey, Nonce as AesNonce};
+use ring::{
+    aead::{Aad as RingAad, LessSafeKey, Nonce as RingNonce, UnboundKey, AES_256_GCM},
+    rand::{SecureRandom as _, SystemRandom},
+};
+
 #[cfg(feature = "ffi-test")]
 use ct_core::parse_message;
 use ct_core::{
@@ -35,12 +39,12 @@ use ct_core::{
     connection_take_http2_handshake, connection_take_http3_handshake,
     connection_take_websocket_handshake, connection_websocket_protocol, listen,
     listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
-    send_wamp_file_segment, send_wamp_message, send_wamp_segments, shutdown, start_runtime,
-    wait_connection_message, ConnectionId, ConnectionProtocol, Error as CoreError,
-    HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
-    HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
-    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, WampMessage,
-    RESPONSE_STREAM_BUFFER,
+    send_wamp_deferred_segment, send_wamp_file_segment, send_wamp_message, send_wamp_segments,
+    shutdown, start_runtime, wait_connection_message, ConnectionId, ConnectionProtocol,
+    Error as CoreError, HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot,
+    HttpMetricsSnapshot, HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody,
+    HttpResponseDispatch, HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer,
+    WampMessage, RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -379,6 +383,7 @@ fn map_error(err: CoreError) -> c_int {
         CoreError::SendQueueFull(_) => ERR_SEND_QUEUE_FULL,
         CoreError::InvalidRuntimeThreadCount(_) => ERR_INVALID_ARGUMENT,
         CoreError::InvalidFileSegment(_) => ERR_INVALID_ARGUMENT,
+        CoreError::InvalidDeferredSegment(_) => ERR_INVALID_ARGUMENT,
         CoreError::Io(_) => ERR_IO,
     }
 }
@@ -696,25 +701,29 @@ fn decrypt_e2ee_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, c_int>
         .map_err(|_| ERR_DECRYPT_FAILED)
 }
 
-fn normalize_aes256_gcm_key_material(key: &[u8]) -> Result<AesKey<Aes256Gcm>, c_int> {
-    if key.len() != E2EE_KEY_LEN {
-        return Err(ERR_INVALID_ARGUMENT);
-    }
-    Ok(*AesKey::<Aes256Gcm>::from_slice(key))
+fn aes256_gcm_key(key: &[u8]) -> Result<LessSafeKey, c_int> {
+    let key = UnboundKey::new(&AES_256_GCM, key).map_err(|_| ERR_INVALID_ARGUMENT)?;
+    Ok(LessSafeKey::new(key))
 }
 
 fn encrypt_e2ee_aes256_gcm_payload(key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, c_int> {
-    let cipher = Aes256Gcm::new(&normalize_aes256_gcm_key_material(key)?);
-    let mut nonce = AesNonce::default();
-    OsRng.fill_bytes(nonce.as_mut_slice());
+    let cipher = aes256_gcm_key(key)?;
+    let mut nonce_bytes = [0_u8; E2EE_AES256_GCM_NONCE_LEN];
+    SystemRandom::new()
+        .fill(&mut nonce_bytes)
+        .map_err(|_| ERR_INTERNAL)?;
     let mut combined =
         Vec::with_capacity(E2EE_AES256_GCM_NONCE_LEN + plaintext.len() + E2EE_AUTH_TAG_LEN);
-    combined.extend_from_slice(nonce.as_slice());
+    combined.extend_from_slice(&nonce_bytes);
     combined.extend_from_slice(plaintext);
     let tag = cipher
-        .encrypt_in_place_detached(&nonce, b"", &mut combined[E2EE_AES256_GCM_NONCE_LEN..])
+        .seal_in_place_separate_tag(
+            RingNonce::assume_unique_for_key(nonce_bytes),
+            RingAad::empty(),
+            &mut combined[E2EE_AES256_GCM_NONCE_LEN..],
+        )
         .map_err(|_| ERR_INTERNAL)?;
-    combined.extend_from_slice(tag.as_slice());
+    combined.extend_from_slice(tag.as_ref());
     Ok(combined)
 }
 
@@ -722,12 +731,21 @@ fn decrypt_e2ee_aes256_gcm_payload(key: &[u8], ciphertext: &[u8]) -> Result<Vec<
     if ciphertext.len() < E2EE_AES256_GCM_NONCE_LEN {
         return Err(ERR_INVALID_ARGUMENT);
     }
-    let cipher = Aes256Gcm::new(&normalize_aes256_gcm_key_material(key)?);
+    let cipher = aes256_gcm_key(key)?;
     let (nonce_bytes, message) = ciphertext.split_at(E2EE_AES256_GCM_NONCE_LEN);
-    let nonce = AesNonce::from_slice(nonce_bytes);
-    cipher
-        .decrypt(nonce, message)
-        .map_err(|_| ERR_DECRYPT_FAILED)
+    let nonce_bytes = <[u8; E2EE_AES256_GCM_NONCE_LEN]>::try_from(nonce_bytes)
+        .map_err(|_| ERR_INVALID_ARGUMENT)?;
+    let mut plaintext = message.to_vec();
+    let plaintext_len = cipher
+        .open_in_place(
+            RingNonce::assume_unique_for_key(nonce_bytes),
+            RingAad::empty(),
+            &mut plaintext,
+        )
+        .map_err(|_| ERR_DECRYPT_FAILED)?
+        .len();
+    plaintext.truncate(plaintext_len);
+    Ok(plaintext)
 }
 
 fn encode_event_segments_json(
@@ -4857,23 +4875,71 @@ pub extern "C" fn ct_send_message_native_e2ee_file_segment(
         Some(None) => return ERR_KEY_NOT_FOUND,
         None => return ERR_HANDLE_UNAVAILABLE,
     };
-    let encrypted = match cipher_code {
-        1 => read_native_e2ee_file_payload(&file, file_offset, file_len)
-            .and_then(|plaintext| encrypt_e2ee_payload(key.as_ref(), &plaintext)),
-        2 => encrypt_e2ee_aes256_gcm_file_payload(key.as_ref(), &file, file_offset, file_len),
-        _ => Err(ERR_INVALID_ARGUMENT),
-    };
-    let encrypted = match encrypted {
+    let deferred_len = match native_e2ee_file_encrypted_len(key.as_ref(), file_len, cipher_code) {
         Ok(value) => value,
         Err(code) => return code,
     };
-    match send_wamp_segments(
+    let end = match file_offset.checked_add(file_len as u64) {
+        Some(end) => end,
+        None => return ERR_INVALID_ARGUMENT,
+    };
+    let metadata = match file.metadata() {
+        Ok(metadata) => metadata,
+        Err(_) => return ERR_IO,
+    };
+    if end > metadata.len() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    match send_wamp_deferred_segment(
         ConnectionId(connection_id as u32),
-        vec![prefix, Bytes::from(encrypted)],
+        prefix,
+        deferred_len,
+        move || {
+            let encrypted = match cipher_code {
+                1 => read_native_e2ee_file_payload(&file, file_offset, file_len)
+                    .and_then(|plaintext| encrypt_e2ee_payload(key.as_ref(), &plaintext)),
+                2 => {
+                    encrypt_e2ee_aes256_gcm_file_payload(key.as_ref(), &file, file_offset, file_len)
+                }
+                _ => Err(ERR_INVALID_ARGUMENT),
+            };
+            encrypted
+                .map(Bytes::from)
+                .map_err(|code| format!("native E2EE file encryption failed with code {code}"))
+        },
     ) {
         Ok(()) => SUCCESS,
         Err(err) => map_error(err),
     }
+}
+
+fn native_e2ee_file_encrypted_len(
+    key: &[u8],
+    file_len: usize,
+    cipher_code: c_int,
+) -> Result<usize, c_int> {
+    match cipher_code {
+        1 => {
+            normalize_key_material(key)?;
+        }
+        2 => {
+            aes256_gcm_key(key)?;
+        }
+        _ => return Err(ERR_INVALID_ARGUMENT),
+    }
+    let plaintext_len = file_len
+        .checked_add(cbor_byte_string_header(file_len)?.len())
+        .and_then(|length| length.checked_add(15))
+        .ok_or(ERR_INVALID_ARGUMENT)?;
+    let nonce_len = if cipher_code == 1 {
+        E2EE_NONCE_LEN
+    } else {
+        E2EE_AES256_GCM_NONCE_LEN
+    };
+    nonce_len
+        .checked_add(plaintext_len)
+        .and_then(|length| length.checked_add(E2EE_AUTH_TAG_LEN))
+        .ok_or(ERR_INVALID_ARGUMENT)
 }
 
 fn read_native_e2ee_file_payload(
@@ -4925,11 +4991,13 @@ fn encrypt_e2ee_aes256_gcm_file_payload(
         .and_then(|length| length.checked_add(E2EE_AUTH_TAG_LEN))
         .ok_or(ERR_INVALID_ARGUMENT)?;
 
-    let cipher = Aes256Gcm::new(&normalize_aes256_gcm_key_material(key)?);
-    let mut nonce = AesNonce::default();
-    OsRng.fill_bytes(nonce.as_mut_slice());
+    let cipher = aes256_gcm_key(key)?;
+    let mut nonce_bytes = [0_u8; E2EE_AES256_GCM_NONCE_LEN];
+    SystemRandom::new()
+        .fill(&mut nonce_bytes)
+        .map_err(|_| ERR_INTERNAL)?;
     let mut combined = Vec::with_capacity(capacity);
-    combined.extend_from_slice(nonce.as_slice());
+    combined.extend_from_slice(&nonce_bytes);
     combined.extend_from_slice(&[0xa2, 0x64, b'a', b'r', b'g', b's', 0x81]);
     combined.extend_from_slice(&binary_header);
     let payload_start = combined.len();
@@ -4942,9 +5010,13 @@ fn encrypt_e2ee_aes256_gcm_file_payload(
     combined.extend_from_slice(&[0x66, b'k', b'w', b'a', b'r', b'g', b's', 0xf6]);
 
     let tag = cipher
-        .encrypt_in_place_detached(&nonce, b"", &mut combined[E2EE_AES256_GCM_NONCE_LEN..])
+        .seal_in_place_separate_tag(
+            RingNonce::assume_unique_for_key(nonce_bytes),
+            RingAad::empty(),
+            &mut combined[E2EE_AES256_GCM_NONCE_LEN..],
+        )
         .map_err(|_| ERR_INTERNAL)?;
-    combined.extend_from_slice(tag.as_slice());
+    combined.extend_from_slice(tag.as_ref());
     Ok(combined)
 }
 
@@ -5980,10 +6052,60 @@ mod tests {
         );
         assert_eq!(encrypted.len(), 12 + plaintext.len() + 16);
         assert_eq!(
+            native_e2ee_file_encrypted_len(&key, 4, 2),
+            Ok(encrypted.len())
+        );
+        assert_eq!(
             encrypt_e2ee_aes256_gcm_file_payload(&key, &file, 5, 3),
             Err(ERR_INVALID_ARGUMENT)
         );
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn native_e2ee_aes_is_wire_compatible_with_rustcrypto() {
+        let key = (1_u8..=32).collect::<Vec<_>>();
+        let plaintext = b"cross-backend AES-256-GCM payload";
+        let rustcrypto = aes_gcm::Aes256Gcm::new_from_slice(&key).unwrap();
+
+        let ring_encrypted = encrypt_e2ee_aes256_gcm_payload(&key, plaintext).unwrap();
+        let ring_nonce = aes_gcm::Nonce::from_slice(&ring_encrypted[..E2EE_AES256_GCM_NONCE_LEN]);
+        assert_eq!(
+            rustcrypto
+                .decrypt(ring_nonce, &ring_encrypted[E2EE_AES256_GCM_NONCE_LEN..])
+                .unwrap(),
+            plaintext
+        );
+
+        let nonce_bytes = [7_u8; E2EE_AES256_GCM_NONCE_LEN];
+        let rustcrypto_encrypted = rustcrypto
+            .encrypt(
+                aes_gcm::Nonce::from_slice(&nonce_bytes),
+                plaintext.as_slice(),
+            )
+            .unwrap();
+        let mut combined = nonce_bytes.to_vec();
+        combined.extend_from_slice(&rustcrypto_encrypted);
+        assert_eq!(
+            decrypt_e2ee_aes256_gcm_payload(&key, &combined).unwrap(),
+            plaintext
+        );
+    }
+
+    #[test]
+    fn native_e2ee_file_encrypted_len_matches_xsalsa_payload() {
+        let key = (1_u8..=32).collect::<Vec<_>>();
+        let plaintext_len = 64 + cbor_byte_string_header(64).unwrap().len() + 15;
+        let encrypted = encrypt_e2ee_payload(&key, &vec![0; plaintext_len]).unwrap();
+
+        assert_eq!(
+            native_e2ee_file_encrypted_len(&key, 64, 1),
+            Ok(encrypted.len())
+        );
+        assert_eq!(
+            native_e2ee_file_encrypted_len(&key, 64, 99),
+            Err(ERR_INVALID_ARGUMENT)
+        );
     }
 
     #[test]

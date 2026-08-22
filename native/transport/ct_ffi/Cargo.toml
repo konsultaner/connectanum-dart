@@ -27,7 +27,7 @@ h3 = { version = "0.0.8", default-features = false }
 h3-quinn = { version = "0.0.10", default-features = false }
 futures-util = { version = "0.3", default-features = false, features = ["std"], optional = true }
 rand_core = { version = "0.6", features = ["getrandom"] }
-aes-gcm = "0.10"
+ring = "0.17"
 xsalsa20poly1305 = "0.9"
 sha2 = "0.10"
 
@@ -35,6 +35,7 @@ sha2 = "0.10"
 sha2 = { version = "0.10", features = ["asm"] }
 
 [dev-dependencies]
+aes-gcm = "0.10"
 rcgen = "0.13"
 h2 = { version = "0.3" }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
