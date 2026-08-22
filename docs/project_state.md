@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-22
+Last updated: 2026-08-23
 Current branch: `codex/mcp-public-http-auth-discovery`
 Current milestone: remove avoidable copies and CPU amplification from large
 WAMP frames and progressive file delivery, then establish repeatable
@@ -32,6 +32,25 @@ same turn instead of falsely rejecting safe back-to-back chunks. As before,
 clear native MessagePack/CBOR RawSocket file frames use kernel `sendfile` on
 Linux and macOS; JSON/base64, TLS, WebSocket masking, and E2EE require
 transforms and cannot be literal filesystem-to-socket zero-copy paths.
+
+Large native receipt checksums no longer serialize transport progress behind
+SHA-256. Native external chunks of at least 256 KiB are copied before the FFI
+call returns into a per-digest FIFO worker with a two-chunk bounded queue and a
+256 KiB stack; the ownership copy is required because Dart typed-list memory is
+mutable and therefore cannot safely outlive the call. Finalization and release
+drain or cancel the worker and join it deterministically, while small and
+non-native chunks retain the synchronous path. A focused single-session 2 GiB
+E2EE run reaches 2.115/2.085 Gbit/s data/lifecycle throughput, and the checked-in
+4 GiB, eight-session heavy row reaches 2.433/2.366 Gbit/s. The complete current
+heavy file matrix passes every row above 2 Gbit/s over both windows, including
+3.036 Gbit/s lifecycle for Dart JSON and 9.828-16.583 Gbit/s for the clear
+native zero-copy/segmented rows. The short eight-iteration E2EE control remains
+visible at 2.017/1.847 Gbit/s because setup dominates that measurement window;
+the sustained checked-in workload is the production throughput evidence. Full
+exact-tree `bin/verify` passes with 134 Rust core tests, 78 ordinary FFI tests,
+397 Dart core tests, 118 MCP tests, 116 benchmark tests, 468 router tests,
+consumer and live WAMP/MCP smokes, remote auth, native-forwarding follow-ups,
+and Chrome Dart2Wasm.
 
 The checked-in manual `wamp_large_transport_frames_heavy` scenario now moves
 24 GiB through a 24-row RPC matrix spanning native and Dart clients, JSON,

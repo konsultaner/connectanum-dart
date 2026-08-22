@@ -4,7 +4,7 @@ use std::io;
 #[cfg(feature = "ffi-test")]
 use std::io::Cursor;
 use std::os::raw::{c_char, c_int, c_uint, c_void};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use base64::{engine::general_purpose::STANDARD as Base64Engine, Engine as _};
 #[allow(unused_imports)]
@@ -108,10 +108,139 @@ const E2EE_NONCE_LEN: usize = 24;
 const E2EE_AES256_GCM_NONCE_LEN: usize = 12;
 const E2EE_AUTH_TAG_LEN: usize = 16;
 const SHA256_DIGEST_LEN: usize = 32;
+const ASYNC_SHA256_QUEUE_CAPACITY: usize = 2;
+
+// Large native chunks are copied into an ordered worker queue so hashing can
+// overlap transport work without retaining Dart-mutable FFI memory.
+enum Sha256Command {
+    UpdateOwned(Vec<u8>),
+    Finalize(std::sync::mpsc::SyncSender<[u8; SHA256_DIGEST_LEN]>),
+    Abort,
+}
+
+struct AsyncSha256Worker {
+    sender: Option<std::sync::mpsc::SyncSender<Sha256Command>>,
+    cancelled: Arc<AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl AsyncSha256Worker {
+    fn start(context: DigestContext) -> Result<Self, c_int> {
+        let (sender, receiver) = std::sync::mpsc::sync_channel(ASYNC_SHA256_QUEUE_CAPACITY);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let worker_cancelled = Arc::clone(&cancelled);
+        let thread = std::thread::Builder::new()
+            .name("connectanum-sha256".to_string())
+            .stack_size(256 * 1024)
+            .spawn(move || {
+                let mut context = context;
+                while let Ok(command) = receiver.recv() {
+                    if worker_cancelled.load(Ordering::Acquire) {
+                        return;
+                    }
+                    match command {
+                        Sha256Command::UpdateOwned(bytes) => context.update(&bytes),
+                        Sha256Command::Finalize(result_sender) => {
+                            let digest = context.finish();
+                            let mut result = [0_u8; SHA256_DIGEST_LEN];
+                            result.copy_from_slice(digest.as_ref());
+                            let _ = result_sender.send(result);
+                            return;
+                        }
+                        Sha256Command::Abort => return,
+                    }
+                }
+            })
+            .map_err(|_| ERR_INTERNAL)?;
+        Ok(Self {
+            sender: Some(sender),
+            cancelled,
+            thread: Some(thread),
+        })
+    }
+
+    fn send(&self, command: Sha256Command) -> Result<(), c_int> {
+        self.sender
+            .as_ref()
+            .ok_or(ERR_HANDLE_UNAVAILABLE)?
+            .send(command)
+            .map_err(|_| ERR_INTERNAL)
+    }
+
+    fn finalize(mut self) -> Result<[u8; SHA256_DIGEST_LEN], c_int> {
+        let (result_sender, result_receiver) = std::sync::mpsc::sync_channel(1);
+        self.send(Sha256Command::Finalize(result_sender))?;
+        let digest = result_receiver.recv().map_err(|_| ERR_INTERNAL)?;
+        self.sender.take();
+        if self
+            .thread
+            .take()
+            .is_some_and(|thread| thread.join().is_err())
+        {
+            return Err(ERR_INTERNAL);
+        }
+        Ok(digest)
+    }
+}
+
+impl Drop for AsyncSha256Worker {
+    fn drop(&mut self) {
+        self.cancelled.store(true, Ordering::Release);
+        if let Some(sender) = self.sender.take() {
+            let _ = sender.send(Sha256Command::Abort);
+        }
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+struct Sha256State {
+    context: Option<DigestContext>,
+    worker: Option<AsyncSha256Worker>,
+}
+
+impl Sha256State {
+    fn new() -> Self {
+        Self {
+            context: Some(DigestContext::new(&SHA256)),
+            worker: None,
+        }
+    }
+
+    fn update(&mut self, bytes: &[u8]) -> Result<(), c_int> {
+        if let Some(worker) = self.worker.as_ref() {
+            return worker.send(Sha256Command::UpdateOwned(bytes.to_vec()));
+        }
+        self.context.as_mut().ok_or(ERR_INTERNAL)?.update(bytes);
+        Ok(())
+    }
+
+    fn update_async(&mut self, bytes: &[u8]) -> Result<(), c_int> {
+        if self.worker.is_none() {
+            let context = self.context.take().ok_or(ERR_INTERNAL)?;
+            self.worker = Some(AsyncSha256Worker::start(context)?);
+        }
+        self.worker
+            .as_ref()
+            .ok_or(ERR_INTERNAL)?
+            .send(Sha256Command::UpdateOwned(bytes.to_vec()))
+    }
+
+    fn finalize(self) -> Result<[u8; SHA256_DIGEST_LEN], c_int> {
+        if let Some(worker) = self.worker {
+            return worker.finalize();
+        }
+        let digest = self.context.ok_or(ERR_INTERNAL)?.finish();
+        let mut result = [0_u8; SHA256_DIGEST_LEN];
+        result.copy_from_slice(digest.as_ref());
+        Ok(result)
+    }
+}
 
 struct Sha256StateStore {
     next_id: AtomicU32,
-    states: DashMap<u32, DigestContext>,
+    states: DashMap<u32, Sha256State>,
 }
 
 impl Default for Sha256StateStore {
@@ -5359,7 +5488,7 @@ pub extern "C" fn ct_sha256_new() -> c_int {
     if handle == 0 {
         return ERR_HANDLE_UNAVAILABLE;
     }
-    store.states.insert(handle, DigestContext::new(&SHA256));
+    store.states.insert(handle, Sha256State::new());
     handle as c_int
 }
 
@@ -5382,7 +5511,7 @@ pub extern "C" fn ct_sha256_update_message_binary_argument(
         let args = message.args.as_deref().ok_or(ERR_INVALID_ARGUMENT)?;
         let payload = single_binary_argument(message.serializer, args)?;
         let length = c_int::try_from(payload.len()).map_err(|_| ERR_INVALID_ARGUMENT)?;
-        state.update(payload);
+        state.update(payload)?;
         Ok(length)
     }) {
         Some(result) => result.unwrap_or_else(|error| error),
@@ -5407,8 +5536,33 @@ pub extern "C" fn ct_sha256_update(
     let Some(mut state) = store.states.get_mut(&(sha256_handle as u32)) else {
         return ERR_HANDLE_UNAVAILABLE;
     };
-    state.update(bytes);
-    bytes_len
+    match state.update(bytes) {
+        Ok(()) => bytes_len,
+        Err(code) => code,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn ct_sha256_update_async(
+    sha256_handle: c_int,
+    bytes_ptr: *const u8,
+    bytes_len: c_int,
+) -> c_int {
+    if sha256_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let bytes = match unsafe { read_required_bytes_slice(bytes_ptr, bytes_len) } {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    let store = sha256_state_store();
+    let Some(mut state) = store.states.get_mut(&(sha256_handle as u32)) else {
+        return ERR_HANDLE_UNAVAILABLE;
+    };
+    match state.update_async(bytes) {
+        Ok(()) => bytes_len,
+        Err(code) => code,
+    }
 }
 
 #[no_mangle]
@@ -5424,9 +5578,12 @@ pub extern "C" fn ct_sha256_finalize(
     let Some((_, state)) = store.states.remove(&(sha256_handle as u32)) else {
         return ERR_HANDLE_UNAVAILABLE;
     };
-    let digest = state.finish();
+    let digest = match state.finalize() {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
     unsafe {
-        ptr::copy_nonoverlapping(digest.as_ref().as_ptr(), out_digest, SHA256_DIGEST_LEN);
+        ptr::copy_nonoverlapping(digest.as_ptr(), out_digest, SHA256_DIGEST_LEN);
     }
     SUCCESS
 }
@@ -6512,6 +6669,83 @@ mod tests {
                 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
                 0xf2, 0x00, 0x15, 0xad,
             ]
+        );
+    }
+
+    #[test]
+    fn native_sha256_hashes_queued_copies_in_call_order() {
+        let _guard = test_guard();
+        let mut first = vec![0x5a_u8; 1024 * 1024];
+        let mut second = vec![0xa5_u8; 1024 * 1024];
+        let mut expected_context = DigestContext::new(&SHA256);
+        expected_context.update(b"prefix");
+        expected_context.update(&first);
+        expected_context.update(&second);
+        expected_context.update(b"suffix");
+        let expected = expected_context.finish();
+        let sha256_handle = ct_sha256_new();
+        assert!(sha256_handle > 0);
+        assert_eq!(ct_sha256_update(sha256_handle, b"prefix".as_ptr(), 6), 6);
+        assert_eq!(
+            ct_sha256_update_async(
+                sha256_handle,
+                first.as_ptr(),
+                c_int::try_from(first.len()).unwrap(),
+            ),
+            c_int::try_from(first.len()).unwrap()
+        );
+        first.fill(0);
+        assert_eq!(
+            ct_sha256_update_async(
+                sha256_handle,
+                second.as_ptr(),
+                c_int::try_from(second.len()).unwrap(),
+            ),
+            c_int::try_from(second.len()).unwrap()
+        );
+        second.fill(0);
+        assert_eq!(ct_sha256_update(sha256_handle, b"suffix".as_ptr(), 6), 6);
+
+        let mut digest = [0_u8; SHA256_DIGEST_LEN];
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            SUCCESS
+        );
+        assert_eq!(digest.as_slice(), expected.as_ref());
+    }
+
+    #[test]
+    fn native_sha256_async_rejects_null_non_empty_input() {
+        let _guard = test_guard();
+        let sha256_handle = ct_sha256_new();
+        assert!(sha256_handle > 0);
+        assert_eq!(
+            ct_sha256_update_async(sha256_handle, ptr::null(), 1),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(ct_sha256_release(sha256_handle), SUCCESS);
+    }
+
+    #[test]
+    fn native_sha256_release_cancels_queued_work() {
+        let _guard = test_guard();
+        let bytes = vec![0x5a_u8; 1024 * 1024];
+        let sha256_handle = ct_sha256_new();
+        assert!(sha256_handle > 0);
+        assert_eq!(
+            ct_sha256_update_async(
+                sha256_handle,
+                bytes.as_ptr(),
+                c_int::try_from(bytes.len()).unwrap(),
+            ),
+            c_int::try_from(bytes.len()).unwrap()
+        );
+        assert_eq!(ct_sha256_release(sha256_handle), SUCCESS);
+
+        let mut digest = [0_u8; SHA256_DIGEST_LEN];
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            ERR_HANDLE_UNAVAILABLE
         );
     }
 

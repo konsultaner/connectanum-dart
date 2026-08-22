@@ -495,6 +495,21 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   performance remains release-blocking. The corrected selector passes all 23
   benchmark artifact tests, exact hosted-artifact replay, `bin/test-fast`, and
   `bin/verify`.
+- [x] Overlap large native receipt hashing with transport progress without
+  retaining Dart-mutable FFI memory. Chunks of at least 256 KiB are copied
+  synchronously into a per-digest FIFO SHA-256 worker with a two-chunk bounded
+  queue and deterministic finalize/release joins; small and non-native chunks
+  retain the synchronous path. Ordered sync-to-async and async-to-sync updates,
+  immediate caller mutation, cancellation, and invalid pointers have focused
+  Rust regressions. A 2 GiB single-session E2EE run reaches 2.115/2.085 Gbit/s
+  data/lifecycle throughput, while the checked-in 4 GiB heavy row reaches
+  2.433/2.366 Gbit/s. The complete heavy file matrix passes all eight rows above
+  2 Gbit/s over both timing windows, and clear native MessagePack/CBOR RawSocket
+  delivery remains the only literal filesystem-to-socket `sendfile` path. Full
+  exact-tree `bin/verify` passes with 134 Rust core, 78 ordinary Rust FFI, 397
+  Dart core, 118 MCP, 116 benchmark, and 468 router tests plus consumer/live
+  WAMP and MCP smokes, remote auth, native-forwarding follow-ups, and Chrome
+  Dart2Wasm.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

@@ -84,6 +84,7 @@ class NativeIncomingMessage {
 
 final Expando<_NativeExternalBytesReference> _nativeExternalBytes =
     Expando<_NativeExternalBytesReference>('connectanum.native.external-bytes');
+const int _asyncSha256MinimumBytes = 256 * 1024;
 
 class _NativeExternalBytesReference {
   const _NativeExternalBytesReference({
@@ -1155,11 +1156,17 @@ class NativeClientRuntime {
     if (nativeBytes != null &&
         identical(nativeBytes.runtimeIdentity, this) &&
         nativeBytes.length == bytes.length) {
-      final result = _bindings.ctSha256Update(
-        sha256Handle,
-        nativeBytes.pointer,
-        nativeBytes.length,
-      );
+      final result = nativeBytes.length >= _asyncSha256MinimumBytes
+          ? _bindings.ctSha256UpdateAsync(
+              sha256Handle,
+              nativeBytes.pointer,
+              nativeBytes.length,
+            )
+          : _bindings.ctSha256Update(
+              sha256Handle,
+              nativeBytes.pointer,
+              nativeBytes.length,
+            );
       if (result < 0) {
         _throwForError(result, 'Failed to hash native external byte payload');
       }
