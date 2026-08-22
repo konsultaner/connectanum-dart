@@ -8,6 +8,22 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+Buffered Dart progressive senders now preserve their per-chunk
+`Socket.flush()` and cooperative event-loop pacing without imposing a fixed
+1 ms timer delay after every nonterminal chunk. A deterministic regression
+proves that the next chunk remains blocked until each asynchronous drain
+completes. Against the same 64 MiB, 4 MiB-chunk local matrix, Dart CBOR improves
+from 3.75 to 4.32-4.46 Gbit/s, MessagePack from 3.73 to 4.38-4.40 Gbit/s, and
+JSON from 2.18 to 2.34-2.38 Gbit/s. Native rows bypass this path and remain
+within normal run variance. A short native AES-GCM E2EE chunk sweep peaks near
+1 MiB at 1.93-2.03 Gbit/s aggregate versus 1.74-1.75 Gbit/s at 4 MiB, while a
+long 8 GiB run at 4 MiB reaches 2.20 Gbit/s after warm-up; SHA-256 is the
+largest named sampled CPU consumer. Dart JSON 32 MiB RPC remains a measured
+boundary at 1.40 Gbit/s per direction and 2.80 Gbit/s aggregate; a native
+base64-send prototype was discarded after producing no measurable gain. Full
+`bin/verify` passes with the buffered-drain regression and all package,
+consumer, live WAMP, router, native, and Chrome Dart2Wasm checks green.
+
 Native JSON progressive file delivery now stays out of the Dart heap on both
 sides of the transfer. Native clients stream positional file reads through
 3-byte-aligned RFC 4648 base64 chunks, preserve exact JSON framing across

@@ -626,7 +626,7 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
       return;
     }
     await socket.flush();
-    await Future<void>.delayed(const Duration(milliseconds: 1));
+    await Future<void>.delayed(Duration.zero);
   }
 
   Uint8List _buildWampFrame(List<int> payload) {

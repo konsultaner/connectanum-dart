@@ -391,6 +391,16 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   `bin/verify` passes with 134 Rust core, 75 ordinary Rust FFI, 395 Dart core,
   118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus isolated consumer,
   remote-auth, native-forwarding, and Chrome Dart2Wasm coverage.
+- [x] Remove the fixed 1 ms timer from each buffered Dart progressive-file
+  drain while retaining `Socket.flush()`, a cooperative event-loop yield, and
+  strict per-chunk backpressure. Two identical local matrix passes improve
+  Dart CBOR from 3.75 to 4.32-4.46 Gbit/s, MessagePack from 3.73 to 4.38-4.40
+  Gbit/s, and JSON from 2.18 to 2.34-2.38 Gbit/s. A deterministic asynchronous
+  drain test proves the next chunk is not sent early. A native base64-send
+  experiment was discarded after leaving the 32 MiB Dart JSON RPC row flat at
+  1.40 Gbit/s one-way and 2.79 Gbit/s aggregate. Full `bin/verify` passes with
+  the new regression and all package, consumer, live WAMP, router, native, and
+  Chrome Dart2Wasm checks green.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

@@ -119,6 +119,34 @@ void main() {
       );
     });
 
+    test('setFile waits for each buffered progressive drain', () async {
+      final transport = _ControllableDrainFileTransferTransport();
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+
+      final transfer = session.setFile(
+        'files.set',
+        WampFileSource.bytes(
+          Uint8List.fromList(const <int>[0, 1, 2, 3, 4]),
+          name: 'paced.bin',
+        ),
+        chunkSize: 2,
+      );
+
+      await _waitUntil(() => transport.drainCount == 1);
+      expect(transport.calls, hasLength(2));
+
+      transport.releaseNextDrain();
+      await _waitUntil(() => transport.drainCount == 2);
+      expect(transport.calls, hasLength(3));
+
+      transport.releaseNextDrain();
+      await transfer;
+      expect(transport.calls, hasLength(4));
+    });
+
     test('setFile cancels when draining buffered writes fails', () async {
       final failure = StateError('socket drain failed');
       final transport = _DrainableFileTransferTransport(failure: failure);
@@ -810,6 +838,24 @@ class _DrainableFileTransferTransport extends _FileTransferTransport
     if (error != null) {
       throw error;
     }
+  }
+}
+
+class _ControllableDrainFileTransferTransport extends _FileTransferTransport
+    implements DrainableTransport {
+  final List<Completer<void>> _drains = <Completer<void>>[];
+
+  int get drainCount => _drains.length;
+
+  @override
+  Future<void> drain() {
+    final drain = Completer<void>();
+    _drains.add(drain);
+    return drain.future;
+  }
+
+  void releaseNextDrain() {
+    _drains.firstWhere((drain) => !drain.isCompleted).complete();
   }
 }
 
