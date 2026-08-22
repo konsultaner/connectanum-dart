@@ -20,8 +20,9 @@ Outputs:
 
 Policies:
   --policy <path> may provide scoped non-zero thresholds for expected counters
-  and opt-in throughput/p95 latency budgets. Without a policy the gate remains
-  strict for transport counters and does not enforce performance budgets.
+  and opt-in data-window throughput, lifecycle throughput, or p95 latency
+  budgets. Without a policy the gate remains strict for transport counters and
+  does not enforce performance budgets.
 EOF
 }
 

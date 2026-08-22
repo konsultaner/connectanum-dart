@@ -1,5 +1,5 @@
 name = "wamp_file_transfer_heavy"
-description = "Manual multi-gigabyte file stress with sendfile, concurrent transfers, sustained Dart buffering, and E2EE."
+description = "Multi-gigabyte file stress with sendfile, concurrent transfers, sustained Dart buffering, and E2EE."
 
 [[workloads]]
 name = "rawsocket_file_cbor_1g_native"

@@ -65,6 +65,18 @@ native-forwarding follow-ups, Chrome, and Dart2Wasm. Exact-head CI
 comprehensive feature-head deployment audit and protected `master` strict
 audit are clean.
 
+The heavy transfer suites now carry checked-in 2 Gbit/s gates for both the
+measured data window and the setup-inclusive lifecycle window, and the hosted
+WAMP diagnostics runner executes those suites instead of leaving them as
+workstation-only evidence. The RawSocket Dart 128 MiB controls now repeat 16
+times per serializer so connection setup cannot dominate a nominally heavy
+sample. The exact-tree local file run moved 24 GiB and passed all eight rows at
+2.178-20.741 Gbit/s over the data window and 2.127-16.472 Gbit/s over the
+lifecycle window; the slowest row remains sustained native AES-GCM E2EE. The
+36 GiB bidirectional 128/256 MiB RawSocket run passed all nine rows at
+3.147-22.114 Gbit/s data-window and 2.652-9.652 Gbit/s lifecycle throughput,
+with zero transport findings in either gate.
+
 Buffered Dart progressive senders now preserve their per-chunk
 `Socket.flush()` and cooperative event-loop pacing without imposing a fixed
 1 ms timer delay after every nonterminal chunk. A deterministic regression

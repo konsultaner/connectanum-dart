@@ -1,0 +1,14 @@
+{
+  "metrics": [
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_rawsocket_frames_heavy"
+    },
+    {
+      "kind": "lifecycle_throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_rawsocket_frames_heavy"
+    }
+  ]
+}

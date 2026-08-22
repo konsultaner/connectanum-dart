@@ -456,6 +456,13 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   measured 1.535 Gbit/s baseline versus 1.528 Gbit/s with the reduced
   allocation path. Multi-gigabit secure production use remains on the native
   transport implementation.
+- [x] Gate the heavy file and 128/256 MiB RawSocket suites on both data-window
+  and setup-inclusive lifecycle throughput, run them in hosted WAMP
+  diagnostics, and strengthen every 128 MiB Dart RawSocket control to 16
+  iterations. The exact-tree local 24 GiB file run passes all eight rows at
+  2.178-20.741/2.127-16.472 Gbit/s data/lifecycle throughput, and the 36 GiB
+  bidirectional RawSocket run passes all nine rows at
+  3.147-22.114/2.652-9.652 Gbit/s with zero transport findings.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

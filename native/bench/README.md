@@ -197,6 +197,11 @@ signals strict, and can also add explicit performance budgets:
       "scenario": "h3_multiplex_scaling"
     },
     {
+      "kind": "lifecycle_throughput_mbps_min",
+      "threshold": 500.0,
+      "scenario": "h3_multiplex_scaling"
+    },
+    {
       "kind": "latency_p95_ms_max",
       "threshold": 350.0,
       "scenario": "h3_multiplex_scaling"
@@ -205,7 +210,10 @@ signals strict, and can also add explicit performance budgets:
 }
 ```
 
-Metric policy kinds are `throughput_mbps_min` and `latency_p95_ms_max`.
+Metric policy kinds are `throughput_mbps_min`,
+`lifecycle_throughput_mbps_min`, and `latency_p95_ms_max`. The lifecycle
+metric includes connection setup and teardown, while `throughput_mbps_min`
+uses the measured data window when the workload reports one.
 
 ```bash
 bin/check-bench-artifacts \

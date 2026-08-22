@@ -2,7 +2,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::report::{
@@ -129,8 +129,18 @@ pub fn load_artifact_bundle(path: &Path) -> Result<ArtifactBundle> {
 
 pub fn load_artifact_gate_policy(path: &Path) -> Result<ArtifactGatePolicy> {
     let bytes = fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
-    serde_json::from_slice(&bytes)
-        .with_context(|| format!("failed to parse artifact gate policy {}", path.display()))
+    let policy = serde_json::from_slice::<ArtifactGatePolicy>(&bytes)
+        .with_context(|| format!("failed to parse artifact gate policy {}", path.display()))?;
+    for metric in &policy.metrics {
+        if metric_kind_comparison(&metric.kind).is_none() {
+            bail!(
+                "artifact gate policy {} uses unsupported metric kind {:?}",
+                path.display(),
+                metric.kind
+            );
+        }
+    }
+    Ok(policy)
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -148,6 +158,7 @@ pub enum ArtifactGateMetricComparison {
 }
 
 const THROUGHPUT_MBPS_MIN: &str = "throughput_mbps_min";
+const LIFECYCLE_THROUGHPUT_MBPS_MIN: &str = "lifecycle_throughput_mbps_min";
 const LATENCY_P95_MS_MAX: &str = "latency_p95_ms_max";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -472,6 +483,15 @@ pub fn evaluate_artifact_gate(
             THROUGHPUT_MBPS_MIN,
             workload.throughput_mbps,
             policy.metric_threshold_for(workload, THROUGHPUT_MBPS_MIN),
+            ArtifactGateMetricComparison::Min,
+        );
+        push_gate_metric_finding(
+            &mut metric_findings,
+            workload,
+            ArtifactGateSeverity::Warning,
+            LIFECYCLE_THROUGHPUT_MBPS_MIN,
+            workload.lifecycle_throughput_mbps,
+            policy.metric_threshold_for(workload, LIFECYCLE_THROUGHPUT_MBPS_MIN),
             ArtifactGateMetricComparison::Min,
         );
         push_gate_metric_finding(
@@ -2910,7 +2930,9 @@ fn metric_comparison_label(comparison: ArtifactGateMetricComparison) -> &'static
 
 fn metric_kind_comparison(kind: &str) -> Option<ArtifactGateMetricComparison> {
     match kind {
-        THROUGHPUT_MBPS_MIN => Some(ArtifactGateMetricComparison::Min),
+        THROUGHPUT_MBPS_MIN | LIFECYCLE_THROUGHPUT_MBPS_MIN => {
+            Some(ArtifactGateMetricComparison::Min)
+        }
         LATENCY_P95_MS_MAX => Some(ArtifactGateMetricComparison::Max),
         _ => None,
     }
@@ -4442,6 +4464,51 @@ mod tests {
     }
 
     #[test]
+    fn load_artifact_gate_policy_rejects_unsupported_metric_kinds() {
+        let temp_dir = unique_temp_dir("load_gate_policy");
+        fs::create_dir_all(&temp_dir).unwrap();
+        let path = temp_dir.join("policy.json");
+        fs::write(
+            &path,
+            r#"{"metrics":[{"kind":"typo_mbps_min","threshold":1.0}]}"#,
+        )
+        .unwrap();
+
+        let error = load_artifact_gate_policy(&path).unwrap_err();
+
+        assert!(error.to_string().contains("unsupported metric kind"));
+        assert!(error.to_string().contains("typo_mbps_min"));
+        fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[test]
+    fn shipped_heavy_transfer_policies_gate_data_and_lifecycle_throughput() {
+        for (file_name, scenario) in [
+            ("wamp_file_transfer_heavy.json", "wamp_file_transfer_heavy"),
+            (
+                "wamp_large_rawsocket_frames_heavy.json",
+                "wamp_large_rawsocket_frames_heavy",
+            ),
+        ] {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("artifact_gate")
+                .join(file_name);
+            let policy = load_artifact_gate_policy(&path).unwrap();
+            let mut workload = summarize_report(&clean_report());
+            workload.scenario = scenario.to_string();
+
+            assert_eq!(
+                policy.metric_threshold_for(&workload, THROUGHPUT_MBPS_MIN),
+                Some(2000.0)
+            );
+            assert_eq!(
+                policy.metric_threshold_for(&workload, LIFECYCLE_THROUGHPUT_MBPS_MIN),
+                Some(2000.0)
+            );
+        }
+    }
+
+    #[test]
     fn default_artifact_gate_passes_clean_summary() {
         let bundle = ArtifactBundle {
             generated_at_ms: 1,
@@ -4675,6 +4742,44 @@ mod tests {
             ArtifactGateMetricComparison::Max
         );
         assert!(render_artifact_gate_markdown(&report).contains("## Performance Findings"));
+    }
+
+    #[test]
+    fn artifact_gate_metric_policy_checks_lifecycle_throughput_independently() {
+        let mut workload = summarize_report(&clean_report());
+        workload.throughput_mbps = 2.0;
+        workload.lifecycle_throughput_mbps = 0.5;
+        let bundle = ArtifactBundle {
+            generated_at_ms: 1,
+            source_results: "bench_results.jsonl".to_string(),
+            workloads: vec![workload],
+        };
+        let policy = ArtifactGatePolicy {
+            thresholds: Vec::new(),
+            metrics: vec![
+                test_metric_threshold(THROUGHPUT_MBPS_MIN, 1.0, None, None),
+                test_metric_threshold(LIFECYCLE_THROUGHPUT_MBPS_MIN, 1.0, None, None),
+            ],
+        };
+
+        let report = evaluate_artifact_gate(
+            &bundle,
+            Path::new("native/bench/artifacts/bench_results.summary.json"),
+            &policy,
+        );
+
+        assert!(report.failed());
+        assert_eq!(report.finding_count(), 1);
+        assert_eq!(
+            report.metric_findings[0].kind,
+            LIFECYCLE_THROUGHPUT_MBPS_MIN
+        );
+        assert_eq!(report.metric_findings[0].observed, 0.5);
+        assert_eq!(report.metric_findings[0].threshold, 1.0);
+        assert_eq!(
+            report.metric_findings[0].comparison,
+            ArtifactGateMetricComparison::Min
+        );
     }
 
     #[test]

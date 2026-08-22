@@ -15,6 +15,10 @@ on:
       - native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml
       - native/bench/scenarios/wamp_file_transfer_throughput.toml
       - native/bench/scenarios/wamp_large_rawsocket_frames_throughput.toml
+      - native/bench/scenarios/wamp_file_transfer_heavy.toml
+      - native/bench/scenarios/wamp_large_rawsocket_frames_heavy.toml
+      - native/bench/artifact_gate/wamp_file_transfer_heavy.json
+      - native/bench/artifact_gate/wamp_large_rawsocket_frames_heavy.json
   workflow_dispatch:
     inputs:
       router_worker_counts:
@@ -43,7 +47,7 @@ jobs:
   linux-wamp-profile-diagnostics:
     name: Linux WAMP profile diagnostics
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v5

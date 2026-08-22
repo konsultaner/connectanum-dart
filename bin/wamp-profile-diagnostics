@@ -15,12 +15,14 @@ Runs the canonical WAMP profile diagnostic throughput scenarios:
 4. Native WebSocket fragmentation throughput
 5. Filesystem-to-WAMP file-transfer throughput and buffered fallbacks
 6. Exponent-30 RawSocket frame throughput above 16 MiB
+7. Multi-gigabyte filesystem-to-WAMP transfer stress
+8. Repeated 128/256 MiB RawSocket frame stress
 
-Diagnostic scenarios are not release blockers by themselves. Each scenario
-writes transformed bench artifacts and validates them with the strict default
-transport-counter gate. The representative pub/sub fan-out path now has a
-checked-in release policy under bin/wamp-profile-validate instead of living in
-this diagnostic runner.
+Each scenario writes transformed bench artifacts. The regular diagnostics use
+the strict default transport-counter gate; the heavy transfer scenarios also
+enforce checked-in data-window and lifecycle throughput policies. The
+representative pub/sub fan-out path has a checked-in release policy under
+bin/wamp-profile-validate instead of living in this diagnostic runner.
 EOF
 }
 
@@ -98,6 +100,7 @@ fi
 run_diagnostic() {
   local name="$1"
   local scenario="$2"
+  local policy="${3:-}"
   local scenario_out="${out_dir%/}/$name"
   local results_path="${scenario_out%/}/bench_results.jsonl"
 
@@ -120,9 +123,21 @@ run_diagnostic() {
     --native-runtime-thread-counts "$native_runtime_thread_counts" \
     --workload-timeout-ms "$workload_timeout_ms"
 
-  printf 'Checking %s against the default transport-counter gate...\n' "$name"
-  bin/check-bench-artifacts \
+  local gate_args=(
     --summary "${scenario_out%/}/bench_results.summary.json"
+  )
+  if [[ -n "$policy" ]]; then
+    policy="$(absolute_path "$policy")"
+    if [[ ! -f "$policy" ]]; then
+      printf 'Missing WAMP diagnostic artifact policy: %s\n' "$policy" >&2
+      exit 1
+    fi
+    gate_args+=(--policy "$policy")
+    printf 'Checking %s against %s...\n' "$name" "$policy"
+  else
+    printf 'Checking %s against the default transport-counter gate...\n' "$name"
+  fi
+  bin/check-bench-artifacts "${gate_args[@]}"
 }
 
 run_diagnostic \
@@ -148,5 +163,15 @@ run_diagnostic \
 run_diagnostic \
   wamp_large_rawsocket_frames_throughput \
   native/bench/scenarios/wamp_large_rawsocket_frames_throughput.toml
+
+run_diagnostic \
+  wamp_file_transfer_heavy \
+  native/bench/scenarios/wamp_file_transfer_heavy.toml \
+  native/bench/artifact_gate/wamp_file_transfer_heavy.json
+
+run_diagnostic \
+  wamp_large_rawsocket_frames_heavy \
+  native/bench/scenarios/wamp_large_rawsocket_frames_heavy.toml \
+  native/bench/artifact_gate/wamp_large_rawsocket_frames_heavy.json
 
 printf 'WAMP profile diagnostic artifacts written to %s\n' "$out_dir"

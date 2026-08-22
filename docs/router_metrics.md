@@ -336,8 +336,8 @@ evaluates the transformed summary directly and writes sibling
 `*.gate.json` / `*.gate.md` reports before failing on the same regression
 signals. The default gate uses zero counter thresholds and no performance
 budgets; `--policy <path>` can supply scenario-scoped non-zero thresholds for
-explicitly accepted counters plus opt-in `throughput_mbps_min` and
-`latency_p95_ms_max` budgets.
+explicitly accepted counters plus opt-in `throughput_mbps_min`,
+`lifecycle_throughput_mbps_min`, and `latency_p95_ms_max` budgets.
 
 ## Compatibility Notes
 

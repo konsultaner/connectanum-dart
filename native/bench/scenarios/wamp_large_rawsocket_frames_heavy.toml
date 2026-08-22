@@ -1,5 +1,5 @@
 name = "wamp_large_rawsocket_frames_heavy"
-description = "Manual high-memory RawSocket frame stress across JSON, MsgPack, and CBOR at 128 MiB and 256 MiB."
+description = "High-memory RawSocket frame stress across JSON, MsgPack, and CBOR at 128 MiB and 256 MiB."
 
 [[workloads]]
 name = "rawsocket_rpc_json_128m_native"
@@ -40,7 +40,7 @@ protocol = "wamp_rawsocket_rpc"
 client_impl = "dart"
 serializer = "json"
 path = "bench.rpc.echo"
-iterations = 4
+iterations = 16
 concurrency = 1
 in_flight_per_session = 1
 request_bytes = 134217728
@@ -51,7 +51,7 @@ protocol = "wamp_rawsocket_rpc"
 client_impl = "dart"
 serializer = "cbor"
 path = "bench.rpc.echo"
-iterations = 4
+iterations = 16
 concurrency = 1
 in_flight_per_session = 1
 request_bytes = 134217728
@@ -62,7 +62,7 @@ protocol = "wamp_rawsocket_rpc"
 client_impl = "dart"
 serializer = "msgpack"
 path = "bench.rpc.echo"
-iterations = 4
+iterations = 16
 concurrency = 1
 in_flight_per_session = 1
 request_bytes = 134217728
