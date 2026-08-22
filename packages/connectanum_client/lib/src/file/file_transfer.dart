@@ -212,9 +212,47 @@ extension WampFileSession on Session {
       cancelCompleter: cancel,
       enableFileSegments: source.nativePath != null,
     );
-    final finalResult = call.results.firstWhere(
-      (result) => !result.isProgressive(),
-    );
+    Result? completedFinalResult;
+    Object? finalError;
+    StackTrace? finalStackTrace;
+    final finalResultCompletion = call.results
+        .firstWhere((result) => !result.isProgressive())
+        .then<void>(
+          (result) {
+            completedFinalResult = result;
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            finalError = error;
+            finalStackTrace = stackTrace;
+          },
+        );
+
+    Future<Result> awaitFinalResult() async {
+      await finalResultCompletion;
+      final error = finalError;
+      if (error != null) {
+        return Future<Result>.error(error, finalStackTrace);
+      }
+      final result = completedFinalResult;
+      if (result == null) {
+        throw WampFileTransferException(
+          'Remote procedure closed without a final result',
+        );
+      }
+      return result;
+    }
+
+    Future<void> rejectEarlyFinalResult() async {
+      final error = finalError;
+      if (error != null) {
+        await Future<void>.error(error, finalStackTrace);
+      }
+      if (completedFinalResult != null) {
+        throw WampFileTransferException(
+          'Remote procedure completed before the file source was exhausted',
+        );
+      }
+    }
 
     var sentBytes = 0;
     Uint8List? pending;
@@ -247,7 +285,7 @@ extension WampFileSession on Session {
         } finally {
           nativeSource.close();
         }
-        return await finalResult;
+        return await awaitFinalResult();
       }
       final chunks =
           source.openReadChunks?.call(chunkSize) ??
@@ -269,6 +307,7 @@ extension WampFileSession on Session {
         if (previous != null) {
           call.sendLazyChunk(_fileChunkPayload(previous));
           await call.drain();
+          await rejectEarlyFinalResult();
         }
         pending = chunk;
       }
@@ -278,12 +317,12 @@ extension WampFileSession on Session {
         );
       }
       call.finishLazy(_fileChunkPayload(pending ?? Uint8List(0)));
-      return await finalResult;
+      return await awaitFinalResult();
     } catch (error) {
       if (!cancel.isCompleted) {
         cancel.complete(CancelOptions.modeKillNoWait);
       }
-      unawaited(finalResult.then<void>((_) {}, onError: (_, _) {}));
+      unawaited(finalResultCompletion);
       rethrow;
     }
   }
@@ -595,6 +634,7 @@ class WampFileReceiver {
       return;
     }
 
+    final processImmediately = state.sink != null && state.queuedBytes == 0;
     state.lastInvocation = invocation;
     state.acceptedBytes += chunk.length;
     state.queuedBytes += chunk.length;
@@ -604,38 +644,73 @@ class WampFileReceiver {
     }
     _touch(state);
 
+    Future<void>? commitChunk() {
+      if (state.failed) {
+        return null;
+      }
+      state.digest.add(chunk, anchor: invocation.payload.anchor);
+      state.receivedBytes += chunk.length;
+      if (!invocation.progress) {
+        return _finishState(state, invocation);
+      }
+      return null;
+    }
+
+    Future<void>? processChunk() {
+      if (state.failed) {
+        return null;
+      }
+      final sink = state.sink;
+      if (sink == null) {
+        throw StateError('File sink was not initialized');
+      }
+      final addResult = sink.add(chunk);
+      if (addResult is Future<void>) {
+        return addResult.then<void>((_) async {
+          await commitChunk();
+        });
+      }
+      return commitChunk();
+    }
+
+    void releaseBufferedBytes() {
+      state.queuedBytes -= chunk.length;
+      _bufferedBytes -= chunk.length;
+    }
+
+    void failChunk(Object error, StackTrace stackTrace) {
+      _failState(
+        state,
+        invocation,
+        sinkFailedError,
+        'File sink operation failed',
+        cause: error,
+      );
+    }
+
+    if (processImmediately) {
+      try {
+        final operation = processChunk();
+        if (operation != null) {
+          state.tail = operation
+              .catchError(failChunk)
+              .whenComplete(releaseBufferedBytes);
+        } else {
+          releaseBufferedBytes();
+        }
+      } catch (error, stackTrace) {
+        failChunk(error, stackTrace);
+        releaseBufferedBytes();
+      }
+      return;
+    }
+
     state.tail = state.tail
         .then<void>((_) async {
-          if (state.failed) {
-            return;
-          }
-          final sink = state.sink;
-          if (sink == null) {
-            throw StateError('File sink was not initialized');
-          }
-          await sink.add(chunk);
-          if (state.failed) {
-            return;
-          }
-          state.digest.add(chunk, anchor: invocation.payload.anchor);
-          state.receivedBytes += chunk.length;
-          if (!invocation.progress) {
-            await _finishState(state, invocation);
-          }
+          await processChunk();
         })
-        .catchError((Object error, StackTrace stackTrace) {
-          _failState(
-            state,
-            invocation,
-            sinkFailedError,
-            'File sink operation failed',
-            cause: error,
-          );
-        })
-        .whenComplete(() {
-          state.queuedBytes -= chunk.length;
-          _bufferedBytes -= chunk.length;
-        });
+        .catchError(failChunk)
+        .whenComplete(releaseBufferedBytes);
   }
 
   Future<void> _finishState(

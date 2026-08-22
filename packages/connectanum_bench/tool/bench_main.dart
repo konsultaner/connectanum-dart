@@ -17,6 +17,17 @@ import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 
 Future<void> main(List<String> args) async {
+  await runZonedGuarded(
+    () => _runBenchMain(args),
+    (error, stackTrace) {
+      stderr.writeln('Unhandled bench error (${error.runtimeType}): $error');
+      stderr.writeln(stackTrace);
+      exitCode = 1;
+    },
+  );
+}
+
+Future<void> _runBenchMain(List<String> args) async {
   final parser = ArgParser()
     ..addOption(
       'router-config',
@@ -712,8 +723,12 @@ class _BenchControlRegistry {
       if (baselineMetrics != null) {
         await _awaitRouterQuiescence(baselineMetrics);
       }
+      final dataWindow = WampSampleWindow.fromSamples(samples);
       context.sendJson(
-        body: {'samples': samples.map((sample) => sample.toJson()).toList()},
+        body: {
+          'samples': samples.map((sample) => sample.toJson()).toList(),
+          if (dataWindow != null) 'data_window': dataWindow.toJson(),
+        },
       );
     } catch (error, stackTrace) {
       _reportError('wamp_error', error, stackTrace);
@@ -730,7 +745,10 @@ class _BenchControlRegistry {
       } catch (_) {}
       context.sendJson(
         status: 500,
-        body: {'error': 'wamp_scenario_failed', 'reason': error.toString()},
+        body: {
+          'error': 'wamp_scenario_failed',
+          'reason': _describeError(error),
+        },
       );
     }
   }
@@ -742,13 +760,27 @@ class _BenchControlRegistry {
   }
 
   void _reportError(String type, Object error, StackTrace stackTrace) {
-    _logger.warning('Control handler error ($type)', error, stackTrace);
+    final description = _describeError(error);
+    _logger.warning(
+      'Control handler error ($type): $description',
+      error,
+      stackTrace,
+    );
     binding.onEvent?.call({
       'source': 'bench',
       'type': type,
-      'error': error.toString(),
+      'error': description,
       'stackTrace': stackTrace.toString(),
     });
+  }
+
+  String _describeError(Object error) {
+    if (error is wamp_core.Error) {
+      return 'WAMP ${error.error} for request ${error.requestId}; '
+          'details=${error.details}; arguments=${error.arguments}; '
+          'arguments_keywords=${error.argumentsKeywords}';
+    }
+    return error.toString();
   }
 
   Future<void> _awaitRouterQuiescence(

@@ -50,6 +50,8 @@ pub struct WorkloadArtifactSummary {
     pub started_at_ms: u128,
     pub completed_at_ms: u128,
     pub elapsed_ms: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_window_elapsed_ms: Option<f64>,
     pub sample_count: usize,
     pub latency_avg_ms: f64,
     pub latency_min_ms: f64,
@@ -58,6 +60,8 @@ pub struct WorkloadArtifactSummary {
     pub request_bytes_total: u64,
     pub response_bytes_total: u64,
     pub throughput_mbps: f64,
+    #[serde(default)]
+    pub lifecycle_throughput_mbps: f64,
     pub router_invocations_delta: i64,
     pub router_publications_delta: i64,
     pub scenario_router_invocations_delta: i64,
@@ -574,17 +578,20 @@ pub fn render_artifact_gate_markdown(report: &ArtifactGateReport) -> String {
 
 pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
     let sample_count = report.samples.len();
-    let request_bytes_total = report
+    let request_bytes_total: u64 = report
         .samples
         .iter()
         .map(|sample| sample.request_bytes)
         .sum();
-    let response_bytes_total = report
+    let response_bytes_total: u64 = report
         .samples
         .iter()
         .map(|sample| sample.response_bytes)
         .sum();
-    let elapsed_ms = (report.completed_at_ms.saturating_sub(report.started_at_ms)) as f64;
+    let throughput_bytes_total = request_bytes_total.max(response_bytes_total);
+    let elapsed_ms = report.lifecycle_elapsed_ms();
+    let data_window_elapsed_ms = report.valid_data_window_elapsed_ms();
+    let throughput_elapsed_ms = report.throughput_elapsed_ms();
     let mut latencies = report
         .samples
         .iter()
@@ -599,10 +606,15 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
     let latency_min_ms = latencies.first().copied().unwrap_or(0.0);
     let latency_max_ms = latencies.last().copied().unwrap_or(0.0);
     let latency_p95_ms = percentile(&latencies, 0.95);
-    let throughput_mbps = if elapsed_ms <= 0.0 {
+    let throughput_mbps = if throughput_elapsed_ms <= 0.0 {
         0.0
     } else {
-        (response_bytes_total as f64 * 8.0 / 1_000_000.0) / (elapsed_ms / 1000.0)
+        (throughput_bytes_total as f64 * 8.0 / 1_000_000.0) / (throughput_elapsed_ms / 1000.0)
+    };
+    let lifecycle_throughput_mbps = if elapsed_ms <= 0.0 {
+        0.0
+    } else {
+        (throughput_bytes_total as f64 * 8.0 / 1_000_000.0) / (elapsed_ms / 1000.0)
     };
     let http_connection_usage =
         summarize_http_connection_usage(report.http_connection_usage.as_ref(), sample_count);
@@ -636,6 +648,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         started_at_ms: report.started_at_ms,
         completed_at_ms: report.completed_at_ms,
         elapsed_ms,
+        data_window_elapsed_ms,
         sample_count,
         latency_avg_ms,
         latency_min_ms,
@@ -644,6 +657,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         request_bytes_total,
         response_bytes_total,
         throughput_mbps,
+        lifecycle_throughput_mbps,
         router_invocations_delta: router_counter_delta(
             &report.metrics_before,
             &report.metrics_after,
@@ -2638,6 +2652,10 @@ pub fn render_prometheus_metrics(
     );
     output.push_str("# TYPE connectanum_bench_artifact_workload_elapsed_ms gauge\n");
     output.push_str(
+        "# HELP connectanum_bench_artifact_workload_data_window_elapsed_ms Wall-clock span containing measured data operations\n",
+    );
+    output.push_str("# TYPE connectanum_bench_artifact_workload_data_window_elapsed_ms gauge\n");
+    output.push_str(
         "# HELP connectanum_bench_artifact_workload_latency_avg_ms Average workload latency\n",
     );
     output.push_str("# TYPE connectanum_bench_artifact_workload_latency_avg_ms gauge\n");
@@ -2654,9 +2672,13 @@ pub fn render_prometheus_metrics(
     );
     output.push_str("# TYPE connectanum_bench_artifact_workload_latency_p95_ms gauge\n");
     output.push_str(
-        "# HELP connectanum_bench_artifact_workload_throughput_mbps Approximate workload response throughput in megabits per second\n",
+        "# HELP connectanum_bench_artifact_workload_throughput_mbps Dominant-direction workload throughput over the data window when available, otherwise lifecycle time\n",
     );
     output.push_str("# TYPE connectanum_bench_artifact_workload_throughput_mbps gauge\n");
+    output.push_str(
+        "# HELP connectanum_bench_artifact_workload_lifecycle_throughput_mbps Dominant-direction workload throughput including setup and teardown\n",
+    );
+    output.push_str("# TYPE connectanum_bench_artifact_workload_lifecycle_throughput_mbps gauge\n");
     output.push_str(
         "# HELP connectanum_bench_artifact_workload_request_bytes_total Total uploaded bytes recorded for a workload\n",
     );
@@ -2708,6 +2730,13 @@ pub fn render_prometheus_metrics(
             format_labels(&base_labels),
             summary.elapsed_ms
         ));
+        if let Some(data_window_elapsed_ms) = summary.data_window_elapsed_ms {
+            output.push_str(&format!(
+                "connectanum_bench_artifact_workload_data_window_elapsed_ms{} {}\n",
+                format_labels(&base_labels),
+                data_window_elapsed_ms
+            ));
+        }
         output.push_str(&format!(
             "connectanum_bench_artifact_workload_latency_avg_ms{} {}\n",
             format_labels(&base_labels),
@@ -2732,6 +2761,11 @@ pub fn render_prometheus_metrics(
             "connectanum_bench_artifact_workload_throughput_mbps{} {}\n",
             format_labels(&base_labels),
             summary.throughput_mbps
+        ));
+        output.push_str(&format!(
+            "connectanum_bench_artifact_workload_lifecycle_throughput_mbps{} {}\n",
+            format_labels(&base_labels),
+            summary.lifecycle_throughput_mbps
         ));
         output.push_str(&format!(
             "connectanum_bench_artifact_workload_request_bytes_total{} {}\n",
@@ -3135,6 +3169,7 @@ mod tests {
             response_chunk_bytes: 1024,
             started_at_ms: 1_000,
             completed_at_ms: 2_000,
+            data_window_elapsed_ms: None,
             metrics_before: metrics_with_bench_http_stream(
                 10,
                 20,
@@ -3660,6 +3695,9 @@ mod tests {
         assert_eq!(summary.response_chunk_bytes, 1024);
         assert_eq!(summary.request_bytes_total, 300);
         assert_eq!(summary.response_bytes_total, 1200);
+        assert_eq!(summary.data_window_elapsed_ms, None);
+        assert!((summary.throughput_mbps - 0.0096).abs() < f64::EPSILON);
+        assert!((summary.lifecycle_throughput_mbps - 0.0096).abs() < f64::EPSILON);
         assert_eq!(summary.router_invocations_delta, 5);
         assert_eq!(summary.router_publications_delta, 9);
         assert_eq!(summary.scenario_router_invocations_delta, 7);
@@ -4255,6 +4293,35 @@ mod tests {
     }
 
     #[test]
+    fn summarize_report_separates_data_and_lifecycle_throughput() {
+        let mut report = sample_report();
+        report.data_window_elapsed_ms = Some(500.0);
+
+        let summary = summarize_report(&report);
+
+        assert_eq!(summary.elapsed_ms, 1000.0);
+        assert_eq!(summary.data_window_elapsed_ms, Some(500.0));
+        assert!((summary.throughput_mbps - 0.0192).abs() < f64::EPSILON);
+        assert!((summary.lifecycle_throughput_mbps - 0.0096).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn summarize_report_uses_upload_bytes_for_upload_only_workloads() {
+        let mut report = sample_report();
+        report.data_window_elapsed_ms = Some(500.0);
+        for sample in &mut report.samples {
+            sample.response_bytes = 0;
+        }
+
+        let summary = summarize_report(&report);
+
+        assert_eq!(summary.request_bytes_total, 300);
+        assert_eq!(summary.response_bytes_total, 0);
+        assert!((summary.throughput_mbps - 0.0048).abs() < f64::EPSILON);
+        assert!((summary.lifecycle_throughput_mbps - 0.0024).abs() < f64::EPSILON);
+    }
+
+    #[test]
     fn summarize_report_uses_zero_start_for_missing_response_stream_counters() {
         let mut report = sample_report();
         report.metrics_before["metrics"]["transport"]
@@ -4280,6 +4347,7 @@ mod tests {
         let text =
             render_prometheus_metrics("bench_results.jsonl", &[summarize_report(&sample_report())]);
         assert!(text.contains("connectanum_bench_artifact_workload_latency_avg_ms"));
+        assert!(text.contains("connectanum_bench_artifact_workload_lifecycle_throughput_mbps"));
         assert!(text.contains("scenario=\"full_stack\""));
         assert!(text.contains("workload=\"load\""));
         assert!(text.contains("client_impl=\"n/a\""));

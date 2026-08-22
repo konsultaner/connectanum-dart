@@ -438,10 +438,8 @@ fn run_bench_suite(
                 };
                 let started_at = now_millis();
                 let execution = if prepared.is_wamp() {
-                    WorkloadExecution::samples_only(
-                        run_wamp_workload(&http_control, &prepared, workload_timeout)
-                            .with_context(|| format!("workload \"{}\" failed", workload.name))?,
-                    )
+                    run_wamp_workload(&http_control, &prepared, workload_timeout)
+                        .with_context(|| format!("workload \"{}\" failed", workload.name))?
                 } else if prepared.is_rawsocket_auth_frames() {
                     WorkloadExecution::samples_only(
                         runtime
@@ -487,6 +485,7 @@ fn run_bench_suite(
                     response_chunk_bytes: prepared.response_chunk_bytes,
                     started_at_ms: started_at,
                     completed_at_ms: completed_at,
+                    data_window_elapsed_ms: execution.data_window_elapsed_ms,
                     metrics_before: metrics_before.clone(),
                     metrics_after: scenario_metrics_after.clone(),
                     open_metrics_before: open_metrics_before.clone(),
@@ -1904,6 +1903,7 @@ struct HttpWorkerExecution {
 struct WorkloadExecution {
     samples: Vec<WorkloadSample>,
     http_connection_usage: Option<HttpConnectionUsage>,
+    data_window_elapsed_ms: Option<f64>,
 }
 
 impl WorkloadExecution {
@@ -1911,6 +1911,15 @@ impl WorkloadExecution {
         Self {
             samples,
             http_connection_usage: None,
+            data_window_elapsed_ms: None,
+        }
+    }
+
+    fn wamp(samples: Vec<WorkloadSample>, data_window_elapsed_ms: Option<f64>) -> Self {
+        Self {
+            samples,
+            http_connection_usage: None,
+            data_window_elapsed_ms,
         }
     }
 
@@ -1926,6 +1935,7 @@ impl WorkloadExecution {
                 streams_per_connection: workload.streams_per_connection,
                 connections_opened,
             }),
+            data_window_elapsed_ms: None,
         }
     }
 }
@@ -1969,15 +1979,17 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
     let total_latency: f64 = report.samples.iter().map(|s| s.latency_ms).sum();
     let total_requests: u64 = report.samples.iter().map(|s| s.request_bytes).sum();
     let total_responses: u64 = report.samples.iter().map(|s| s.response_bytes).sum();
+    let dominant_direction_bytes = total_requests.max(total_responses);
     let total_payload = total_requests + total_responses;
     let avg_latency = if total_samples > 0 {
         total_latency / total_samples as f64
     } else {
         0.0
     };
-    let elapsed_ms = (report.completed_at_ms - report.started_at_ms) as f64;
-    let response_throughput_mbps = if elapsed_ms > 0.0 {
-        (total_responses as f64 * 8.0 / 1_000_000.0) / (elapsed_ms / 1000.0)
+    let elapsed_ms = report.throughput_elapsed_ms();
+    let lifecycle_elapsed_ms = report.lifecycle_elapsed_ms();
+    let throughput_mbps = if elapsed_ms > 0.0 {
+        (dominant_direction_bytes as f64 * 8.0 / 1_000_000.0) / (elapsed_ms / 1000.0)
     } else {
         0.0
     };
@@ -2007,10 +2019,26 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
         format_bytes(total_requests),
         format_bytes(total_responses)
     );
-    println!(
-        "  Response throughput: {:.2} Mbps | Total payload throughput: {:.2} Mbps",
-        response_throughput_mbps, payload_throughput_mbps
-    );
+    if report.valid_data_window_elapsed_ms().is_some() {
+        let lifecycle_throughput_mbps = if lifecycle_elapsed_ms > 0.0 {
+            (dominant_direction_bytes as f64 * 8.0 / 1_000_000.0) / (lifecycle_elapsed_ms / 1000.0)
+        } else {
+            0.0
+        };
+        println!(
+            "  Data-window dominant-direction throughput: {:.2} Mbps | Total payload throughput: {:.2} Mbps",
+            throughput_mbps, payload_throughput_mbps
+        );
+        println!(
+            "  Lifecycle dominant-direction throughput: {:.2} Mbps (data {:.2} ms / lifecycle {:.2} ms)",
+            lifecycle_throughput_mbps, elapsed_ms, lifecycle_elapsed_ms
+        );
+    } else {
+        println!(
+            "  Dominant-direction throughput: {:.2} Mbps | Total payload throughput: {:.2} Mbps",
+            throughput_mbps, payload_throughput_mbps
+        );
+    }
     println!(
         "  Native runtime threads: {}",
         format_native_runtime_threads(report.native_runtime_threads)
@@ -3011,7 +3039,7 @@ fn run_wamp_workload(
     http_control: &BenchHttpClient,
     workload: &PreparedWorkload,
     workload_timeout: Duration,
-) -> Result<Vec<WorkloadSample>> {
+) -> Result<WorkloadExecution> {
     let (transport, mode) = parse_wamp_protocol(&workload.protocol)
         .ok_or_else(|| anyhow!("unsupported WAMP workload {}", workload.protocol))?;
     let body = json!({
@@ -3054,7 +3082,19 @@ fn run_wamp_workload(
         .ok_or_else(|| anyhow!("WAMP response missing samples field"))?;
     let samples: Vec<WorkloadSample> =
         serde_json::from_value(samples_value).context("failed to decode WAMP workload samples")?;
-    Ok(samples)
+    let data_window_elapsed_ms = parse_wamp_data_window_elapsed_ms(&response);
+    Ok(WorkloadExecution::wamp(samples, data_window_elapsed_ms))
+}
+
+fn parse_wamp_data_window_elapsed_ms(response: &Value) -> Option<f64> {
+    let window = response.get("data_window")?;
+    let started_at_us = window.get("started_at_us")?.as_u64()?;
+    let completed_at_us = window.get("completed_at_us")?.as_u64()?;
+    let elapsed_us = completed_at_us.checked_sub(started_at_us)?;
+    if elapsed_us == 0 {
+        return None;
+    }
+    Some(elapsed_us as f64 / 1000.0)
 }
 
 fn wamp_control_timeout(workload_timeout: Duration) -> Duration {
@@ -5968,6 +6008,32 @@ mod tests {
         }
     }
 
+    #[test]
+    fn wamp_data_window_uses_checked_microsecond_span() {
+        assert_eq!(
+            parse_wamp_data_window_elapsed_ms(&json!({
+                "data_window": {
+                    "started_at_us": 1_000,
+                    "completed_at_us": 5_500,
+                }
+            })),
+            Some(4.5)
+        );
+        assert_eq!(
+            parse_wamp_data_window_elapsed_ms(&json!({
+                "data_window": {
+                    "started_at_us": 5_500,
+                    "completed_at_us": 1_000,
+                }
+            })),
+            None
+        );
+        assert_eq!(
+            parse_wamp_data_window_elapsed_ms(&json!({"samples": []})),
+            None
+        );
+    }
+
     #[tokio::test]
     async fn collect_worker_samples_dries_out_tasks() {
         let mut join_set = JoinSet::new();
@@ -6164,6 +6230,7 @@ mod tests {
             response_chunk_bytes: 1024,
             started_at_ms: 1,
             completed_at_ms: 2,
+            data_window_elapsed_ms: None,
             metrics_before: json!({}),
             metrics_after: json!({}),
             open_metrics_before: None,

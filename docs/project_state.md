@@ -8,29 +8,36 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
-Canonical large single-binary JSON messages now retain the exact encoded
-argument view after the existing canonical decode and validation. Call,
-Publish, and Yield serialization can emit a small metadata prefix, the
-unchanged lazy argument/kwargs bytes, and a closing suffix; ordinary lazy echo
-handlers therefore avoid a second base64 encode and whole-payload JSON
-string/UTF-8 round trip without changing decoded application values. Empty and
-all base64 padding tiers, mixed lazy/materialized args and kwargs, metadata,
-URL-safe fallback, kwargs fallback, and accelerator-decline behavior have
-direct regressions. Three repeated 32 MiB RawSocket matrices raise the Dart
-JSON one-way response row from 1.40 Gbit/s to 2.39-2.57 Gbit/s and 4.77-5.14
-Gbit/s aggregate; every JSON/MessagePack/CBOR Dart/native control remains above
-2 Gbit/s one-way. The 128 MiB Dart JSON reference remains a measured boundary
-at 1.86 Gbit/s one-way, while the native 128/256 MiB JSON/MessagePack/CBOR rows
-reach 3.88-8.75 Gbit/s. The complete 13-row file matrix still passes at
-2.46-14.84 Gbit/s for clear and transformed non-E2EE paths in this local run;
-the short native AES-GCM E2EE row reaches 1.76 Gbit/s, while the checked-in
-sustained 4 GiB evidence remains 2.14-2.20 Gbit/s. Validation-only native
-scanning and manual Dart base64 unrolling were both discarded after producing
-no gain. JSON/base64, TLS, WebSocket masking, and E2EE remain mandatory
-transforms rather than literal filesystem-to-socket zero-copy paths.
-Full exact-tree `bin/verify` passes with formatting, Rust, Dart, package
-consumer, router-hosted MCP, remote-auth, native-forwarding, and Chrome
-Dart2Wasm checks green.
+WAMP benchmark samples now carry optional operation start/completion bounds.
+The Rust runner computes throughput from the complete measured data window,
+falls back to lifecycle time for legacy responses, and reports setup/teardown
+lifecycle throughput separately. Throughput uses the larger request/response
+direction, so upload-only file delivery is no longer reported as zero. The
+final heavy 128/256 MiB RawSocket suite passes all nine JSON, MessagePack, and
+CBOR Dart/native rows at 2.985-22.050 Gbit/s over the data window. The short
+128 MiB Dart JSON row remains an explicit setup-inclusive boundary at 1.761
+Gbit/s lifecycle throughput; a sustained 32-iteration run reaches 3.598
+Gbit/s over the data window and 3.253 Gbit/s including lifecycle.
+
+The heavy file suite passes all eight rows above 2 Gbit/s over both timing
+windows. Data-window/lifecycle results are 19.392/14.900 Gbit/s for the 1 GiB
+native CBOR `sendfile` row, 19.249/15.526 for concurrent native MessagePack,
+18.969/9.896 for pipelined native CBOR, 9.936/8.957 for segmented native JSON,
+5.397/5.344 for Dart CBOR, 5.373/5.275 for Dart MessagePack, 2.713/2.690 for
+Dart JSON, and 2.200/2.147 for sustained native AES-GCM E2EE. The run exposed
+and fixed two real progressive-transfer issues: senders now observe remote
+WAMP errors while streaming instead of masking them with a later local state
+error, and synchronous receiver sinks release bounded-buffer capacity in the
+same turn instead of falsely rejecting safe back-to-back chunks. As before,
+clear native MessagePack/CBOR RawSocket file frames use kernel `sendfile` on
+Linux and macOS; JSON/base64, TLS, WebSocket masking, and E2EE require
+transforms and cannot be literal filesystem-to-socket zero-copy paths.
+
+Full exact-tree `bin/verify` passes with formatting unchanged, 134 Rust core
+tests, 75 ordinary FFI tests plus the dedicated metrics regression, 397 Dart
+core tests, 118 MCP tests, 319 client/MCP integration cases, 116 benchmark
+tests, 468 router tests, consumer/live WAMP and MCP smokes, remote auth,
+native-forwarding follow-ups, Chrome, and Dart2Wasm.
 
 Buffered Dart progressive senders now preserve their per-chunk
 `Socket.flush()` and cooperative event-loop pacing without imposing a fixed
@@ -24850,6 +24857,19 @@ at the older `47bbf9c` commit.
 
 ## Verification Status
 
+- 2026-08-22: Heavy WAMP samples now report validated data-window throughput
+  and separate setup/teardown lifecycle throughput, with compatible fallback
+  for timing-free legacy results and dominant-direction upload accounting. The
+  final heavy frame suite passes all nine rows at 2.985-22.050 Gbit/s over the
+  data window; the short Dart JSON lifecycle result remains 1.761 Gbit/s while
+  sustained lifecycle throughput reaches 3.253 Gbit/s. The final heavy file
+  suite passes every row above 2 Gbit/s over both windows, including Dart JSON
+  at 2.713/2.690 Gbit/s and native AES-GCM E2EE at 2.200/2.147 Gbit/s.
+  Regressions cover remote progressive-call errors, synchronous receiver
+  capacity release, operation-window aggregation, legacy JSON compatibility,
+  malformed timing, and upload-only reports. `bin/test-fast` and exact-tree
+  `bin/verify` pass; hosted exact-head evidence and the strict deployment audit
+  remain pending for this commit.
 - 2026-08-17: Grant-aware router HTTP-auth and OAuth MCP clients now retain a
   known absolute access-token expiry after construction and replacement. Once
   reached, the common request-open boundary raises the token-redacted

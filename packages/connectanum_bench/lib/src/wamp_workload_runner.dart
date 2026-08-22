@@ -3215,12 +3215,36 @@ enum WampMode {
 }
 
 class WampSample {
-  WampSample({
+  factory WampSample({
+    required int worker,
+    required int iteration,
+    required double latencyMs,
+    required int requestBytes,
+    required int responseBytes,
+  }) {
+    final completedAtUs = DateTime.now().microsecondsSinceEpoch;
+    final hasValidLatency = latencyMs.isFinite && latencyMs >= 0;
+    return WampSample._(
+      worker: worker,
+      iteration: iteration,
+      latencyMs: latencyMs,
+      requestBytes: requestBytes,
+      responseBytes: responseBytes,
+      startedAtUs: hasValidLatency
+          ? completedAtUs - (latencyMs * 1000).round()
+          : null,
+      completedAtUs: hasValidLatency ? completedAtUs : null,
+    );
+  }
+
+  const WampSample._({
     required this.worker,
     required this.iteration,
     required this.latencyMs,
     required this.requestBytes,
     required this.responseBytes,
+    required this.startedAtUs,
+    required this.completedAtUs,
   });
 
   final int worker;
@@ -3228,14 +3252,18 @@ class WampSample {
   final double latencyMs;
   final int requestBytes;
   final int responseBytes;
+  final int? startedAtUs;
+  final int? completedAtUs;
 
   factory WampSample.fromJson(Map<String, Object?> json) {
-    return WampSample(
+    return WampSample._(
       worker: _readJsonInt(json['worker']),
       iteration: _readJsonInt(json['iteration']),
       latencyMs: _readJsonDouble(json['latency_ms']),
       requestBytes: _readJsonInt(json['request_bytes']),
       responseBytes: _readJsonInt(json['response_bytes']),
+      startedAtUs: _readOptionalJsonInt(json['started_at_us']),
+      completedAtUs: _readOptionalJsonInt(json['completed_at_us']),
     );
   }
 
@@ -3245,7 +3273,53 @@ class WampSample {
     'latency_ms': latencyMs,
     'request_bytes': requestBytes,
     'response_bytes': responseBytes,
+    if (startedAtUs != null) 'started_at_us': startedAtUs,
+    if (completedAtUs != null) 'completed_at_us': completedAtUs,
   };
+}
+
+class WampSampleWindow {
+  const WampSampleWindow({
+    required this.startedAtUs,
+    required this.completedAtUs,
+  });
+
+  final int startedAtUs;
+  final int completedAtUs;
+
+  double get elapsedMs => (completedAtUs - startedAtUs) / 1000.0;
+
+  Map<String, Object?> toJson() => {
+    'started_at_us': startedAtUs,
+    'completed_at_us': completedAtUs,
+  };
+
+  static WampSampleWindow? fromSamples(Iterable<WampSample> samples) {
+    int? startedAtUs;
+    int? completedAtUs;
+    for (final sample in samples) {
+      final sampleStartedAtUs = sample.startedAtUs;
+      final sampleCompletedAtUs = sample.completedAtUs;
+      if (sampleStartedAtUs == null ||
+          sampleCompletedAtUs == null ||
+          sampleCompletedAtUs < sampleStartedAtUs) {
+        continue;
+      }
+      if (startedAtUs == null || sampleStartedAtUs < startedAtUs) {
+        startedAtUs = sampleStartedAtUs;
+      }
+      if (completedAtUs == null || sampleCompletedAtUs > completedAtUs) {
+        completedAtUs = sampleCompletedAtUs;
+      }
+    }
+    if (startedAtUs == null || completedAtUs == null) {
+      return null;
+    }
+    return WampSampleWindow(
+      startedAtUs: startedAtUs,
+      completedAtUs: completedAtUs,
+    );
+  }
 }
 
 int _readJsonInt(Object? value) {
@@ -3266,6 +3340,13 @@ double _readJsonDouble(Object? value) {
     return value.toDouble();
   }
   throw FormatException('Expected number, got $value');
+}
+
+int? _readOptionalJsonInt(Object? value) {
+  if (value == null) {
+    return null;
+  }
+  return _readJsonInt(value);
 }
 
 class _PendingWampSample {

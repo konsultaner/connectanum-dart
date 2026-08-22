@@ -243,6 +243,22 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   Rust core tests, 74 ordinary Rust FFI tests, all Dart package suites,
   consumer and live WAMP/MCP smokes, remote auth, router-native follow-ups,
   benchmark integration, and Chrome Dart2Wasm.
+- Benchmark throughput now uses the measured WAMP operation window when the
+  worker supplies valid bounds and retains lifecycle throughput as a separate
+  setup/teardown-inclusive result. Legacy responses fall back to lifecycle
+  time, and dominant-direction accounting correctly measures upload-only file
+  delivery. The final heavy 128/256 MiB frame suite passes all nine rows at
+  2.985-22.050 Gbit/s over the data window. Its short Dart JSON row measures
+  1.761 Gbit/s including lifecycle, while a sustained run reaches 3.598 Gbit/s
+  over the data window and 3.253 Gbit/s including lifecycle.
+- The final eight-row heavy file suite clears 2 Gbit/s over both data and
+  lifecycle windows. Native paths reach 9.936-19.392 Gbit/s data-window and
+  8.957-15.526 Gbit/s lifecycle throughput. Dart CBOR, MessagePack, and JSON
+  reach 5.397/5.344, 5.373/5.275, and 2.713/2.690 Gbit/s respectively, and the
+  sustained native AES-GCM E2EE row reaches 2.200/2.147 Gbit/s. The same run
+  exposed and fixed premature remote-error observation and false receiver
+  capacity failures for synchronous sinks; focused regressions and full
+  `bin/verify` pass.
 
 ## Plan
 
@@ -409,6 +425,12 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   improve from 1.40 Gbit/s to 2.39-2.57 Gbit/s one-way; the 128 MiB Dart JSON
   reference remains a measured 1.86 Gbit/s boundary. Validation-only native
   scanning and manual Dart encoder unrolling were measured and discarded.
+- [x] Correct WAMP throughput timing and upload accounting, preserve legacy
+  artifact compatibility, surface remote progressive-call failures during
+  buffered file streaming, and release synchronous receiver capacity without
+  weakening bounded async backpressure. The final heavy file suite clears 2
+  Gbit/s over both data and lifecycle windows for every row, and every heavy
+  large-frame row clears 2 Gbit/s over the measured data window.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

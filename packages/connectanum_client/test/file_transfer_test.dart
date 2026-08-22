@@ -177,6 +177,33 @@ void main() {
     });
 
     test(
+      'setFile stops and preserves a protocol error received during drain',
+      () async {
+        final transport = _RemoteErrorDrainFileTransferTransport();
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+
+        await expectLater(
+          session.setFile(
+            'files.set',
+            WampFileSource.bytes(
+              Uint8List.fromList(const <int>[0, 1, 2, 3, 4]),
+              name: 'remote-error.bin',
+            ),
+            chunkSize: 1,
+          ),
+          throwsA(same(transport.protocolError)),
+        );
+
+        expect(transport.drainCount, equals(1));
+        expect(transport.calls, hasLength(2));
+        expect(transport.cancels, isEmpty);
+      },
+    );
+
+    test(
       'setFile uses source-provided exact chunks without rechunking',
       () async {
         final transport = _FileTransferTransport();
@@ -537,6 +564,48 @@ void main() {
       },
     );
 
+    test('receiver releases synchronous sink capacity immediately', () async {
+      final transport = _FileTransferTransport();
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+      final sink = _CollectingFileSink();
+      final receiver = await WampFileReceiver.register(
+        session,
+        'files.set',
+        (_) => sink,
+        maxChunkSize: 2,
+        maxBufferedBytes: 2,
+      );
+
+      transport.invokeHeader(
+        requestId: 89,
+        metadata: WampFileMetadata(
+          name: 'synchronous.bin',
+          size: 4,
+          chunkSize: 2,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      transport.invokeChunk(
+        requestId: 89,
+        bytes: Uint8List.fromList(const <int>[1, 2]),
+        progress: true,
+      );
+      transport.invokeChunk(
+        requestId: 89,
+        bytes: Uint8List.fromList(const <int>[3, 4]),
+        progress: false,
+      );
+
+      await _waitUntil(() => transport.yields.isNotEmpty);
+      expect(transport.errors, isEmpty);
+      expect(sink.bytes, const <int>[1, 2, 3, 4]);
+      expect(receiver.bufferedBytes, 0);
+      await receiver.close();
+    });
+
     test('receiver aborts an idle transfer and releases capacity', () async {
       final transport = _FileTransferTransport();
       final session = await Client(
@@ -856,6 +925,29 @@ class _ControllableDrainFileTransferTransport extends _FileTransferTransport
 
   void releaseNextDrain() {
     _drains.firstWhere((drain) => !drain.isCompleted).complete();
+  }
+}
+
+class _RemoteErrorDrainFileTransferTransport extends _FileTransferTransport
+    implements DrainableTransport {
+  final Error protocolError = Error(
+    MessageTypes.codeCall,
+    0,
+    const <String, dynamic>{},
+    Error.runtimeError,
+    arguments: const <dynamic>['receiver rejected the file'],
+  );
+  int drainCount = 0;
+
+  @override
+  Future<void> drain() async {
+    drainCount++;
+    if (drainCount != 1) {
+      return;
+    }
+    protocolError.requestId = calls.first.requestId;
+    _inbound.add(protocolError);
+    await Future<void>.delayed(Duration.zero);
   }
 }
 

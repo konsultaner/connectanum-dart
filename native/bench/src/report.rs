@@ -284,6 +284,8 @@ pub struct WorkloadReport {
     pub response_chunk_bytes: u64,
     pub started_at_ms: u128,
     pub completed_at_ms: u128,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_window_elapsed_ms: Option<f64>,
     pub metrics_before: Value,
     pub metrics_after: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -303,6 +305,22 @@ pub struct WorkloadReport {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_phase_timing: Option<HttpPhaseTimingSummary>,
     pub samples: Vec<WorkloadSample>,
+}
+
+impl WorkloadReport {
+    pub fn lifecycle_elapsed_ms(&self) -> f64 {
+        self.completed_at_ms.saturating_sub(self.started_at_ms) as f64
+    }
+
+    pub fn valid_data_window_elapsed_ms(&self) -> Option<f64> {
+        self.data_window_elapsed_ms
+            .filter(|elapsed_ms| elapsed_ms.is_finite() && *elapsed_ms > 0.0)
+    }
+
+    pub fn throughput_elapsed_ms(&self) -> f64 {
+        self.valid_data_window_elapsed_ms()
+            .unwrap_or_else(|| self.lifecycle_elapsed_ms())
+    }
 }
 
 fn default_router_workers() -> u32 {
@@ -535,5 +553,34 @@ mod tests {
         assert_eq!(report.router_workers, 1);
         assert_eq!(report.native_runtime_threads, 0);
         assert_eq!(report.http_connection_usage, None);
+        assert_eq!(report.data_window_elapsed_ms, None);
+        assert_eq!(report.lifecycle_elapsed_ms(), 1.0);
+        assert_eq!(report.throughput_elapsed_ms(), 1.0);
+    }
+
+    #[test]
+    fn workload_report_prefers_only_valid_data_windows() {
+        let mut report: WorkloadReport = serde_json::from_value(json!({
+            "scenario": "timed",
+            "workload": "load",
+            "protocol": "wamp_rawsocket_rpc",
+            "iterations": 1,
+            "concurrency": 1,
+            "started_at_ms": 1000,
+            "completed_at_ms": 2000,
+            "metrics_before": {},
+            "metrics_after": {},
+            "samples": []
+        }))
+        .unwrap();
+
+        report.data_window_elapsed_ms = Some(250.0);
+        assert_eq!(report.throughput_elapsed_ms(), 250.0);
+        report.data_window_elapsed_ms = Some(0.0);
+        assert_eq!(report.throughput_elapsed_ms(), 1000.0);
+        report.data_window_elapsed_ms = Some(-1.0);
+        assert_eq!(report.throughput_elapsed_ms(), 1000.0);
+        report.data_window_elapsed_ms = Some(f64::NAN);
+        assert_eq!(report.throughput_elapsed_ms(), 1000.0);
     }
 }
