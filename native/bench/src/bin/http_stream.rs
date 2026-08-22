@@ -6290,6 +6290,36 @@ mod tests {
     }
 
     #[test]
+    fn heavy_file_transfer_scenario_keeps_sustained_e2ee_coverage() {
+        let scenario_path = format!(
+            "{}/scenarios/wamp_file_transfer_heavy.toml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let scenario = load_scenario(&scenario_path).unwrap();
+        let workload = scenario
+            .workloads
+            .iter()
+            .find(|workload| workload.name == "rawsocket_file_cbor_e2ee_64m_native_sustained")
+            .expect("missing sustained E2EE file-transfer workload");
+
+        assert_eq!(workload.protocol, "wamp_rawsocket_file_transfer");
+        assert_eq!(workload.client_impl, "native");
+        assert_eq!(workload.serializer, "cbor");
+        assert_eq!(workload.ppt_scheme.as_deref(), Some("wamp"));
+        assert_eq!(workload.ppt_serializer.as_deref(), Some("cbor"));
+        assert_eq!(workload.ppt_cipher.as_deref(), Some("aes256gcm"));
+        assert_eq!(workload.ppt_keyid.as_deref(), Some("bench-key"));
+        assert_eq!(workload.request_bytes, 64 * 1024 * 1024);
+        assert_eq!(workload.request_chunk_bytes, 4 * 1024 * 1024);
+        assert!(
+            workload.request_bytes
+                * u64::from(workload.iterations)
+                * u64::from(workload.concurrency)
+                >= 4 * 1024 * 1024 * 1024
+        );
+    }
+
+    #[test]
     fn heavy_rawsocket_frame_scenario_keeps_large_repeated_samples() {
         let scenario_path = format!(
             "{}/scenarios/wamp_large_rawsocket_frames_heavy.toml",

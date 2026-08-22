@@ -25,6 +25,7 @@ use tokio::runtime::Runtime as TokioRuntime;
 
 use ring::{
     aead::{Aad as RingAad, LessSafeKey, Nonce as RingNonce, UnboundKey, AES_256_GCM},
+    digest::{Context as DigestContext, SHA256},
     rand::{SecureRandom as _, SystemRandom},
 };
 
@@ -100,7 +101,6 @@ use rmp::encode::{write_array_len, write_u64};
 use serde::Serialize;
 use serde_json::{Map as JsonMap, Number as JsonNumber, Value as JsonValue};
 use serde_value::Value as SerdeValue;
-use sha2::{Digest, Sha256};
 
 const E2EE_KEY_LEN: usize = 32;
 const E2EE_NONCE_LEN: usize = 24;
@@ -110,7 +110,7 @@ const SHA256_DIGEST_LEN: usize = 32;
 
 struct Sha256StateStore {
     next_id: AtomicU32,
-    states: DashMap<u32, Sha256>,
+    states: DashMap<u32, DigestContext>,
 }
 
 impl Default for Sha256StateStore {
@@ -5228,7 +5228,7 @@ pub extern "C" fn ct_sha256_new() -> c_int {
     if handle == 0 {
         return ERR_HANDLE_UNAVAILABLE;
     }
-    store.states.insert(handle, Sha256::new());
+    store.states.insert(handle, DigestContext::new(&SHA256));
     handle as c_int
 }
 
@@ -5293,9 +5293,9 @@ pub extern "C" fn ct_sha256_finalize(
     let Some((_, state)) = store.states.remove(&(sha256_handle as u32)) else {
         return ERR_HANDLE_UNAVAILABLE;
     };
-    let digest = state.finalize();
+    let digest = state.finish();
     unsafe {
-        ptr::copy_nonoverlapping(digest.as_ptr(), out_digest, SHA256_DIGEST_LEN);
+        ptr::copy_nonoverlapping(digest.as_ref().as_ptr(), out_digest, SHA256_DIGEST_LEN);
     }
     SUCCESS
 }
@@ -6285,6 +6285,80 @@ mod tests {
                 0x22, 0x23, 0xb0, 0x03, 0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61,
                 0xf2, 0x00, 0x15, 0xad,
             ]
+        );
+    }
+
+    #[test]
+    fn native_sha256_matches_million_a_test_vector() {
+        let _guard = test_guard();
+        let input = vec![b'a'; 1_000_000];
+        let sha256_handle = ct_sha256_new();
+        assert!(sha256_handle > 0);
+        assert_eq!(
+            ct_sha256_update(
+                sha256_handle,
+                input.as_ptr(),
+                c_int::try_from(input.len()).unwrap()
+            ),
+            1_000_000
+        );
+
+        let mut digest = [0_u8; SHA256_DIGEST_LEN];
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            SUCCESS
+        );
+        assert_eq!(
+            digest,
+            [
+                0xcd, 0xc7, 0x6e, 0x5c, 0x99, 0x14, 0xfb, 0x92, 0x81, 0xa1, 0xc7, 0xe2, 0x84, 0xd7,
+                0x3e, 0x67, 0xf1, 0x80, 0x9a, 0x48, 0xa4, 0x97, 0x20, 0x0e, 0x04, 0x6d, 0x39, 0xcc,
+                0xc7, 0x11, 0x2c, 0xd0,
+            ]
+        );
+    }
+
+    #[test]
+    fn native_sha256_finalizes_empty_input_and_consumes_state() {
+        let _guard = test_guard();
+        let sha256_handle = ct_sha256_new();
+        assert!(sha256_handle > 0);
+
+        let mut digest = [0_u8; SHA256_DIGEST_LEN];
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            SUCCESS
+        );
+        assert_eq!(
+            digest,
+            [
+                0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f,
+                0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b,
+                0x78, 0x52, 0xb8, 0x55,
+            ]
+        );
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            ERR_HANDLE_UNAVAILABLE
+        );
+    }
+
+    #[test]
+    fn native_sha256_release_invalidates_state() {
+        let _guard = test_guard();
+        let sha256_handle = ct_sha256_new();
+        assert!(sha256_handle > 0);
+        assert_eq!(ct_sha256_update(sha256_handle, b"abc".as_ptr(), 3), 3);
+        assert_eq!(ct_sha256_release(sha256_handle), SUCCESS);
+
+        let mut digest = [0_u8; SHA256_DIGEST_LEN];
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            ERR_HANDLE_UNAVAILABLE
+        );
+        assert_eq!(
+            ct_sha256_update(sha256_handle, b"ignored".as_ptr(), 7),
+            ERR_HANDLE_UNAVAILABLE
         );
     }
 

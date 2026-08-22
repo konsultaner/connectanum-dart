@@ -76,14 +76,14 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   E2EE payloads decrypt into an externally owned Rust buffer that remains
   anchored to the message and is hashed without a second Dart copy. Unsupported
   shapes retain the validated Dart fallback.
-- Production AArch64 macOS and Linux builds enable runtime-detected ARMv8 AES
-  and POLYVAL dispatch plus SHA-256 assembly, with safe software fallback on
-  unsupported CPUs. A local 4 MiB transform probe improved AES-GCM from about
-  23 ms to about 2.5 ms and SHA-256 from about 9 ms to about 1.75 ms. A chunk
-  sweep found 4 MiB remains the best tested encrypted transfer granularity.
-  The first exact-head artifact rehearsal passed Linux and macOS but confirmed
-  GNU SHA assembly cannot compile with Windows MSVC, so the assembly feature is
-  target-scoped to AArch64 Linux/macOS and Windows retains portable SHA-256.
+- Production AES-GCM and receipt hashing use `ring`'s runtime-dispatched
+  implementations on every supported target, with portable fallback selected
+  by that backend when hardware acceleration is unavailable. A local 4 MiB
+  transform probe improved AES-GCM from about 23 ms to about 2.5 ms and SHA-256
+  from about 9 ms to about 1.75 ms. A chunk sweep found 4 MiB remains the best
+  tested encrypted transfer granularity. The earlier direct `sha2` dependency
+  and its target-specific GNU assembly feature are no longer part of the FFI
+  production path.
 - The latest local canonical file matrix moves 1 GiB per native workload and
   passes every transport and metric gate: clear RawSocket reaches 8.94 Gbit/s
   with MessagePack and 6.89 Gbit/s with CBOR, TLS RawSocket CBOR reaches 6.43
@@ -196,13 +196,21 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   CBOR remain measured sub-target boundaries at 607-630 Mbit/s, 811 Mbit/s,
   and 1.68 Gbit/s respectively.
 - Native E2EE file preparation now runs off the async socket runtime, validates
-  exact transformed lengths before framing, and uses `ring` AES-256-GCM.
+  exact transformed lengths before framing, and uses `ring` AES-256-GCM and
+  SHA-256.
   Progressive PPT chunks retain native router forwarding only when their
   scheme, serializer, cipher, and key ID exactly match the initiating CALL.
-  A sustained 4 GiB run improves from 791.90 Mbit/s to 2.087 Gbit/s. The full
-  file matrix reaches 5.02-13.11 Gbit/s across native clear/TLS/WebSocket
-  paths, while the pure-Dart buffered path remains a 700 Mbit/s boundary. The
-  heavy native 128/256 MiB RawSocket matrix reaches 3.81-9.55 Gbit/s one-way
+  A sustained 4 GiB run improves from 791.90 Mbit/s to 2.185 Gbit/s. The
+  checked-in heavy file matrix now retains the same 4 GiB encrypted workload
+  and passes it at 2.165 Gbit/s, alongside 15.70 Gbit/s repeated native CBOR,
+  15.83 Gbit/s concurrent native MessagePack, and 10.11 Gbit/s pipelined native
+  CBOR. Its pure-Dart buffered reference remains below target at 1.678 Gbit/s.
+  The prior exact-head hosted diagnostic remains below target at 858.99 Mbit/s
+  for E2EE, 774.71 Mbit/s for Dart buffered file delivery, and 1.570 Gbit/s for
+  the native 64 MiB CBOR RPC control, so fresh hosted evidence is required.
+  The full file matrix reaches 5.02-13.11 Gbit/s across native
+  clear/TLS/WebSocket paths. The heavy native 128/256 MiB RawSocket matrix
+  reaches 3.81-9.55 Gbit/s one-way
   and 7.62-19.10 Gbit/s aggregate across CBOR and MessagePack. Its 128 MiB
   Dart CBOR reference reaches 2.80 Gbit/s one-way and 5.60 Gbit/s aggregate.
   Transformed paths cannot preserve literal kernel zero copy.
@@ -248,8 +256,8 @@ measured boundary rather than hidden by aggregate-duplex accounting.
 - [x] Add fused native E2EE file segments, in-place canonical PPT encryption,
   retained-message zero-copy decryption, transformed-byte hashing, exact-range
   regressions, and real-router encrypted file smoke coverage.
-- [x] Enable runtime-detected AArch64 AES, POLYVAL, and SHA-256 acceleration for
-  production macOS and Linux builds while preserving portable fallback.
+- [x] Use `ring`'s runtime-dispatched AES-GCM and SHA-256 implementations across
+  supported production targets while preserving portable fallback.
 - [x] Complete the strengthened local canonical and heavy file and large-frame
   matrices. Clear native file paths exceed the multi-gigabit target; true E2EE
   and giant one-way RawSocket frames remain explicit measured boundaries.
@@ -307,6 +315,13 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   `bin/verify` passes with 132 Rust core, 69 ordinary Rust FFI, 380 Dart core,
   118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus consumer,
   remote-auth, zero-copy, and Chrome Dart2Wasm coverage.
+- [x] Move native receipt hashing to `ring` SHA-256 and add a checked-in 4 GiB
+  sustained E2EE workload to the heavy file matrix. Local sustained E2EE rises
+  from 2.087 to 2.185 Gbit/s and the complete heavy artifact passes the new row
+  at 2.165 Gbit/s without weakening digest-handle lifecycle semantics. Full
+  exact-tree `bin/verify` passes with 132 Rust core, 72 ordinary Rust FFI, 380
+  Dart core, 118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus
+  consumer, remote-auth, zero-copy, and Chrome Dart2Wasm coverage.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

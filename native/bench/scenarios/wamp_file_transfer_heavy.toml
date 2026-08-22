@@ -48,3 +48,19 @@ concurrency = 1
 in_flight_per_session = 1
 request_bytes = 134217728
 request_chunk_bytes = 4194304
+
+[[workloads]]
+name = "rawsocket_file_cbor_e2ee_64m_native_sustained"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.file.set"
+iterations = 32
+concurrency = 2
+in_flight_per_session = 1
+request_bytes = 67108864
+request_chunk_bytes = 4194304
+ppt_scheme = "wamp"
+ppt_serializer = "cbor"
+ppt_cipher = "aes256gcm"
+ppt_keyid = "bench-key"

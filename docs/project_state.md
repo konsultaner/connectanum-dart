@@ -10,12 +10,17 @@ transport, serializer, security, and runtime variants. The active plan is
 
 The latest native E2EE file follow-up moves file reads and encryption off the
 async socket runtime, validates the exact transformed length before emitting a
-frame header, and uses the platform-accelerated `ring` AES-256-GCM backend while
-retaining cross-backend wire-compatibility coverage. Progressive `wamp` PPT
-chunks now keep retained native CALL-to-INVOCATION forwarding only when every
-chunk repeats the initiating serializer, cipher, and key ID exactly; changed,
-omitted, or custom metadata retains the validated Dart fallback. A sustained 4
-GiB AES-GCM file run improves from 791.90 Mbit/s to 2.087 Gbit/s. The complete
+frame header, and uses the platform-accelerated `ring` AES-256-GCM and SHA-256
+backends while retaining cross-backend wire-compatibility coverage.
+Progressive `wamp` PPT chunks now keep retained native CALL-to-INVOCATION
+forwarding only when every chunk repeats the initiating serializer, cipher,
+and key ID exactly; changed, omitted, or custom metadata retains the validated
+Dart fallback. Moving receipt hashing from the direct `sha2` dependency to
+`ring` raises the sustained 4 GiB
+AES-GCM file run from 2.087 to 2.185 Gbit/s, versus the original 791.90 Mbit/s.
+The checked-in heavy file matrix now retains that 4 GiB encrypted workload and
+passes it at 2.165 Gbit/s alongside 10.11-15.83 Gbit/s native clear paths; the
+pure-Dart buffered reference remains below target at 1.678 Gbit/s. The complete
 64 MiB file matrix reaches 13.11/8.85 Gbit/s for clear native
 MessagePack/CBOR, 6.88 Gbit/s for native TLS CBOR, 5.02 Gbit/s for native
 WebSocket CBOR, and 700 Mbit/s for the pure-Dart buffered fallback. Heavy
@@ -26,7 +31,7 @@ reference reaches 2.80 Gbit/s one-way and 5.60 Gbit/s aggregate. Clear native
 RawSocket files continue to use kernel `sendfile` on Linux and macOS. TLS,
 WebSocket masking, JSON/base64, and E2EE must transform bytes and therefore
 cannot provide literal filesystem-to-socket zero copy. Full exact-code
-`bin/verify` passes with 132 Rust core tests, 69 ordinary Rust FFI tests, the
+`bin/verify` passes with 132 Rust core tests, 72 ordinary Rust FFI tests, the
 dedicated `ffi-test` metrics regression, 380 Dart core tests, 118 MCP tests,
 108 benchmark tests with live WAMP workloads, the 468-test router suite,
 consumer smokes, remote auth, zero-copy follow-ups, and Chrome Dart2Wasm.
@@ -102,9 +107,10 @@ PPT allocation, encrypts in place with a detached AES-GCM tag, hashes the
 transformed bytes, and sends one native-backed argument. Incoming canonical
 single-binary E2EE payloads decrypt into externally owned Rust memory anchored
 to the message and are hashed without a second Dart copy. Unsupported shapes
-retain the validated Dart fallback. Production AArch64 macOS and Linux builds
-enable runtime-detected ARMv8 AES and POLYVAL plus SHA-256 assembly with safe
-software fallback.
+retain the validated Dart fallback. Production AES-GCM and receipt hashing now
+use `ring`'s platform-dispatched implementations on every supported target,
+with portable fallback selected by that backend when hardware acceleration is
+unavailable.
 
 The latest one-thread local file matrix moves 1 GiB per native workload and
 passes every transport and metric gate. Clear RawSocket reaches 8.94 Gbit/s
