@@ -104,6 +104,8 @@ const HTTP3_DATAGRAM_BUFFER_BYTES: usize = 8 * 1024 * 1024;
 const HTTP3_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
 const WEBSOCKET_MASK_CHUNK_SIZE: usize = 1024 * 1024;
 const FILE_SEGMENT_BUFFER_SIZE: usize = 4 * 1024 * 1024;
+const BASE64_FILE_SEGMENT_INPUT_SIZE: usize =
+    FILE_SEGMENT_BUFFER_SIZE - (FILE_SEGMENT_BUFFER_SIZE % 3);
 const RESPONSE_STREAM_SLOW_PATH_1MS_US: u64 = 1_000;
 const RESPONSE_STREAM_SLOW_PATH_5MS_US: u64 = 5_000;
 const RESPONSE_STREAM_SLOW_PATH_10MS_US: u64 = 10_000;
@@ -2985,6 +2987,25 @@ struct OutboundFileSegment {
     file: Arc<File>,
     offset: u64,
     len: usize,
+    encoding: FileSegmentEncoding,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FileSegmentEncoding {
+    Identity,
+    Base64,
+}
+
+impl FileSegmentEncoding {
+    fn wire_len(self, source_len: usize) -> Option<usize> {
+        match self {
+            Self::Identity => Some(source_len),
+            Self::Base64 => source_len
+                .checked_add(2)
+                .map(|value| value / 3)
+                .and_then(|groups| groups.checked_mul(4)),
+        }
+    }
 }
 
 struct OutboundFrame {
@@ -3049,10 +3070,14 @@ impl OutboundFrame {
         offset: u64,
         len: usize,
         suffix: Bytes,
+        encoding: FileSegmentEncoding,
     ) -> Result<Self, Error> {
+        let wire_len = encoding
+            .wire_len(len)
+            .ok_or(Error::InvalidFileSegment("encoded file length overflow"))?;
         let payload_len = prefix
             .len()
-            .checked_add(len)
+            .checked_add(wire_len)
             .and_then(|value| value.checked_add(suffix.len()))
             .ok_or(Error::InvalidFileSegment("payload length overflow"))?;
         Ok(Self {
@@ -3060,7 +3085,12 @@ impl OutboundFrame {
             payload_len,
             segments: vec![prefix],
             deferred_segment: None,
-            file_segment: Some(OutboundFileSegment { file, offset, len }),
+            file_segment: Some(OutboundFileSegment {
+                file,
+                offset,
+                len,
+                encoding,
+            }),
             suffix_segments: vec![suffix],
         })
     }
@@ -3189,7 +3219,11 @@ async fn resolve_deferred_segment(mut frame: OutboundFrame) -> Result<OutboundFr
         .chain(std::iter::once(&segment))
         .chain(frame.suffix_segments.iter())
         .try_fold(
-            frame.file_segment.as_ref().map_or(0usize, |file| file.len),
+            frame
+                .file_segment
+                .as_ref()
+                .and_then(|file| file.encoding.wire_len(file.len))
+                .unwrap_or(0usize),
             |sum, part| sum.checked_add(part.len()),
         )
         .ok_or_else(|| "prepared payload length overflow".to_string())?;
@@ -3215,6 +3249,7 @@ fn spawn_connection_writer(
     let task = handle.spawn(async move {
         let upgraded_protocol = max_message_size_exponent > 24;
         let mut file_scratch = Vec::new();
+        let mut encoded_file_scratch = Vec::new();
         'writer: while let Some(frame) = rx.recv().await {
             let frame = match resolve_deferred_segment(frame).await {
                 Ok(frame) => frame,
@@ -3267,13 +3302,21 @@ fn spawn_connection_writer(
             }
 
             if let Some(segment) = frame.file_segment {
-                let result = if let Some(sender) = file_sender.as_ref() {
-                    sender
-                        .send_file_segment(&segment.file, segment.offset, segment.len)
+                let result =
+                    if segment.encoding == FileSegmentEncoding::Identity && file_sender.is_some() {
+                        let sender = file_sender.as_ref().expect("checked above");
+                        sender
+                            .send_file_segment(&segment.file, segment.offset, segment.len)
+                            .await
+                    } else {
+                        write_file_segment_buffered(
+                            &mut writer,
+                            &segment,
+                            &mut file_scratch,
+                            &mut encoded_file_scratch,
+                        )
                         .await
-                } else {
-                    write_file_segment_buffered(&mut writer, &segment, &mut file_scratch).await
-                };
+                    };
                 if let Err(err) = result {
                     if !is_benign_socket_shutdown(err.kind()) {
                         eprintln!(
@@ -3504,6 +3547,7 @@ fn spawn_websocket_writer(
         let mut write_failed = false;
         let mut mask_scratch = Vec::new();
         let mut file_scratch = Vec::new();
+        let mut encoded_file_scratch = Vec::new();
         while let Some(frame) = rx.recv().await {
             let frame = match resolve_deferred_segment(frame).await {
                 Ok(frame) => frame,
@@ -3538,6 +3582,7 @@ fn spawn_websocket_writer(
                     mask_outbound_frames,
                     &mut mask_scratch,
                     &mut file_scratch,
+                    &mut encoded_file_scratch,
                 )
                 .await
             } else {
@@ -4344,13 +4389,37 @@ async fn write_file_segment_buffered(
     writer: &mut IoWriteHalf,
     segment: &OutboundFileSegment,
     file_scratch: &mut Vec<u8>,
+    encoded_file_scratch: &mut Vec<u8>,
 ) -> io::Result<()> {
     let mut remaining = segment.len;
     let mut file_offset = segment.offset;
     while remaining > 0 {
-        let chunk_len = remaining.min(FILE_SEGMENT_BUFFER_SIZE);
+        let chunk_len = match segment.encoding {
+            FileSegmentEncoding::Identity => remaining.min(FILE_SEGMENT_BUFFER_SIZE),
+            FileSegmentEncoding::Base64 => remaining.min(BASE64_FILE_SEGMENT_INPUT_SIZE),
+        };
         read_file_chunk_at(&segment.file, file_offset, chunk_len, file_scratch).await?;
-        writer.write_all(&file_scratch[..chunk_len]).await?;
+        match segment.encoding {
+            FileSegmentEncoding::Identity => {
+                writer.write_all(&file_scratch[..chunk_len]).await?;
+            }
+            FileSegmentEncoding::Base64 => {
+                let encoded_len =
+                    FileSegmentEncoding::Base64
+                        .wire_len(chunk_len)
+                        .ok_or_else(|| {
+                            io::Error::new(io::ErrorKind::InvalidInput, "base64 length overflow")
+                        })?;
+                encoded_file_scratch.resize(encoded_len, 0);
+                let written = Base64Engine
+                    .encode_slice(
+                        &file_scratch[..chunk_len],
+                        &mut encoded_file_scratch[..encoded_len],
+                    )
+                    .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))?;
+                writer.write_all(&encoded_file_scratch[..written]).await?;
+            }
+        }
         file_offset = file_offset
             .checked_add(chunk_len as u64)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "file offset overflow"))?;
@@ -4452,6 +4521,7 @@ async fn write_websocket_file_frame_mode(
     mask_payload: bool,
     mask_scratch: &mut Vec<u8>,
     file_scratch: &mut Vec<u8>,
+    encoded_file_scratch: &mut Vec<u8>,
 ) -> io::Result<()> {
     let (header, mask) = websocket_frame_header(opcode, true, payload_len, mask_payload);
     writer.write_all(&header).await?;
@@ -4470,15 +4540,44 @@ async fn write_websocket_file_frame_mode(
     let mut remaining = file_segment.len;
     let mut file_offset = file_segment.offset;
     while remaining > 0 {
-        let chunk_len = remaining.min(FILE_SEGMENT_BUFFER_SIZE);
+        let chunk_len = match file_segment.encoding {
+            FileSegmentEncoding::Identity => remaining.min(FILE_SEGMENT_BUFFER_SIZE),
+            FileSegmentEncoding::Base64 => remaining.min(BASE64_FILE_SEGMENT_INPUT_SIZE),
+        };
         read_file_chunk_at(&file_segment.file, file_offset, chunk_len, file_scratch).await?;
-        if let Some(mask) = mask.as_ref() {
-            for (index, byte) in file_scratch[..chunk_len].iter_mut().enumerate() {
-                *byte ^= mask[(payload_offset + index) % mask.len()];
+        match file_segment.encoding {
+            FileSegmentEncoding::Identity => {
+                if let Some(mask) = mask.as_ref() {
+                    for (index, byte) in file_scratch[..chunk_len].iter_mut().enumerate() {
+                        *byte ^= mask[(payload_offset + index) % mask.len()];
+                    }
+                }
+                writer.write_all(&file_scratch[..chunk_len]).await?;
+                payload_offset += chunk_len;
+            }
+            FileSegmentEncoding::Base64 => {
+                let encoded_len =
+                    FileSegmentEncoding::Base64
+                        .wire_len(chunk_len)
+                        .ok_or_else(|| {
+                            io::Error::new(io::ErrorKind::InvalidInput, "base64 length overflow")
+                        })?;
+                encoded_file_scratch.resize(encoded_len, 0);
+                let written = Base64Engine
+                    .encode_slice(
+                        &file_scratch[..chunk_len],
+                        &mut encoded_file_scratch[..encoded_len],
+                    )
+                    .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))?;
+                if let Some(mask) = mask.as_ref() {
+                    for (index, byte) in encoded_file_scratch[..written].iter_mut().enumerate() {
+                        *byte ^= mask[(payload_offset + index) % mask.len()];
+                    }
+                }
+                writer.write_all(&encoded_file_scratch[..written]).await?;
+                payload_offset += written;
             }
         }
-        writer.write_all(&file_scratch[..chunk_len]).await?;
-        payload_offset += chunk_len;
         file_offset = file_offset
             .checked_add(chunk_len as u64)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "file offset overflow"))?;
@@ -5417,7 +5516,43 @@ pub fn send_wamp_file_segment(
             "file range exceeds the current file length",
         ));
     }
-    let frame = OutboundFrame::message_file_segment(prefix, file, offset, len, suffix)?;
+    let frame = OutboundFrame::message_file_segment(
+        prefix,
+        file,
+        offset,
+        len,
+        suffix,
+        FileSegmentEncoding::Identity,
+    )?;
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.enqueue_file_frame(connection_id, frame))
+}
+
+/// Enqueues a WAMP message with a file-backed segment encoded as RFC 4648 base64.
+pub fn send_wamp_base64_file_segment(
+    connection_id: ConnectionId,
+    prefix: Bytes,
+    file: Arc<File>,
+    offset: u64,
+    len: usize,
+    suffix: Bytes,
+) -> Result<(), Error> {
+    let end = offset
+        .checked_add(len as u64)
+        .ok_or(Error::InvalidFileSegment("file range overflow"))?;
+    if end > file.metadata()?.len() {
+        return Err(Error::InvalidFileSegment(
+            "file range exceeds the current file length",
+        ));
+    }
+    let frame = OutboundFrame::message_file_segment(
+        prefix,
+        file,
+        offset,
+        len,
+        suffix,
+        FileSegmentEncoding::Base64,
+    )?;
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.enqueue_file_frame(connection_id, frame))
 }
@@ -8892,6 +9027,70 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn rawsocket_base64_file_segment_preserves_json_wire_bytes() {
+        let _guard = test_guard();
+        shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","max_rawsocket_size_exponent":30}]}"#,
+        )
+        .unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let client_connection_id = connect_rawsocket(
+            "127.0.0.1",
+            addr.port(),
+            false,
+            false,
+            RawSocketSerializer::Json,
+            30,
+            None,
+            None,
+        )
+        .unwrap();
+        let server_connection_id = receiver.recv().await.expect("server connection");
+
+        let file_bytes = (0..BASE64_FILE_SEGMENT_INPUT_SIZE + 7)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "connectanum-json-file-{}-{nonce}.bin",
+            std::process::id()
+        ));
+        std::fs::write(&path, &file_bytes).unwrap();
+        let file = Arc::new(File::open(&path).unwrap());
+        let prefix = Bytes::from_static(br#"[48,1,{},"files.set",["\u0000"#);
+        let suffix = Bytes::from_static(b"\"]]");
+
+        for len in [0, 1, 2, 3, BASE64_FILE_SEGMENT_INPUT_SIZE + 7] {
+            send_wamp_base64_file_segment(
+                client_connection_id,
+                prefix.clone(),
+                Arc::clone(&file),
+                0,
+                len,
+                suffix.clone(),
+            )
+            .unwrap();
+
+            let parsed = wait_for_polled_message(server_connection_id).await;
+            assert!(matches!(parsed.message, WampMessage::Call { .. }));
+            let encoded = Base64Engine.encode(&file_bytes[..len]);
+            let expected = [prefix.as_ref(), encoded.as_bytes(), suffix.as_ref()].concat();
+            assert_eq!(parsed.raw.into_bytes().as_ref(), expected.as_slice());
+        }
+
+        std::fs::remove_file(path).unwrap();
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn connect_rawsocket_standard_cbor_peer_uses_extended_router_endpoint() {
         let _guard = test_guard();
         shutdown().ok();
@@ -9230,6 +9429,79 @@ mod tests {
             }
             other => panic!("unexpected websocket file message: {other:?}"),
         }
+        assert_eq!(parsed.raw.into_bytes().as_ref(), expected.as_slice());
+
+        std::fs::remove_file(path).unwrap();
+        shutdown().unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_base64_file_segment_round_trips_from_masked_client() {
+        let _guard = test_guard();
+        shutdown().ok();
+        super::apply_router_config(
+            br#"{"schema":"connectanum.router","version":1,"endpoints":[{"host":"127.0.0.1","port":0,"tls_mode":"disabled","protocols":["websocket"]}]}"#,
+        )
+        .unwrap();
+        start_runtime().unwrap();
+        let listener_id = listen("127.0.0.1", 0, 128).unwrap();
+        let addr = local_addr(listener_id).unwrap();
+        let mut receiver = accept_channel(listener_id).unwrap();
+
+        let connect = tokio::task::spawn_blocking(move || {
+            connect_websocket(
+                "127.0.0.1",
+                addr.port(),
+                "/wamp",
+                false,
+                false,
+                RawSocketSerializer::Json,
+                &[],
+                None,
+                None,
+            )
+        });
+        let server_connection_id = receiver.recv().await.expect("server connection");
+        let handshake = connection_take_websocket_handshake(server_connection_id).unwrap();
+        connection_accept_websocket(
+            server_connection_id,
+            handshake,
+            RawSocketSerializer::Json,
+            Some("wamp.2.json"),
+        )
+        .unwrap();
+        let client_connection_id = connect.await.unwrap().unwrap();
+
+        let file_bytes = (0..BASE64_FILE_SEGMENT_INPUT_SIZE + 7)
+            .map(|index| (index % 251) as u8)
+            .collect::<Vec<_>>();
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "connectanum-websocket-json-file-{}-{nonce}.bin",
+            std::process::id()
+        ));
+        std::fs::write(&path, &file_bytes).unwrap();
+        let file = Arc::new(File::open(&path).unwrap());
+        let prefix = Bytes::from_static(br#"[48,1,{},"files.set",["\u0000"#);
+        let suffix = Bytes::from_static(b"\"]]");
+        let encoded = Base64Engine.encode(&file_bytes);
+        let expected = [prefix.as_ref(), encoded.as_bytes(), suffix.as_ref()].concat();
+
+        send_wamp_base64_file_segment(
+            client_connection_id,
+            prefix,
+            file,
+            0,
+            file_bytes.len(),
+            suffix,
+        )
+        .unwrap();
+
+        let parsed = wait_for_polled_message(server_connection_id).await;
+        assert!(matches!(parsed.message, WampMessage::Call { .. }));
         assert_eq!(parsed.raw.into_bytes().as_ref(), expected.as_slice());
 
         std::fs::remove_file(path).unwrap();

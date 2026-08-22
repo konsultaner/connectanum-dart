@@ -776,6 +776,7 @@ class NativeClientRuntime {
     required int fileOffset,
     required int fileLength,
     Uint8List? suffix,
+    bool encodeBase64 = false,
   }) {
     ensureStarted();
     if (fileOffset < 0 || fileLength < 0) {
@@ -793,7 +794,10 @@ class NativeClientRuntime {
         suffixPtr = malloc<ffi.Uint8>(suffixBytes.length);
         suffixPtr.asTypedList(suffixBytes.length).setAll(0, suffixBytes);
       }
-      final result = _bindings.ctSendMessageFileSegment(
+      final send = encodeBase64
+          ? _bindings.ctSendMessageBase64FileSegment
+          : _bindings.ctSendMessageFileSegment;
+      final result = send(
         connectionId,
         prefixPtr,
         prefix.length,
@@ -886,6 +890,61 @@ class NativeClientRuntime {
     return result;
   }
 
+  Uint8List? _decodeJsonSingleBinaryArgument(int messageHandle) {
+    final outputPtr = calloc<CtExternalByteBuffer>();
+    try {
+      final result = _bindings.ctMessageDecodeSingleBinaryArgument(
+        messageHandle,
+        outputPtr,
+      );
+      if (result == NativeTransportErrorCode.unsupported) {
+        return null;
+      }
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(
+          result,
+          'Failed to decode native JSON binary argument',
+        );
+      }
+      final output = outputPtr.ref;
+      if (output.owner == ffi.nullptr) {
+        throw NativeTransportException(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native JSON decode returned no external buffer owner',
+        );
+      }
+      if (output.len == 0) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        return Uint8List(0);
+      }
+      if (output.ptr == ffi.nullptr) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        throw NativeTransportException(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native JSON decode returned no external buffer bytes',
+        );
+      }
+      try {
+        final bytes = output.ptr.asTypedList(
+          output.len,
+          finalizer: _bindings.ctExternalByteBufferFreePointer,
+          token: output.owner,
+        );
+        _nativeExternalBytes[bytes] = _NativeExternalBytesReference(
+          runtimeIdentity: this,
+          pointer: output.ptr,
+          length: output.len,
+        );
+        return bytes;
+      } catch (_) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        rethrow;
+      }
+    } finally {
+      calloc.free(outputPtr);
+    }
+  }
+
   NativeIncomingMessage materialize(int handle) {
     ensureStarted();
     final infoPtr = calloc<CtMessageInfo>();
@@ -903,9 +962,15 @@ class NativeClientRuntime {
           ? null
           : info.kwargsPtr.asTypedList(info.kwargsLen);
       final metadata = _metadataFromFfi(info);
-      final singleBinaryArgument = info.binaryArgPtr == ffi.nullptr
+      var singleBinaryArgument = info.binaryArgPtr == ffi.nullptr
           ? null
           : info.binaryArgPtr.asTypedList(info.binaryArgLen);
+      if (singleBinaryArgument == null &&
+          serializer == NativeMessageSerializer.json &&
+          info.messageCode == 68 &&
+          kwargs == null) {
+        singleBinaryArgument = _decodeJsonSingleBinaryArgument(handle);
+      }
 
       Uint8List frame;
       Object message;

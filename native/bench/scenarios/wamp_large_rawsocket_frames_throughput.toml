@@ -2,6 +2,28 @@ name = "wamp_large_rawsocket_frames_throughput"
 description = "Exponent-30 RawSocket RPC frames above the standard 16 MiB WAMP profile ceiling."
 
 [[workloads]]
+name = "rawsocket_rpc_json_32m_dart"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "dart"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 16
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 33554432
+
+[[workloads]]
+name = "rawsocket_rpc_json_32m_native"
+protocol = "wamp_rawsocket_rpc"
+client_impl = "native"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 16
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 33554432
+
+[[workloads]]
 name = "rawsocket_rpc_msgpack_32m_dart"
 protocol = "wamp_rawsocket_rpc"
 client_impl = "dart"

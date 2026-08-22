@@ -6336,6 +6336,38 @@ mod tests {
     }
 
     #[test]
+    fn file_transfer_throughput_covers_every_serializer_per_native_transport() {
+        let scenario_path = format!(
+            "{}/scenarios/wamp_file_transfer_throughput.toml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let scenario = load_scenario(&scenario_path).unwrap();
+
+        for (transport, secure, suffix) in [
+            ("wamp_rawsocket_file_transfer", false, "rawsocket"),
+            ("wamp_rawsocket_file_transfer", true, "rawsocket_tls"),
+            ("wamp_websocket_file_transfer", false, "websocket"),
+        ] {
+            for serializer in ["json", "msgpack", "cbor"] {
+                let workload = scenario
+                    .workloads
+                    .iter()
+                    .find(|workload| {
+                        workload.protocol == transport
+                            && workload.secure_transport == secure
+                            && workload.client_impl == "native"
+                            && workload.serializer == serializer
+                    })
+                    .unwrap_or_else(|| {
+                        panic!("missing {suffix} native {serializer} file workload")
+                    });
+                assert_eq!(workload.request_bytes, 64 * 1024 * 1024);
+                assert_eq!(workload.request_chunk_bytes, 4 * 1024 * 1024);
+            }
+        }
+    }
+
+    #[test]
     fn heavy_file_transfer_scenario_keeps_sustained_e2ee_coverage() {
         let scenario_path = format!(
             "{}/scenarios/wamp_file_transfer_heavy.toml",
@@ -6374,6 +6406,7 @@ mod tests {
         let scenario = load_scenario(&scenario_path).unwrap();
 
         for (name, serializer) in [
+            ("rawsocket_file_json_128m_dart_buffered_reference", "json"),
             ("rawsocket_file_cbor_128m_dart_buffered_reference", "cbor"),
             (
                 "rawsocket_file_msgpack_128m_dart_buffered_reference",
@@ -6404,10 +6437,13 @@ mod tests {
         );
         let scenario = load_scenario(&scenario_path).unwrap();
         let expected = [
+            ("rawsocket_rpc_json_128m_native", 128, 16),
             ("rawsocket_rpc_msgpack_128m_native", 128, 16),
             ("rawsocket_rpc_cbor_128m_native", 128, 16),
+            ("rawsocket_rpc_json_128m_dart_reference", 128, 4),
             ("rawsocket_rpc_cbor_128m_dart_reference", 128, 4),
             ("rawsocket_rpc_msgpack_128m_dart_reference", 128, 4),
+            ("rawsocket_rpc_json_256m_native", 256, 8),
             ("rawsocket_rpc_msgpack_256m_native", 256, 8),
             ("rawsocket_rpc_cbor_256m_native", 256, 8),
         ];

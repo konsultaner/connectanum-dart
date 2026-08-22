@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_core/connectanum_core.dart';
+import 'package:connectanum_core/json_serializer.dart' show decodeBase64Bytes;
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
 import 'message_protocol.dart';
@@ -904,10 +905,10 @@ Object? _normalizeJsonBinaryPayload(Object? value) {
   if (value is String &&
       (value.startsWith(_jsonBinaryPrefix) ||
           value.startsWith(_jsonEscapedBinaryPrefix))) {
-    final prefix = value.startsWith(_jsonBinaryPrefix)
-        ? _jsonBinaryPrefix
-        : _jsonEscapedBinaryPrefix;
-    return Uint8List.fromList(base64.decode(value.substring(prefix.length)));
+    final prefixLength = value.startsWith(_jsonBinaryPrefix)
+        ? _jsonBinaryPrefix.length
+        : _jsonEscapedBinaryPrefix.length;
+    return decodeBase64Bytes(value, prefixLength);
   }
   if (value is List) {
     return value

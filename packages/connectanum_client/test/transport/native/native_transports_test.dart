@@ -82,9 +82,7 @@ final _serializers = <_SerializerCase>[
 
 void main() {
   group('native file segment serializer prefix', () {
-    for (final serializerCase in _serializers.where(
-      (serializerCase) => serializerCase.name != 'json',
-    )) {
+    for (final serializerCase in _serializers) {
       test('${serializerCase.name} round-trips binary length tiers', () {
         for (final length in const <int>[0, 1, 23, 24, 255, 256, 65535]) {
           final call = Call(
@@ -98,8 +96,17 @@ void main() {
             serializerType: serializerCase.rawsocketType,
             fileLength: length,
           );
-          final payload = Uint8List(prefix.length + length)
-            ..setRange(0, prefix.length, prefix);
+          final fileBytes = Uint8List(length);
+          final payload = serializerCase.name == 'json'
+              ? Uint8List.fromList(<int>[
+                  ...prefix,
+                  ...utf8.encode(base64.encode(fileBytes)),
+                  0x22,
+                  0x5d,
+                  0x5d,
+                ])
+              : (Uint8List(prefix.length + length)
+                  ..setRange(0, prefix.length, prefix));
 
           final decoded =
               serializerCase.serializer.deserialize(payload) as Call;
@@ -141,11 +148,11 @@ void main() {
       }
     });
 
-    test('rejects JSON and non-binary placeholder payloads', () {
+    test('rejects unknown serializers and non-binary placeholder payloads', () {
       expect(
         () => buildNativeFileSegmentPrefix(
           Uint8List.fromList(const <int>[0x91, 0xc4, 0x00]),
-          serializerType: SocketHelper.serializationJson,
+          serializerType: 99,
           fileLength: 1,
         ),
         throwsUnsupportedError,
@@ -208,9 +215,7 @@ void main() {
           expect(transport.headerLength, equals(4));
           expect(
             transport.supportsFileSegments,
-            equals(
-              (Platform.isLinux || Platform.isMacOS) && config.name != 'json',
-            ),
+            equals(Platform.isLinux || Platform.isMacOS),
           );
 
           await client.disconnect();
@@ -277,7 +282,7 @@ void main() {
           expect(transport, isA<FileSegmentTransport>());
           expect(
             (transport as FileSegmentTransport).supportsFileSegments,
-            equals(config.name != 'json'),
+            isTrue,
           );
 
           await client.disconnect();

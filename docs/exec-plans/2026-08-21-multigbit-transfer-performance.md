@@ -225,7 +225,24 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   MiB RawSocket gate passes all rows at 2.82-9.67 Gbit/s one-way. Full
   `bin/verify` passes with 132 Rust core, 72 ordinary Rust FFI, 385 Dart core,
   118 MCP, 108 benchmark/live-WAMP, and 468 router tests plus consumer,
-  remote-auth, native-forwarding, and Chrome Dart2Wasm coverage.
+  remote-auth, native-forwarding, and Chrome Dart2Wasm coverage. Exact-head CI,
+  package dry run, WAMP diagnostics, and the unchanged profile-gate retry pass;
+  the comprehensive feature-head audit and protected `master` strict audit are
+  clean.
+- Native JSON file delivery now uses a bounded native base64 file-segment mode
+  and native canonical invocation decode instead of reading, encoding, or
+  decoding each file chunk in Dart. Exact empty/padding/multi-chunk RawSocket
+  and masked-WebSocket regressions pass, while noncanonical JSON retains the
+  Dart fallback. The exact final 64 MiB matrix reaches 6.59/6.50/6.03 Gbit/s
+  for native JSON over clear RawSocket/TLS/WebSocket and 8.56-14.41 Gbit/s for
+  native MessagePack/CBOR. A sustained 4 GiB native JSON row reaches 8.95
+  Gbit/s and sustained E2EE remains above target at 2.16 Gbit/s. Pure-Dart JSON
+  remains a measured transform boundary at 1.20-1.26 Gbit/s. The expanded
+  32-256 MiB JSON/MessagePack/CBOR RawSocket matrices pass every local row at
+  2.55-17.05 Gbit/s aggregate. Full exact-tree `bin/verify` passes with 134
+  Rust core tests, 74 ordinary Rust FFI tests, all Dart package suites,
+  consumer and live WAMP/MCP smokes, remote auth, router-native follow-ups,
+  benchmark integration, and Chrome Dart2Wasm.
 
 ## Plan
 
@@ -351,6 +368,18 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   affecting native segment paths. Sustained 3 GiB-per-serializer file rows now
   reach 4.56-4.57 Gbit/s and the heavy 128/256 MiB RawSocket rows all pass at
   2.82-9.67 Gbit/s one-way. Full exact-tree `bin/verify` passes.
+- [x] Add JSON to the canonical and heavy file/large-frame matrices, stream
+  native JSON file segments through bounded base64 transforms, and decode
+  canonical JSON invocation bytes into FFI-finalized native buffers. Preserve
+  kernel `sendfile` for identity RawSocket segments and retain the Dart decoder
+  fallback for noncanonical peers. Native JSON file paths now reach 6.10-8.95
+  Gbit/s locally and every expanded 32-256 MiB RawSocket row clears 2 Gbit/s
+  aggregate.
+- [x] Complete exact-tree local verification and rerun the final 13-row file
+  matrix against the rebuilt release library. `bin/verify` passes, native
+  filesystem-backed rows reach 6.03-14.41 Gbit/s across clear RawSocket, TLS,
+  and WebSocket, and the pure-Dart JSON fallback remains an explicit 1.20
+  Gbit/s measured boundary.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

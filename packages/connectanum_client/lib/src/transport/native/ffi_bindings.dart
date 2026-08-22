@@ -174,6 +174,11 @@ typedef CtMessageReleaseDart = void Function(int);
 typedef CtMessageRetainNative = ffi.Int32 Function(ffi.Int32);
 typedef CtMessageRetainDart = int Function(int);
 
+typedef CtMessageDecodeSingleBinaryArgumentNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<CtExternalByteBuffer>);
+typedef CtMessageDecodeSingleBinaryArgumentDart =
+    int Function(int, ffi.Pointer<CtExternalByteBuffer>);
+
 typedef CtSha256NewNative = ffi.Int32 Function();
 typedef CtSha256NewDart = int Function();
 
@@ -269,6 +274,9 @@ typedef CtSendMessageFileSegmentDart =
       ffi.Pointer<ffi.Uint8>,
       int,
     );
+
+typedef CtSendMessageBase64FileSegmentNative = CtSendMessageFileSegmentNative;
+typedef CtSendMessageBase64FileSegmentDart = CtSendMessageFileSegmentDart;
 
 typedef CtSendMessageNativeE2eeFileSegmentNative =
     ffi.Int32 Function(
@@ -511,6 +519,11 @@ class CtFfiBindings {
           .lookupFunction<CtMessageRetainNative, CtMessageRetainDart>(
             'ct_message_retain',
           ),
+      ctMessageDecodeSingleBinaryArgument = library
+          .lookupFunction<
+            CtMessageDecodeSingleBinaryArgumentNative,
+            CtMessageDecodeSingleBinaryArgumentDart
+          >('ct_message_decode_single_binary_argument'),
       ctSha256New = library.lookupFunction<CtSha256NewNative, CtSha256NewDart>(
         'ct_sha256_new',
       ),
@@ -586,6 +599,11 @@ class CtFfiBindings {
             CtSendMessageFileSegmentNative,
             CtSendMessageFileSegmentDart
           >('ct_send_message_file_segment'),
+      ctSendMessageBase64FileSegment = library
+          .lookupFunction<
+            CtSendMessageBase64FileSegmentNative,
+            CtSendMessageBase64FileSegmentDart
+          >('ct_send_message_base64_file_segment'),
       ctSendMessageNativeE2eeFileSegment = library
           .lookupFunction<
             CtSendMessageNativeE2eeFileSegmentNative,
@@ -620,6 +638,8 @@ class CtFfiBindings {
   final CtMessagePeekDart ctMessagePeek;
   final CtMessageReleaseDart ctMessageRelease;
   final CtMessageRetainDart ctMessageRetain;
+  final CtMessageDecodeSingleBinaryArgumentDart
+  ctMessageDecodeSingleBinaryArgument;
   final CtSha256NewDart ctSha256New;
   final CtSha256UpdateDart ctSha256Update;
   final CtSha256UpdateMessageBinaryArgumentDart
@@ -636,6 +656,7 @@ class CtFfiBindings {
   final CtFileOpenDart ctFileOpen;
   final CtFileReleaseDart ctFileRelease;
   final CtSendMessageFileSegmentDart ctSendMessageFileSegment;
+  final CtSendMessageBase64FileSegmentDart ctSendMessageBase64FileSegment;
   final CtSendMessageNativeE2eeFileSegmentDart
   ctSendMessageNativeE2eeFileSegment;
 }

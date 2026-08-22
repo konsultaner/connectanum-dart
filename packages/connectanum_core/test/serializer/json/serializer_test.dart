@@ -240,6 +240,59 @@ void main() {
         ),
       );
     });
+    test('Call and Publish segment binary arguments without changing JSON', () {
+      for (final length in [0, 1, 2, 3, 4, 4097]) {
+        final bytes = Uint8List.fromList(
+          List<int>.generate(length, (index) => index & 0xff),
+        );
+        final call = Call(
+          7814135,
+          'com.myapp.binary',
+          options: CallOptions(progress: true),
+          arguments: [bytes],
+        );
+        final callFragments = serializer.serializeFragments(call)!;
+        final callJson = utf8.decode(
+          callFragments.expand((fragment) => fragment).toList(),
+        );
+        expect(callJson, serializer.serializeToString(call));
+        expect(
+          (serializer.deserializeFromString(callJson) as Call)
+              .arguments!
+              .single,
+          orderedEquals(bytes),
+        );
+
+        final publish = Publish(
+          239714735,
+          'com.myapp.binary',
+          options: PublishOptions(acknowledge: true),
+          arguments: [bytes],
+        );
+        final publishFragments = serializer.serializeFragments(publish)!;
+        final publishJson = utf8.decode(
+          publishFragments.expand((fragment) => fragment).toList(),
+        );
+        expect(publishJson, serializer.serializeToString(publish));
+        expect(
+          (serializer.deserializeFromString(publishJson) as Publish)
+              .arguments!
+              .single,
+          orderedEquals(bytes),
+        );
+      }
+
+      expect(
+        serializer.serializeFragments(
+          Call(
+            7814135,
+            'com.myapp.binary',
+            arguments: [Uint8List(1), 'not-binary-only'],
+          ),
+        ),
+        isNull,
+      );
+    });
     test('Call reuses lazy JSON argument bytes without decoding', () {
       final call = Call(7814135, 'com.myapp.ping');
       call.setLazyPayload(

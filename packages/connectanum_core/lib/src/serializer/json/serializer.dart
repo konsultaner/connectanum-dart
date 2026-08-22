@@ -37,6 +37,7 @@ import 'dart:convert';
 
 import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
+import 'binary_codec.dart';
 
 /// This is a serializer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
@@ -674,11 +675,12 @@ class Serializer extends AbstractSerializer {
 
   Uint8List _convertStringToUint8List(String binaryJsonString) {
     if (binaryJsonString.startsWith(_binaryPrefix)) {
-      return base64.decode(binaryJsonString.substring(_binaryPrefix.length));
+      return decodeBase64Bytes(binaryJsonString, _binaryPrefix.length);
     }
     if (binaryJsonString.startsWith(_escapedBinaryPrefix)) {
-      return base64.decode(
-        binaryJsonString.substring(_escapedBinaryPrefix.length),
+      return decodeBase64Bytes(
+        binaryJsonString,
+        _escapedBinaryPrefix.length,
       );
     }
     throw ArgumentError('Expected binary JSON string prefix');
@@ -701,6 +703,23 @@ class Serializer extends AbstractSerializer {
   @override
   String serialize(AbstractMessage message) {
     return serializeToString(message);
+  }
+
+  @override
+  List<Uint8List>? serializeFragments(AbstractMessage message) {
+    if (message is Call) {
+      return _serializeSingleBinaryPayloadFragments(
+        '[${MessageTypes.codeCall},${message.requestId},${_serializeCallOptions(message.options)},${_encodeJsonObject(message.procedure)}',
+        message,
+      );
+    }
+    if (message is Publish) {
+      return _serializeSingleBinaryPayloadFragments(
+        '[${MessageTypes.codePublish},${message.requestId},${_serializePublish(message.options)},${_encodeJsonObject(message.topic)}',
+        message,
+      );
+    }
+    return null;
   }
 
   /// Converts a WAMP message object into a string json message
@@ -1265,6 +1284,32 @@ class Serializer extends AbstractSerializer {
       }
     }
     return '';
+  }
+
+  List<Uint8List>? _serializeSingleBinaryPayloadFragments(
+    String messagePrefix,
+    AbstractMessageWithPayload message,
+  ) {
+    if (message.hasLazyArguments || message.hasLazyArgumentsKeywords) {
+      return null;
+    }
+    final arguments = message.wireArguments;
+    if (message.wireArgumentsKeywords != null || arguments?.length != 1) {
+      return null;
+    }
+    final binary = arguments!.single;
+    if (binary is! Uint8List) {
+      return null;
+    }
+
+    final prefix = Uint8List.fromList(
+      utf8.encode('$messagePrefix,["$_escapedBinaryPrefix'),
+    );
+    final suffix = Uint8List.fromList(const [0x22, 0x5d, 0x5d]);
+    if (binary.isEmpty) {
+      return <Uint8List>[prefix, suffix];
+    }
+    return <Uint8List>[prefix, encodeBase64Bytes(binary), suffix];
   }
 
   void _convertMessagePayloadUint8ListToBinaryJsonString(

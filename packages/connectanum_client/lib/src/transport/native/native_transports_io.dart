@@ -311,6 +311,20 @@ Uint8List buildNativeFileSegmentPrefix(
   late final Uint8List binaryHeader;
   late final int retainedTailBytes;
   switch (serializerType) {
+    case SocketHelper.serializationJson:
+      expectedTail = const [
+        0x5c,
+        0x75,
+        0x30,
+        0x30,
+        0x30,
+        0x30,
+        0x22,
+        0x5d,
+        0x5d,
+      ];
+      binaryHeader = Uint8List(0);
+      retainedTailBytes = 6;
     case SocketHelper.serializationMsgpack:
       expectedTail = const [0x91, 0xc4, 0x00];
       binaryHeader = _msgpackBinaryHeader(fileLength);
@@ -320,9 +334,7 @@ Uint8List buildNativeFileSegmentPrefix(
       binaryHeader = _cborBinaryHeader(fileLength);
       retainedTailBytes = 1;
     default:
-      throw UnsupportedError(
-        'Native file segments require MessagePack or CBOR',
-      );
+      throw UnsupportedError('Unsupported native file segment serializer');
   }
   if (!_endsWith(encodedMessage, expectedTail)) {
     throw StateError(
@@ -336,6 +348,15 @@ Uint8List buildNativeFileSegmentPrefix(
   prefix.setRange(retainedLength, prefix.length, binaryHeader);
   return prefix;
 }
+
+Uint8List _nativeFileSegmentSuffix(int serializerType) {
+  return serializerType == SocketHelper.serializationJson
+      ? Uint8List.fromList(const [0x22, 0x5d, 0x5d])
+      : Uint8List(0);
+}
+
+bool _nativeFileSegmentUsesBase64(int serializerType) =>
+    serializerType == SocketHelper.serializationJson;
 
 bool _endsWith(Uint8List bytes, List<int> suffix) {
   if (bytes.length < suffix.length) {
@@ -500,8 +521,7 @@ class NativeRawSocketTransport extends _NativeTransportBase
   @override
   bool get supportsFileSegments {
     final connectionId = this.connectionId;
-    return _serializerType != SocketHelper.serializationJson &&
-        connectionId != null &&
+    return connectionId != null &&
         _runtime.connectionSupportsFileSegments(connectionId);
   }
 
@@ -557,6 +577,8 @@ class NativeRawSocketTransport extends _NativeTransportBase
       fileHandle: source.handle,
       fileOffset: offset,
       fileLength: length,
+      suffix: _nativeFileSegmentSuffix(_serializerType),
+      encodeBase64: _nativeFileSegmentUsesBase64(_serializerType),
     );
   }
 
@@ -709,8 +731,7 @@ class NativeWebSocketTransport extends _NativeTransportBase
   @override
   bool get supportsFileSegments {
     final connectionId = this.connectionId;
-    return _serializerType != WebSocketSerialization.serializationJson &&
-        connectionId != null &&
+    return connectionId != null &&
         _runtime.connectionSupportsFileSegments(connectionId);
   }
 
@@ -754,10 +775,11 @@ class NativeWebSocketTransport extends _NativeTransportBase
     if (source.isClosed) {
       throw StateError('The native file source is already closed');
     }
+    final serializerType = _fileSegmentSerializerType;
     final encoded = _encodeMessage(message);
     final prefix = buildNativeFileSegmentPrefix(
       encoded,
-      serializerType: _fileSegmentSerializerType,
+      serializerType: serializerType,
       fileLength: length,
     );
     _runtime.sendMessageFileSegment(
@@ -766,6 +788,8 @@ class NativeWebSocketTransport extends _NativeTransportBase
       fileHandle: source.handle,
       fileOffset: offset,
       fileLength: length,
+      suffix: _nativeFileSegmentSuffix(serializerType),
+      encodeBase64: _nativeFileSegmentUsesBase64(serializerType),
     );
   }
 

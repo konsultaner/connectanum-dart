@@ -26,6 +26,18 @@ request_bytes = 67108864
 request_chunk_bytes = 4194304
 
 [[workloads]]
+name = "rawsocket_file_json_64m_native_base64_segmented"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "json"
+path = "bench.file.set"
+iterations = 8
+concurrency = 2
+in_flight_per_session = 1
+request_bytes = 67108864
+request_chunk_bytes = 4194304
+
+[[workloads]]
 name = "rawsocket_file_cbor_64m_dart_buffered"
 protocol = "wamp_rawsocket_file_transfer"
 client_impl = "dart"
@@ -50,6 +62,18 @@ request_bytes = 67108864
 request_chunk_bytes = 4194304
 
 [[workloads]]
+name = "rawsocket_file_json_64m_dart_buffered"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "dart"
+serializer = "json"
+path = "bench.file.set"
+iterations = 4
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 67108864
+request_chunk_bytes = 4194304
+
+[[workloads]]
 name = "rawsocket_tls_file_cbor_64m_native_segmented"
 protocol = "wamp_rawsocket_file_transfer"
 client_impl = "native"
@@ -63,10 +87,60 @@ request_bytes = 67108864
 request_chunk_bytes = 4194304
 
 [[workloads]]
+name = "rawsocket_tls_file_msgpack_64m_native_segmented"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "msgpack"
+secure_transport = true
+path = "bench.file.set"
+iterations = 8
+concurrency = 2
+in_flight_per_session = 1
+request_bytes = 67108864
+request_chunk_bytes = 4194304
+
+[[workloads]]
+name = "rawsocket_tls_file_json_64m_native_base64_segmented"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "json"
+secure_transport = true
+path = "bench.file.set"
+iterations = 8
+concurrency = 2
+in_flight_per_session = 1
+request_bytes = 67108864
+request_chunk_bytes = 4194304
+
+[[workloads]]
 name = "websocket_file_cbor_64m_native_segmented"
 protocol = "wamp_websocket_file_transfer"
 client_impl = "native"
 serializer = "cbor"
+path = "bench.file.set"
+iterations = 8
+concurrency = 2
+in_flight_per_session = 1
+request_bytes = 67108864
+request_chunk_bytes = 4194304
+
+[[workloads]]
+name = "websocket_file_msgpack_64m_native_segmented"
+protocol = "wamp_websocket_file_transfer"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.file.set"
+iterations = 8
+concurrency = 2
+in_flight_per_session = 1
+request_bytes = 67108864
+request_chunk_bytes = 4194304
+
+[[workloads]]
+name = "websocket_file_json_64m_native_base64_segmented"
+protocol = "wamp_websocket_file_transfer"
+client_impl = "native"
+serializer = "json"
 path = "bench.file.set"
 iterations = 8
 concurrency = 2

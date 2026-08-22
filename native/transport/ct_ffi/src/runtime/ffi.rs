@@ -6,6 +6,7 @@ use std::io::Cursor;
 use std::os::raw::{c_char, c_int, c_uint, c_void};
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use base64::{engine::general_purpose::STANDARD as Base64Engine, Engine as _};
 #[allow(unused_imports)]
 use bytes::Buf;
 use bytes::Bytes;
@@ -40,12 +41,12 @@ use ct_core::{
     connection_take_http2_handshake, connection_take_http3_handshake,
     connection_take_websocket_handshake, connection_websocket_protocol, listen,
     listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
-    send_wamp_deferred_segment, send_wamp_file_segment, send_wamp_message, send_wamp_segments,
-    shutdown, start_runtime, wait_connection_message, ConnectionId, ConnectionProtocol,
-    Error as CoreError, HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot,
-    HttpMetricsSnapshot, HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody,
-    HttpResponseDispatch, HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer,
-    WampMessage, RESPONSE_STREAM_BUFFER,
+    send_wamp_base64_file_segment, send_wamp_deferred_segment, send_wamp_file_segment,
+    send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
+    ConnectionId, ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
+    HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpRequestBodyStreamMetricsSnapshot,
+    HttpResponseBody, HttpResponseDispatch, HttpResponseStreamMetricsSnapshot, ListenerId,
+    RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -4834,6 +4835,55 @@ pub extern "C" fn ct_send_message_file_segment(
 
 #[allow(clippy::too_many_arguments)]
 #[no_mangle]
+pub extern "C" fn ct_send_message_base64_file_segment(
+    connection_id: c_int,
+    prefix_ptr: *const u8,
+    prefix_len: c_int,
+    file_handle: c_int,
+    file_offset: u64,
+    file_len: u64,
+    suffix_ptr: *const u8,
+    suffix_len: c_int,
+) -> c_int {
+    if prefix_len < 0 || suffix_len < 0 || file_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let prefix = if prefix_len == 0 {
+        Bytes::new()
+    } else if prefix_ptr.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    } else {
+        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(prefix_ptr, prefix_len as usize) })
+    };
+    let suffix = if suffix_len == 0 {
+        Bytes::new()
+    } else if suffix_ptr.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    } else {
+        Bytes::copy_from_slice(unsafe { slice::from_raw_parts(suffix_ptr, suffix_len as usize) })
+    };
+    let file_len = match usize::try_from(file_len) {
+        Ok(file_len) => file_len,
+        Err(_) => return ERR_INVALID_ARGUMENT,
+    };
+    let Some(file) = get_file(file_handle as u32) else {
+        return ERR_HANDLE_UNAVAILABLE;
+    };
+    match send_wamp_base64_file_segment(
+        ConnectionId(connection_id as u32),
+        prefix,
+        file,
+        file_offset,
+        file_len,
+        suffix,
+    ) {
+        Ok(()) => SUCCESS,
+        Err(err) => map_error(err),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+#[no_mangle]
 pub extern "C" fn ct_send_message_native_e2ee_file_segment(
     connection_id: c_int,
     prefix_ptr: *const u8,
@@ -5219,6 +5269,57 @@ fn single_binary_argument(serializer: RawSocketSerializer, args: &[u8]) -> Resul
         RawSocketSerializer::Cbor => cbor_single_binary_argument(args).ok_or(ERR_INVALID_ARGUMENT),
         _ => Err(ERR_UNSUPPORTED),
     }
+}
+
+fn decode_canonical_json_single_binary_argument(bytes: &[u8]) -> Option<Vec<u8>> {
+    const PREFIX: &[u8] = br#"["\u0000"#;
+    const SUFFIX: &[u8] = br#""]"#;
+    let encoded = bytes.strip_prefix(PREFIX)?.strip_suffix(SUFFIX)?;
+    Base64Engine.decode(encoded).ok()
+}
+
+#[no_mangle]
+pub extern "C" fn ct_message_decode_single_binary_argument(
+    message_handle: c_int,
+    out: *mut CtExternalByteBuffer,
+) -> c_int {
+    if message_handle <= 0 || out.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe {
+        (*out).ptr = ptr::null_mut();
+        (*out).len = 0;
+        (*out).owner = ptr::null_mut();
+    }
+    let decoded = with_message(message_handle as u32, |message| {
+        if message.serializer != RawSocketSerializer::Json
+            || message.code != 68
+            || message.kwargs.is_some()
+        {
+            return Err(ERR_UNSUPPORTED);
+        }
+        message
+            .args
+            .as_deref()
+            .and_then(decode_canonical_json_single_binary_argument)
+            .ok_or(ERR_UNSUPPORTED)
+    });
+    let mut decoded = match decoded {
+        Some(Ok(value)) => value,
+        Some(Err(code)) => return code,
+        None => return ERR_HANDLE_UNAVAILABLE,
+    };
+    let decoded_ptr = decoded.as_mut_ptr();
+    let decoded_len = decoded.len();
+    let mut owner = Box::new(decoded);
+    let owner_ptr = owner.as_mut() as *mut Vec<u8> as *mut c_void;
+    let _ = Box::into_raw(owner);
+    unsafe {
+        (*out).ptr = decoded_ptr;
+        (*out).len = decoded_len;
+        (*out).owner = owner_ptr;
+    }
+    SUCCESS
 }
 
 #[no_mangle]
@@ -5946,6 +6047,58 @@ mod tests {
         let msgpack_payload = msgpack_single_binary_argument(&msgpack).unwrap();
         assert_eq!(msgpack_payload, b"abc");
         assert_eq!(msgpack_payload.as_ptr(), msgpack[3..].as_ptr());
+    }
+
+    #[test]
+    fn canonical_json_single_binary_argument_decoder_covers_padding_boundaries() {
+        for bytes in [
+            Vec::new(),
+            vec![0],
+            vec![0, 1],
+            vec![0, 1, 2],
+            (0..4097).map(|index| (index % 251) as u8).collect(),
+        ] {
+            let encoded = Base64Engine.encode(&bytes);
+            let wire = format!("[\"\\u0000{encoded}\"]");
+            assert_eq!(
+                decode_canonical_json_single_binary_argument(wire.as_bytes()),
+                Some(bytes)
+            );
+        }
+        assert!(decode_canonical_json_single_binary_argument(br#"["plain"]"#).is_none());
+        assert!(decode_canonical_json_single_binary_argument(br#"["\u0000-_8="]"#).is_none());
+        assert!(decode_canonical_json_single_binary_argument(br#"["\\u0000AA=="]"#).is_none());
+    }
+
+    #[test]
+    fn message_json_binary_argument_decode_returns_owned_external_bytes() {
+        for bytes in [
+            Vec::new(),
+            (0..4097).map(|index| (index % 251) as u8).collect(),
+        ] {
+            let encoded = Base64Engine.encode(&bytes);
+            let frame = Bytes::from(format!("[68,1,2,{{}},[\"\\u0000{encoded}\"]]"));
+            let parsed = ct_core::parse_message(RawSocketSerializer::Json, frame).unwrap();
+            let handle = store_parsed_message(parsed);
+            let mut output = CtExternalByteBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+
+            assert_eq!(
+                ct_message_decode_single_binary_argument(handle, &mut output),
+                SUCCESS
+            );
+            assert!(!output.owner.is_null());
+            assert_eq!(
+                unsafe { slice::from_raw_parts(output.ptr, output.len) },
+                bytes.as_slice()
+            );
+
+            ct_external_byte_buffer_free(output.owner);
+            ct_message_release(handle);
+        }
     }
 
     #[test]

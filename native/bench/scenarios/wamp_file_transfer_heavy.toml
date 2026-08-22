@@ -38,6 +38,18 @@ request_bytes = 268435456
 request_chunk_bytes = 4194304
 
 [[workloads]]
+name = "rawsocket_file_json_128m_native_base64_segmented"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "native"
+serializer = "json"
+path = "bench.file.set"
+iterations = 16
+concurrency = 2
+in_flight_per_session = 1
+request_bytes = 134217728
+request_chunk_bytes = 4194304
+
+[[workloads]]
 name = "rawsocket_file_cbor_128m_dart_buffered_reference"
 protocol = "wamp_rawsocket_file_transfer"
 client_impl = "dart"
@@ -54,6 +66,18 @@ name = "rawsocket_file_msgpack_128m_dart_buffered_reference"
 protocol = "wamp_rawsocket_file_transfer"
 client_impl = "dart"
 serializer = "msgpack"
+path = "bench.file.set"
+iterations = 24
+concurrency = 1
+in_flight_per_session = 1
+request_bytes = 134217728
+request_chunk_bytes = 4194304
+
+[[workloads]]
+name = "rawsocket_file_json_128m_dart_buffered_reference"
+protocol = "wamp_rawsocket_file_transfer"
+client_impl = "dart"
+serializer = "json"
 path = "bench.file.set"
 iterations = 24
 concurrency = 1
