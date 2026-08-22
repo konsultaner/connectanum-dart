@@ -203,7 +203,16 @@ class Serializer extends AbstractSerializer {
     if (binary == null) {
       return null;
     }
-    message.arguments = <dynamic>[binary];
+    final argumentsBytes = Uint8List.sublistView(
+      payload,
+      argumentsStart,
+      payload.length - 1,
+    );
+    message.setLazyPayload(
+      argumentsBytes: argumentsBytes,
+      argumentsDecoder: (_) => <dynamic>[binary],
+      encoding: LazyPayloadEncoding.json,
+    );
     return message;
   }
 
@@ -791,16 +800,22 @@ class Serializer extends AbstractSerializer {
   @override
   List<Uint8List>? serializeFragments(AbstractMessage message) {
     if (message is Call) {
-      return _serializeSingleBinaryPayloadFragments(
-        '[${MessageTypes.codeCall},${message.requestId},${_serializeCallOptions(message.options)},${_encodeJsonObject(message.procedure)}',
-        message,
-      );
+      final prefix =
+          '[${MessageTypes.codeCall},${message.requestId},${_serializeCallOptions(message.options)},${_encodeJsonObject(message.procedure)}';
+      return _serializeLazyJsonPayloadFragments(prefix, message) ??
+          _serializeSingleBinaryPayloadFragments(prefix, message);
     }
     if (message is Publish) {
-      return _serializeSingleBinaryPayloadFragments(
-        '[${MessageTypes.codePublish},${message.requestId},${_serializePublish(message.options)},${_encodeJsonObject(message.topic)}',
-        message,
-      );
+      final prefix =
+          '[${MessageTypes.codePublish},${message.requestId},${_serializePublish(message.options)},${_encodeJsonObject(message.topic)}';
+      return _serializeLazyJsonPayloadFragments(prefix, message) ??
+          _serializeSingleBinaryPayloadFragments(prefix, message);
+    }
+    if (message is Yield) {
+      final prefix =
+          '[${MessageTypes.codeYield},${message.invocationRequestId},${_serializeYieldOptions(message.options)}';
+      return _serializeLazyJsonPayloadFragments(prefix, message) ??
+          _serializeSingleBinaryPayloadFragments(prefix, message);
     }
     return null;
   }
@@ -1367,6 +1382,50 @@ class Serializer extends AbstractSerializer {
       }
     }
     return '';
+  }
+
+  List<Uint8List>? _serializeLazyJsonPayloadFragments(
+    String messagePrefix,
+    AbstractMessageWithPayload message,
+  ) {
+    if (message.lazyPayloadEncoding != LazyPayloadEncoding.json) {
+      return null;
+    }
+    final encodedArguments = message.debugEncodedArgumentsBytes;
+    final encodedArgumentsKeywords = message.debugEncodedArgumentsKeywordsBytes;
+    if (encodedArguments == null && encodedArgumentsKeywords == null) {
+      return null;
+    }
+
+    final fragments = <Uint8List>[];
+    if (encodedArguments != null) {
+      fragments.add(Uint8List.fromList(utf8.encode('$messagePrefix,')));
+      fragments.add(encodedArguments);
+    } else {
+      fragments.add(
+        Uint8List.fromList(
+          utf8.encode(
+            '$messagePrefix,${_encodeJsonObject(message.wireArguments ?? const <dynamic>[])}',
+          ),
+        ),
+      );
+    }
+
+    if (encodedArgumentsKeywords != null) {
+      fragments.add(Uint8List.fromList(const [0x2c]));
+      fragments.add(encodedArgumentsKeywords);
+    } else {
+      final argumentsKeywords = message.wireArgumentsKeywords;
+      if (argumentsKeywords != null) {
+        fragments.add(
+          Uint8List.fromList(
+            utf8.encode(',${_encodeJsonObject(argumentsKeywords)}'),
+          ),
+        );
+      }
+    }
+    fragments.add(Uint8List.fromList(const [0x5d]));
+    return fragments;
   }
 
   List<Uint8List>? _serializeSingleBinaryPayloadFragments(

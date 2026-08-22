@@ -240,67 +240,101 @@ void main() {
         ),
       );
     });
-    test('Call and Publish segment binary arguments without changing JSON', () {
-      for (final length in [0, 1, 2, 3, 4, 4097]) {
-        final bytes = Uint8List.fromList(
-          List<int>.generate(length, (index) => index & 0xff),
-        );
-        final call = Call(
-          7814135,
-          'com.myapp.binary',
-          options: CallOptions(progress: true),
-          arguments: [bytes],
-        );
-        final callFragments = serializer.serializeFragments(call)!;
-        final callJson = utf8.decode(
-          callFragments.expand((fragment) => fragment).toList(),
-        );
-        expect(callJson, serializer.serializeToString(call));
-        expect(
-          (serializer.deserializeFromString(callJson) as Call)
-              .arguments!
-              .single,
-          orderedEquals(bytes),
-        );
-
-        final publish = Publish(
-          239714735,
-          'com.myapp.binary',
-          options: PublishOptions(acknowledge: true),
-          arguments: [bytes],
-        );
-        final publishFragments = serializer.serializeFragments(publish)!;
-        final publishJson = utf8.decode(
-          publishFragments.expand((fragment) => fragment).toList(),
-        );
-        expect(publishJson, serializer.serializeToString(publish));
-        expect(
-          (serializer.deserializeFromString(publishJson) as Publish)
-              .arguments!
-              .single,
-          orderedEquals(bytes),
-        );
-      }
-
-      expect(
-        serializer.serializeFragments(
-          Call(
+    test(
+      'Call, Publish, and Yield segment binary arguments without changing JSON',
+      () {
+        for (final length in [0, 1, 2, 3, 4, 4097]) {
+          final bytes = Uint8List.fromList(
+            List<int>.generate(length, (index) => index & 0xff),
+          );
+          final call = Call(
             7814135,
             'com.myapp.binary',
-            arguments: [Uint8List(1), 'not-binary-only'],
+            options: CallOptions(progress: true),
+            arguments: [bytes],
+          );
+          final callFragments = serializer.serializeFragments(call)!;
+          final callJson = utf8.decode(
+            callFragments.expand((fragment) => fragment).toList(),
+          );
+          expect(callJson, serializer.serializeToString(call));
+          expect(
+            (serializer.deserializeFromString(callJson) as Call)
+                .arguments!
+                .single,
+            orderedEquals(bytes),
+          );
+
+          final publish = Publish(
+            239714735,
+            'com.myapp.binary',
+            options: PublishOptions(acknowledge: true),
+            arguments: [bytes],
+          );
+          final publishFragments = serializer.serializeFragments(publish)!;
+          final publishJson = utf8.decode(
+            publishFragments.expand((fragment) => fragment).toList(),
+          );
+          expect(publishJson, serializer.serializeToString(publish));
+          expect(
+            (serializer.deserializeFromString(publishJson) as Publish)
+                .arguments!
+                .single,
+            orderedEquals(bytes),
+          );
+
+          final yieldMessage = Yield(
+            239714736,
+            options: YieldOptions(progress: true),
+            arguments: [bytes],
+          );
+          final yieldFragments = serializer.serializeFragments(yieldMessage)!;
+          final yieldJson = utf8.decode(
+            yieldFragments.expand((fragment) => fragment).toList(),
+          );
+          expect(yieldJson, serializer.serializeToString(yieldMessage));
+          expect(
+            (serializer.deserializeFromString(yieldJson) as Yield)
+                .arguments!
+                .single,
+            orderedEquals(bytes),
+          );
+        }
+
+        expect(
+          serializer.serializeFragments(
+            Call(
+              7814135,
+              'com.myapp.binary',
+              arguments: [Uint8List(1), 'not-binary-only'],
+            ),
           ),
-        ),
-        isNull,
-      );
-    });
+          isNull,
+        );
+        expect(
+          serializer.serializeFragments(
+            Yield(239714737, arguments: const <dynamic>['not-binary']),
+          ),
+          isNull,
+        );
+        expect(serializer.serializeFragments(Yield(239714738)), isNull);
+      },
+    );
     test('Call reuses lazy JSON argument bytes without decoding', () {
       final call = Call(7814135, 'com.myapp.ping');
+      final argumentsBytes = Uint8List.fromList(utf8.encode('["lazy"]'));
       call.setLazyPayload(
-        argumentsBytes: Uint8List.fromList(utf8.encode('["lazy"]')),
+        argumentsBytes: argumentsBytes,
         argumentsDecoder: (_) => throw StateError('should not decode args'),
         encoding: LazyPayloadEncoding.json,
       );
 
+      final fragments = serializer.serializeFragments(call)!;
+      expect(fragments, contains(same(argumentsBytes)));
+      expect(
+        utf8.decode(fragments.expand((fragment) => fragment).toList()),
+        serializer.serializeToString(call),
+      );
       expect(
         json.decode(serializer.serializeToString(call)),
         equals([
@@ -312,15 +346,81 @@ void main() {
         ]),
       );
     });
+    test('Publish reuses lazy JSON argument bytes without decoding', () {
+      final argumentsBytes = Uint8List.fromList(
+        utf8.encode('["\\u0000AQIDBA=="]'),
+      );
+      final publish = Publish(7814136, 'com.myapp.binary');
+      publish.setLazyPayload(
+        argumentsBytes: argumentsBytes,
+        argumentsDecoder: (_) => throw StateError('should not decode args'),
+        encoding: LazyPayloadEncoding.json,
+      );
+
+      final fragments = serializer.serializeFragments(publish)!;
+
+      expect(fragments, contains(same(argumentsBytes)));
+      expect(
+        utf8.decode(fragments.expand((fragment) => fragment).toList()),
+        serializer.serializeToString(publish),
+      );
+      expect(
+        json.decode(serializer.serializeToString(publish)),
+        equals([
+          MessageTypes.codePublish,
+          7814136,
+          {},
+          'com.myapp.binary',
+          ['\u0000AQIDBA=='],
+        ]),
+      );
+    });
+    test('Yield reuses lazy JSON argument bytes without decoding', () {
+      final argumentsBytes = Uint8List.fromList(
+        utf8.encode('["\\u0000AQIDBA=="]'),
+      );
+      final yieldMessage = Yield(7814135);
+      yieldMessage.setLazyPayload(
+        argumentsBytes: argumentsBytes,
+        argumentsDecoder: (_) => throw StateError('should not decode args'),
+        encoding: LazyPayloadEncoding.json,
+      );
+
+      final fragments = serializer.serializeFragments(yieldMessage)!;
+
+      expect(fragments, contains(same(argumentsBytes)));
+      expect(
+        utf8.decode(fragments.expand((fragment) => fragment).toList()),
+        serializer.serializeToString(yieldMessage),
+      );
+      expect(
+        json.decode(serializer.serializeToString(yieldMessage)),
+        equals([
+          MessageTypes.codeYield,
+          7814135,
+          {},
+          ['\u0000AQIDBA=='],
+        ]),
+      );
+    });
     test('Call reuses lazy JSON kwargs bytes without decoding', () {
       final call = Call(7814135, 'com.myapp.ping');
+      final argumentsKeywordsBytes = Uint8List.fromList(
+        utf8.encode('{"worker":1}'),
+      );
       call.setLazyPayload(
-        argumentsKeywordsBytes: Uint8List.fromList(utf8.encode('{"worker":1}')),
+        argumentsKeywordsBytes: argumentsKeywordsBytes,
         argumentsKeywordsDecoder: (_) =>
             throw StateError('should not decode kwargs'),
         encoding: LazyPayloadEncoding.json,
       );
 
+      final fragments = serializer.serializeFragments(call)!;
+      expect(fragments, contains(same(argumentsKeywordsBytes)));
+      expect(
+        utf8.decode(fragments.expand((fragment) => fragment).toList()),
+        serializer.serializeToString(call),
+      );
       expect(
         json.decode(serializer.serializeToString(call)),
         equals([
@@ -339,12 +439,19 @@ void main() {
         'com.myapp.ping',
         argumentsKeywords: {'worker': 1},
       );
+      final argumentsBytes = Uint8List.fromList(utf8.encode('["lazy"]'));
       call.setLazyPayload(
-        argumentsBytes: Uint8List.fromList(utf8.encode('["lazy"]')),
+        argumentsBytes: argumentsBytes,
         argumentsDecoder: (_) => throw StateError('should not decode args'),
         encoding: LazyPayloadEncoding.json,
       );
 
+      final fragments = serializer.serializeFragments(call)!;
+      expect(fragments, contains(same(argumentsBytes)));
+      expect(
+        utf8.decode(fragments.expand((fragment) => fragment).toList()),
+        serializer.serializeToString(call),
+      );
       expect(
         json.decode(serializer.serializeToString(call)),
         equals([
@@ -359,13 +466,22 @@ void main() {
     });
     test('Call preserves materialized args with lazy JSON kwargs bytes', () {
       final call = Call(7814135, 'com.myapp.ping', arguments: ['lazy']);
+      final argumentsKeywordsBytes = Uint8List.fromList(
+        utf8.encode('{"worker":1}'),
+      );
       call.setLazyPayload(
-        argumentsKeywordsBytes: Uint8List.fromList(utf8.encode('{"worker":1}')),
+        argumentsKeywordsBytes: argumentsKeywordsBytes,
         argumentsKeywordsDecoder: (_) =>
             throw StateError('should not decode kwargs'),
         encoding: LazyPayloadEncoding.json,
       );
 
+      final fragments = serializer.serializeFragments(call)!;
+      expect(fragments, contains(same(argumentsKeywordsBytes)));
+      expect(
+        utf8.decode(fragments.expand((fragment) => fragment).toList()),
+        serializer.serializeToString(call),
+      );
       expect(
         json.decode(serializer.serializeToString(call)),
         equals([
@@ -1660,6 +1776,7 @@ void main() {
                   ),
                 )
                 as Invocation;
+        expect(invocation.hasLazyArguments, isTrue);
         expect(invocation.requestId, 10);
         expect(invocation.registrationId, 20);
         expect(invocation.details.caller, 30);
@@ -1678,6 +1795,7 @@ void main() {
                   ),
                 )
                 as Result;
+        expect(result.hasLazyArguments, isTrue);
         expect(result.callRequestId, 40);
         expect(result.details.progress, isTrue);
         expect(result.details.custom, containsPair('trace_id', 'result'));
@@ -1690,6 +1808,7 @@ void main() {
                   ),
                 )
                 as Event;
+        expect(event.hasLazyArguments, isTrue);
         expect(event.subscriptionId, 50);
         expect(event.publicationId, 60);
         expect(event.details.publisher, 70);
@@ -1712,6 +1831,7 @@ void main() {
                 ),
               )
               as Result;
+      expect(urlSafeResult.hasLazyArguments, isFalse);
       expect(urlSafeResult.arguments!.single, orderedEquals(binary));
 
       final withKwargs = Result(
@@ -1727,6 +1847,7 @@ void main() {
                 ),
               )
               as Result;
+      expect(kwargsResult.hasLazyArguments, isFalse);
       expect(kwargsResult.arguments!.single, orderedEquals(binary));
       expect(kwargsResult.argumentsKeywords, containsPair('complete', true));
 
@@ -1775,7 +1896,9 @@ void main() {
               as Result;
 
       expect(decodeCalls, 1);
+      expect(result.hasLazyArguments, isTrue);
       expect(result.arguments!.single, orderedEquals(binary));
+      expect(decodeCalls, 1);
     });
     test('large binary byte path falls back when an accelerator declines', () {
       var decodeCalls = 0;
@@ -1800,6 +1923,7 @@ void main() {
 
       expect(decodeCalls, 1);
       expect(result.arguments!.single, orderedEquals(binary));
+      expect(decodeCalls, 1);
     });
   });
 }

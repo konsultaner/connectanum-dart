@@ -8,6 +8,30 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+Canonical large single-binary JSON messages now retain the exact encoded
+argument view after the existing canonical decode and validation. Call,
+Publish, and Yield serialization can emit a small metadata prefix, the
+unchanged lazy argument/kwargs bytes, and a closing suffix; ordinary lazy echo
+handlers therefore avoid a second base64 encode and whole-payload JSON
+string/UTF-8 round trip without changing decoded application values. Empty and
+all base64 padding tiers, mixed lazy/materialized args and kwargs, metadata,
+URL-safe fallback, kwargs fallback, and accelerator-decline behavior have
+direct regressions. Three repeated 32 MiB RawSocket matrices raise the Dart
+JSON one-way response row from 1.40 Gbit/s to 2.39-2.57 Gbit/s and 4.77-5.14
+Gbit/s aggregate; every JSON/MessagePack/CBOR Dart/native control remains above
+2 Gbit/s one-way. The 128 MiB Dart JSON reference remains a measured boundary
+at 1.86 Gbit/s one-way, while the native 128/256 MiB JSON/MessagePack/CBOR rows
+reach 3.88-8.75 Gbit/s. The complete 13-row file matrix still passes at
+2.46-14.84 Gbit/s for clear and transformed non-E2EE paths in this local run;
+the short native AES-GCM E2EE row reaches 1.76 Gbit/s, while the checked-in
+sustained 4 GiB evidence remains 2.14-2.20 Gbit/s. Validation-only native
+scanning and manual Dart base64 unrolling were both discarded after producing
+no gain. JSON/base64, TLS, WebSocket masking, and E2EE remain mandatory
+transforms rather than literal filesystem-to-socket zero-copy paths.
+Full exact-tree `bin/verify` passes with formatting, Rust, Dart, package
+consumer, router-hosted MCP, remote-auth, native-forwarding, and Chrome
+Dart2Wasm checks green.
+
 Buffered Dart progressive senders now preserve their per-chunk
 `Socket.flush()` and cooperative event-loop pacing without imposing a fixed
 1 ms timer delay after every nonterminal chunk. A deterministic regression

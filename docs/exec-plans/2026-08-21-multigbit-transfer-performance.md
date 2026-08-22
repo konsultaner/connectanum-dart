@@ -401,6 +401,14 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   1.40 Gbit/s one-way and 2.79 Gbit/s aggregate. Full `bin/verify` passes with
   the new regression and all package, consumer, live WAMP, router, native, and
   Chrome Dart2Wasm checks green.
+- [x] Preserve canonical single-binary JSON argument bytes after validated
+  decode and reuse them as unchanged Call/Publish/Yield frame segments. This
+  removes the second base64 encode and whole-payload JSON string/UTF-8 cycle
+  from ordinary lazy echoes while retaining exact decoded values and every
+  noncanonical/kwargs fallback. Three repeated 32 MiB Dart JSON RawSocket runs
+  improve from 1.40 Gbit/s to 2.39-2.57 Gbit/s one-way; the 128 MiB Dart JSON
+  reference remains a measured 1.86 Gbit/s boundary. Validation-only native
+  scanning and manual Dart encoder unrolling were measured and discarded.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native
