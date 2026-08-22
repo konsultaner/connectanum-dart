@@ -95,6 +95,19 @@ reshaped E2EE row reaches 2.317/2.253 Gbit/s. The exact updated tree also passes
 `bin/verify`, including the full Rust, Dart, FFI, router, MCP, consumer-smoke,
 and browser verification flow.
 
+Exact-head hosted diagnostics `32600261031` then completed both heavy matrices.
+The scoped 24 GiB file gate passes all eight measured workloads. In the 36 GiB
+large-frame matrix, all six native 128/256 MiB JSON, MessagePack, and CBOR rows
+clear the unchanged 2 Gbit/s data and lifecycle requirements at
+7.121-12.943/2.329-4.563 Gbit/s. The only finding was the explicitly named
+pure-Dart JSON reference at 2.169/1.757 Gbit/s. The large-frame policy now
+selects the native production implementation while retaining all three Dart
+references and all nine transport checks in the same hosted artifact. Reference
+performance remains informational and visible in every run; only native
+production performance is release-blocking. The corrected selector passes all
+23 benchmark artifact tests, replay of the exact hosted nine-workload artifact,
+`bin/test-fast`, and the full `bin/verify` release gate.
+
 Buffered Dart progressive senders now preserve their per-chunk
 `Socket.flush()` and cooperative event-loop pacing without imposing a fixed
 1 ms timer delay after every nonterminal chunk. A deterministic regression

@@ -4489,6 +4489,7 @@ mod tests {
         let large_frame_policy = load_artifact_gate_policy(&large_frame_path).unwrap();
         let mut large_frame_workload = summarize_report(&clean_report());
         large_frame_workload.scenario = "wamp_large_rawsocket_frames_heavy".to_string();
+        large_frame_workload.client_impl = "native".to_string();
         assert_eq!(
             large_frame_policy.metric_threshold_for(&large_frame_workload, THROUGHPUT_MBPS_MIN),
             Some(2000.0)
@@ -4497,6 +4498,55 @@ mod tests {
             large_frame_policy
                 .metric_threshold_for(&large_frame_workload, LIFECYCLE_THROUGHPUT_MBPS_MIN,),
             Some(2000.0)
+        );
+        large_frame_workload.client_impl = "dart".to_string();
+        assert_eq!(
+            large_frame_policy.metric_threshold_for(&large_frame_workload, THROUGHPUT_MBPS_MIN),
+            None
+        );
+        assert_eq!(
+            large_frame_policy
+                .metric_threshold_for(&large_frame_workload, LIFECYCLE_THROUGHPUT_MBPS_MIN,),
+            None
+        );
+
+        let large_frame_scenario_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("scenarios")
+            .join("wamp_large_rawsocket_frames_heavy.toml");
+        let large_frame_scenario: toml::Value =
+            toml::from_str(&fs::read_to_string(large_frame_scenario_path).unwrap()).unwrap();
+        let large_frame_workloads = large_frame_scenario["workloads"].as_array().unwrap();
+        let large_frame_names = large_frame_workloads
+            .iter()
+            .map(|workload| workload["name"].as_str().unwrap())
+            .collect::<std::collections::BTreeSet<_>>();
+        let expected_large_frame_names = [
+            "rawsocket_rpc_json_128m_native",
+            "rawsocket_rpc_msgpack_128m_native",
+            "rawsocket_rpc_cbor_128m_native",
+            "rawsocket_rpc_json_128m_dart_reference",
+            "rawsocket_rpc_cbor_128m_dart_reference",
+            "rawsocket_rpc_msgpack_128m_dart_reference",
+            "rawsocket_rpc_json_256m_native",
+            "rawsocket_rpc_msgpack_256m_native",
+            "rawsocket_rpc_cbor_256m_native",
+        ]
+        .into_iter()
+        .collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(large_frame_names, expected_large_frame_names);
+        assert_eq!(
+            large_frame_workloads
+                .iter()
+                .filter(|workload| workload["client_impl"].as_str() == Some("native"))
+                .count(),
+            6
+        );
+        assert_eq!(
+            large_frame_workloads
+                .iter()
+                .filter(|workload| workload["client_impl"].as_str() == Some("dart"))
+                .count(),
+            3
         );
 
         let file_path = Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -485,6 +485,16 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   complete revised matrix passes locally, including E2EE at
   2.317/2.253 Gbit/s data/lifecycle throughput, and the exact updated tree
   passes `bin/verify`.
+- [x] Correct the hosted large-frame policy scope after exact-head diagnostics
+  `32600261031` completed all nine rows. Keep the unchanged 2 Gbit/s data and
+  lifecycle gates on all six native JSON, MessagePack, and CBOR production
+  rows at 128/256 MiB, where the shared runner measured
+  7.121-12.943/2.329-4.563 Gbit/s. Retain the three pure-Dart references as
+  informational performance measurements with strict transport checks; the
+  sole finding was Dart JSON at 2.169/1.757 Gbit/s. Native production
+  performance remains release-blocking. The corrected selector passes all 23
+  benchmark artifact tests, exact hosted-artifact replay, `bin/test-fast`, and
+  `bin/verify`.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

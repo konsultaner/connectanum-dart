@@ -3,12 +3,14 @@
     {
       "kind": "throughput_mbps_min",
       "threshold": 2000.0,
-      "scenario": "wamp_large_rawsocket_frames_heavy"
+      "scenario": "wamp_large_rawsocket_frames_heavy",
+      "client_impl": "native"
     },
     {
       "kind": "lifecycle_throughput_mbps_min",
       "threshold": 2000.0,
-      "scenario": "wamp_large_rawsocket_frames_heavy"
+      "scenario": "wamp_large_rawsocket_frames_heavy",
+      "client_impl": "native"
     }
   ]
 }
