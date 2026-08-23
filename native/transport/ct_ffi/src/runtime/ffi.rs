@@ -111,10 +111,11 @@ const E2EE_AUTH_TAG_LEN: usize = 16;
 const SHA256_DIGEST_LEN: usize = 32;
 const ASYNC_SHA256_QUEUE_CAPACITY: usize = 2;
 
-// Large native chunks are copied into an ordered worker queue so hashing can
-// overlap transport work without retaining Dart-mutable FFI memory.
+// Borrowed chunks are copied into an ordered worker queue so hashing can
+// overlap transport work without retaining Dart-mutable FFI memory. Buffers
+// allocated by ct_outbound_buffer_alloc can transfer ownership instead.
 enum Sha256Command {
-    UpdateOwned(Vec<u8>),
+    UpdateOwned(Bytes),
     Finalize(std::sync::mpsc::SyncSender<[u8; SHA256_DIGEST_LEN]>),
     Abort,
 }
@@ -211,7 +212,7 @@ impl Sha256State {
 
     fn update(&mut self, bytes: &[u8]) -> Result<(), c_int> {
         if let Some(worker) = self.worker.as_ref() {
-            return worker.send(Sha256Command::UpdateOwned(bytes.to_vec()));
+            return worker.send(Sha256Command::UpdateOwned(Bytes::copy_from_slice(bytes)));
         }
         self.context.as_mut().ok_or(ERR_INTERNAL)?.update(bytes);
         Ok(())
@@ -225,7 +226,18 @@ impl Sha256State {
         self.worker
             .as_ref()
             .ok_or(ERR_INTERNAL)?
-            .send(Sha256Command::UpdateOwned(bytes.to_vec()))
+            .send(Sha256Command::UpdateOwned(Bytes::copy_from_slice(bytes)))
+    }
+
+    fn update_owned_async(&mut self, bytes: Bytes) -> Result<(), c_int> {
+        if self.worker.is_none() {
+            let context = self.context.take().ok_or(ERR_INTERNAL)?;
+            self.worker = Some(AsyncSha256Worker::start(context)?);
+        }
+        self.worker
+            .as_ref()
+            .ok_or(ERR_INTERNAL)?
+            .send(Sha256Command::UpdateOwned(bytes))
     }
 
     fn finalize(self) -> Result<[u8; SHA256_DIGEST_LEN], c_int> {
@@ -5607,6 +5619,29 @@ pub extern "C" fn ct_sha256_update_async(
 }
 
 #[no_mangle]
+pub extern "C" fn ct_sha256_update_owned_async(
+    sha256_handle: c_int,
+    bytes_ptr: *mut u8,
+    bytes_len: c_int,
+) -> c_int {
+    let bytes = match unsafe { take_owned_outbound_buffer(bytes_ptr, bytes_len) } {
+        Ok(value) => value,
+        Err(code) => return code,
+    };
+    if sha256_handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let store = sha256_state_store();
+    let Some(mut state) = store.states.get_mut(&(sha256_handle as u32)) else {
+        return ERR_HANDLE_UNAVAILABLE;
+    };
+    match state.update_owned_async(bytes) {
+        Ok(()) => bytes_len,
+        Err(code) => code,
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn ct_sha256_finalize(
     sha256_handle: c_int,
     out_digest: *mut u8,
@@ -6753,6 +6788,71 @@ mod tests {
             SUCCESS
         );
         assert_eq!(digest.as_slice(), expected.as_ref());
+    }
+
+    #[test]
+    fn native_sha256_hashes_owned_chunks_in_call_order() {
+        let _guard = test_guard();
+        let first = vec![0x3c_u8; 1024 * 1024];
+        let second = vec![0xc3_u8; 1024 * 1024];
+        let mut expected_context = DigestContext::new(&SHA256);
+        expected_context.update(b"prefix");
+        expected_context.update(&first);
+        expected_context.update(&second);
+        expected_context.update(b"suffix");
+        let expected = expected_context.finish();
+
+        let first_ptr = ct_outbound_buffer_alloc(c_int::try_from(first.len()).unwrap());
+        let second_ptr = ct_outbound_buffer_alloc(c_int::try_from(second.len()).unwrap());
+        assert!(!first_ptr.is_null());
+        assert!(!second_ptr.is_null());
+        unsafe {
+            std::ptr::copy_nonoverlapping(first.as_ptr(), first_ptr, first.len());
+            std::ptr::copy_nonoverlapping(second.as_ptr(), second_ptr, second.len());
+        }
+
+        let sha256_handle = ct_sha256_new();
+        assert!(sha256_handle > 0);
+        assert_eq!(ct_sha256_update(sha256_handle, b"prefix".as_ptr(), 6), 6);
+        assert_eq!(
+            ct_sha256_update_owned_async(
+                sha256_handle,
+                first_ptr,
+                c_int::try_from(first.len()).unwrap(),
+            ),
+            c_int::try_from(first.len()).unwrap()
+        );
+        assert_eq!(
+            ct_sha256_update_owned_async(
+                sha256_handle,
+                second_ptr,
+                c_int::try_from(second.len()).unwrap(),
+            ),
+            c_int::try_from(second.len()).unwrap()
+        );
+        assert_eq!(ct_sha256_update(sha256_handle, b"suffix".as_ptr(), 6), 6);
+
+        let mut digest = [0_u8; SHA256_DIGEST_LEN];
+        assert_eq!(
+            ct_sha256_finalize(sha256_handle, digest.as_mut_ptr(), digest.len()),
+            SUCCESS
+        );
+        assert_eq!(digest.as_slice(), expected.as_ref());
+    }
+
+    #[test]
+    fn native_sha256_owned_update_consumes_input_before_handle_validation() {
+        let _guard = test_guard();
+        let payload_ptr = ct_outbound_buffer_alloc(4);
+        assert!(!payload_ptr.is_null());
+        unsafe {
+            std::ptr::copy_nonoverlapping([1_u8, 2, 3, 4].as_ptr(), payload_ptr, 4);
+        }
+
+        assert_eq!(
+            ct_sha256_update_owned_async(0, payload_ptr, 4),
+            ERR_INVALID_ARGUMENT
+        );
     }
 
     #[test]

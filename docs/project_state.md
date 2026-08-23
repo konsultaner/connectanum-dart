@@ -72,22 +72,31 @@ exact-tree `bin/verify` passes with 134 Rust core tests, 78 ordinary FFI tests,
 consumer and live WAMP/MCP smokes, remote auth, native-forwarding follow-ups,
 and Chrome Dart2Wasm.
 
-Large ordinary Dart-owned receipt chunks now use the same bounded asynchronous
-SHA-256 worker instead of blocking Dart transport and sink progress. The FFI
-entrypoint still copies the mutable caller bytes into worker-owned storage
-before returning, and a focused regression mutates a queued 1 MiB source
-immediately while proving the original digest. Against an exact synchronous
-baseline, the three-row 3 GiB-per-row file probe improves Dart CBOR from
-5.005 to 6.234 Gbit/s lifecycle throughput and MessagePack from 5.224 to
-6.465 Gbit/s; JSON is flat at 2.855 versus 2.865 Gbit/s because base64 remains
-dominant. The exact updated tree passes `bin/verify`, the 24 GiB heavy file
-gate at 2.352-16.331 Gbit/s lifecycle throughput, and the 36 GiB repeated
-128/256 MiB RawSocket gate at 2.972-9.879 Gbit/s lifecycle throughput. An
-in-place consumed-message AES-GCM prototype was rejected because materialized
-Dart views borrow the native message allocation; releasing that allocation to
-obtain unique mutable ownership would leave those public views dangling.
-Runtime-thread, queue-recycling, and chunk-size experiments also did not beat
-the existing one-worker, 4 MiB-chunk configuration. Exact-head CI
+Large ordinary Dart-owned receipt chunks now allocate worker-owned Rust storage
+before FFI, copy the mutable Dart bytes directly into it once, and transfer the
+allocation to the bounded asynchronous SHA-256 queue. This removes the previous
+second full-buffer Rust queue copy while preserving immediate caller-mutation
+correctness and optional-symbol fallback for older native libraries. Against
+the prior exact asynchronous baseline, a focused 9 GiB probe improves Dart
+CBOR from 6.234 to 6.728 Gbit/s lifecycle throughput, MessagePack from 6.465
+to 6.892 Gbit/s, and JSON from 2.855 to 3.026 Gbit/s. The complete current
+24 GiB heavy file matrix passes all eight gates at 2.399-16.607 Gbit/s
+lifecycle throughput, including 6.863/6.792/2.983 Gbit/s for Dart
+CBOR/MessagePack/JSON and 2.399 Gbit/s for sustained native AES-GCM E2EE. The
+fresh 36 GiB repeated 128/256 MiB RawSocket matrix passes all nine gates at
+14.572-22.428 Gbit/s over the data window and 2.950-9.523 Gbit/s including
+lifecycle. Native external E2EE chunks retain one ownership copy because Dart
+typed lists are mutable and asynchronous hashing cannot safely borrow them.
+An in-place consumed-message AES-GCM prototype was rejected because
+materialized Dart views borrow the native message allocation; releasing that
+allocation to obtain unique mutable ownership would leave those public views
+dangling. Runtime-thread, queue-recycling, and chunk-size experiments also did
+not beat the existing one-worker, 4 MiB-chunk configuration. Full exact-tree
+`bin/verify` passes with 134 Rust core tests, 80 ordinary FFI tests plus the
+dedicated metrics regression, 397 Dart core tests, 118 MCP tests, 319
+client/MCP cases, 116 benchmark/live-WAMP tests, 468 router tests, consumer and
+router-hosted MCP smokes, remote auth, native-forwarding follow-ups, Chrome,
+and Dart2Wasm. Exact-head CI
 `32610193870`, package dry run `32610193902`, WAMP profile benchmarks
 `32611004121`, WAMP profile diagnostics `32611008069`, and the tagged native
 prerelease rehearsal `32611384167` pass at `4331770d`. The comprehensive

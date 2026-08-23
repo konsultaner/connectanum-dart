@@ -209,6 +209,11 @@ typedef CtSha256UpdateAsyncNative =
 typedef CtSha256UpdateAsyncDart =
     int Function(int, ffi.Pointer<ffi.Uint8>, int);
 
+typedef CtSha256UpdateOwnedAsyncNative =
+    ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
+typedef CtSha256UpdateOwnedAsyncDart =
+    int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
 typedef CtSha256UpdateMessageBinaryArgumentNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32);
 typedef CtSha256UpdateMessageBinaryArgumentDart = int Function(int, int);
@@ -584,6 +589,13 @@ class CtFfiBindings {
           .lookupFunction<CtSha256UpdateAsyncNative, CtSha256UpdateAsyncDart>(
             'ct_sha256_update_async',
           ),
+      ctSha256UpdateOwnedAsync = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtSha256UpdateOwnedAsyncNative,
+              CtSha256UpdateOwnedAsyncDart
+            >('ct_sha256_update_owned_async'),
+      ),
       ctSha256UpdateMessageBinaryArgument = library
           .lookupFunction<
             CtSha256UpdateMessageBinaryArgumentNative,
@@ -698,6 +710,7 @@ class CtFfiBindings {
   final CtSha256NewDart ctSha256New;
   final CtSha256UpdateDart ctSha256Update;
   final CtSha256UpdateAsyncDart ctSha256UpdateAsync;
+  final CtSha256UpdateOwnedAsyncDart? ctSha256UpdateOwnedAsync;
   final CtSha256UpdateMessageBinaryArgumentDart
   ctSha256UpdateMessageBinaryArgument;
   final CtSha256FinalizeDart ctSha256Finalize;

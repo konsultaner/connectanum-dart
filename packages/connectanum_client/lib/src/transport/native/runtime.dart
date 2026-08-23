@@ -1247,10 +1247,44 @@ class NativeClientRuntime {
         identityHashCode(externalBytes.owner);
       }
     }
+    final allocate = _bindings.ctOutboundBufferAlloc;
+    final release = _bindings.ctOutboundBufferFree;
+    final updateOwnedAsync = _bindings.ctSha256UpdateOwnedAsync;
+    if (bytes.length >= _asyncSha256MinimumBytes &&
+        allocate != null &&
+        release != null &&
+        updateOwnedAsync != null) {
+      final bytesPtr = allocate(bytes.length);
+      if (bytesPtr == ffi.nullptr) {
+        throw NativeTransportException(
+          NativeTransportErrorCode.io,
+          'Failed to allocate native SHA-256 input buffer',
+        );
+      }
+      var consumed = false;
+      try {
+        bytesPtr.asTypedList(bytes.length).setAll(0, bytes);
+        consumed = true;
+        final result = updateOwnedAsync(
+          sha256Handle,
+          bytesPtr,
+          bytes.length,
+        );
+        if (result < 0) {
+          _throwForError(result, 'Failed to hash owned native byte payload');
+        }
+        return result;
+      } finally {
+        if (!consumed) {
+          release(bytesPtr, bytes.length);
+        }
+      }
+    }
+
     final bytesPtr = malloc<ffi.Uint8>(bytes.length);
     try {
       bytesPtr.asTypedList(bytes.length).setAll(0, bytes);
-      // Large chunks pay one native copy so hashing can overlap transport and sink work.
+      // Older native libraries retain the borrowed-input compatibility path.
       final result = bytes.length >= _asyncSha256MinimumBytes
           ? _bindings.ctSha256UpdateAsync(
               sha256Handle,

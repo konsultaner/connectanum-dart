@@ -526,6 +526,17 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   `32611004121`, WAMP profile diagnostics `32611008069`, and tagged native
   prerelease rehearsal `32611384167` pass at `4331770d`; the comprehensive
   feature-head audit and protected `master` strict audit are clean.
+- [x] Remove the second full-buffer queue copy from large ordinary Dart receipt
+  hashing. Dart now fills storage from `ct_outbound_buffer_alloc` once and an
+  optional ownership-taking SHA FFI entrypoint queues that allocation directly;
+  older native libraries retain the borrowed-copy fallback. Mixed synchronous
+  and owned-async ordering, invalid-handle consumption, immediate Dart caller
+  mutation, and external-buffer behavior have focused regressions. A 9 GiB
+  focused probe reaches 6.728/6.892/3.026 Gbit/s lifecycle throughput for Dart
+  CBOR/MessagePack/JSON versus the prior exact 6.234/6.465/2.855 Gbit/s. The
+  complete 24 GiB file gate passes all eight workloads at 2.399-16.607 Gbit/s
+  lifecycle throughput, and the fresh 36 GiB 128/256 MiB RawSocket gate passes
+  all nine workloads at 14.572-22.428/2.950-9.523 Gbit/s data/lifecycle.
 - [x] Prove the filesystem-to-socket path instead of inferring it from
   throughput. Native core counters now separate successful RawSocket kernel
   `sendfile` calls/bytes from completed userspace-buffered file-segment
