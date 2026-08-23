@@ -127,4 +127,22 @@ void main() {
     },
     skip: _nativeShaRuntimeSkipReason(),
   );
+
+  test(
+    'native SHA-256 queues an owned copy of large Dart buffers',
+    () {
+      final bytes = Uint8List.fromList(
+        List<int>.generate(1024 * 1024, (index) => (index * 17) & 0xff),
+      );
+      final expected = sha256.convert(bytes).bytes;
+      final runtime = NativeClientRuntime.instance();
+      final handle = runtime.createSha256State();
+
+      expect(runtime.updateSha256(handle, bytes), bytes.length);
+      bytes.fillRange(0, bytes.length, 0);
+
+      expect(runtime.finalizeSha256State(handle), orderedEquals(expected));
+    },
+    skip: _nativeShaRuntimeSkipReason(),
+  );
 }

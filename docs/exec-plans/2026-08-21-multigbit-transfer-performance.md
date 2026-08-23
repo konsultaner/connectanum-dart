@@ -510,6 +510,18 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   Dart core, 118 MCP, 116 benchmark, and 468 router tests plus consumer/live
   WAMP and MCP smokes, remote auth, native-forwarding follow-ups, and Chrome
   Dart2Wasm.
+- [x] Extend bounded asynchronous receipt hashing to large ordinary Dart-owned
+  chunks while retaining a synchronous ownership copy before FFI return. A
+  mutation regression proves that a queued 1 MiB buffer hashes its original
+  contents. Exact A/B file probes improve Dart CBOR lifecycle throughput from
+  5.005 to 6.234 Gbit/s and MessagePack from 5.224 to 6.465 Gbit/s, while JSON
+  remains flat at 2.855 versus 2.865 Gbit/s because base64 dominates. Full
+  `bin/verify` passes. The current 24 GiB file artifact gate passes all eight
+  rows at 2.352-16.331 Gbit/s lifecycle throughput, and the 36 GiB repeated
+  128/256 MiB RawSocket gate passes all nine rows at 2.972-9.879 Gbit/s.
+  Reject consumed-message in-place AES-GCM because Dart materialized views
+  borrow native message storage; runtime-thread, queue-recycling, and chunk-size
+  experiments also did not improve the existing configuration.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

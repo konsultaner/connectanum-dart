@@ -1194,11 +1194,18 @@ class NativeClientRuntime {
     final bytesPtr = malloc<ffi.Uint8>(bytes.length);
     try {
       bytesPtr.asTypedList(bytes.length).setAll(0, bytes);
-      final result = _bindings.ctSha256Update(
-        sha256Handle,
-        bytesPtr,
-        bytes.length,
-      );
+      // Large chunks pay one native copy so hashing can overlap transport and sink work.
+      final result = bytes.length >= _asyncSha256MinimumBytes
+          ? _bindings.ctSha256UpdateAsync(
+              sha256Handle,
+              bytesPtr,
+              bytes.length,
+            )
+          : _bindings.ctSha256Update(
+              sha256Handle,
+              bytesPtr,
+              bytes.length,
+            );
       if (result < 0) {
         _throwForError(result, 'Failed to hash native byte payload');
       }
