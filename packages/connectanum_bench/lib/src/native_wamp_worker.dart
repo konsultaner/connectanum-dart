@@ -42,14 +42,46 @@ class NativeWampWorkerFileSegmentMetrics {
   };
 }
 
+class NativeWampWorkerProcessMetrics {
+  const NativeWampWorkerProcessMetrics({
+    required this.pid,
+    required this.rssBeforeBytes,
+    required this.currentRssBytes,
+    required this.maxRssBytes,
+  });
+
+  final int pid;
+  final int rssBeforeBytes;
+  final int currentRssBytes;
+  final int maxRssBytes;
+
+  factory NativeWampWorkerProcessMetrics.fromJson(
+    Map<String, Object?> json,
+  ) => NativeWampWorkerProcessMetrics(
+    pid: (json['pid'] as num).toInt(),
+    rssBeforeBytes: (json['rss_before_bytes'] as num).toInt(),
+    currentRssBytes: (json['current_rss_bytes'] as num).toInt(),
+    maxRssBytes: (json['max_rss_bytes'] as num).toInt(),
+  );
+
+  Map<String, Object?> toJson() => {
+    'pid': pid,
+    'rss_before_bytes': rssBeforeBytes,
+    'current_rss_bytes': currentRssBytes,
+    'max_rss_bytes': maxRssBytes,
+  };
+}
+
 class NativeWampWorkerResult {
   const NativeWampWorkerResult({
     required this.samples,
     required this.fileSegmentMetrics,
+    this.processMetrics,
   });
 
   final List<WampSample> samples;
   final NativeWampWorkerFileSegmentMetrics fileSegmentMetrics;
+  final NativeWampWorkerProcessMetrics? processMetrics;
 }
 
 class NativeWampWorker {
@@ -109,6 +141,7 @@ class NativeWampWorker {
       return NativeWampWorkerResult(
         samples: response.samples,
         fileSegmentMetrics: response.fileSegmentMetrics,
+        processMetrics: response.processMetrics,
       );
     } finally {
       // Native cancel-cycle workloads can leave late interrupts/errors in flight.
@@ -265,11 +298,13 @@ class _WorkerResponse {
   _WorkerResponse({
     required this.samples,
     required this.fileSegmentMetrics,
+    this.processMetrics,
     this.error,
   });
 
   final List<WampSample> samples;
   final NativeWampWorkerFileSegmentMetrics fileSegmentMetrics;
+  final NativeWampWorkerProcessMetrics? processMetrics;
   final String? error;
 
   factory _WorkerResponse.fromJson(Map<String, Object?> json) {
@@ -289,6 +324,12 @@ class _WorkerResponse {
           json['file_segment_metrics'] as Map? ?? const <String, Object?>{},
         ),
       ),
+      processMetrics: switch (json['process_metrics']) {
+        final Map raw => NativeWampWorkerProcessMetrics.fromJson(
+          Map<String, Object?>.from(raw),
+        ),
+        _ => null,
+      },
       error: json['error'] as String?,
     );
   }

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::report::{
     bench_http_stream_counter_delta, router_counter_delta, transport_counter_after,
     transport_counter_delta, transport_http_request_body_stream_counter_delta,
-    transport_http_response_stream_counter_delta, HttpConnectionUsage,
+    transport_http_response_stream_counter_delta, ClientProcessMetrics, HttpConnectionUsage,
     HttpNativeResponseStreamSlowPathSummary, HttpNativeResponseStreamTimingSummary,
     HttpPhaseTimingSummary, HttpServerEmissionTimingSummary, WorkloadReport,
 };
@@ -74,6 +74,8 @@ pub struct WorkloadArtifactSummary {
     pub router_publications_delta: i64,
     pub scenario_router_invocations_delta: i64,
     pub scenario_router_publications_delta: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_process_metrics: Option<ClientProcessMetrics>,
     pub transport: TransportDeltaSummary,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_connection_usage: Option<HttpConnectionUsageSummary>,
@@ -729,6 +731,7 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
             "total_publications_routed",
         )
         .unwrap_or(0),
+        client_process_metrics: report.client_process_metrics.clone(),
         transport: TransportDeltaSummary {
             rawsocket_zero_copy_calls: transport_counter_delta(
                 &report.metrics_before,
@@ -2783,6 +2786,10 @@ pub fn render_prometheus_metrics(
         "# HELP connectanum_bench_artifact_workload_http_connection_usage HTTP connection usage observed for a workload\n",
     );
     output.push_str("# TYPE connectanum_bench_artifact_workload_http_connection_usage gauge\n");
+    output.push_str(
+        "# HELP connectanum_bench_artifact_workload_client_process_rss_bytes Native WAMP client process resident-set-size observations\n",
+    );
+    output.push_str("# TYPE connectanum_bench_artifact_workload_client_process_rss_bytes gauge\n");
 
     for summary in summaries {
         let router_workers = summary.router_workers.to_string();
@@ -2852,6 +2859,19 @@ pub fn render_prometheus_metrics(
             format_labels(&base_labels),
             summary.response_bytes_total
         ));
+        if let Some(metrics) = &summary.client_process_metrics {
+            for (kind, value) in [
+                ("before", metrics.rss_before_bytes),
+                ("current", metrics.current_rss_bytes),
+                ("peak", metrics.max_rss_bytes),
+            ] {
+                output.push_str(&format!(
+                    "connectanum_bench_artifact_workload_client_process_rss_bytes{} {}\n",
+                    format_labels_with_extra(&base_labels, &[("kind", kind)]),
+                    value
+                ));
+            }
+        }
 
         for (counter, value) in [
             ("invocations_dispatched", summary.router_invocations_delta),
@@ -3594,6 +3614,7 @@ mod tests {
             }),
             http_phase_timing: None,
             file_segment_metrics: None,
+            client_process_metrics: None,
             samples: vec![
                 WorkloadSample {
                     worker: 0,
@@ -4439,6 +4460,12 @@ mod tests {
     #[test]
     fn render_prometheus_metrics_contains_expected_series() {
         let mut report = sample_report();
+        report.client_process_metrics = Some(crate::report::ClientProcessMetrics {
+            pid: 42,
+            rss_before_bytes: 67_108_864,
+            current_rss_bytes: 536_870_912,
+            max_rss_bytes: 805_306_368,
+        });
         report.metrics_before["metrics"]["transport"]["rawsocket_zero_copy_calls_total"] =
             json!(10);
         report.metrics_before["metrics"]["transport"]["rawsocket_zero_copy_bytes_total"] =
@@ -4473,6 +4500,11 @@ mod tests {
         assert!(text.contains("kind=\"rawsocket_zero_copy_bytes\""));
         assert!(text.contains("kind=\"buffered_file_segment_calls\""));
         assert!(text.contains("kind=\"buffered_file_segment_bytes\""));
+        assert!(text.contains("connectanum_bench_artifact_workload_client_process_rss_bytes"));
+        assert!(text.contains("kind=\"before\""));
+        assert!(text.contains("kind=\"current\""));
+        assert!(text.contains("kind=\"peak\""));
+        assert!(text.contains("805306368"));
         assert!(text.contains("counter=\"invocations_dispatched\""));
         assert!(text.contains("connectanum_bench_artifact_workload_http_connection_usage"));
         assert!(text.contains("kind=\"connections_opened\""));
@@ -4494,6 +4526,21 @@ mod tests {
         assert_eq!(summary.transport.rawsocket_zero_copy_bytes, 2_147_483_648);
         assert_eq!(summary.transport.buffered_file_segment_calls, 3);
         assert_eq!(summary.transport.buffered_file_segment_bytes, 384);
+    }
+
+    #[test]
+    fn summarize_report_includes_native_helper_process_metrics() {
+        let mut report = sample_report();
+        let expected = crate::report::ClientProcessMetrics {
+            pid: 42,
+            rss_before_bytes: 67_108_864,
+            current_rss_bytes: 536_870_912,
+            max_rss_bytes: 805_306_368,
+        };
+        report.client_process_metrics = Some(expected.clone());
+
+        let summary = summarize_report(&report);
+        assert_eq!(summary.client_process_metrics, Some(expected));
     }
 
     #[test]

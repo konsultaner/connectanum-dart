@@ -121,6 +121,7 @@ Future<void> main(List<String> args) async {
           Map<String, Object?>.from(jsonDecode(trimmed) as Map),
         );
         final fileMetricsBefore = nativeRuntime.fileSegmentMetricsSnapshot();
+        final rssBeforeBytes = ProcessInfo.currentRss;
         final samples = await runner.run(scenario);
         final fileMetrics = nativeRuntime
             .fileSegmentMetricsSnapshot()
@@ -137,6 +138,12 @@ Future<void> main(List<String> args) async {
                   fileMetrics.bufferedFileSegmentCallsTotal,
               'buffered_file_segment_bytes':
                   fileMetrics.bufferedFileSegmentBytesTotal,
+            },
+            'process_metrics': {
+              'pid': pid,
+              'rss_before_bytes': rssBeforeBytes,
+              'current_rss_bytes': ProcessInfo.currentRss,
+              'max_rss_bytes': ProcessInfo.maxRss,
             },
           }),
         );

@@ -52,8 +52,8 @@ use url::Url;
 use connectanum_bench_orchestrator::artifacts::summarize_report;
 use connectanum_bench_orchestrator::artifacts::{write_artifact_bundle, WorkloadArtifactSummary};
 use connectanum_bench_orchestrator::report::{
-    router_counter_delta, FileSegmentMetricsDelta, HttpConnectionUsage, HttpPhaseTimingSample,
-    WorkloadReport, WorkloadSample,
+    router_counter_delta, ClientProcessMetrics, FileSegmentMetricsDelta, HttpConnectionUsage,
+    HttpPhaseTimingSample, WorkloadReport, WorkloadSample,
 };
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
@@ -500,6 +500,7 @@ fn run_bench_suite(
                         prepared.response_chunk_bytes,
                     ),
                     file_segment_metrics: execution.file_segment_metrics.clone(),
+                    client_process_metrics: execution.client_process_metrics.clone(),
                     samples: execution.samples,
                 };
                 print_workload_summary(&report, &prepared);
@@ -1906,6 +1907,7 @@ struct WorkloadExecution {
     http_connection_usage: Option<HttpConnectionUsage>,
     data_window_elapsed_ms: Option<f64>,
     file_segment_metrics: Option<FileSegmentMetricsDelta>,
+    client_process_metrics: Option<ClientProcessMetrics>,
 }
 
 impl WorkloadExecution {
@@ -1915,6 +1917,7 @@ impl WorkloadExecution {
             http_connection_usage: None,
             data_window_elapsed_ms: None,
             file_segment_metrics: None,
+            client_process_metrics: None,
         }
     }
 
@@ -1922,12 +1925,14 @@ impl WorkloadExecution {
         samples: Vec<WorkloadSample>,
         data_window_elapsed_ms: Option<f64>,
         file_segment_metrics: Option<FileSegmentMetricsDelta>,
+        client_process_metrics: Option<ClientProcessMetrics>,
     ) -> Self {
         Self {
             samples,
             http_connection_usage: None,
             data_window_elapsed_ms,
             file_segment_metrics,
+            client_process_metrics,
         }
     }
 
@@ -1945,6 +1950,7 @@ impl WorkloadExecution {
             }),
             data_window_elapsed_ms: None,
             file_segment_metrics: None,
+            client_process_metrics: None,
         }
     }
 }
@@ -2055,6 +2061,15 @@ fn print_workload_summary(report: &WorkloadReport, workload: &PreparedWorkload) 
     println!("  Router workers: {}", report.router_workers);
     if report.client_impl != "n/a" {
         println!("  Client implementation: {}", report.client_impl);
+    }
+    if let Some(metrics) = &report.client_process_metrics {
+        println!(
+            "  Client process {} RSS: before {} | current {} | peak {}",
+            metrics.pid,
+            format_bytes(metrics.rss_before_bytes),
+            format_bytes(metrics.current_rss_bytes),
+            format_bytes(metrics.max_rss_bytes)
+        );
     }
     if let Some(delta) = router_counter_delta(
         &report.metrics_before,
@@ -3093,10 +3108,12 @@ fn run_wamp_workload(
         serde_json::from_value(samples_value).context("failed to decode WAMP workload samples")?;
     let data_window_elapsed_ms = parse_wamp_data_window_elapsed_ms(&response);
     let file_segment_metrics = parse_wamp_file_segment_metrics(&response)?;
+    let client_process_metrics = parse_wamp_client_process_metrics(&response)?;
     Ok(WorkloadExecution::wamp(
         samples,
         data_window_elapsed_ms,
         file_segment_metrics,
+        client_process_metrics,
     ))
 }
 
@@ -3107,6 +3124,15 @@ fn parse_wamp_file_segment_metrics(response: &Value) -> Result<Option<FileSegmen
         .map(serde_json::from_value)
         .transpose()
         .context("failed to decode WAMP file-segment metrics")
+}
+
+fn parse_wamp_client_process_metrics(response: &Value) -> Result<Option<ClientProcessMetrics>> {
+    response
+        .get("client_process_metrics")
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()
+        .context("failed to decode WAMP client-process metrics")
 }
 
 fn parse_wamp_data_window_elapsed_ms(response: &Value) -> Option<f64> {
@@ -6080,6 +6106,29 @@ mod tests {
         );
     }
 
+    #[test]
+    fn wamp_client_process_metrics_preserve_native_helper_rss() {
+        let metrics = parse_wamp_client_process_metrics(&json!({
+            "client_process_metrics": {
+                "pid": 42,
+                "rss_before_bytes": 67_108_864u64,
+                "current_rss_bytes": 536_870_912u64,
+                "max_rss_bytes": 805_306_368u64,
+            }
+        }))
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(metrics.pid, 42);
+        assert_eq!(metrics.rss_before_bytes, 67_108_864);
+        assert_eq!(metrics.current_rss_bytes, 536_870_912);
+        assert_eq!(metrics.max_rss_bytes, 805_306_368);
+        assert_eq!(
+            parse_wamp_client_process_metrics(&json!({"samples": []})).unwrap(),
+            None
+        );
+    }
+
     #[tokio::test]
     async fn collect_worker_samples_dries_out_tasks() {
         let mut join_set = JoinSet::new();
@@ -6288,6 +6337,7 @@ mod tests {
             http_connection_usage: None,
             http_phase_timing: None,
             file_segment_metrics: None,
+            client_process_metrics: None,
             samples: vec![sample(0)],
         };
 

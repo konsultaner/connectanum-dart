@@ -276,6 +276,21 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   and adopts that measured eight-session shape. The complete updated 24 GiB
   matrix passes locally at 8.993-20.559/8.212-16.464 Gbit/s data/lifecycle for
   the four gated native rows and 2.317/2.253 Gbit/s for E2EE.
+- Native benchmark-helper RSS is now first-class evidence. Each native WAMP
+  row preserves helper PID, pre-workload RSS, post-workload current RSS, and
+  process peak RSS through worker/control JSON, Rust reports, transformed
+  summaries, console output, and Prometheus artifacts while legacy rows remain
+  compatible. The fresh 24 GiB file suite passes all scoped gates; native
+  production and E2EE rows reach 2.311-17.611/2.233-14.431 Gbit/s
+  data/lifecycle, with peak helper RSS from 267 MiB for segmented JSON to 3.12
+  GiB for four concurrent 256 MiB MessagePack transfers. Dart CBOR/MessagePack
+  reach 5.781/5.729 and 5.929/5.816 Gbit/s, while Dart JSON remains an explicit
+  1.924/1.912 Gbit/s transform boundary. The fresh 36 GiB repeated 128/256 MiB
+  RawSocket matrix passes all nine gates at 3.509-21.614/2.908-9.823 Gbit/s;
+  native helper peak RSS is 2.38-2.89 GiB. Exact A/B runs rejected synchronous
+  hashing of native-external E2EE plaintext and Dart-owned giant-frame storage
+  because both reduced throughput. Focused compatibility/artifact regressions,
+  local review, and full exact-tree `bin/verify` pass.
 
 ## Plan
 
@@ -553,6 +568,13 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   prototype regressed representative rows by up to 6.5% and was reverted. Full
   exact-tree `bin/verify` passes with the new core, FFI, client, router,
   benchmark, integration, consumer, and browser regressions.
+- [x] Preserve native benchmark-helper process memory in every artifact layer.
+  Optional PID and before/current/peak RSS fields now survive worker/control
+  JSON, Rust reports, summary JSON, console output, and Prometheus textfile
+  output without breaking legacy rows. The live smoke, focused regressions,
+  full 24/36 GiB heavy gates, local review, and `bin/verify` pass. The evidence
+  makes giant-frame peak RSS and concurrent file-transfer memory explicit for
+  the remaining optimization work.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

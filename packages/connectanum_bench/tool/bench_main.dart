@@ -717,11 +717,13 @@ class _BenchControlRegistry {
         baselineMetrics = null;
       }
       NativeWampWorkerFileSegmentMetrics? fileSegmentMetrics;
+      NativeWampWorkerProcessMetrics? clientProcessMetrics;
       final List<WampSample> samples;
       if (scenario.clientImplementation == WampClientImplementation.native) {
         final result = await _nativeWampWorker.runWithMetrics(scenario);
         samples = result.samples;
         fileSegmentMetrics = result.fileSegmentMetrics;
+        clientProcessMetrics = result.processMetrics;
       } else {
         samples = await _wampRunner.run(scenario);
       }
@@ -735,6 +737,8 @@ class _BenchControlRegistry {
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
           if (fileSegmentMetrics != null)
             'file_segment_metrics': fileSegmentMetrics.toJson(),
+          if (clientProcessMetrics != null)
+            'client_process_metrics': clientProcessMetrics.toJson(),
         },
       );
     } catch (error, stackTrace) {

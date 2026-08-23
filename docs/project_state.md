@@ -8,6 +8,26 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+Native benchmark-helper process memory is now visible instead of being hidden
+behind the router/orchestrator process. Native WAMP rows carry the helper PID,
+RSS immediately before the workload, current RSS after it, and process peak
+RSS through the Dart worker/control response, Rust JSONL report, transformed
+summary, console output, and Prometheus textfile artifact; legacy rows remain
+valid when the optional field is absent. A fresh 24 GiB file run passes all
+eight scoped gates at 2.311-17.611 Gbit/s over the data window and
+2.233-14.431 Gbit/s over lifecycle for native production and E2EE rows. The
+three Dart binary reference rows reach 5.781/5.729 Gbit/s for CBOR and
+5.929/5.816 Gbit/s for MessagePack, while Dart JSON is an explicit measured
+boundary at 1.924/1.912 Gbit/s. Native helper peak RSS spans about 267 MiB for
+segmented JSON, 497 MiB for E2EE, and 3.12 GiB for four concurrent 256 MiB
+MessagePack transfers. A fresh 36 GiB repeated 128/256 MiB RawSocket run passes
+all nine gates at 3.509-21.614 Gbit/s over the data window and
+2.908-9.823 Gbit/s over lifecycle; native helper peak RSS is 2.38-2.89 GiB for
+those giant-frame rows. Synchronous native-external E2EE hashing and Dart-owned
+large RawSocket frame storage were both measured as regressions and fully
+reverted. Focused Dart/Rust compatibility and artifact tests, both heavy gates,
+local second-pass review, and full exact-tree `bin/verify` pass.
+
 Native file-segment metrics now distinguish successful RawSocket kernel
 `sendfile` calls/bytes from completed userspace-buffered file-segment
 calls/bytes, expose both through router JSON/OpenMetrics and a dedicated client

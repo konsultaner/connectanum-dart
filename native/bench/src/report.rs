@@ -283,6 +283,14 @@ impl FileSegmentMetricsDelta {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ClientProcessMetrics {
+    pub pid: u32,
+    pub rss_before_bytes: u64,
+    pub current_rss_bytes: u64,
+    pub max_rss_bytes: u64,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WorkloadReport {
     pub scenario: String,
@@ -324,6 +332,8 @@ pub struct WorkloadReport {
     pub http_phase_timing: Option<HttpPhaseTimingSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_segment_metrics: Option<FileSegmentMetricsDelta>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_process_metrics: Option<ClientProcessMetrics>,
     pub samples: Vec<WorkloadSample>,
 }
 
@@ -574,6 +584,7 @@ mod tests {
         assert_eq!(report.native_runtime_threads, 0);
         assert_eq!(report.http_connection_usage, None);
         assert_eq!(report.data_window_elapsed_ms, None);
+        assert_eq!(report.client_process_metrics, None);
         assert_eq!(report.lifecycle_elapsed_ms(), 1.0);
         assert_eq!(report.throughput_elapsed_ms(), 1.0);
     }
