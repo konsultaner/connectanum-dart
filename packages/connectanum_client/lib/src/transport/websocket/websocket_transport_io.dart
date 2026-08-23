@@ -238,10 +238,21 @@ class WebSocketTransport extends AbstractTransport {
   }
 
   AbstractMessage _decodeInboundMessage(Object messageEvent) {
-    final Uint8List payload;
     if (_serializerType == WebSocketSerialization.serializationJson) {
-      payload = Uint8List.fromList(utf8.encode(messageEvent as String));
-    } else if (messageEvent is Uint8List) {
+      final payload = messageEvent as String;
+      final message = (_serializer as serializer_json.Serializer)
+          .deserializeFromString(payload);
+      if (message == null) {
+        throw FormatException(
+          'Could not deserialize inbound WebSocket WAMP message '
+          '(serializer: $_serializerType, payloadLength: ${payload.length})',
+        );
+      }
+      return message;
+    }
+
+    final Uint8List payload;
+    if (messageEvent is Uint8List) {
       payload = messageEvent;
     } else {
       payload = Uint8List.fromList(messageEvent as List<int>);

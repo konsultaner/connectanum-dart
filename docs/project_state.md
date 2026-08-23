@@ -8,6 +8,24 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+Pure-Dart WebSocket JSON receive paths on IO and web now deserialize the
+SDK-provided text directly instead of encoding the complete String back to
+UTF-8 before JSON parsing. WAMP JSON remains a WebSocket TEXT message, while
+MessagePack and CBOR retain their binary-frame paths. A sustained 4 GiB
+loopback workload of 512 8 MiB JSON RPCs improves from
+1.350/1.341 Gbit/s data/lifecycle throughput to
+2.608-2.933/2.575-2.892 Gbit/s across three post-change repeats; median
+lifecycle throughput is 2.872 Gbit/s and every repeat clears the 2 Gbit/s
+target. The text-only SDK path preserves decoded message values rather than
+fabricating retained UTF-8 argument slices; native and byte-backed transports
+remain the retained-wire path. Unicode, canonical WAMP JSON binary markers,
+malformed frames, JSON text sends, and binary serializer sends have focused
+regressions. Full exact-tree `bin/verify` passes, including 134 Rust core
+tests, 81 ordinary Rust FFI tests, the focused FFI metrics gate, all Dart
+package and consumer smokes, 117 benchmark/live-WAMP tests, 468 router tests,
+remote-auth and native-forwarding follow-ups, and Chrome Dart2Wasm WebSocket
+coverage.
+
 Native progressive file segments now use the same local cooperative pacing
 contract as buffered segments without changing the caller's WAMP session,
 transport, or negotiated serializer. Each nonterminal 4 MiB segment yields to
@@ -159,9 +177,10 @@ router's deliberate 16 MiB message-safety cap. The complete artifact gate
 passes with zero transport, backpressure, or protocol errors. The current
 exact-tree repeat reaches 2.215-4.674 Gbit/s lifecycle throughput for every
 native production row, 2.297-5.867 Gbit/s for pure-Dart clear RawSocket, and
-4.772-4.965 Gbit/s for pure-Dart binary WebSocket. Dart WebSocket JSON remains
-at 1.214 Gbit/s lifecycle, pure-Dart TLS RawSocket at 0.681-0.833 Gbit/s, and
-WSS at 0.538-0.814 Gbit/s. A new focused 6 GiB secure-Dart scenario repeats
+4.772-4.965 Gbit/s for pure-Dart binary WebSocket. Before direct text-frame
+deserialization, Dart WebSocket JSON measured 1.214 Gbit/s lifecycle;
+pure-Dart TLS RawSocket remains at 0.681-0.833 Gbit/s, and WSS at
+0.538-0.814 Gbit/s. A new focused 6 GiB secure-Dart scenario repeats
 those six boundaries at 0.531-0.874 Gbit/s lifecycle and passes the artifact
 gate. Dart SDK inspection confirms that `SecureSocket` processes TLS through
 8 KiB plaintext and 10 KiB encrypted filter buffers with asynchronous

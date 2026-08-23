@@ -11,6 +11,7 @@ import 'package:connectanum_core/src/message/call.dart';
 import 'package:connectanum_core/src/message/details.dart';
 import 'package:connectanum_core/src/message/hello.dart';
 import 'package:connectanum_core/src/message/message_types.dart';
+import 'package:connectanum_core/src/message/result.dart';
 import 'package:connectanum_core/src/message/welcome.dart';
 import 'package:connectanum_client/src/transport/websocket/websocket_transport_io.dart';
 import 'package:connectanum_client/src/transport/websocket/websocket_transport_serialization.dart';
@@ -144,6 +145,54 @@ void main() {
       );
       await transport.onDisconnect!.future.timeout(const Duration(seconds: 1));
     });
+
+    test(
+      'decodes Unicode and binary markers from JSON text frames',
+      () async {
+        final binary = Uint8List.fromList(
+          List<int>.generate(2048, (index) => index & 0xff),
+        );
+        final server = await HttpServer.bind('localhost', 0);
+        addTearDown(() => server.close(force: true));
+        server.listen((HttpRequest request) async {
+          final socket = await WebSocketTransformer.upgrade(request);
+          socket.listen((message) {
+            if (message is String &&
+                message.contains('[${MessageTypes.codeHello}')) {
+              socket
+                ..add(
+                  jsonEncode([
+                    MessageTypes.codeResult,
+                    42,
+                    <String, dynamic>{},
+                    ['Gr\u00fc\u00dfe \u{1f680}'],
+                  ]),
+                )
+                ..add(
+                  '[${MessageTypes.codeResult},43,{},["\\u0000'
+                  '${base64Encode(binary)}"]]',
+                );
+            }
+          });
+        });
+
+        final transport = WebSocketTransport.withJsonSerializer(
+          'ws://localhost:${server.port}/wamp',
+        );
+        addTearDown(transport.close);
+        await transport.open();
+
+        final messages = transport.receive().take(2).toList();
+        transport.send(Hello('my.realm', Details.forHello()));
+        final results = await messages.timeout(const Duration(seconds: 1));
+
+        expect((results[0] as Result).arguments, ['Gr\u00fc\u00dfe \u{1f680}']);
+        expect(
+          (results[1] as Result).arguments!.single,
+          orderedEquals(binary),
+        );
+      },
+    );
 
     test('sends lazy JSON payload fragments as one text message', () async {
       final received = Completer<Object>();

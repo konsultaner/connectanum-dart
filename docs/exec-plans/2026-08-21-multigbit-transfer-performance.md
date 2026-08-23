@@ -610,6 +610,15 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   serializer. Same-session control calls interleave before file completion,
   remote terminal errors stop subsequent native segments, and the repeated
   focused A/B plus complete 24 GiB file policy show no throughput regression.
+- [x] Remove the redundant String-to-UTF-8 conversion from Dart IO and web
+  WebSocket JSON receive paths while retaining WAMP TEXT frames and binary
+  MessagePack/CBOR frames. Three sustained 4 GiB clear WebSocket JSON repeats
+  improve from 1.350/1.341 Gbit/s data/lifecycle to
+  2.608-2.933/2.575-2.892 Gbit/s, with a 2.872 Gbit/s median lifecycle result.
+  Decoded Unicode and WAMP JSON binary values remain exact; byte-retention
+  metadata remains available on native and byte-backed receive paths. Focused
+  transport tests, static analysis, JavaScript compilation, Chrome Dart2Wasm,
+  local review, and full exact-tree `bin/verify` pass.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

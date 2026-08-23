@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:web/web.dart';
 import 'dart:typed_data';
 import 'dart:js_interop';
@@ -189,14 +188,21 @@ class WebSocketTransport extends AbstractTransport {
   Future<AbstractMessage> _decodeInboundMessage(
     MessageEvent messageEvent,
   ) async {
-    final Uint8List payload;
     if (_serializerType == WebSocketSerialization.serializationJson) {
-      payload = Uint8List.fromList(utf8.encode(messageEvent.data.toString()));
-    } else {
-      var arraybuffer = await (messageEvent.data as Blob).arrayBuffer().toDart;
-      payload = arraybuffer.toDart.asUint8List(0);
+      final payload = messageEvent.data.toString();
+      final message = (_serializer as serializer_json.Serializer)
+          .deserializeFromString(payload);
+      if (message == null) {
+        throw FormatException(
+          'Could not deserialize inbound WebSocket WAMP message '
+          '(serializer: $_serializerType, payloadLength: ${payload.length})',
+        );
+      }
+      return message;
     }
 
+    final arraybuffer = await (messageEvent.data as Blob).arrayBuffer().toDart;
+    final payload = arraybuffer.toDart.asUint8List(0);
     final message = _serializer.deserialize(payload);
     if (message == null) {
       throw FormatException(
