@@ -367,7 +367,7 @@ void main() {
         transport.send(Hello('test.realm', Details.forHello()));
 
         final messages = await transport
-            .receive()
+            .receive()!
             .where((message) => message != null)
             .cast<AbstractMessage>()
             .take(2)
