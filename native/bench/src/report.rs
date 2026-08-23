@@ -265,6 +265,24 @@ pub struct HttpNativeResponseStreamSlowPathSummary {
     pub first_to_last_chunk_send_ge_10ms_total: u64,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+pub struct FileSegmentMetricsDelta {
+    #[serde(default)]
+    pub rawsocket_zero_copy_calls: u64,
+    #[serde(default)]
+    pub rawsocket_zero_copy_bytes: u64,
+    #[serde(default)]
+    pub buffered_file_segment_calls: u64,
+    #[serde(default)]
+    pub buffered_file_segment_bytes: u64,
+}
+
+impl FileSegmentMetricsDelta {
+    pub fn is_empty(&self) -> bool {
+        self == &Self::default()
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct WorkloadReport {
     pub scenario: String,
@@ -304,6 +322,8 @@ pub struct WorkloadReport {
     pub http_connection_usage: Option<HttpConnectionUsage>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_phase_timing: Option<HttpPhaseTimingSummary>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_segment_metrics: Option<FileSegmentMetricsDelta>,
     pub samples: Vec<WorkloadSample>,
 }
 

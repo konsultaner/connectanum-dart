@@ -716,10 +716,15 @@ class _BenchControlRegistry {
       } catch (_) {
         baselineMetrics = null;
       }
-      final samples =
-          scenario.clientImplementation == WampClientImplementation.native
-          ? await _nativeWampWorker.run(scenario)
-          : await _wampRunner.run(scenario);
+      NativeWampWorkerFileSegmentMetrics? fileSegmentMetrics;
+      final List<WampSample> samples;
+      if (scenario.clientImplementation == WampClientImplementation.native) {
+        final result = await _nativeWampWorker.runWithMetrics(scenario);
+        samples = result.samples;
+        fileSegmentMetrics = result.fileSegmentMetrics;
+      } else {
+        samples = await _wampRunner.run(scenario);
+      }
       if (baselineMetrics != null) {
         await _awaitRouterQuiescence(baselineMetrics);
       }
@@ -728,6 +733,8 @@ class _BenchControlRegistry {
         body: {
           'samples': samples.map((sample) => sample.toJson()).toList(),
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
+          if (fileSegmentMetrics != null)
+            'file_segment_metrics': fileSegmentMetrics.toJson(),
         },
       );
     } catch (error, stackTrace) {

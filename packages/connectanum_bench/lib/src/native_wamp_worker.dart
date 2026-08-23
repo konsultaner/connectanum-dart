@@ -8,6 +8,50 @@ import 'package:logging/logging.dart';
 import 'wamp_transport_targets.dart';
 import 'wamp_workload_runner.dart';
 
+class NativeWampWorkerFileSegmentMetrics {
+  const NativeWampWorkerFileSegmentMetrics({
+    this.rawSocketZeroCopyCalls = 0,
+    this.rawSocketZeroCopyBytes = 0,
+    this.bufferedFileSegmentCalls = 0,
+    this.bufferedFileSegmentBytes = 0,
+  });
+
+  final int rawSocketZeroCopyCalls;
+  final int rawSocketZeroCopyBytes;
+  final int bufferedFileSegmentCalls;
+  final int bufferedFileSegmentBytes;
+
+  factory NativeWampWorkerFileSegmentMetrics.fromJson(
+    Map<String, Object?> json,
+  ) => NativeWampWorkerFileSegmentMetrics(
+    rawSocketZeroCopyCalls:
+        (json['rawsocket_zero_copy_calls'] as num?)?.toInt() ?? 0,
+    rawSocketZeroCopyBytes:
+        (json['rawsocket_zero_copy_bytes'] as num?)?.toInt() ?? 0,
+    bufferedFileSegmentCalls:
+        (json['buffered_file_segment_calls'] as num?)?.toInt() ?? 0,
+    bufferedFileSegmentBytes:
+        (json['buffered_file_segment_bytes'] as num?)?.toInt() ?? 0,
+  );
+
+  Map<String, Object?> toJson() => {
+    'rawsocket_zero_copy_calls': rawSocketZeroCopyCalls,
+    'rawsocket_zero_copy_bytes': rawSocketZeroCopyBytes,
+    'buffered_file_segment_calls': bufferedFileSegmentCalls,
+    'buffered_file_segment_bytes': bufferedFileSegmentBytes,
+  };
+}
+
+class NativeWampWorkerResult {
+  const NativeWampWorkerResult({
+    required this.samples,
+    required this.fileSegmentMetrics,
+  });
+
+  final List<WampSample> samples;
+  final NativeWampWorkerFileSegmentMetrics fileSegmentMetrics;
+}
+
 class NativeWampWorker {
   NativeWampWorker({
     required this.realmUri,
@@ -42,7 +86,10 @@ class NativeWampWorker {
 
   Future<void> start() => _ensureStarted();
 
-  Future<List<WampSample>> run(WampScenario scenario) async {
+  Future<List<WampSample>> run(WampScenario scenario) async =>
+      (await runWithMetrics(scenario)).samples;
+
+  Future<NativeWampWorkerResult> runWithMetrics(WampScenario scenario) async {
     await _ensureStarted();
     final process = _process;
     final stdin = _stdin;
@@ -59,7 +106,10 @@ class NativeWampWorker {
       if (error != null) {
         throw StateError(error);
       }
-      return response.samples;
+      return NativeWampWorkerResult(
+        samples: response.samples,
+        fileSegmentMetrics: response.fileSegmentMetrics,
+      );
     } finally {
       // Native cancel-cycle workloads can leave late interrupts/errors in flight.
       // Recycle the helper between scenarios so those messages do not poison the
@@ -212,9 +262,14 @@ String _normalizeWorkerEntrypoint(String workerScriptPath) {
 }
 
 class _WorkerResponse {
-  _WorkerResponse({required this.samples, this.error});
+  _WorkerResponse({
+    required this.samples,
+    required this.fileSegmentMetrics,
+    this.error,
+  });
 
   final List<WampSample> samples;
+  final NativeWampWorkerFileSegmentMetrics fileSegmentMetrics;
   final String? error;
 
   factory _WorkerResponse.fromJson(Map<String, Object?> json) {
@@ -229,6 +284,11 @@ class _WorkerResponse {
                 )
                 .toList(growable: false)
           : const <WampSample>[],
+      fileSegmentMetrics: NativeWampWorkerFileSegmentMetrics.fromJson(
+        Map<String, Object?>.from(
+          json['file_segment_metrics'] as Map? ?? const <String, Object?>{},
+        ),
+      ),
       error: json['error'] as String?,
     );
   }

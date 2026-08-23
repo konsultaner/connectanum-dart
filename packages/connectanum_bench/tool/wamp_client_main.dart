@@ -45,6 +45,9 @@ Future<void> main(List<String> args) async {
   final secureTargetsJson = results['secure-targets-json'] as String;
   final wampTargets = _decodeTargets(targetsJson);
   final secureWampTargets = _decodeTargets(secureTargetsJson);
+  final nativeRuntime = NativeClientRuntime.instance(
+    libraryPath: nativeLibraryPath,
+  );
 
   final runner = WampWorkloadRunner(
     sessionFactory: (scenario) {
@@ -117,10 +120,24 @@ Future<void> main(List<String> args) async {
         final scenario = WampScenario.fromJson(
           Map<String, Object?>.from(jsonDecode(trimmed) as Map),
         );
+        final fileMetricsBefore = nativeRuntime.fileSegmentMetricsSnapshot();
         final samples = await runner.run(scenario);
+        final fileMetrics = nativeRuntime
+            .fileSegmentMetricsSnapshot()
+            .deltaFrom(fileMetricsBefore);
         stdout.writeln(
           jsonEncode({
             'samples': samples.map((sample) => sample.toJson()).toList(),
+            'file_segment_metrics': {
+              'rawsocket_zero_copy_calls':
+                  fileMetrics.rawSocketZeroCopyCallsTotal,
+              'rawsocket_zero_copy_bytes':
+                  fileMetrics.rawSocketZeroCopyBytesTotal,
+              'buffered_file_segment_calls':
+                  fileMetrics.bufferedFileSegmentCallsTotal,
+              'buffered_file_segment_bytes':
+                  fileMetrics.bufferedFileSegmentBytesTotal,
+            },
           }),
         );
         await stdout.flush();

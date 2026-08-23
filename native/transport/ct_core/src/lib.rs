@@ -267,6 +267,14 @@ struct HttpMetrics {
 }
 
 #[derive(Default)]
+struct FileSegmentMetrics {
+    rawsocket_zero_copy_calls_total: AtomicU64,
+    rawsocket_zero_copy_bytes_total: AtomicU64,
+    buffered_file_segment_calls_total: AtomicU64,
+    buffered_file_segment_bytes_total: AtomicU64,
+}
+
+#[derive(Default)]
 struct HttpResponseStreamMetrics {
     streaming_responses_total: AtomicU64,
     stream_open_to_headers_send_samples_total: AtomicU64,
@@ -396,6 +404,14 @@ pub struct HttpMetricsSnapshot {
     pub internal_error_events: u64,
     pub backpressure_events: u64,
     pub max_backpressure_depth: u32,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FileSegmentMetricsSnapshot {
+    pub rawsocket_zero_copy_calls_total: u64,
+    pub rawsocket_zero_copy_bytes_total: u64,
+    pub buffered_file_segment_calls_total: u64,
+    pub buffered_file_segment_bytes_total: u64,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -1120,9 +1136,14 @@ impl tokio::io::AsyncWrite for InstrumentedHttp2IoStream {
 }
 
 static HTTP_METRICS: OnceLock<HttpMetricsStore> = OnceLock::new();
+static FILE_SEGMENT_METRICS: OnceLock<FileSegmentMetrics> = OnceLock::new();
 
 fn http_metrics() -> &'static HttpMetricsStore {
     HTTP_METRICS.get_or_init(HttpMetricsStore::default)
+}
+
+fn file_segment_metrics() -> &'static FileSegmentMetrics {
+    FILE_SEGMENT_METRICS.get_or_init(FileSegmentMetrics::default)
 }
 
 fn http_response_stream_metrics() -> &'static HttpResponseStreamMetrics {
@@ -1158,6 +1179,50 @@ fn record_response_stream_slow_path(
 
 pub fn http_metrics_snapshot() -> HttpMetricsSnapshot {
     http_metrics().totals_snapshot()
+}
+
+pub fn file_segment_metrics_snapshot() -> FileSegmentMetricsSnapshot {
+    let metrics = file_segment_metrics();
+    FileSegmentMetricsSnapshot {
+        rawsocket_zero_copy_calls_total: metrics
+            .rawsocket_zero_copy_calls_total
+            .load(Ordering::Relaxed),
+        rawsocket_zero_copy_bytes_total: metrics
+            .rawsocket_zero_copy_bytes_total
+            .load(Ordering::Relaxed),
+        buffered_file_segment_calls_total: metrics
+            .buffered_file_segment_calls_total
+            .load(Ordering::Relaxed),
+        buffered_file_segment_bytes_total: metrics
+            .buffered_file_segment_bytes_total
+            .load(Ordering::Relaxed),
+    }
+}
+
+pub(crate) fn record_rawsocket_zero_copy_file_write(bytes: usize) {
+    if bytes == 0 {
+        return;
+    }
+    let metrics = file_segment_metrics();
+    metrics
+        .rawsocket_zero_copy_calls_total
+        .fetch_add(1, Ordering::Relaxed);
+    metrics
+        .rawsocket_zero_copy_bytes_total
+        .fetch_add(bytes as u64, Ordering::Relaxed);
+}
+
+fn record_buffered_file_segment(bytes: usize) {
+    if bytes == 0 {
+        return;
+    }
+    let metrics = file_segment_metrics();
+    metrics
+        .buffered_file_segment_calls_total
+        .fetch_add(1, Ordering::Relaxed);
+    metrics
+        .buffered_file_segment_bytes_total
+        .fetch_add(bytes as u64, Ordering::Relaxed);
 }
 
 pub fn http_metrics_snapshot_with_breakdown(
@@ -4425,6 +4490,7 @@ async fn write_file_segment_buffered(
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "file offset overflow"))?;
         remaining -= chunk_len;
     }
+    record_buffered_file_segment(segment.len);
     Ok(())
 }
 
@@ -4583,6 +4649,7 @@ async fn write_websocket_file_frame_mode(
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "file offset overflow"))?;
         remaining -= chunk_len;
     }
+    record_buffered_file_segment(file_segment.len);
 
     for segment in suffix_segments {
         write_websocket_payload(
@@ -9067,6 +9134,7 @@ mod tests {
         let file = Arc::new(File::open(&path).unwrap());
         let prefix = Bytes::from_static(br#"[48,1,{},"files.set",["\u0000"#);
         let suffix = Bytes::from_static(b"\"]]");
+        let metrics_before = file_segment_metrics_snapshot();
 
         for len in [0, 1, 2, 3, BASE64_FILE_SEGMENT_INPUT_SIZE + 7] {
             send_wamp_base64_file_segment(
@@ -9085,6 +9153,16 @@ mod tests {
             let expected = [prefix.as_ref(), encoded.as_bytes(), suffix.as_ref()].concat();
             assert_eq!(parsed.raw.into_bytes().as_ref(), expected.as_slice());
         }
+        let metrics_after = file_segment_metrics_snapshot();
+        let expected_source_bytes = (1 + 2 + 3 + BASE64_FILE_SEGMENT_INPUT_SIZE + 7) as u64;
+        assert!(
+            metrics_after.buffered_file_segment_calls_total
+                >= metrics_before.buffered_file_segment_calls_total + 4
+        );
+        assert!(
+            metrics_after.buffered_file_segment_bytes_total
+                >= metrics_before.buffered_file_segment_bytes_total + expected_source_bytes
+        );
 
         std::fs::remove_file(path).unwrap();
         shutdown().unwrap();

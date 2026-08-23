@@ -817,6 +817,18 @@ final class CtRouterMetricsInfo extends ffi.Struct {
   @ffi.Uint64()
   external int requestBodyStreamTotalReadUsTotal;
 
+  @ffi.Uint64()
+  external int rawSocketZeroCopyCallsTotal;
+
+  @ffi.Uint64()
+  external int rawSocketZeroCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int bufferedFileSegmentCallsTotal;
+
+  @ffi.Uint64()
+  external int bufferedFileSegmentBytesTotal;
+
   external ffi.Pointer<CtRouterMetricsBreakdownInfo> breakdownPtr;
 
   @ffi.Size()

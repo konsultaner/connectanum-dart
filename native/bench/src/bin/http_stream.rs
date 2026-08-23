@@ -52,8 +52,8 @@ use url::Url;
 use connectanum_bench_orchestrator::artifacts::summarize_report;
 use connectanum_bench_orchestrator::artifacts::{write_artifact_bundle, WorkloadArtifactSummary};
 use connectanum_bench_orchestrator::report::{
-    router_counter_delta, HttpConnectionUsage, HttpPhaseTimingSample, WorkloadReport,
-    WorkloadSample,
+    router_counter_delta, FileSegmentMetricsDelta, HttpConnectionUsage, HttpPhaseTimingSample,
+    WorkloadReport, WorkloadSample,
 };
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
@@ -499,6 +499,7 @@ fn run_bench_suite(
                         &execution.samples,
                         prepared.response_chunk_bytes,
                     ),
+                    file_segment_metrics: execution.file_segment_metrics.clone(),
                     samples: execution.samples,
                 };
                 print_workload_summary(&report, &prepared);
@@ -1904,6 +1905,7 @@ struct WorkloadExecution {
     samples: Vec<WorkloadSample>,
     http_connection_usage: Option<HttpConnectionUsage>,
     data_window_elapsed_ms: Option<f64>,
+    file_segment_metrics: Option<FileSegmentMetricsDelta>,
 }
 
 impl WorkloadExecution {
@@ -1912,14 +1914,20 @@ impl WorkloadExecution {
             samples,
             http_connection_usage: None,
             data_window_elapsed_ms: None,
+            file_segment_metrics: None,
         }
     }
 
-    fn wamp(samples: Vec<WorkloadSample>, data_window_elapsed_ms: Option<f64>) -> Self {
+    fn wamp(
+        samples: Vec<WorkloadSample>,
+        data_window_elapsed_ms: Option<f64>,
+        file_segment_metrics: Option<FileSegmentMetricsDelta>,
+    ) -> Self {
         Self {
             samples,
             http_connection_usage: None,
             data_window_elapsed_ms,
+            file_segment_metrics,
         }
     }
 
@@ -1936,6 +1944,7 @@ impl WorkloadExecution {
                 connections_opened,
             }),
             data_window_elapsed_ms: None,
+            file_segment_metrics: None,
         }
     }
 }
@@ -3083,7 +3092,21 @@ fn run_wamp_workload(
     let samples: Vec<WorkloadSample> =
         serde_json::from_value(samples_value).context("failed to decode WAMP workload samples")?;
     let data_window_elapsed_ms = parse_wamp_data_window_elapsed_ms(&response);
-    Ok(WorkloadExecution::wamp(samples, data_window_elapsed_ms))
+    let file_segment_metrics = parse_wamp_file_segment_metrics(&response)?;
+    Ok(WorkloadExecution::wamp(
+        samples,
+        data_window_elapsed_ms,
+        file_segment_metrics,
+    ))
+}
+
+fn parse_wamp_file_segment_metrics(response: &Value) -> Result<Option<FileSegmentMetricsDelta>> {
+    response
+        .get("file_segment_metrics")
+        .cloned()
+        .map(serde_json::from_value)
+        .transpose()
+        .context("failed to decode WAMP file-segment metrics")
 }
 
 fn parse_wamp_data_window_elapsed_ms(response: &Value) -> Option<f64> {
@@ -6034,6 +6057,29 @@ mod tests {
         );
     }
 
+    #[test]
+    fn wamp_file_segment_metrics_preserve_native_helper_deltas() {
+        let metrics = parse_wamp_file_segment_metrics(&json!({
+            "file_segment_metrics": {
+                "rawsocket_zero_copy_calls": 512,
+                "rawsocket_zero_copy_bytes": 2_147_483_648u64,
+                "buffered_file_segment_calls": 2,
+                "buffered_file_segment_bytes": 256,
+            }
+        }))
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(metrics.rawsocket_zero_copy_calls, 512);
+        assert_eq!(metrics.rawsocket_zero_copy_bytes, 2_147_483_648);
+        assert_eq!(metrics.buffered_file_segment_calls, 2);
+        assert_eq!(metrics.buffered_file_segment_bytes, 256);
+        assert_eq!(
+            parse_wamp_file_segment_metrics(&json!({"samples": []})).unwrap(),
+            None
+        );
+    }
+
     #[tokio::test]
     async fn collect_worker_samples_dries_out_tasks() {
         let mut join_set = JoinSet::new();
@@ -6241,6 +6287,7 @@ mod tests {
             scenario_open_metrics_after: None,
             http_connection_usage: None,
             http_phase_timing: None,
+            file_segment_metrics: None,
             samples: vec![sample(0)],
         };
 

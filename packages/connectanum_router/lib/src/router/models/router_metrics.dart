@@ -515,6 +515,10 @@ class RouterTransportMetrics {
     this.bodyTimeoutAlerts = 0,
     this.protocolErrorAlerts = 0,
     this.internalErrorAlerts = 0,
+    this.rawSocketZeroCopyCallsTotal = 0,
+    this.rawSocketZeroCopyBytesTotal = 0,
+    this.bufferedFileSegmentCallsTotal = 0,
+    this.bufferedFileSegmentBytesTotal = 0,
     this.httpResponseStream,
     this.httpRequestBodyStream,
     this.alertBreakdown = const <RouterTransportAlertBreakdown>[],
@@ -537,6 +541,10 @@ class RouterTransportMetrics {
   final int bodyTimeoutAlerts;
   final int protocolErrorAlerts;
   final int internalErrorAlerts;
+  final int rawSocketZeroCopyCallsTotal;
+  final int rawSocketZeroCopyBytesTotal;
+  final int bufferedFileSegmentCallsTotal;
+  final int bufferedFileSegmentBytesTotal;
   final RouterHttpResponseStreamMetrics? httpResponseStream;
   final RouterHttpRequestBodyStreamMetrics? httpRequestBodyStream;
   final List<RouterTransportAlertBreakdown> alertBreakdown;
@@ -566,6 +574,10 @@ class RouterTransportMetrics {
     int? bodyTimeoutAlerts,
     int? protocolErrorAlerts,
     int? internalErrorAlerts,
+    int? rawSocketZeroCopyCallsTotal,
+    int? rawSocketZeroCopyBytesTotal,
+    int? bufferedFileSegmentCallsTotal,
+    int? bufferedFileSegmentBytesTotal,
     RouterHttpResponseStreamMetrics? httpResponseStream,
     RouterHttpRequestBodyStreamMetrics? httpRequestBodyStream,
     List<RouterTransportAlertBreakdown>? alertBreakdown,
@@ -588,6 +600,14 @@ class RouterTransportMetrics {
       bodyTimeoutAlerts: bodyTimeoutAlerts ?? this.bodyTimeoutAlerts,
       protocolErrorAlerts: protocolErrorAlerts ?? this.protocolErrorAlerts,
       internalErrorAlerts: internalErrorAlerts ?? this.internalErrorAlerts,
+      rawSocketZeroCopyCallsTotal:
+          rawSocketZeroCopyCallsTotal ?? this.rawSocketZeroCopyCallsTotal,
+      rawSocketZeroCopyBytesTotal:
+          rawSocketZeroCopyBytesTotal ?? this.rawSocketZeroCopyBytesTotal,
+      bufferedFileSegmentCallsTotal:
+          bufferedFileSegmentCallsTotal ?? this.bufferedFileSegmentCallsTotal,
+      bufferedFileSegmentBytesTotal:
+          bufferedFileSegmentBytesTotal ?? this.bufferedFileSegmentBytesTotal,
       httpResponseStream: httpResponseStream ?? this.httpResponseStream,
       httpRequestBodyStream:
           httpRequestBodyStream ?? this.httpRequestBodyStream,
@@ -613,6 +633,10 @@ class RouterTransportMetrics {
     'body_timeout_alerts': bodyTimeoutAlerts,
     'protocol_error_alerts': protocolErrorAlerts,
     'internal_error_alerts': internalErrorAlerts,
+    'rawsocket_zero_copy_calls_total': rawSocketZeroCopyCallsTotal,
+    'rawsocket_zero_copy_bytes_total': rawSocketZeroCopyBytesTotal,
+    'buffered_file_segment_calls_total': bufferedFileSegmentCallsTotal,
+    'buffered_file_segment_bytes_total': bufferedFileSegmentBytesTotal,
     'active_throttles': activeThrottleCount,
     if (httpResponseStream != null)
       'http_response_stream': httpResponseStream!.toJson(),

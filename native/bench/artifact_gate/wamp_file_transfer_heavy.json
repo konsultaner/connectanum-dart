@@ -7,6 +7,12 @@
       "workload": "rawsocket_file_cbor_1g_native"
     },
     {
+      "kind": "rawsocket_zero_copy_bytes_min",
+      "threshold": 2147483648.0,
+      "scenario": "wamp_file_transfer_heavy",
+      "workload": "rawsocket_file_cbor_1g_native"
+    },
+    {
       "kind": "lifecycle_throughput_mbps_min",
       "threshold": 2000.0,
       "scenario": "wamp_file_transfer_heavy",
@@ -19,6 +25,12 @@
       "workload": "rawsocket_file_msgpack_256m_native_concurrent"
     },
     {
+      "kind": "rawsocket_zero_copy_bytes_min",
+      "threshold": 4294967296.0,
+      "scenario": "wamp_file_transfer_heavy",
+      "workload": "rawsocket_file_msgpack_256m_native_concurrent"
+    },
+    {
       "kind": "lifecycle_throughput_mbps_min",
       "threshold": 2000.0,
       "scenario": "wamp_file_transfer_heavy",
@@ -27,6 +39,12 @@
     {
       "kind": "throughput_mbps_min",
       "threshold": 2000.0,
+      "scenario": "wamp_file_transfer_heavy",
+      "workload": "rawsocket_file_cbor_256m_native_pipelined"
+    },
+    {
+      "kind": "rawsocket_zero_copy_bytes_min",
+      "threshold": 1073741824.0,
       "scenario": "wamp_file_transfer_heavy",
       "workload": "rawsocket_file_cbor_256m_native_pipelined"
     },

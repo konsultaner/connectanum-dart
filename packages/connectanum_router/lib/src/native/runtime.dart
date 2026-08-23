@@ -571,6 +571,10 @@ class NativeRouterMetrics {
     required this.internalErrorEvents,
     required this.backpressureEvents,
     required this.maxBackpressureDepth,
+    this.rawSocketZeroCopyCallsTotal = 0,
+    this.rawSocketZeroCopyBytesTotal = 0,
+    this.bufferedFileSegmentCallsTotal = 0,
+    this.bufferedFileSegmentBytesTotal = 0,
     this.responseStream,
     this.requestBodyStream,
     this.breakdown = const <NativeRouterMetricsBreakdown>[],
@@ -585,6 +589,10 @@ class NativeRouterMetrics {
   final int internalErrorEvents;
   final int backpressureEvents;
   final int maxBackpressureDepth;
+  final int rawSocketZeroCopyCallsTotal;
+  final int rawSocketZeroCopyBytesTotal;
+  final int bufferedFileSegmentCallsTotal;
+  final int bufferedFileSegmentBytesTotal;
   final NativeHttpResponseStreamMetrics? responseStream;
   final NativeHttpRequestBodyStreamMetrics? requestBodyStream;
   final List<NativeRouterMetricsBreakdown> breakdown;
@@ -599,6 +607,10 @@ class NativeRouterMetrics {
         internalErrorEvents != other.internalErrorEvents ||
         backpressureEvents != other.backpressureEvents ||
         maxBackpressureDepth != other.maxBackpressureDepth ||
+        rawSocketZeroCopyCallsTotal != other.rawSocketZeroCopyCallsTotal ||
+        rawSocketZeroCopyBytesTotal != other.rawSocketZeroCopyBytesTotal ||
+        bufferedFileSegmentCallsTotal != other.bufferedFileSegmentCallsTotal ||
+        bufferedFileSegmentBytesTotal != other.bufferedFileSegmentBytesTotal ||
         ((responseStream == null) != (other.responseStream == null)) ||
         (responseStream != null &&
             !responseStream!.sameValues(other.responseStream)) ||
@@ -3138,6 +3150,10 @@ class NativeTransportRuntime
         internalErrorEvents: info.internalErrorEvents,
         backpressureEvents: info.backpressureEvents,
         maxBackpressureDepth: info.maxBackpressureDepth,
+        rawSocketZeroCopyCallsTotal: info.rawSocketZeroCopyCallsTotal,
+        rawSocketZeroCopyBytesTotal: info.rawSocketZeroCopyBytesTotal,
+        bufferedFileSegmentCallsTotal: info.bufferedFileSegmentCallsTotal,
+        bufferedFileSegmentBytesTotal: info.bufferedFileSegmentBytesTotal,
         responseStream: responseStream,
         requestBodyStream: requestBodyStream,
         breakdown: breakdown,

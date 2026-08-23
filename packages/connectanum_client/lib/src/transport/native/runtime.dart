@@ -109,6 +109,43 @@ void _finalizeNativeMessage(_MessageFinalizerToken token) {
   token.bindings.ctMessageRelease(token.handle);
 }
 
+class NativeFileSegmentMetrics {
+  const NativeFileSegmentMetrics({
+    required this.rawSocketZeroCopyCallsTotal,
+    required this.rawSocketZeroCopyBytesTotal,
+    required this.bufferedFileSegmentCallsTotal,
+    required this.bufferedFileSegmentBytesTotal,
+  });
+
+  final int rawSocketZeroCopyCallsTotal;
+  final int rawSocketZeroCopyBytesTotal;
+  final int bufferedFileSegmentCallsTotal;
+  final int bufferedFileSegmentBytesTotal;
+
+  NativeFileSegmentMetrics deltaFrom(NativeFileSegmentMetrics before) =>
+      NativeFileSegmentMetrics(
+        rawSocketZeroCopyCallsTotal: _counterDelta(
+          rawSocketZeroCopyCallsTotal,
+          before.rawSocketZeroCopyCallsTotal,
+        ),
+        rawSocketZeroCopyBytesTotal: _counterDelta(
+          rawSocketZeroCopyBytesTotal,
+          before.rawSocketZeroCopyBytesTotal,
+        ),
+        bufferedFileSegmentCallsTotal: _counterDelta(
+          bufferedFileSegmentCallsTotal,
+          before.bufferedFileSegmentCallsTotal,
+        ),
+        bufferedFileSegmentBytesTotal: _counterDelta(
+          bufferedFileSegmentBytesTotal,
+          before.bufferedFileSegmentBytesTotal,
+        ),
+      );
+
+  static int _counterDelta(int current, int before) =>
+      current >= before ? current - before : current;
+}
+
 class NativeClientRuntime {
   factory NativeClientRuntime.instance({String? libraryPath}) {
     final current = _instance;
@@ -532,6 +569,25 @@ class NativeClientRuntime {
       _throwForError(result, 'Failed to read native file segment capability');
     }
     return result == 1;
+  }
+
+  NativeFileSegmentMetrics fileSegmentMetricsSnapshot() {
+    final info = calloc<CtFileSegmentMetricsInfo>();
+    try {
+      final result = _bindings.ctFileSegmentMetricsSnapshot(info);
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'snapshot file-segment metrics');
+      }
+      final value = info.ref;
+      return NativeFileSegmentMetrics(
+        rawSocketZeroCopyCallsTotal: value.rawSocketZeroCopyCallsTotal,
+        rawSocketZeroCopyBytesTotal: value.rawSocketZeroCopyBytesTotal,
+        bufferedFileSegmentCallsTotal: value.bufferedFileSegmentCallsTotal,
+        bufferedFileSegmentBytesTotal: value.bufferedFileSegmentBytesTotal,
+      );
+    } finally {
+      calloc.free(info);
+    }
   }
 
   void closeConnection(int connectionId) {

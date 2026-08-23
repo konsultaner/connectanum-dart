@@ -43,10 +43,11 @@ use ct_core::{
     listener_http3_port, local_addr, poll_connection_message, reload_tls, response_stream_channel,
     send_wamp_base64_file_segment, send_wamp_deferred_segment, send_wamp_file_segment,
     send_wamp_message, send_wamp_segments, shutdown, start_runtime, wait_connection_message,
-    ConnectionId, ConnectionProtocol, Error as CoreError, HttpConnectionCloseReason,
-    HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot, HttpRequestBodyStreamMetricsSnapshot,
-    HttpResponseBody, HttpResponseDispatch, HttpResponseStreamMetricsSnapshot, ListenerId,
-    RawSocketSerializer, WampMessage, RESPONSE_STREAM_BUFFER,
+    ConnectionId, ConnectionProtocol, Error as CoreError, FileSegmentMetricsSnapshot,
+    HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
+    HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
+    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, WampMessage,
+    RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -354,6 +355,15 @@ pub struct CtHttpConnectionEventInfo {
 }
 
 #[repr(C)]
+#[derive(Default)]
+pub struct CtFileSegmentMetricsInfo {
+    pub rawsocket_zero_copy_calls_total: u64,
+    pub rawsocket_zero_copy_bytes_total: u64,
+    pub buffered_file_segment_calls_total: u64,
+    pub buffered_file_segment_bytes_total: u64,
+}
+
+#[repr(C)]
 pub struct CtRouterMetricsInfo {
     pub total_events: u64,
     pub graceful_events: u64,
@@ -431,6 +441,10 @@ pub struct CtRouterMetricsInfo {
     pub request_body_stream_remaining_tail_data_wait_max_used_capacity_after_release_total: u64,
     pub request_body_stream_total_read_samples_total: u64,
     pub request_body_stream_total_read_us_total: u64,
+    pub rawsocket_zero_copy_calls_total: u64,
+    pub rawsocket_zero_copy_bytes_total: u64,
+    pub buffered_file_segment_calls_total: u64,
+    pub buffered_file_segment_bytes_total: u64,
     pub breakdown_ptr: *const CtRouterMetricsBreakdownInfo,
     pub breakdown_len: usize,
 }
@@ -2699,6 +2713,23 @@ pub extern "C" fn ct_http_connection_event_release(handle: c_int) -> c_int {
 }
 
 #[no_mangle]
+pub extern "C" fn ct_file_segment_metrics_snapshot(info: *mut CtFileSegmentMetricsInfo) -> c_int {
+    if info.is_null() {
+        return ERR_INVALID_ARGUMENT;
+    }
+    let snapshot = ct_core::file_segment_metrics_snapshot();
+    unsafe {
+        info.write(CtFileSegmentMetricsInfo {
+            rawsocket_zero_copy_calls_total: snapshot.rawsocket_zero_copy_calls_total,
+            rawsocket_zero_copy_bytes_total: snapshot.rawsocket_zero_copy_bytes_total,
+            buffered_file_segment_calls_total: snapshot.buffered_file_segment_calls_total,
+            buffered_file_segment_bytes_total: snapshot.buffered_file_segment_bytes_total,
+        });
+    }
+    SUCCESS
+}
+
+#[no_mangle]
 pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> c_int {
     if info.is_null() {
         return ERR_INVALID_ARGUMENT;
@@ -2709,6 +2740,8 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
         http_response_stream_metrics_snapshot();
     let request_body_stream_snapshot: HttpRequestBodyStreamMetricsSnapshot =
         ct_core::http_request_body_stream_metrics_snapshot();
+    let file_segment_snapshot: FileSegmentMetricsSnapshot =
+        ct_core::file_segment_metrics_snapshot();
     let info_ref = unsafe { info.as_mut().unwrap() };
     info_ref.total_events = snapshot.total_events;
     info_ref.graceful_events = snapshot.graceful_events;
@@ -2854,6 +2887,14 @@ pub extern "C" fn ct_router_metrics_snapshot(info: *mut CtRouterMetricsInfo) -> 
         request_body_stream_snapshot.total_read_samples_total;
     info_ref.request_body_stream_total_read_us_total =
         request_body_stream_snapshot.total_read_us_total;
+    info_ref.rawsocket_zero_copy_calls_total =
+        file_segment_snapshot.rawsocket_zero_copy_calls_total;
+    info_ref.rawsocket_zero_copy_bytes_total =
+        file_segment_snapshot.rawsocket_zero_copy_bytes_total;
+    info_ref.buffered_file_segment_calls_total =
+        file_segment_snapshot.buffered_file_segment_calls_total;
+    info_ref.buffered_file_segment_bytes_total =
+        file_segment_snapshot.buffered_file_segment_bytes_total;
     if breakdown.is_empty() {
         info_ref.breakdown_ptr = ptr::null();
         info_ref.breakdown_len = 0;
@@ -6849,6 +6890,10 @@ mod tests {
         internal_error_events: u64,
         backpressure_events: u64,
         max_backpressure_depth: u32,
+        rawsocket_zero_copy_calls_total: u64,
+        rawsocket_zero_copy_bytes_total: u64,
+        buffered_file_segment_calls_total: u64,
+        buffered_file_segment_bytes_total: u64,
         breakdown: HashMap<(u32, i32), RouterMetricsBreakdownSnapshot>,
     }
 
@@ -6904,6 +6949,10 @@ mod tests {
             internal_error_events: info.internal_error_events,
             backpressure_events: info.backpressure_events,
             max_backpressure_depth: info.max_backpressure_depth,
+            rawsocket_zero_copy_calls_total: info.rawsocket_zero_copy_calls_total,
+            rawsocket_zero_copy_bytes_total: info.rawsocket_zero_copy_bytes_total,
+            buffered_file_segment_calls_total: info.buffered_file_segment_calls_total,
+            buffered_file_segment_bytes_total: info.buffered_file_segment_bytes_total,
             breakdown,
         }
     }
@@ -7437,6 +7486,61 @@ mod tests {
         );
 
         assert_eq!(ct_shutdown(), SUCCESS);
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
+    fn router_metrics_snapshot_surfaces_file_segment_counters() {
+        let _guard = test_guard();
+        let core = ct_core::file_segment_metrics_snapshot();
+        let ffi = snapshot_router_metrics();
+
+        assert_eq!(
+            ffi.rawsocket_zero_copy_calls_total,
+            core.rawsocket_zero_copy_calls_total
+        );
+        assert_eq!(
+            ffi.rawsocket_zero_copy_bytes_total,
+            core.rawsocket_zero_copy_bytes_total
+        );
+        assert_eq!(
+            ffi.buffered_file_segment_calls_total,
+            core.buffered_file_segment_calls_total
+        );
+        assert_eq!(
+            ffi.buffered_file_segment_bytes_total,
+            core.buffered_file_segment_bytes_total
+        );
+    }
+
+    #[cfg(feature = "ffi-test")]
+    #[test]
+    fn file_segment_metrics_snapshot_matches_core_counters() {
+        let _guard = test_guard();
+        let core = ct_core::file_segment_metrics_snapshot();
+        let mut ffi = CtFileSegmentMetricsInfo::default();
+
+        assert_eq!(ct_file_segment_metrics_snapshot(&mut ffi), SUCCESS);
+        assert_eq!(
+            ffi.rawsocket_zero_copy_calls_total,
+            core.rawsocket_zero_copy_calls_total
+        );
+        assert_eq!(
+            ffi.rawsocket_zero_copy_bytes_total,
+            core.rawsocket_zero_copy_bytes_total
+        );
+        assert_eq!(
+            ffi.buffered_file_segment_calls_total,
+            core.buffered_file_segment_calls_total
+        );
+        assert_eq!(
+            ffi.buffered_file_segment_bytes_total,
+            core.buffered_file_segment_bytes_total
+        );
+        assert_eq!(
+            ct_file_segment_metrics_snapshot(std::ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
     }
 
     #[test]

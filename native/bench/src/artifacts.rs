@@ -15,6 +15,14 @@ use crate::report::{
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TransportDeltaSummary {
+    #[serde(default)]
+    pub rawsocket_zero_copy_calls: i64,
+    #[serde(default)]
+    pub rawsocket_zero_copy_bytes: i64,
+    #[serde(default)]
+    pub buffered_file_segment_calls: i64,
+    #[serde(default)]
+    pub buffered_file_segment_bytes: i64,
     pub http_events: i64,
     pub goaway_events: i64,
     pub idle_timeout_events: i64,
@@ -159,6 +167,7 @@ pub enum ArtifactGateMetricComparison {
 
 const THROUGHPUT_MBPS_MIN: &str = "throughput_mbps_min";
 const LIFECYCLE_THROUGHPUT_MBPS_MIN: &str = "lifecycle_throughput_mbps_min";
+const RAWSOCKET_ZERO_COPY_BYTES_MIN: &str = "rawsocket_zero_copy_bytes_min";
 const LATENCY_P95_MS_MAX: &str = "latency_p95_ms_max";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -497,6 +506,15 @@ pub fn evaluate_artifact_gate(
         push_gate_metric_finding(
             &mut metric_findings,
             workload,
+            ArtifactGateSeverity::Critical,
+            RAWSOCKET_ZERO_COPY_BYTES_MIN,
+            workload.transport.rawsocket_zero_copy_bytes as f64,
+            policy.metric_threshold_for(workload, RAWSOCKET_ZERO_COPY_BYTES_MIN),
+            ArtifactGateMetricComparison::Min,
+        );
+        push_gate_metric_finding(
+            &mut metric_findings,
+            workload,
             ArtifactGateSeverity::Warning,
             LATENCY_P95_MS_MAX,
             workload.latency_p95_ms,
@@ -653,6 +671,15 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         .scenario_metrics_after
         .as_ref()
         .unwrap_or(&report.metrics_after);
+    let client_file_metrics = report.file_segment_metrics.clone().unwrap_or_default();
+    let client_zero_copy_calls =
+        i64::try_from(client_file_metrics.rawsocket_zero_copy_calls).unwrap_or(i64::MAX);
+    let client_zero_copy_bytes =
+        i64::try_from(client_file_metrics.rawsocket_zero_copy_bytes).unwrap_or(i64::MAX);
+    let client_buffered_calls =
+        i64::try_from(client_file_metrics.buffered_file_segment_calls).unwrap_or(i64::MAX);
+    let client_buffered_bytes =
+        i64::try_from(client_file_metrics.buffered_file_segment_bytes).unwrap_or(i64::MAX);
 
     WorkloadArtifactSummary {
         scenario: report.scenario.clone(),
@@ -703,6 +730,34 @@ pub fn summarize_report(report: &WorkloadReport) -> WorkloadArtifactSummary {
         )
         .unwrap_or(0),
         transport: TransportDeltaSummary {
+            rawsocket_zero_copy_calls: transport_counter_delta(
+                &report.metrics_before,
+                &report.metrics_after,
+                "rawsocket_zero_copy_calls_total",
+            )
+            .unwrap_or(0)
+            .saturating_add(client_zero_copy_calls),
+            rawsocket_zero_copy_bytes: transport_counter_delta(
+                &report.metrics_before,
+                &report.metrics_after,
+                "rawsocket_zero_copy_bytes_total",
+            )
+            .unwrap_or(0)
+            .saturating_add(client_zero_copy_bytes),
+            buffered_file_segment_calls: transport_counter_delta(
+                &report.metrics_before,
+                &report.metrics_after,
+                "buffered_file_segment_calls_total",
+            )
+            .unwrap_or(0)
+            .saturating_add(client_buffered_calls),
+            buffered_file_segment_bytes: transport_counter_delta(
+                &report.metrics_before,
+                &report.metrics_after,
+                "buffered_file_segment_bytes_total",
+            )
+            .unwrap_or(0)
+            .saturating_add(client_buffered_bytes),
             http_events: transport_counter_delta(
                 &report.metrics_before,
                 &report.metrics_after,
@@ -2825,6 +2880,22 @@ pub fn render_prometheus_metrics(
             ));
         }
         for (kind, value) in [
+            (
+                "rawsocket_zero_copy_calls",
+                summary.transport.rawsocket_zero_copy_calls,
+            ),
+            (
+                "rawsocket_zero_copy_bytes",
+                summary.transport.rawsocket_zero_copy_bytes,
+            ),
+            (
+                "buffered_file_segment_calls",
+                summary.transport.buffered_file_segment_calls,
+            ),
+            (
+                "buffered_file_segment_bytes",
+                summary.transport.buffered_file_segment_bytes,
+            ),
             ("http_events", summary.transport.http_events),
             ("goaway_events", summary.transport.goaway_events),
             ("idle_timeout_events", summary.transport.idle_timeout_events),
@@ -2930,7 +3001,7 @@ fn metric_comparison_label(comparison: ArtifactGateMetricComparison) -> &'static
 
 fn metric_kind_comparison(kind: &str) -> Option<ArtifactGateMetricComparison> {
     match kind {
-        THROUGHPUT_MBPS_MIN | LIFECYCLE_THROUGHPUT_MBPS_MIN => {
+        THROUGHPUT_MBPS_MIN | LIFECYCLE_THROUGHPUT_MBPS_MIN | RAWSOCKET_ZERO_COPY_BYTES_MIN => {
             Some(ArtifactGateMetricComparison::Min)
         }
         LATENCY_P95_MS_MAX => Some(ArtifactGateMetricComparison::Max),
@@ -3522,6 +3593,7 @@ mod tests {
                 connections_opened: 2,
             }),
             http_phase_timing: None,
+            file_segment_metrics: None,
             samples: vec![
                 WorkloadSample {
                     worker: 0,
@@ -4366,8 +4438,29 @@ mod tests {
 
     #[test]
     fn render_prometheus_metrics_contains_expected_series() {
-        let text =
-            render_prometheus_metrics("bench_results.jsonl", &[summarize_report(&sample_report())]);
+        let mut report = sample_report();
+        report.metrics_before["metrics"]["transport"]["rawsocket_zero_copy_calls_total"] =
+            json!(10);
+        report.metrics_before["metrics"]["transport"]["rawsocket_zero_copy_bytes_total"] =
+            json!(1024);
+        report.metrics_before["metrics"]["transport"]["buffered_file_segment_calls_total"] =
+            json!(3);
+        report.metrics_before["metrics"]["transport"]["buffered_file_segment_bytes_total"] =
+            json!(256);
+        report.metrics_after["metrics"]["transport"]["rawsocket_zero_copy_calls_total"] = json!(15);
+        report.metrics_after["metrics"]["transport"]["rawsocket_zero_copy_bytes_total"] =
+            json!(5120);
+        report.metrics_after["metrics"]["transport"]["buffered_file_segment_calls_total"] =
+            json!(5);
+        report.metrics_after["metrics"]["transport"]["buffered_file_segment_bytes_total"] =
+            json!(1280);
+        let summary = summarize_report(&report);
+        assert_eq!(summary.transport.rawsocket_zero_copy_calls, 5);
+        assert_eq!(summary.transport.rawsocket_zero_copy_bytes, 4096);
+        assert_eq!(summary.transport.buffered_file_segment_calls, 2);
+        assert_eq!(summary.transport.buffered_file_segment_bytes, 1024);
+
+        let text = render_prometheus_metrics("bench_results.jsonl", &[summary]);
         assert!(text.contains("connectanum_bench_artifact_workload_latency_avg_ms"));
         assert!(text.contains("connectanum_bench_artifact_workload_lifecycle_throughput_mbps"));
         assert!(text.contains("scenario=\"full_stack\""));
@@ -4376,9 +4469,31 @@ mod tests {
         assert!(text.contains("router_workers=\"3\""));
         assert!(text.contains("native_runtime_threads=\"4\""));
         assert!(text.contains("kind=\"active_throttles\""));
+        assert!(text.contains("kind=\"rawsocket_zero_copy_calls\""));
+        assert!(text.contains("kind=\"rawsocket_zero_copy_bytes\""));
+        assert!(text.contains("kind=\"buffered_file_segment_calls\""));
+        assert!(text.contains("kind=\"buffered_file_segment_bytes\""));
         assert!(text.contains("counter=\"invocations_dispatched\""));
         assert!(text.contains("connectanum_bench_artifact_workload_http_connection_usage"));
         assert!(text.contains("kind=\"connections_opened\""));
+    }
+
+    #[test]
+    fn summarize_report_includes_native_helper_file_segment_metrics() {
+        let mut report = sample_report();
+        report.metrics_after = report.metrics_before.clone();
+        report.file_segment_metrics = Some(crate::report::FileSegmentMetricsDelta {
+            rawsocket_zero_copy_calls: 8,
+            rawsocket_zero_copy_bytes: 2_147_483_648,
+            buffered_file_segment_calls: 3,
+            buffered_file_segment_bytes: 384,
+        });
+
+        let summary = summarize_report(&report);
+        assert_eq!(summary.transport.rawsocket_zero_copy_calls, 8);
+        assert_eq!(summary.transport.rawsocket_zero_copy_bytes, 2_147_483_648);
+        assert_eq!(summary.transport.buffered_file_segment_calls, 3);
+        assert_eq!(summary.transport.buffered_file_segment_bytes, 384);
     }
 
     #[test]
@@ -4571,6 +4686,25 @@ mod tests {
                 Some(2000.0)
             );
         }
+        for (workload_name, expected_bytes) in [
+            ("rawsocket_file_cbor_1g_native", 2_147_483_648.0),
+            (
+                "rawsocket_file_msgpack_256m_native_concurrent",
+                4_294_967_296.0,
+            ),
+            ("rawsocket_file_cbor_256m_native_pipelined", 1_073_741_824.0),
+        ] {
+            file_workload.workload = workload_name.to_string();
+            assert_eq!(
+                file_policy.metric_threshold_for(&file_workload, RAWSOCKET_ZERO_COPY_BYTES_MIN),
+                Some(expected_bytes)
+            );
+        }
+        file_workload.workload = "rawsocket_file_json_128m_native_base64_segmented".to_string();
+        assert_eq!(
+            file_policy.metric_threshold_for(&file_workload, RAWSOCKET_ZERO_COPY_BYTES_MIN),
+            None
+        );
 
         for workload_name in [
             "rawsocket_file_cbor_128m_dart_buffered_reference",
@@ -4865,6 +4999,44 @@ mod tests {
             ArtifactGateMetricComparison::Max
         );
         assert!(render_artifact_gate_markdown(&report).contains("## Performance Findings"));
+    }
+
+    #[test]
+    fn artifact_gate_flags_missing_zero_copy_file_bytes_as_critical() {
+        let mut workload = summarize_report(&clean_report());
+        workload.transport.rawsocket_zero_copy_bytes = 1023;
+        let bundle = ArtifactBundle {
+            generated_at_ms: 1,
+            source_results: "bench_results.jsonl".to_string(),
+            workloads: vec![workload],
+        };
+        let policy = ArtifactGatePolicy {
+            thresholds: Vec::new(),
+            metrics: vec![test_metric_threshold(
+                RAWSOCKET_ZERO_COPY_BYTES_MIN,
+                1024.0,
+                None,
+                None,
+            )],
+        };
+
+        let report = evaluate_artifact_gate(
+            &bundle,
+            Path::new("native/bench/artifacts/bench_results.summary.json"),
+            &policy,
+        );
+
+        assert_eq!(report.metric_findings.len(), 1);
+        assert_eq!(
+            report.metric_findings[0].kind,
+            RAWSOCKET_ZERO_COPY_BYTES_MIN
+        );
+        assert_eq!(
+            report.metric_findings[0].severity,
+            ArtifactGateSeverity::Critical
+        );
+        assert_eq!(report.metric_findings[0].observed, 1023.0);
+        assert_eq!(report.metric_findings[0].threshold, 1024.0);
     }
 
     #[test]

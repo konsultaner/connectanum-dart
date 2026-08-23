@@ -113,6 +113,7 @@ impl RawSocketFileSender {
                     ));
                 }
                 Ok(Ok(sent)) => {
+                    crate::record_rawsocket_zero_copy_file_write(sent);
                     offset += sent as u64;
                     remaining -= sent;
                 }
@@ -174,6 +175,7 @@ impl RawSocketFileSender {
                     ));
                 }
                 Ok(Ok(sent)) => {
+                    crate::record_rawsocket_zero_copy_file_write(sent);
                     offset += sent as u64;
                     remaining -= sent;
                 }
@@ -891,11 +893,39 @@ mod tests {
         std::fs::write(&path, b"0123456789abcdef").unwrap();
         let file = Arc::new(File::open(&path).unwrap());
 
+        let before = crate::file_segment_metrics_snapshot();
         sender.send_file_segment(&file, 3, 8).await.unwrap();
         let mut received = [0u8; 8];
         peer.read_exact(&mut received).await.unwrap();
+        let after = crate::file_segment_metrics_snapshot();
 
         assert_eq!(&received, b"3456789a");
+        assert!(
+            after.rawsocket_zero_copy_calls_total >= before.rawsocket_zero_copy_calls_total + 1
+        );
+        assert!(
+            after.rawsocket_zero_copy_bytes_total
+                >= before.rawsocket_zero_copy_bytes_total + received.len() as u64
+        );
+
+        let before_partial = crate::file_segment_metrics_snapshot();
+        let error = sender
+            .send_file_segment(&file, 14, 8)
+            .await
+            .expect_err("a segment past EOF must fail after its available prefix");
+        let mut partial = [0u8; 2];
+        peer.read_exact(&mut partial).await.unwrap();
+        let after_partial = crate::file_segment_metrics_snapshot();
+        assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
+        assert_eq!(&partial, b"ef");
+        assert!(
+            after_partial.rawsocket_zero_copy_calls_total
+                >= before_partial.rawsocket_zero_copy_calls_total + 1
+        );
+        assert!(
+            after_partial.rawsocket_zero_copy_bytes_total
+                >= before_partial.rawsocket_zero_copy_bytes_total + partial.len() as u64
+        );
         std::fs::remove_file(path).unwrap();
     }
 }

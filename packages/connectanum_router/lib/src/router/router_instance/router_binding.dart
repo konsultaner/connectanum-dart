@@ -7998,6 +7998,42 @@ class _MetricsService {
         ..writeln('# TYPE connectanum_router_http_max_backpressure_depth gauge')
         ..writeln(
           'connectanum_router_http_max_backpressure_depth ${transport.maxBackpressureDepth}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_rawsocket_zero_copy_calls_total Successful kernel sendfile calls used for RawSocket file segments',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_rawsocket_zero_copy_calls_total counter',
+        )
+        ..writeln(
+          'connectanum_router_rawsocket_zero_copy_calls_total ${transport.rawSocketZeroCopyCallsTotal}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_rawsocket_zero_copy_bytes_total Source file bytes sent through the kernel RawSocket sendfile path',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_rawsocket_zero_copy_bytes_total counter',
+        )
+        ..writeln(
+          'connectanum_router_rawsocket_zero_copy_bytes_total ${transport.rawSocketZeroCopyBytesTotal}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_buffered_file_segment_calls_total File segments completed through userspace buffered file-segment paths',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_buffered_file_segment_calls_total counter',
+        )
+        ..writeln(
+          'connectanum_router_buffered_file_segment_calls_total ${transport.bufferedFileSegmentCallsTotal}',
+        )
+        ..writeln(
+          '# HELP connectanum_router_buffered_file_segment_bytes_total Source file bytes completed through userspace buffered file-segment paths',
+        )
+        ..writeln(
+          '# TYPE connectanum_router_buffered_file_segment_bytes_total counter',
+        )
+        ..writeln(
+          'connectanum_router_buffered_file_segment_bytes_total ${transport.bufferedFileSegmentBytesTotal}',
         );
       if (transport.breakdown.isNotEmpty) {
         buffer

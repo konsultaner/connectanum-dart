@@ -521,7 +521,27 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   128/256 MiB RawSocket gate passes all nine rows at 2.972-9.879 Gbit/s.
   Reject consumed-message in-place AES-GCM because Dart materialized views
   borrow native message storage; runtime-thread, queue-recycling, and chunk-size
-  experiments also did not improve the existing configuration.
+  experiments also did not improve the existing configuration. Exact-head CI
+  `32610193870`, package dry run `32610193902`, WAMP profile benchmarks
+  `32611004121`, WAMP profile diagnostics `32611008069`, and tagged native
+  prerelease rehearsal `32611384167` pass at `4331770d`; the comprehensive
+  feature-head audit and protected `master` strict audit are clean.
+- [x] Prove the filesystem-to-socket path instead of inferring it from
+  throughput. Native core counters now separate successful RawSocket kernel
+  `sendfile` calls/bytes from completed userspace-buffered file-segment
+  calls/bytes; router metrics, dedicated client FFI snapshots, child-process
+  benchmark responses, reports, summaries, and Prometheus artifacts preserve
+  those values. The heavy file policy makes zero-copy byte minima critical for
+  the identity native MessagePack/CBOR rows. A 24 GiB run attributes exactly
+  2/4/1 GiB to `sendfile` for those rows with no buffered bytes and passes all
+  eight gates at 2.424-16.487 Gbit/s lifecycle throughput. A separate 36 GiB
+  repeated 128/256 MiB RawSocket frame run passes all nine gates at
+  14.531-21.761 Gbit/s data-window and 2.977-9.772 Gbit/s lifecycle
+  throughput, with zero transport findings. Native JSON correctly reports its
+  full 4 GiB through the buffered base64 path. An uninitialized positional-read
+  prototype regressed representative rows by up to 6.5% and was reverted. Full
+  exact-tree `bin/verify` passes with the new core, FFI, client, router,
+  benchmark, integration, consumer, and browser regressions.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

@@ -81,6 +81,27 @@ final _serializers = <_SerializerCase>[
 ];
 
 void main() {
+  test('native file-segment metric deltas preserve counter resets', () {
+    const before = NativeFileSegmentMetrics(
+      rawSocketZeroCopyCallsTotal: 10,
+      rawSocketZeroCopyBytesTotal: 4096,
+      bufferedFileSegmentCallsTotal: 4,
+      bufferedFileSegmentBytesTotal: 1024,
+    );
+    const after = NativeFileSegmentMetrics(
+      rawSocketZeroCopyCallsTotal: 14,
+      rawSocketZeroCopyBytesTotal: 8192,
+      bufferedFileSegmentCallsTotal: 1,
+      bufferedFileSegmentBytesTotal: 256,
+    );
+
+    final delta = after.deltaFrom(before);
+    expect(delta.rawSocketZeroCopyCallsTotal, 4);
+    expect(delta.rawSocketZeroCopyBytesTotal, 4096);
+    expect(delta.bufferedFileSegmentCallsTotal, 1);
+    expect(delta.bufferedFileSegmentBytesTotal, 256);
+  });
+
   group('native file segment serializer prefix', () {
     for (final serializerCase in _serializers) {
       test('${serializerCase.name} round-trips binary length tiers', () {

@@ -8,6 +8,26 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+Native file-segment metrics now distinguish successful RawSocket kernel
+`sendfile` calls/bytes from completed userspace-buffered file-segment
+calls/bytes, expose both through router JSON/OpenMetrics and a dedicated client
+FFI snapshot, and preserve native benchmark-helper deltas across the process
+boundary. The heavy file policy treats missing zero-copy bytes as a critical
+failure for the identity MessagePack/CBOR RawSocket workloads. A 24 GiB exact
+run passes all eight gates: the three zero-copy rows attribute exactly 2, 4,
+and 1 GiB to `sendfile` with no buffered bytes and reach
+10.094-16.487 Gbit/s lifecycle throughput; native JSON attributes all 4 GiB to
+the buffered transform path and reaches 8.605 Gbit/s. The 36 GiB repeated
+128/256 MiB RawSocket frame matrix passes all nine gates at
+14.531-21.761 Gbit/s over the data window and 2.977-9.772 Gbit/s including
+lifecycle, with zero transport findings. A positional-read allocation
+experiment regressed representative rows by as much as 6.5% and was fully
+reverted. Full exact-tree `bin/verify` passes with 134 Rust core tests, 78
+ordinary FFI tests plus focused file-metric FFI regressions, 397 Dart core
+tests, 118 MCP tests, 319 client/MCP cases, 116 benchmark/live-WAMP tests, 468
+router tests, consumer and router-hosted MCP smokes, remote auth, native
+forwarding follow-ups, and Chrome Dart2Wasm.
+
 WAMP benchmark samples now carry optional operation start/completion bounds.
 The Rust runner computes throughput from the complete measured data window,
 falls back to lifecycle time for legacy responses, and reports setup/teardown
@@ -67,7 +87,11 @@ in-place consumed-message AES-GCM prototype was rejected because materialized
 Dart views borrow the native message allocation; releasing that allocation to
 obtain unique mutable ownership would leave those public views dangling.
 Runtime-thread, queue-recycling, and chunk-size experiments also did not beat
-the existing one-worker, 4 MiB-chunk configuration.
+the existing one-worker, 4 MiB-chunk configuration. Exact-head CI
+`32610193870`, package dry run `32610193902`, WAMP profile benchmarks
+`32611004121`, WAMP profile diagnostics `32611008069`, and the tagged native
+prerelease rehearsal `32611384167` pass at `4331770d`. The comprehensive
+feature-head deployment audit and protected `master` strict audit are clean.
 
 The checked-in manual `wamp_large_transport_frames_heavy` scenario now moves
 24 GiB through a 24-row RPC matrix spanning native and Dart clients, JSON,

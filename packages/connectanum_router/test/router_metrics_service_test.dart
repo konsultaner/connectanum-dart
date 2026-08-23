@@ -221,6 +221,10 @@ class _NoopHandleRuntime extends _FakeRuntime
         internalErrorEvents: 0,
         backpressureEvents: 3,
         maxBackpressureDepth: 4,
+        rawSocketZeroCopyCallsTotal: 6,
+        rawSocketZeroCopyBytesTotal: 4096,
+        bufferedFileSegmentCallsTotal: 2,
+        bufferedFileSegmentBytesTotal: 512,
         breakdown: [
           NativeRouterMetricsBreakdown(
             listenerId: 1,
@@ -339,6 +343,10 @@ void main() {
     final transportMetrics =
         routerMetrics['transport'] as Map<String, Object?>? ?? const {};
     expect(transportMetrics['active_throttles'], equals(1));
+    expect(transportMetrics['rawsocket_zero_copy_calls_total'], equals(6));
+    expect(transportMetrics['rawsocket_zero_copy_bytes_total'], equals(4096));
+    expect(transportMetrics['buffered_file_segment_calls_total'], equals(2));
+    expect(transportMetrics['buffered_file_segment_bytes_total'], equals(512));
     final realms = snapshotPayload['realms'] as List<dynamic>;
     final realmMetrics = realms.cast<Map<String, Object?>>().firstWhere(
       (realm) => realm['realm'] == 'realm1',
@@ -367,6 +375,22 @@ void main() {
     );
     expect(openMetricsText, contains('realm="realm1"'));
     expect(openMetricsText, contains('connectanum_router_http_events_total'));
+    expect(
+      openMetricsText,
+      contains('connectanum_router_rawsocket_zero_copy_calls_total 6'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_rawsocket_zero_copy_bytes_total 4096'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_buffered_file_segment_calls_total 2'),
+    );
+    expect(
+      openMetricsText,
+      contains('connectanum_router_buffered_file_segment_bytes_total 512'),
+    );
     expect(
       openMetricsText,
       contains('connectanum_router_http_events_by_listener_total'),
@@ -805,6 +829,10 @@ NativeRouterMetrics _buildMetricsBreakdown({
   internalErrorEvents: internalErrorEvents,
   backpressureEvents: backpressureEvents,
   maxBackpressureDepth: maxBackpressureDepth,
+  rawSocketZeroCopyCallsTotal: 6,
+  rawSocketZeroCopyBytesTotal: 4096,
+  bufferedFileSegmentCallsTotal: 2,
+  bufferedFileSegmentBytesTotal: 512,
   breakdown: [
     NativeRouterMetricsBreakdown(
       listenerId: 1,

@@ -905,6 +905,10 @@ class _RouterBoss {
       bodyTimeoutAlerts: _totalBodyTimeoutAlerts,
       protocolErrorAlerts: _totalProtocolErrorAlerts,
       internalErrorAlerts: _totalInternalErrorAlerts,
+      rawSocketZeroCopyCallsTotal: metrics.rawSocketZeroCopyCallsTotal,
+      rawSocketZeroCopyBytesTotal: metrics.rawSocketZeroCopyBytesTotal,
+      bufferedFileSegmentCallsTotal: metrics.bufferedFileSegmentCallsTotal,
+      bufferedFileSegmentBytesTotal: metrics.bufferedFileSegmentBytesTotal,
       httpResponseStream: metrics.responseStream == null
           ? null
           : RouterHttpResponseStreamMetrics(

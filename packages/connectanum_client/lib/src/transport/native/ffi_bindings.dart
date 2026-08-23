@@ -153,6 +153,11 @@ typedef CtConnectionMaxRawsocketExponentDart = int Function(int);
 typedef CtConnectionSupportsFileSegmentsNative = ffi.Int32 Function(ffi.Int32);
 typedef CtConnectionSupportsFileSegmentsDart = int Function(int);
 
+typedef CtFileSegmentMetricsSnapshotNative =
+    ffi.Int32 Function(ffi.Pointer<CtFileSegmentMetricsInfo>);
+typedef CtFileSegmentMetricsSnapshotDart =
+    int Function(ffi.Pointer<CtFileSegmentMetricsInfo>);
+
 typedef CtPollConnectionMessageNative = ffi.Int32 Function(ffi.Int32);
 typedef CtPollConnectionMessageDart = int Function(int);
 
@@ -322,6 +327,20 @@ typedef CtSendMessageNativeE2eeFileSegmentDart =
       int,
       int,
     );
+
+final class CtFileSegmentMetricsInfo extends ffi.Struct {
+  @ffi.Uint64()
+  external int rawSocketZeroCopyCallsTotal;
+
+  @ffi.Uint64()
+  external int rawSocketZeroCopyBytesTotal;
+
+  @ffi.Uint64()
+  external int bufferedFileSegmentCallsTotal;
+
+  @ffi.Uint64()
+  external int bufferedFileSegmentBytesTotal;
+}
 
 final class CtHttpHeader extends ffi.Struct {
   external ffi.Pointer<ffi.Uint8> namePtr;
@@ -511,6 +530,11 @@ class CtFfiBindings {
             CtConnectionSupportsFileSegmentsNative,
             CtConnectionSupportsFileSegmentsDart
           >('ct_connection_supports_file_segments'),
+      ctFileSegmentMetricsSnapshot = library
+          .lookupFunction<
+            CtFileSegmentMetricsSnapshotNative,
+            CtFileSegmentMetricsSnapshotDart
+          >('ct_file_segment_metrics_snapshot'),
       ctPollConnectionMessage = library
           .lookupFunction<
             CtPollConnectionMessageNative,
@@ -661,6 +685,7 @@ class CtFfiBindings {
   final CtConnectionCloseDart ctConnectionClose;
   final CtConnectionMaxRawsocketExponentDart ctConnectionMaxRawsocketExponent;
   final CtConnectionSupportsFileSegmentsDart ctConnectionSupportsFileSegments;
+  final CtFileSegmentMetricsSnapshotDart ctFileSegmentMetricsSnapshot;
   final CtPollConnectionMessageDart ctPollConnectionMessage;
   final CtWaitConnectionMessageDart ctWaitConnectionMessage;
   final CtMessageGetDart ctMessageGet;
