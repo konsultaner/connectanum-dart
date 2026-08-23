@@ -291,6 +291,17 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   hashing of native-external E2EE plaintext and Dart-owned giant-frame storage
   because both reduced throughput. Focused compatibility/artifact regressions,
   local review, and full exact-tree `bin/verify` pass.
+- Sustained profiling attributes about 35% of Pure-Dart RawSocket JSON file
+  transfer CPU samples to the scalar base64 encoder. Segmented JSON payloads
+  of at least 64 KiB now use an optional native canonical encoder that returns
+  finalizer-owned Rust storage; small payloads, older native libraries,
+  application-supplied accelerators, and native errors keep the byte-identical
+  Dart fallback. Two 12 GiB repeats improve from 2.919/2.914 and
+  2.957/2.953 Gbit/s data/lifecycle throughput to 3.857/3.850 and
+  3.859/3.844 Gbit/s. The complete 24 GiB file and 36 GiB bidirectional giant
+  RawSocket gates pass, including Dart JSON at 3.874/3.826 Gbit/s for file
+  transfer and 3.489/2.893 Gbit/s for 128 MiB RPC frames. Exact-wire, padding,
+  fallback, ownership, full `bin/verify`, and local-review evidence are clean.
 
 ## Plan
 
@@ -575,6 +586,12 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   full 24/36 GiB heavy gates, local review, and `bin/verify` pass. The evidence
   makes giant-frame peak RSS and concurrent file-transfer memory explicit for
   the remaining optimization work.
+- [x] Remove the measured Pure-Dart scalar base64 bottleneck from large
+  segmented JSON sends through an optional native canonical encoder. Preserve
+  exact wire bytes, explicit application overrides, small-input and old-library
+  fallback, external-input borrowing, and finalizer-owned output. Repeated
+  12 GiB A/B evidence improves lifecycle throughput by about 30%, and both
+  checked-in 24/36 GiB heavy gates pass.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

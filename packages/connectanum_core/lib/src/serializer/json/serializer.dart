@@ -41,12 +41,16 @@ import 'binary_codec.dart';
 
 typedef CanonicalBase64ByteDecoder =
     Uint8List? Function(Uint8List input, int start, int end);
+typedef CanonicalBase64ByteEncoder = Uint8List? Function(Uint8List input);
 
 /// This is a serializer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
 class Serializer extends AbstractSerializer {
-  Serializer({CanonicalBase64ByteDecoder? canonicalBase64ByteDecoder})
-    : _canonicalBase64ByteDecoder = canonicalBase64ByteDecoder;
+  Serializer({
+    CanonicalBase64ByteDecoder? canonicalBase64ByteDecoder,
+    CanonicalBase64ByteEncoder? canonicalBase64ByteEncoder,
+  }) : _canonicalBase64ByteDecoder = canonicalBase64ByteDecoder,
+       _canonicalBase64ByteEncoder = canonicalBase64ByteEncoder;
 
   static final String _binaryPrefix = '\u0000';
   static const String _escapedBinaryPrefix = r'\u0000';
@@ -128,6 +132,15 @@ class Serializer extends AbstractSerializer {
     'ppt_keyid',
   };
   CanonicalBase64ByteDecoder? _canonicalBase64ByteDecoder;
+  CanonicalBase64ByteEncoder? _canonicalBase64ByteEncoder;
+
+  /// Installs a transport-provided accelerator without replacing an explicit
+  /// encoder supplied by the application.
+  void installCanonicalBase64ByteEncoder(
+    CanonicalBase64ByteEncoder encoder,
+  ) {
+    _canonicalBase64ByteEncoder ??= encoder;
+  }
 
   /// Installs a transport-provided accelerator without replacing an explicit
   /// decoder supplied by the application.
@@ -1451,7 +1464,9 @@ class Serializer extends AbstractSerializer {
     if (binary.isEmpty) {
       return <Uint8List>[prefix, suffix];
     }
-    return <Uint8List>[prefix, encodeBase64Bytes(binary), suffix];
+    final encoded =
+        _canonicalBase64ByteEncoder?.call(binary) ?? encodeBase64Bytes(binary);
+    return <Uint8List>[prefix, encoded, suffix];
   }
 
   void _convertMessagePayloadUint8ListToBinaryJsonString(

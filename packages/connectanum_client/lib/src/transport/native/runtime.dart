@@ -1092,6 +1092,82 @@ class NativeClientRuntime {
     }
   }
 
+  Uint8List? encodeCanonicalBase64Bytes(Uint8List input) {
+    final encode = _bindings.ctBase64EncodeCanonical;
+    if (encode == null) {
+      return null;
+    }
+
+    final externalInput = nativeExternalByteSlice(input, anchor: input);
+    ffi.Pointer<ffi.Uint8> ownedInput = ffi.nullptr;
+    final inputPtr =
+        externalInput?.pointer ??
+        (() {
+          if (input.isEmpty) {
+            return ffi.nullptr;
+          }
+          ownedInput = malloc<ffi.Uint8>(input.length);
+          ownedInput.asTypedList(input.length).setAll(0, input);
+          return ownedInput;
+        })();
+    final outputPtr = calloc<CtExternalByteBuffer>();
+    try {
+      final result = encode(inputPtr, input.length, outputPtr);
+      if (result == NativeTransportErrorCode.unsupported) {
+        return null;
+      }
+      if (result != NativeTransportErrorCode.success) {
+        _throwForError(result, 'Failed to encode canonical base64 bytes');
+      }
+      final output = outputPtr.ref;
+      if (output.owner == ffi.nullptr) {
+        throw NativeTransportException(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native base64 encode returned no external buffer owner',
+        );
+      }
+      if (output.len == 0) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        return Uint8List(0);
+      }
+      if (output.ptr == ffi.nullptr) {
+        _bindings.ctExternalByteBufferFree(output.owner);
+        throw NativeTransportException(
+          NativeTransportErrorCode.handleUnavailable,
+          'Native base64 encode returned no external buffer bytes',
+        );
+      }
+      Uint8List? bytes;
+      try {
+        bytes = output.ptr.asTypedList(
+          output.len,
+          finalizer: _bindings.ctExternalByteBufferFreePointer,
+          token: output.owner,
+        );
+        _nativeExternalBytes[bytes] = _NativeExternalBytesReference(
+          runtimeIdentity: this,
+          pointer: output.ptr,
+          length: output.len,
+        );
+        return bytes;
+      } catch (_) {
+        // Once asTypedList succeeds, its finalizer exclusively owns the token.
+        if (bytes == null) {
+          _bindings.ctExternalByteBufferFree(output.owner);
+        }
+        rethrow;
+      }
+    } finally {
+      if (ownedInput != ffi.nullptr) {
+        malloc.free(ownedInput);
+      }
+      if (externalInput != null) {
+        identityHashCode(externalInput.owner);
+      }
+      calloc.free(outputPtr);
+    }
+  }
+
   NativeIncomingMessage materialize(int handle) {
     ensureStarted();
     final infoPtr = calloc<CtMessageInfo>();

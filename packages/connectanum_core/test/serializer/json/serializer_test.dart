@@ -320,6 +320,73 @@ void main() {
         expect(serializer.serializeFragments(Yield(239714738)), isNull);
       },
     );
+    test('segmented JSON uses an installed canonical base64 encoder', () {
+      var encodeCalls = 0;
+      Uint8List? lastEncoded;
+      final accelerated = Serializer(
+        canonicalBase64ByteEncoder: (input) {
+          encodeCalls++;
+          lastEncoded = Uint8List.fromList(ascii.encode(base64.encode(input)));
+          return lastEncoded;
+        },
+      );
+
+      for (final length in [1, 2, 3, 4097]) {
+        final binary = Uint8List.fromList(
+          List<int>.generate(length, (index) => (index * 17) & 0xff),
+        );
+        final message = Call(
+          7814135,
+          'com.myapp.binary',
+          arguments: [binary],
+        );
+
+        final fragments = accelerated.serializeFragments(message)!;
+
+        expect(identical(fragments[1], lastEncoded), isTrue);
+        expect(
+          utf8.decode(fragments.expand((fragment) => fragment).toList()),
+          serializer.serializeToString(message),
+        );
+      }
+      expect(encodeCalls, 4);
+
+      var replacementCalls = 0;
+      accelerated.installCanonicalBase64ByteEncoder((input) {
+        replacementCalls++;
+        return null;
+      });
+      accelerated.serializeFragments(
+        Call(
+          7814136,
+          'com.myapp.binary',
+          arguments: [Uint8List(4097)],
+        ),
+      );
+      expect(encodeCalls, 5);
+      expect(replacementCalls, 0);
+    });
+    test('segmented JSON falls back when an encoder declines', () {
+      var encodeCalls = 0;
+      final accelerated = Serializer(
+        canonicalBase64ByteEncoder: (input) {
+          encodeCalls++;
+          return null;
+        },
+      );
+      final binary = Uint8List.fromList(
+        List<int>.generate(4097, (index) => (index * 19) & 0xff),
+      );
+      final message = Yield(239714739, arguments: [binary]);
+
+      final fragments = accelerated.serializeFragments(message)!;
+
+      expect(encodeCalls, 1);
+      expect(
+        utf8.decode(fragments.expand((fragment) => fragment).toList()),
+        serializer.serializeToString(message),
+      );
+    });
     test('Call reuses lazy JSON argument bytes without decoding', () {
       final call = Call(7814135, 'com.myapp.ping');
       final argumentsBytes = Uint8List.fromList(utf8.encode('["lazy"]'));

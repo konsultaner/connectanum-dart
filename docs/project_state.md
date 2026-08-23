@@ -8,6 +8,20 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+Large segmented JSON payloads now use an optional native canonical base64
+encoder while preserving the existing Dart encoder for small payloads, older
+native libraries, explicit application accelerators, and native failures. CPU
+profiling of the sustained Dart RawSocket JSON file row attributed about 35%
+of all samples to the scalar Dart encoder. Two identical 12 GiB post-change
+runs reach 3.857/3.850 and 3.859/3.844 Gbit/s data/lifecycle throughput,
+versus the 2.919/2.914 and 2.957/2.953 Gbit/s measured baseline. The complete
+24 GiB heavy file gate passes at 2.620-19.720/2.543-15.285 Gbit/s, including
+3.874/3.826 Gbit/s for Dart JSON. The 36 GiB bidirectional 128/256 MiB
+RawSocket gate also passes all nine rows at 3.489-21.432/2.893-9.598 Gbit/s;
+the Dart JSON 128 MiB row reaches 3.489/2.893 Gbit/s. Exact-wire, padding,
+fallback, ordinary-buffer, external-buffer, and ownership regressions pass,
+as do local review and full exact-tree `bin/verify`.
+
 Native benchmark-helper process memory is now visible instead of being hidden
 behind the router/orchestrator process. Native WAMP rows carry the helper PID,
 RSS immediately before the workload, current RSS after it, and process peak

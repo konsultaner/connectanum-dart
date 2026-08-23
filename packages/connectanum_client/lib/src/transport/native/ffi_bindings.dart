@@ -196,6 +196,8 @@ typedef CtBase64DecodeCanonicalDart =
       int,
       ffi.Pointer<CtExternalByteBuffer>,
     );
+typedef CtBase64EncodeCanonicalNative = CtBase64DecodeCanonicalNative;
+typedef CtBase64EncodeCanonicalDart = CtBase64DecodeCanonicalDart;
 
 typedef CtSha256NewNative = ffi.Int32 Function();
 typedef CtSha256NewDart = int Function();
@@ -578,6 +580,13 @@ class CtFfiBindings {
               CtBase64DecodeCanonicalDart
             >('ct_base64_decode_canonical'),
       ),
+      ctBase64EncodeCanonical = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtBase64EncodeCanonicalNative,
+              CtBase64EncodeCanonicalDart
+            >('ct_base64_encode_canonical'),
+      ),
       ctSha256New = library.lookupFunction<CtSha256NewNative, CtSha256NewDart>(
         'ct_sha256_new',
       ),
@@ -707,6 +716,7 @@ class CtFfiBindings {
   final CtMessageDecodeSingleBinaryArgumentDart
   ctMessageDecodeSingleBinaryArgument;
   final CtBase64DecodeCanonicalDart? ctBase64DecodeCanonical;
+  final CtBase64EncodeCanonicalDart? ctBase64EncodeCanonical;
   final CtSha256NewDart ctSha256New;
   final CtSha256UpdateDart ctSha256Update;
   final CtSha256UpdateAsyncDart ctSha256UpdateAsync;

@@ -95,6 +95,37 @@ void main() {
   );
 
   test(
+    'native base64 encoder accepts Dart and anchored input and owns its result',
+    () {
+      final source = Uint8List.fromList(
+        List<int>.generate(256 * 1024 + 1, (index) => (index * 29) & 0xff),
+      );
+      final expected = ascii.encode(base64.encode(source));
+      final runtime = NativeClientRuntime.instance();
+
+      final encodedDart = runtime.encodeCanonicalBase64Bytes(source);
+      expect(encodedDart, orderedEquals(expected));
+      source.fillRange(0, source.length, 0);
+      expect(encodedDart, orderedEquals(expected));
+
+      final root = allocateNativeExternalBytes(256 * 1024 + 38);
+      final view = Uint8List.sublistView(root, 19, root.length - 18);
+      for (var index = 0; index < view.length; index++) {
+        view[index] = (index * 31) & 0xff;
+      }
+      final externalExpected = ascii.encode(base64.encode(view));
+      retainNativeExternalBytes(view, root);
+      expect(nativeExternalByteSlice(view, anchor: view), isNotNull);
+
+      final encodedExternal = runtime.encodeCanonicalBase64Bytes(view);
+      expect(encodedExternal, orderedEquals(externalExpected));
+      root.fillRange(0, root.length, 0);
+      expect(encodedExternal, orderedEquals(externalExpected));
+    },
+    skip: _nativeShaRuntimeSkipReason(),
+  );
+
+  test(
     'native SHA-256 hashes anchored subviews without changing the digest',
     () {
       final bytes = allocateNativeExternalBytes(128 * 1024);

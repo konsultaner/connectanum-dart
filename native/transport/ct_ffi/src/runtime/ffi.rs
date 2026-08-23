@@ -5475,6 +5475,28 @@ fn write_external_byte_buffer(mut bytes: Vec<u8>, out: *mut CtExternalByteBuffer
 }
 
 #[no_mangle]
+pub extern "C" fn ct_base64_encode_canonical(
+    input_ptr: *const u8,
+    input_len: c_int,
+    out: *mut CtExternalByteBuffer,
+) -> c_int {
+    if input_len < 0 || out.is_null() || (input_len > 0 && input_ptr.is_null()) {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe {
+        (*out).ptr = ptr::null_mut();
+        (*out).len = 0;
+        (*out).owner = ptr::null_mut();
+    }
+    let input = if input_len == 0 {
+        &[]
+    } else {
+        unsafe { slice::from_raw_parts(input_ptr, input_len as usize) }
+    };
+    write_external_byte_buffer(Base64Engine.encode(input).into_bytes(), out)
+}
+
+#[no_mangle]
 pub extern "C" fn ct_base64_decode_canonical(
     input_ptr: *const u8,
     input_len: c_int,
@@ -6406,6 +6428,48 @@ mod tests {
             );
             assert!(output.owner.is_null());
         }
+    }
+
+    #[test]
+    fn canonical_base64_encode_returns_owned_external_bytes() {
+        for bytes in [
+            Vec::new(),
+            vec![0],
+            vec![0, 1],
+            vec![0, 1, 2],
+            (0..4097).map(|index| (index % 251) as u8).collect(),
+        ] {
+            let mut output = CtExternalByteBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+
+            assert_eq!(
+                ct_base64_encode_canonical(bytes.as_ptr(), bytes.len() as c_int, &mut output,),
+                SUCCESS
+            );
+            assert!(!output.owner.is_null());
+            assert_eq!(
+                unsafe { slice::from_raw_parts(output.ptr, output.len) },
+                Base64Engine.encode(&bytes).as_bytes()
+            );
+            ct_external_byte_buffer_free(output.owner);
+        }
+
+        let mut output = CtExternalByteBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+            owner: ptr::null_mut(),
+        };
+        assert_eq!(
+            ct_base64_encode_canonical(ptr::null(), 1, &mut output),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            ct_base64_encode_canonical(ptr::null(), 0, ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
     }
 
     #[test]

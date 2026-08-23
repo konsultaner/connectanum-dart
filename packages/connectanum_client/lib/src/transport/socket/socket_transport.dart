@@ -69,6 +69,9 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     _messageLengthExponent = messageLengthExponent;
     final serializer = _serializer;
     if (serializer is json_serializer.Serializer) {
+      serializer.installCanonicalBase64ByteEncoder(
+        _encodeCanonicalBase64WithNative,
+      );
       serializer.installCanonicalBase64ByteDecoder(
         _decodeCanonicalBase64WithNative,
       );
@@ -640,6 +643,21 @@ class SocketTransport extends AbstractTransport implements DrainableTransport {
     );
     builder.add(payload);
     return builder.takeBytes();
+  }
+}
+
+Uint8List? _encodeCanonicalBase64WithNative(Uint8List input) {
+  if (input.length < SocketTransport._segmentedSendThreshold) {
+    return null;
+  }
+  try {
+    return NativeClientRuntime.instance().encodeCanonicalBase64Bytes(input);
+  } on NativeTransportException {
+    return null;
+  } on ArgumentError {
+    return null;
+  } on UnsupportedError {
+    return null;
   }
 }
 
