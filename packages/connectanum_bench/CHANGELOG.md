@@ -2,6 +2,8 @@
 
 ## 3.0.0-beta
 
+- Release consumed native RPC and pub/sub payload buffers deterministically,
+  preserving benchmark semantics while bounding repeated giant-frame RSS.
 - Join the synchronized Connectanum 3.0 beta package graph.
 - Add production gates for canonical WAMP profiles, progressive invocations,
   call timeouts, statistics Meta APIs, payload E2EE, and router-hosted MCP.

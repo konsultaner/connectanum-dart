@@ -629,6 +629,16 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   lifecycle, so every native production row clears the 2 Gbit/s target.
   Direct-launch, bundle-layout, and executable-permission regressions, all 68
   Rust orchestrator tests, and full exact-tree `bin/verify` pass.
+- [x] Release consumed native lazy-result and event buffers deterministically
+  instead of waiting for GC. The public conditional helper safely no-ops for
+  Dart-owned payloads, native explicit release detaches its finalizer and is
+  idempotent, and the benchmark releases only after encoded metrics or required
+  transformed decode. On the same 36 GiB repeated frame matrix, native peak RSS
+  drops from 2.33-2.58 GiB to 593-723 MiB for 128 MiB frames and from
+  2.58-3.08 GiB to 1.08-1.34 GiB for 256 MiB frames while all native rows retain
+  5.051-10.908 Gbit/s lifecycle throughput. Focused no-op, real-native,
+  repeated-release, fanout, concurrency, transformed-decode, and exception
+  cleanup regressions plus full exact-tree `bin/verify` pass.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

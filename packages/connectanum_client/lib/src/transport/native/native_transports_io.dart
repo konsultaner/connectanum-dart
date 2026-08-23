@@ -49,6 +49,21 @@ NativeIncomingMessage? nativeIncomingMessageForAnchor(Object? anchor) {
   return _nativeMessageAnchor[anchor];
 }
 
+/// Releases storage borrowed by a lazy payload from the native runtime.
+///
+/// Returns `true` when [payload] has native backing storage. After this call,
+/// the payload and any byte views obtained from it must not be accessed. Calls
+/// for Dart-owned payloads are safe no-ops, and repeated native releases are
+/// idempotent.
+bool releaseNativeMessagePayload(LazyMessagePayload payload) {
+  final incoming = nativeIncomingMessageForAnchor(payload.anchor);
+  if (incoming == null) {
+    return false;
+  }
+  incoming.release();
+  return true;
+}
+
 @internal
 Uint8List? nativeSingleBinaryArgumentForAnchor(Object? anchor) =>
     nativeIncomingMessageForAnchor(anchor)?.singleBinaryArgumentBytes;

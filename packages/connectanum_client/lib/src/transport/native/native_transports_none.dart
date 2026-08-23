@@ -4,6 +4,10 @@ import 'package:connectanum_core/connectanum_core.dart';
 
 import '../abstract_transport.dart';
 
+/// Returns `false` because native message storage is unavailable on this
+/// platform.
+bool releaseNativeMessagePayload(LazyMessagePayload payload) => false;
+
 class NativeRawSocketTransport extends AbstractTransport
     implements FileSegmentTransport, DrainableTransport {
   NativeRawSocketTransport(

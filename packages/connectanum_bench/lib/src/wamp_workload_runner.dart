@@ -111,10 +111,13 @@ class WampWorkloadRunner {
     Logger? logger,
     Duration eventTimeout = const Duration(seconds: 30),
     Duration cancelCleanupTimeout = const Duration(seconds: 2),
+    bool Function(wamp_core.LazyMessagePayload)? releaseMessagePayload,
   }) : _sessionFactory = sessionFactory,
        _logger = logger ?? Logger('WampWorkloadRunner'),
        _defaultEventTimeout = eventTimeout,
-       _cancelCleanupTimeout = cancelCleanupTimeout;
+       _cancelCleanupTimeout = cancelCleanupTimeout,
+       _releaseMessagePayload =
+           releaseMessagePayload ?? wamp_client.releaseNativeMessagePayload;
 
   static final Object _eventTimeoutZoneKey = Object();
 
@@ -122,6 +125,7 @@ class WampWorkloadRunner {
   final Logger _logger;
   final Duration _defaultEventTimeout;
   final Duration _cancelCleanupTimeout;
+  final bool Function(wamp_core.LazyMessagePayload) _releaseMessagePayload;
 
   Duration get _eventTimeout =>
       Zone.current[_eventTimeoutZoneKey] as Duration? ?? _defaultEventTimeout;
@@ -361,7 +365,10 @@ class WampWorkloadRunner {
       for (final eventBuffer in eventBuffers)
         eventBuffer
             .nextWhere((event) => _matches(event, workerId, iteration))
-            .timeout(_eventTimeout),
+            .timeout(_eventTimeout)
+            .then((event) {
+              _releaseMessagePayload(event.payload);
+            }),
     ];
     final start = DateTime.now();
     await _runTimedOperation(
@@ -722,45 +729,54 @@ class WampWorkloadRunner {
       'RPC call start worker=$workerId iteration=$iteration uri=$procedure',
     );
     final start = DateTime.now();
-    final result = await session
-        .callSingleWithLazyPayload(
-          procedure,
-          payload: payloadFactory(),
-          options: _buildCallOptions(scenario),
-        )
-        .timeout(
-          _eventTimeout,
-          onTimeout: () {
-            _logger.severe(
-              'RPC call timed out waiting for final result '
-              'worker=$workerId iteration=$iteration uri=$procedure',
-            );
-            throw TimeoutException('rpc_call_timeout');
-          },
-        );
-    List<dynamic>? decodedArguments;
-    Map<String, dynamic>? decodedArgumentsKeywords;
-    if (scenario.pptScheme != null) {
-      // Transformed payload benchmarks must include receive-side unpacking.
-      decodedArguments = result.arguments;
-      decodedArgumentsKeywords = result.argumentsKeywords;
+    wamp_core.LazyResultPayload? result;
+    try {
+      result = await session
+          .callSingleWithLazyPayload(
+            procedure,
+            payload: payloadFactory(),
+            options: _buildCallOptions(scenario),
+          )
+          .timeout(
+            _eventTimeout,
+            onTimeout: () {
+              _logger.severe(
+                'RPC call timed out waiting for final result '
+                'worker=$workerId iteration=$iteration uri=$procedure',
+              );
+              throw TimeoutException('rpc_call_timeout');
+            },
+          );
+      List<dynamic>? decodedArguments;
+      Map<String, dynamic>? decodedArgumentsKeywords;
+      if (scenario.pptScheme != null) {
+        // Transformed payload benchmarks must include receive-side unpacking.
+        decodedArguments = result.arguments;
+        decodedArgumentsKeywords = result.argumentsKeywords;
+      }
+      final latencyMs =
+          DateTime.now().difference(start).inMicroseconds / 1000.0;
+      _logger.fine(
+        'RPC call done worker=$workerId iteration=$iteration uri=$procedure '
+        'latency_ms=$latencyMs '
+        'args_bytes=${result.argumentsBytes?.length ?? 0} '
+        'kwargs_bytes=${result.argumentsKeywordsBytes?.length ?? 0} '
+        'decoded_args=${decodedArguments?.length ?? 0} '
+        'decoded_kwargs=${decodedArgumentsKeywords?.length ?? 0}',
+      );
+      return WampSample(
+        worker: workerId,
+        iteration: iteration,
+        latencyMs: latencyMs,
+        requestBytes: scenario.payloadBytes,
+        responseBytes: scenario.payloadBytes,
+      );
+    } finally {
+      final completedResult = result;
+      if (completedResult != null) {
+        _releaseMessagePayload(completedResult.payload);
+      }
     }
-    final latencyMs = DateTime.now().difference(start).inMicroseconds / 1000.0;
-    _logger.fine(
-      'RPC call done worker=$workerId iteration=$iteration uri=$procedure '
-      'latency_ms=$latencyMs '
-      'args_bytes=${result.argumentsBytes?.length ?? 0} '
-      'kwargs_bytes=${result.argumentsKeywordsBytes?.length ?? 0} '
-      'decoded_args=${decodedArguments?.length ?? 0} '
-      'decoded_kwargs=${decodedArgumentsKeywords?.length ?? 0}',
-    );
-    return WampSample(
-      worker: workerId,
-      iteration: iteration,
-      latencyMs: latencyMs,
-      requestBytes: scenario.payloadBytes,
-      responseBytes: scenario.payloadBytes,
-    );
   }
 
   Future<List<WampSample>> _runProgressiveRpcScenario(

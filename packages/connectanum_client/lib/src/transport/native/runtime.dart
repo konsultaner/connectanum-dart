@@ -57,10 +57,12 @@ class NativeIncomingMessage {
     required this.handle,
     required this.runtimeIdentity,
     required CtFfiBindings bindings,
+    required Finalizer<_MessageFinalizerToken> messageFinalizer,
     this.argumentsBytes,
     this.argumentsKeywordsBytes,
     this.singleBinaryArgumentBytes,
-  }) : _bindings = bindings;
+  }) : _bindings = bindings,
+       _messageFinalizer = messageFinalizer;
 
   final Object message;
   final Uint8List bytes;
@@ -70,6 +72,7 @@ class NativeIncomingMessage {
   final Uint8List? argumentsKeywordsBytes;
   final Uint8List? singleBinaryArgumentBytes;
   final CtFfiBindings _bindings;
+  final Finalizer<_MessageFinalizerToken> _messageFinalizer;
 
   bool _released = false;
 
@@ -78,6 +81,7 @@ class NativeIncomingMessage {
       return;
     }
     _released = true;
+    _messageFinalizer.detach(this);
     _bindings.ctMessageRelease(handle);
   }
 }
@@ -1229,6 +1233,7 @@ class NativeClientRuntime {
         handle: handle,
         runtimeIdentity: this,
         bindings: _bindings,
+        messageFinalizer: _messageFinalizer,
         argumentsBytes: args,
         argumentsKeywordsBytes: kwargs,
         singleBinaryArgumentBytes: singleBinaryArgument,

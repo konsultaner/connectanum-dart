@@ -63,10 +63,15 @@ void main() {
 
     test('completes pubsub scenario after receiving matching events', () async {
       final broker = _FakeWampBroker();
+      var releases = 0;
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => _FakeWampSession(broker),
         logger: Logger.detached('pubsub_test'),
         eventTimeout: const Duration(seconds: 1),
+        releaseMessagePayload: (_) {
+          releases += 1;
+          return true;
+        },
       );
       final scenario = WampScenario(
         transport: WampTransport.rawsocket,
@@ -84,6 +89,7 @@ void main() {
       expect(samples.where((sample) => sample.worker == 0), hasLength(3));
       expect(samples.where((sample) => sample.worker == 1), hasLength(3));
       expect(samples.every((sample) => sample.latencyMs >= 0), isTrue);
+      expect(releases, 6);
     });
 
     test('supports pubsub workloads through direct event callbacks', () async {
@@ -297,6 +303,7 @@ void main() {
 
     test('keeps lazy RPC results encoded after timing completes', () async {
       var decoded = false;
+      var releases = 0;
       final broker = _FakeWampBroker(
         lazyResultFactory: (_) => wamp_core.LazyResultPayload(
           callRequestId: 1,
@@ -314,6 +321,11 @@ void main() {
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => _FakeWampSession(broker),
         logger: Logger.detached('rpc_lazy_result_test'),
+        releaseMessagePayload: (payload) {
+          releases += 1;
+          expect(payload.argumentsBytes, isNotNull);
+          return true;
+        },
       );
 
       final samples = await runner.run(
@@ -330,10 +342,12 @@ void main() {
 
       expect(samples, hasLength(2));
       expect(decoded, isFalse);
+      expect(releases, 2);
     });
 
     test('materializes transformed RPC results while timing', () async {
       var decoded = false;
+      var decodedBeforeRelease = false;
       final broker = _FakeWampBroker(
         lazyResultFactory: (_) => wamp_core.LazyResultPayload(
           callRequestId: 1,
@@ -351,6 +365,10 @@ void main() {
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async => _FakeWampSession(broker),
         logger: Logger.detached('rpc_transformed_result_test'),
+        releaseMessagePayload: (payload) {
+          decodedBeforeRelease = decoded;
+          return true;
+        },
       );
 
       final samples = await runner.run(
@@ -371,6 +389,50 @@ void main() {
 
       expect(samples, hasLength(1));
       expect(decoded, isTrue);
+      expect(decodedBeforeRelease, isTrue);
+    });
+
+    test('releases transformed RPC results when decoding fails', () async {
+      var releases = 0;
+      final broker = _FakeWampBroker(
+        lazyResultFactory: (_) => wamp_core.LazyResultPayload(
+          callRequestId: 1,
+          progress: false,
+          payload: wamp_core.LazyMessagePayload.encoded(
+            encoding: wamp_core.LazyPayloadEncoding.cbor,
+            argumentsBytes: Uint8List.fromList(const [0x81, 0x01]),
+            argumentsDecoder: (_) => throw StateError('decode failed'),
+          ),
+        ),
+      );
+      final runner = WampWorkloadRunner(
+        sessionFactory: (_) async => _FakeWampSession(broker),
+        logger: Logger.detached('rpc_failed_decode_release_test'),
+        releaseMessagePayload: (_) {
+          releases += 1;
+          return true;
+        },
+      );
+
+      await expectLater(
+        runner.run(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            serializer: WampSerializer.cbor,
+            mode: WampMode.rpc,
+            uri: 'bench.rpc.echo',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 16,
+            pptScheme: 'wamp',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes256gcm',
+            pptKeyId: 'benchmark-key',
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(releases, 1);
     });
 
     test('warms up three-chunk progressive RPC workloads', () async {

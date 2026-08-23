@@ -83,13 +83,22 @@ three Dart binary reference rows reach 5.781/5.729 Gbit/s for CBOR and
 5.929/5.816 Gbit/s for MessagePack, while Dart JSON is an explicit measured
 boundary at 1.924/1.912 Gbit/s. Native helper peak RSS spans about 267 MiB for
 segmented JSON, 497 MiB for E2EE, and 3.12 GiB for four concurrent 256 MiB
-MessagePack transfers. A fresh 36 GiB repeated 128/256 MiB RawSocket run passes
-all nine gates at 3.509-21.614 Gbit/s over the data window and
-2.908-9.823 Gbit/s over lifecycle; native helper peak RSS is 2.38-2.89 GiB for
-those giant-frame rows. Synchronous native-external E2EE hashing and Dart-owned
+MessagePack transfers. Native lazy message payloads now expose deterministic
+release after consumers finish with their borrowed byte views; explicit
+release detaches the native finalizer before freeing the handle and remains
+idempotent. Benchmark RPC results release in `finally` after encoded-length
+accounting or required PPT decode, and pub/sub events release after matching.
+On the identical 36 GiB repeated 128/256 MiB RawSocket matrix, 128 MiB native
+helper peak RSS falls from 2.33-2.58 GiB to 593-723 MiB and 256 MiB peak RSS
+falls from 2.58-3.08 GiB to 1.08-1.34 GiB. Every row still passes: native
+data-window throughput is 15.827-24.841 Gbit/s and lifecycle throughput is
+5.051-10.908 Gbit/s. Synchronous native-external E2EE hashing and Dart-owned
 large RawSocket frame storage were both measured as regressions and fully
-reverted. Focused Dart/Rust compatibility and artifact tests, both heavy gates,
-local second-pass review, and full exact-tree `bin/verify` pass.
+reverted. Focused client/benchmark tests, the exact A/B heavy gate, local
+second-pass review, and full exact-tree `bin/verify` pass with 134 Rust core,
+81 ordinary FFI, 399 Dart core, 118 MCP, 120 benchmark/live-WAMP, and 468
+router tests plus consumer, remote-auth, native-forwarding, and Chrome
+Dart2Wasm coverage.
 
 Native file-segment metrics now distinguish successful RawSocket kernel
 `sendfile` calls/bytes from completed userspace-buffered file-segment

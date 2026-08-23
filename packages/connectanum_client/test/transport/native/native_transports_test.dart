@@ -81,6 +81,15 @@ final _serializers = <_SerializerCase>[
 ];
 
 void main() {
+  test('native payload release ignores Dart-owned payloads', () {
+    final payload = LazyMessagePayload.materialized(
+      arguments: const <dynamic>['owned'],
+    );
+
+    expect(releaseNativeMessagePayload(payload), isFalse);
+    expect(payload.arguments, const <dynamic>['owned']);
+  });
+
   test('native file-segment metric deltas preserve counter resets', () {
     const before = NativeFileSegmentMetrics(
       rawSocketZeroCopyCallsTotal: 10,
@@ -338,6 +347,40 @@ void main() {
         expect(hello['protocol'], equals('wamp.2.msgpack'));
 
         await client.disconnect();
+      } finally {
+        await server.dispose();
+      }
+    });
+
+    test('releases native-backed lazy event payloads idempotently', () async {
+      final server = await _spawnNativeTestServer(
+        kind: 'websocket',
+        serializerName: 'msgpack',
+        websocketProtocol: WebSocketSerialization.serializationMsgpack,
+        sendEventAfterHello: true,
+      );
+      try {
+        final transport = NativeWebSocketTransport.withMsgpackSerializer(
+          'ws://127.0.0.1:${server.port}/wamp',
+        );
+        await transport.open();
+        transport.send(Hello('test.realm', Details.forHello()));
+
+        final messages = await transport
+            .receive()
+            .where((message) => message != null)
+            .cast<AbstractMessage>()
+            .take(2)
+            .toList()
+            .timeout(const Duration(seconds: 2));
+        final event = messages.whereType<Event>().single;
+        final payload = event.toLazyEventPayload().payload;
+
+        expect(payload.arguments, const <dynamic>['payload']);
+        expect(releaseNativeMessagePayload(payload), isTrue);
+        expect(releaseNativeMessagePayload(payload), isTrue);
+
+        await transport.close();
       } finally {
         await server.dispose();
       }

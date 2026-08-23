@@ -1,5 +1,8 @@
 ### 3.0.0-beta
 
+- Add deterministic release for native-backed lazy message payloads after
+  consumers finish with borrowed byte views, with idempotent native-handle
+  cleanup and finalizer detachment.
 - Add bounded high-level file delivery over standard WAMP progressive call
   invocations, with binary argument chunks, exact-size and SHA-256 validation,
   sink backpressure, cancellation cleanup, and Dart IO path sources. Native
