@@ -200,18 +200,23 @@ class NativeWampWorker {
       for (final entry in secureWampTargets.entries)
         entry.key.name: entry.value.toJson(),
     });
-    final process = await Process.start(dartExecutable, [
-      if (_usesPackageExecutable) 'run',
-      workerScriptPath,
-      '--realm',
-      realmUri,
-      '--targets-json',
-      targetsJson,
-      '--secure-targets-json',
-      secureTargetsJson,
-      '--native-lib',
-      nativeLibraryPath,
-    ], workingDirectory: _workerPackageDirectory.path);
+    final usesDirectExecutable = _usesDirectExecutable;
+    final process = await Process.start(
+      usesDirectExecutable ? workerScriptPath : dartExecutable,
+      [
+        if (_usesPackageExecutable) 'run',
+        if (!usesDirectExecutable) workerScriptPath,
+        '--realm',
+        realmUri,
+        '--targets-json',
+        targetsJson,
+        '--secure-targets-json',
+        secureTargetsJson,
+        '--native-lib',
+        nativeLibraryPath,
+      ],
+      workingDirectory: _workerPackageDirectory.path,
+    );
     _process = process;
     _stdin = process.stdin;
     _stdoutSubscription = process.stdout
@@ -279,20 +284,27 @@ class NativeWampWorker {
     );
   }
 
-  Directory get _workerPackageDirectory => _usesPackageExecutable
+  Directory get _workerPackageDirectory =>
+      _usesPackageExecutable || _usesDirectExecutable
       ? Directory.current.absolute
       : File(workerScriptPath).absolute.parent.parent;
 
-  bool get _usesPackageExecutable =>
-      workerScriptPath.contains(':') && !workerScriptPath.endsWith('.dart');
+  bool get _usesPackageExecutable => _isPackageExecutable(workerScriptPath);
+
+  bool get _usesDirectExecutable =>
+      !_usesPackageExecutable && !workerScriptPath.endsWith('.dart');
 }
 
 String _normalizeWorkerEntrypoint(String workerScriptPath) {
-  if (workerScriptPath.contains(':') && !workerScriptPath.endsWith('.dart')) {
+  if (_isPackageExecutable(workerScriptPath)) {
     return workerScriptPath;
   }
   return File(workerScriptPath).absolute.path;
 }
+
+bool _isPackageExecutable(String value) => RegExp(
+  r'^[A-Za-z_][A-Za-z0-9_]*:[A-Za-z0-9_.-]+$',
+).hasMatch(value);
 
 class _WorkerResponse {
   _WorkerResponse({

@@ -8,6 +8,22 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+Native WAMP benchmark workloads now retain fresh-process isolation without
+charging Dart source/JIT startup to every lifecycle measurement. The Rust
+orchestrator prepares one AOT worker bundle before the benchmark matrix, the
+Dart router service passes that executable to each isolated workload helper,
+and explicit executable and source-fallback controls remain available. A
+direct-launch regression prevents invoking the binary through the Dart VM.
+Two exact 12-row native RawSocket/WebSocket, JSON/MessagePack/CBOR, clear/TLS
+repeats keep data-window throughput at 2.958-18.905 Gbit/s while improving
+lifecycle throughput from 1.121-1.477 Gbit/s for the source-startup-affected
+rows to 2.739-6.261 Gbit/s; every native production row now clears the 2
+Gbit/s lifecycle target. Per-workload process recycling and RSS evidence are
+unchanged. Full exact-tree `bin/verify` passes, including 134 Rust core tests,
+81 ordinary FFI tests plus the focused metrics regression, 118 benchmark
+tests, 468 router tests, consumer/live WAMP and MCP smokes, remote auth,
+native-forwarding follow-ups, and Chrome Dart2Wasm.
+
 Pure-Dart WebSocket JSON receive paths on IO and web now deserialize the
 SDK-provided text directly instead of encoding the complete String back to
 UTF-8 before JSON parsing. WAMP JSON remains a WebSocket TEXT message, while

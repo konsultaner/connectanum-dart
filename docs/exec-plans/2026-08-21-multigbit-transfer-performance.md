@@ -619,6 +619,16 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   metadata remains available on native and byte-backed receive paths. Focused
   transport tests, static analysis, JavaScript compilation, Chrome Dart2Wasm,
   local review, and full exact-tree `bin/verify` pass.
+- [x] Remove per-workload Dart source/JIT startup from native lifecycle
+  measurements without weakening process isolation or helper RSS evidence.
+  The orchestrator builds one temporary AOT worker bundle per matrix, supports
+  an explicit prebuilt executable, and falls back to the source worker when an
+  automatic build is unavailable. Two identical 12-row native
+  RawSocket/WebSocket, JSON/MessagePack/CBOR, clear/TLS repeats reach
+  2.958-18.905 Gbit/s over the data window and 2.739-6.261 Gbit/s including
+  lifecycle, so every native production row clears the 2 Gbit/s target.
+  Direct-launch, bundle-layout, and executable-permission regressions, all 68
+  Rust orchestrator tests, and full exact-tree `bin/verify` pass.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

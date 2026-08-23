@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::{Command, Stdio};
 use std::sync::{
@@ -193,6 +193,14 @@ struct Args {
     #[arg(long, default_value = "connectanum_bench:bench_router_service")]
     bench_main: String,
 
+    /// Optional prebuilt WAMP worker executable passed to bench_main.
+    #[arg(long)]
+    wamp_worker_executable: Option<String>,
+
+    /// Skip the automatic AOT WAMP worker build and use the source worker.
+    #[arg(long, default_value_t = false)]
+    skip_wamp_worker_aot: bool,
+
     /// Path to router config consumed by bench_main
     #[arg(long, default_value = "native/bench/bench_router.json")]
     router_config: String,
@@ -250,6 +258,7 @@ fn main() -> Result<()> {
         resolve_router_worker_counts(args.router_worker_counts.as_deref(), &args.router_config)?;
     let native_runtime_thread_counts =
         resolve_native_runtime_thread_counts(args.native_runtime_thread_counts.as_deref())?;
+    let prepared_wamp_worker = prepare_wamp_worker(&args)?;
     let mut results_writer =
         ResultsWriter::create(&args.results).context("failed to open results file")?;
     let results_path = Path::new(&args.results);
@@ -267,6 +276,7 @@ fn main() -> Result<()> {
                 prepare_router_config_variant(&args.router_config, router_workers)?;
             let run_result = run_bench_suite(
                 &args,
+                prepared_wamp_worker.executable.as_deref(),
                 &config_variant.path,
                 router_workers,
                 native_runtime_threads,
@@ -286,8 +296,180 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+struct PreparedWampWorker {
+    executable: Option<PathBuf>,
+    cleanup_dir: Option<PathBuf>,
+}
+
+impl Drop for PreparedWampWorker {
+    fn drop(&mut self) {
+        if let Some(path) = self.cleanup_dir.take() {
+            let _ = fs::remove_dir_all(path);
+        }
+    }
+}
+
+fn prepare_wamp_worker(args: &Args) -> Result<PreparedWampWorker> {
+    if let Some(path) = args.wamp_worker_executable.as_deref() {
+        let executable = Path::new(path)
+            .canonicalize()
+            .with_context(|| format!("failed to resolve WAMP worker executable {path}"))?;
+        if !executable.is_file() {
+            bail!(
+                "WAMP worker executable is not a file: {}",
+                executable.display()
+            );
+        }
+        println!(
+            "Using prebuilt WAMP worker executable {}",
+            executable.display()
+        );
+        return Ok(PreparedWampWorker {
+            executable: Some(executable),
+            cleanup_dir: None,
+        });
+    }
+
+    if args.skip_wamp_worker_aot {
+        println!("Using source WAMP worker (--skip-wamp-worker-aot)");
+        return Ok(PreparedWampWorker {
+            executable: None,
+            cleanup_dir: None,
+        });
+    }
+
+    let package_dir = Path::new("packages/connectanum_bench");
+    let worker_target = package_dir.join("bin/wamp_client_worker.dart");
+    if !worker_target.is_file() {
+        eprintln!(
+            "Warning: {} is unavailable; using the source WAMP worker",
+            worker_target.display()
+        );
+        return Ok(PreparedWampWorker {
+            executable: None,
+            cleanup_dir: None,
+        });
+    }
+
+    let output_dir = std::env::temp_dir().join(format!(
+        "connectanum_wamp_worker_{}_{}",
+        std::process::id(),
+        now_millis()
+    ));
+    println!("Building isolated AOT WAMP worker...");
+    let build_status = Command::new(&args.dart)
+        .arg("build")
+        .arg("cli")
+        .arg("--target")
+        .arg("bin/wamp_client_worker.dart")
+        .arg("--output")
+        .arg(&output_dir)
+        .current_dir(package_dir)
+        .env("CONNECTANUM_NATIVE_LIB", &args.native_lib)
+        .status();
+
+    let build_succeeded = match build_status {
+        Ok(status) if status.success() => true,
+        Ok(status) => {
+            eprintln!(
+                "Warning: AOT WAMP worker build exited with {status}; using the source worker"
+            );
+            false
+        }
+        Err(error) => {
+            eprintln!(
+                "Warning: failed to start the AOT WAMP worker build ({error}); using the source worker"
+            );
+            false
+        }
+    };
+    if !build_succeeded {
+        let _ = fs::remove_dir_all(&output_dir);
+        return Ok(PreparedWampWorker {
+            executable: None,
+            cleanup_dir: None,
+        });
+    }
+
+    let Some(executable) = find_built_wamp_worker(&output_dir) else {
+        eprintln!(
+            "Warning: AOT build did not create a WAMP worker executable under {}; using the source worker",
+            output_dir.display()
+        );
+        let _ = fs::remove_dir_all(&output_dir);
+        return Ok(PreparedWampWorker {
+            executable: None,
+            cleanup_dir: None,
+        });
+    };
+    if let Err(error) = ensure_owner_executable(&executable) {
+        eprintln!(
+            "Warning: could not make {} executable ({error}); using the source worker",
+            executable.display()
+        );
+        let _ = fs::remove_dir_all(&output_dir);
+        return Ok(PreparedWampWorker {
+            executable: None,
+            cleanup_dir: None,
+        });
+    }
+
+    println!("Using AOT WAMP worker executable {}", executable.display());
+    Ok(PreparedWampWorker {
+        executable: Some(executable),
+        cleanup_dir: Some(output_dir),
+    })
+}
+
+fn find_built_wamp_worker(output_dir: &Path) -> Option<PathBuf> {
+    let executable_name = if cfg!(windows) {
+        "wamp_client_worker.exe"
+    } else {
+        "wamp_client_worker"
+    };
+    let expected = output_dir.join("bundle/bin").join(executable_name);
+    if expected.is_file() {
+        return Some(expected);
+    }
+
+    let mut directories = vec![output_dir.to_path_buf()];
+    while let Some(directory) = directories.pop() {
+        let entries = fs::read_dir(directory).ok()?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                directories.push(path);
+            } else if path.file_name().and_then(|name| name.to_str()) == Some(executable_name) {
+                return Some(path);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(unix)]
+fn ensure_owner_executable(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut permissions = fs::metadata(path)
+        .with_context(|| format!("failed to inspect {}", path.display()))?
+        .permissions();
+    if permissions.mode() & 0o100 == 0 {
+        permissions.set_mode(permissions.mode() | 0o100);
+        fs::set_permissions(path, permissions)
+            .with_context(|| format!("failed to update permissions for {}", path.display()))?;
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn ensure_owner_executable(_path: &Path) -> Result<()> {
+    Ok(())
+}
+
 fn run_bench_suite(
     args: &Args,
+    wamp_worker_executable: Option<&Path>,
     router_config_path: &str,
     router_workers: u32,
     native_runtime_threads: u32,
@@ -308,7 +490,11 @@ fn run_bench_suite(
         .arg("--router-config")
         .arg(router_config_path)
         .arg("--native-lib")
-        .arg(&args.native_lib)
+        .arg(&args.native_lib);
+    if let Some(executable) = wamp_worker_executable {
+        command.arg("--wamp-worker").arg(executable);
+    }
+    command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
@@ -6171,6 +6357,41 @@ mod tests {
         ));
         assert!(!is_bench_ready_line("Running build hooks..."));
         assert!(!is_bench_ready_line("NOT_READY"));
+    }
+
+    #[test]
+    fn built_wamp_worker_lookup_accepts_changed_bundle_layouts() {
+        let temp_dir = unique_temp_dir("wamp_worker_lookup");
+        let nested_dir = temp_dir.join("future/layout");
+        fs::create_dir_all(&nested_dir).unwrap();
+        let executable_name = if cfg!(windows) {
+            "wamp_client_worker.exe"
+        } else {
+            "wamp_client_worker"
+        };
+        let executable = nested_dir.join(executable_name);
+        fs::write(&executable, b"worker").unwrap();
+
+        assert_eq!(find_built_wamp_worker(&temp_dir), Some(executable));
+        fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn prepared_wamp_worker_repairs_owner_execute_permission() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = unique_temp_dir("wamp_worker_permissions");
+        fs::create_dir_all(&temp_dir).unwrap();
+        let executable = temp_dir.join("wamp_client_worker");
+        fs::write(&executable, b"worker").unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o600)).unwrap();
+
+        ensure_owner_executable(&executable).unwrap();
+
+        let mode = fs::metadata(&executable).unwrap().permissions().mode();
+        assert_ne!(mode & 0o100, 0);
+        fs::remove_dir_all(&temp_dir).unwrap();
     }
 
     #[test]

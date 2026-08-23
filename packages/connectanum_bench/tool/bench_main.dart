@@ -43,6 +43,10 @@ Future<void> _runBenchMain(List<String> args) async {
       help: 'Realm used for control RPCs.',
       defaultsTo: 'bench.control',
     )
+    ..addOption(
+      'wamp-worker',
+      help: 'Optional prebuilt WAMP worker executable.',
+    )
     ..addFlag('verbose', negatable: true, defaultsTo: false)
     ..addFlag('help', abbr: 'h', negatable: false);
 
@@ -82,6 +86,7 @@ Future<void> _runBenchMain(List<String> args) async {
     routerConfigPath: routerConfigPath,
     nativeLibraryPath: nativeLibraryPath,
     controlRealm: controlRealm,
+    workerScriptPath: results['wamp-worker'] as String?,
   );
 
   final sigintSub = ProcessSignal.sigint.watch().listen(
@@ -125,11 +130,13 @@ class _BenchRouterService {
     required this.routerConfigPath,
     required this.nativeLibraryPath,
     required this.controlRealm,
+    this.workerScriptPath,
   });
 
   final String routerConfigPath;
   final String nativeLibraryPath;
   final String controlRealm;
+  final String? workerScriptPath;
 
   final _logger = Logger('BenchRouterService');
   final _shutdownCompleter = Completer<void>();
@@ -200,7 +207,7 @@ class _BenchRouterService {
         wampTargets: wampTargets,
         secureWampTargets: secureWampTargets,
         nativeLibraryPath: nativeLibraryPath,
-        workerScriptPath: _resolveWampWorkerScriptPath(),
+        workerScriptPath: workerScriptPath ?? _resolveWampWorkerScriptPath(),
       );
       await control.initialize();
       _controlRegistry = control;
