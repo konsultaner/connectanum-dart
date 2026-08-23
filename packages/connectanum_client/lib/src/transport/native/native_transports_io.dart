@@ -54,7 +54,7 @@ Uint8List? nativeSingleBinaryArgumentForAnchor(Object? anchor) =>
     nativeIncomingMessageForAnchor(anchor)?.singleBinaryArgumentBytes;
 
 abstract class _NativeTransportBase extends AbstractTransport
-    implements SessionOptimizedTransport {
+    implements SessionOptimizedTransport, DrainableTransport {
   _NativeTransportBase(
     this._serializer,
     this._nativeSerializer, {
@@ -185,6 +185,9 @@ abstract class _NativeTransportBase extends AbstractTransport
     }
     _runtime.sendMessage(connectionId, _encodeMessage(message));
   }
+
+  @override
+  Future<void> drain() => Future<void>.delayed(Duration.zero);
 
   Future<void> _pumpMessages(int connectionId) async {
     _NativeReceiveWorker? worker;

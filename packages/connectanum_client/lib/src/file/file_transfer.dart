@@ -279,6 +279,8 @@ extension WampFileSession on Session {
                 offset: offset,
                 length: length,
               );
+              await call.drain();
+              await rejectEarlyFinalResult();
             }
             offset += length;
           }

@@ -5,7 +5,7 @@ import 'package:connectanum_core/connectanum_core.dart';
 import '../abstract_transport.dart';
 
 class NativeRawSocketTransport extends AbstractTransport
-    implements FileSegmentTransport {
+    implements FileSegmentTransport, DrainableTransport {
   NativeRawSocketTransport(
     String host,
     int port,
@@ -102,9 +102,13 @@ class NativeRawSocketTransport extends AbstractTransport
   void send(AbstractMessage message) {
     throw UnsupportedError('Native transports require dart:io.');
   }
+
+  @override
+  Future<void> drain() => Future<void>.delayed(Duration.zero);
 }
 
-class NativeWebSocketTransport extends AbstractTransport {
+class NativeWebSocketTransport extends AbstractTransport
+    implements DrainableTransport {
   NativeWebSocketTransport(
     String url,
     AbstractSerializer serializer,
@@ -173,4 +177,7 @@ class NativeWebSocketTransport extends AbstractTransport {
   void send(AbstractMessage message) {
     throw UnsupportedError('Native transports require dart:io.');
   }
+
+  @override
+  Future<void> drain() => Future<void>.delayed(Duration.zero);
 }

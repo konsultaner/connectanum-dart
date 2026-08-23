@@ -302,6 +302,19 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   RawSocket gates pass, including Dart JSON at 3.874/3.826 Gbit/s for file
   transfer and 3.489/2.893 Gbit/s for 128 MiB RPC frames. Exact-wire, padding,
   fallback, ownership, full `bin/verify`, and local-review evidence are clean.
+- Native progressive file segments now cooperate with other work on the same
+  WAMP session between nonterminal frames and observe terminal remote errors
+  before reading and enqueuing the remainder of a file. The API retains the
+  existing transport and negotiated serializer; no file-specific transport,
+  serializer switch, second port, or second TLS setup is introduced. Two exact
+  2 GiB native RawSocket/CBOR A/B repeats reach 19.777/15.477 and
+  19.761/15.298 Gbit/s data/lifecycle versus the 19.692/15.257 Gbit/s baseline.
+  The fresh 24 GiB heavy matrix passes all eight policy rows at
+  2.515-20.624/2.441-16.472 Gbit/s, including native clear, concurrent,
+  pipelined, JSON, Dart buffered, and native AES-GCM E2EE paths. Focused tests
+  prove event-queue interleaving before the terminal segment, prompt remote
+  error propagation, deterministic source cleanup, and no redundant cancel;
+  analyzer, local-review, and full exact-tree `bin/verify` evidence are clean.
 
 ## Plan
 
@@ -592,6 +605,11 @@ measured boundary rather than hidden by aggregate-duplex accounting.
   fallback, external-input borrowing, and finalizer-owned output. Repeated
   12 GiB A/B evidence improves lifecycle throughput by about 30%, and both
   checked-in 24/36 GiB heavy gates pass.
+- [x] Add cooperative event-loop pacing between nonterminal native file
+  segments while retaining the same WAMP session, transport, and negotiated
+  serializer. Same-session control calls interleave before file completion,
+  remote terminal errors stop subsequent native segments, and the repeated
+  focused A/B plus complete 24 GiB file policy show no throughput regression.
 - [ ] Optimize remaining measured receive/write/serializer bottlenecks.
 - [x] Complete heavy hosted matrix evidence. The exact-head hosted file and
   large-frame matrices pass all transport and metric gates. Clear native

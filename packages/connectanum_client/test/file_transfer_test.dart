@@ -343,7 +343,104 @@ void main() {
           ]),
         );
         expect(transport.source?.closed, isTrue);
-        expect(transport.drainCount, equals(0));
+        expect(transport.drainCount, equals(2));
+      },
+    );
+
+    test(
+      'setFile stops native segments after a remote error during drain',
+      () async {
+        final transport = _RemoteErrorDrainFileSegmentTransferTransport();
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final source = WampFileSource(
+          name: 'native-error.bin',
+          length: 5,
+          nativePath: '/tmp/native-error.bin',
+          openRead: () =>
+              throw StateError('buffered source must not be opened'),
+        );
+
+        await expectLater(
+          session.setFile('files.set', source, chunkSize: 1),
+          throwsA(same(transport.protocolError)),
+        );
+
+        expect(transport.drainCount, equals(1));
+        expect(
+          transport.segments,
+          equals(const <_SentFileSegment>[
+            _SentFileSegment(offset: 0, length: 1, progress: true),
+          ]),
+        );
+        expect(transport.source?.closed, isTrue);
+        expect(transport.cancels, isEmpty);
+      },
+    );
+
+    test(
+      'setFile lets same-session calls interleave native segments',
+      () async {
+        final transport = _DrainableFileSegmentTransferTransport();
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final source = WampFileSource(
+          name: 'native-interleave.bin',
+          length: 5,
+          nativePath: '/tmp/native-interleave.bin',
+          openRead: () =>
+              throw StateError('buffered source must not be opened'),
+        );
+
+        final transfer = session.setFile('files.set', source, chunkSize: 2);
+        expect(transport.segments, hasLength(1));
+
+        final controlCompleter = Completer<Result>();
+        Timer.run(() {
+          try {
+            final control = session.callSingle('control.ping');
+            final controlCall = transport.calls.last;
+            if (controlCall.procedure != 'control.ping') {
+              throw StateError('Control call was not sent synchronously.');
+            }
+            transport._inbound.add(
+              Result(
+                controlCall.requestId,
+                ResultDetails(progress: false),
+                arguments: const <dynamic>['pong'],
+              ),
+            );
+            control.then(
+              controlCompleter.complete,
+              onError: controlCompleter.completeError,
+            );
+          } catch (error, stackTrace) {
+            controlCompleter.completeError(error, stackTrace);
+          }
+        });
+
+        expect(
+          (await controlCompleter.future).arguments,
+          equals(const <dynamic>['pong']),
+        );
+        await transfer;
+        final procedures = transport.calls
+            .map((call) => call.procedure)
+            .toList(growable: false);
+        expect(
+          procedures.where((procedure) => procedure == 'files.set'),
+          hasLength(4),
+        );
+        expect(procedures.first, equals('files.set'));
+        expect(
+          procedures.indexOf('control.ping'),
+          lessThan(procedures.length - 1),
+        );
+        expect(procedures.last, equals('files.set'));
       },
     );
 
@@ -1035,6 +1132,31 @@ class _DrainableFileSegmentTransferTransport
   @override
   Future<void> drain() async {
     drainCount++;
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+class _RemoteErrorDrainFileSegmentTransferTransport
+    extends _FileSegmentTransferTransport
+    implements DrainableTransport {
+  final Error protocolError = Error(
+    MessageTypes.codeCall,
+    0,
+    const <String, dynamic>{},
+    Error.runtimeError,
+    arguments: const <dynamic>['receiver rejected the file'],
+  );
+  int drainCount = 0;
+
+  @override
+  Future<void> drain() async {
+    drainCount++;
+    if (drainCount != 1) {
+      return;
+    }
+    protocolError.requestId = calls.first.requestId;
+    _inbound.add(protocolError);
+    await Future<void>.delayed(Duration.zero);
   }
 }
 

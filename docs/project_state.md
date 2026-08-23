@@ -8,6 +8,21 @@ multi-gigabit throughput, memory, and correctness evidence across supported
 transport, serializer, security, and runtime variants. The active plan is
 `docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
 
+Native progressive file segments now use the same local cooperative pacing
+contract as buffered segments without changing the caller's WAMP session,
+transport, or negotiated serializer. Each nonterminal 4 MiB segment yields to
+the event queue and checks for an already-received terminal WAMP result, so
+same-session RPC/pub/sub work can run between file frames and a remote error
+stops further filesystem reads promptly; the terminal segment remains a single
+ordered WAMP call completion. Two exact 2 GiB native RawSocket/CBOR repeats
+reach 19.777/15.477 and 19.761/15.298 Gbit/s data/lifecycle throughput versus
+the 19.692/15.257 Gbit/s baseline. The fresh 24 GiB heavy file policy passes
+all eight workloads at 2.515-20.624 Gbit/s over the data window and
+2.441-16.472 Gbit/s including lifecycle, with focused interleaving, early-error,
+cleanup, analyzer, local-review, and full exact-tree `bin/verify` checks clean.
+This pacing provides fairness between WAMP frames; it does not claim
+multiplexing inside a frame on the underlying TCP byte stream.
+
 Large segmented JSON payloads now use an optional native canonical base64
 encoder while preserving the existing Dart encoder for small payloads, older
 native libraries, explicit application accelerators, and native failures. CPU
