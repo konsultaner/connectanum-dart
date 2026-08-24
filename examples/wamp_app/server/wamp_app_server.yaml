@@ -1,0 +1,10 @@
+listen:
+  host: 127.0.0.1
+  port: 8080
+
+websocket_path: /ws
+account_store: data/accounts.json
+
+argon2id13:
+  iterations: 3
+  memory_kib: 65536

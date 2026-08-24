@@ -1,24 +1,38 @@
 # Project State
 
 Last updated: 2026-08-24
-Current branch: `codex/mcp-public-http-auth-discovery`
-Current milestone: publish a synchronized `3.0.0-beta.2` correction whose
-hosted native build hooks work without private source-checkout assumptions. The
-active plan is
-`docs/exec-plans/2026-08-24-3.0.0-beta.2-publish-correction.md`.
+Current branch: `codex/wamp-app`
+Current milestone: continue the standalone WampApp Flutter consumer example
+with per-device identity and encrypted local storage. The completed first
+vertical slice covers real server-address onboarding, anonymous account
+registration, asynchronous Argon2id13 verifier derivation, standardized
+`wamp-scram` authentication, and a responsive authenticated shell. The active
+plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
-`v3.0.0-beta.1` is a public GitHub prerelease with validated signed native
-assets, and its multi-architecture router image passed the hosted MCP smoke.
-All seven Dart packages were first-published to pub.dev at `3.0.0-beta.1` in
-dependency order. A fresh external consumer then reproduced a release blocker:
-the client build hook searched for the monorepo's
-`native/transport/Cargo.toml` instead of selecting the matching hosted native
-artifact. The corrective client and router hooks now preserve explicit native
-overrides and source-checkout Cargo builds, but isolated packages derive
-`v<package-version>` from their own pubspec and download the signed release
-artifact. Focused hosted-hook regressions pass for both packages; synchronized
-`3.0.0-beta.2` promotion, full verification, artifact publication, package
-publication, and a fresh external executable smoke remain.
+WampApp lives under `examples/wamp_app` as standalone client, server, and shared
+protocol packages. The server and Flutter client resolve the public
+`3.0.0-beta.2` packages instead of local workspace paths. Router worker
+isolates reconstruct the file-backed credential provider before authentication;
+an end-to-end consumer test launches the native router, registers through the
+anonymous realm, reconnects through SCRAM, verifies authenticated role and
+profile metadata, and confirms the account file contains verifier material but
+not the plaintext password. Shared, server, and client analyzers and package
+tests pass locally. A real Flutter web browser smoke completed registration and
+SCRAM login with 64 MiB Argon2id13 derivation, no console errors, and clean
+desktop and 390-pixel layouts. Repository-wide `bin/verify` passes.
+The Flutter client also produces a clean release web build, including the
+Dart2Wasm dry-run and packaged icon fonts.
+
+`v3.0.0-beta.2` is published as a public GitHub prerelease with validated signed
+native assets and a multi-architecture router image. All seven synchronized
+Dart packages are indexed on pub.dev. A fresh external pub cache resolves the
+complete hosted graph and executes the packaged router help path without a
+source checkout or native override. Exact-head CI, package dry run, WAMP
+profile benchmarks, native artifact dry run, router image dry run, actual tag
+artifact publication, and the router-hosted MCP image smoke are green. The
+strict deployment audit reports only its intentional dry-run policy conflict
+when the requested dry-run tag already exists as the completed GitHub release;
+the underlying workflows and release evidence pass.
 
 The exact-head hosted WAMP run at `fe562ea1` completed every workload and
 reached the artifact gate, confirming the E2EE correctness fix. Every E2EE
