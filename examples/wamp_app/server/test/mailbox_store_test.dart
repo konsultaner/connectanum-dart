@@ -96,11 +96,16 @@ void main() {
       now: DateTime.utc(2026, 8, 24, 12, 3),
     );
 
-    expect(retry.deliveredAt, delivered.deliveredAt);
-    expect(read.readAt, DateTime.utc(2026, 8, 24, 12, 3));
+    expect(delivered.receipt.cursor, 2);
+    expect(delivered.senderUsername, 'alice');
+    expect(delivered.recipientUsername, 'bob');
+    expect(retry.receipt.cursor, delivered.receipt.cursor);
+    expect(retry.receipt.deliveredAt, delivered.receipt.deliveredAt);
+    expect(read.receipt.cursor, 3);
+    expect(read.receipt.readAt, DateTime.utc(2026, 8, 24, 12, 3));
     final updates = await store.sync('alice', afterCursor: 1);
     expect(updates.messages.map((entry) => entry.cursor), [2, 3]);
-    expect(updates.messages.last.readAt, read.readAt);
+    expect(updates.messages.last.readAt, read.receipt.readAt);
     expect(
       () => store.markReceipt(
         'alice',

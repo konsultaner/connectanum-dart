@@ -119,7 +119,7 @@ class MessageService {
     );
   }
 
-  Future<MessageReceipt> markReceipt(
+  Future<MailboxReceiptUpdate> markReceipt(
     String callerUsername,
     String messageId, {
     required bool read,

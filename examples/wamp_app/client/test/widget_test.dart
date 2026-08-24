@@ -105,6 +105,9 @@ class _FakeGateway implements AccountGateway {
       syncMessagesCallback: (afterCursor, _) async =>
           MailboxBatch(nextCursor: afterCursor, messages: const []),
       markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
+      mailboxWakeups: const Stream<MailboxWakeup>.empty(),
+      latestMailboxWakeupCursorCallback: () => 0,
+      latestMailboxWakeupErrorCallback: () => null,
       closeTransport: () async {},
     );
   }

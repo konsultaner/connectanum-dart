@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -73,7 +74,7 @@ void main() {
   );
 
   test(
-    'two consumers exchange opaque durable messages across reconnect',
+    'participants receive durable wakeups while unrelated users are excluded',
     () async {
       final temporary = await Directory.systemTemp.createTemp(
         'wamp-app-message-consumer-',
@@ -93,10 +94,13 @@ void main() {
       addTearDown(server.close);
       final aliceStorage = _MemoryVaultStorage();
       final bobStorage = _MemoryVaultStorage();
+      final malloryStorage = _MemoryVaultStorage();
       final alice = _controller(aliceStorage, 'Alice phone');
       var bob = _controller(bobStorage, 'Bob phone');
+      final mallory = _controller(malloryStorage, 'Mallory phone');
       addTearDown(alice.dispose);
       addTearDown(() => bob.dispose());
+      addTearDown(mallory.dispose);
 
       await alice.registerAndConnect(
         serverAddress: server.websocketUri.toString(),
@@ -110,6 +114,17 @@ void main() {
         displayName: 'Bob Example',
         password: 'bob secret phrase',
       );
+      await mallory.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'mallory',
+        displayName: 'Mallory Example',
+        password: 'mallory secret phrase',
+      );
+      var unrelatedWakeups = 0;
+      final unrelatedSubscription = mallory.connection!.mailboxWakeups.listen(
+        (_) => unrelatedWakeups += 1,
+      );
+      addTearDown(unrelatedSubscription.cancel);
 
       const plaintext = 'Meet at the encrypted mailbox.';
       await alice.sendMessage(recipientUsername: 'bob', text: plaintext);
@@ -117,11 +132,19 @@ void main() {
       expect(alice.messages.single.text, plaintext);
       expect(alice.messages.single.outgoing, isTrue);
 
-      await bob.refreshMessages();
+      await _waitFor(() => bob.messages.isNotEmpty && !bob.messageBusy);
       expect(bob.messages.single.text, plaintext);
       expect(bob.messages.single.outgoing, isFalse);
-      await alice.refreshMessages();
+      await _waitFor(
+        () =>
+            alice.messages.length == 1 &&
+            alice.messages.single.deliveredAt != null &&
+            !alice.messageBusy,
+      );
       expect(alice.messages.single.deliveredAt, isNotNull);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(unrelatedWakeups, 0);
+      expect(mallory.messages, isEmpty);
 
       final mailboxDocument = await File('${temporary.path}/messages.json')
           .readAsString();
@@ -142,6 +165,16 @@ void main() {
     },
     timeout: const Timeout(Duration(minutes: 3)),
   );
+}
+
+Future<void> _waitFor(bool Function() condition) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 10));
+  while (!condition()) {
+    if (DateTime.now().isAfter(deadline)) {
+      throw TimeoutException('Consumer state was not reached.');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
 }
 
 WampAppController _controller(_MemoryVaultStorage storage, String deviceName) {

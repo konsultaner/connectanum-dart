@@ -254,6 +254,11 @@ class WampAppServer {
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.messageReceipt)
                 ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mailboxChanged)
+                ..setMatchPolicy(PermissionMatchPolicy.exact)
+                ..allowOperations(const ['subscribe', 'unsubscribe']),
             ),
         )
         ..addRoleFromBuilder(
@@ -285,6 +290,11 @@ class WampAppServer {
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.messageReceipt)
                 ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mailboxChanged)
+                ..setMatchPolicy(PermissionMatchPolicy.exact)
+                ..allowOperations(const ['publish']),
             ),
         )
         ..setLimits(
@@ -471,6 +481,10 @@ Future<void> _registerMessageHandlers(
         invocation.argumentsKeywords,
       );
       final receipt = await messages.send(username, message);
+      await _publishMailboxWakeup(session, receipt.cursor, [
+        message.senderUsername,
+        message.recipientUsername,
+      ]);
       invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
     } catch (error) {
       _respondWithMessageError(invocation, error);
@@ -508,16 +522,39 @@ Future<void> _registerMessageHandlers(
           'message_id and a delivered/read state are required.',
         );
       }
-      final receipt = await messages.markReceipt(
+      final update = await messages.markReceipt(
         username,
         messageId,
         read: state == 'read',
       );
-      invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
+      await _publishMailboxWakeup(session, update.receipt.cursor, [
+        update.senderUsername,
+        update.recipientUsername,
+      ]);
+      invocation.respondWith(
+        argumentsKeywords: update.receipt.toWampKeywords(),
+      );
     } catch (error) {
       _respondWithMessageError(invocation, error);
     }
   }, options: options);
+}
+
+Future<void> _publishMailboxWakeup(
+  Session session,
+  int cursor,
+  Iterable<String> usernames,
+) async {
+  final eligibleAuthIds = usernames.toSet().toList(growable: false)..sort();
+  try {
+    await session.publish(
+      WampAppProtocol.mailboxChanged,
+      argumentsKeywords: MailboxWakeup(cursor: cursor).toWampKeywords(),
+      options: PublishOptions(eligibleAuthId: eligibleAuthIds),
+    );
+  } catch (_) {
+    // Durable cursor synchronization remains authoritative after a lost wakeup.
+  }
 }
 
 String _callerUsername(Invocation invocation) {

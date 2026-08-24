@@ -32,6 +32,9 @@ class WampAppController extends ChangeNotifier {
   Object? _messageError;
   List<LocalChatMessage> _messages = const [];
   bool _messageBusy = false;
+  StreamSubscription<MailboxWakeup>? _mailboxWakeupSubscription;
+  int _pendingMailboxWakeupCursor = 0;
+  bool _automaticSyncRunning = false;
   int _operationGeneration = 0;
   bool _disposed = false;
 
@@ -99,23 +102,27 @@ class WampAppController extends ChangeNotifier {
     _operationGeneration += 1;
     final connection = _connection;
     final trustSession = _trustSession;
+    final wakeupSubscription = _mailboxWakeupSubscription;
     _connection = null;
     _trustSession = null;
     _localDevice = null;
+    _mailboxWakeupSubscription = null;
+    _pendingMailboxWakeupCursor = 0;
+    _automaticSyncRunning = false;
     _error = null;
     _messageError = null;
     _messages = const [];
     _messageBusy = false;
     _status = WampAppStatus.signedOut;
     if (!_disposed) notifyListeners();
-    await _closeState(connection, trustSession);
+    await _closeState(connection, trustSession, wakeupSubscription);
   }
 
   Future<void> _run(
     Future<AccountConnection> Function() action, {
     required String password,
   }) async {
-    if (_disposed || isBusy) return;
+    if (_disposed || isBusy || _messageBusy) return;
     final generation = ++_operationGeneration;
     _error = null;
     _messageError = null;
@@ -125,8 +132,29 @@ class WampAppController extends ChangeNotifier {
     DeviceTrustSession? nextTrust;
     DeviceRecord? nextDevice;
     List<LocalChatMessage>? nextMessages;
+    StreamSubscription<MailboxWakeup>? nextWakeupSubscription;
+    var nextPendingWakeupCursor = 0;
+    Object? nextWakeupError;
     try {
       next = await action();
+      nextPendingWakeupCursor = next.latestMailboxWakeupCursor;
+      nextWakeupError = next.latestMailboxWakeupError;
+      nextWakeupSubscription = next.mailboxWakeups.listen(
+        (wakeup) {
+          if (wakeup.cursor > nextPendingWakeupCursor) {
+            nextPendingWakeupCursor = wakeup.cursor;
+          }
+          if (identical(next, _connection)) {
+            _recordMailboxWakeup(wakeup);
+          }
+        },
+        onError: (Object error) {
+          nextWakeupError ??= error;
+          if (identical(next, _connection)) {
+            _recordMailboxWakeupError(error);
+          }
+        },
+      );
       nextTrust = await _trustStore.openOrCreate(
         endpoint: next.endpoint,
         username: next.username,
@@ -144,7 +172,7 @@ class WampAppController extends ChangeNotifier {
       nextMessages = await _synchronize(next, nextTrust, nextDevice);
     } catch (error) {
       try {
-        await _closeState(next, nextTrust);
+        await _closeState(next, nextTrust, nextWakeupSubscription);
       } catch (_) {
         // Preserve the connection or trust failure that triggered cleanup.
       }
@@ -158,20 +186,26 @@ class WampAppController extends ChangeNotifier {
     }
 
     if (generation != _operationGeneration || _disposed) {
-      await _closeState(next, nextTrust);
+      await _closeState(next, nextTrust, nextWakeupSubscription);
       return;
     }
 
     final previous = _connection;
     final previousTrust = _trustSession;
+    final previousWakeupSubscription = _mailboxWakeupSubscription;
     _connection = next;
     _trustSession = nextTrust;
     _localDevice = nextDevice;
+    _mailboxWakeupSubscription = nextWakeupSubscription;
+    _pendingMailboxWakeupCursor = nextPendingWakeupCursor;
+    _automaticSyncRunning = false;
     _messages = List<LocalChatMessage>.unmodifiable(nextMessages);
+    _messageError = nextWakeupError;
     _status = WampAppStatus.connected;
     notifyListeners();
+    _startAutomaticSyncIfNeeded();
     try {
-      await _closeState(previous, previousTrust);
+      await _closeState(previous, previousTrust, previousWakeupSubscription);
     } catch (_) {
       // The replacement connection remains valid even if stale cleanup fails.
     }
@@ -192,6 +226,7 @@ class WampAppController extends ChangeNotifier {
       return;
     }
     final generation = _operationGeneration;
+    var synchronized = false;
     _messageBusy = true;
     _messageError = null;
     notifyListeners();
@@ -223,6 +258,7 @@ class WampAppController extends ChangeNotifier {
         return;
       }
       _messages = List<LocalChatMessage>.unmodifiable(updated);
+      synchronized = true;
     } catch (error) {
       if (!_disposed &&
           generation == _operationGeneration &&
@@ -235,6 +271,7 @@ class WampAppController extends ChangeNotifier {
           connection == _connection) {
         _messageBusy = false;
         notifyListeners();
+        if (synchronized) _startAutomaticSyncIfNeeded();
       }
     }
   }
@@ -251,6 +288,7 @@ class WampAppController extends ChangeNotifier {
       return;
     }
     final generation = _operationGeneration;
+    var synchronized = false;
     _messageBusy = true;
     _messageError = null;
     notifyListeners();
@@ -263,6 +301,7 @@ class WampAppController extends ChangeNotifier {
         return;
       }
       _messages = List<LocalChatMessage>.unmodifiable(updated);
+      synchronized = true;
     } catch (error) {
       if (!_disposed && generation == _operationGeneration) {
         _messageError = error;
@@ -270,6 +309,86 @@ class WampAppController extends ChangeNotifier {
     } finally {
       if (!_disposed && generation == _operationGeneration) {
         _messageBusy = false;
+        notifyListeners();
+        if (synchronized) _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  void _recordMailboxWakeup(MailboxWakeup wakeup) {
+    if (_disposed || wakeup.cursor <= 0) return;
+    if (wakeup.cursor > _pendingMailboxWakeupCursor) {
+      _pendingMailboxWakeupCursor = wakeup.cursor;
+    }
+    _startAutomaticSyncIfNeeded();
+  }
+
+  void _recordMailboxWakeupError(Object error) {
+    if (_disposed || _connection == null) return;
+    _messageError = error;
+    notifyListeners();
+  }
+
+  void _startAutomaticSyncIfNeeded() {
+    final connection = _connection;
+    final trust = _trustSession;
+    final localDevice = _localDevice;
+    if (_disposed ||
+        _automaticSyncRunning ||
+        _messageBusy ||
+        connection == null ||
+        trust == null ||
+        localDevice == null ||
+        trust.mailboxCursor >= _pendingMailboxWakeupCursor) {
+      return;
+    }
+    final generation = _operationGeneration;
+    _automaticSyncRunning = true;
+    unawaited(_drainAutomaticSync(connection, trust, localDevice, generation));
+  }
+
+  Future<void> _drainAutomaticSync(
+    AccountConnection connection,
+    DeviceTrustSession trust,
+    DeviceRecord localDevice,
+    int generation,
+  ) async {
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      while (!_disposed &&
+          generation == _operationGeneration &&
+          identical(connection, _connection) &&
+          identical(trust, _trustSession) &&
+          trust.mailboxCursor < _pendingMailboxWakeupCursor) {
+        final targetCursor = _pendingMailboxWakeupCursor;
+        final updated = await _synchronize(connection, trust, localDevice);
+        if (_disposed ||
+            generation != _operationGeneration ||
+            !identical(connection, _connection) ||
+            !identical(trust, _trustSession)) {
+          return;
+        }
+        _messages = List<LocalChatMessage>.unmodifiable(updated);
+        if (trust.mailboxCursor < targetCursor) {
+          throw const FormatException(
+            'Mailbox synchronization did not reach its wakeup cursor.',
+          );
+        }
+      }
+    } catch (error) {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          identical(connection, _connection)) {
+        _messageError = error;
+      }
+    } finally {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          identical(connection, _connection)) {
+        _messageBusy = false;
+        _automaticSyncRunning = false;
         notifyListeners();
       }
     }
@@ -350,20 +469,37 @@ class WampAppController extends ChangeNotifier {
     _operationGeneration += 1;
     final connection = _connection;
     final trustSession = _trustSession;
+    final wakeupSubscription = _mailboxWakeupSubscription;
     _connection = null;
     _trustSession = null;
     _localDevice = null;
-    unawaited(_closeState(connection, trustSession).catchError((_) {}));
+    _mailboxWakeupSubscription = null;
+    _pendingMailboxWakeupCursor = 0;
+    _automaticSyncRunning = false;
+    unawaited(
+      _closeState(
+        connection,
+        trustSession,
+        wakeupSubscription,
+      ).catchError((_) {}),
+    );
     super.dispose();
   }
 }
 
 Future<void> _closeState(
   AccountConnection? connection,
-  DeviceTrustSession? trustSession,
-) async {
+  DeviceTrustSession? trustSession, [
+  StreamSubscription<MailboxWakeup>? wakeupSubscription,
+]) async {
   Object? failure;
   StackTrace? failureStack;
+  try {
+    await wakeupSubscription?.cancel();
+  } catch (error, stackTrace) {
+    failure = error;
+    failureStack = stackTrace;
+  }
   try {
     await connection?.close();
   } catch (error, stackTrace) {

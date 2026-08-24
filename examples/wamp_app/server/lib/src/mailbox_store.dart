@@ -12,6 +12,18 @@ final class MailboxAppendResult {
   final bool duplicate;
 }
 
+final class MailboxReceiptUpdate {
+  const MailboxReceiptUpdate({
+    required this.receipt,
+    required this.senderUsername,
+    required this.recipientUsername,
+  });
+
+  final MessageReceipt receipt;
+  final String senderUsername;
+  final String recipientUsername;
+}
+
 final class MessageConflict implements Exception {
   const MessageConflict(this.messageId);
 
@@ -117,7 +129,7 @@ class MailboxStore {
     return MailboxBatch(nextCursor: nextCursor, messages: messages);
   }
 
-  Future<MessageReceipt> markReceipt(
+  Future<MailboxReceiptUpdate> markReceipt(
     String username,
     String messageId, {
     required bool read,
@@ -135,10 +147,15 @@ class MailboxStore {
       final needsUpdate =
           existing.deliveredAt == null || (read && existing.readAt == null);
       if (!needsUpdate) {
-        return MessageReceipt(
-          messageId: messageId,
-          deliveredAt: existing.deliveredAt,
-          readAt: existing.readAt,
+        return MailboxReceiptUpdate(
+          receipt: MessageReceipt(
+            messageId: messageId,
+            cursor: existing.cursor,
+            deliveredAt: existing.deliveredAt,
+            readAt: existing.readAt,
+          ),
+          senderUsername: existing.message.senderUsername,
+          recipientUsername: existing.message.recipientUsername,
         );
       }
       final timestamp = (now ?? DateTime.now()).toUtc();
@@ -155,10 +172,15 @@ class MailboxStore {
           messages: [...document.messages, updated],
         ),
       );
-      return MessageReceipt(
-        messageId: messageId,
-        deliveredAt: updated.deliveredAt,
-        readAt: updated.readAt,
+      return MailboxReceiptUpdate(
+        receipt: MessageReceipt(
+          messageId: messageId,
+          cursor: updated.cursor,
+          deliveredAt: updated.deliveredAt,
+          readAt: updated.readAt,
+        ),
+        senderUsername: updated.message.senderUsername,
+        recipientUsername: updated.message.recipientUsername,
       );
     });
   }

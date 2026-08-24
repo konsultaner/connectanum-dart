@@ -9,8 +9,9 @@ account registration, asynchronous Argon2id13 verifier derivation,
 standardized `wamp-scram` authentication, encrypted per-device identity
 storage, authenticated device enrollment/revocation, safety numbers, signed
 conversation-key wrapping, opaque server mailboxes, reconnect cursors, and
-encrypted one-to-one messages. Groups, explicit read and one-time-consumption
-semantics, retry/conflict UX, and push-driven synchronization remain open.
+encrypted one-to-one messages with authenticated push-driven synchronization.
+Groups, explicit read and one-time-consumption semantics, and retry/conflict UX
+remain open.
 The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
 WampApp lives under `examples/wamp_app` as standalone client, server, and shared
@@ -57,8 +58,26 @@ deduplication, decryption, delivery acknowledgement, and sender receipt sync
 without plaintext in server storage. One-time messages fail closed until true
 consumption semantics land. `bin/test-wamp-app` and repository `bin/verify`
 pass on 2026-08-24; the focused suites cover 14 shared, 21 server, and 19
-Flutter tests plus a release web build. Exact-head hosted evidence is pending
-for this implementation revision.
+Flutter tests plus a release web build. Commit `33ce907b` is pushed to GitLab
+and GitHub. Exact-head CI run `32767562794` passed Fast Checks, WampApp
+Consumer, Full Verify, and Dart VM Coverage; the strict deployment audit passed
+checked-out-head job cleanliness and hosted-log scanning with no warning,
+deprecation, skip, reset, or connection-noise findings.
+
+Push-driven mailbox synchronization is complete locally. The application
+service publishes cursor-only WAMP events after durable sends and receipt
+updates, with `eligible_authid` restricted to the sender and recipient. Clients
+subscribe before their initial mailbox snapshot, retain wakeups that arrive
+during trust initialization, coalesce concurrent cursors into serialized
+durable RPC synchronization, and fence stale responses across sign-out and
+connection replacement. Malformed wakeups fail closed as synchronization
+errors, notification loss falls back to reconnect/manual cursor sync, and no
+message identifiers, participants, ciphertext, or plaintext enter the event
+payload. A three-account native-router test proves automatic recipient delivery
+and sender receipt updates while an unrelated authenticated account receives no
+wakeup. `bin/test-wamp-app` and repository `bin/verify` pass on 2026-08-24; the
+focused suites cover 16 shared, 21 server, and 23 Flutter tests plus a release
+web build. Exact-head hosted evidence is pending for this implementation.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

@@ -74,6 +74,29 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('mailbox wakeups and receipts preserve their exact cursor', () {
+    final wakeup = MailboxWakeup(cursor: 42);
+    expect(MailboxWakeup.fromWampKeywords(wakeup.toWampKeywords()).cursor, 42);
+    final receipt = MessageReceipt(
+      messageId: _token(16, 8),
+      cursor: 43,
+      deliveredAt: DateTime.utc(2026, 8, 24, 12),
+    );
+    expect(
+      MessageReceipt.fromWampKeywords(receipt.toWampKeywords()).cursor,
+      43,
+    );
+  });
+
+  test('mailbox wakeups reject missing, non-integer, and invalid cursors', () {
+    for (final value in <Object?>[null, '1', 0, -1]) {
+      expect(
+        () => MailboxWakeup.fromWampKeywords({'cursor': value}),
+        throwsFormatException,
+      );
+    }
+  });
 }
 
 EncryptedChatMessage _message() {

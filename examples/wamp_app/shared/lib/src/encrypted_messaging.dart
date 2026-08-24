@@ -339,14 +339,33 @@ final class MessageSendReceipt {
   }
 }
 
+final class MailboxWakeup {
+  MailboxWakeup({required this.cursor}) {
+    if (cursor < 1) throw const FormatException('Mailbox cursor is invalid.');
+  }
+
+  final int cursor;
+
+  Map<String, dynamic> toWampKeywords() => {'cursor': cursor};
+
+  factory MailboxWakeup.fromWampKeywords(Map<String, dynamic>? value) {
+    if (value == null) {
+      throw const FormatException('Mailbox wakeup is required.');
+    }
+    return MailboxWakeup(cursor: _readInt(value['cursor'], 'cursor', min: 1));
+  }
+}
+
 final class MessageReceipt {
   MessageReceipt({
     required this.messageId,
+    required this.cursor,
     DateTime? deliveredAt,
     DateTime? readAt,
   }) : deliveredAt = deliveredAt?.toUtc(),
        readAt = readAt?.toUtc() {
     _validateToken(messageId, 'message_id', maxLength: 128);
+    if (cursor < 1) throw const FormatException('Message cursor is invalid.');
     if (readAt != null && deliveredAt == null) {
       throw const FormatException('Read receipt requires delivery.');
     }
@@ -356,11 +375,13 @@ final class MessageReceipt {
   }
 
   final String messageId;
+  final int cursor;
   final DateTime? deliveredAt;
   final DateTime? readAt;
 
   Map<String, dynamic> toWampKeywords() => {
     'message_id': messageId,
+    'cursor': cursor,
     if (deliveredAt case final value?) 'delivered_at': value.toIso8601String(),
     if (readAt case final value?) 'read_at': value.toIso8601String(),
   };
@@ -371,6 +392,7 @@ final class MessageReceipt {
     }
     return MessageReceipt(
       messageId: _readString(value['message_id'], 'message_id'),
+      cursor: _readInt(value['cursor'], 'cursor', min: 1),
       deliveredAt: _readOptionalUtcDate(value['delivered_at'], 'delivered_at'),
       readAt: _readOptionalUtcDate(value['read_at'], 'read_at'),
     );

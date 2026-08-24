@@ -11,6 +11,7 @@ abstract final class WampAppProtocol {
   static const messageSend = 'com.wampapp.message.send';
   static const messageSync = 'com.wampapp.message.sync';
   static const messageReceipt = 'com.wampapp.message.receipt';
+  static const mailboxChanged = 'com.wampapp.mailbox.changed';
 
   static const errorInvalidRegistration =
       'com.wampapp.error.invalid_registration';

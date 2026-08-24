@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectanum_client/connectanum.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
@@ -27,6 +29,9 @@ class AccountConnection {
     required this.sendMessageCallback,
     required this.syncMessagesCallback,
     required this.markMessageReceiptCallback,
+    required this.mailboxWakeups,
+    required this.latestMailboxWakeupCursorCallback,
+    required this.latestMailboxWakeupErrorCallback,
   });
 
   final ServerEndpoint endpoint;
@@ -46,7 +51,13 @@ class AccountConnection {
   syncMessagesCallback;
   final Future<MessageReceipt> Function(String messageId, bool read)
   markMessageReceiptCallback;
+  final Stream<MailboxWakeup> mailboxWakeups;
+  final int Function() latestMailboxWakeupCursorCallback;
+  final Object? Function() latestMailboxWakeupErrorCallback;
   bool _closed = false;
+
+  int get latestMailboxWakeupCursor => latestMailboxWakeupCursorCallback();
+  Object? get latestMailboxWakeupError => latestMailboxWakeupErrorCallback();
 
   Future<DeviceRecord> enrollDevice(DeviceEnrollment enrollment) {
     _ensureOpen();
@@ -161,8 +172,15 @@ class WampAccountGateway implements AccountGateway {
       authId: normalizedUsername,
       authenticationMethods: [authentication],
     );
+    final wakeups = _MailboxWakeupFeed();
     try {
       final session = await _connect(client);
+      await session
+          .subscribePayloadHandler(
+            WampAppProtocol.mailboxChanged,
+            wakeups.addEvent,
+          )
+          .timeout(connectionTimeout);
       final displayName = session.authExtra?['display_name'];
       return AccountConnection(
         endpoint: endpoint,
@@ -240,8 +258,12 @@ class WampAccountGateway implements AccountGateway {
               .timeout(connectionTimeout);
           return MessageReceipt.fromWampKeywords(result.argumentsKeywords);
         },
+        mailboxWakeups: wakeups.stream,
+        latestMailboxWakeupCursorCallback: () => wakeups.latestCursor,
+        latestMailboxWakeupErrorCallback: () => wakeups.latestError,
         closeTransport: () async {
           try {
+            await wakeups.close();
             await _close(client, session);
           } finally {
             await authentication.dispose();
@@ -250,6 +272,7 @@ class WampAccountGateway implements AccountGateway {
       );
     } catch (_) {
       try {
+        await wakeups.close();
         await client.disconnect();
       } finally {
         await authentication.dispose();
@@ -275,5 +298,36 @@ class WampAccountGateway implements AccountGateway {
       await session.close(timeout: Duration.zero);
     }
     await client.disconnect();
+  }
+}
+
+final class _MailboxWakeupFeed {
+  final StreamController<MailboxWakeup> _controller =
+      StreamController<MailboxWakeup>.broadcast(sync: true);
+  int _latestCursor = 0;
+  Object? _latestError;
+  bool _closed = false;
+
+  Stream<MailboxWakeup> get stream => _controller.stream;
+  int get latestCursor => _latestCursor;
+  Object? get latestError => _latestError;
+
+  void addEvent(EventPayload event) {
+    if (_closed) return;
+    try {
+      final wakeup = MailboxWakeup.fromWampKeywords(event.argumentsKeywords);
+      if (wakeup.cursor <= _latestCursor) return;
+      _latestCursor = wakeup.cursor;
+      _controller.add(wakeup);
+    } catch (error, stackTrace) {
+      _latestError = error;
+      _controller.addError(error, stackTrace);
+    }
+  }
+
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    await _controller.close();
   }
 }
