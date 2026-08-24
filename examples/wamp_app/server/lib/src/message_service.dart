@@ -52,25 +52,26 @@ class MessageService {
       throw const FormatException('Message expiry is outside the limit.');
     }
 
-    final deviceSnapshot = await accounts.listActiveDeviceSnapshot([
-      message.senderUsername,
-      message.recipientUsername,
-    ]);
+    final deviceSnapshot = await accounts.listActiveDeviceSnapshot(
+      message.participantUsernames,
+    );
     final senderDevices = deviceSnapshot[message.senderUsername]!;
-    final recipientDevices = deviceSnapshot[message.recipientUsername]!;
     final sender = senderDevices
         .where((device) => device.deviceId == message.senderDeviceId)
         .firstOrNull;
     if (sender == null) {
       throw StateError('The sending device is not active.');
     }
-    if (recipientDevices.isEmpty) {
-      throw StateError('The recipient has no active device.');
+    for (final username in message.recipientUsernames) {
+      if (deviceSnapshot[username]!.isEmpty) {
+        throw StateError('A message recipient has no active device.');
+      }
     }
 
     final activeDevices = <String, DeviceRecord>{
-      for (final device in [...senderDevices, ...recipientDevices])
-        '${device.username}\n${device.deviceId}': device,
+      for (final devices in deviceSnapshot.values)
+        for (final device in devices)
+          '${device.username}\n${device.deviceId}': device,
     };
     final wrappedRecipients = <String>{};
     for (final envelope in message.wrappedKeys) {

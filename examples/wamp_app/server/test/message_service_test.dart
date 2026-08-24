@@ -13,6 +13,8 @@ void main() {
   late MessageService service;
   late _TestDevice alice;
   late _TestDevice bob;
+  late _TestDevice carol;
+  late _TestDevice mallory;
 
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('wamp-message-service-');
@@ -22,8 +24,12 @@ void main() {
     await mailbox.initialize();
     await accounts.create(_account('alice'));
     await accounts.create(_account('bob'));
+    await accounts.create(_account('carol'));
+    await accounts.create(_account('mallory'));
     alice = await _enroll(accounts, 'alice', 1);
     bob = await _enroll(accounts, 'bob', 2);
+    carol = await _enroll(accounts, 'carol', 3);
+    mallory = await _enroll(accounts, 'mallory', 4);
     service = MessageService(accounts: accounts, mailbox: mailbox);
   });
 
@@ -69,7 +75,7 @@ void main() {
         conversationId: valid.conversationId,
         senderUsername: valid.senderUsername,
         senderDeviceId: valid.senderDeviceId,
-        recipientUsername: valid.recipientUsername,
+        recipientUsername: valid.recipientUsername!,
         createdAt: valid.createdAt,
         encryptedPayload: valid.encryptedPayload,
         wrappedKeys: [valid.wrappedKeys.first],
@@ -99,7 +105,7 @@ void main() {
         conversationId: valid.conversationId,
         senderUsername: valid.senderUsername,
         senderDeviceId: valid.senderDeviceId,
-        recipientUsername: valid.recipientUsername,
+        recipientUsername: valid.recipientUsername!,
         createdAt: valid.createdAt,
         encryptedPayload: valid.encryptedPayload,
         wrappedKeys: [valid.wrappedKeys.first, badSignature],
@@ -184,6 +190,95 @@ void main() {
       expect(historical.devices.single.isRevoked, isTrue);
     },
   );
+
+  test(
+    'group send is one atomic record visible only to participants',
+    () async {
+      final message = _groupMessage(alice, [alice, bob, carol]);
+
+      final sent = await service.send(
+        'alice',
+        message,
+        now: DateTime.utc(2026, 8, 24, 12),
+      );
+      final retry = await service.send(
+        'alice',
+        message,
+        now: DateTime.utc(2026, 8, 24, 12, 1),
+      );
+
+      expect(sent.duplicate, isFalse);
+      expect(retry.duplicate, isTrue);
+      for (final username in ['alice', 'bob', 'carol']) {
+        final batch = await service.sync(username, afterCursor: 0);
+        expect(batch.messages, hasLength(1));
+        expect(batch.messages.single.message.messageId, message.messageId);
+      }
+      expect((await service.sync('mallory', afterCursor: 0)).messages, isEmpty);
+    },
+  );
+
+  test(
+    'group send requires every active device of every participant',
+    () async {
+      await _enroll(accounts, 'bob', 5);
+      final missingSecondBobDevice = _groupMessage(alice, [alice, bob, carol]);
+
+      expect(
+        () => service.send(
+          'alice',
+          missingSecondBobDevice,
+          now: DateTime.utc(2026, 8, 24, 12),
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
+  test(
+    'group recipients update only their own durable receipt state',
+    () async {
+      final message = _groupMessage(alice, [alice, bob, carol]);
+      await service.send('alice', message, now: DateTime.utc(2026, 8, 24, 12));
+
+      await Future.wait([
+        service.markReceipt(
+          'bob',
+          message.messageId,
+          read: false,
+          now: DateTime.utc(2026, 8, 24, 12, 1),
+        ),
+        service.markReceipt(
+          'carol',
+          message.messageId,
+          read: true,
+          now: DateTime.utc(2026, 8, 24, 12, 2),
+        ),
+      ]);
+
+      final latest = (await service.sync(
+        'alice',
+        afterCursor: 0,
+      )).messages.last;
+      expect(latest.recipientStateFor('bob')?.deliveredAt, isNotNull);
+      expect(latest.recipientStateFor('bob')?.readAt, isNull);
+      expect(latest.recipientStateFor('carol')?.readAt, isNotNull);
+      expect(latest.deliveredAtFor('alice'), DateTime.utc(2026, 8, 24, 12, 2));
+      expect(latest.readAtFor('alice'), isNull);
+      expect(
+        () => service.markReceipt('alice', message.messageId, read: true),
+        throwsStateError,
+      );
+      expect(
+        () => service.markReceipt(
+          mallory.record.username,
+          message.messageId,
+          read: true,
+        ),
+        throwsStateError,
+      );
+    },
+  );
 }
 
 OneTimeMessageConsumption _consumption(
@@ -225,6 +320,29 @@ EncryptedChatMessage _message(
     wrappedKeys: [
       _wrapped(sender, sender.record, conversationId, createdAt),
       _wrapped(sender, recipient.record, conversationId, createdAt),
+    ],
+  );
+}
+
+EncryptedChatMessage _groupMessage(
+  _TestDevice sender,
+  List<_TestDevice> participants,
+) {
+  final conversationId = _token(32, 80);
+  final createdAt = DateTime.utc(2026, 8, 24, 12);
+  return EncryptedChatMessage.group(
+    messageId: _token(16, 81),
+    conversationId: conversationId,
+    senderUsername: sender.record.username,
+    senderDeviceId: sender.record.deviceId,
+    participantUsernames: participants
+        .map((device) => device.record.username)
+        .toList(growable: false),
+    createdAt: createdAt,
+    encryptedPayload: Uint8List.fromList(List<int>.filled(64, 82)),
+    wrappedKeys: [
+      for (final participant in participants)
+        _wrapped(sender, participant.record, conversationId, createdAt),
     ],
   );
 }

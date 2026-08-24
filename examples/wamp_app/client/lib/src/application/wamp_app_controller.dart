@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
+import '../domain/local_chat_group.dart';
 import '../domain/local_chat_message.dart';
 import '../infrastructure/device_vault.dart';
 import '../infrastructure/message_cipher.dart';
@@ -44,6 +45,7 @@ class WampAppController extends ChangeNotifier {
   DeviceRecord? get localDevice => _localDevice;
   String? get safetyNumber => _trustSession?.safetyNumber;
   List<LocalChatMessage> get messages => _messages;
+  List<LocalChatGroup> get groups => _trustSession?.groups ?? const [];
   bool get messageBusy => _messageBusy;
   String? get messageError => switch (_messageError) {
     FormatException(:final message) => message,
@@ -257,6 +259,163 @@ class WampAppController extends ChangeNotifier {
         now: now,
         expiresAt: expiresAfter == null ? null : now.add(expiresAfter),
         oneTime: oneTime,
+      );
+      await connection.sendMessage(message);
+      final updated = await _synchronize(connection, trust, localDevice);
+      if (_disposed ||
+          generation != _operationGeneration ||
+          connection != _connection ||
+          trust != _trustSession) {
+        return;
+      }
+      _messages = List<LocalChatMessage>.unmodifiable(updated);
+      synchronized = true;
+    } catch (error) {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          connection == _connection) {
+        _messageError = error;
+      }
+    } finally {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          connection == _connection) {
+        _messageBusy = false;
+        notifyListeners();
+        if (synchronized) _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  Future<LocalChatGroup?> createGroup({
+    required String title,
+    required Iterable<String> memberUsernames,
+  }) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    if (_disposed || _messageBusy || connection == null || trust == null) {
+      return null;
+    }
+    final generation = _operationGeneration;
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      final members = <String>{
+        connection.username,
+        ...memberUsernames.map(AccountRegistration.normalizeUsername),
+      }.toList(growable: false)..sort();
+      if (members.length < 2) {
+        throw const FormatException('A group needs at least two members.');
+      }
+      if (trust.groups.length >= LocalChatGroup.maxGroups) {
+        throw const FormatException('The local group limit has been reached.');
+      }
+      for (final username in members) {
+        final directory = username == connection.username
+            ? await connection.listDevices()
+            : await connection.lookupDevices(username);
+        if (directory.devices.isEmpty) {
+          throw FormatException('@$username has no active device.');
+        }
+      }
+      if (_disposed ||
+          generation != _operationGeneration ||
+          connection != _connection ||
+          trust != _trustSession) {
+        return null;
+      }
+      final group = LocalChatGroup(
+        conversationId: _messageCipher.newGroupConversationId(),
+        title: title,
+        memberUsernames: members,
+        createdBy: connection.username,
+        createdAt: DateTime.now().toUtc(),
+      );
+      await trust.saveMailboxState(
+        cursor: trust.mailboxCursor,
+        messages: trust.messages,
+        groups: [...trust.groups, group],
+      );
+      if (_disposed ||
+          generation != _operationGeneration ||
+          connection != _connection ||
+          trust != _trustSession) {
+        return null;
+      }
+      return group;
+    } catch (error) {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          connection == _connection) {
+        _messageError = error;
+      }
+      return null;
+    } finally {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          connection == _connection) {
+        _messageBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> sendGroupMessage({
+    required String groupId,
+    required String text,
+    Duration? expiresAfter,
+  }) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    final localDevice = _localDevice;
+    final group = trust?.groups
+        .where((candidate) => candidate.conversationId == groupId)
+        .firstOrNull;
+    if (_disposed ||
+        _messageBusy ||
+        connection == null ||
+        trust == null ||
+        localDevice == null ||
+        group == null) {
+      return;
+    }
+    final generation = _operationGeneration;
+    var synchronized = false;
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      final participants = <String, DeviceRecord>{};
+      for (final username in group.memberUsernames) {
+        final directory = username == connection.username
+            ? await connection.listDevices()
+            : await connection.lookupDevices(username);
+        if (directory.devices.isEmpty) {
+          throw FormatException('@$username has no active device.');
+        }
+        for (final device in directory.devices) {
+          participants['${device.username}\n${device.deviceId}'] = device;
+        }
+      }
+      if (expiresAfter != null && expiresAfter <= Duration.zero) {
+        throw const FormatException('Message expiry must be positive.');
+      }
+      if (_disposed ||
+          generation != _operationGeneration ||
+          connection != _connection ||
+          trust != _trustSession) {
+        return;
+      }
+      final now = DateTime.now().toUtc();
+      final message = _messageCipher.encryptGroup(
+        senderUsername: connection.username,
+        group: group,
+        text: text,
+        trust: trust,
+        participantDevices: participants.values.toList(growable: false),
+        now: now,
+        expiresAt: expiresAfter == null ? null : now.add(expiresAfter),
       );
       await connection.sendMessage(message);
       final updated = await _synchronize(connection, trust, localDevice);
@@ -519,6 +678,9 @@ class WampAppController extends ChangeNotifier {
     final byId = <String, LocalChatMessage>{
       for (final message in trust.messages) message.messageId: message,
     };
+    final groupsById = <String, LocalChatGroup>{
+      for (final group in trust.groups) group.conversationId: group,
+    };
     for (var page = 0; page < 20; page += 1) {
       final batch = await connection.syncMessages(afterCursor: cursor);
       if (batch.nextCursor < cursor) {
@@ -526,9 +688,11 @@ class WampAppController extends ChangeNotifier {
       }
       for (final stored in batch.messages) {
         final encrypted = stored.message;
-        if (encrypted.oneTime &&
+        final recipientState = stored.recipientStateFor(connection.username);
+        if (!encrypted.isGroup &&
+            encrypted.oneTime &&
             encrypted.recipientUsername == connection.username &&
-            stored.consumedAt != null) {
+            recipientState?.consumedAt != null) {
           byId.remove(encrypted.messageId);
           continue;
         }
@@ -554,12 +718,22 @@ class WampAppController extends ChangeNotifier {
             sender: sender,
           );
         }
+        if (encrypted.isGroup != local.isGroup) {
+          throw const FormatException('Local conversation metadata conflicts.');
+        }
+        if (local.group case final group?) {
+          final known = groupsById[group.conversationId];
+          if (known != null && !known.hasSameDefinition(group)) {
+            throw const FormatException('Group metadata conflicts.');
+          }
+          groupsById[group.conversationId] = group;
+        }
         byId[encrypted.messageId] = local.withReceipts(
-          deliveredAt: stored.deliveredAt,
-          readAt: stored.readAt,
+          deliveredAt: stored.deliveredAtFor(connection.username),
+          readAt: stored.readAtFor(connection.username),
         );
-        if (encrypted.recipientUsername == connection.username &&
-            stored.deliveredAt == null) {
+        if (encrypted.recipientUsernames.contains(connection.username) &&
+            recipientState?.deliveredAt == null) {
           await connection.markMessageDelivered(encrypted.messageId);
         }
       }
@@ -581,7 +755,18 @@ class WampAppController extends ChangeNotifier {
             final sent = left.sentAt.compareTo(right.sentAt);
             return sent != 0 ? sent : left.messageId.compareTo(right.messageId);
           });
-    await trust.saveMailboxState(cursor: cursor, messages: updated);
+    final groups = groupsById.values.toList(growable: false)
+      ..sort((left, right) {
+        final created = left.createdAt.compareTo(right.createdAt);
+        return created != 0
+            ? created
+            : left.conversationId.compareTo(right.conversationId);
+      });
+    await trust.saveMailboxState(
+      cursor: cursor,
+      messages: updated,
+      groups: groups,
+    );
     return updated;
   }
 

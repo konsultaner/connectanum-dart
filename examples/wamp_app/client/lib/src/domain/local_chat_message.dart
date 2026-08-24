@@ -1,3 +1,5 @@
+import 'local_chat_group.dart';
+
 final class LocalChatMessage {
   LocalChatMessage({
     required this.messageId,
@@ -10,11 +12,25 @@ final class LocalChatMessage {
     DateTime? expiresAt,
     DateTime? deliveredAt,
     DateTime? readAt,
+    String? groupTitle,
+    Iterable<String> participantUsernames = const [],
+    String? groupCreatedBy,
+    DateTime? groupCreatedAt,
   }) : peerUsername = peerUsername.trim().toLowerCase(),
        sentAt = sentAt.toUtc(),
        expiresAt = expiresAt?.toUtc(),
        deliveredAt = deliveredAt?.toUtc(),
-       readAt = readAt?.toUtc() {
+       readAt = readAt?.toUtc(),
+       groupTitle = groupTitle?.trim(),
+       participantUsernames = List<String>.unmodifiable(
+         (participantUsernames
+               .map((value) => value.trim().toLowerCase())
+               .toSet()
+               .toList(growable: false))
+           ..sort(),
+       ),
+       groupCreatedBy = groupCreatedBy?.trim().toLowerCase(),
+       groupCreatedAt = groupCreatedAt?.toUtc() {
     validate();
   }
 
@@ -28,6 +44,22 @@ final class LocalChatMessage {
   final DateTime? expiresAt;
   final DateTime? deliveredAt;
   final DateTime? readAt;
+  final String? groupTitle;
+  final List<String> participantUsernames;
+  final String? groupCreatedBy;
+  final DateTime? groupCreatedAt;
+
+  bool get isGroup => groupTitle != null;
+
+  LocalChatGroup? get group => !isGroup
+      ? null
+      : LocalChatGroup(
+          conversationId: conversationId,
+          title: groupTitle!,
+          memberUsernames: participantUsernames,
+          createdBy: groupCreatedBy!,
+          createdAt: groupCreatedAt!,
+        );
 
   bool isExpiredAt(DateTime now) =>
       expiresAt != null && !expiresAt!.isAfter(now.toUtc());
@@ -42,6 +74,26 @@ final class LocalChatMessage {
         text.trim().isEmpty ||
         text.length > 65536) {
       throw const FormatException('Local chat message is invalid.');
+    }
+    final groupFields = [
+      groupTitle,
+      groupCreatedBy,
+      groupCreatedAt,
+    ].where((value) => value != null).length;
+    if (groupFields != 0 && groupFields != 3) {
+      throw const FormatException(
+        'Local group message metadata is incomplete.',
+      );
+    }
+    if (isGroup) {
+      if (oneTime) {
+        throw const FormatException('Group messages cannot be view-once.');
+      }
+      group!.validate();
+    } else if (participantUsernames.isNotEmpty) {
+      throw const FormatException(
+        'Direct messages cannot contain group participants.',
+      );
     }
     if (expiresAt != null && !expiresAt!.isAfter(sentAt)) {
       throw const FormatException('Local message expiry is invalid.');
@@ -66,6 +118,10 @@ final class LocalChatMessage {
         expiresAt: expiresAt,
         deliveredAt: deliveredAt ?? this.deliveredAt,
         readAt: readAt ?? this.readAt,
+        groupTitle: groupTitle,
+        participantUsernames: participantUsernames,
+        groupCreatedBy: groupCreatedBy,
+        groupCreatedAt: groupCreatedAt,
       );
 
   Map<String, dynamic> toJson() => {
@@ -79,9 +135,19 @@ final class LocalChatMessage {
     if (expiresAt case final value?) 'expires_at': value.toIso8601String(),
     if (deliveredAt case final value?) 'delivered_at': value.toIso8601String(),
     if (readAt case final value?) 'read_at': value.toIso8601String(),
+    'group_title': ?groupTitle,
+    if (participantUsernames.isNotEmpty)
+      'participant_usernames': participantUsernames,
+    'group_created_by': ?groupCreatedBy,
+    if (groupCreatedAt case final value?)
+      'group_created_at': value.toIso8601String(),
   };
 
   factory LocalChatMessage.fromJson(Map<String, dynamic> value) {
+    final rawParticipants = value['participant_usernames'];
+    if (rawParticipants != null && rawParticipants is! List) {
+      throw const FormatException('Group participants must be a list.');
+    }
     return LocalChatMessage(
       messageId: _string(value['message_id']),
       conversationId: _string(value['conversation_id']),
@@ -93,6 +159,20 @@ final class LocalChatMessage {
       expiresAt: _optionalDate(value['expires_at']),
       deliveredAt: _optionalDate(value['delivered_at']),
       readAt: _optionalDate(value['read_at']),
+      groupTitle: switch (value['group_title']) {
+        null => null,
+        final Object raw => _string(raw),
+      },
+      participantUsernames:
+          rawParticipants
+              ?.map<String>((raw) => _string(raw))
+              .toList(growable: false) ??
+          const [],
+      groupCreatedBy: switch (value['group_created_by']) {
+        null => null,
+        final Object raw => _string(raw),
+      },
+      groupCreatedAt: _optionalDate(value['group_created_at']),
     );
   }
 }

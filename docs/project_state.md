@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-24
+Last updated: 2026-08-25
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example
 with the remaining durable-messaging work. The completed account, device-trust,
@@ -10,8 +10,8 @@ standardized `wamp-scram` authentication, encrypted per-device identity
 storage, authenticated device enrollment/revocation, safety numbers, signed
 conversation-key wrapping, opaque server mailboxes, reconnect cursors, and
 encrypted one-to-one messages with authenticated push-driven synchronization.
-Explicit read state and signed, atomic one-time consumption are now complete.
-Groups and retry/conflict UX remain open.
+Explicit read state, signed atomic one-time consumption, and immutable encrypted
+group conversations are now complete. Retry/conflict UX remains open.
 The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
 WampApp lives under `examples/wamp_app` as standalone client, server, and shared
@@ -97,6 +97,25 @@ expiry controls, hides one-time plaintext before consumption, and reports
 Opened to the sender. `bin/test-wamp-app` passes with 19 shared, 26 server, and
 24 Flutter tests plus a release web build, and repository `bin/verify` passes
 on 2026-08-24. Hosted exact-head evidence is pending for this revision.
+
+Atomic encrypted group messaging is complete locally. A versioned group
+envelope stores one ciphertext and one signed content-key wrap for every active
+device of every participant, while the server validates exact device coverage
+from one account snapshot and appends one durable mailbox record. Group titles
+and immutable membership descriptors remain inside authenticated ciphertext;
+only the normalized participant set needed for routing is visible to the
+server. Sparse per-recipient delivery/read state is updated only by that
+recipient, converges under concurrent acknowledgements, and becomes
+sender-visible only as all-recipient aggregates. Participant-scoped wakeups,
+outsider exclusion, encrypted vault persistence, reconnect discovery, metadata
+conflict rejection, group creation/selection UI, expiry, and the deliberate
+rejection of ambiguous group view-once envelopes are covered. A live native
+router smoke proves Alice can send one group ciphertext to Bob and Carol, both
+recipients decrypt and persist the same group, Mallory receives no wakeup or
+mailbox content, and sender read state completes only after both recipients
+read. `bin/test-wamp-app` passes with 23 shared, 29 server, and 26 Flutter tests
+plus a release web build, and repository `bin/verify` passes on 2026-08-25.
+Retry/conflict UX remains in milestone 3; hosted exact-head evidence is pending.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/app.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
+import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -21,7 +22,18 @@ void main() {
     );
     final controller = WampAppController(
       gateway: _FakeGateway(),
-      trustStore: FakeDeviceTrustStore(initialMessages: [oneTimeMessage]),
+      trustStore: FakeDeviceTrustStore(
+        initialMessages: [oneTimeMessage],
+        initialGroups: [
+          LocalChatGroup(
+            conversationId: 'launch-crew',
+            title: 'Launch crew',
+            memberUsernames: const ['alice', 'bob'],
+            createdBy: 'alice',
+            createdAt: DateTime.utc(2026, 8, 24, 11),
+          ),
+        ],
+      ),
     );
     addTearDown(controller.dispose);
     await tester.pumpWidget(WampApp(controller: controller));
@@ -66,6 +78,13 @@ void main() {
     await tester.tap(find.text('Delete after 1 day'));
     await tester.pumpAndSettle();
     expect(find.text('Delete after 1 day'), findsOneWidget);
+
+    await tester.tap(find.text('Launch crew'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('message-recipient')), findsNothing);
+    expect(find.text('@alice  @bob'), findsOneWidget);
+    expect(tester.widget<FilterChip>(oneTime).onSelected, isNull);
+    expect(find.byKey(const Key('conversation-create-group')), findsOneWidget);
   });
 
   testWidgets('clears password after a failed attempt', (tester) async {

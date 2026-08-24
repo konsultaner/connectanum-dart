@@ -25,6 +25,7 @@ class _HomePageState extends State<HomePage> {
   final _messageController = TextEditingController();
   bool _oneTime = false;
   Duration? _expiresAfter;
+  String? _selectedGroupId;
 
   @override
   void dispose() {
@@ -35,14 +36,80 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _send() async {
     final text = _messageController.text;
-    await widget.controller.sendMessage(
-      recipientUsername: _recipientController.text,
-      text: text,
-      oneTime: _oneTime,
-      expiresAfter: _expiresAfter,
-    );
+    final groupId = _selectedGroupId;
+    if (groupId == null) {
+      await widget.controller.sendMessage(
+        recipientUsername: _recipientController.text,
+        text: text,
+        oneTime: _oneTime,
+        expiresAfter: _expiresAfter,
+      );
+    } else {
+      await widget.controller.sendGroupMessage(
+        groupId: groupId,
+        text: text,
+        expiresAfter: _expiresAfter,
+      );
+    }
     if (mounted && widget.controller.messageError == null) {
       _messageController.clear();
+    }
+  }
+
+  Future<void> _createGroup() async {
+    final title = TextEditingController();
+    final members = TextEditingController();
+    final details = await showDialog<(String, List<String>)>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('New encrypted group'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              key: const Key('group-title'),
+              controller: title,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Group name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('group-members'),
+              controller: members,
+              decoration: const InputDecoration(
+                labelText: 'Member usernames',
+                helperText: 'Separate usernames with commas',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('group-create'),
+            onPressed: () =>
+                Navigator.of(context)
+                    .pop((title.text, members.text.split(','))),
+            child: const Text('Create group'),
+          ),
+        ],
+      ),
+    );
+    title.dispose();
+    members.dispose();
+    if (!mounted || details == null) return;
+    final group = await widget.controller.createGroup(
+      title: details.$1,
+      memberUsernames: details.$2,
+    );
+    if (mounted && group != null) {
+      setState(() {
+        _selectedGroupId = group.conversationId;
+        _oneTime = false;
+      });
     }
   }
 
@@ -91,6 +158,12 @@ class _HomePageState extends State<HomePage> {
               onSend: _send,
               oneTime: _oneTime,
               expiresAfter: _expiresAfter,
+              selectedGroupId: _selectedGroupId,
+              onConversationChanged: (value) => setState(() {
+                _selectedGroupId = value;
+                if (value != null) _oneTime = false;
+              }),
+              onCreateGroup: _createGroup,
               onOneTimeChanged: (value) => setState(() => _oneTime = value),
               onExpiresAfterChanged: (value) =>
                   setState(() => _expiresAfter = value),
@@ -274,6 +347,9 @@ class _ConversationPanel extends StatelessWidget {
     required this.onSend,
     required this.oneTime,
     required this.expiresAfter,
+    required this.selectedGroupId,
+    required this.onConversationChanged,
+    required this.onCreateGroup,
     required this.onOneTimeChanged,
     required this.onExpiresAfterChanged,
     required this.onOpenMessage,
@@ -285,12 +361,26 @@ class _ConversationPanel extends StatelessWidget {
   final Future<void> Function() onSend;
   final bool oneTime;
   final Duration? expiresAfter;
+  final String? selectedGroupId;
+  final ValueChanged<String?> onConversationChanged;
+  final Future<void> Function() onCreateGroup;
   final ValueChanged<bool> onOneTimeChanged;
   final ValueChanged<Duration?> onExpiresAfterChanged;
   final Future<void> Function(LocalChatMessage message) onOpenMessage;
 
   @override
   Widget build(BuildContext context) {
+    final selectedGroup = controller.groups
+        .where((group) => group.conversationId == selectedGroupId)
+        .firstOrNull;
+    final groupMode = selectedGroupId != null;
+    final visibleMessages = controller.messages
+        .where(
+          (message) => groupMode
+              ? message.conversationId == selectedGroupId && message.isGroup
+              : !message.isGroup,
+        )
+        .toList(growable: false);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(22),
@@ -302,7 +392,7 @@ class _ConversationPanel extends StatelessWidget {
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    'Encrypted messages',
+                    selectedGroup?.title ?? 'Encrypted messages',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
@@ -315,28 +405,80 @@ class _ConversationPanel extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            TextField(
-              key: const Key('message-recipient'),
-              controller: recipientController,
-              enabled: !controller.messageBusy,
-              decoration: const InputDecoration(
-                labelText: 'Recipient username',
-                prefixIcon: Icon(Icons.alternate_email),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  ChoiceChip(
+                    key: const Key('conversation-direct'),
+                    selected: !groupMode,
+                    onSelected: controller.messageBusy
+                        ? null
+                        : (_) => onConversationChanged(null),
+                    avatar: const Icon(Icons.person_outline, size: 18),
+                    label: const Text('Direct'),
+                  ),
+                  for (final group in controller.groups)
+                    ChoiceChip(
+                      key: ValueKey(
+                        'conversation-group-${group.conversationId}',
+                      ),
+                      selected: selectedGroupId == group.conversationId,
+                      onSelected: controller.messageBusy
+                          ? null
+                          : (_) => onConversationChanged(group.conversationId),
+                      avatar: const Icon(Icons.group_outlined, size: 18),
+                      label: Text(group.title),
+                    ),
+                  ActionChip(
+                    key: const Key('conversation-create-group'),
+                    onPressed: controller.messageBusy ? null : onCreateGroup,
+                    avatar: const Icon(Icons.add, size: 18),
+                    label: const Text('New group'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 14),
+            if (!groupMode)
+              TextField(
+                key: const Key('message-recipient'),
+                controller: recipientController,
+                enabled: !controller.messageBusy,
+                decoration: const InputDecoration(
+                  labelText: 'Recipient username',
+                  prefixIcon: Icon(Icons.alternate_email),
+                ),
+              )
+            else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  selectedGroup == null
+                      ? 'Group unavailable'
+                      : selectedGroup.memberUsernames
+                            .map((username) => '@$username')
+                            .join('  '),
+                  key: const Key('group-members-summary'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            const SizedBox(height: 14),
             Expanded(
-              child: controller.messages.isEmpty
+              child: visibleMessages.isEmpty
                   ? const _NoMessages()
                   : ListView.separated(
                       key: const Key('message-history'),
                       reverse: true,
-                      itemCount: controller.messages.length,
+                      itemCount: visibleMessages.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
-                        final message = controller
-                            .messages[controller.messages.length - index - 1];
+                        final message =
+                            visibleMessages[visibleMessages.length - index - 1];
                         return _MessageBubble(
                           message: message,
                           onTap: message.outgoing || controller.messageBusy
@@ -365,8 +507,10 @@ class _ConversationPanel extends StatelessWidget {
               children: [
                 FilterChip(
                   key: const Key('message-one-time'),
-                  selected: oneTime,
-                  onSelected: controller.messageBusy ? null : onOneTimeChanged,
+                  selected: !groupMode && oneTime,
+                  onSelected: controller.messageBusy || groupMode
+                      ? null
+                      : onOneTimeChanged,
                   avatar: const Icon(Icons.visibility_off_outlined, size: 18),
                   label: const Text('View once'),
                 ),
@@ -413,8 +557,10 @@ class _ConversationPanel extends StatelessWidget {
                     enabled: !controller.messageBusy,
                     minLines: 1,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: 'Write an encrypted message',
+                    decoration: InputDecoration(
+                      hintText: groupMode
+                          ? 'Write to the encrypted group'
+                          : 'Write an encrypted message',
                     ),
                   ),
                 ),
@@ -492,7 +638,9 @@ class _MessageBubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '@${message.peerUsername}',
+                message.isGroup
+                    ? '${message.groupTitle} · @${message.peerUsername}'
+                    : '@${message.peerUsername}',
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
@@ -508,9 +656,15 @@ class _MessageBubble extends StatelessWidget {
               Text(
                 message.outgoing
                     ? (message.readAt != null
-                          ? (message.oneTime ? 'Opened' : 'Read')
+                          ? (message.oneTime
+                                ? 'Opened'
+                                : message.isGroup
+                                ? 'Read by everyone'
+                                : 'Read')
                           : message.deliveredAt != null
-                          ? 'Delivered'
+                          ? (message.isGroup
+                                ? 'Delivered to everyone'
+                                : 'Delivered')
                           : 'Sent')
                     : message.oneTime
                     ? 'View once'

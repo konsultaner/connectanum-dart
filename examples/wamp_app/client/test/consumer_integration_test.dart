@@ -94,12 +94,15 @@ void main() {
       addTearDown(server.close);
       final aliceStorage = _MemoryVaultStorage();
       final bobStorage = _MemoryVaultStorage();
+      final carolStorage = _MemoryVaultStorage();
       final malloryStorage = _MemoryVaultStorage();
       final alice = _controller(aliceStorage, 'Alice phone');
       var bob = _controller(bobStorage, 'Bob phone');
+      final carol = _controller(carolStorage, 'Carol phone');
       final mallory = _controller(malloryStorage, 'Mallory phone');
       addTearDown(alice.dispose);
       addTearDown(() => bob.dispose());
+      addTearDown(carol.dispose);
       addTearDown(mallory.dispose);
 
       await alice.registerAndConnect(
@@ -113,6 +116,12 @@ void main() {
         username: 'bob',
         displayName: 'Bob Example',
         password: 'bob secret phrase',
+      );
+      await carol.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'carol',
+        displayName: 'Carol Example',
+        password: 'carol secret phrase',
       );
       await mallory.registerAndConnect(
         serverAddress: server.websocketUri.toString(),
@@ -190,6 +199,71 @@ void main() {
                 .readAt !=
             null,
       );
+
+      final group = await alice.createGroup(
+        title: 'Launch crew',
+        memberUsernames: const ['bob', 'carol'],
+      );
+      expect(group, isNotNull);
+      const groupPlaintext = 'The whole group receives one ciphertext.';
+      await alice.sendGroupMessage(
+        groupId: group!.conversationId,
+        text: groupPlaintext,
+      );
+      expect(alice.messageError, isNull);
+      final groupMessage = alice.messages.singleWhere(
+        (message) => message.conversationId == group.conversationId,
+      );
+      await _waitFor(
+        () =>
+            bob.messages.any(
+              (message) => message.messageId == groupMessage.messageId,
+            ) &&
+            carol.messages.any(
+              (message) => message.messageId == groupMessage.messageId,
+            ) &&
+            !bob.messageBusy &&
+            !carol.messageBusy,
+      );
+      expect(bob.groups.single.hasSameDefinition(group), isTrue);
+      expect(carol.groups.single.hasSameDefinition(group), isTrue);
+      expect(
+        bob.messages
+            .singleWhere(
+              (message) => message.messageId == groupMessage.messageId,
+            )
+            .text,
+        groupPlaintext,
+      );
+      await _waitFor(
+        () =>
+            alice.messages
+                .singleWhere(
+                  (message) => message.messageId == groupMessage.messageId,
+                )
+                .deliveredAt !=
+            null,
+      );
+      await bob.markMessageRead(groupMessage.messageId);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        alice.messages
+            .singleWhere(
+              (message) => message.messageId == groupMessage.messageId,
+            )
+            .readAt,
+        isNull,
+      );
+      await carol.markMessageRead(groupMessage.messageId);
+      await _waitFor(
+        () =>
+            alice.messages
+                .singleWhere(
+                  (message) => message.messageId == groupMessage.messageId,
+                )
+                .readAt !=
+            null,
+      );
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(unrelatedWakeups, 0);
       expect(mallory.messages, isEmpty);
@@ -198,9 +272,12 @@ void main() {
           .readAsString();
       expect(mailboxDocument, isNot(contains(plaintext)));
       expect(mailboxDocument, isNot(contains(oneTimePlaintext)));
+      expect(mailboxDocument, isNot(contains(groupPlaintext)));
+      expect(mailboxDocument, isNot(contains('Launch crew')));
       expect(mailboxDocument, contains('encrypted_payload'));
       expect(mailboxDocument, contains('consumed_by_device_id'));
 
+      await _waitFor(() => !bob.messageBusy && bob.messages.length == 2);
       await bob.signOut();
       bob.dispose();
       bob = _controller(bobStorage, 'Bob phone');
@@ -209,9 +286,24 @@ void main() {
         username: 'bob',
         password: 'bob secret phrase',
       );
-      expect(bob.messages, hasLength(1));
-      expect(bob.messages.single.messageId, durableMessageId);
-      expect(bob.messages.single.text, plaintext);
+      expect(
+        bob.status,
+        WampAppStatus.connected,
+        reason: '${bob.errorMessage} / ${bob.messageError}',
+      );
+      expect(bob.messages, hasLength(2));
+      expect(
+        bob.messages.any((message) => message.messageId == durableMessageId),
+        isTrue,
+      );
+      expect(
+        bob.messages.any(
+          (message) =>
+              message.messageId == groupMessage.messageId &&
+              message.text == groupPlaintext,
+        ),
+        isTrue,
+      );
     },
     timeout: const Timeout(Duration(minutes: 3)),
   );

@@ -40,7 +40,7 @@ void main() {
         conversationId: message.conversationId,
         senderUsername: message.senderUsername,
         senderDeviceId: message.senderDeviceId,
-        recipientUsername: message.recipientUsername,
+        recipientUsername: message.recipientUsername!,
         createdAt: message.createdAt,
         encryptedPayload: message.encryptedPayload,
         wrappedKeys: [message.wrappedKeys.single, message.wrappedKeys.single],
@@ -61,6 +61,20 @@ void main() {
     );
     final batch = MailboxBatch(nextCursor: 2, messages: [first]);
     expect(MailboxBatch.fromWampKeywords(batch.toWampKeywords()).nextCursor, 2);
+    expect(
+      () => MailboxBatch(
+        nextCursor: MailboxBatch.maxMessages + 1,
+        messages: List<MailboxMessage>.generate(
+          MailboxBatch.maxMessages + 1,
+          (index) => MailboxMessage(
+            cursor: index + 1,
+            message: _message(),
+            acceptedAt: DateTime.utc(2026, 8, 24, 12),
+          ),
+        ),
+      ),
+      throwsFormatException,
+    );
   });
 
   test('mailbox records reject read receipts without delivery', () {
@@ -200,6 +214,92 @@ void main() {
       ].join('\n'),
     );
   });
+
+  test(
+    'group envelopes round-trip with sorted participants and binary data',
+    () {
+      final message = _groupMessage();
+
+      expect(message.isGroup, isTrue);
+      expect(message.participantUsernames, ['alice', 'bob', 'carol']);
+      expect(message.recipientUsernames, ['bob', 'carol']);
+      expect(
+        EncryptedChatMessage.fromWampKeywords(
+          message.toWampKeywords(),
+        ).toJson(),
+        message.toJson(),
+      );
+      expect(
+        EncryptedChatMessage.fromJson(message.toJson()).toJson(),
+        message.toJson(),
+      );
+    },
+  );
+
+  test('group envelopes reject direct and view-once wire ambiguity', () {
+    final wire = _groupMessage().toWampKeywords();
+    wire['one_time'] = true;
+    expect(
+      () => EncryptedChatMessage.fromWampKeywords(wire),
+      throwsFormatException,
+    );
+
+    final withRecipient = _groupMessage().toWampKeywords();
+    withRecipient['recipient_username'] = 'bob';
+    expect(
+      () => EncryptedChatMessage.fromWampKeywords(withRecipient),
+      throwsFormatException,
+    );
+  });
+
+  test('group envelopes require a wrapped key for every participant', () {
+    final message = _groupMessage();
+    expect(
+      () => EncryptedChatMessage.group(
+        messageId: message.messageId,
+        conversationId: message.conversationId,
+        senderUsername: message.senderUsername,
+        senderDeviceId: message.senderDeviceId,
+        participantUsernames: message.participantUsernames,
+        createdAt: message.createdAt,
+        encryptedPayload: message.encryptedPayload,
+        wrappedKeys: message.wrappedKeys
+            .where((key) => key.recipientUsername != 'carol')
+            .toList(growable: false),
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test(
+    'group recipient receipts remain independent and aggregate for sender',
+    () {
+      final deliveredBob = DateTime.utc(2026, 8, 24, 12, 1);
+      final deliveredCarol = DateTime.utc(2026, 8, 24, 12, 2);
+      final readBob = DateTime.utc(2026, 8, 24, 12, 3);
+      final stored = MailboxMessage(
+        cursor: 4,
+        message: _groupMessage(),
+        acceptedAt: DateTime.utc(2026, 8, 24, 12),
+        recipientStates: {
+          'bob': MailboxRecipientState(
+            deliveredAt: deliveredBob,
+            readAt: readBob,
+          ),
+          'carol': MailboxRecipientState(deliveredAt: deliveredCarol),
+        },
+      );
+
+      expect(stored.deliveredAtFor('alice'), deliveredCarol);
+      expect(stored.readAtFor('alice'), isNull);
+      expect(stored.deliveredAtFor('bob'), deliveredBob);
+      expect(stored.readAtFor('bob'), readBob);
+      expect(
+        MailboxMessage.fromWampKeywords(stored.toWampKeywords()).toJson(),
+        stored.toJson(),
+      );
+    },
+  );
 }
 
 EncryptedChatMessage _message({bool oneTime = false}) {
@@ -224,6 +324,33 @@ EncryptedChatMessage _message({bool oneTime = false}) {
         signature: _token(64, 7),
         createdAt: DateTime.utc(2026, 8, 24, 11, 59),
       ),
+    ],
+  );
+}
+
+EncryptedChatMessage _groupMessage() {
+  final conversationId = _token(32, 20);
+  final senderDevice = _token(32, 21);
+  return EncryptedChatMessage.group(
+    messageId: _token(16, 22),
+    conversationId: conversationId,
+    senderUsername: 'alice',
+    senderDeviceId: senderDevice,
+    participantUsernames: const [' Carol ', 'alice', 'Bob'],
+    createdAt: DateTime.utc(2026, 8, 24, 12),
+    encryptedPayload: Uint8List.fromList(List<int>.filled(64, 23)),
+    wrappedKeys: [
+      for (final entry in const [('alice', 24), ('bob', 25), ('carol', 26)])
+        WrappedConversationKey(
+          conversationId: conversationId,
+          senderUsername: 'alice',
+          senderDeviceId: senderDevice,
+          recipientUsername: entry.$1,
+          recipientDeviceId: _token(32, entry.$2),
+          sealedKey: _token(80, entry.$2 + 10),
+          signature: _token(64, entry.$2 + 20),
+          createdAt: DateTime.utc(2026, 8, 24, 12),
+        ),
     ],
   );
 }

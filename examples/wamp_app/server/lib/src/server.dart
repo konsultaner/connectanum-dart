@@ -489,10 +489,11 @@ Future<void> _registerMessageHandlers(
         invocation.argumentsKeywords,
       );
       final receipt = await messages.send(username, message);
-      await _publishMailboxWakeup(session, receipt.cursor, [
-        message.senderUsername,
-        message.recipientUsername,
-      ]);
+      await _publishMailboxWakeup(
+        session,
+        receipt.cursor,
+        message.participantUsernames,
+      );
       invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
     } catch (error) {
       _respondWithMessageError(invocation, error);
@@ -535,10 +536,11 @@ Future<void> _registerMessageHandlers(
         messageId,
         read: state == 'read',
       );
-      await _publishMailboxWakeup(session, update.receipt.cursor, [
-        update.senderUsername,
-        update.recipientUsername,
-      ]);
+      await _publishMailboxWakeup(
+        session,
+        update.receipt.cursor,
+        update.participantUsernames,
+      );
       invocation.respondWith(
         argumentsKeywords: update.receipt.toWampKeywords(),
       );
@@ -555,10 +557,11 @@ Future<void> _registerMessageHandlers(
         invocation.argumentsKeywords,
       );
       final update = await messages.consumeOneTime(username, consumption);
-      await _publishMailboxWakeup(session, update.receipt.cursor, [
-        update.senderUsername,
-        update.recipientUsername,
-      ]);
+      await _publishMailboxWakeup(
+        session,
+        update.receipt.cursor,
+        update.participantUsernames,
+      );
       invocation.respondWith(
         argumentsKeywords: update.receipt.toWampKeywords(),
       );

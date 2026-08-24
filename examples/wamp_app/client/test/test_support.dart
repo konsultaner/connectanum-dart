@@ -1,14 +1,19 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 final class FakeDeviceTrustStore implements DeviceTrustStore {
-  FakeDeviceTrustStore({this.initialMessages = const []});
+  FakeDeviceTrustStore({
+    this.initialMessages = const [],
+    this.initialGroups = const [],
+  });
 
   final List<LocalChatMessage> initialMessages;
+  final List<LocalChatGroup> initialGroups;
   String? password;
   FakeDeviceTrustSession? session;
   Object? failure;
@@ -23,7 +28,11 @@ final class FakeDeviceTrustStore implements DeviceTrustStore {
     this.password = password;
     final failure = this.failure;
     if (failure != null) throw failure;
-    return session = FakeDeviceTrustSession(username, initialMessages);
+    return session = FakeDeviceTrustSession(
+      username,
+      initialMessages,
+      initialGroups,
+    );
   }
 }
 
@@ -31,14 +40,17 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   FakeDeviceTrustSession(
     this.username,
     List<LocalChatMessage> initialMessages,
+    List<LocalChatGroup> initialGroups,
   ) {
     _messages.addAll(initialMessages);
+    _groups.addAll(initialGroups);
   }
 
   final String username;
   bool disposed = false;
   int _mailboxCursor = 0;
   final List<LocalChatMessage> _messages = [];
+  final List<LocalChatGroup> _groups = [];
 
   @override
   late final DeviceEnrollment enrollment = DeviceEnrollment(
@@ -63,6 +75,9 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   List<LocalChatMessage> get messages => List.unmodifiable(_messages);
 
   @override
+  List<LocalChatGroup> get groups => List.unmodifiable(_groups);
+
+  @override
   bool isVerified(DeviceRecord contact) => false;
 
   @override
@@ -77,7 +92,16 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     required DeviceRecord recipient,
     required Uint8List conversationKey,
   }) {
-    throw UnimplementedError();
+    return WrappedConversationKey(
+      conversationId: conversationId,
+      senderUsername: username,
+      senderDeviceId: deviceId,
+      recipientUsername: recipient.username,
+      recipientDeviceId: recipient.deviceId,
+      sealedKey: _token(80, 6),
+      signature: _token(64, 7),
+      createdAt: DateTime.utc(2026, 8, 24, 12),
+    );
   }
 
   @override
@@ -102,11 +126,17 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   Future<void> saveMailboxState({
     required int cursor,
     required List<LocalChatMessage> messages,
+    List<LocalChatGroup>? groups,
   }) async {
     _mailboxCursor = cursor;
     _messages
       ..clear()
       ..addAll(messages);
+    if (groups != null) {
+      _groups
+        ..clear()
+        ..addAll(groups);
+    }
   }
 
   @override

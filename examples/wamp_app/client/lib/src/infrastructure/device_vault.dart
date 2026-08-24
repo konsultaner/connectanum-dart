@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:pinenacl/x25519.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
+import '../domain/local_chat_group.dart';
 import '../domain/local_chat_message.dart';
 import 'local_device_identity.dart';
 import 'vault_storage.dart';
@@ -40,9 +41,11 @@ abstract interface class DeviceTrustSession {
   });
   int get mailboxCursor;
   List<LocalChatMessage> get messages;
+  List<LocalChatGroup> get groups;
   Future<void> saveMailboxState({
     required int cursor,
     required List<LocalChatMessage> messages,
+    List<LocalChatGroup>? groups,
   });
   Future<void> dispose();
 }
@@ -167,6 +170,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         verifications: const {},
         mailboxCursor: 0,
         messages: const [],
+        groups: const [],
       );
       identity = null;
       try {
@@ -223,6 +227,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
       );
       final verifications = _readVerifications(document['verifications']);
       final mailbox = _readMailbox(document['mailbox']);
+      final groups = _readGroups(document['groups']);
       final session = _UnlockedDeviceVault(
         storage: storage,
         storageKey: storageKey,
@@ -236,6 +241,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         verifications: verifications,
         mailboxCursor: mailbox.$1,
         messages: mailbox.$2,
+        groups: groups,
       );
       identity = null;
       return session;
@@ -290,9 +296,11 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     required Map<String, _ContactVerification> verifications,
     required this._mailboxCursor,
     required List<LocalChatMessage> messages,
+    required List<LocalChatGroup> groups,
   }) : _encryptionKey = Uint8List.fromList(encryptionKey),
        _verifications = Map<String, _ContactVerification>.of(verifications),
-       _messages = List<LocalChatMessage>.of(messages);
+       _messages = List<LocalChatMessage>.of(messages),
+       _groups = List<LocalChatGroup>.of(groups);
 
   final VaultStorage storage;
   final String storageKey;
@@ -306,6 +314,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   final Map<String, _ContactVerification> _verifications;
   int _mailboxCursor;
   final List<LocalChatMessage> _messages;
+  final List<LocalChatGroup> _groups;
   Future<void> _writeTail = Future<void>.value();
   bool _disposed = false;
   bool _closing = false;
@@ -338,6 +347,12 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   List<LocalChatMessage> get messages {
     _ensureActive();
     return List<LocalChatMessage>.unmodifiable(_messages);
+  }
+
+  @override
+  List<LocalChatGroup> get groups {
+    _ensureActive();
+    return List<LocalChatGroup>.unmodifiable(_groups);
   }
 
   @override
@@ -410,6 +425,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   Future<void> saveMailboxState({
     required int cursor,
     required List<LocalChatMessage> messages,
+    List<LocalChatGroup>? groups,
   }) async {
     _ensureActive();
     if (cursor < _mailboxCursor || cursor < 0 || messages.length > 5000) {
@@ -418,10 +434,17 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     for (final message in messages) {
       message.validate();
     }
+    final nextGroups = groups ?? _groups;
+    _validateGroups(nextGroups);
     _mailboxCursor = cursor;
     _messages
       ..clear()
       ..addAll(messages);
+    if (groups != null) {
+      _groups
+        ..clear()
+        ..addAll(groups);
+    }
     await persist();
   }
 
@@ -438,6 +461,9 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
             'verifications': _verifications.map(
               (key, value) => MapEntry(key, value.toJson()),
             ),
+            'groups': _groups
+                .map((group) => group.toJson())
+                .toList(growable: false),
             'mailbox': {
               'cursor': _mailboxCursor,
               'messages': _messages
@@ -478,6 +504,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
       _encryptionKey.fillRange(0, _encryptionKey.length, 0);
       _verifications.clear();
       _messages.clear();
+      _groups.clear();
     }
   }
 
@@ -566,6 +593,36 @@ final class VaultUnlockException implements Exception {
     }
   }
   return (value['cursor'] as int, messages);
+}
+
+List<LocalChatGroup> _readGroups(Object? value) {
+  if (value == null) return const [];
+  if (value is! List) {
+    throw const FormatException('Encrypted group state is invalid.');
+  }
+  final groups = value
+      .map((raw) {
+        if (raw is! Map) {
+          throw const FormatException('Encrypted group entry is invalid.');
+        }
+        return LocalChatGroup.fromJson(Map<String, dynamic>.from(raw));
+      })
+      .toList(growable: false);
+  _validateGroups(groups);
+  return groups;
+}
+
+void _validateGroups(List<LocalChatGroup> groups) {
+  if (groups.length > LocalChatGroup.maxGroups) {
+    throw const FormatException('Encrypted group state is too large.');
+  }
+  final ids = <String>{};
+  for (final group in groups) {
+    group.validate();
+    if (!ids.add(group.conversationId)) {
+      throw const FormatException('Encrypted group state contains duplicates.');
+    }
+  }
 }
 
 Map<String, _ContactVerification> _readVerifications(Object? value) {

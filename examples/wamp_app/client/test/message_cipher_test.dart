@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app/src/infrastructure/message_cipher.dart';
@@ -55,7 +56,7 @@ void main() {
       conversationId: encrypted.conversationId,
       senderUsername: encrypted.senderUsername,
       senderDeviceId: encrypted.senderDeviceId,
-      recipientUsername: encrypted.recipientUsername,
+      recipientUsername: encrypted.recipientUsername!,
       createdAt: encrypted.createdAt,
       encryptedPayload: payload,
       wrappedKeys: encrypted.wrappedKeys,
@@ -64,6 +65,71 @@ void main() {
     expect(
       () => MessageCipher().decrypt(
         message: tampered,
+        username: 'bob',
+        trust: fixtures.bob,
+        sender: fixtures.aliceRecord,
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('one group ciphertext opens for every participant device', () async {
+    final fixtures = await _fixtures();
+    addTearDown(fixtures.dispose);
+    final group = LocalChatGroup(
+      conversationId: 'group-conversation',
+      title: 'Launch crew',
+      memberUsernames: const ['carol', 'alice', 'bob'],
+      createdBy: 'alice',
+      createdAt: DateTime.utc(2026, 8, 24, 11),
+    );
+
+    final encrypted = MessageCipher().encryptGroup(
+      senderUsername: 'alice',
+      group: group,
+      text: 'one atomic encrypted payload',
+      trust: fixtures.alice,
+      participantDevices: [
+        fixtures.aliceRecord,
+        fixtures.bobRecord,
+        fixtures.carolRecord,
+      ],
+      now: DateTime.utc(2026, 8, 24, 12),
+    );
+    final bobMessage = MessageCipher().decrypt(
+      message: encrypted,
+      username: 'bob',
+      trust: fixtures.bob,
+      sender: fixtures.aliceRecord,
+    );
+    final carolMessage = MessageCipher().decrypt(
+      message: encrypted,
+      username: 'carol',
+      trust: fixtures.carol,
+      sender: fixtures.aliceRecord,
+    );
+
+    expect(encrypted.wrappedKeys, hasLength(3));
+    expect(bobMessage.text, 'one atomic encrypted payload');
+    expect(carolMessage.text, bobMessage.text);
+    expect(bobMessage.group?.hasSameDefinition(group), isTrue);
+    expect(carolMessage.group?.hasSameDefinition(group), isTrue);
+
+    final conflictingOuter = EncryptedChatMessage.group(
+      messageId: encrypted.messageId,
+      conversationId: encrypted.conversationId,
+      senderUsername: encrypted.senderUsername,
+      senderDeviceId: encrypted.senderDeviceId,
+      participantUsernames: const ['alice', 'bob'],
+      createdAt: encrypted.createdAt,
+      encryptedPayload: encrypted.encryptedPayload,
+      wrappedKeys: encrypted.wrappedKeys
+          .where((key) => key.recipientUsername != 'carol')
+          .toList(growable: false),
+    );
+    expect(
+      () => MessageCipher().decrypt(
+        message: conflictingOuter,
         username: 'bob',
         trust: fixtures.bob,
         sender: fixtures.aliceRecord,
@@ -89,8 +155,37 @@ void main() {
         password: 'password',
         deviceName: 'Phone',
       );
+      final group = LocalChatGroup(
+        conversationId: 'group-conversation',
+        title: 'Encrypted at rest group',
+        memberUsernames: const ['alice', 'bob'],
+        createdBy: 'alice',
+        createdAt: DateTime.utc(2026, 8, 24, 11),
+      );
+      final groupMessage = LocalChatMessage(
+        messageId: 'message-2',
+        conversationId: group.conversationId,
+        peerUsername: 'bob',
+        text: 'encrypted group history',
+        sentAt: DateTime.utc(2026, 8, 24, 12, 1),
+        outgoing: false,
+        groupTitle: group.title,
+        participantUsernames: group.memberUsernames,
+        groupCreatedBy: group.createdBy,
+        groupCreatedAt: group.createdAt,
+      );
+      expect(
+        LocalChatGroup.fromJson(group.toJson()).hasSameDefinition(group),
+        isTrue,
+      );
+      expect(
+        LocalChatMessage.fromJson(groupMessage.toJson()).group
+            ?.hasSameDefinition(group),
+        isTrue,
+      );
       await first.saveMailboxState(
         cursor: 7,
+        groups: [group],
         messages: [
           LocalChatMessage(
             messageId: 'message-1',
@@ -100,6 +195,7 @@ void main() {
             sentAt: DateTime.utc(2026, 8, 24, 12),
             outgoing: true,
           ),
+          groupMessage,
         ],
       );
       await first.dispose();
@@ -112,10 +208,17 @@ void main() {
       );
       addTearDown(reopened.dispose);
       expect(reopened.mailboxCursor, 7);
-      expect(reopened.messages.single.text, 'encrypted at rest');
+      expect(reopened.messages, hasLength(2));
+      expect(reopened.messages.first.text, 'encrypted at rest');
+      expect(reopened.messages.last.group?.hasSameDefinition(group), isTrue);
+      expect(reopened.groups.single.title, 'Encrypted at rest group');
       expect(
         storage.values.values.single,
         isNot(contains('encrypted at rest')),
+      );
+      expect(
+        storage.values.values.single,
+        isNot(contains('Encrypted at rest group')),
       );
     },
   );
@@ -141,25 +244,43 @@ Future<_Fixtures> _fixtures() async {
     password: 'bob-password',
     deviceName: 'Bob phone',
   );
+  final carol = await vault.openOrCreate(
+    endpoint: endpoint,
+    username: 'carol',
+    password: 'carol-password',
+    deviceName: 'Carol phone',
+  );
   return _Fixtures(
     alice,
     bob,
+    carol,
     activeDeviceRecord('alice', alice.enrollment),
     activeDeviceRecord('bob', bob.enrollment),
+    activeDeviceRecord('carol', carol.enrollment),
   );
 }
 
 final class _Fixtures {
-  const _Fixtures(this.alice, this.bob, this.aliceRecord, this.bobRecord);
+  const _Fixtures(
+    this.alice,
+    this.bob,
+    this.carol,
+    this.aliceRecord,
+    this.bobRecord,
+    this.carolRecord,
+  );
 
   final DeviceTrustSession alice;
   final DeviceTrustSession bob;
+  final DeviceTrustSession carol;
   final DeviceRecord aliceRecord;
   final DeviceRecord bobRecord;
+  final DeviceRecord carolRecord;
 
   Future<void> dispose() async {
     await alice.dispose();
     await bob.dispose();
+    await carol.dispose();
   }
 }
 

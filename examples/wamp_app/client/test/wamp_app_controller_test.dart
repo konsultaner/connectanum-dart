@@ -309,6 +309,50 @@ void main() {
     expect(controller.status, WampAppStatus.signedOut);
     expect(controller.messageError, isNull);
   });
+
+  test('creates and atomically sends an encrypted group envelope', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final enrollment = trustStore.session!.enrollment;
+    gateway.deviceDirectories['bob'] = [activeDeviceRecord('bob', enrollment)];
+    gateway.deviceDirectories['carol'] = [
+      activeDeviceRecord('carol', enrollment),
+    ];
+
+    final group = await controller.createGroup(
+      title: ' Launch crew ',
+      memberUsernames: const [' Carol ', 'bob'],
+    );
+    expect(group, isNotNull);
+    expect(group!.title, 'Launch crew');
+    expect(group.memberUsernames, ['alice', 'bob', 'carol']);
+    expect(controller.groups.single.hasSameDefinition(group), isTrue);
+
+    await controller.sendGroupMessage(
+      groupId: group.conversationId,
+      text: 'one atomic message',
+    );
+
+    expect(gateway.sentMessages, hasLength(1));
+    expect(gateway.sentMessages.single.isGroup, isTrue);
+    expect(gateway.sentMessages.single.participantUsernames, [
+      'alice',
+      'bob',
+      'carol',
+    ]);
+    expect(gateway.sentMessages.single.wrappedKeys, hasLength(3));
+    expect(controller.messageError, isNull);
+  });
 }
 
 class _RecordingGateway implements AccountGateway {
@@ -318,6 +362,8 @@ class _RecordingGateway implements AccountGateway {
   bool failNextClose = false;
   Object? loginFailure;
   final List<_GatewayConnection> connections = [];
+  final Map<String, List<DeviceRecord>> deviceDirectories = {};
+  final List<EncryptedChatMessage> sentMessages = [];
 
   @override
   Future<RegistrationReceipt> register({
@@ -343,18 +389,35 @@ class _RecordingGateway implements AccountGateway {
     if (loginFailure != null) throw loginFailure;
     final connection = _GatewayConnection()..serverCursor = 0;
     connections.add(connection);
+    final normalizedUsername = AccountRegistration.normalizeUsername(username);
     return AccountConnection(
       endpoint: endpoint,
-      username: AccountRegistration.normalizeUsername(username),
+      username: normalizedUsername,
       displayName: 'Alice Example',
-      enrollDeviceCallback: (enrollment) async => activeDeviceRecord(
-        AccountRegistration.normalizeUsername(username),
-        enrollment,
+      enrollDeviceCallback: (enrollment) async {
+        final record = activeDeviceRecord(normalizedUsername, enrollment);
+        deviceDirectories[normalizedUsername] = [record];
+        return record;
+      },
+      listDevicesCallback: (_) async =>
+          DeviceDirectory(deviceDirectories[normalizedUsername] ?? const []),
+      lookupDevicesCallback: (lookupUsername, _) async => DeviceDirectory(
+        deviceDirectories[AccountRegistration.normalizeUsername(
+              lookupUsername,
+            )] ??
+            const [],
       ),
-      listDevicesCallback: (_) async => DeviceDirectory(const []),
-      lookupDevicesCallback: (_, _) async => DeviceDirectory(const []),
       revokeDeviceCallback: (_) => throw UnimplementedError(),
-      sendMessageCallback: (_) => throw UnimplementedError(),
+      sendMessageCallback: (message) async {
+        sentMessages.add(message);
+        connection.serverCursor += 1;
+        return MessageSendReceipt(
+          messageId: message.messageId,
+          cursor: connection.serverCursor,
+          acceptedAt: DateTime.utc(2026, 8, 24, 12),
+          duplicate: false,
+        );
+      },
       syncMessagesCallback: connection.sync,
       markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
       consumeOneTimeCallback: connection.consume,

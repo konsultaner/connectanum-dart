@@ -17,11 +17,13 @@ final class MailboxReceiptUpdate {
     required this.receipt,
     required this.senderUsername,
     required this.recipientUsername,
+    required this.participantUsernames,
   });
 
   final MessageReceipt receipt;
   final String senderUsername;
   final String recipientUsername;
+  final List<String> participantUsernames;
 }
 
 final class MessageConflict implements Exception {
@@ -128,8 +130,7 @@ class MailboxStore {
     for (final entry in document.messages) {
       if (entry.cursor <= afterCursor ||
           entry.message.isExpiredAt(timestamp) ||
-          (entry.message.senderUsername != username &&
-              entry.message.recipientUsername != username)) {
+          !entry.message.participantUsernames.contains(username)) {
         continue;
       }
       final latest = latestOneTime[entry.message.messageId];
@@ -160,41 +161,50 @@ class MailboxStore {
           .where((entry) => entry.message.messageId == messageId)
           .firstOrNull;
       if (existing == null) throw MessageNotFound(messageId);
-      if (existing.message.recipientUsername != username) {
-        throw StateError('Only the recipient may acknowledge a message.');
+      if (!existing.message.recipientUsernames.contains(username)) {
+        throw StateError('Only a recipient may acknowledge a message.');
       }
       if (read && existing.message.oneTime) {
         throw const FormatException(
           'One-time messages must use atomic consumption.',
         );
       }
+      final current = existing.recipientStateFor(username);
       final needsUpdate =
-          existing.deliveredAt == null || (read && existing.readAt == null);
+          current?.deliveredAt == null || (read && current?.readAt == null);
       if (!needsUpdate) {
         return MailboxReceiptUpdate(
           receipt: MessageReceipt(
             messageId: messageId,
             cursor: existing.cursor,
-            deliveredAt: existing.deliveredAt,
-            readAt: existing.readAt,
-            consumedAt: existing.consumedAt,
+            recipientUsername: username,
+            deliveredAt: current?.deliveredAt,
+            readAt: current?.readAt,
+            consumedAt: current?.consumedAt,
           ),
           senderUsername: existing.message.senderUsername,
-          recipientUsername: existing.message.recipientUsername,
+          recipientUsername: username,
+          participantUsernames: existing.message.participantUsernames,
         );
       }
       final timestamp = (now ?? DateTime.now()).toUtc();
       if (existing.message.isExpiredAt(timestamp)) {
         throw MessageNotFound(messageId);
       }
+      final states = Map<String, MailboxRecipientState>.of(
+        existing.recipientStates,
+      );
+      states[username] = MailboxRecipientState(
+        deliveredAt: current?.deliveredAt ?? timestamp,
+        readAt: read ? (current?.readAt ?? timestamp) : current?.readAt,
+        consumedAt: current?.consumedAt,
+        consumedByDeviceId: current?.consumedByDeviceId,
+      );
       final updated = MailboxMessage(
         cursor: document.nextCursor,
         message: existing.message,
         acceptedAt: existing.acceptedAt,
-        deliveredAt: existing.deliveredAt ?? timestamp,
-        readAt: read ? (existing.readAt ?? timestamp) : existing.readAt,
-        consumedAt: existing.consumedAt,
-        consumedByDeviceId: existing.consumedByDeviceId,
+        recipientStates: states,
       );
       await _writeDocument(
         _MailboxDocument(
@@ -202,16 +212,19 @@ class MailboxStore {
           messages: [...document.messages, updated],
         ),
       );
+      final receiptState = updated.recipientStateFor(username)!;
       return MailboxReceiptUpdate(
         receipt: MessageReceipt(
           messageId: messageId,
           cursor: updated.cursor,
-          deliveredAt: updated.deliveredAt,
-          readAt: updated.readAt,
-          consumedAt: updated.consumedAt,
+          recipientUsername: username,
+          deliveredAt: receiptState.deliveredAt,
+          readAt: receiptState.readAt,
+          consumedAt: receiptState.consumedAt,
         ),
         senderUsername: updated.message.senderUsername,
-        recipientUsername: updated.message.recipientUsername,
+        recipientUsername: username,
+        participantUsernames: updated.message.participantUsernames,
       );
     });
   }
@@ -231,7 +244,7 @@ class MailboxStore {
       if (existing.message.recipientUsername != username) {
         throw StateError('Only the recipient may consume a message.');
       }
-      if (!existing.message.oneTime) {
+      if (!existing.message.oneTime || existing.message.isGroup) {
         throw const FormatException('Message is not a one-time message.');
       }
       final encryptedForDevice = existing.message.wrappedKeys.any(
@@ -243,33 +256,42 @@ class MailboxStore {
         throw StateError('The message was not encrypted for this device.');
       }
       final timestamp = (now ?? DateTime.now()).toUtc();
-      if (existing.consumedAt != null) {
-        if (existing.consumedByDeviceId != deviceId) {
+      final current = existing.recipientStateFor(username);
+      if (current?.consumedAt != null) {
+        if (current?.consumedByDeviceId != deviceId) {
           throw OneTimeMessageConsumed(messageId);
         }
         return MailboxReceiptUpdate(
           receipt: MessageReceipt(
             messageId: messageId,
             cursor: existing.cursor,
-            deliveredAt: existing.deliveredAt,
-            readAt: existing.readAt,
-            consumedAt: existing.consumedAt,
+            recipientUsername: username,
+            deliveredAt: current?.deliveredAt,
+            readAt: current?.readAt,
+            consumedAt: current?.consumedAt,
           ),
           senderUsername: existing.message.senderUsername,
-          recipientUsername: existing.message.recipientUsername,
+          recipientUsername: username,
+          participantUsernames: existing.message.participantUsernames,
         );
       }
       if (existing.message.isExpiredAt(timestamp)) {
         throw MessageNotFound(messageId);
       }
+      final states = Map<String, MailboxRecipientState>.of(
+        existing.recipientStates,
+      );
+      states[username] = MailboxRecipientState(
+        deliveredAt: current?.deliveredAt ?? timestamp,
+        readAt: timestamp,
+        consumedAt: timestamp,
+        consumedByDeviceId: deviceId,
+      );
       final updated = MailboxMessage(
         cursor: document.nextCursor,
         message: existing.message,
         acceptedAt: existing.acceptedAt,
-        deliveredAt: existing.deliveredAt ?? timestamp,
-        readAt: timestamp,
-        consumedAt: timestamp,
-        consumedByDeviceId: deviceId,
+        recipientStates: states,
       );
       await _writeDocument(
         _MailboxDocument(
@@ -277,16 +299,19 @@ class MailboxStore {
           messages: [...document.messages, updated],
         ),
       );
+      final receiptState = updated.recipientStateFor(username)!;
       return MailboxReceiptUpdate(
         receipt: MessageReceipt(
           messageId: messageId,
           cursor: updated.cursor,
-          deliveredAt: updated.deliveredAt,
-          readAt: updated.readAt,
-          consumedAt: updated.consumedAt,
+          recipientUsername: username,
+          deliveredAt: receiptState.deliveredAt,
+          readAt: receiptState.readAt,
+          consumedAt: receiptState.consumedAt,
         ),
         senderUsername: updated.message.senderUsername,
-        recipientUsername: updated.message.recipientUsername,
+        recipientUsername: username,
+        participantUsernames: updated.message.participantUsernames,
       );
     });
   }
