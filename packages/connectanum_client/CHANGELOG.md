@@ -1,3 +1,8 @@
+## 3.0.0-beta.2
+
+- Make isolated pub.dev installs derive the matching signed native release tag
+  from the package version while preserving Cargo builds for source checkouts.
+
 ## 3.0.0-beta.1
 
 - Run SCRAM Argon2id13 and PBKDF2 derivation asynchronously on native isolates

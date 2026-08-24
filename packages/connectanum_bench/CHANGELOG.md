@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.2
+
+- Keep the benchmark tooling synchronized with the corrected hosted native
+  package installation release.
+
 ## 3.0.0-beta.1
 
 - Add strict production gates for 30 file-transfer, 24 large-frame, and 24

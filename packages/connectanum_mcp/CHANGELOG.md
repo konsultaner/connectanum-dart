@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.2
+
+- Keep MCP clients synchronized with the corrected hosted native package
+  installation release.
+
 ## 3.0.0-beta.1
 
 - Complete router-hosted MCP auth/session correctness, direct JSON tool and

@@ -9,11 +9,11 @@ Pub/Sub example. A Connectanum router deployment has three parts:
 
 ## Beta Availability
 
-The workspace is synchronized at `3.0.0-beta.1`, but the modular Dart packages
-and matching `v3.0.0-beta.1` native release assets are not public yet. Use the
-[source-checkout path](#run-the-current-beta-from-source) for current beta
-testing. The [package path](#install-the-published-package) is the installation
-contract to use after the coordinated beta is published.
+The synchronized `3.0.0-beta.2` Dart packages and matching
+`v3.0.0-beta.2` native release assets are public for integration testing. Use
+the [package path](#install-the-published-package) for applications or the
+[source-checkout path](#run-the-current-beta-from-source) when contributing to
+Connectanum itself.
 
 Do not combine a package from one release with a native library from another.
 The Dart packages, Rust crates, and native release assets move together.
@@ -67,10 +67,8 @@ Stop the router with `Ctrl+C`.
 
 ## Install The Published Package
 
-After `3.0.0-beta.1` is available on pub.dev and the matching GitHub Release is
-published, create a small Dart runner project. Its `pubspec.yaml` should pin
-the package version and configure both native-asset hooks with the same release
-tag:
+Create a small Dart runner project and pin the beta package version in its
+`pubspec.yaml`:
 
 ```yaml
 name: my_connectanum_router
@@ -80,19 +78,14 @@ environment:
   sdk: ^3.9.2
 
 dependencies:
-  connectanum_router: 3.0.0-beta.1
-
-hooks:
-  user_defines:
-    connectanum_client:
-      CONNECTANUM_NATIVE_RELEASE_TAG: v3.0.0-beta.1
-    connectanum_router:
-      CONNECTANUM_NATIVE_RELEASE_TAG: v3.0.0-beta.1
+  connectanum_router: 3.0.0-beta.2
 ```
 
 `connectanum_router` depends on `connectanum_client`, and both packages expose a
-native-asset hook. Configuring both prevents either transitive hook from trying
-to find the monorepo's Rust workspace.
+native-asset hook. In a hosted package install, each hook derives
+`v3.0.0-beta.2` from its package version, downloads the matching signed release
+archive, verifies its SHA-256 checksum, and bundles the platform library. Source
+checkouts continue to compile the checked-out Rust workspace by default.
 
 Plain `dart pub get` resolves Dart packages but does not run native build hooks.
 The first `dart run` downloads and bundles the matching host library.

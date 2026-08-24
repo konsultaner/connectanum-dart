@@ -1,14 +1,14 @@
 name: connectanum_mcp
 description: Model Context Protocol server primitives and Streamable HTTP client helpers for Dart applications and router-hosted endpoints.
-version: 3.0.0-beta.1
+version: 3.0.0-beta.2
 homepage: https://github.com/konsultaner/connectanum-dart
 repository: https://github.com/konsultaner/connectanum-dart
 issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
 environment:
   sdk: '^3.9.2'
 dependencies:
-  connectanum_client: ^3.0.0-beta.1
-  connectanum_core: ^3.0.0-beta.1
+  connectanum_client: ^3.0.0-beta.2
+  connectanum_core: ^3.0.0-beta.2
   meta: ^1.16.0
 executables:
   router_hosted_client:

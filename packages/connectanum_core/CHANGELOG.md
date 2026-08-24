@@ -1,3 +1,8 @@
+## 3.0.0-beta.2
+
+- Keep the synchronized package graph aligned with the corrected hosted native
+  artifact installation release.
+
 ## 3.0.0-beta.1
 
 - Move SCRAM Argon2id13 and PBKDF2 key derivation behind asynchronous native

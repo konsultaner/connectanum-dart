@@ -58,7 +58,7 @@ Future<void> runBuildHook(
     final outputLibFile = File.fromUri(outputLibUri);
     final hookSettings = _hookSettingsFor(input, buildEnvironment);
     final configuredNativeLib = _configuredNativeLibrary(hookSettings);
-    final releaseAsset = _configuredReleaseAsset(
+    var releaseAsset = _configuredReleaseAsset(
       hookSettings,
       targetOS: targetOS,
       targetArch: targetArch,
@@ -80,17 +80,27 @@ Future<void> runBuildHook(
     if (releaseAsset == null &&
         configuredNativeLib == null &&
         !_shouldSkipNativeBuild(hookSettings)) {
-      transportDir = _findTransportWorkspace(
-        Directory.fromUri(input.packageRoot),
-      );
+      final packageRoot = Directory.fromUri(input.packageRoot);
+      transportDir = _findTransportWorkspace(packageRoot);
       if (transportDir == null) {
-        throw BuildError(
-          message:
-              'Failed to locate native transport workspace. Expected '
-              '`native/transport/Cargo.toml` above ${input.packageRoot.toFilePath()}.',
+        if (isConnectanumSourceCheckout(packageRoot)) {
+          throw BuildError(
+            message:
+                'Failed to locate the native transport workspace in the '
+                'Connectanum source checkout above '
+                '${input.packageRoot.toFilePath()}.',
+          );
+        }
+        releaseAsset = packageReleaseAsset(
+          packageRoot: packageRoot,
+          repository:
+              hookSettings.nativeReleaseRepository ?? defaultReleaseRepository,
+          targetOS: targetOS,
+          targetArch: targetArch,
         );
+      } else {
+        dependencies.addAll(_collectTransportDependencies(transportDir));
       }
-      dependencies.addAll(_collectTransportDependencies(transportDir));
     }
 
     output.dependencies.addAll(dependencies.map((e) => e.uri));
@@ -304,6 +314,47 @@ ReleaseAssetSpec? _configuredReleaseAsset(
     tag: tag,
     hostTriple: hostTripleForTarget(targetOS: targetOS, targetArch: targetArch),
   );
+}
+
+ReleaseAssetSpec packageReleaseAsset({
+  required Directory packageRoot,
+  required String repository,
+  required OS targetOS,
+  required Architecture targetArch,
+}) => ReleaseAssetSpec(
+  repository: repository,
+  tag: releaseTagForPackage(packageRoot),
+  hostTriple: hostTripleForTarget(targetOS: targetOS, targetArch: targetArch),
+);
+
+String releaseTagForPackage(Directory packageRoot) {
+  final pubspec = File('${packageRoot.path}/pubspec.yaml');
+  if (!pubspec.existsSync()) {
+    throw BuildError(
+      message:
+          'Cannot resolve the native release tag because ${pubspec.path} '
+          'does not exist.',
+    );
+  }
+
+  final versionMatch = RegExp(
+    r'^\s*version:\s*([^\s#]+)',
+    multiLine: true,
+  ).firstMatch(pubspec.readAsStringSync());
+  final version = versionMatch
+      ?.group(1)
+      ?.replaceAll(RegExp(r'''^[\"']|[\"']$'''), '');
+  if (version == null ||
+      !RegExp(
+        r'^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$',
+      ).hasMatch(version)) {
+    throw BuildError(
+      message:
+          'Cannot resolve the native release tag from the version in '
+          '${pubspec.path}.',
+    );
+  }
+  return 'v$version';
 }
 
 Directory defaultInstalledNativeLibraryDirectory({
@@ -523,6 +574,26 @@ Directory? _findTransportWorkspace(Directory start) {
     current = parent;
   }
   return null;
+}
+
+bool isConnectanumSourceCheckout(Directory start) {
+  var current = start.absolute;
+  for (var depth = 0; depth < 12; depth++) {
+    final pubspec = File('${current.path}/pubspec.yaml');
+    if (pubspec.existsSync() &&
+        RegExp(
+          r'^\s*name:\s*connectanum_workspace\s*(?:#.*)?$',
+          multiLine: true,
+        ).hasMatch(pubspec.readAsStringSync())) {
+      return true;
+    }
+    final parent = current.parent;
+    if (parent.path == current.path) {
+      break;
+    }
+    current = parent;
+  }
+  return false;
 }
 
 List<File> _collectTransportDependencies(Directory transportDir) {

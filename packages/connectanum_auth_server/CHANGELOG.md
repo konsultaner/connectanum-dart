@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.2
+
+- Keep the auth server synchronized with the corrected hosted native package
+  installation release.
+
 ## 3.0.0-beta.1
 
 - Advance the coordinated beta with asynchronous SCRAM derivation and verified

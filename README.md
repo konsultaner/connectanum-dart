@@ -11,7 +11,7 @@ standalone router, and expose WAMP services to AI agents through MCP.
 [![Coverage](https://codecov.io/gh/konsultaner/connectanum-dart/branch/master/graph/badge.svg)](https://app.codecov.io/gh/konsultaner/connectanum-dart)
 [![WAMP Profile Benchmarks](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml)
 [![Package Dry Run](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml)
-[![Version](https://img.shields.io/badge/version-3.0.0--beta-f59e0b)](https://github.com/konsultaner/connectanum-dart)
+[![Version](https://img.shields.io/badge/version-3.0.0--beta.2-f59e0b)](https://github.com/konsultaner/connectanum-dart)
 [![Dart](https://img.shields.io/badge/Dart-%5E3.9.2-0175c2?logo=dart&logoColor=white)](https://dart.dev/)
 [![WAMP](https://img.shields.io/badge/WAMP-v2-4b32c3)](https://wamp-proto.org/)
 [![License](https://img.shields.io/badge/license-MIT-0f766e)](LICENSE)
@@ -24,7 +24,7 @@ standalone router, and expose WAMP services to AI agents through MCP.
 </div>
 
 > **3.0 beta:** all Connectanum Dart packages and native Rust crates move
-> together at `3.0.0-beta.1`. The beta is intended for integration testing before
+> together at `3.0.0-beta.2`. The beta is intended for integration testing before
 > the final `3.0.0` release.
 
 ## Why Connectanum?
@@ -192,10 +192,10 @@ coordinated stack.
 | [`connectanum`](packages/connectanum) | Compatibility facade for existing `package:connectanum/...` client imports. |
 | [`connectanum_bench`](packages/connectanum_bench) | Reproducible router, transport, profile, and release-feature benchmark scenarios. |
 
-The existing `connectanum` 2.x facade is available on
-[pub.dev](https://pub.dev/packages/connectanum). The modular `3.0.0-beta.1`
-packages are synchronized and publish-ready but are not yet public on pub.dev;
-beta testers can use the Git workspace paths until the coordinated publish.
+The synchronized `3.0.0-beta.2` package graph is available on
+[pub.dev](https://pub.dev/packages/connectanum/versions/3.0.0-beta.2). Beta
+testers can use the compatibility facade or select only the modular packages
+their application needs.
 
 ## Documentation
 
@@ -213,10 +213,10 @@ Start at the [documentation index](docs/README.md), or jump directly to:
 
 ## Project Status
 
-`3.0.0-beta.1` is feature-complete for the announced release profile and is
+`3.0.0-beta.2` is feature-complete for the announced release profile and is
 ready for controlled integration testing. The remaining path to final `3.0.0`
 is broader soak, multi-worker, multi-runtime-thread, and downstream workload
-evidence, followed by the coordinated public package release.
+evidence.
 
 Connectanum is open source under the [MIT License](LICENSE). Issues and
 interoperability reports are welcome in the

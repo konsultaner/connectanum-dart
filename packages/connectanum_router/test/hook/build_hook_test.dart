@@ -131,6 +131,110 @@ void main() {
     });
   });
 
+  test(
+    'build hook defaults isolated packages to matching release assets',
+    () async {
+      final originalDirectory = Directory.current;
+      final packageRoot = await Directory.systemTemp.createTemp(
+        'connectanum_router_hosted_hook_',
+      );
+      addTearDown(() => packageRoot.delete(recursive: true));
+      File('${packageRoot.path}/pubspec.yaml').writeAsStringSync('''
+name: connectanum_router
+version: 3.0.0-beta.2
+environment:
+  sdk: ^3.9.2
+''');
+
+      final archiveBytes = 'router-hosted-release-archive'.codeUnits;
+      final downloaded = <Uri>[];
+      Directory.current = packageRoot;
+      try {
+        await testCodeBuildHook(
+          mainMethod: (args) => build_hook.runBuildHook(
+            args,
+            environment: const {},
+            cargoRunner: _unexpectedCargoRunner,
+            artifactDownloader:
+                ({required source, required destination}) async {
+                  downloaded.add(source);
+                  destination.parent.createSync(recursive: true);
+                  if (destination.path.endsWith('.sha256')) {
+                    final digest = sha256.convert(archiveBytes).toString();
+                    destination.writeAsStringSync(
+                      '$digest  ${_releaseArchiveName()}',
+                    );
+                  } else {
+                    destination.writeAsBytesSync(archiveBytes);
+                  }
+                },
+            archiveExtractor: ({required archive, required destination}) {
+              final extractedLib = File(
+                '${destination.path}/${_releaseBundleName()}/${_defaultLibraryFileName()}',
+              );
+              extractedLib.parent.createSync(recursive: true);
+              extractedLib.writeAsStringSync('router-hosted-prebuilt');
+            },
+          ),
+          check: (_, output) {
+            expect(output.assets.code, hasLength(1));
+            expect(
+              File.fromUri(output.assets.code.single.file!).readAsStringSync(),
+              equals('router-hosted-prebuilt'),
+            );
+            expect(
+              downloaded.map((uri) => uri.toString()),
+              contains(
+                'https://github.com/konsultaner/connectanum-dart/releases/download/'
+                'v3.0.0-beta.2/${_releaseArchiveName()}',
+              ),
+            );
+          },
+        );
+      } finally {
+        Directory.current = originalDirectory;
+      }
+    },
+  );
+
+  test('source checkout detection recognizes incomplete workspace', () async {
+    final checkout = await Directory.systemTemp.createTemp(
+      'connectanum_router_incomplete_checkout_',
+    );
+    addTearDown(() => checkout.delete(recursive: true));
+    File('${checkout.path}/pubspec.yaml').writeAsStringSync('''
+name: connectanum_workspace
+environment:
+  sdk: ^3.9.2
+''');
+    final packageRoot = Directory(
+      '${checkout.path}/packages/connectanum_router',
+    )..createSync(recursive: true);
+    File('${packageRoot.path}/pubspec.yaml').writeAsStringSync('''
+name: connectanum_router
+version: 3.0.0-beta.2
+environment:
+  sdk: ^3.9.2
+''');
+
+    expect(build_hook.isConnectanumSourceCheckout(packageRoot), isTrue);
+  });
+
+  test('hosted release tag derivation rejects malformed versions', () async {
+    final packageRoot = await Directory.systemTemp.createTemp(
+      'connectanum_router_invalid_version_',
+    );
+    addTearDown(() => packageRoot.delete(recursive: true));
+    File(
+      '${packageRoot.path}/pubspec.yaml',
+    ).writeAsStringSync('name: connectanum_router\nversion: development\n');
+
+    expect(
+      () => build_hook.releaseTagForPackage(packageRoot),
+      throwsA(isA<BuildError>()),
+    );
+  });
+
   test('release host triples cover native artifact matrix targets', () {
     expect(
       build_hook.hostTripleForTarget(

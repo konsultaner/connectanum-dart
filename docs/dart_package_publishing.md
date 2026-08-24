@@ -45,23 +45,20 @@ and version-sequencing decisions.
   the selected package, then delegates to Dart's reusable
   `dart-lang/setup-dart/.github/workflows/publish.yml@v1` workflow with OIDC
   authentication and the `pub.dev` environment input.
-- As of 2026-08-24, every versioned Dart package and Rust crate in the
-  workspace is synchronized at `3.0.0-beta.1`. Public Dart dependency constraints
-  use `^3.0.0-beta.1`, and the strict release gate rejects future package-version
-  drift. Pub.dev exposes the legacy public `connectanum` package at `2.2.7`, so
-  `connectanum-v3.0.0-beta.1` is above its currently published version. The
-  modular package names `connectanum_client`,
-  `connectanum_core`, `connectanum_router`, `connectanum_mcp`, and
-  `connectanum_auth_server` returned `404` from the pub.dev package API at the
-  last checked probe. That makes package naming, publisher ownership, and exact
-  release sequencing explicit migration decisions, not just metadata cleanup.
+- As of 2026-08-24, all seven package names are owned and public on pub.dev at
+  `3.0.0-beta.1`. A clean external install then exposed that the native build
+  hooks still assumed the monorepo Rust workspace when no release tag override
+  was supplied. The synchronized `3.0.0-beta.2` corrective release derives the
+  matching native tag from hosted package metadata while preserving source
+  checkout builds. Public dependency constraints use `^3.0.0-beta.2`, and the
+  strict release gate rejects future package-version drift.
 
 ## Latest Evidence
 
 As of 2026-07-17:
 
 - `bin/dart-package-publish-dry-run --strict-release-ready --show-release-plan`
-  validates all seven publishable workspace packages at `3.0.0-beta.1` with
+  validates all seven publishable workspace packages at `3.0.0-beta.2` with
   `Package has 0 warnings`, reports no private workspace dependency blockers,
   and enforces the synchronized-version contract.
 - The release-plan recommended publish order is `connectanum_core`,
@@ -123,14 +120,10 @@ When that decision exists, use this sequence:
 
 - No code-owned archive-readiness or private workspace dependency blockers
   remain for the workspace package graph.
-- Promotion of the synchronized `3.0.0-beta.1` manifests through `master` and
+- Promotion of the synchronized `3.0.0-beta.2` manifests through `master` and
   the hosted deployment chain must complete before publish tags are created.
-- Package ownership and publisher configuration on pub.dev have not been
-  confirmed in checked-in evidence.
-- First-version publication for any new modular package name still requires an
-  explicit manual `dart pub publish` by an authorized uploader/publisher admin
-  before automated publishing can be used for later versions.
-- The legacy package name `connectanum` is already public, while the modular
-  package names were not published at the last checked API probe. A release
-  decision must still approve the exact migration sequence for modular packages
-  and the staged compatibility wrapper/facade.
+- Package ownership is confirmed by the successful first publication of all
+  seven package names. GitHub OIDC publisher configuration remains an operator
+  task before relying on package-specific tags for future releases.
+- The published `3.0.0-beta.1` native hook default is unsuitable for external
+  native execution; testers should use `3.0.0-beta.2` or newer.

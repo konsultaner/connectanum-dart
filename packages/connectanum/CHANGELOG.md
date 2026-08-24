@@ -1,3 +1,8 @@
+## 3.0.0-beta.2
+
+- Advance the coordinated beta to the corrected hosted native package
+  installation release.
+
 ## 3.0.0-beta.1
 
 - Advance the coordinated beta with the production-readiness, transport,

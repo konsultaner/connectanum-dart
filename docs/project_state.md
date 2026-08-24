@@ -2,20 +2,23 @@
 
 Last updated: 2026-08-24
 Current branch: `codex/mcp-public-http-auth-discovery`
-Current milestone: promote the completed production-readiness work to the
-audited GitHub `master` branch as synchronized `3.0.0-beta.1` packages and
-crates. The active plan is
-`docs/exec-plans/2026-08-24-3.0.0-beta.1-promotion.md`. Package publish tags
-remain operator-gated and are not part of the approved branch push.
+Current milestone: publish a synchronized `3.0.0-beta.2` correction whose
+hosted native build hooks work without private source-checkout assumptions. The
+active plan is
+`docs/exec-plans/2026-08-24-3.0.0-beta.2-publish-correction.md`.
 
-The initial beta promotion `094340c4`, native metadata-ownership fix
-`ee7149ab`, and consuming-E2EE accessor fix `fe562ea1` are on both GitHub and
-GitLab `master`. Exact-head package and router image dry-runs pass. Public lazy
-event/result/invocation semantic accessors now decode and cache plaintext on
-first use while encoded byte getters remain lazy and unchanged; benchmark
-matcher failures also surface immediately without dropping an event. Focused
-unit tests, real-router mixed-serializer XSalsa and AES-GCM pub/sub tests, the
-exact four-row E2EE smoke, its artifact gate, and `bin/test-fast` pass.
+`v3.0.0-beta.1` is a public GitHub prerelease with validated signed native
+assets, and its multi-architecture router image passed the hosted MCP smoke.
+All seven Dart packages were first-published to pub.dev at `3.0.0-beta.1` in
+dependency order. A fresh external consumer then reproduced a release blocker:
+the client build hook searched for the monorepo's
+`native/transport/Cargo.toml` instead of selecting the matching hosted native
+artifact. The corrective client and router hooks now preserve explicit native
+overrides and source-checkout Cargo builds, but isolated packages derive
+`v<package-version>` from their own pubspec and download the signed release
+artifact. Focused hosted-hook regressions pass for both packages; synchronized
+`3.0.0-beta.2` promotion, full verification, artifact publication, package
+publication, and a fresh external executable smoke remain.
 
 The exact-head hosted WAMP run at `fe562ea1` completed every workload and
 reached the artifact gate, confirming the E2EE correctness fix. Every E2EE
