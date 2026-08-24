@@ -3,11 +3,12 @@
 Last updated: 2026-08-24
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example
-with per-device identity and encrypted local storage. The completed first
-vertical slice covers real server-address onboarding, anonymous account
+with durable encrypted messaging. The completed account and device-trust
+vertical slices cover real server-address onboarding, anonymous account
 registration, asynchronous Argon2id13 verifier derivation, standardized
-`wamp-scram` authentication, and a responsive authenticated shell. The active
-plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
+`wamp-scram` authentication, encrypted per-device identity storage, authenticated
+device enrollment/revocation, safety numbers, and conversation-key wrapping.
+The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
 WampApp lives under `examples/wamp_app` as standalone client, server, and shared
 protocol packages. The server and Flutter client resolve the public
@@ -22,6 +23,18 @@ SCRAM login with 64 MiB Argon2id13 derivation, no console errors, and clean
 desktop and 390-pixel layouts. Repository-wide `bin/verify` passes.
 The Flutter client also produces a clean release web build, including the
 Dart2Wasm dry-run and packaged icon fonts.
+
+WampApp milestone 2 is complete locally. Each client creates Ed25519 signing
+and X25519 wrapping keys, encrypts its private device material in an
+account-and-endpoint-bound SecretBox vault derived through the asynchronous
+Argon2id13 platform boundary, enrolls only attested public keys through the
+authenticated application realm, and supports durable revocation and local
+safety-number verification. Conversation keys are sealed per recipient device
+and signed by the sender device. Trust establishment is required before the UI
+reports a connected session, and reconnect/replacement generations cannot apply
+stale results. `bin/verify` and `bin/test-wamp-app` pass on 2026-08-24; the
+focused WampApp command covers 9 shared, 13 server, and 15 Flutter tests plus a
+release web build. Exact-head hosted evidence is pending the milestone push.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages
@@ -39,8 +52,10 @@ non-ignored workspace Dart files outside the WampApp subtree, while
 Exact-head CI run `32749847198` passed Fast Checks, WampApp Consumer, Full
 Verify, and Dart VM Coverage, confirming the standalone-package analysis and
 formatting ownership on a clean hosted checkout. The strict deployment auditor
-now treats WampApp Consumer as part of the expected CI topology; exact-head
-hosted evidence for that audit-contract update remains pending its push.
+now treats WampApp Consumer as part of the expected CI topology. Exact-head CI
+run `32753979380` passed all four jobs for audit commit `bece5230`, and the
+strict checked-out-head cleanliness and hosted-log audit passed with no skipped,
+missing, unexpected, warning, deprecation, reset, or connection-noise findings.
 
 `v3.0.0-beta.2` is published as a public GitHub prerelease with validated signed
 native assets and a multi-architecture router image. All seven synchronized

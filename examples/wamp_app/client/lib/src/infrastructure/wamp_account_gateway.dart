@@ -20,18 +20,45 @@ class AccountConnection {
     required this.username,
     required this.displayName,
     required this.closeTransport,
+    required this.enrollDeviceCallback,
+    required this.listDevicesCallback,
+    required this.revokeDeviceCallback,
   });
 
   final ServerEndpoint endpoint;
   final String username;
   final String displayName;
   final Future<void> Function() closeTransport;
+  final Future<DeviceRecord> Function(DeviceEnrollment enrollment)
+  enrollDeviceCallback;
+  final Future<DeviceDirectory> Function(bool includeRevoked)
+  listDevicesCallback;
+  final Future<DeviceRecord> Function(String deviceId) revokeDeviceCallback;
   bool _closed = false;
+
+  Future<DeviceRecord> enrollDevice(DeviceEnrollment enrollment) {
+    _ensureOpen();
+    return enrollDeviceCallback(enrollment);
+  }
+
+  Future<DeviceDirectory> listDevices({bool includeRevoked = false}) {
+    _ensureOpen();
+    return listDevicesCallback(includeRevoked);
+  }
+
+  Future<DeviceRecord> revokeDevice(String deviceId) {
+    _ensureOpen();
+    return revokeDeviceCallback(deviceId);
+  }
 
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
     await closeTransport();
+  }
+
+  void _ensureOpen() {
+    if (_closed) throw StateError('Account connection is closed.');
   }
 }
 
@@ -100,6 +127,33 @@ class WampAccountGateway implements AccountGateway {
         endpoint: endpoint,
         username: session.authId ?? normalizedUsername,
         displayName: displayName is String ? displayName : normalizedUsername,
+        enrollDeviceCallback: (enrollment) async {
+          final result = await session
+              .callSingle(
+                WampAppProtocol.deviceEnroll,
+                argumentsKeywords: enrollment.toWampKeywords(),
+              )
+              .timeout(connectionTimeout);
+          return DeviceRecord.fromWampKeywords(result.argumentsKeywords!);
+        },
+        listDevicesCallback: (includeRevoked) async {
+          final result = await session
+              .callSingle(
+                WampAppProtocol.deviceList,
+                argumentsKeywords: {'include_revoked': includeRevoked},
+              )
+              .timeout(connectionTimeout);
+          return DeviceDirectory.fromWampKeywords(result.argumentsKeywords);
+        },
+        revokeDeviceCallback: (deviceId) async {
+          final result = await session
+              .callSingle(
+                WampAppProtocol.deviceRevoke,
+                argumentsKeywords: {'device_id': deviceId},
+              )
+              .timeout(connectionTimeout);
+          return DeviceRecord.fromWampKeywords(result.argumentsKeywords!);
+        },
         closeTransport: () async {
           try {
             await _close(client, session);

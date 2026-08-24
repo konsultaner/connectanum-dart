@@ -1,3 +1,4 @@
 export 'src/account_registration.dart';
+export 'src/device_identity.dart';
 export 'src/protocol.dart';
 export 'src/server_endpoint.dart';

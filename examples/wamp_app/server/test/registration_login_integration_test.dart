@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectanum_client/connectanum.dart';
+import 'package:crypto/crypto.dart';
+import 'package:pinenacl/ed25519.dart';
 import 'package:test/test.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'package:wamp_app_server/wamp_app_server.dart';
@@ -108,6 +111,51 @@ void main() {
     expect(appSession.authId, 'alice');
     expect(appSession.authRole, WampAppProtocol.memberRole);
     expect(appSession.authExtra?['display_name'], 'Alice Example');
+
+    final enrollment = _signedEnrollment('alice');
+    final enrolled = DeviceRecord.fromWampKeywords(
+      (await appSession.callSingle(
+        WampAppProtocol.deviceEnroll,
+        argumentsKeywords: enrollment.toWampKeywords(),
+        options: CallOptions(
+          custom: const {'caller_authid': 'spoofed-account'},
+        ),
+      )).argumentsKeywords!,
+    );
+    expect(enrolled.username, 'alice');
+    expect(enrolled.deviceId, enrollment.deviceId);
+
+    final deviceDirectory = DeviceDirectory.fromWampKeywords(
+      (await appSession.callSingle(
+        WampAppProtocol.deviceList,
+      )).argumentsKeywords,
+    );
+    expect(deviceDirectory.devices.single.username, 'alice');
+
+    final revoked = DeviceRecord.fromWampKeywords(
+      (await appSession.callSingle(
+        WampAppProtocol.deviceRevoke,
+        argumentsKeywords: {'device_id': enrollment.deviceId},
+      )).argumentsKeywords!,
+    );
+    expect(revoked.isRevoked, isTrue);
+    expect(
+      DeviceDirectory.fromWampKeywords(
+        (await appSession.callSingle(
+          WampAppProtocol.deviceList,
+        )).argumentsKeywords,
+      ).devices,
+      isEmpty,
+    );
+    expect(
+      DeviceDirectory.fromWampKeywords(
+        (await appSession.callSingle(
+          WampAppProtocol.deviceList,
+          argumentsKeywords: const {'include_revoked': true},
+        )).argumentsKeywords,
+      ).devices.single.isRevoked,
+      isTrue,
+    );
     await appSession.close(timeout: Duration.zero);
     await appClient.disconnect();
 
@@ -122,3 +170,34 @@ final _singleAttempt = ClientConnectOptions(
   reconnectCount: 0,
   reconnectTime: Duration(milliseconds: 100),
 );
+
+DeviceEnrollment _signedEnrollment(String username) {
+  final signingKey = SigningKey.generate();
+  final signingPublicKey = signingKey.verifyKey.asTypedList;
+  final exchangePublicKey = Uint8List.fromList(
+    List<int>.generate(32, (index) => index + 1),
+  );
+  final deviceId = _encode(
+    sha256.convert([...signingPublicKey, ...exchangePublicKey]).bytes,
+  );
+  final createdAt = DateTime.now().toUtc();
+  final payload = DeviceEnrollment.attestationPayloadFor(
+    username: username,
+    deviceId: deviceId,
+    deviceName: 'Integration device',
+    signingPublicKey: _encode(signingPublicKey),
+    exchangePublicKey: _encode(exchangePublicKey),
+    createdAt: createdAt,
+  );
+  final signature = signingKey.sign(Uint8List.fromList(payload)).signature;
+  return DeviceEnrollment(
+    deviceId: deviceId,
+    deviceName: 'Integration device',
+    signingPublicKey: _encode(signingPublicKey),
+    exchangePublicKey: _encode(exchangePublicKey),
+    attestation: _encode(signature.asTypedList),
+    createdAt: createdAt,
+  );
+}
+
+String _encode(List<int> value) => base64Url.encode(value).replaceAll('=', '');

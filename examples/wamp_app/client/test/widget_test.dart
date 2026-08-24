@@ -5,9 +5,14 @@ import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
+import 'test_support.dart';
+
 void main() {
   testWidgets('registers and opens the authenticated shell', (tester) async {
-    final controller = WampAppController(gateway: _FakeGateway());
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
     addTearDown(controller.dispose);
     await tester.pumpWidget(WampApp(controller: controller));
 
@@ -32,10 +37,15 @@ void main() {
     expect(find.text('Connected, with room to talk'), findsOneWidget);
     expect(find.text('Alice Example'), findsOneWidget);
     expect(find.text('@alice'), findsOneWidget);
+    expect(find.text('Encrypted device vault'), findsOneWidget);
+    expect(find.text('Test device'), findsOneWidget);
   });
 
   testWidgets('clears password after a failed attempt', (tester) async {
-    final controller = WampAppController(gateway: _FailingGateway());
+    final controller = WampAppController(
+      gateway: _FailingGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
     addTearDown(controller.dispose);
     await tester.pumpWidget(WampApp(controller: controller));
 
@@ -84,6 +94,10 @@ class _FakeGateway implements AccountGateway {
       endpoint: endpoint,
       username: username,
       displayName: 'Alice Example',
+      enrollDeviceCallback: (enrollment) async =>
+          activeDeviceRecord(username, enrollment),
+      listDevicesCallback: (_) async => DeviceDirectory(const []),
+      revokeDeviceCallback: (_) => throw UnimplementedError(),
       closeTransport: () async {},
     );
   }

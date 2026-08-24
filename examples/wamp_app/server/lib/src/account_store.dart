@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 class StoredAccount {
-  const StoredAccount({
+  StoredAccount({
     required this.username,
     required this.displayName,
     required this.storedKey,
@@ -15,7 +16,8 @@ class StoredAccount {
     required this.memoryKiB,
     required this.kdf,
     required this.createdAt,
-  });
+    Map<String, DeviceRecord> devices = const {},
+  }) : devices = Map<String, DeviceRecord>.unmodifiable(devices);
 
   final String username;
   final String displayName;
@@ -26,6 +28,7 @@ class StoredAccount {
   final int memoryKiB;
   final String kdf;
   final DateTime createdAt;
+  final Map<String, DeviceRecord> devices;
 
   Map<String, dynamic> toJson() => {
     'username': username,
@@ -37,7 +40,23 @@ class StoredAccount {
     'memory_kib': memoryKiB,
     'kdf': kdf,
     'created_at': createdAt.toUtc().toIso8601String(),
+    'devices': devices.map(
+      (deviceId, device) => MapEntry(deviceId, device.toWampKeywords()),
+    ),
   };
+
+  StoredAccount withDevices(Map<String, DeviceRecord> value) => StoredAccount(
+    username: username,
+    displayName: displayName,
+    storedKey: storedKey,
+    serverKey: serverKey,
+    salt: salt,
+    iterations: iterations,
+    memoryKiB: memoryKiB,
+    kdf: kdf,
+    createdAt: createdAt,
+    devices: value,
+  );
 
   factory StoredAccount.fromJson(Map<String, dynamic> json) {
     final createdAt = DateTime.tryParse(json['created_at'] as String? ?? '');
@@ -51,6 +70,7 @@ class StoredAccount {
       'memory_kib': final int memoryKiB,
       'kdf': final String kdf,
     } when createdAt != null) {
+      final devices = _readDevices(json['devices'], username);
       return StoredAccount(
         username: username,
         displayName: displayName,
@@ -61,9 +81,32 @@ class StoredAccount {
         memoryKiB: memoryKiB,
         kdf: kdf,
         createdAt: createdAt.toUtc(),
+        devices: devices,
       );
     }
     throw const FormatException('Account store contains an invalid account.');
+  }
+
+  static Map<String, DeviceRecord> _readDevices(
+    Object? value,
+    String username,
+  ) {
+    if (value == null) return const {};
+    if (value is! Map<String, dynamic>) {
+      throw const FormatException('Account devices must be a map.');
+    }
+    return value.map((deviceId, rawDevice) {
+      if (rawDevice is! Map<String, dynamic>) {
+        throw const FormatException('Account device entry must be a map.');
+      }
+      final device = DeviceRecord.fromWampKeywords(rawDevice);
+      if (deviceId != device.deviceId || device.username != username) {
+        throw const FormatException(
+          'Account device key or username does not match its record.',
+        );
+      }
+      return MapEntry(deviceId, device);
+    });
   }
 }
 
@@ -76,8 +119,32 @@ class AccountAlreadyExists implements Exception {
   String toString() => 'Account $username already exists.';
 }
 
+class DeviceConflict implements Exception {
+  const DeviceConflict(this.deviceId);
+
+  final String deviceId;
+}
+
+class DeviceNotFound implements Exception {
+  const DeviceNotFound(this.deviceId);
+
+  final String deviceId;
+}
+
+class DeviceRevoked implements Exception {
+  const DeviceRevoked(this.deviceId);
+
+  final String deviceId;
+}
+
+class DeviceLimitExceeded implements Exception {
+  const DeviceLimitExceeded();
+}
+
 class AccountStore {
   AccountStore(String path) : file = File(path);
+
+  static const maxDevicesPerAccount = 64;
 
   final File file;
   Future<void> _writeTail = Future<void>.value();
@@ -105,6 +172,104 @@ class AccountStore {
         throw AccountAlreadyExists(account.username);
       }
       await _writeDocument({...accounts, account.username: account});
+    });
+  }
+
+  Future<DeviceRecord> enrollDevice(
+    String username,
+    DeviceEnrollment enrollment, {
+    DateTime? now,
+  }) {
+    return _serializeWrite(() async {
+      final accounts = await _readDocument();
+      final account = accounts[username];
+      if (account == null) throw StateError('Account no longer exists.');
+      final observedAt = (now ?? DateTime.now()).toUtc();
+      final existing = account.devices[enrollment.deviceId];
+      if (existing != null) {
+        if (existing.isRevoked) throw DeviceRevoked(enrollment.deviceId);
+        if (!_sameEnrollment(existing.enrollment, enrollment)) {
+          throw DeviceConflict(enrollment.deviceId);
+        }
+        final lastSeenAt = observedAt.isBefore(existing.lastSeenAt)
+            ? existing.lastSeenAt
+            : observedAt;
+        final refreshed = DeviceRecord(
+          username: username,
+          enrollment: existing.enrollment,
+          enrolledAt: existing.enrolledAt,
+          lastSeenAt: lastSeenAt,
+        );
+        await _replaceAccountDevice(accounts, account, refreshed);
+        return refreshed;
+      }
+      if (account.devices.length >= maxDevicesPerAccount) {
+        throw const DeviceLimitExceeded();
+      }
+      final device = DeviceRecord(
+        username: username,
+        enrollment: enrollment,
+        enrolledAt: observedAt,
+        lastSeenAt: observedAt,
+      );
+      await _replaceAccountDevice(accounts, account, device);
+      return device;
+    });
+  }
+
+  Future<List<DeviceRecord>> listDevices(
+    String username, {
+    bool includeRevoked = false,
+  }) async {
+    final account = await find(username);
+    if (account == null) throw StateError('Account no longer exists.');
+    final devices =
+        account.devices.values
+            .where((device) => includeRevoked || !device.isRevoked)
+            .toList()
+          ..sort((left, right) => left.enrolledAt.compareTo(right.enrolledAt));
+    return List<DeviceRecord>.unmodifiable(devices);
+  }
+
+  Future<DeviceRecord> revokeDevice(
+    String username,
+    String deviceId, {
+    DateTime? now,
+  }) {
+    return _serializeWrite(() async {
+      final accounts = await _readDocument();
+      final account = accounts[username];
+      if (account == null) throw StateError('Account no longer exists.');
+      final existing = account.devices[deviceId];
+      if (existing == null) throw DeviceNotFound(deviceId);
+      if (existing.isRevoked) return existing;
+      final requestedRevocation = (now ?? DateTime.now()).toUtc();
+      final revokedAt = requestedRevocation.isBefore(existing.enrolledAt)
+          ? existing.enrolledAt
+          : requestedRevocation;
+      final revoked = DeviceRecord(
+        username: username,
+        enrollment: existing.enrollment,
+        enrolledAt: existing.enrolledAt,
+        lastSeenAt: existing.lastSeenAt,
+        revokedAt: revokedAt,
+      );
+      await _replaceAccountDevice(accounts, account, revoked);
+      return revoked;
+    });
+  }
+
+  Future<void> _replaceAccountDevice(
+    Map<String, StoredAccount> accounts,
+    StoredAccount account,
+    DeviceRecord device,
+  ) {
+    return _writeDocument({
+      ...accounts,
+      account.username: account.withDevices({
+        ...account.devices,
+        device.deviceId: device,
+      }),
     });
   }
 
@@ -173,4 +338,13 @@ class AccountStore {
       release.complete();
     }
   }
+}
+
+bool _sameEnrollment(DeviceEnrollment left, DeviceEnrollment right) {
+  return left.deviceId == right.deviceId &&
+      left.deviceName == right.deviceName &&
+      left.signingPublicKey == right.signingPublicKey &&
+      left.exchangePublicKey == right.exchangePublicKey &&
+      left.attestation == right.attestation &&
+      left.createdAt == right.createdAt;
 }

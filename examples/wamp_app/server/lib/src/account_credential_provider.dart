@@ -18,7 +18,8 @@ class AccountCredentialProvider extends AuthCredentialProvider {
     required String authId,
   }) async {
     if (authId != WampAppProtocol.serviceAuthId ||
-        realmUri != WampAppProtocol.registrationRealm) {
+        (realmUri != WampAppProtocol.registrationRealm &&
+            realmUri != WampAppProtocol.appRealm)) {
       return null;
     }
     return TicketCredential(

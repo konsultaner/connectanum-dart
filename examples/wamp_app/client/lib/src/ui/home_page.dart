@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import '../application/wamp_app_controller.dart';
 import '../infrastructure/wamp_account_gateway.dart';
@@ -23,6 +24,8 @@ class HomePage extends StatelessWidget {
             final wide = constraints.maxWidth >= 760;
             final account = _AccountPanel(
               connection: connection,
+              localDevice: controller.localDevice!,
+              safetyNumber: controller.safetyNumber!,
               onSignOut: controller.signOut,
             );
             return Padding(
@@ -51,9 +54,16 @@ class HomePage extends StatelessWidget {
 }
 
 class _AccountPanel extends StatelessWidget {
-  const _AccountPanel({required this.connection, required this.onSignOut});
+  const _AccountPanel({
+    required this.connection,
+    required this.localDevice,
+    required this.safetyNumber,
+    required this.onSignOut,
+  });
 
   final AccountConnection connection;
+  final DeviceRecord localDevice;
+  final String safetyNumber;
   final VoidCallback onSignOut;
 
   @override
@@ -117,6 +127,44 @@ class _AccountPanel extends StatelessWidget {
               connection.endpoint.websocketUri.authority,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: WampAppTheme.mint.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.verified_user_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Encrypted device vault',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 9),
+                  Text(localDevice.enrollment.deviceName),
+                  const SizedBox(height: 4),
+                  Text(
+                    safetyNumber,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
@@ -184,7 +232,7 @@ class _ConversationEmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Account registration and SCRAM login are live. Conversation storage and encrypted envelopes are the next vertical slice; this screen intentionally contains no fake messages.',
+                  'SCRAM login, encrypted local identity storage, and signed device enrollment are live. Conversation delivery is the next vertical slice; this screen intentionally contains no fake messages.',
                   textAlign: TextAlign.center,
                 ),
               ],

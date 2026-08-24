@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/connectanum.dart' hide Error;
 import 'package:connectanum_router/auth.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'account_credential_provider.dart';
 import 'account_store.dart';
+import 'device_service.dart';
 import 'registration_service.dart';
 import 'server_config.dart';
 import 'wamp_app_worker.dart';
@@ -17,18 +18,18 @@ class WampAppServer {
     required this.websocketUri,
     required NativeTransportRuntime runtime,
     required RouterBinding binding,
-    required Client serviceClient,
-    required Session serviceSession,
+    required List<Client> serviceClients,
+    required List<Session> serviceSessions,
   }) : _runtime = runtime,
        _binding = binding,
-       _serviceClient = serviceClient,
-       _serviceSession = serviceSession;
+       _serviceClients = List<Client>.unmodifiable(serviceClients),
+       _serviceSessions = List<Session>.unmodifiable(serviceSessions);
 
   final Uri websocketUri;
   final NativeTransportRuntime _runtime;
   final RouterBinding _binding;
-  final Client _serviceClient;
-  final Session _serviceSession;
+  final List<Client> _serviceClients;
+  final List<Session> _serviceSessions;
   bool _closed = false;
 
   static Future<WampAppServer> start(WampAppServerConfig config) async {
@@ -63,6 +64,8 @@ class WampAppServer {
       runtime,
       workerEntryPoint: wampAppRouterWorkerEntryPoint,
     );
+    final serviceClients = <Client>[];
+    final serviceSessions = <Session>[];
     try {
       final listener = binding.listeners.single;
       final connectHost = switch (config.host) {
@@ -75,7 +78,7 @@ class WampAppServer {
         port: listener.port,
         path: config.websocketPath,
       );
-      final serviceClient = Client(
+      final registrationServiceClient = Client(
         transport: WebSocketTransport.withCborSerializer(
           websocketUri.toString(),
         ),
@@ -83,7 +86,8 @@ class WampAppServer {
         authId: WampAppProtocol.serviceAuthId,
         authenticationMethods: [TicketAuthentication(serviceTicket)],
       );
-      final serviceSession = await serviceClient
+      serviceClients.add(registrationServiceClient);
+      final registrationServiceSession = await registrationServiceClient
           .connect(
             options: ClientConnectOptions(
               reconnectCount: 0,
@@ -92,48 +96,59 @@ class WampAppServer {
           )
           .first
           .timeout(const Duration(seconds: 15));
+      serviceSessions.add(registrationServiceSession);
       final registrations = RegistrationService(
         store: store,
         iterations: config.argonIterations,
         memoryKiB: config.argonMemoryKiB,
       );
-      await serviceSession.registerHandler(WampAppProtocol.accountRegister, (
-        invocation,
-      ) async {
-        try {
-          final request = AccountRegistration.fromWampKeywords(
-            invocation.argumentsKeywords,
-          );
-          final receipt = await registrations.register(request);
-          invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
-        } on AccountAlreadyExists {
-          invocation.respondWith(
-            isError: true,
-            errorUri: WampAppProtocol.errorUsernameTaken,
-            arguments: const ['That username is already registered.'],
-          );
-        } on FormatException catch (error) {
-          invocation.respondWith(
-            isError: true,
-            errorUri: WampAppProtocol.errorInvalidRegistration,
-            arguments: [error.message],
-          );
-        } catch (_) {
-          invocation.respondWith(
-            isError: true,
-            errorUri: WampAppProtocol.errorRegistrationUnavailable,
-            arguments: const ['Registration is temporarily unavailable.'],
-          );
-        }
-      });
+      await _registerAccountHandler(registrationServiceSession, registrations);
+
+      final appServiceClient = Client(
+        transport: WebSocketTransport.withCborSerializer(
+          websocketUri.toString(),
+        ),
+        realm: WampAppProtocol.appRealm,
+        authId: WampAppProtocol.serviceAuthId,
+        authenticationMethods: [TicketAuthentication(serviceTicket)],
+      );
+      serviceClients.add(appServiceClient);
+      final appServiceSession = await appServiceClient
+          .connect(
+            options: ClientConnectOptions(
+              reconnectCount: 0,
+              reconnectTime: const Duration(milliseconds: 100),
+            ),
+          )
+          .first
+          .timeout(const Duration(seconds: 15));
+      serviceSessions.add(appServiceSession);
+      await _registerDeviceHandlers(
+        appServiceSession,
+        DeviceService(store: store),
+      );
       return WampAppServer._(
         websocketUri: websocketUri,
         runtime: runtime,
         binding: binding,
-        serviceClient: serviceClient,
-        serviceSession: serviceSession,
+        serviceClients: serviceClients,
+        serviceSessions: serviceSessions,
       );
     } catch (_) {
+      for (final session in serviceSessions.reversed) {
+        try {
+          await session.close(timeout: Duration.zero);
+        } catch (_) {
+          // Preserve the startup failure while releasing remaining resources.
+        }
+      }
+      for (final client in serviceClients.reversed) {
+        try {
+          await client.disconnect();
+        } catch (_) {
+          // Preserve the startup failure while releasing remaining resources.
+        }
+      }
       await binding.dispose();
       runtime.shutdown();
       runtime.dispose();
@@ -197,6 +212,7 @@ class WampAppServer {
     );
     settings.addRealmFromBuilder(
       RealmSettingsBuilder(WampAppProtocol.appRealm)
+        ..addAuthMethod('ticket', options: {'authenticator': 'ticket-service'})
         ..addAuthMethod(
           WampAppProtocol.scramAuthMethod,
           options: {'authenticator': 'scram-account'},
@@ -204,8 +220,31 @@ class WampAppServer {
         ..addRoleFromBuilder(
           RoleSettingsBuilder(WampAppProtocol.memberRole)
             ..addPermissionFromBuilder(
-              PermissionSettingsBuilder('com.wampapp.')
-                ..setMatchPolicy(PermissionMatchPolicy.prefix),
+              PermissionSettingsBuilder(WampAppProtocol.deviceEnroll)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.deviceList)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.deviceRevoke)
+                ..allowOperations(const ['call']),
+            ),
+        )
+        ..addRoleFromBuilder(
+          RoleSettingsBuilder(WampAppProtocol.serviceRole)
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.deviceEnroll)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.deviceList)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.deviceRevoke)
+                ..allowOperations(const ['register', 'unregister']),
             ),
         )
         ..setLimits(
@@ -236,11 +275,163 @@ class WampAppServer {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
-    await _serviceSession.close(timeout: Duration.zero);
-    await _serviceClient.disconnect();
-    await _binding.dispose();
-    _runtime.shutdown();
-    _runtime.dispose();
-    AuthCredentialRegistry.reset();
+    Object? failure;
+    for (final session in _serviceSessions.reversed) {
+      try {
+        await session.close(timeout: Duration.zero);
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    for (final client in _serviceClients.reversed) {
+      try {
+        await client.disconnect();
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    try {
+      await _binding.dispose();
+    } catch (error) {
+      failure ??= error;
+    } finally {
+      _runtime.shutdown();
+      _runtime.dispose();
+      AuthCredentialRegistry.reset();
+    }
+    if (failure != null) {
+      throw failure;
+    }
   }
+}
+
+Future<void> _registerAccountHandler(
+  Session session,
+  RegistrationService registrations,
+) {
+  return session.registerHandler(WampAppProtocol.accountRegister, (
+    invocation,
+  ) async {
+    try {
+      final request = AccountRegistration.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final receipt = await registrations.register(request);
+      invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
+    } on AccountAlreadyExists {
+      invocation.respondWith(
+        isError: true,
+        errorUri: WampAppProtocol.errorUsernameTaken,
+        arguments: const ['That username is already registered.'],
+      );
+    } on FormatException catch (error) {
+      invocation.respondWith(
+        isError: true,
+        errorUri: WampAppProtocol.errorInvalidRegistration,
+        arguments: [error.message],
+      );
+    } catch (_) {
+      invocation.respondWith(
+        isError: true,
+        errorUri: WampAppProtocol.errorRegistrationUnavailable,
+        arguments: const ['Registration is temporarily unavailable.'],
+      );
+    }
+  });
+}
+
+Future<void> _registerDeviceHandlers(
+  Session session,
+  DeviceService devices,
+) async {
+  final options = RegisterOptions(discloseCaller: true);
+  await session.registerHandler(WampAppProtocol.deviceEnroll, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final enrollment = DeviceEnrollment.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final device = await devices.enroll(username, enrollment);
+      invocation.respondWith(argumentsKeywords: device.toWampKeywords());
+    } catch (error) {
+      _respondWithDeviceError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.deviceList, (invocation) async {
+    try {
+      final username = _callerUsername(invocation);
+      final includeRevoked = switch (invocation
+          .argumentsKeywords?['include_revoked']) {
+        null => false,
+        final bool value => value,
+        _ => throw const FormatException('include_revoked must be a boolean.'),
+      };
+      final directory = await devices.list(
+        username,
+        includeRevoked: includeRevoked,
+      );
+      invocation.respondWith(argumentsKeywords: directory.toWampKeywords());
+    } catch (error) {
+      _respondWithDeviceError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.deviceRevoke, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final deviceId = invocation.argumentsKeywords?['device_id'];
+      if (deviceId is! String) {
+        throw const FormatException('device_id must be a string.');
+      }
+      final device = await devices.revoke(username, deviceId);
+      invocation.respondWith(argumentsKeywords: device.toWampKeywords());
+    } catch (error) {
+      _respondWithDeviceError(invocation, error);
+    }
+  }, options: options);
+}
+
+String _callerUsername(Invocation invocation) {
+  final authId = invocation.details.custom['caller_authid'];
+  if (authId is! String || authId.isEmpty) {
+    throw const _CallerNotAuthorized();
+  }
+  return AccountRegistration.normalizeUsername(authId);
+}
+
+void _respondWithDeviceError(Invocation invocation, Object error) {
+  final (uri, message) = switch (error) {
+    DeviceRevoked() => (
+      WampAppProtocol.errorDeviceRevoked,
+      'That device has been revoked.',
+    ),
+    DeviceNotFound() => (
+      WampAppProtocol.errorDeviceNotFound,
+      'That device was not found.',
+    ),
+    DeviceConflict() || DeviceLimitExceeded() => (
+      WampAppProtocol.errorDeviceConflict,
+      'That device conflicts with the account device directory.',
+    ),
+    _CallerNotAuthorized() || StateError() => (
+      WampAppProtocol.errorNotAuthorized,
+      'The authenticated account cannot perform this operation.',
+    ),
+    FormatException(:final message) => (
+      WampAppProtocol.errorInvalidDevice,
+      message,
+    ),
+    _ => (
+      WampAppProtocol.errorDeviceUnavailable,
+      'The device service is temporarily unavailable.',
+    ),
+  };
+  invocation.respondWith(isError: true, errorUri: uri, arguments: [message]);
+}
+
+class _CallerNotAuthorized implements Exception {
+  const _CallerNotAuthorized();
 }

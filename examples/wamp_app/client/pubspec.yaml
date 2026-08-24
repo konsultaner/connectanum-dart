@@ -9,9 +9,12 @@ environment:
 dependencies:
   connectanum_client: 3.0.0-beta.2
   connectanum_core: 3.0.0-beta.2
+  crypto: ^3.0.7
   cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter
+  pinenacl: ^0.6.0
+  shared_preferences: ^2.5.3
   wamp_app_protocol:
     path: ../shared
 
@@ -19,6 +22,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
+  wamp_app_server:
+    path: ../server
 
 flutter:
   uses-material-design: true
