@@ -9,6 +9,7 @@ class WampAppServerConfig {
     required this.port,
     required this.websocketPath,
     required this.accountStorePath,
+    required this.messageStorePath,
     required this.argonIterations,
     required this.argonMemoryKiB,
   });
@@ -17,6 +18,7 @@ class WampAppServerConfig {
   final int port;
   final String websocketPath;
   final String accountStorePath;
+  final String messageStorePath;
   final int argonIterations;
   final int argonMemoryKiB;
 
@@ -39,11 +41,19 @@ class WampAppServerConfig {
     final accountStore = p.isAbsolute(configuredStore)
         ? configuredStore
         : p.normalize(p.join(base, configuredStore));
+    final configuredMessages = _string(
+      document['message_store'],
+      'message_store',
+    );
+    final messageStore = p.isAbsolute(configuredMessages)
+        ? configuredMessages
+        : p.normalize(p.join(base, configuredMessages));
     return WampAppServerConfig(
       host: host,
       port: port,
       websocketPath: websocketPath,
       accountStorePath: accountStore,
+      messageStorePath: messageStore,
       argonIterations: _integer(
         argon['iterations'],
         'argon2id13.iterations',

@@ -213,11 +213,12 @@ final class LocalDeviceIdentity {
     required String username,
     required WrappedConversationKey envelope,
     required DeviceRecord sender,
+    bool allowRevokedSender = false,
   }) {
     _ensureActive();
     envelope.validate();
     sender.validate();
-    if (sender.isRevoked) {
+    if (sender.isRevoked && !allowRevokedSender) {
       throw const FormatException(
         'Conversation key came from a revoked device.',
       );

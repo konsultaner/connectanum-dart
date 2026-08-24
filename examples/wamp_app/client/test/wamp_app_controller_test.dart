@@ -192,7 +192,12 @@ class _RecordingGateway implements AccountGateway {
         enrollment,
       ),
       listDevicesCallback: (_) async => DeviceDirectory(const []),
+      lookupDevicesCallback: (_, _) async => DeviceDirectory(const []),
       revokeDeviceCallback: (_) => throw UnimplementedError(),
+      sendMessageCallback: (_) => throw UnimplementedError(),
+      syncMessagesCallback: (afterCursor, _) async =>
+          MailboxBatch(nextCursor: afterCursor, messages: const []),
+      markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
       closeTransport: () async {
         closed = true;
         if (failNextClose) {

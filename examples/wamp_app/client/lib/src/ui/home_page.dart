@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import '../application/wamp_app_controller.dart';
+import '../domain/local_chat_message.dart';
 import '../infrastructure/wamp_account_gateway.dart';
 import 'wamp_app_theme.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
     required this.controller,
@@ -16,6 +17,32 @@ class HomePage extends StatelessWidget {
   final AccountConnection connection;
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final _recipientController = TextEditingController();
+  final _messageController = TextEditingController();
+
+  @override
+  void dispose() {
+    _recipientController.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final text = _messageController.text;
+    await widget.controller.sendMessage(
+      recipientUsername: _recipientController.text,
+      text: text,
+    );
+    if (mounted && widget.controller.messageError == null) {
+      _messageController.clear();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
@@ -23,10 +50,16 @@ class HomePage extends StatelessWidget {
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 760;
             final account = _AccountPanel(
-              connection: connection,
-              localDevice: controller.localDevice!,
-              safetyNumber: controller.safetyNumber!,
-              onSignOut: controller.signOut,
+              connection: widget.connection,
+              localDevice: widget.controller.localDevice!,
+              safetyNumber: widget.controller.safetyNumber!,
+              onSignOut: widget.controller.signOut,
+            );
+            final conversation = _ConversationPanel(
+              controller: widget.controller,
+              recipientController: _recipientController,
+              messageController: _messageController,
+              onSend: _send,
             );
             return Padding(
               padding: const EdgeInsets.all(18),
@@ -35,14 +68,14 @@ class HomePage extends StatelessWidget {
                       children: [
                         SizedBox(width: 320, child: account),
                         const SizedBox(width: 18),
-                        const Expanded(child: _ConversationEmptyState()),
+                        Expanded(child: conversation),
                       ],
                     )
                   : Column(
                       children: [
                         account,
                         const SizedBox(height: 18),
-                        const Expanded(child: _ConversationEmptyState()),
+                        Expanded(child: conversation),
                       ],
                     ),
             );
@@ -198,46 +231,175 @@ class _OnlineBadge extends StatelessWidget {
   }
 }
 
-class _ConversationEmptyState extends StatelessWidget {
-  const _ConversationEmptyState();
+class _ConversationPanel extends StatelessWidget {
+  const _ConversationPanel({
+    required this.controller,
+    required this.recipientController,
+    required this.messageController,
+    required this.onSend,
+  });
+
+  final WampAppController controller;
+  final TextEditingController recipientController;
+  final TextEditingController messageController;
+  final Future<void> Function() onSend;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(36),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          children: [
+            Row(
               children: [
-                Container(
-                  width: 92,
-                  height: 92,
-                  decoration: const BoxDecoration(
-                    color: WampAppTheme.mint,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.forum_outlined,
-                    size: 42,
-                    color: WampAppTheme.pine,
+                const Icon(Icons.lock_outline, color: WampAppTheme.pine),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    'Encrypted messages',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  'Connected, with room to talk',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'SCRAM login, encrypted local identity storage, and signed device enrollment are live. Conversation delivery is the next vertical slice; this screen intentionally contains no fake messages.',
-                  textAlign: TextAlign.center,
+                IconButton(
+                  tooltip: 'Sync messages',
+                  onPressed: controller.messageBusy
+                      ? null
+                      : controller.refreshMessages,
+                  icon: const Icon(Icons.sync),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 14),
+            TextField(
+              key: const Key('message-recipient'),
+              controller: recipientController,
+              enabled: !controller.messageBusy,
+              decoration: const InputDecoration(
+                labelText: 'Recipient username',
+                prefixIcon: Icon(Icons.alternate_email),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: controller.messages.isEmpty
+                  ? const _NoMessages()
+                  : ListView.separated(
+                      key: const Key('message-history'),
+                      reverse: true,
+                      itemCount: controller.messages.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final message = controller
+                            .messages[controller.messages.length - index - 1];
+                        return _MessageBubble(message: message);
+                      },
+                    ),
+            ),
+            if (controller.messageError case final error?) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  error,
+                  key: const Key('message-error'),
+                  style: const TextStyle(color: Color(0xFF9E2A2B)),
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('message-composer'),
+                    controller: messageController,
+                    enabled: !controller.messageBusy,
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      hintText: 'Write an encrypted message',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                IconButton.filled(
+                  key: const Key('message-send'),
+                  tooltip: 'Send encrypted message',
+                  onPressed: controller.messageBusy ? null : onSend,
+                  icon: controller.messageBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send_rounded),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoMessages extends StatelessWidget {
+  const _NoMessages();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          'No messages yet. Choose a registered account and send the first end-to-end encrypted message.',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({required this.message});
+
+  final LocalChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: message.outgoing
+          ? Alignment.centerRight
+          : Alignment.centerLeft,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 520),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+        decoration: BoxDecoration(
+          color: message.outgoing ? WampAppTheme.mint : const Color(0xFFF1EBDD),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '@${message.peerUsername}',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(message.text),
+            const SizedBox(height: 5),
+            Text(
+              message.outgoing
+                  ? (message.readAt != null
+                        ? 'Read'
+                        : message.deliveredAt != null
+                        ? 'Delivered'
+                        : 'Sent')
+                  : 'Received',
+              style: const TextStyle(fontSize: 10),
+            ),
+          ],
         ),
       ),
     );

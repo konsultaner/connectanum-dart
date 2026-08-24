@@ -3,11 +3,14 @@
 Last updated: 2026-08-24
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example
-with durable encrypted messaging. The completed account and device-trust
-vertical slices cover real server-address onboarding, anonymous account
-registration, asynchronous Argon2id13 verifier derivation, standardized
-`wamp-scram` authentication, encrypted per-device identity storage, authenticated
-device enrollment/revocation, safety numbers, and conversation-key wrapping.
+with the remaining durable-messaging work. The completed account, device-trust,
+and direct-message slices cover real server-address onboarding, anonymous
+account registration, asynchronous Argon2id13 verifier derivation,
+standardized `wamp-scram` authentication, encrypted per-device identity
+storage, authenticated device enrollment/revocation, safety numbers, signed
+conversation-key wrapping, opaque server mailboxes, reconnect cursors, and
+encrypted one-to-one messages. Groups, explicit read and one-time-consumption
+semantics, retry/conflict UX, and push-driven synchronization remain open.
 The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
 WampApp lives under `examples/wamp_app` as standalone client, server, and shared
@@ -34,7 +37,28 @@ and signed by the sender device. Trust establishment is required before the UI
 reports a connected session, and reconnect/replacement generations cannot apply
 stale results. `bin/verify` and `bin/test-wamp-app` pass on 2026-08-24; the
 focused WampApp command covers 9 shared, 13 server, and 15 Flutter tests plus a
-release web build. Exact-head hosted evidence is pending the milestone push.
+release web build. Exact-head CI run `32761656169` passed Fast Checks, WampApp
+Consumer, Full Verify, and Dart VM Coverage for milestone commit `0a5c17c2`.
+The strict deployment audit confirms exact checked-out-head coverage, clean job
+topology, and clean hosted logs with no warning, deprecation, skip, reset, or
+connection-noise findings.
+
+The milestone 3 one-to-one messaging foundation is complete locally. Clients
+encrypt each message with an ephemeral XSalsa20-Poly1305 content key, carry the
+ciphertext in a WAMP binary field, and sign a wrapped content key for every
+active participant device from one serialized account-store snapshot. The
+caller-bound server validates every envelope and persists only opaque mailbox
+records with idempotent message identifiers, monotonic reconnect cursors,
+expiry filtering, and durable delivery/read receipt events. The Flutter client
+keeps its cursor and plaintext history inside the encrypted device vault,
+decrypts only locally, and exposes real direct-message compose, history, and
+sync controls. A two-account native-router integration proves send, reconnect,
+deduplication, decryption, delivery acknowledgement, and sender receipt sync
+without plaintext in server storage. One-time messages fail closed until true
+consumption semantics land. `bin/test-wamp-app` and repository `bin/verify`
+pass on 2026-08-24; the focused suites cover 14 shared, 21 server, and 19
+Flutter tests plus a release web build. Exact-head hosted evidence is pending
+for this implementation revision.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

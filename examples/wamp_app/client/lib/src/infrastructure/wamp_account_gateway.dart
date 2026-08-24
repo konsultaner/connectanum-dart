@@ -22,7 +22,11 @@ class AccountConnection {
     required this.closeTransport,
     required this.enrollDeviceCallback,
     required this.listDevicesCallback,
+    required this.lookupDevicesCallback,
     required this.revokeDeviceCallback,
+    required this.sendMessageCallback,
+    required this.syncMessagesCallback,
+    required this.markMessageReceiptCallback,
   });
 
   final ServerEndpoint endpoint;
@@ -33,7 +37,15 @@ class AccountConnection {
   enrollDeviceCallback;
   final Future<DeviceDirectory> Function(bool includeRevoked)
   listDevicesCallback;
+  final Future<DeviceDirectory> Function(String username, bool includeRevoked)
+  lookupDevicesCallback;
   final Future<DeviceRecord> Function(String deviceId) revokeDeviceCallback;
+  final Future<MessageSendReceipt> Function(EncryptedChatMessage message)
+  sendMessageCallback;
+  final Future<MailboxBatch> Function(int afterCursor, int limit)
+  syncMessagesCallback;
+  final Future<MessageReceipt> Function(String messageId, bool read)
+  markMessageReceiptCallback;
   bool _closed = false;
 
   Future<DeviceRecord> enrollDevice(DeviceEnrollment enrollment) {
@@ -49,6 +61,35 @@ class AccountConnection {
   Future<DeviceRecord> revokeDevice(String deviceId) {
     _ensureOpen();
     return revokeDeviceCallback(deviceId);
+  }
+
+  Future<DeviceDirectory> lookupDevices(
+    String username, {
+    bool includeRevoked = false,
+  }) {
+    _ensureOpen();
+    return lookupDevicesCallback(username, includeRevoked);
+  }
+
+  Future<MessageSendReceipt> sendMessage(EncryptedChatMessage message) {
+    _ensureOpen();
+    return sendMessageCallback(message);
+  }
+
+  Future<MailboxBatch> syncMessages({
+    required int afterCursor,
+    int limit = 100,
+  }) {
+    _ensureOpen();
+    return syncMessagesCallback(afterCursor, limit);
+  }
+
+  Future<MessageReceipt> markMessageDelivered(
+    String messageId, {
+    bool read = false,
+  }) {
+    _ensureOpen();
+    return markMessageReceiptCallback(messageId, read);
   }
 
   Future<void> close() async {
@@ -153,6 +194,51 @@ class WampAccountGateway implements AccountGateway {
               )
               .timeout(connectionTimeout);
           return DeviceRecord.fromWampKeywords(result.argumentsKeywords!);
+        },
+        lookupDevicesCallback: (username, includeRevoked) async {
+          final result = await session
+              .callSingle(
+                WampAppProtocol.deviceLookup,
+                argumentsKeywords: {
+                  'username': username,
+                  'include_revoked': includeRevoked,
+                },
+              )
+              .timeout(connectionTimeout);
+          return DeviceDirectory.fromWampKeywords(result.argumentsKeywords);
+        },
+        sendMessageCallback: (message) async {
+          final result = await session
+              .callSingle(
+                WampAppProtocol.messageSend,
+                argumentsKeywords: message.toWampKeywords(),
+              )
+              .timeout(connectionTimeout);
+          return MessageSendReceipt.fromWampKeywords(result.argumentsKeywords);
+        },
+        syncMessagesCallback: (afterCursor, limit) async {
+          final result = await session
+              .callSingle(
+                WampAppProtocol.messageSync,
+                argumentsKeywords: {
+                  'after_cursor': afterCursor,
+                  'limit': limit,
+                },
+              )
+              .timeout(connectionTimeout);
+          return MailboxBatch.fromWampKeywords(result.argumentsKeywords);
+        },
+        markMessageReceiptCallback: (messageId, read) async {
+          final result = await session
+              .callSingle(
+                WampAppProtocol.messageReceipt,
+                argumentsKeywords: {
+                  'message_id': messageId,
+                  'state': read ? 'read' : 'delivered',
+                },
+              )
+              .timeout(connectionTimeout);
+          return MessageReceipt.fromWampKeywords(result.argumentsKeywords);
         },
         closeTransport: () async {
           try {

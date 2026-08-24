@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
@@ -28,6 +29,8 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
 
   final String username;
   bool disposed = false;
+  int _mailboxCursor = 0;
+  final List<LocalChatMessage> _messages = [];
 
   @override
   late final DeviceEnrollment enrollment = DeviceEnrollment(
@@ -44,6 +47,12 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
 
   @override
   String get safetyNumber => 'AAAA BBBB CCCC DDDD';
+
+  @override
+  int get mailboxCursor => _mailboxCursor;
+
+  @override
+  List<LocalChatMessage> get messages => List.unmodifiable(_messages);
 
   @override
   bool isVerified(DeviceRecord contact) => false;
@@ -67,8 +76,20 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   Uint8List unwrapConversationKey({
     required WrappedConversationKey envelope,
     required DeviceRecord sender,
+    bool allowRevokedSender = false,
   }) {
     throw UnimplementedError();
+  }
+
+  @override
+  Future<void> saveMailboxState({
+    required int cursor,
+    required List<LocalChatMessage> messages,
+  }) async {
+    _mailboxCursor = cursor;
+    _messages
+      ..clear()
+      ..addAll(messages);
   }
 
   @override

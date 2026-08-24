@@ -9,6 +9,8 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'account_credential_provider.dart';
 import 'account_store.dart';
 import 'device_service.dart';
+import 'mailbox_store.dart';
+import 'message_service.dart';
 import 'registration_service.dart';
 import 'server_config.dart';
 import 'wamp_app_worker.dart';
@@ -35,6 +37,8 @@ class WampAppServer {
   static Future<WampAppServer> start(WampAppServerConfig config) async {
     final store = AccountStore(config.accountStorePath);
     await store.initialize();
+    final mailbox = MailboxStore(config.messageStorePath);
+    await mailbox.initialize();
     final random = Random.secure();
     final serviceTicket = base64Url.encode(
       List<int>.generate(32, (_) => random.nextInt(256)),
@@ -126,6 +130,10 @@ class WampAppServer {
       await _registerDeviceHandlers(
         appServiceSession,
         DeviceService(store: store),
+      );
+      await _registerMessageHandlers(
+        appServiceSession,
+        MessageService(accounts: store, mailbox: mailbox),
       );
       return WampAppServer._(
         websocketUri: websocketUri,
@@ -230,6 +238,22 @@ class WampAppServer {
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.deviceRevoke)
                 ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.deviceLookup)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.messageSend)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.messageSync)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.messageReceipt)
+                ..allowOperations(const ['call']),
             ),
         )
         ..addRoleFromBuilder(
@@ -244,6 +268,22 @@ class WampAppServer {
             )
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.deviceRevoke)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.deviceLookup)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.messageSend)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.messageSync)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.messageReceipt)
                 ..allowOperations(const ['register', 'unregister']),
             ),
         )
@@ -394,6 +434,92 @@ Future<void> _registerDeviceHandlers(
   }, options: options);
 }
 
+Future<void> _registerMessageHandlers(
+  Session session,
+  MessageService messages,
+) async {
+  final options = RegisterOptions(discloseCaller: true);
+  await session.registerHandler(WampAppProtocol.deviceLookup, (
+    invocation,
+  ) async {
+    try {
+      _callerUsername(invocation);
+      final username = invocation.argumentsKeywords?['username'];
+      final includeRevoked =
+          invocation.argumentsKeywords?['include_revoked'] ?? false;
+      if (username is! String) {
+        throw const FormatException('username must be a string.');
+      }
+      if (includeRevoked is! bool) {
+        throw const FormatException('include_revoked must be a boolean.');
+      }
+      final directory = await messages.lookupDevices(
+        username,
+        includeRevoked: includeRevoked,
+      );
+      invocation.respondWith(argumentsKeywords: directory.toWampKeywords());
+    } catch (error) {
+      _respondWithMessageError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.messageSend, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final message = EncryptedChatMessage.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final receipt = await messages.send(username, message);
+      invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
+    } catch (error) {
+      _respondWithMessageError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.messageSync, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final afterCursor = invocation.argumentsKeywords?['after_cursor'];
+      final limit = invocation.argumentsKeywords?['limit'] ?? 100;
+      if (afterCursor is! int || limit is! int) {
+        throw const FormatException('after_cursor and limit must be integers.');
+      }
+      final batch = await messages.sync(
+        username,
+        afterCursor: afterCursor,
+        limit: limit,
+      );
+      invocation.respondWith(argumentsKeywords: batch.toWampKeywords());
+    } catch (error) {
+      _respondWithMessageError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.messageReceipt, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final messageId = invocation.argumentsKeywords?['message_id'];
+      final state = invocation.argumentsKeywords?['state'];
+      if (messageId is! String || (state != 'delivered' && state != 'read')) {
+        throw const FormatException(
+          'message_id and a delivered/read state are required.',
+        );
+      }
+      final receipt = await messages.markReceipt(
+        username,
+        messageId,
+        read: state == 'read',
+      );
+      invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
+    } catch (error) {
+      _respondWithMessageError(invocation, error);
+    }
+  }, options: options);
+}
+
 String _callerUsername(Invocation invocation) {
   final authId = invocation.details.custom['caller_authid'];
   if (authId is! String || authId.isEmpty) {
@@ -427,6 +553,36 @@ void _respondWithDeviceError(Invocation invocation, Object error) {
     _ => (
       WampAppProtocol.errorDeviceUnavailable,
       'The device service is temporarily unavailable.',
+    ),
+  };
+  invocation.respondWith(isError: true, errorUri: uri, arguments: [message]);
+}
+
+void _respondWithMessageError(Invocation invocation, Object error) {
+  final (uri, message) = switch (error) {
+    MessageConflict() => (
+      WampAppProtocol.errorMessageConflict,
+      'That message identifier is already used for different content.',
+    ),
+    MessageNotFound() => (
+      WampAppProtocol.errorMessageNotFound,
+      'That message was not found.',
+    ),
+    _CallerNotAuthorized() || StateError() => (
+      WampAppProtocol.errorNotAuthorized,
+      'The authenticated account cannot perform this operation.',
+    ),
+    FormatException(:final message) => (
+      WampAppProtocol.errorInvalidMessage,
+      message,
+    ),
+    MailboxLimitExceeded() => (
+      WampAppProtocol.errorMessageUnavailable,
+      'The mailbox has reached its configured capacity.',
+    ),
+    _ => (
+      WampAppProtocol.errorMessageUnavailable,
+      'The message service is temporarily unavailable.',
     ),
   };
   invocation.respondWith(isError: true, errorUri: uri, arguments: [message]);

@@ -21,6 +21,7 @@ void main() {
           port: 0,
           websocketPath: '/ws',
           accountStorePath: accountFile.path,
+          messageStorePath: '${directory.path}/messages.json',
           argonIterations: 2,
           argonMemoryKiB: 8192,
         ),

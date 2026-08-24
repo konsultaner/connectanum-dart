@@ -24,6 +24,7 @@ void main() {
           port: 0,
           websocketPath: '/ws',
           accountStorePath: accountFile.path,
+          messageStorePath: '${temporary.path}/messages.json',
           argonIterations: 1,
           argonMemoryKiB: 8192,
         ),
@@ -69,6 +70,89 @@ void main() {
       expect(controller.status, WampAppStatus.signedOut);
     },
     timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test(
+    'two consumers exchange opaque durable messages across reconnect',
+    () async {
+      final temporary = await Directory.systemTemp.createTemp(
+        'wamp-app-message-consumer-',
+      );
+      addTearDown(() => temporary.delete(recursive: true));
+      final server = await WampAppServer.start(
+        WampAppServerConfig(
+          host: '127.0.0.1',
+          port: 0,
+          websocketPath: '/ws',
+          accountStorePath: '${temporary.path}/accounts.json',
+          messageStorePath: '${temporary.path}/messages.json',
+          argonIterations: 1,
+          argonMemoryKiB: 8192,
+        ),
+      );
+      addTearDown(server.close);
+      final aliceStorage = _MemoryVaultStorage();
+      final bobStorage = _MemoryVaultStorage();
+      final alice = _controller(aliceStorage, 'Alice phone');
+      var bob = _controller(bobStorage, 'Bob phone');
+      addTearDown(alice.dispose);
+      addTearDown(() => bob.dispose());
+
+      await alice.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'alice',
+        displayName: 'Alice Example',
+        password: 'alice secret phrase',
+      );
+      await bob.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'bob',
+        displayName: 'Bob Example',
+        password: 'bob secret phrase',
+      );
+
+      const plaintext = 'Meet at the encrypted mailbox.';
+      await alice.sendMessage(recipientUsername: 'bob', text: plaintext);
+      expect(alice.messageError, isNull);
+      expect(alice.messages.single.text, plaintext);
+      expect(alice.messages.single.outgoing, isTrue);
+
+      await bob.refreshMessages();
+      expect(bob.messages.single.text, plaintext);
+      expect(bob.messages.single.outgoing, isFalse);
+      await alice.refreshMessages();
+      expect(alice.messages.single.deliveredAt, isNotNull);
+
+      final mailboxDocument = await File('${temporary.path}/messages.json')
+          .readAsString();
+      expect(mailboxDocument, isNot(contains(plaintext)));
+      expect(mailboxDocument, contains('encrypted_payload'));
+
+      await bob.signOut();
+      bob.dispose();
+      bob = _controller(bobStorage, 'Bob phone');
+      await bob.login(
+        serverAddress: server.websocketUri.toString(),
+        username: 'bob',
+        password: 'bob secret phrase',
+      );
+      expect(bob.messages, hasLength(1));
+      expect(bob.messages.single.messageId, alice.messages.single.messageId);
+      expect(bob.messages.single.text, plaintext);
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
+}
+
+WampAppController _controller(_MemoryVaultStorage storage, String deviceName) {
+  return WampAppController(
+    trustStore: EncryptedDeviceVault(
+      storage: storage,
+      keyDeriver: const _TestKeyDeriver(),
+      iterations: 1,
+      memoryKiB: 64,
+    ),
+    deviceName: deviceName,
   );
 }
 

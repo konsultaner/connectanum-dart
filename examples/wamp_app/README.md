@@ -7,20 +7,29 @@ behaviour backed by a real router, storage, and tests appears as functional UI.
 
 ## Current Slice
 
-The first slice provides:
+The implemented slices provide:
 
 - a standalone Connectanum router and YAML configuration;
 - anonymous account registration over a narrowly authorized WAMP procedure;
 - asynchronous Argon2id13 verifier derivation and WAMP-SCRAM login;
 - a file-backed account store containing only SCRAM verifier material;
-- a responsive Flutter onboarding flow and authenticated application shell;
+- encrypted, account-and-endpoint-bound local device identity storage;
+- signed Ed25519/X25519 device enrollment, revocation, and safety numbers;
+- direct-message keys wrapped independently for every active participant
+  device;
+- XSalsa20-Poly1305 message payloads carried as WAMP CBOR binary fields;
+- a permission-restricted opaque mailbox with idempotent message IDs,
+  monotonic reconnect cursors, expiry filtering, and durable delivery receipts;
+- encrypted local message history and cursor persistence across reconnects;
+- a responsive Flutter onboarding, composer, history, and sync flow;
 - hosted `3.0.0-beta.2` dependencies for both client and server; and
-- an end-to-end test covering registration, reconnect, server-signature
-  verification, authenticated role metadata, and password non-persistence.
+- end-to-end tests covering registration, device trust, encrypted two-account
+  delivery, receipt propagation, reconnect deduplication, server-signature
+  verification, and plaintext non-persistence.
 
-Encrypted conversations, offline sync, groups, media, backups, notifications,
-WebRTC calling, and MCP application tools are planned but are not represented
-by fake data in the current UI.
+Group membership, explicit read and one-time-consumption UX, rich media,
+backups, notifications, WebRTC calling, and MCP application tools remain
+planned and are not represented by fake data in the current UI.
 
 ## Run Locally
 
@@ -36,8 +45,9 @@ dart pub get
 dart run wamp_app_server --config wamp_app_server.yaml
 ```
 
-The default configuration listens at `ws://127.0.0.1:8080/ws` and stores
-account verifiers in `server/data/accounts.json`.
+The default configuration listens at `ws://127.0.0.1:8080/ws`, stores account
+verifiers and public device records in `server/data/accounts.json`, and stores
+opaque encrypted mailbox records in `server/data/messages.json`.
 
 In another terminal, start the Flutter client:
 

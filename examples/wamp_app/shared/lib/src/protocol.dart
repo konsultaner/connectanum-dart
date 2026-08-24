@@ -6,7 +6,11 @@ abstract final class WampAppProtocol {
   static const accountRegister = 'com.wampapp.account.register';
   static const deviceEnroll = 'com.wampapp.device.enroll';
   static const deviceList = 'com.wampapp.device.list';
+  static const deviceLookup = 'com.wampapp.device.lookup';
   static const deviceRevoke = 'com.wampapp.device.revoke';
+  static const messageSend = 'com.wampapp.message.send';
+  static const messageSync = 'com.wampapp.message.sync';
+  static const messageReceipt = 'com.wampapp.message.receipt';
 
   static const errorInvalidRegistration =
       'com.wampapp.error.invalid_registration';
@@ -18,6 +22,11 @@ abstract final class WampAppProtocol {
   static const errorDeviceNotFound = 'com.wampapp.error.device_not_found';
   static const errorDeviceRevoked = 'com.wampapp.error.device_revoked';
   static const errorDeviceUnavailable = 'com.wampapp.error.device_unavailable';
+  static const errorInvalidMessage = 'com.wampapp.error.invalid_message';
+  static const errorMessageConflict = 'com.wampapp.error.message_conflict';
+  static const errorMessageNotFound = 'com.wampapp.error.message_not_found';
+  static const errorMessageUnavailable =
+      'com.wampapp.error.message_unavailable';
   static const errorNotAuthorized = 'com.wampapp.error.not_authorized';
 
   static const serviceAuthId = 'wampapp.service';

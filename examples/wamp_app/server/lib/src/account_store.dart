@@ -231,6 +231,27 @@ class AccountStore {
     return List<DeviceRecord>.unmodifiable(devices);
   }
 
+  Future<Map<String, List<DeviceRecord>>> listActiveDeviceSnapshot(
+    Iterable<String> usernames,
+  ) {
+    return _serializeWrite(() async {
+      final accounts = await _readDocument();
+      final result = <String, List<DeviceRecord>>{};
+      for (final value in usernames) {
+        final username = AccountRegistration.normalizeUsername(value);
+        final account = accounts[username];
+        if (account == null) throw StateError('Account no longer exists.');
+        final devices =
+            account.devices.values.where((device) => !device.isRevoked).toList()
+              ..sort(
+                (left, right) => left.enrolledAt.compareTo(right.enrolledAt),
+              );
+        result[username] = List<DeviceRecord>.unmodifiable(devices);
+      }
+      return Map<String, List<DeviceRecord>>.unmodifiable(result);
+    });
+  }
+
   Future<DeviceRecord> revokeDevice(
     String username,
     String deviceId, {

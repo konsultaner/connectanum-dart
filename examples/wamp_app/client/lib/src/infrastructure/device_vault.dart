@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:pinenacl/x25519.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
+import '../domain/local_chat_message.dart';
 import 'local_device_identity.dart';
 import 'vault_storage.dart';
 
@@ -34,6 +35,13 @@ abstract interface class DeviceTrustSession {
   Uint8List unwrapConversationKey({
     required WrappedConversationKey envelope,
     required DeviceRecord sender,
+    bool allowRevokedSender = false,
+  });
+  int get mailboxCursor;
+  List<LocalChatMessage> get messages;
+  Future<void> saveMailboxState({
+    required int cursor,
+    required List<LocalChatMessage> messages,
   });
   Future<void> dispose();
 }
@@ -83,7 +91,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
 
   static const _schema = 1;
   static const _cipher = 'xsalsa20-poly1305-secretbox';
-  static const _maximumEnvelopeBytes = 131072;
+  static const _maximumEnvelopeBytes = 8 * 1024 * 1024;
 
   final VaultStorage storage;
   final VaultKeyDeriver keyDeriver;
@@ -156,6 +164,8 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         encryptionKey: key,
         identity: identity,
         verifications: const {},
+        mailboxCursor: 0,
+        messages: const [],
       );
       identity = null;
       try {
@@ -211,6 +221,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         document['identity'] as Map<String, dynamic>,
       );
       final verifications = _readVerifications(document['verifications']);
+      final mailbox = _readMailbox(document['mailbox']);
       final session = _UnlockedDeviceVault(
         storage: storage,
         storageKey: storageKey,
@@ -222,6 +233,8 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         encryptionKey: key,
         identity: identity,
         verifications: verifications,
+        mailboxCursor: mailbox.$1,
+        messages: mailbox.$2,
       );
       identity = null;
       return session;
@@ -274,8 +287,11 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     required Uint8List encryptionKey,
     required this.identity,
     required Map<String, _ContactVerification> verifications,
+    required this._mailboxCursor,
+    required List<LocalChatMessage> messages,
   }) : _encryptionKey = Uint8List.fromList(encryptionKey),
-       _verifications = Map<String, _ContactVerification>.of(verifications);
+       _verifications = Map<String, _ContactVerification>.of(verifications),
+       _messages = List<LocalChatMessage>.of(messages);
 
   final VaultStorage storage;
   final String storageKey;
@@ -287,6 +303,8 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   final Uint8List _encryptionKey;
   final LocalDeviceIdentity identity;
   final Map<String, _ContactVerification> _verifications;
+  int _mailboxCursor;
+  final List<LocalChatMessage> _messages;
   Future<void> _writeTail = Future<void>.value();
   bool _disposed = false;
   bool _closing = false;
@@ -307,6 +325,18 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   String get safetyNumber {
     _ensureActive();
     return identity.ownSafetyNumber;
+  }
+
+  @override
+  int get mailboxCursor {
+    _ensureActive();
+    return _mailboxCursor;
+  }
+
+  @override
+  List<LocalChatMessage> get messages {
+    _ensureActive();
+    return List<LocalChatMessage>.unmodifiable(_messages);
   }
 
   @override
@@ -355,13 +385,34 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   Uint8List unwrapConversationKey({
     required WrappedConversationKey envelope,
     required DeviceRecord sender,
+    bool allowRevokedSender = false,
   }) {
     _ensureActive();
     return identity.unwrapConversationKey(
       username: username,
       envelope: envelope,
       sender: sender,
+      allowRevokedSender: allowRevokedSender,
     );
+  }
+
+  @override
+  Future<void> saveMailboxState({
+    required int cursor,
+    required List<LocalChatMessage> messages,
+  }) async {
+    _ensureActive();
+    if (cursor < _mailboxCursor || cursor < 0 || messages.length > 5000) {
+      throw const FormatException('Local mailbox state is invalid.');
+    }
+    for (final message in messages) {
+      message.validate();
+    }
+    _mailboxCursor = cursor;
+    _messages
+      ..clear()
+      ..addAll(messages);
+    await persist();
   }
 
   Future<void> persist() {
@@ -377,6 +428,12 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
             'verifications': _verifications.map(
               (key, value) => MapEntry(key, value.toJson()),
             ),
+            'mailbox': {
+              'cursor': _mailboxCursor,
+              'messages': _messages
+                  .map((message) => message.toJson())
+                  .toList(growable: false),
+            },
           }),
         ),
       );
@@ -410,6 +467,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
       identity.dispose();
       _encryptionKey.fillRange(0, _encryptionKey.length, 0);
       _verifications.clear();
+      _messages.clear();
     }
   }
 
@@ -467,6 +525,37 @@ final class VaultUnlockException implements Exception {
 
   @override
   String toString() => 'Could not unlock encrypted device storage.';
+}
+
+(int, List<LocalChatMessage>) _readMailbox(Object? value) {
+  if (value == null) return (0, const []);
+  if (value is! Map<String, dynamic> ||
+      value['cursor'] is! int ||
+      (value['cursor'] as int) < 0 ||
+      value['messages'] is! List) {
+    throw const FormatException('Encrypted mailbox state is invalid.');
+  }
+  final rawMessages = value['messages'] as List;
+  if (rawMessages.length > 5000) {
+    throw const FormatException('Encrypted mailbox state is too large.');
+  }
+  final messages = rawMessages
+      .map((raw) {
+        if (raw is! Map) {
+          throw const FormatException('Encrypted mailbox entry is invalid.');
+        }
+        return LocalChatMessage.fromJson(Map<String, dynamic>.from(raw));
+      })
+      .toList(growable: false);
+  final ids = <String>{};
+  for (final message in messages) {
+    if (!ids.add(message.messageId)) {
+      throw const FormatException(
+        'Encrypted mailbox contains duplicate messages.',
+      );
+    }
+  }
+  return (value['cursor'] as int, messages);
 }
 
 Map<String, _ContactVerification> _readVerifications(Object? value) {

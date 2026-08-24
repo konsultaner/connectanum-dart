@@ -4,6 +4,7 @@ listen:
 
 websocket_path: /ws
 account_store: data/accounts.json
+message_store: data/messages.json
 
 argon2id13:
   iterations: 3

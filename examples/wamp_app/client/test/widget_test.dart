@@ -34,7 +34,9 @@ void main() {
     await tester.tap(submit);
     await tester.pumpAndSettle();
 
-    expect(find.text('Connected, with room to talk'), findsOneWidget);
+    expect(find.text('Encrypted messages'), findsOneWidget);
+    expect(find.byKey(const Key('message-recipient')), findsOneWidget);
+    expect(find.byKey(const Key('message-composer')), findsOneWidget);
     expect(find.text('Alice Example'), findsOneWidget);
     expect(find.text('@alice'), findsOneWidget);
     expect(find.text('Encrypted device vault'), findsOneWidget);
@@ -97,7 +99,12 @@ class _FakeGateway implements AccountGateway {
       enrollDeviceCallback: (enrollment) async =>
           activeDeviceRecord(username, enrollment),
       listDevicesCallback: (_) async => DeviceDirectory(const []),
+      lookupDevicesCallback: (_, _) async => DeviceDirectory(const []),
       revokeDeviceCallback: (_) => throw UnimplementedError(),
+      sendMessageCallback: (_) => throw UnimplementedError(),
+      syncMessagesCallback: (afterCursor, _) async =>
+          MailboxBatch(nextCursor: afterCursor, messages: const []),
+      markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
       closeTransport: () async {},
     );
   }
