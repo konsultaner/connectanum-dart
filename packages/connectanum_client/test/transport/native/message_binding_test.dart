@@ -586,6 +586,41 @@ void main() {
     );
 
     test(
+      'materializing native challenge transfers its borrowed metadata anchor',
+      () {
+        final message = bindSessionMessage(
+          NativeMessageSerializer.messagePack,
+          Uint8List.fromList([0x00]),
+          metadata: _metadata(
+            messageCode: MessageTypes.codeChallenge,
+            flags: NativeMessageMetadata.flagMetadataBind,
+            stringA: 'wamp-scram',
+            detailsBytes: Uint8List.fromList(
+              msgpack.serialize({
+                'challenge': 'abc123',
+                'salt': 'salt',
+                'iterations': 4096,
+                'memory': 65536,
+              }),
+            ),
+          ),
+        );
+        final anchor = Object();
+
+        expect(message, isA<NativeSessionMessage>());
+        attachSessionMessageAnchor(message, anchor);
+        final materialized = materializeSessionMessage(message) as Challenge;
+
+        expect(sessionMessageAnchorFor(materialized), same(anchor));
+        expect(materialized.authMethod, 'wamp-scram');
+        expect(materialized.extra.challenge, 'abc123');
+        expect(materialized.extra.salt, 'salt');
+        expect(materialized.extra.iterations, 4096);
+        expect(materialized.extra.memory, 65536);
+      },
+    );
+
+    test(
       'bindSessionMessage keeps interrupt control frames as native session messages',
       () {
         final message = bindSessionMessage(

@@ -18,10 +18,6 @@ import 'message_binding.dart';
 import 'message_protocol.dart';
 import 'runtime.dart';
 
-final _nativeMessageAnchor = Expando<NativeIncomingMessage>(
-  'connectanum.native.message',
-);
-
 const _nativeReceiveBatchSize = 32;
 
 @visibleForTesting
@@ -43,10 +39,8 @@ List<int> collectNativeReceiveBatch(
 
 @internal
 NativeIncomingMessage? nativeIncomingMessageForAnchor(Object? anchor) {
-  if (anchor == null) {
-    return null;
-  }
-  return _nativeMessageAnchor[anchor];
+  final incoming = sessionMessageAnchorFor(anchor);
+  return incoming is NativeIncomingMessage ? incoming : null;
 }
 
 /// Releases storage borrowed by a lazy payload from the native runtime.
@@ -221,7 +215,7 @@ abstract class _NativeTransportBase extends AbstractTransport
           }
           final incoming = _runtime.materialize(handle);
           final message = incoming.message;
-          _nativeMessageAnchor[message] = incoming;
+          attachSessionMessageAnchor(message, incoming);
           if (_isGoodbyeMessage(message)) {
             _goodbyeReceived = true;
           }
@@ -298,12 +292,7 @@ AbstractMessage? _materializePublicMessage(Object? message) {
   if (message == null) {
     return null;
   }
-  final materialized = materializeSessionMessage(message);
-  final anchored = _nativeMessageAnchor[message];
-  if (anchored != null && !identical(materialized, message)) {
-    _nativeMessageAnchor[materialized] = anchored;
-  }
-  return materialized;
+  return materializeSessionMessage(message);
 }
 
 bool _isGoodbyeMessage(Object message) {

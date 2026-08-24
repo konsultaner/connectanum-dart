@@ -8,6 +8,20 @@ crates. The active plan is
 `docs/exec-plans/2026-08-24-3.0.0-beta.1-promotion.md`. Package publish tags
 remain operator-gated and are not part of the approved branch push.
 
+The initial beta promotion commit `094340c4` is on both GitHub and GitLab
+`master`. Its package dry-run, kTLS validation, and five-platform native
+artifact dry-run passed. The exact-head heavy WAMP diagnostics then exposed a
+native client lifetime bug in the 4 MiB MessagePack WebSocket pub/sub workload:
+the optimized session path materialized a `CHALLENGE` without transferring the
+native allocation anchor that owns its borrowed metadata bytes. The corrective
+patch centralizes the anchor registry and transfers ownership inside
+`NativeSessionMessage.materialize()`, preserving zero-copy payload behavior for
+all public and session-optimized paths. The focused binding, client, and native
+transport suites pass, local companion review found no confirmed blocker, and
+full exact-tree `bin/verify` passes on 2026-08-24. A new exact-head hosted
+diagnostic run and deployment-chain audit remain required after the corrective
+push.
+
 The multi-gigabit production transfer milestone is complete
 locally across every achievable transport, serializer, file-transfer, E2EE, and
 fragmentation profile. The completed plan is

@@ -41,6 +41,10 @@ class NativeSessionMessage extends AbstractMessageWithPayload {
       boundMessage.attachE2eeProvider(e2eeProvider);
       boundMessage.attachE2eeRuntimeContext(e2eeRuntimeContext);
     }
+    final anchor = sessionMessageAnchorFor(this);
+    if (anchor != null) {
+      attachSessionMessageAnchor(boundMessage, anchor);
+    }
     return boundMessage;
   }
 }

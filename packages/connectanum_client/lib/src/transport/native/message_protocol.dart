@@ -1,6 +1,25 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
+
+final _sessionMessageAnchors = Expando<Object>(
+  'connectanum.native.session-message',
+);
+
+@internal
+void attachSessionMessageAnchor(Object message, Object anchor) {
+  _sessionMessageAnchors[message] = anchor;
+}
+
+@internal
+Object? sessionMessageAnchorFor(Object? message) {
+  if (message == null) {
+    return null;
+  }
+  return _sessionMessageAnchors[message];
+}
+
 enum NativeMessageSerializer {
   json(1),
   messagePack(2),
