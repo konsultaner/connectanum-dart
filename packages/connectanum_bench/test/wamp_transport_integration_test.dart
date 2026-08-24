@@ -169,6 +169,60 @@ void main() {
     );
 
     test(
+      'native mixed-serializer XSalsa E2EE pubsub runs against a real router',
+      () async {
+        final samples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.rawsocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.msgpack,
+            peerSerializer: WampSerializer.json,
+            mode: WampMode.pubsub,
+            uri: 'bench.topic',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 1024,
+            pptScheme: 'wamp',
+            pptSerializer: 'cbor',
+            pptCipher: 'xsalsa20poly1305',
+            pptKeyId: 'benchmark-key',
+          ),
+        );
+
+        expect(samples, hasLength(1));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
+      'native mixed-serializer AES-GCM E2EE pubsub runs against a real router',
+      () async {
+        final samples = await harness!.runNative(
+          WampScenario(
+            transport: WampTransport.websocket,
+            clientImplementation: WampClientImplementation.native,
+            serializer: WampSerializer.cbor,
+            peerSerializer: WampSerializer.json,
+            mode: WampMode.pubsub,
+            uri: 'bench.topic',
+            iterations: 1,
+            concurrency: 1,
+            payloadBytes: 1024,
+            pptScheme: 'wamp',
+            pptSerializer: 'cbor',
+            pptCipher: 'aes256gcm',
+            pptKeyId: 'benchmark-key',
+          ),
+        );
+
+        expect(samples, hasLength(1));
+      },
+      skip: skipReason,
+      timeout: const Timeout(Duration(seconds: 45)),
+    );
+
+    test(
       'native CBOR E2EE file transfer uses native file segments',
       () async {
         final samples = await harness!.runNative(

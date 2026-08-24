@@ -227,6 +227,41 @@ void main() {
       expect(decoded.argumentsKeywords, equals(const {'worker': 13}));
     });
 
+    test('runtime E2EE lazy accessors decode the payload once', () {
+      final anchor = Object();
+      final provider = _RuntimePayloadE2eeProvider(anchor);
+      var outerDecodeCount = 0;
+      final payload = LazyMessagePayload.encoded(
+        encoding: LazyPayloadEncoding.cbor,
+        argumentsBytes: Uint8List.fromList(const [1, 2, 3]),
+        argumentsDecoder: (_) {
+          outerDecodeCount += 1;
+          return <dynamic>[
+            Uint8List.fromList(const [4, 5, 6]),
+          ];
+        },
+        e2eeProvider: provider,
+        e2eeRuntimeContext: WampE2eeRuntimeContext(
+          direction: WampE2eeDirection.inbound,
+          messageType: WampE2eeMessageType.invocation,
+          payloadAnchor: anchor,
+        ),
+      );
+      final invocation = Invocation(
+        1,
+        2,
+        InvocationDetails(9, 'bench.proc', false, 'wamp', 'cbor'),
+      )..restoreLazyPayload(payload);
+
+      final lazy = invocation.toLazyInvocationPayload();
+
+      expect(lazy.arguments, equals(const ['runtime-payload']));
+      expect(lazy.argumentsKeywords, equals(const {'worker': 13}));
+      expect(lazy.toPayload().arguments, equals(const ['runtime-payload']));
+      expect(outerDecodeCount, 0);
+      expect(provider.unpackCount, 1);
+    });
+
     test('runtime E2EE payload falls back when the anchor is unavailable', () {
       final anchor = Object();
       final provider = _RuntimePayloadE2eeProvider(anchor);

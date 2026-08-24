@@ -8,19 +8,29 @@ crates. The active plan is
 `docs/exec-plans/2026-08-24-3.0.0-beta.1-promotion.md`. Package publish tags
 remain operator-gated and are not part of the approved branch push.
 
-The initial beta promotion commit `094340c4` is on both GitHub and GitLab
-`master`. Its package dry-run, kTLS validation, and five-platform native
-artifact dry-run passed. The exact-head heavy WAMP diagnostics then exposed a
-native client lifetime bug in the 4 MiB MessagePack WebSocket pub/sub workload:
-the optimized session path materialized a `CHALLENGE` without transferring the
-native allocation anchor that owns its borrowed metadata bytes. The corrective
-patch centralizes the anchor registry and transfers ownership inside
-`NativeSessionMessage.materialize()`, preserving zero-copy payload behavior for
-all public and session-optimized paths. The focused binding, client, and native
-transport suites pass, local companion review found no confirmed blocker, and
-full exact-tree `bin/verify` passes on 2026-08-24. A new exact-head hosted
-diagnostic run and deployment-chain audit remain required after the corrective
-push.
+The initial beta promotion commit `094340c4` and native metadata-ownership fix
+`ee7149ab` are on both GitHub and GitLab `master`. Exact-head package and router
+image dry-runs pass. The canonical hosted WAMP benchmark then exposed a second
+native client regression: consuming runtime E2EE correctly retained the
+encrypted outer WAMP arguments, but the public lazy event/result/invocation
+semantic accessors returned those encoded arguments instead of materializing
+the plaintext payload. The accessors now decode and cache the semantic payload
+on first use while encoded byte getters remain lazy and unchanged. Matcher
+decode failures in the benchmark event buffer now surface immediately without
+dropping the event. Focused unit tests, real-router mixed-serializer XSalsa and
+AES-GCM pub/sub tests, the exact four-row E2EE smoke, its artifact gate, and
+`bin/test-fast` pass on 2026-08-24. Full `bin/verify`, the corrective push, and
+exact-head hosted WAMP/deployment evidence remain required. A full local
+`bin/verify` attempt passed formatting, Rust core/FFI, Dart core, MCP, and
+facade suites before all three fresh-cache MCP consumer dependency-resolution
+attempts timed out while `pub.dev` was unreachable; this is an external
+package-network blocker rather than a test failure.
+
+The hosted 24-row WAMP diagnostic matrix at `ee7149ab` completed without a
+correctness failure. Four WSS throughput rows remained below the strict
+2 Gbit/s production budget; those measured performance findings are separate
+from the fixed E2EE accessor regression and remain open for exact-head hosted
+evaluation.
 
 The multi-gigabit production transfer milestone is complete
 locally across every achievable transport, serializer, file-transfer, E2EE, and

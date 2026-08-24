@@ -2003,7 +2003,15 @@ class WampEventBuffer {
         _pending.remove(pending);
         continue;
       }
-      if (pending.matcher(event)) {
+      bool matches;
+      try {
+        matches = pending.matcher(event);
+      } catch (error, stackTrace) {
+        _pending.remove(pending);
+        pending.completer.completeError(error, stackTrace);
+        continue;
+      }
+      if (matches) {
         _pending.remove(pending);
         pending.completer.complete(event);
         return;

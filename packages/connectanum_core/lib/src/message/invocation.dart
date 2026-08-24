@@ -56,9 +56,23 @@ class LazyInvocationPayload {
   final bool Function() isResponseClosed;
   final LazyMessagePayload payload;
 
-  List<dynamic>? get arguments => payload.arguments;
+  late final MaterializedPayloadView _decodedPayload = payload.pptDecoded
+      ? (
+          arguments: payload.arguments,
+          argumentsKeywords: payload.argumentsKeywords,
+        )
+      : decodeLazyPayloadView(
+          payload,
+          pptScheme: pptScheme,
+          pptSerializer: pptSerializer,
+          pptCipher: pptCipher,
+          pptKeyId: pptKeyId,
+        );
 
-  Map<String, dynamic>? get argumentsKeywords => payload.argumentsKeywords;
+  List<dynamic>? get arguments => _decodedPayload.arguments;
+
+  Map<String, dynamic>? get argumentsKeywords =>
+      _decodedPayload.argumentsKeywords;
 
   Uint8List? get argumentsBytes => payload.argumentsBytes;
 
@@ -67,18 +81,6 @@ class LazyInvocationPayload {
   Uint8List? get packedPayloadBytes => payload.packedPayloadBytes;
 
   InvocationPayload toPayload() {
-    final decoded = payload.pptDecoded
-        ? (
-            arguments: payload.arguments,
-            argumentsKeywords: payload.argumentsKeywords,
-          )
-        : decodeLazyPayloadView(
-            payload,
-            pptScheme: pptScheme,
-            pptSerializer: pptSerializer,
-            pptCipher: pptCipher,
-            pptKeyId: pptKeyId,
-          );
     return (
       requestId: requestId,
       registrationId: registrationId,
@@ -92,8 +94,8 @@ class LazyInvocationPayload {
       pptCipher: pptCipher,
       pptKeyId: pptKeyId,
       customDetails: customDetails,
-      arguments: decoded.arguments,
-      argumentsKeywords: decoded.argumentsKeywords,
+      arguments: _decodedPayload.arguments,
+      argumentsKeywords: _decodedPayload.argumentsKeywords,
       respondWith: respondWith,
       isResponseClosed: isResponseClosed,
     );

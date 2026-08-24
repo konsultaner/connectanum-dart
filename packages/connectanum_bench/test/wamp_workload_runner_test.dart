@@ -1593,6 +1593,24 @@ void main() {
         expect(event.argumentsKeywords?['worker'], 7);
       },
     );
+
+    test('propagates matcher failures without dropping the event', () async {
+      final buffer = WampEventBuffer();
+      final failed = buffer.nextWhere(
+        (_) => throw StateError('payload decode failed'),
+      );
+      final event = wamp_core.Event(
+        1,
+        9,
+        wamp_core.EventDetails(),
+        argumentsKeywords: const {'worker': 9},
+      ).toLazyEventPayload();
+
+      buffer.add(event);
+
+      await expectLater(failed, throwsStateError);
+      expect(await buffer.nextWhere((_) => true), same(event));
+    });
   });
 }
 
