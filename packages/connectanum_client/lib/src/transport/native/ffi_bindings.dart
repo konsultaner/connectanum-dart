@@ -103,6 +103,27 @@ typedef CtE2eeSessionDecryptMessageSingleBinaryArgumentDart =
       ffi.Pointer<CtExternalByteBuffer>,
     );
 
+typedef CtE2eeSessionDecryptMessagePayloadConsumeNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<CtExternalByteBuffer>,
+      ffi.Pointer<ffi.Int32>,
+    );
+typedef CtE2eeSessionDecryptMessagePayloadConsumeDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      int,
+      int,
+      ffi.Pointer<CtExternalByteBuffer>,
+      ffi.Pointer<ffi.Int32>,
+    );
+
 typedef CtClientConnectRawsocketNative =
     ffi.Int32 Function(
       ffi.Pointer<ffi.Char>,
@@ -215,6 +236,21 @@ typedef CtSha256UpdateOwnedAsyncNative =
     ffi.Int32 Function(ffi.Int32, ffi.Pointer<ffi.Uint8>, ffi.Int32);
 typedef CtSha256UpdateOwnedAsyncDart =
     int Function(int, ffi.Pointer<ffi.Uint8>, int);
+
+typedef CtSha256UpdateExternalOwnedAsyncNative =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+    );
+typedef CtSha256UpdateExternalOwnedAsyncDart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
 
 typedef CtSha256UpdateMessageBinaryArgumentNative =
     ffi.Int32 Function(ffi.Int32, ffi.Int32);
@@ -331,6 +367,39 @@ typedef CtSendMessageNativeE2eeFileSegmentDart =
       int,
       int,
       ffi.Pointer<ffi.Char>,
+      int,
+      int,
+    );
+
+typedef CtSendMessageNativeE2eeFileSegmentV2Native =
+    ffi.Int32 Function(
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Int32,
+      ffi.Pointer<ffi.Char>,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Int32,
+      ffi.Int32,
+    );
+typedef CtSendMessageNativeE2eeFileSegmentV2Dart =
+    int Function(
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      int,
+      int,
+      int,
+      ffi.Pointer<ffi.Char>,
+      int,
+      int,
+      ffi.Pointer<ffi.Uint8>,
       int,
       int,
     );
@@ -513,6 +582,13 @@ class CtFfiBindings {
             CtE2eeSessionDecryptMessageSingleBinaryArgumentNative,
             CtE2eeSessionDecryptMessageSingleBinaryArgumentDart
           >('ct_e2ee_session_decrypt_message_single_binary_argument'),
+      ctE2eeSessionDecryptMessagePayloadConsume = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtE2eeSessionDecryptMessagePayloadConsumeNative,
+              CtE2eeSessionDecryptMessagePayloadConsumeDart
+            >('ct_e2ee_session_decrypt_message_payload_consume'),
+      ),
       ctClientConnectRawsocket = library
           .lookupFunction<
             CtClientConnectRawsocketNative,
@@ -605,6 +681,13 @@ class CtFfiBindings {
               CtSha256UpdateOwnedAsyncDart
             >('ct_sha256_update_owned_async'),
       ),
+      ctSha256UpdateExternalOwnedAsync = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtSha256UpdateExternalOwnedAsyncNative,
+              CtSha256UpdateExternalOwnedAsyncDart
+            >('ct_sha256_update_external_owned_async'),
+      ),
       ctSha256UpdateMessageBinaryArgument = library
           .lookupFunction<
             CtSha256UpdateMessageBinaryArgumentNative,
@@ -682,7 +765,14 @@ class CtFfiBindings {
           .lookupFunction<
             CtSendMessageNativeE2eeFileSegmentNative,
             CtSendMessageNativeE2eeFileSegmentDart
-          >('ct_send_message_native_e2ee_file_segment');
+          >('ct_send_message_native_e2ee_file_segment'),
+      ctSendMessageNativeE2eeFileSegmentV2 = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtSendMessageNativeE2eeFileSegmentV2Native,
+              CtSendMessageNativeE2eeFileSegmentV2Dart
+            >('ct_send_message_native_e2ee_file_segment_v2'),
+      );
 
   final CtStartRuntimeDart ctStartRuntime;
   final CtShutdownDart ctShutdown;
@@ -701,6 +791,8 @@ class CtFfiBindings {
   final CtE2eeSessionDecryptDart ctE2eeSessionDecryptAes256Gcm;
   final CtE2eeSessionDecryptMessageSingleBinaryArgumentDart
   ctE2eeSessionDecryptMessageSingleBinaryArgument;
+  final CtE2eeSessionDecryptMessagePayloadConsumeDart?
+  ctE2eeSessionDecryptMessagePayloadConsume;
   final CtClientConnectRawsocketDart ctClientConnectRawsocket;
   final CtClientConnectWebSocketDart ctClientConnectWebSocket;
   final CtConnectionCloseDart ctConnectionClose;
@@ -721,6 +813,7 @@ class CtFfiBindings {
   final CtSha256UpdateDart ctSha256Update;
   final CtSha256UpdateAsyncDart ctSha256UpdateAsync;
   final CtSha256UpdateOwnedAsyncDart? ctSha256UpdateOwnedAsync;
+  final CtSha256UpdateExternalOwnedAsyncDart? ctSha256UpdateExternalOwnedAsync;
   final CtSha256UpdateMessageBinaryArgumentDart
   ctSha256UpdateMessageBinaryArgument;
   final CtSha256FinalizeDart ctSha256Finalize;
@@ -738,6 +831,8 @@ class CtFfiBindings {
   final CtSendMessageBase64FileSegmentDart ctSendMessageBase64FileSegment;
   final CtSendMessageNativeE2eeFileSegmentDart
   ctSendMessageNativeE2eeFileSegment;
+  final CtSendMessageNativeE2eeFileSegmentV2Dart?
+  ctSendMessageNativeE2eeFileSegmentV2;
 }
 
 T? _tryLookup<T>(T Function() lookup) {

@@ -387,6 +387,7 @@ Future<void> _openAnonymousSession({
       connectionId: connectionId,
       lastActivity: DateTime.now(),
       listener: state.listener,
+      serializerId: serializer.id,
       protocol:
           state.protocol ??
           state.listener.settings?.primaryProtocol ??
@@ -559,6 +560,7 @@ Future<void> completeAuthenticatedSession({
       connectionId: connectionId,
       lastActivity: DateTime.now(),
       listener: state.listener,
+      serializerId: serializer.id,
       protocol:
           state.protocol ??
           state.listener.settings?.primaryProtocol ??

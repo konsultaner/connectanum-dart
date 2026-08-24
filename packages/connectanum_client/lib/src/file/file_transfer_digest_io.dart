@@ -33,16 +33,36 @@ FileTransferDigest createFileTransferDigest({
 Uint8List? nativeFileChunkBytes(Object? anchor) =>
     nativeSingleBinaryArgumentForAnchor(anchor);
 
+bool releaseNativeFileChunkBytes(Uint8List bytes) =>
+    NativeClientRuntime.releaseOwnedExternalBytes(bytes);
+
+bool releaseNativeFileChunkMessage(Object? anchor) {
+  final incoming = nativeIncomingMessageForAnchor(anchor);
+  if (incoming == null) {
+    return false;
+  }
+  incoming.release();
+  return true;
+}
+
 class _NativeBytesFileTransferDigest extends _NativeFileTransferDigest {
   _NativeBytesFileTransferDigest(super.runtime);
 
   @override
-  void add(Uint8List bytes, {Object? anchor}) {
+  void add(
+    Uint8List bytes, {
+    Object? anchor,
+    bool consumeNativeOwnership = false,
+  }) {
     ensureOpen();
-    final hashedBytes = runtime.updateSha256(handle, bytes, anchor: anchor);
-    if (hashedBytes != bytes.length) {
+    final expectedLength = bytes.length;
+    final hashedBytes = consumeNativeOwnership
+        ? runtime.updateSha256ByConsumingExternalBytes(handle, bytes) ??
+              runtime.updateSha256(handle, bytes, anchor: anchor)
+        : runtime.updateSha256(handle, bytes, anchor: anchor);
+    if (hashedBytes != expectedLength) {
       throw StateError(
-        'Native file digest hashed $hashedBytes of ${bytes.length} bytes',
+        'Native file digest hashed $hashedBytes of $expectedLength bytes',
       );
     }
   }
@@ -63,7 +83,11 @@ class _NativeFileTransferDigest implements FileTransferDigest {
   }
 
   @override
-  void add(Uint8List bytes, {Object? anchor}) {
+  void add(
+    Uint8List bytes, {
+    Object? anchor,
+    bool consumeNativeOwnership = false,
+  }) {
     ensureOpen();
     final incoming = nativeIncomingMessageForAnchor(anchor);
     if (incoming == null) {

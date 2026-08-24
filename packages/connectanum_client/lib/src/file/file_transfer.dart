@@ -169,6 +169,14 @@ abstract class WampFileSink {
   FutureOr<void> abort(Object error) {}
 }
 
+/// Opt-in for sinks that stop accessing each chunk when [WampFileSink.add]
+/// completes.
+///
+/// Implementations must not retain, read, or mutate a chunk after the returned
+/// future completes. This permits its native allocation to be released or
+/// transferred directly to a background checksum worker.
+abstract interface class WampFileSinkConsumesChunks {}
+
 typedef WampFileSinkFactory =
     FutureOr<WampFileSink> Function(WampFileMetadata metadata);
 
@@ -603,10 +611,19 @@ class WampFileReceiver {
       decodedKeywords = decoded.argumentsKeywords;
     }
     final chunk = bytes;
+
+    void releaseChunkStorage() {
+      if (chunk != null) {
+        digest_factory.releaseNativeFileChunkBytes(chunk);
+      }
+      digest_factory.releaseNativeFileChunkMessage(invocation.payload.anchor);
+    }
+
     if (chunk == null ||
         invocation.payload.transparentBinaryPayload != null ||
         decodedKeywords?.isNotEmpty == true ||
         (invocation.progress && chunk.isEmpty)) {
+      releaseChunkStorage();
       _failState(
         state,
         invocation,
@@ -615,9 +632,11 @@ class WampFileReceiver {
       );
       return;
     }
-    if (chunk.length > state.metadata.chunkSize ||
-        chunk.length > maxChunkSize ||
-        state.acceptedBytes + chunk.length > state.metadata.size) {
+    final chunkLength = chunk.length;
+    if (chunkLength > state.metadata.chunkSize ||
+        chunkLength > maxChunkSize ||
+        state.acceptedBytes + chunkLength > state.metadata.size) {
+      releaseChunkStorage();
       _failState(
         state,
         invocation,
@@ -626,7 +645,8 @@ class WampFileReceiver {
       );
       return;
     }
-    if (_bufferedBytes + chunk.length > maxBufferedBytes) {
+    if (_bufferedBytes + chunkLength > maxBufferedBytes) {
+      releaseChunkStorage();
       _failState(
         state,
         invocation,
@@ -638,9 +658,9 @@ class WampFileReceiver {
 
     final processImmediately = state.sink != null && state.queuedBytes == 0;
     state.lastInvocation = invocation;
-    state.acceptedBytes += chunk.length;
-    state.queuedBytes += chunk.length;
-    _bufferedBytes += chunk.length;
+    state.acceptedBytes += chunkLength;
+    state.queuedBytes += chunkLength;
+    _bufferedBytes += chunkLength;
     if (!invocation.progress) {
       state.finalizing = true;
     }
@@ -650,8 +670,12 @@ class WampFileReceiver {
       if (state.failed) {
         return null;
       }
-      state.digest.add(chunk, anchor: invocation.payload.anchor);
-      state.receivedBytes += chunk.length;
+      state.digest.add(
+        chunk,
+        anchor: invocation.payload.anchor,
+        consumeNativeOwnership: state.sink is WampFileSinkConsumesChunks,
+      );
+      state.receivedBytes += chunkLength;
       if (!invocation.progress) {
         return _finishState(state, invocation);
       }
@@ -676,8 +700,11 @@ class WampFileReceiver {
     }
 
     void releaseBufferedBytes() {
-      state.queuedBytes -= chunk.length;
-      _bufferedBytes -= chunk.length;
+      state.queuedBytes -= chunkLength;
+      _bufferedBytes -= chunkLength;
+      if (state.sink is WampFileSinkConsumesChunks) {
+        releaseChunkStorage();
+      }
     }
 
     void failChunk(Object error, StackTrace stackTrace) {

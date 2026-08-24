@@ -14,6 +14,7 @@ coverage
 Cargo.lock
 /native/transport/tmp/
 *.g.dart
+!packages/connectanum_core/lib/src/authentication/scram_argon2_worker_source.g.dart
 __pycache__/
 *.pyc
 /native/bench/target/

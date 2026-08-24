@@ -1,3 +1,8 @@
+## 3.0.0-beta.1
+
+- Advance the coordinated beta with the production-readiness, transport,
+  authentication, and MCP updates from the modular package graph.
+
 ## 3.0.0-beta
 
 - Start the coordinated 3.0 beta series for every Connectanum package.

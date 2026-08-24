@@ -350,6 +350,12 @@ abstract class WampE2eeProvider {
   });
 }
 
+/// Opt-in capability for providers that can unpack from runtime-owned payload
+/// storage without materializing the outer WAMP arguments first.
+abstract interface class WampE2eeRuntimePayloadProvider {
+  bool canUnpackFromRuntimeContext(WampE2eeRuntimeContext? runtimeContext);
+}
+
 abstract interface class WampE2eeProfileSupport {
   bool supportsE2eeProfile({
     required int version,

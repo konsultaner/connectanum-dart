@@ -247,6 +247,10 @@ void main() {
             transport.supportsFileSegments,
             equals(Platform.isLinux || Platform.isMacOS),
           );
+          expect(
+            transport.supportsNativeE2eeFileSegments,
+            equals(Platform.isLinux || Platform.isMacOS),
+          );
 
           await client.disconnect();
         } finally {
@@ -312,6 +316,11 @@ void main() {
           expect(transport, isA<FileSegmentTransport>());
           expect(
             (transport as FileSegmentTransport).supportsFileSegments,
+            isTrue,
+          );
+          expect(
+            (transport as NativeE2eeFileSegmentTransport)
+                .supportsNativeE2eeFileSegments,
             isTrue,
           );
 

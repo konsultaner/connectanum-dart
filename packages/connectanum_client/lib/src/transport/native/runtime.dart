@@ -50,6 +50,17 @@ class NativeTransportException implements Exception {
       'NativeTransportException(code: $code, message: $message)';
 }
 
+typedef NativeDecryptedE2eePayload = ({
+  Uint8List bytes,
+  bool directBinary,
+});
+
+typedef _NativeE2eeDecryptRequest = ({
+  int sessionHandle,
+  String? keyId,
+  String cipher,
+});
+
 class NativeIncomingMessage {
   NativeIncomingMessage._({
     required this.message,
@@ -75,6 +86,8 @@ class NativeIncomingMessage {
   final Finalizer<_MessageFinalizerToken> _messageFinalizer;
 
   bool _released = false;
+  _NativeE2eeDecryptRequest? _e2eeDecryptRequest;
+  NativeDecryptedE2eePayload? _e2eeDecryptedPayload;
 
   void release() {
     if (_released) {
@@ -84,22 +97,33 @@ class NativeIncomingMessage {
     _messageFinalizer.detach(this);
     _bindings.ctMessageRelease(handle);
   }
+
+  void _markConsumed() {
+    if (_released) {
+      return;
+    }
+    _released = true;
+    _messageFinalizer.detach(this);
+  }
 }
 
 final Expando<_NativeExternalBytesReference> _nativeExternalBytes =
     Expando<_NativeExternalBytesReference>('connectanum.native.external-bytes');
 const int _asyncSha256MinimumBytes = 256 * 1024;
 
-class _NativeExternalBytesReference {
-  const _NativeExternalBytesReference({
+class _NativeExternalBytesReference implements ffi.Finalizable {
+  _NativeExternalBytesReference({
     required this.runtimeIdentity,
     required this.pointer,
     required this.length,
+    required this.owner,
   });
 
   final Object runtimeIdentity;
   final ffi.Pointer<ffi.Uint8> pointer;
   final int length;
+  final ffi.Pointer<ffi.Void> owner;
+  bool released = false;
 }
 
 class _MessageFinalizerToken {
@@ -179,7 +203,53 @@ class NativeClientRuntime {
   final ffi.DynamicLibrary _library;
   final CtFfiBindings _bindings;
   final Finalizer<_MessageFinalizerToken> _messageFinalizer;
+  late final ffi.NativeFinalizer _externalByteBufferFinalizer =
+      ffi.NativeFinalizer(
+        _bindings.ctExternalByteBufferFreePointer
+            .cast<ffi.NativeFinalizerFunction>(),
+      );
   bool _started = false;
+
+  static bool releaseOwnedExternalBytes(Uint8List bytes) {
+    final reference = _nativeExternalBytes[bytes];
+    if (reference == null || reference.released) {
+      return false;
+    }
+    final runtime = reference.runtimeIdentity;
+    if (runtime is! NativeClientRuntime) {
+      return false;
+    }
+    runtime._externalByteBufferFinalizer.detach(reference);
+    reference.released = true;
+    runtime._bindings.ctExternalByteBufferFree(reference.owner);
+    return true;
+  }
+
+  Uint8List _ownExternalBytes(CtExternalByteBuffer output) {
+    final bytes = output.ptr.asTypedList(output.len);
+    final reference = _NativeExternalBytesReference(
+      runtimeIdentity: this,
+      pointer: output.ptr,
+      length: output.len,
+      owner: output.owner,
+    );
+    try {
+      _externalByteBufferFinalizer.attach(
+        reference,
+        output.owner,
+        detach: reference,
+        externalSize: output.len,
+      );
+      // The Expando keeps the finalizer target alive with the returned view.
+      _nativeExternalBytes[bytes] = reference;
+      return bytes;
+    } catch (_) {
+      _externalByteBufferFinalizer.detach(reference);
+      reference.released = true;
+      _bindings.ctExternalByteBufferFree(output.owner);
+      rethrow;
+    }
+  }
 
   void ensureStarted() {
     if (_started) {
@@ -404,7 +474,13 @@ class NativeClientRuntime {
     }
   }
 
-  Uint8List? decryptE2eeMessageSingleBinaryArgument(
+  bool get supportsConsumingE2eeMessagePayloadDecrypt =>
+      _bindings.ctE2eeSessionDecryptMessagePayloadConsume != null;
+
+  bool get supportsBase64NativeE2eeFileSegments =>
+      _bindings.ctSendMessageNativeE2eeFileSegmentV2 != null;
+
+  NativeDecryptedE2eePayload? decryptE2eeMessageSingleBinaryArgument(
     int sessionHandle,
     NativeIncomingMessage incoming, {
     String? keyId,
@@ -413,6 +489,34 @@ class NativeClientRuntime {
     ensureStarted();
     if (!identical(incoming.runtimeIdentity, this)) {
       return null;
+    }
+    final request = (
+      sessionHandle: sessionHandle,
+      keyId: keyId,
+      cipher: cipher,
+    );
+    final cached = incoming._e2eeDecryptedPayload;
+    if (cached != null) {
+      if (incoming._e2eeDecryptRequest == request) {
+        final reference = _nativeExternalBytes[cached.bytes];
+        if (reference != null && reference.released) {
+          throw NativeTransportException(
+            NativeTransportErrorCode.handleUnavailable,
+            'Native E2EE payload ownership was already transferred',
+          );
+        }
+        return cached;
+      }
+      throw NativeTransportException(
+        NativeTransportErrorCode.handleUnavailable,
+        'Native message was already decrypted with different E2EE parameters',
+      );
+    }
+    if (incoming._released) {
+      throw NativeTransportException(
+        NativeTransportErrorCode.handleUnavailable,
+        'Native message was released before E2EE decryption',
+      );
     }
     final cipherCode = switch (cipher) {
       'xsalsa20poly1305' => 1,
@@ -426,7 +530,49 @@ class NativeClientRuntime {
     final keyIdBytes = keyId == null ? null : utf8.encode(keyId);
     final keyIdPtr = keyId?.toNativeUtf8().cast<ffi.Char>() ?? ffi.nullptr;
     final outputPtr = calloc<CtExternalByteBuffer>();
+    final outputKindPtr = calloc<ffi.Int32>();
     try {
+      final consume = _bindings.ctE2eeSessionDecryptMessagePayloadConsume;
+      if (consume != null) {
+        incoming._markConsumed();
+        final result = consume(
+          sessionHandle,
+          keyIdPtr,
+          keyIdBytes?.length ?? 0,
+          incoming.handle,
+          cipherCode,
+          outputPtr,
+          outputKindPtr,
+        );
+        if (result != NativeTransportErrorCode.success) {
+          final failedOutput = outputPtr.ref;
+          if (failedOutput.owner != ffi.nullptr) {
+            _bindings.ctExternalByteBufferFree(failedOutput.owner);
+          }
+          _throwForError(
+            result,
+            'Failed to consume and decrypt native message payload',
+          );
+        }
+        final outputKind = outputKindPtr.value;
+        if (outputKind != 1 && outputKind != 2) {
+          final invalidOutput = outputPtr.ref;
+          if (invalidOutput.owner != ffi.nullptr) {
+            _bindings.ctExternalByteBufferFree(invalidOutput.owner);
+          }
+          throw NativeTransportException(
+            NativeTransportErrorCode.handleUnavailable,
+            'Native E2EE decrypt returned an invalid payload kind',
+          );
+        }
+        final payload = (
+          bytes: _ownDecryptedExternalBytes(outputPtr.ref),
+          directBinary: outputKind == 1,
+        );
+        incoming._e2eeDecryptRequest = request;
+        incoming._e2eeDecryptedPayload = payload;
+        return payload;
+      }
       final result = _bindings.ctE2eeSessionDecryptMessageSingleBinaryArgument(
         sessionHandle,
         keyIdPtr,
@@ -444,50 +590,41 @@ class NativeClientRuntime {
           'Failed to decrypt native message binary argument',
         );
       }
-      final output = outputPtr.ref;
-      if (output.owner == ffi.nullptr) {
-        throw NativeTransportException(
-          NativeTransportErrorCode.handleUnavailable,
-          'Native E2EE decrypt returned no external buffer owner',
-        );
-      }
-      if (output.len == 0) {
-        _bindings.ctExternalByteBufferFree(output.owner);
-        return Uint8List(0);
-      }
-      if (output.ptr == ffi.nullptr) {
-        _bindings.ctExternalByteBufferFree(output.owner);
-        throw NativeTransportException(
-          NativeTransportErrorCode.handleUnavailable,
-          'Native E2EE decrypt returned no external buffer bytes',
-        );
-      }
-      Uint8List? bytes;
-      try {
-        bytes = output.ptr.asTypedList(
-          output.len,
-          finalizer: _bindings.ctExternalByteBufferFreePointer,
-          token: output.owner,
-        );
-        _nativeExternalBytes[bytes] = _NativeExternalBytesReference(
-          runtimeIdentity: this,
-          pointer: output.ptr,
-          length: output.len,
-        );
-        return bytes;
-      } catch (_) {
-        // Once asTypedList succeeds, its finalizer exclusively owns the token.
-        if (bytes == null) {
-          _bindings.ctExternalByteBufferFree(output.owner);
-        }
-        rethrow;
-      }
+      final payload = (
+        bytes: _ownDecryptedExternalBytes(outputPtr.ref),
+        directBinary: true,
+      );
+      incoming._e2eeDecryptRequest = request;
+      incoming._e2eeDecryptedPayload = payload;
+      return payload;
     } finally {
       if (keyIdPtr != ffi.nullptr) {
         malloc.free(keyIdPtr);
       }
       calloc.free(outputPtr);
+      calloc.free(outputKindPtr);
     }
+  }
+
+  Uint8List _ownDecryptedExternalBytes(CtExternalByteBuffer output) {
+    if (output.owner == ffi.nullptr) {
+      throw NativeTransportException(
+        NativeTransportErrorCode.handleUnavailable,
+        'Native E2EE decrypt returned no external buffer owner',
+      );
+    }
+    if (output.len == 0) {
+      _bindings.ctExternalByteBufferFree(output.owner);
+      return Uint8List(0);
+    }
+    if (output.ptr == ffi.nullptr) {
+      _bindings.ctExternalByteBufferFree(output.owner);
+      throw NativeTransportException(
+        NativeTransportErrorCode.handleUnavailable,
+        'Native E2EE decrypt returned no external buffer bytes',
+      );
+    }
+    return _ownExternalBytes(output);
   }
 
   int connectWebSocket({
@@ -894,6 +1031,8 @@ class NativeClientRuntime {
     required int sessionHandle,
     required String keyId,
     required String cipher,
+    bool encodeBase64 = false,
+    Uint8List? suffix,
   }) {
     ensureStarted();
     if (fileOffset < 0 || fileLength < 0) {
@@ -905,30 +1044,65 @@ class NativeClientRuntime {
       _ => throw ArgumentError.value(cipher, 'cipher', 'is unsupported'),
     };
     var prefixPtr = ffi.nullptr.cast<ffi.Uint8>();
+    var suffixPtr = ffi.nullptr.cast<ffi.Uint8>();
     final keyIdPtr = keyId.toNativeUtf8().cast<ffi.Char>();
     try {
       if (prefix.isNotEmpty) {
         prefixPtr = malloc<ffi.Uint8>(prefix.length);
         prefixPtr.asTypedList(prefix.length).setAll(0, prefix);
       }
-      final result = _bindings.ctSendMessageNativeE2eeFileSegment(
-        connectionId,
-        prefixPtr,
-        prefix.length,
-        fileHandle,
-        fileOffset,
-        fileLength,
-        sessionHandle,
-        keyIdPtr,
-        utf8.encode(keyId).length,
-        cipherCode,
-      );
+      final suffixBytes = suffix ?? Uint8List(0);
+      if (suffixBytes.isNotEmpty) {
+        suffixPtr = malloc<ffi.Uint8>(suffixBytes.length);
+        suffixPtr.asTypedList(suffixBytes.length).setAll(0, suffixBytes);
+      }
+      final keyIdLength = utf8.encode(keyId).length;
+      final int result;
+      if (encodeBase64) {
+        final send = _bindings.ctSendMessageNativeE2eeFileSegmentV2;
+        if (send == null) {
+          throw UnsupportedError(
+            'This native library cannot base64-encode E2EE file segments',
+          );
+        }
+        result = send(
+          connectionId,
+          prefixPtr,
+          prefix.length,
+          fileHandle,
+          fileOffset,
+          fileLength,
+          sessionHandle,
+          keyIdPtr,
+          keyIdLength,
+          cipherCode,
+          suffixPtr,
+          suffixBytes.length,
+          1,
+        );
+      } else {
+        result = _bindings.ctSendMessageNativeE2eeFileSegment(
+          connectionId,
+          prefixPtr,
+          prefix.length,
+          fileHandle,
+          fileOffset,
+          fileLength,
+          sessionHandle,
+          keyIdPtr,
+          keyIdLength,
+          cipherCode,
+        );
+      }
       if (result != NativeTransportErrorCode.success) {
         _throwForError(result, 'Failed to send native E2EE file segment');
       }
     } finally {
       if (prefixPtr != ffi.nullptr) {
         malloc.free(prefixPtr);
+      }
+      if (suffixPtr != ffi.nullptr) {
+        malloc.free(suffixPtr);
       }
       malloc.free(keyIdPtr);
     }
@@ -989,26 +1163,7 @@ class NativeClientRuntime {
           'Native JSON decode returned no external buffer bytes',
         );
       }
-      Uint8List? bytes;
-      try {
-        bytes = output.ptr.asTypedList(
-          output.len,
-          finalizer: _bindings.ctExternalByteBufferFreePointer,
-          token: output.owner,
-        );
-        _nativeExternalBytes[bytes] = _NativeExternalBytesReference(
-          runtimeIdentity: this,
-          pointer: output.ptr,
-          length: output.len,
-        );
-        return bytes;
-      } catch (_) {
-        // Once asTypedList succeeds, its finalizer exclusively owns the token.
-        if (bytes == null) {
-          _bindings.ctExternalByteBufferFree(output.owner);
-        }
-        rethrow;
-      }
+      return _ownExternalBytes(output);
     } finally {
       calloc.free(outputPtr);
     }
@@ -1065,26 +1220,7 @@ class NativeClientRuntime {
           'Native base64 decode returned no external buffer bytes',
         );
       }
-      Uint8List? bytes;
-      try {
-        bytes = output.ptr.asTypedList(
-          output.len,
-          finalizer: _bindings.ctExternalByteBufferFreePointer,
-          token: output.owner,
-        );
-        _nativeExternalBytes[bytes] = _NativeExternalBytesReference(
-          runtimeIdentity: this,
-          pointer: output.ptr,
-          length: output.len,
-        );
-        return bytes;
-      } catch (_) {
-        // Once asTypedList succeeds, its finalizer exclusively owns the token.
-        if (bytes == null) {
-          _bindings.ctExternalByteBufferFree(output.owner);
-        }
-        rethrow;
-      }
+      return _ownExternalBytes(output);
     } finally {
       if (ownedInput != ffi.nullptr) {
         malloc.free(ownedInput);
@@ -1141,26 +1277,7 @@ class NativeClientRuntime {
           'Native base64 encode returned no external buffer bytes',
         );
       }
-      Uint8List? bytes;
-      try {
-        bytes = output.ptr.asTypedList(
-          output.len,
-          finalizer: _bindings.ctExternalByteBufferFreePointer,
-          token: output.owner,
-        );
-        _nativeExternalBytes[bytes] = _NativeExternalBytesReference(
-          runtimeIdentity: this,
-          pointer: output.ptr,
-          length: output.len,
-        );
-        return bytes;
-      } catch (_) {
-        // Once asTypedList succeeds, its finalizer exclusively owns the token.
-        if (bytes == null) {
-          _bindings.ctExternalByteBufferFree(output.owner);
-        }
-        rethrow;
-      }
+      return _ownExternalBytes(output);
     } finally {
       if (ownedInput != ffi.nullptr) {
         malloc.free(ownedInput);
@@ -1283,6 +1400,40 @@ class NativeClientRuntime {
     return result;
   }
 
+  int? updateSha256ByConsumingExternalBytes(
+    int sha256Handle,
+    Uint8List bytes,
+  ) {
+    ensureStarted();
+    final nativeBytes = _nativeExternalBytes[bytes];
+    if (nativeBytes?.released == true) {
+      throw StateError('Native-owned byte payload has already been released');
+    }
+    final updateOwned = _bindings.ctSha256UpdateExternalOwnedAsync;
+    if (nativeBytes == null ||
+        !identical(nativeBytes.runtimeIdentity, this) ||
+        nativeBytes.length != bytes.length ||
+        updateOwned == null) {
+      return null;
+    }
+
+    _externalByteBufferFinalizer.detach(nativeBytes);
+    nativeBytes.released = true;
+    final result = updateOwned(
+      sha256Handle,
+      nativeBytes.owner,
+      nativeBytes.pointer,
+      nativeBytes.length,
+    );
+    if (result < 0) {
+      _throwForError(
+        result,
+        'Failed to hash consumed native external byte payload',
+      );
+    }
+    return result;
+  }
+
   int updateSha256(
     int sha256Handle,
     Uint8List bytes, {
@@ -1290,6 +1441,9 @@ class NativeClientRuntime {
   }) {
     ensureStarted();
     final nativeBytes = _nativeExternalBytes[bytes];
+    if (nativeBytes?.released == true) {
+      throw StateError('Native-owned byte payload has already been released');
+    }
     if (nativeBytes != null &&
         identical(nativeBytes.runtimeIdentity, this) &&
         nativeBytes.length == bytes.length) {

@@ -8,3 +8,7 @@ FileTransferDigest createFileTransferDigest({
 }) => DartFileTransferDigest();
 
 Uint8List? nativeFileChunkBytes(Object? anchor) => null;
+
+bool releaseNativeFileChunkBytes(Uint8List bytes) => false;
+
+bool releaseNativeFileChunkMessage(Object? anchor) => false;

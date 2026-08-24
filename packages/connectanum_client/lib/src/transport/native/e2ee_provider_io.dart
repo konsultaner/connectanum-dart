@@ -12,6 +12,7 @@ class NativeWampCborXsalsa20Poly1305Provider
         DisposableWampE2eeProvider,
         WampE2eePolicyAwareProvider,
         WampE2eeProfileSupport,
+        WampE2eeRuntimePayloadProvider,
         NativeE2eeFileSegmentProvider {
   NativeWampCborXsalsa20Poly1305Provider({
     required Map<String, List<int>> keys,
@@ -116,6 +117,13 @@ class NativeWampCborXsalsa20Poly1305Provider
   WampE2eeKeySelectionPolicy? get keySelectionPolicy => _keySelectionPolicy;
 
   @override
+  bool canUnpackFromRuntimeContext(
+    WampE2eeRuntimeContext? runtimeContext,
+  ) =>
+      _runtime.supportsConsumingE2eeMessagePayloadDecrypt &&
+      nativeIncomingMessageForAnchor(runtimeContext?.payloadAnchor) != null;
+
+  @override
   List<dynamic> packPayload(
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
@@ -193,16 +201,30 @@ class NativeWampCborXsalsa20Poly1305Provider
         runtimeContext?.payloadAnchor,
       );
       if (incoming != null) {
-        final directBytes = _runtime.decryptE2eeMessageSingleBinaryArgument(
+        final nativePayload = _runtime.decryptE2eeMessageSingleBinaryArgument(
           _sessionHandle,
           incoming,
           keyId: keyId,
           cipher: _cipher,
         );
-        if (directBytes != null) {
+        if (nativePayload != null && nativePayload.directBinary) {
           return (
-            arguments: <dynamic>[directBytes],
+            arguments: <dynamic>[nativePayload.bytes],
             argumentsKeywords: null,
+          );
+        }
+        if (nativePayload != null) {
+          final decoded = _serializer.deserializePPT(nativePayload.bytes);
+          if (decoded == null) {
+            throw WampE2eeInvalidPayloadException(
+              'unpack',
+              options: options,
+              reason: 'Decrypted payload is not a valid CBOR PPT envelope',
+            );
+          }
+          return (
+            arguments: decoded.arguments,
+            argumentsKeywords: decoded.argumentsKeywords,
           );
         }
       }

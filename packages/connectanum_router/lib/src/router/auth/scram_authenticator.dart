@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:connectanum_core/authentication.dart' show ScramAuthentication;
+import 'package:connectanum_core/authentication.dart'
+    show ScramAuthentication, ScramKeyDeriver;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 
 import '../config/authenticator.dart';
@@ -30,6 +31,7 @@ class ScramAuthenticator extends Authenticator {
   ScramAuthenticator(this._config);
 
   final ScramAuthenticatorConfig _config;
+  final ScramKeyDeriver _keyDeriver = ScramKeyDeriver();
   _ScramPendingSession? _pending;
 
   @override
@@ -182,14 +184,21 @@ class ScramAuthenticator extends Authenticator {
     }
 
     final authExtra = HashMap<String, Object?>.from(extra);
-    final isValid = principal.verifySignature(
-      clientSignature: signature,
-      clientNonce: pending.clientNonce,
-      authExtra: authExtra,
-      challenge: pending.challenge,
-    );
+    String? verifier;
+    try {
+      verifier = await principal.verifySignature(
+        clientSignature: signature,
+        clientNonce: pending.clientNonce,
+        authExtra: authExtra,
+        challenge: pending.challenge,
+        keyDeriver: _keyDeriver,
+      );
+    } on Object {
+      verifier = null;
+    }
+    await _keyDeriver.dispose();
 
-    if (!isValid) {
+    if (verifier == null) {
       return AuthResult.failure(
         const AuthFailure(
           reason: wamp_core.Error.notAuthorized,
@@ -198,7 +207,15 @@ class ScramAuthenticator extends Authenticator {
       );
     }
 
-    return AuthResult.success(_config.buildSuccess(principal, pending.authId));
+    return AuthResult.success(
+      _config.buildSuccess(principal, pending.authId, verifier),
+    );
+  }
+
+  @override
+  Future<void> onAbort(AuthenticatorContext context, {String? reason}) async {
+    _pending = null;
+    await _keyDeriver.dispose();
   }
 }
 
@@ -274,19 +291,24 @@ class ScramAuthenticatorConfig {
     return null;
   }
 
-  AuthSuccess buildSuccess(ScramPrincipal principal, String authId) {
+  AuthSuccess buildSuccess(
+    ScramPrincipal principal,
+    String authId,
+    String verifier,
+  ) {
     final role = principal.role ?? defaultRole;
     final provider = principal.provider ?? defaultProvider;
     final authextra = Map<String, Object?>.from(defaultExtra);
     if (principal.authExtra != null) {
       authextra.addAll(principal.authExtra!);
     }
+    authextra['verifier'] = verifier;
     return AuthSuccess(
       authId: authId,
       authRole: role,
       details: Map<String, Object?>.unmodifiable({
         'authprovider': provider,
-        if (authextra.isNotEmpty) 'authextra': authextra,
+        'authextra': Map<String, Object?>.unmodifiable(authextra),
       }),
     );
   }
@@ -313,6 +335,10 @@ class ScramPrincipal {
          storedKey == null || salt != null,
          'SCRAM principal with storedKey must supply salt',
        ),
+       assert(
+         storedKey == null || serverKey != null,
+         'SCRAM principal with storedKey must supply serverKey',
+       ),
        salt = salt ?? _generateSalt();
 
   final String authId;
@@ -326,8 +352,6 @@ class ScramPrincipal {
   final String? role;
   final String? provider;
   final Map<String, Object?>? authExtra;
-  Uint8List? get _storedKeyBytes =>
-      storedKey != null ? Uint8List.fromList(base64.decode(storedKey!)) : null;
 
   factory ScramPrincipal.parse(String authId, Object? value) {
     if (value is String) {
@@ -346,6 +370,11 @@ class ScramPrincipal {
       if (storedKey != null && salt == null) {
         throw ArgumentError(
           'SCRAM principal with stored_key must provide salt',
+        );
+      }
+      if (storedKey != null && serverKey == null) {
+        throw ArgumentError(
+          'SCRAM principal with stored_key must provide server_key',
         );
       }
       return ScramPrincipal(
@@ -369,38 +398,63 @@ class ScramPrincipal {
     );
   }
 
-  bool verifySignature({
+  Future<String?> verifySignature({
     required String clientSignature,
     required String clientNonce,
     required Map<String, Object?> authExtra,
     required wamp_core.Extra challenge,
-  }) {
-    if (storedKey != null) {
-      final proofBytes = base64.decode(clientSignature);
-      final storedKeyBytes = _storedKeyBytes!;
+    required ScramKeyDeriver keyDeriver,
+  }) async {
+    try {
       final authMessage = ScramAuthentication.createAuthMessage(
         authId,
         clientNonce,
         HashMap<String, Object?>.from(authExtra),
         challenge,
       );
-      return ScramAuthentication.verifyClientProof(
-        proofBytes,
-        storedKeyBytes,
-        authMessage,
-      );
+      late final Uint8List storedKeyBytes;
+      late final Uint8List serverKeyBytes;
+      if (storedKey != null && serverKey != null) {
+        storedKeyBytes = Uint8List.fromList(base64.decode(storedKey!));
+        serverKeyBytes = Uint8List.fromList(base64.decode(serverKey!));
+      } else if (secret != null) {
+        final secrets = await ScramAuthentication.deriveServerSecretsAsync(
+          secret: secret!,
+          salt: salt,
+          kdf: kdf,
+          iterations: iterations,
+          memory: memory,
+          keyDeriver: keyDeriver,
+        );
+        storedKeyBytes = Uint8List.fromList(base64.decode(secrets.storedKey));
+        serverKeyBytes = Uint8List.fromList(base64.decode(secrets.serverKey));
+      } else {
+        return null;
+      }
+      Uint8List? proofBytes;
+      try {
+        proofBytes = Uint8List.fromList(base64.decode(clientSignature));
+        if (!ScramAuthentication.verifyClientProof(
+          proofBytes,
+          storedKeyBytes,
+          authMessage,
+        )) {
+          return null;
+        }
+        return ScramAuthentication.createServerSignature(
+          serverKey: serverKeyBytes,
+          authMessage: authMessage,
+        );
+      } finally {
+        if (proofBytes != null) {
+          proofBytes.fillRange(0, proofBytes.length, 0);
+        }
+        storedKeyBytes.fillRange(0, storedKeyBytes.length, 0);
+        serverKeyBytes.fillRange(0, serverKeyBytes.length, 0);
+      }
+    } on FormatException {
+      return null;
     }
-    if (secret != null) {
-      return ScramAuthentication.verifySignature(
-        secret: secret!,
-        authId: authId,
-        clientNonce: clientNonce,
-        authExtra: authExtra,
-        challenge: challenge,
-        clientSignature: clientSignature,
-      );
-    }
-    return false;
   }
 }
 

@@ -18,6 +18,24 @@ abstract class AbstractAuthentication {
   /// Authentication method name used in HELLO (e.g. 'ticket').
   String getName();
 
+  /// Verifies authentication data returned by the router before session use.
+  ///
+  /// Authentication methods without a mutual-authentication response can keep
+  /// this default no-op implementation.
+  Future<void> verifyFinal({
+    required String? authId,
+    required String? authMethod,
+    required Map<String, Object?>? authExtra,
+  }) async {}
+
+  /// Cancels work associated with the current authentication attempt.
+  Future<void> cancelPendingChallenge() async {}
+
+  /// Releases authentication-method resources.
+  Future<void> dispose() async {
+    await cancelPendingChallenge();
+  }
+
   static Future<T> streamAddAwaited<T>(
     StreamController<T> streamController,
     T value, {

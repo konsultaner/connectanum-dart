@@ -1,0 +1,52 @@
+{
+  "metrics": [
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_transport_frames_heavy",
+      "client_impl": "native"
+    },
+    {
+      "kind": "lifecycle_throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_transport_frames_heavy",
+      "client_impl": "native"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_transport_frames_heavy",
+      "workload": "rawsocket_rpc_json_64m_dart"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_transport_frames_heavy",
+      "workload": "rawsocket_rpc_msgpack_64m_dart"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_transport_frames_heavy",
+      "workload": "rawsocket_rpc_cbor_64m_dart"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_transport_frames_heavy",
+      "workload": "websocket_rpc_json_8m_dart"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_transport_frames_heavy",
+      "workload": "websocket_rpc_msgpack_8m_dart"
+    },
+    {
+      "kind": "throughput_mbps_min",
+      "threshold": 2000.0,
+      "scenario": "wamp_large_transport_frames_heavy",
+      "workload": "websocket_rpc_cbor_8m_dart"
+    }
+  ]
+}

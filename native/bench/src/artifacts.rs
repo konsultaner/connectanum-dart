@@ -4813,6 +4813,167 @@ mod tests {
     }
 
     #[test]
+    fn large_transport_frame_policy_gates_every_achievable_profile() {
+        let policy_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("artifact_gate")
+            .join("wamp_large_transport_frames_heavy.json");
+        let policy = load_artifact_gate_policy(&policy_path).unwrap();
+        let scenario_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("scenarios")
+            .join("wamp_large_transport_frames_heavy.toml");
+        let scenario: toml::Value =
+            toml::from_str(&fs::read_to_string(scenario_path).unwrap()).unwrap();
+        let workloads = scenario["workloads"].as_array().unwrap();
+
+        let mut native_count = 0;
+        let mut clear_dart_count = 0;
+        let mut sdk_tls_reference_count = 0;
+        for workload in workloads {
+            let name = workload["name"].as_str().unwrap();
+            let client_impl = workload["client_impl"].as_str().unwrap();
+            let secure = workload
+                .get("secure_transport")
+                .and_then(toml::Value::as_bool)
+                .unwrap_or(false);
+            let mut summary = summarize_report(&clean_report());
+            summary.scenario = "wamp_large_transport_frames_heavy".to_string();
+            summary.workload = name.to_string();
+            summary.client_impl = client_impl.to_string();
+
+            if client_impl == "native" {
+                native_count += 1;
+                assert_eq!(
+                    policy.metric_threshold_for(&summary, THROUGHPUT_MBPS_MIN),
+                    Some(2000.0),
+                    "missing native data-window gate for {name}"
+                );
+                assert_eq!(
+                    policy.metric_threshold_for(&summary, LIFECYCLE_THROUGHPUT_MBPS_MIN),
+                    Some(2000.0),
+                    "missing native lifecycle gate for {name}"
+                );
+            } else if !secure {
+                clear_dart_count += 1;
+                assert_eq!(
+                    policy.metric_threshold_for(&summary, THROUGHPUT_MBPS_MIN),
+                    Some(2000.0),
+                    "missing clear Dart data-window gate for {name}"
+                );
+            } else {
+                sdk_tls_reference_count += 1;
+                assert_eq!(
+                    policy.metric_threshold_for(&summary, THROUGHPUT_MBPS_MIN),
+                    None,
+                    "pure-Dart SDK TLS reference unexpectedly became release-gated for {name}"
+                );
+                assert_eq!(
+                    policy.metric_threshold_for(&summary, LIFECYCLE_THROUGHPUT_MBPS_MIN),
+                    None,
+                    "pure-Dart SDK TLS reference unexpectedly gained a lifecycle gate for {name}"
+                );
+            }
+        }
+
+        assert_eq!(native_count, 12);
+        assert_eq!(clear_dart_count, 6);
+        assert_eq!(sdk_tls_reference_count, 6);
+    }
+
+    #[test]
+    fn shipped_file_throughput_policy_gates_every_configured_workload() {
+        let policy_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("artifact_gate")
+            .join("wamp_file_transfer_throughput.json");
+        let policy = load_artifact_gate_policy(&policy_path).unwrap();
+        let scenario_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("scenarios")
+            .join("wamp_file_transfer_throughput.toml");
+        let scenario: toml::Value =
+            toml::from_str(&fs::read_to_string(scenario_path).unwrap()).unwrap();
+        let mut summary = summarize_report(&clean_report());
+        summary.scenario = "wamp_file_transfer_throughput".to_string();
+
+        for workload in scenario["workloads"].as_array().unwrap() {
+            summary.workload = workload["name"].as_str().unwrap().to_string();
+            assert_eq!(
+                policy.metric_threshold_for(&summary, THROUGHPUT_MBPS_MIN),
+                Some(2000.0),
+                "missing data-window gate for {}",
+                summary.workload
+            );
+            assert_eq!(
+                policy.metric_threshold_for(&summary, LIFECYCLE_THROUGHPUT_MBPS_MIN),
+                Some(2000.0),
+                "missing lifecycle gate for {}",
+                summary.workload
+            );
+        }
+
+        summary.workload = "future_file_transfer_workload".to_string();
+        assert_eq!(
+            policy.metric_threshold_for(&summary, THROUGHPUT_MBPS_MIN),
+            Some(2000.0)
+        );
+        assert_eq!(
+            policy.metric_threshold_for(&summary, LIFECYCLE_THROUGHPUT_MBPS_MIN),
+            Some(2000.0)
+        );
+
+        summary.scenario = "unrelated".to_string();
+        assert_eq!(
+            policy.metric_threshold_for(&summary, THROUGHPUT_MBPS_MIN),
+            None
+        );
+    }
+
+    #[test]
+    fn websocket_fragmentation_policy_gates_every_configured_workload() {
+        let policy_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("artifact_gate")
+            .join("wamp_websocket_fragmentation_throughput.json");
+        let policy = load_artifact_gate_policy(&policy_path).unwrap();
+        let scenario_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("scenarios")
+            .join("wamp_websocket_fragmentation_throughput.toml");
+        let scenario: toml::Value =
+            toml::from_str(&fs::read_to_string(scenario_path).unwrap()).unwrap();
+        let mut summary = summarize_report(&clean_report());
+        summary.scenario = "wamp_websocket_fragmentation_throughput".to_string();
+
+        for workload in scenario["workloads"].as_array().unwrap() {
+            summary.workload = workload["name"].as_str().unwrap().to_string();
+            assert_eq!(
+                policy.metric_threshold_for(&summary, THROUGHPUT_MBPS_MIN),
+                Some(2000.0),
+                "missing data-window gate for {}",
+                summary.workload
+            );
+            assert_eq!(
+                policy.metric_threshold_for(&summary, LIFECYCLE_THROUGHPUT_MBPS_MIN),
+                Some(2000.0),
+                "missing lifecycle gate for {}",
+                summary.workload
+            );
+        }
+
+        summary.workload = "future_websocket_fragmentation_workload".to_string();
+        assert_eq!(
+            policy.metric_threshold_for(&summary, THROUGHPUT_MBPS_MIN),
+            Some(2000.0)
+        );
+        assert_eq!(
+            policy.metric_threshold_for(&summary, LIFECYCLE_THROUGHPUT_MBPS_MIN),
+            Some(2000.0)
+        );
+
+        summary.scenario = "unrelated".to_string();
+        assert_eq!(
+            policy.metric_threshold_for(&summary, THROUGHPUT_MBPS_MIN),
+            None
+        );
+    }
+
+    #[test]
     fn default_artifact_gate_passes_clean_summary() {
         let bundle = ArtifactBundle {
             generated_at_ms: 1,

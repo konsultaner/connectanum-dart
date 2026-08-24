@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.0-beta.1
+
+- Complete router-hosted MCP endpoint, auth/session, direct JSON, pub/sub,
+  resource, prompt, Streamable HTTP, and operational Meta API readiness.
+- Preserve WAMP registrations and subscriptions across the intended session
+  lifecycle while enforcing disconnect cleanup and reconnect recovery.
+- Add multi-gigabit native file, large-frame, E2EE, and fragmented WebSocket
+  routing paths with bounded ownership and backpressure.
+
 ## 3.0.0-beta
 
 - Join the synchronized Connectanum 3.0 beta package graph.

@@ -1,12 +1,247 @@
 # Project State
 
-Last updated: 2026-08-23
+Last updated: 2026-08-24
 Current branch: `codex/mcp-public-http-auth-discovery`
-Current milestone: remove avoidable copies and CPU amplification from large
-WAMP frames and progressive file delivery, then establish repeatable
-multi-gigabit throughput, memory, and correctness evidence across supported
-transport, serializer, security, and runtime variants. The active plan is
-`docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`.
+Current milestone: promote the completed production-readiness work to the
+audited GitHub `master` branch as synchronized `3.0.0-beta.1` packages and
+crates. The active plan is
+`docs/exec-plans/2026-08-24-3.0.0-beta.1-promotion.md`. Package publish tags
+remain operator-gated and are not part of the approved branch push.
+
+The multi-gigabit production transfer milestone is complete
+locally across every achievable transport, serializer, file-transfer, E2EE, and
+fragmentation profile. The completed plan is
+`docs/exec-plans/2026-08-21-multigbit-transfer-performance.md`. Exact-head
+hosted deployment-chain evidence remains required after the implementation is
+pushed.
+
+The final completion audit passes all three strict production gates with no
+throughput, lifecycle, transport, or zero-copy findings: 30/30 file-transfer
+profiles, 24/24 large-frame profiles, and 24/24 fragmented WebSocket/WSS
+profiles. The slowest gated file row is buffered Dart WebSocket JSON at
+2.351 Gbit/s data and 2.239 Gbit/s lifecycle; the slowest native large-frame
+row is above 4.067 Gbit/s lifecycle; and the slowest fragmented row is WSS
+CBOR pub/sub at 2.517 Gbit/s data and 2.355 Gbit/s lifecycle. The six
+pure-Dart TLS/WSS large-frame rows remain explicit reference profiles at
+0.717-0.989 Gbit/s because Dart SDK 3.13.1 fixes asynchronous TLS staging at
+8/10 KiB. Native TLS/WSS is the wire-compatible production path and clears
+the same gate for every serializer. Identity-preserving native clear RawSocket
+MessagePack/CBOR file delivery has measured kernel `sendfile` attribution;
+JSON, TLS, WebSocket masking, and E2EE are necessarily transformed,
+copy-minimized paths rather than falsely labeled end-to-end zero-copy.
+
+The asynchronous SCRAM production-readiness milestone is complete locally.
+Argon2id13 and PBKDF2 now run through a task-based platform boundary: killable
+per-operation isolates on native Dart and dedicated browser Workers backed by
+a pinned generated Argon2id13 WASM implementation on web. Web Argon2 has no
+synchronous fallback. Cancellation, timeout, worker crash, disposal, concurrent
+derivation isolation, reconnect generation fencing, and complete
+challenge/identity-bound cache invalidation fail closed. Existing UTF-8,
+SASLprep, PBKDF2, Argon2id13, and stored-key vectors remain compatible. WAMP
+WELCOME and HTTP auth-grant success now require constant-time verification of
+the SCRAM server signature; the WAMP client buffers post-WELCOME frames while
+that asynchronous final check is pending. Full exact-tree `bin/verify` passes
+on 2026-08-24, including native SCRAM vectors, real Chrome Dart2Wasm parity and
+64 MiB event-loop responsiveness, crash/cancel/timeout/disposal coverage,
+client and router regressions, package activation, live SCRAM MCP, benchmarks,
+remote auth, and native forwarding. The completed plan is
+`docs/exec-plans/2026-08-23-async-scram-key-derivation.md`; exact-head hosted
+deployment-chain evidence remains required after the implementation is pushed.
+
+The maintained WebSocket fragmentation matrix now covers 24 strict production
+profiles across clear WebSocket and WSS, RPC and pub/sub, JSON, MessagePack,
+and CBOR, with contiguous payloads and 4 KiB continuation frames. Immutable
+benchmark arguments are encoded once, serializer-compatible external pub/sub
+delivery uses native message-handle forwarding by default, and mixed
+serializers, internal consumers, or custom publish options retain the Dart
+fallback and explicit handle ownership. Adjacent small continuation frames are
+batched into at most 64 KiB transport writes without changing their individual
+WebSocket headers, opcodes, masks, or FIN bits. The exact strict artifact gate
+passes all 24 rows from
+`out/wamp-websocket-fragmentation-throughput-24-final/`; the slowest row is WSS
+CBOR pub/sub with 4 KiB fragmentation at 2.517 Gbit/s over the data window and
+2.355 Gbit/s including lifecycle. A final ordering regression now queues an
+acknowledged publisher's `PUBLISHED` before its self-delivered `EVENT` while
+keeping forwarding nonblocking. Full exact-tree `bin/verify` passes on
+2026-08-24 with 138 Rust core tests, 90 ordinary Rust FFI tests, the complete
+Dart/package/consumer/router/benchmark matrices, live WAMP/MCP/auth and remote
+auth coverage, native-forwarding follow-ups, and both Chrome Dart2Wasm suites.
+
+The maintained file-throughput scenario now covers 30 production workloads:
+native clear RawSocket, TLS RawSocket, clear WebSocket, and WSS plus buffered
+Dart clear RawSocket and WebSocket with JSON, MessagePack, and CBOR, and the
+exact 12-profile native AES-GCM E2EE matrix across every native transport and
+serializer. Native E2EE file delivery uses raw encrypted binary fields for
+MessagePack/CBOR and canonical base64 ciphertext plus its JSON suffix for JSON;
+an optional native ABI capability preserves compatibility by falling back to
+the existing buffered E2EE path with older native libraries. Canonical JSON
+consume/decrypt and deferred WebSocket suffix handling now preserve the same
+wire behavior as buffered E2EE. A scenario-wide artifact policy requires both
+data-window and lifecycle throughput to remain at or above 2 Gbit/s for every
+configured row, including future rows. The exact 30-row local run passes its
+strict audit. Native E2EE lifecycle throughput spans 7.932-19.303 Gbit/s; the
+slowest encrypted row is WSS JSON. Buffered Dart WebSocket JSON remains the
+slowest overall row at 2.239 Gbit/s lifecycle. Focused Rust/Dart regressions,
+the exact 12-row E2EE matrix, and the maintained artifact gate pass. Full
+exact-tree `bin/verify` also passes on 2026-08-24 with 137 Rust core tests, 90
+ordinary Rust FFI tests, all Dart packages, package and CLI consumers, live
+WAMP/MCP/auth/forwarding checks, and both Chrome Dart2Wasm suites.
+
+IO JSON transports share the optional native canonical base64 encoder and
+decoder with byte-identical Dart fallback and finalizer-owned output. The
+WebSocket text receive path now validates canonical single-binary message
+metadata through the normal JSON parser, copies only the base64 span into the
+native decoder, and falls back unchanged when no decoder is installed, the
+decoder declines, or the shape is ambiguous. WAMP JSON remains a TEXT frame.
+A controlled same-host 4 GiB Dart WebSocket JSON baseline measures 1.528
+Gbit/s lifecycle without this String fast path; retained candidate repeats
+reach 2.303 and 2.374 Gbit/s, about 55% faster. The exact maintained matrix
+records 2.198 Gbit/s lifecycle and clears the strict production gate. A
+separate secure probe remains at 0.696-0.971 Gbit/s for pure-Dart TLS RawSocket
+and 0.540-1.002 Gbit/s for WSS, matching the Dart SDK 8 KiB `SecureSocket`
+staging boundary; native TLS/WSS remain the multi-gigabit secure paths.
+Structural scenario/policy regressions, focused serializer/native-codec tests,
+the exact 19-row run, and its strict artifact audit pass. Full exact-tree
+`bin/verify` passes on 2026-08-24 with 135 Rust core tests, 88 ordinary Rust
+FFI tests, the complete Dart core/client/MCP/benchmark/router matrices,
+consumer and CLI smokes, live WAMP/MCP/auth/forwarding checks, and both Chrome
+Dart2Wasm suites.
+
+The exact current 24-row large-frame matrix covers Dart and native clients,
+RawSocket and WebSocket, clear and TLS transport, and JSON, MessagePack, and
+CBOR. All 12 native rows clear 2 Gbit/s over both data and process-inclusive
+lifecycle windows, reaching 4.067-7.809 Gbit/s lifecycle. All six clear Dart
+rows clear 2 Gbit/s over the data window; clear WebSocket reaches
+2.475/6.883/6.216 Gbit/s lifecycle for JSON/MessagePack/CBOR. The short
+512 MiB clear Dart RawSocket JSON row reaches 2.411 Gbit/s over the data window
+and 1.851 Gbit/s including client-process and two-session setup, while its
+MessagePack/CBOR controls reach 6.547/4.810 Gbit/s lifecycle. A new checked-in
+artifact policy gates every native row at 2 Gbit/s over both windows and every
+clear Dart row at 2 Gbit/s over the data window; structural tests require the
+complete `2 x 2 x 2 x 3` profile matrix and keep all six pure-Dart SDK TLS rows
+explicitly reference-only.
+
+Pure-Dart secure transport is a confirmed platform impossibility at the
+requested rate with the current Dart SDK rather than an untried Connectanum
+copy optimization. Exact RawSocket TLS JSON/MessagePack/CBOR reaches
+0.741/0.989/0.987 Gbit/s over the data window, and WSS reaches
+0.717/0.934/0.929 Gbit/s. Four same-session in-flight calls improve the best
+rows only to 1.208 Gbit/s for RawSocket and 1.185 Gbit/s for WSS. The inspected
+Dart SDK 3.13.1 implementation fixes plaintext/encrypted TLS filter buffers at
+8/10 KiB and asynchronously dispatches each filter pass through
+`sslProcessFilter`; Connectanum already streams RawSocket fragments directly
+and `dart:io` WebSocket requires one complete message. Reaching 2 Gbit/s on
+that implementation requires a custom Dart SDK or a different TLS engine.
+Connectanum's existing native RawSocket TLS and WSS transports are the
+production solution and exceed the target for every serializer without a wire
+or session-protocol change. Full exact-tree `bin/verify` passes after adding
+the 24-profile structural coverage and strict achievable-profile artifact gate,
+including all Rust/Dart suites, package consumers, live WAMP/MCP/auth checks,
+native forwarding, and both Chrome Dart2Wasm suites.
+
+The deterministic native payload-release slice is complete at `6e2d7978`.
+Exact-head CI, package dry run, router-image dry run with router-hosted MCP
+runtime smoke, WAMP profile benchmarks, native-artifact relevance, and the
+comprehensive deployment-chain audit pass. The broader multi-gigabit plan has
+resumed with remaining serializer and one-frame representation-memory work
+recorded there.
+
+Native WebSocket file receipt now releases each borrowed native INVOCATION
+message deterministically after an explicitly consuming sink and checksum
+submission finish, instead of relying on Dart finalizers that do not observe
+the complete Rust allocation pressure. Retaining sinks preserve the previous
+borrowed-view lifetime. An exact 8 GiB, 64 MiB-per-transfer WebSocket/CBOR
+control at eight-way concurrency keeps lifecycle throughput effectively flat
+at 12.465 Gbit/s before and 12.488 Gbit/s after the fix, while helper RSS at
+completion falls from 7.57 GiB to 991.73 MiB and peak RSS falls from 10.00 GiB
+to 1.36 GiB. Native WebSocket masking now skips unmasked server payloads and
+uses an offset-aware 16-byte XOR path for client, identity-file, and base64-file
+frames; exact offset/tail and involution regressions pass. A matching AES-GCM
+E2EE WebSocket control reaches 1.949/1.938 Gbit/s data/lifecycle with
+446.08 MiB retained and 1.24 GiB peak RSS, so the same-process benchmark's
+remaining encryption, decryption, SHA-256, and memory-movement ceiling stays
+open rather than being claimed as multi-gigabit evidence. Focused Rust,
+file-transfer, native transport, analyzer, and local-review checks pass. Full
+exact-tree `bin/verify` passes on 2026-08-23, including the Chrome Dart2Wasm
+SCRAM Worker and WebSocket suites.
+
+A size-gated prototype that relinquished the WebSocket receive-buffer pool for
+large data frames was rejected and removed. Although completion RSS improved,
+the controlled candidate measured about 1.7% lower AES-GCM E2EE throughput and
+4.3% lower clear lifecycle throughput, so reclaimability without recycling is
+not an acceptable optimization. The restored pooled release path completes the
+same 8 GiB E2EE workload at 1.944/1.932 Gbit/s data/lifecycle with 1.35 GiB
+peak helper RSS. Any future in-place WebSocket decrypt path must preserve
+buffer recycling through the full message/decrypt/digest ownership lifetime.
+Full exact-tree `bin/verify` passes on 2026-08-24 with 135 Rust core tests, 88
+ordinary Rust FFI tests, 468 router tests, package and live MCP/WAMP smokes,
+remote auth, and both Chrome Dart2Wasm suites.
+
+The retained E2EE receive follow-up removes an eager Dart ciphertext decode
+that occurred before native runtime-anchor decryption. Providers now opt into
+runtime-owned payload unpacking; only still-encoded WAMP payloads with an exact
+live anchor use it, and old native libraries or generic providers keep the
+established materialized fallback. The exact 64 MiB, 4 MiB-chunk AES-GCM CBOR
+WebSocket workload improves from 1.907 to 12.219 Gbit/s lifecycle at one flow
+and from 1.932 to 16.261 Gbit/s at eight flows. Eight-flow RawSocket reaches
+16.951 Gbit/s lifecycle, while the clear one-flow WebSocket control remains
+flat at 14.036 versus 13.945 Gbit/s. Candidate WebSocket peak helper RSS is
+336.66 MiB at one flow and 1.06 GiB at eight flows; RawSocket peaks at
+432.83 MiB. Focused lazy-payload, native E2EE, file-transfer, SCRAM, and local
+review checks pass. Full exact-tree `bin/verify` passes on 2026-08-24 with 135
+Rust core tests, 88 ordinary Rust FFI tests, 412 Dart core tests, 118 MCP tests,
+120 benchmark tests, 468 router tests, package and live WAMP/MCP smokes, remote
+auth, native-forwarding follow-ups, and both Chrome Dart2Wasm suites.
+
+Native-owned file chunks now support deterministic release after an explicitly
+consuming sink completes `add`; retaining application sinks keep finalizer-based
+ownership and require no behavior change. The benchmark discard sink opts into
+that contract, allowing native E2EE plaintext to be freed immediately after
+digest accounting. A 24 GiB alternating same-host A/B probe of the 4 GiB
+AES-GCM E2EE RawSocket/CBOR row ends at 1.994/1.972 Gbit/s data/lifecycle and
+609.25 MiB peak helper RSS, versus adjacent restored baselines at
+1.862-1.960/1.843-1.938 Gbit/s and 674.59-676.14 MiB. This is about 9.7% lower
+peak memory without a measured throughput regression; the currently loaded
+host remained slower than the prior quiet-host result above 2 Gbit/s. Full
+exact-tree `bin/verify` passes with 134 Rust core tests, 81 ordinary Rust FFI
+tests, 319 client/MCP cases, 120 benchmark tests, 468 router tests, consumer
+and live MCP smokes, remote auth, native-forwarding follow-ups, and Chrome
+Dart2Wasm SCRAM Worker and WebSocket coverage. Remaining pure-Dart secure and
+serializer bottlenecks stay open in the active plan.
+
+Consumed decrypted native file chunks can now transfer their external-buffer
+owner directly into the bounded asynchronous SHA-256 queue instead of copying
+each 4 MiB chunk first. The optional ABI consumes ownership on every path;
+older native libraries and retaining application sinks retain the safe copied
+fallback. Exact pointer-reuse, subrange, ordering, invalid-range, failed-queue,
+and Dart ownership tests pass. A 4 GiB AES-GCM RawSocket/CBOR A/B measures
+1.988/1.966 and 1.941/1.906 Gbit/s data/lifecycle with ownership transfer and
+1.978/1.957 Gbit/s for the copied control, so the result removes a provable
+allocation/copy without claiming a throughput increase. The exact Pure-Dart
+RawSocket TLS MessagePack probe reaches 0.913 Gbit/s versus 15.481 Gbit/s
+cleartext; Dart SDK 3.13.1 stages `SecureSocket` through 8 KiB secure-filter
+buffers. Pure-Dart TLS is therefore a measured runtime boundary, while native
+TLS remains the production multi-gigabit path. Full exact-tree `bin/verify`
+passes on 2026-08-23 with the new ownership regressions and all package,
+consumer, live MCP, router, remote-auth, native-forwarding, and Chrome
+Dart2Wasm suites.
+
+Native AES-GCM E2EE receive can now consume the current lazy message and
+decrypt a uniquely owned contiguous RawSocket frame in place, removing the
+second full-ciphertext allocation and copy before PPT decoding. The optional
+ABI returns either the canonical CBOR single-binary view or the complete
+plaintext PPT envelope; aliased, segmented, WebSocket-owned, XSalsa, and older
+native-library paths retain the safe copied fallback. Authentication failure
+still consumes the selected message handle, and Dart caches only an exact
+session/key/cipher request while rejecting changed requests or reuse after
+external ownership has moved into asynchronous SHA-256. Pointer-identity,
+alias, generic-PPT, failure-consumption, provider, live E2EE RPC, and live E2EE
+file regressions pass. Two alternating 8 GiB candidate/control pairs measure
+the copied baseline at 1.933-1.987 Gbit/s lifecycle throughput and the
+consuming path at 1.988-2.000 Gbit/s. The two-run average improves by about
+1.7%; average helper peak RSS falls from 629.56 to 603.40 MiB, and retained RSS
+at completion falls from 283.75 to 169.39 MiB. Full exact-tree `bin/verify`
+passes on 2026-08-23.
 
 Native WAMP benchmark workloads now retain fresh-process isolation without
 charging Dart source/JIT startup to every lifecycle measurement. The Rust

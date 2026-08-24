@@ -1,6 +1,6 @@
 [package]
 name = "ct_ffi"
-version = "3.0.0-beta"
+version = "3.0.0-beta.1"
 edition = "2021"
 
 [features]

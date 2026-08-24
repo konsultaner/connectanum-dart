@@ -126,6 +126,81 @@ void main() {
   );
 
   test(
+    'native-owned bytes can be released after async SHA-256 takes ownership',
+    () {
+      final source = Uint8List.fromList(
+        List<int>.generate(1024 * 1024, (index) => (index * 23) & 0xff),
+      );
+      final runtime = NativeClientRuntime.instance();
+      final encoded = runtime.encodeCanonicalBase64Bytes(source)!;
+      final handle = runtime.createSha256State();
+
+      expect(runtime.updateSha256(handle, encoded), encoded.length);
+      expect(NativeClientRuntime.releaseOwnedExternalBytes(encoded), isTrue);
+      expect(NativeClientRuntime.releaseOwnedExternalBytes(encoded), isFalse);
+      expect(
+        NativeClientRuntime.releaseOwnedExternalBytes(source),
+        isFalse,
+      );
+      expect(
+        runtime.finalizeSha256State(handle),
+        orderedEquals(
+          sha256.convert(ascii.encode(base64.encode(source))).bytes,
+        ),
+      );
+    },
+    skip: _nativeShaRuntimeSkipReason(),
+  );
+
+  test(
+    'native SHA-256 can consume an external owner without a copied queue input',
+    () {
+      final source = Uint8List.fromList(
+        List<int>.generate(1024 * 1024, (index) => (index * 37) & 0xff),
+      );
+      final runtime = NativeClientRuntime.instance();
+      final encoded = runtime.encodeCanonicalBase64Bytes(source)!;
+      final handle = runtime.createSha256State();
+
+      expect(
+        runtime.updateSha256ByConsumingExternalBytes(handle, encoded),
+        encoded.length,
+      );
+      expect(NativeClientRuntime.releaseOwnedExternalBytes(encoded), isFalse);
+      expect(
+        runtime.finalizeSha256State(handle),
+        orderedEquals(
+          sha256.convert(ascii.encode(base64.encode(source))).bytes,
+        ),
+      );
+    },
+    skip: _nativeShaRuntimeSkipReason(),
+  );
+
+  test(
+    'native SHA-256 consumes an external owner when queueing fails',
+    () {
+      final runtime = NativeClientRuntime.instance();
+      final encoded = runtime.encodeCanonicalBase64Bytes(
+        Uint8List.fromList(List<int>.generate(1024, (index) => index & 0xff)),
+      )!;
+
+      expect(
+        () => runtime.updateSha256ByConsumingExternalBytes(0, encoded),
+        throwsA(
+          isA<NativeTransportException>().having(
+            (error) => error.code,
+            'code',
+            NativeTransportErrorCode.invalidArgument,
+          ),
+        ),
+      );
+      expect(NativeClientRuntime.releaseOwnedExternalBytes(encoded), isFalse);
+    },
+    skip: _nativeShaRuntimeSkipReason(),
+  );
+
+  test(
     'native SHA-256 hashes anchored subviews without changing the digest',
     () {
       final bytes = allocateNativeExternalBytes(128 * 1024);

@@ -43,11 +43,13 @@ class SessionRecord extends SessionInfo {
     required super.connectionId,
     required super.lastActivity,
     required this.listener,
+    this.serializerId,
     super.protocol,
     this.internalSendPort,
   });
 
   final RouterListener listener;
+  final int? serializerId;
   final SendPort? internalSendPort;
 
   final Set<int> subscriptionIds = <int>{};

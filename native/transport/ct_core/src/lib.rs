@@ -103,6 +103,7 @@ const HTTP3_SEND_WINDOW: u64 = 64 * 1024 * 1024;
 const HTTP3_DATAGRAM_BUFFER_BYTES: usize = 8 * 1024 * 1024;
 const HTTP3_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(5);
 const WEBSOCKET_MASK_CHUNK_SIZE: usize = 1024 * 1024;
+const WEBSOCKET_COALESCE_FRAME_SIZE: usize = 64 * 1024;
 const FILE_SEGMENT_BUFFER_SIZE: usize = 4 * 1024 * 1024;
 const BASE64_FILE_SEGMENT_INPUT_SIZE: usize =
     FILE_SEGMENT_BUFFER_SIZE - (FILE_SEGMENT_BUFFER_SIZE % 3);
@@ -3115,9 +3116,22 @@ impl OutboundFrame {
     where
         F: FnOnce() -> Result<Bytes, String> + Send + 'static,
     {
+        Self::message_deferred_segment_with_suffix(prefix, deferred_len, Bytes::new(), prepare)
+    }
+
+    fn message_deferred_segment_with_suffix<F>(
+        prefix: Bytes,
+        deferred_len: usize,
+        suffix: Bytes,
+        prepare: F,
+    ) -> Result<Self, Error>
+    where
+        F: FnOnce() -> Result<Bytes, String> + Send + 'static,
+    {
         let payload_len = prefix
             .len()
             .checked_add(deferred_len)
+            .and_then(|value| value.checked_add(suffix.len()))
             .ok_or(Error::InvalidDeferredSegment("payload length overflow"))?;
         Ok(Self {
             frame_type: 0,
@@ -3125,7 +3139,11 @@ impl OutboundFrame {
             segments: vec![prefix],
             deferred_segment: Some(Box::new(prepare)),
             file_segment: None,
-            suffix_segments: Vec::new(),
+            suffix_segments: if suffix.is_empty() {
+                Vec::new()
+            } else {
+                vec![suffix]
+            },
         })
     }
 
@@ -3656,6 +3674,7 @@ fn spawn_websocket_writer(
                     opcode,
                     frame.payload_len,
                     &frame.segments,
+                    &frame.suffix_segments,
                     mask_outbound_frames,
                     &mut mask_scratch,
                 )
@@ -3693,6 +3712,7 @@ fn spawn_websocket_writer(
                 0x8,
                 close_frame.payload_len,
                 &close_frame.segments,
+                &close_frame.suffix_segments,
                 mask_outbound_frames,
                 &mut mask_scratch,
             )
@@ -4174,10 +4194,15 @@ async fn read_websocket_frame_mode(
             )
             .await
             .map_err(WebSocketFrameError::io)?;
-        if let Some(payload) = payload.as_mut() {
-            for (index, byte) in payload.as_mut_slice().iter_mut().enumerate() {
-                *byte ^= mask[index % 4];
-            }
+        if masked {
+            xor_websocket_mask(
+                payload
+                    .as_mut()
+                    .expect("payload buffer exists for masked websocket frame")
+                    .as_mut_slice(),
+                &mask,
+                0,
+            );
         }
     }
     let payload = payload
@@ -4244,6 +4269,7 @@ async fn write_websocket_frame(
         opcode,
         payload_len,
         segments,
+        &[],
         false,
         &mut mask_scratch,
     )
@@ -4263,6 +4289,7 @@ async fn write_websocket_frame_client(
         opcode,
         payload_len,
         segments,
+        &[],
         true,
         &mut mask_scratch,
     )
@@ -4274,9 +4301,21 @@ async fn write_websocket_frame_mode(
     opcode: u8,
     payload_len: usize,
     segments: &[Bytes],
+    suffix_segments: &[Bytes],
     mask_payload: bool,
     mask_scratch: &mut Vec<u8>,
 ) -> io::Result<()> {
+    let combined_segments;
+    let segments = if suffix_segments.is_empty() {
+        segments
+    } else {
+        combined_segments = segments
+            .iter()
+            .chain(suffix_segments)
+            .cloned()
+            .collect::<Vec<_>>();
+        combined_segments.as_slice()
+    };
     let is_data_frame = matches!(opcode, 0x1 | 0x2);
     if is_data_frame
         && segments
@@ -4348,23 +4387,57 @@ async fn write_websocket_continuation_frames(
         .find_map(|(index, segment)| (!segment.is_empty()).then_some(index))
         .expect("non-empty segment exists when continuation frames are requested");
     let mut sent_first = false;
+    mask_scratch.clear();
     for (index, segment) in segments.iter().enumerate() {
         if segment.is_empty() {
             continue;
         }
         let frame_opcode = if sent_first { 0x0 } else { opcode };
         sent_first = true;
-        write_websocket_frame_fragment_mode(
-            writer,
+        let (header, mask) = websocket_frame_header(
             frame_opcode,
             index == last_index,
             segment.len(),
-            segment.as_ref(),
             mask_payload,
-            mask_scratch,
-        )
-        .await?;
+        );
+        let frame_len = header.len() + segment.len();
+        if frame_len > WEBSOCKET_COALESCE_FRAME_SIZE {
+            flush_websocket_frame_batch(writer, mask_scratch).await?;
+            write_websocket_frame_fragment_mode(
+                writer,
+                frame_opcode,
+                index == last_index,
+                segment.len(),
+                segment.as_ref(),
+                mask_payload,
+                mask_scratch,
+            )
+            .await?;
+            mask_scratch.clear();
+            continue;
+        }
+        if mask_scratch.len() + frame_len > WEBSOCKET_COALESCE_FRAME_SIZE {
+            flush_websocket_frame_batch(writer, mask_scratch).await?;
+        }
+        mask_scratch.extend_from_slice(&header);
+        let payload_start = mask_scratch.len();
+        mask_scratch.extend_from_slice(segment.as_ref());
+        if let Some(mask) = mask.as_ref() {
+            xor_websocket_mask(&mut mask_scratch[payload_start..], mask, 0);
+        }
     }
+    flush_websocket_frame_batch(writer, mask_scratch).await
+}
+
+async fn flush_websocket_frame_batch(
+    writer: &mut IoWriteHalf,
+    write_scratch: &mut Vec<u8>,
+) -> io::Result<()> {
+    if write_scratch.is_empty() {
+        return Ok(());
+    }
+    writer.write_all(write_scratch).await?;
+    write_scratch.clear();
     Ok(())
 }
 
@@ -4378,16 +4451,96 @@ async fn write_websocket_frame_fragment_mode(
     mask_scratch: &mut Vec<u8>,
 ) -> io::Result<()> {
     let (header, mask) = websocket_frame_header(opcode, fin, payload_len, mask_payload);
-    writer.write_all(&header).await?;
-    let mut payload_offset = 0usize;
-    write_websocket_payload(
-        writer,
-        payload,
-        mask.as_ref(),
-        &mut payload_offset,
-        mask_scratch,
-    )
-    .await
+    if let Some(mask) = mask.as_ref() {
+        return write_masked_websocket_frame(writer, &header, payload, mask, mask_scratch).await;
+    }
+    write_unmasked_websocket_frame(writer, &header, payload, mask_scratch).await
+}
+
+async fn write_unmasked_websocket_frame(
+    writer: &mut IoWriteHalf,
+    header: &[u8],
+    payload: &[u8],
+    write_scratch: &mut Vec<u8>,
+) -> io::Result<()> {
+    if payload.is_empty() {
+        return writer.write_all(header).await;
+    }
+    if writer.is_write_vectored() {
+        let mut header_offset = 0usize;
+        let mut payload_offset = 0usize;
+        while header_offset < header.len() || payload_offset < payload.len() {
+            let slices = [
+                io::IoSlice::new(&header[header_offset..]),
+                io::IoSlice::new(&payload[payload_offset..]),
+            ];
+            let written = writer.write_vectored(&slices).await?;
+            if written == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "failed to write WebSocket frame",
+                ));
+            }
+            let header_remaining = header.len() - header_offset;
+            if written < header_remaining {
+                header_offset += written;
+            } else {
+                header_offset = header.len();
+                payload_offset += written - header_remaining;
+            }
+        }
+        return Ok(());
+    }
+    if payload.len() <= WEBSOCKET_COALESCE_FRAME_SIZE {
+        let frame_len = header.len() + payload.len();
+        if write_scratch.len() < frame_len {
+            write_scratch.resize(frame_len, 0);
+        }
+        write_scratch[..header.len()].copy_from_slice(header);
+        write_scratch[header.len()..frame_len].copy_from_slice(payload);
+        return writer.write_all(&write_scratch[..frame_len]).await;
+    }
+    writer.write_all(header).await?;
+    writer.write_all(payload).await
+}
+
+async fn write_masked_websocket_frame(
+    writer: &mut IoWriteHalf,
+    header: &[u8],
+    payload: &[u8],
+    mask: &[u8; 4],
+    mask_scratch: &mut Vec<u8>,
+) -> io::Result<()> {
+    if payload.is_empty() {
+        return writer.write_all(header).await;
+    }
+
+    // Masking already requires a scratch copy, so include the header in the
+    // first write rather than scheduling a separate async write per frame.
+    let first_chunk_len = payload.len().min(WEBSOCKET_MASK_CHUNK_SIZE);
+    let first_write_len = header.len() + first_chunk_len;
+    if mask_scratch.len() < first_write_len {
+        mask_scratch.resize(first_write_len, 0);
+    }
+    mask_scratch[..header.len()].copy_from_slice(header);
+    mask_scratch[header.len()..first_write_len].copy_from_slice(&payload[..first_chunk_len]);
+    xor_websocket_mask(&mut mask_scratch[header.len()..first_write_len], mask, 0);
+    writer.write_all(&mask_scratch[..first_write_len]).await?;
+
+    let mut payload_offset = first_chunk_len;
+    let mut remaining = &payload[first_chunk_len..];
+    while !remaining.is_empty() {
+        let chunk_len = remaining.len().min(WEBSOCKET_MASK_CHUNK_SIZE);
+        if mask_scratch.len() < chunk_len {
+            mask_scratch.resize(chunk_len, 0);
+        }
+        mask_scratch[..chunk_len].copy_from_slice(&remaining[..chunk_len]);
+        xor_websocket_mask(&mut mask_scratch[..chunk_len], mask, payload_offset);
+        writer.write_all(&mask_scratch[..chunk_len]).await?;
+        payload_offset += chunk_len;
+        remaining = &remaining[chunk_len..];
+    }
+    Ok(())
 }
 
 fn websocket_frame_header(
@@ -4419,6 +4572,27 @@ fn websocket_frame_header(
     (header, mask)
 }
 
+fn xor_websocket_mask(payload: &mut [u8], mask: &[u8; 4], offset: usize) {
+    let mask_offset = offset & 3;
+    let mut mask_bytes = [0u8; 16];
+    for (index, byte) in mask_bytes.iter_mut().enumerate() {
+        *byte = mask[(mask_offset + index) & 3];
+    }
+    let mask_word = u128::from_ne_bytes(mask_bytes);
+    let mut chunks = payload.chunks_exact_mut(16);
+    for chunk in chunks.by_ref() {
+        let value = u128::from_ne_bytes(
+            chunk
+                .try_into()
+                .expect("websocket mask chunk has the fixed vector width"),
+        );
+        chunk.copy_from_slice(&(value ^ mask_word).to_ne_bytes());
+    }
+    for (index, byte) in chunks.into_remainder().iter_mut().enumerate() {
+        *byte ^= mask[(mask_offset + index) & 3];
+    }
+}
+
 async fn write_websocket_payload(
     writer: &mut IoWriteHalf,
     payload: &[u8],
@@ -4440,9 +4614,7 @@ async fn write_websocket_payload(
             mask_scratch.resize(chunk_len, 0);
         }
         mask_scratch[..chunk_len].copy_from_slice(&remaining[..chunk_len]);
-        for (index, byte) in mask_scratch[..chunk_len].iter_mut().enumerate() {
-            *byte ^= mask[(*payload_offset + index) % mask.len()];
-        }
+        xor_websocket_mask(&mut mask_scratch[..chunk_len], mask, *payload_offset);
         writer.write_all(&mask_scratch[..chunk_len]).await?;
         *payload_offset += chunk_len;
         remaining = &remaining[chunk_len..];
@@ -4614,9 +4786,7 @@ async fn write_websocket_file_frame_mode(
         match file_segment.encoding {
             FileSegmentEncoding::Identity => {
                 if let Some(mask) = mask.as_ref() {
-                    for (index, byte) in file_scratch[..chunk_len].iter_mut().enumerate() {
-                        *byte ^= mask[(payload_offset + index) % mask.len()];
-                    }
+                    xor_websocket_mask(&mut file_scratch[..chunk_len], mask, payload_offset);
                 }
                 writer.write_all(&file_scratch[..chunk_len]).await?;
                 payload_offset += chunk_len;
@@ -4636,9 +4806,7 @@ async fn write_websocket_file_frame_mode(
                     )
                     .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))?;
                 if let Some(mask) = mask.as_ref() {
-                    for (index, byte) in encoded_file_scratch[..written].iter_mut().enumerate() {
-                        *byte ^= mask[(payload_offset + index) % mask.len()];
-                    }
+                    xor_websocket_mask(&mut encoded_file_scratch[..written], mask, payload_offset);
                 }
                 writer.write_all(&encoded_file_scratch[..written]).await?;
                 payload_offset += written;
@@ -5562,6 +5730,23 @@ where
     F: FnOnce() -> Result<Bytes, String> + Send + 'static,
 {
     let frame = OutboundFrame::message_deferred_segment(prefix, deferred_len, prepare)?;
+    let manager = RuntimeManager::global();
+    manager.with_state(|state| state.registry.enqueue_frame(connection_id, frame))
+}
+
+/// Enqueues a WAMP message whose middle segment is prepared off the async runtime.
+pub fn send_wamp_deferred_segment_with_suffix<F>(
+    connection_id: ConnectionId,
+    prefix: Bytes,
+    deferred_len: usize,
+    suffix: Bytes,
+    prepare: F,
+) -> Result<(), Error>
+where
+    F: FnOnce() -> Result<Bytes, String> + Send + 'static,
+{
+    let frame =
+        OutboundFrame::message_deferred_segment_with_suffix(prefix, deferred_len, suffix, prepare)?;
     let manager = RuntimeManager::global();
     manager.with_state(|state| state.registry.enqueue_frame(connection_id, frame))
 }
@@ -8051,6 +8236,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn deferred_segment_preserves_suffix_and_accounts_for_its_length() {
+        let frame = OutboundFrame::message_deferred_segment_with_suffix(
+            Bytes::from_static(b"prefix"),
+            7,
+            Bytes::from_static(b"suffix"),
+            || Ok(Bytes::from_static(b"payload")),
+        )
+        .unwrap();
+
+        let resolved = resolve_deferred_segment(frame).await.unwrap();
+        assert_eq!(resolved.payload_len, 19);
+        assert_eq!(resolved.segments[1].as_ref(), b"payload");
+        assert_eq!(resolved.suffix_segments[0].as_ref(), b"suffix");
+    }
+
+    #[tokio::test]
     async fn deferred_segment_rejects_prepared_length_mismatch() {
         let frame =
             OutboundFrame::message_deferred_segment(Bytes::from_static(b"prefix"), 7, || {
@@ -9893,6 +10094,44 @@ mod tests {
         bytes
     }
 
+    async fn write_websocket_frame_with_suffix_to_bytes(
+        opcode: u8,
+        segments: Vec<Bytes>,
+        suffix_segments: Vec<Bytes>,
+    ) -> Vec<u8> {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let payload_len = segments
+            .iter()
+            .chain(suffix_segments.iter())
+            .map(Bytes::len)
+            .sum();
+
+        let writer = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let io = IoStream::plain(stream);
+            let (_, mut writer) = tokio::io::split(io);
+            let mut mask_scratch = Vec::new();
+            write_websocket_frame_mode(
+                &mut writer,
+                opcode,
+                payload_len,
+                &segments,
+                &suffix_segments,
+                false,
+                &mut mask_scratch,
+            )
+            .await
+            .unwrap();
+        });
+
+        let mut client = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let mut bytes = Vec::new();
+        client.read_to_end(&mut bytes).await.unwrap();
+        writer.await.unwrap();
+        bytes
+    }
+
     async fn write_websocket_frame_client_to_bytes(opcode: u8, segments: Vec<Bytes>) -> Vec<u8> {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -9957,6 +10196,31 @@ mod tests {
     }
 
     #[test]
+    fn websocket_mask_xor_handles_offsets_and_vector_tails() {
+        let mask = [0x13, 0x57, 0x9b, 0xdf];
+        let lengths = [0, 1, 3, 4, 5, 15, 16, 17, 31, 32, 33, 127, 128, 4097];
+        for offset in 0..8 {
+            for len in lengths {
+                let original = (0..len)
+                    .map(|index| ((index * 37 + 11) & 0xff) as u8)
+                    .collect::<Vec<_>>();
+                let expected = original
+                    .iter()
+                    .enumerate()
+                    .map(|(index, byte)| byte ^ mask[(offset + index) & 3])
+                    .collect::<Vec<_>>();
+                let mut actual = original.clone();
+
+                xor_websocket_mask(&mut actual, &mask, offset);
+                assert_eq!(actual, expected, "offset={offset}, len={len}");
+
+                xor_websocket_mask(&mut actual, &mask, offset);
+                assert_eq!(actual, original, "offset={offset}, len={len}");
+            }
+        }
+    }
+
+    #[test]
     fn websocket_accumulator_returns_single_frame_without_copy() {
         let pool = Arc::new(WebSocketBufferPool::default());
         let mut accumulator = WebSocketMessageAccumulator::new(pool);
@@ -9996,6 +10260,26 @@ mod tests {
                 assert_eq!(opcode, 0x2);
                 assert!(fin);
                 assert_eq!(payload.as_ref(), expected.as_slice());
+            }
+            other => panic!("expected websocket data frame, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn websocket_client_writer_masks_empty_payload() {
+        let bytes = write_websocket_frame_client_to_bytes(0x2, vec![Bytes::new()]).await;
+        let frame = read_websocket_frame_from_bytes(&bytes)
+            .await
+            .expect("masked empty client frame should decode");
+        match frame {
+            WebSocketFrame::Data {
+                opcode,
+                fin,
+                payload,
+            } => {
+                assert_eq!(opcode, 0x2);
+                assert!(fin);
+                assert!(payload.is_empty());
             }
             other => panic!("expected websocket data frame, got {other:?}"),
         }
@@ -10066,6 +10350,23 @@ mod tests {
             [
                 0x01, 0x05, b'h', b'e', b'l', b'l', b'o', 0x80, 0x06, b'-', b'w', b'o', b'r', b'l',
                 b'd',
+            ]
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn websocket_writer_serializes_deferred_suffix_segments() {
+        let bytes = write_websocket_frame_with_suffix_to_bytes(
+            0x1,
+            vec![Bytes::from_static(b"hello"), Bytes::from_static(b"-world")],
+            vec![Bytes::from_static(b"!")],
+        )
+        .await;
+        assert_eq!(
+            bytes,
+            [
+                0x01, 0x05, b'h', b'e', b'l', b'l', b'o', 0x00, 0x06, b'-', b'w', b'o', b'r', b'l',
+                b'd', 0x80, 0x01, b'!',
             ]
         );
     }

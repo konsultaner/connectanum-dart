@@ -362,6 +362,10 @@ void main() {
             base64.decode(user['storedKey'] as String),
             authMessage,
           )) {
+            final verifier = ScramAuthentication.createServerSignature(
+              serverKey: base64.decode(user['serverKey'] as String),
+              authMessage: authMessage,
+            );
             transport.receiveMessage(
               Welcome(
                 3251278072152162,
@@ -370,6 +374,7 @@ void main() {
                   authMethod: 'wamp-scram',
                   authProvider: 'test',
                   authRole: 'admin',
+                  authExtra: <String, dynamic>{'verifier': verifier},
                 ),
               ),
             );
@@ -384,6 +389,50 @@ void main() {
       expect(session.authProvider, equals('test'));
       expect(session.authMethod, equals('wamp-scram'));
     });
+
+    test(
+      'buffers post-welcome messages during final auth verification',
+      () async {
+        final authentication = _DelayedFinalAuthentication();
+        final transport = _SessionOptimizedMockTransport((message, transport) {
+          if (message is Hello) {
+            transport.receiveObject(
+              Challenge(authentication.getName(), Extra()),
+            );
+          } else if (message is Authenticate) {
+            transport.receiveObject(
+              Welcome(
+                42,
+                Details.forWelcome(
+                  authId: 'user',
+                  authMethod: authentication.getName(),
+                  authProvider: 'test',
+                  authRole: 'user',
+                ),
+              ),
+            );
+            transport.receiveObject(
+              Goodbye(null, Goodbye.reasonSystemShutdown),
+            );
+          }
+        });
+        final sessionFuture = Client(
+          realm: 'test.realm',
+          authId: 'user',
+          transport: transport,
+          authenticationMethods: <AbstractAuthentication>[authentication],
+        ).connect().first;
+
+        await authentication.verificationStarted.future;
+        authentication.completeVerification();
+
+        final session = await sessionFuture;
+        final goodbye = await session.onGoodbye.timeout(
+          const Duration(seconds: 1),
+        );
+        expect(goodbye.reason, Goodbye.reasonSystemShutdown);
+      },
+    );
 
     test('procedure registration and invocation', () async {
       final transport = _MockTransport();
@@ -4093,6 +4142,37 @@ class _MockChallengeFailAuthenticator extends AbstractAuthentication {
   @override
   Future<void> hello(String? realm, Details details) {
     return Future.value();
+  }
+}
+
+class _DelayedFinalAuthentication extends AbstractAuthentication {
+  final Completer<void> verificationStarted = Completer<void>();
+  final Completer<void> _verification = Completer<void>();
+
+  void completeVerification() => _verification.complete();
+
+  @override
+  Stream<Extra> get onChallenge => const Stream<Extra>.empty();
+
+  @override
+  Future<Authenticate> challenge(Extra extra) async {
+    return Authenticate()..signature = 'proof';
+  }
+
+  @override
+  String getName() => 'delayed-final';
+
+  @override
+  Future<void> hello(String? realm, Details details) async {}
+
+  @override
+  Future<void> verifyFinal({
+    required String? authId,
+    required String? authMethod,
+    required Map<String, Object?>? authExtra,
+  }) async {
+    verificationStarted.complete();
+    await _verification.future;
   }
 }
 

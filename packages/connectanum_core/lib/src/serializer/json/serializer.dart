@@ -229,8 +229,82 @@ class Serializer extends AbstractSerializer {
     return message;
   }
 
-  /// Converts a string JSON message into a WAMP message object
+  /// Accelerates the canonical large-binary shape received as a text frame.
+  AbstractMessage? _deserializeSingleBinaryPayloadFromString(
+    String payload,
+  ) {
+    final decoder = _canonicalBase64ByteDecoder;
+    if (decoder == null ||
+        payload.length < _minimumSingleBinaryFastPathBytes ||
+        payload.codeUnitAt(0) != 0x5b ||
+        payload.codeUnitAt(payload.length - 3) != 0x22 ||
+        payload.codeUnitAt(payload.length - 2) != 0x5d ||
+        payload.codeUnitAt(payload.length - 1) != 0x5d) {
+      return null;
+    }
+
+    final prefix = _singleBinaryArgumentsPrefix;
+    var argumentsStart = -1;
+    final searchEnd = payload.length - prefix.length - 3;
+    for (var index = 1; index <= searchEnd; index++) {
+      if (payload.codeUnitAt(index - 1) != 0x2c ||
+          payload.codeUnitAt(index) != prefix[0]) {
+        continue;
+      }
+      var prefixIndex = 1;
+      while (prefixIndex < prefix.length &&
+          payload.codeUnitAt(index + prefixIndex) == prefix[prefixIndex]) {
+        prefixIndex++;
+      }
+      if (prefixIndex == prefix.length) {
+        argumentsStart = index;
+        break;
+      }
+    }
+    if (argumentsStart < 0) {
+      return null;
+    }
+
+    AbstractMessage? message;
+    try {
+      message = deserializeFromString(
+        '${payload.substring(0, argumentsStart)}[]]',
+      );
+    } catch (_) {
+      return null;
+    }
+    if (message is! AbstractMessageWithPayload ||
+        message.wireArguments?.isNotEmpty != false ||
+        message.wireArgumentsKeywords != null) {
+      return null;
+    }
+
+    final binaryStart = argumentsStart + prefix.length;
+    final binaryEnd = payload.length - 3;
+    final encoded = Uint8List(binaryEnd - binaryStart);
+    for (var index = binaryStart; index < binaryEnd; index++) {
+      final codeUnit = payload.codeUnitAt(index);
+      if (codeUnit > 0x7f) {
+        return null;
+      }
+      encoded[index - binaryStart] = codeUnit;
+    }
+    final binary = decoder(encoded, 0, encoded.length);
+    if (binary == null) {
+      return null;
+    }
+    message.arguments = <dynamic>[binary];
+    return message;
+  }
+
+  /// Converts a string JSON message into a WAMP message object.
   AbstractMessage? deserializeFromString(String jsonMessage) {
+    final singleBinaryPayload = _deserializeSingleBinaryPayloadFromString(
+      jsonMessage,
+    );
+    if (singleBinaryPayload != null) {
+      return singleBinaryPayload;
+    }
     Object? message = json.decode(jsonMessage);
     if (message is List) {
       int messageId = message[0];

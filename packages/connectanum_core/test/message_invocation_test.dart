@@ -186,6 +186,121 @@ void main() {
       expect(lazy.packedPayloadBytes, orderedEquals(packedBytes));
     });
 
+    test('runtime E2EE payload skips lazy outer argument decoding', () {
+      final anchor = Object();
+      final provider = _RuntimePayloadE2eeProvider(anchor);
+      var outerDecodeCount = 0;
+      final payload = LazyMessagePayload.encoded(
+        encoding: LazyPayloadEncoding.cbor,
+        argumentsBytes: Uint8List.fromList(const [1, 2, 3]),
+        argumentsDecoder: (_) {
+          outerDecodeCount += 1;
+          return <dynamic>[
+            Uint8List.fromList(const [4, 5, 6]),
+          ];
+        },
+        e2eeProvider: provider,
+        e2eeRuntimeContext: WampE2eeRuntimeContext(
+          direction: WampE2eeDirection.inbound,
+          messageType: WampE2eeMessageType.invocation,
+          payloadAnchor: anchor,
+        ),
+      );
+
+      final unwrapped = unwrapLazyPayloadView(
+        payload,
+        pptScheme: 'wamp',
+        pptSerializer: 'cbor',
+        pptCipher: 'aes256gcm',
+      );
+      final decoded = decodeLazyPayloadView(
+        unwrapped,
+        pptScheme: 'wamp',
+        pptSerializer: 'cbor',
+        pptCipher: 'aes256gcm',
+      );
+
+      expect(outerDecodeCount, 0);
+      expect(provider.unpackCount, 1);
+      expect(provider.lastArguments, isNull);
+      expect(decoded.arguments, equals(const ['runtime-payload']));
+      expect(decoded.argumentsKeywords, equals(const {'worker': 13}));
+    });
+
+    test('runtime E2EE payload falls back when the anchor is unavailable', () {
+      final anchor = Object();
+      final provider = _RuntimePayloadE2eeProvider(anchor);
+      var outerDecodeCount = 0;
+      final payload = LazyMessagePayload.encoded(
+        encoding: LazyPayloadEncoding.cbor,
+        argumentsBytes: Uint8List.fromList(const [1, 2, 3]),
+        argumentsDecoder: (_) {
+          outerDecodeCount += 1;
+          return <dynamic>[
+            Uint8List.fromList(const [4, 5, 6]),
+          ];
+        },
+        e2eeProvider: provider,
+        e2eeRuntimeContext: WampE2eeRuntimeContext(
+          direction: WampE2eeDirection.inbound,
+          messageType: WampE2eeMessageType.invocation,
+          payloadAnchor: Object(),
+        ),
+      );
+
+      final unwrapped = unwrapLazyPayloadView(
+        payload,
+        pptScheme: 'wamp',
+        pptSerializer: 'cbor',
+        pptCipher: 'aes256gcm',
+      );
+      final decoded = decodeLazyPayloadView(
+        unwrapped,
+        pptScheme: 'wamp',
+        pptSerializer: 'cbor',
+        pptCipher: 'aes256gcm',
+      );
+
+      expect(outerDecodeCount, 1);
+      expect(provider.unpackCount, 1);
+      expect(provider.lastArguments, hasLength(1));
+      expect(decoded.arguments, equals(const ['runtime-payload']));
+    });
+
+    test('runtime E2EE payload failures do not decode outer arguments', () {
+      final anchor = Object();
+      final provider = _RuntimePayloadE2eeProvider(anchor, failUnpack: true);
+      var outerDecodeCount = 0;
+      final payload = LazyMessagePayload.encoded(
+        encoding: LazyPayloadEncoding.cbor,
+        argumentsBytes: Uint8List.fromList(const [1, 2, 3]),
+        argumentsDecoder: (_) {
+          outerDecodeCount += 1;
+          return <dynamic>[
+            Uint8List.fromList(const [4, 5, 6]),
+          ];
+        },
+        e2eeProvider: provider,
+        e2eeRuntimeContext: WampE2eeRuntimeContext(
+          direction: WampE2eeDirection.inbound,
+          messageType: WampE2eeMessageType.invocation,
+          payloadAnchor: anchor,
+        ),
+      );
+
+      expect(
+        () => decodeLazyPayloadView(
+          payload,
+          pptScheme: 'wamp',
+          pptSerializer: 'cbor',
+          pptCipher: 'aes256gcm',
+        ),
+        throwsStateError,
+      );
+      expect(outerDecodeCount, 0);
+      expect(provider.unpackCount, 1);
+    });
+
     test('respondWith reuses lazy PPT envelope bytes without decoding', () {
       final invocation = Invocation(1, 2, InvocationDetails(null, null, false));
       final responses = <AbstractMessageWithPayload>[];
@@ -424,4 +539,44 @@ WampCborXsalsa20Poly1305Provider _testWampE2eeProvider() {
     keyId: 'test-key',
     key: Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
   );
+}
+
+class _RuntimePayloadE2eeProvider
+    implements WampE2eeProvider, WampE2eeRuntimePayloadProvider {
+  _RuntimePayloadE2eeProvider(this.anchor, {this.failUnpack = false});
+
+  final Object anchor;
+  final bool failUnpack;
+  int unpackCount = 0;
+  List<dynamic>? lastArguments;
+
+  @override
+  bool canUnpackFromRuntimeContext(
+    WampE2eeRuntimeContext? runtimeContext,
+  ) => identical(runtimeContext?.payloadAnchor, anchor);
+
+  @override
+  List<dynamic> packPayload(
+    List<dynamic>? arguments,
+    Map<String, dynamic>? argumentsKeywords,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) => throw UnsupportedError('test provider does not pack payloads');
+
+  @override
+  E2EEPayloadView unpackPayload(
+    List<dynamic>? arguments,
+    PPTOptions options, {
+    WampE2eeRuntimeContext? runtimeContext,
+  }) {
+    unpackCount += 1;
+    lastArguments = arguments;
+    if (failUnpack) {
+      throw StateError('runtime payload decrypt failed');
+    }
+    return (
+      arguments: const ['runtime-payload'],
+      argumentsKeywords: const {'worker': 13},
+    );
+  }
 }

@@ -402,6 +402,10 @@ void main() {
       await context.performAuthenticate(authenticate);
 
       expect(context.lastWelcome, isNotNull);
+      expect(
+        context.lastWelcome!.details.authextra?['verifier'],
+        isA<String>(),
+      );
       expect(context.openedSessions.single.authRole, equals('member'));
     });
 
@@ -483,6 +487,10 @@ void main() {
       await context.performAuthenticate(authenticate);
 
       expect(context.lastWelcome, isNotNull);
+      expect(
+        context.lastWelcome!.details.authextra?['verifier'],
+        isA<String>(),
+      );
       expect(context.openedSessions.single.authRole, equals('member'));
     });
   });

@@ -1,3 +1,14 @@
+## 3.0.0-beta.1
+
+- Run SCRAM Argon2id13 and PBKDF2 derivation asynchronously on native isolates
+  and dedicated Web Workers, and verify the server signature before accepting
+  authentication success.
+- Complete multi-gigabit file and large-frame paths with bounded progressive
+  delivery, native payload ownership, E2EE, JSON/MessagePack/CBOR, RawSocket,
+  WebSocket, TLS, and backpressure coverage.
+- Harden router-hosted MCP auth discovery, session isolation, direct JSON,
+  Streamable HTTP, resource, prompt, Meta API, and pub/sub helpers.
+
 ### 3.0.0-beta
 
 - Add deterministic release for native-backed lazy message payloads after

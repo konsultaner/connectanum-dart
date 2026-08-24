@@ -142,6 +142,7 @@ class SubscriptionMatch {
     required this.sessionId,
     required this.connectionId,
     required this.details,
+    this.serializerId,
     this.internalSendPort,
     this.authRole,
   });
@@ -150,6 +151,7 @@ class SubscriptionMatch {
   final int sessionId;
   final int connectionId;
   final Map<String, Object?> details;
+  final int? serializerId;
   final SendPort? internalSendPort;
   final String? authRole;
 }

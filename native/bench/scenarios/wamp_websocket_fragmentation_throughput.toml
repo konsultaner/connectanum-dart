@@ -1,94 +1,338 @@
 name = "wamp_websocket_fragmentation_throughput"
-description = "Native WebSocket WAMP throughput comparison between contiguous and explicit RFC 6455 continuation-frame outbound sends."
+description = "Sustained native WebSocket and WSS throughput across RPC/pubsub, every serializer, and contiguous versus explicit 4 KiB continuation frames."
 
 [[workloads]]
-name = "websocket_rpc_msgpack_64k_native_contiguous"
+name = "websocket_rpc_json_4m_native_contiguous"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+
+[[workloads]]
+name = "websocket_rpc_json_4m_native_fragmented_4k"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+websocket_fragment_size = 4096
+
+[[workloads]]
+name = "websocket_rpc_msgpack_4m_native_contiguous"
 protocol = "wamp_websocket_rpc"
 client_impl = "native"
 serializer = "msgpack"
 path = "bench.rpc.echo"
 iterations = 32
-concurrency = 6
+concurrency = 4
 in_flight_per_session = 4
-request_bytes = 65536
+request_bytes = 4194304
 
 [[workloads]]
-name = "websocket_rpc_msgpack_64k_native_fragmented_4k"
+name = "websocket_rpc_msgpack_4m_native_fragmented_4k"
 protocol = "wamp_websocket_rpc"
 client_impl = "native"
 serializer = "msgpack"
 path = "bench.rpc.echo"
 iterations = 32
-concurrency = 6
+concurrency = 4
 in_flight_per_session = 4
-request_bytes = 65536
+request_bytes = 4194304
 websocket_fragment_size = 4096
 
 [[workloads]]
-name = "websocket_pubsub_msgpack_64k_native_contiguous"
-protocol = "wamp_websocket_pubsub"
-client_impl = "native"
-serializer = "msgpack"
-path = "bench.wamp.topic"
-iterations = 32
-concurrency = 6
-in_flight_per_session = 4
-request_bytes = 65536
-
-[[workloads]]
-name = "websocket_pubsub_msgpack_64k_native_fragmented_4k"
-protocol = "wamp_websocket_pubsub"
-client_impl = "native"
-serializer = "msgpack"
-path = "bench.wamp.topic"
-iterations = 32
-concurrency = 6
-in_flight_per_session = 4
-request_bytes = 65536
-websocket_fragment_size = 4096
-
-[[workloads]]
-name = "websocket_rpc_cbor_64k_native_contiguous"
+name = "websocket_rpc_cbor_4m_native_contiguous"
 protocol = "wamp_websocket_rpc"
 client_impl = "native"
 serializer = "cbor"
 path = "bench.rpc.echo"
 iterations = 32
-concurrency = 6
+concurrency = 4
 in_flight_per_session = 4
-request_bytes = 65536
+request_bytes = 4194304
 
 [[workloads]]
-name = "websocket_rpc_cbor_64k_native_fragmented_4k"
+name = "websocket_rpc_cbor_4m_native_fragmented_4k"
 protocol = "wamp_websocket_rpc"
 client_impl = "native"
 serializer = "cbor"
 path = "bench.rpc.echo"
 iterations = 32
-concurrency = 6
+concurrency = 4
 in_flight_per_session = 4
-request_bytes = 65536
+request_bytes = 4194304
 websocket_fragment_size = 4096
 
 [[workloads]]
-name = "websocket_pubsub_cbor_64k_native_contiguous"
+name = "websocket_pubsub_json_4m_native_contiguous"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+
+[[workloads]]
+name = "websocket_pubsub_json_4m_native_fragmented_4k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+websocket_fragment_size = 4096
+
+[[workloads]]
+name = "websocket_pubsub_msgpack_4m_native_contiguous"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+
+[[workloads]]
+name = "websocket_pubsub_msgpack_4m_native_fragmented_4k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+websocket_fragment_size = 4096
+
+[[workloads]]
+name = "websocket_pubsub_cbor_4m_native_contiguous"
 protocol = "wamp_websocket_pubsub"
 client_impl = "native"
 serializer = "cbor"
 path = "bench.wamp.topic"
 iterations = 32
-concurrency = 6
+concurrency = 4
 in_flight_per_session = 4
-request_bytes = 65536
+request_bytes = 4194304
 
 [[workloads]]
-name = "websocket_pubsub_cbor_64k_native_fragmented_4k"
+name = "websocket_pubsub_cbor_4m_native_fragmented_4k"
 protocol = "wamp_websocket_pubsub"
 client_impl = "native"
 serializer = "cbor"
 path = "bench.wamp.topic"
 iterations = 32
-concurrency = 6
+concurrency = 4
 in_flight_per_session = 4
-request_bytes = 65536
+request_bytes = 4194304
 websocket_fragment_size = 4096
+
+[[workloads]]
+name = "websocket_tls_rpc_json_4m_native_contiguous"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_rpc_json_4m_native_fragmented_4k"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "json"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+websocket_fragment_size = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_rpc_msgpack_4m_native_contiguous"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_rpc_msgpack_4m_native_fragmented_4k"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+websocket_fragment_size = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_rpc_cbor_4m_native_contiguous"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_rpc_cbor_4m_native_fragmented_4k"
+protocol = "wamp_websocket_rpc"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.rpc.echo"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+websocket_fragment_size = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_pubsub_json_4m_native_contiguous"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_pubsub_json_4m_native_fragmented_4k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "json"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+websocket_fragment_size = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_pubsub_msgpack_4m_native_contiguous"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_pubsub_msgpack_4m_native_fragmented_4k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "msgpack"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+websocket_fragment_size = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_pubsub_cbor_4m_native_contiguous"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true
+
+[[workloads]]
+name = "websocket_tls_pubsub_cbor_4m_native_fragmented_4k"
+protocol = "wamp_websocket_pubsub"
+client_impl = "native"
+serializer = "cbor"
+path = "bench.wamp.topic"
+iterations = 32
+concurrency = 4
+in_flight_per_session = 4
+request_bytes = 4194304
+websocket_fragment_size = 4096
+auth_realm = "bench.secure"
+auth_method = "ticket"
+auth_id = "bench-user"
+auth_secret = "bench-ticket"
+secure_transport = true

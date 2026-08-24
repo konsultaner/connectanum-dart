@@ -1992,5 +1992,95 @@ void main() {
       expect(result.arguments!.single, orderedEquals(binary));
       expect(decodeCalls, 1);
     });
+    test('large binary String path uses an installed canonical decoder', () {
+      var decodeCalls = 0;
+      late String encodedInput;
+      final accelerated = Serializer(
+        canonicalBase64ByteDecoder: (input, start, end) {
+          decodeCalls++;
+          encodedInput = ascii.decode(
+            Uint8List.sublistView(input, start, end),
+            allowInvalid: false,
+          );
+          return Uint8List.fromList(base64.decode(encodedInput));
+        },
+      );
+      final binary = Uint8List.fromList(
+        List<int>.generate(4097, (index) => (index * 23 + 7) & 0xff),
+      );
+      final encoded = base64.encode(binary);
+
+      final result =
+          accelerated.deserializeFromString(
+                '[50,42,{"progress":true,"trace_id":"string"},["\\u0000$encoded"]]',
+              )
+              as Result;
+
+      expect(decodeCalls, 1);
+      expect(encodedInput, encoded);
+      expect(result.callRequestId, 42);
+      expect(result.details.progress, isTrue);
+      expect(result.details.custom, containsPair('trace_id', 'string'));
+      expect(result.arguments!.single, orderedEquals(binary));
+      expect(result.argumentsKeywords, isNull);
+    });
+    test(
+      'large binary String path falls back when an accelerator declines',
+      () {
+        var decodeCalls = 0;
+        final accelerated = Serializer(
+          canonicalBase64ByteDecoder: (input, start, end) {
+            decodeCalls++;
+            return null;
+          },
+        );
+        final binary = Uint8List.fromList(
+          List<int>.generate(4097, (index) => (index * 13 + 5) & 0xff),
+        );
+        final encoded = base64.encode(binary);
+
+        final result =
+            accelerated.deserializeFromString(
+                  '[50,43,{},["\\u0000$encoded"]]',
+                )
+                as Result;
+
+        expect(decodeCalls, 1);
+        expect(result.arguments!.single, orderedEquals(binary));
+      },
+    );
+    test('large binary String path preserves metadata binary values', () {
+      var decodeCalls = 0;
+      final accelerated = Serializer(
+        canonicalBase64ByteDecoder: (input, start, end) {
+          decodeCalls++;
+          return Uint8List.fromList(
+            base64.decode(
+              ascii.decode(
+                Uint8List.sublistView(input, start, end),
+                allowInvalid: false,
+              ),
+            ),
+          );
+        },
+      );
+      final binary = Uint8List.fromList(
+        List<int>.generate(2048, (index) => (index * 31 + 3) & 0xff),
+      );
+      final encoded = base64.encode(binary);
+
+      final result =
+          accelerated.deserializeFromString(
+                '[68,3,4,{"probe":["\\u0000$encoded"]},["\\u0000$encoded"]]',
+              )
+              as Invocation;
+
+      expect(decodeCalls, 1);
+      expect(
+        (result.details.custom['probe'] as List).single,
+        orderedEquals(binary),
+      );
+      expect(result.arguments!.single, orderedEquals(binary));
+    });
   });
 }

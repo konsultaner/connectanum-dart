@@ -1,3 +1,13 @@
+## 3.0.0-beta.1
+
+- Move SCRAM Argon2id13 and PBKDF2 key derivation behind asynchronous native
+  isolate and browser Worker implementations with cancellation, timeout,
+  disposal, reconnect fencing, and unchanged wire vectors.
+- Require constant-time SCRAM server-signature verification before reporting
+  authentication success.
+- Preserve lazy binary payload ownership across high-throughput serializers,
+  native file delivery, and payload E2EE paths.
+
 ## 3.0.0-beta
 
 - Correct standard WAMP session-closing reason URIs to `wamp.close.*` and add

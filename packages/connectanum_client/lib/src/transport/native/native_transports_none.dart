@@ -3,13 +3,14 @@ import 'dart:async';
 import 'package:connectanum_core/connectanum_core.dart';
 
 import '../abstract_transport.dart';
+import 'e2ee_file_segment.dart';
 
 /// Returns `false` because native message storage is unavailable on this
 /// platform.
 bool releaseNativeMessagePayload(LazyMessagePayload payload) => false;
 
 class NativeRawSocketTransport extends AbstractTransport
-    implements FileSegmentTransport, DrainableTransport {
+    implements NativeE2eeFileSegmentTransport, DrainableTransport {
   NativeRawSocketTransport(
     String host,
     int port,
@@ -72,6 +73,9 @@ class NativeRawSocketTransport extends AbstractTransport
   bool get supportsFileSegments => false;
 
   @override
+  bool get supportsNativeE2eeFileSegments => false;
+
+  @override
   TransportFileSource openFileSegmentSource(String path, int expectedLength) {
     throw UnsupportedError('Native transports require dart:io.');
   }
@@ -82,6 +86,17 @@ class NativeRawSocketTransport extends AbstractTransport
     required TransportFileSource source,
     required int offset,
     required int length,
+  }) {
+    throw UnsupportedError('Native transports require dart:io.');
+  }
+
+  @override
+  void sendNativeE2eeFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+    required NativeE2eeFileSegmentContext e2ee,
   }) {
     throw UnsupportedError('Native transports require dart:io.');
   }
@@ -112,7 +127,7 @@ class NativeRawSocketTransport extends AbstractTransport
 }
 
 class NativeWebSocketTransport extends AbstractTransport
-    implements DrainableTransport {
+    implements NativeE2eeFileSegmentTransport, DrainableTransport {
   NativeWebSocketTransport(
     String url,
     AbstractSerializer serializer,
@@ -160,6 +175,38 @@ class NativeWebSocketTransport extends AbstractTransport
 
   @override
   bool get isReady => false;
+
+  @override
+  bool get supportsFileSegments => false;
+
+  @override
+  bool get supportsNativeE2eeFileSegments => false;
+
+  @override
+  TransportFileSource openFileSegmentSource(String path, int expectedLength) {
+    throw UnsupportedError('Native transports require dart:io.');
+  }
+
+  @override
+  void sendFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+  }) {
+    throw UnsupportedError('Native transports require dart:io.');
+  }
+
+  @override
+  void sendNativeE2eeFileSegment(
+    AbstractMessage message, {
+    required TransportFileSource source,
+    required int offset,
+    required int length,
+    required NativeE2eeFileSegmentContext e2ee,
+  }) {
+    throw UnsupportedError('Native transports require dart:io.');
+  }
 
   @override
   Future<void> get onReady =>

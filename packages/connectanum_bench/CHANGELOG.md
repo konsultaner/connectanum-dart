@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.0.0-beta.1
+
+- Add strict production gates for 30 file-transfer, 24 large-frame, and 24
+  WebSocket fragmentation profiles, including lifecycle throughput and
+  zero-copy evidence.
+- Exercise native and Dart transports in isolated workers with bounded
+  cancellation, timeout, process-memory, and artifact accounting.
+
 ## 3.0.0-beta
 
 - Release consumed native RPC and pub/sub payload buffers deterministically,

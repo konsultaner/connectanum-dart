@@ -1336,6 +1336,7 @@ class RouterStateStore {
             subscriptionId: entry.id,
             sessionId: sessionId,
             connectionId: session.connectionId,
+            serializerId: session.serializerId,
             internalSendPort: session.internalSendPort,
             authRole: record.authRole,
             details: Map<String, Object?>.from(record.details),

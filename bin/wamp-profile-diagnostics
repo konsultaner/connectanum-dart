@@ -154,11 +154,13 @@ run_diagnostic \
 
 run_diagnostic \
   wamp_websocket_fragmentation_throughput \
-  native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml
+  native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml \
+  native/bench/artifact_gate/wamp_websocket_fragmentation_throughput.json
 
 run_diagnostic \
   wamp_file_transfer_throughput \
-  native/bench/scenarios/wamp_file_transfer_throughput.toml
+  native/bench/scenarios/wamp_file_transfer_throughput.toml \
+  native/bench/artifact_gate/wamp_file_transfer_throughput.json
 
 run_diagnostic \
   wamp_large_rawsocket_frames_throughput \

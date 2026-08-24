@@ -4,7 +4,11 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 abstract interface class FileTransferDigest {
-  void add(Uint8List bytes, {Object? anchor});
+  void add(
+    Uint8List bytes, {
+    Object? anchor,
+    bool consumeNativeOwnership = false,
+  });
 
   String finish();
 
@@ -25,7 +29,11 @@ class DartFileTransferDigest implements FileTransferDigest {
   bool _finished = false;
 
   @override
-  void add(Uint8List bytes, {Object? anchor}) {
+  void add(
+    Uint8List bytes, {
+    Object? anchor,
+    bool consumeNativeOwnership = false,
+  }) {
     if (_finished) {
       throw StateError('File transfer digest is already finalized');
     }

@@ -56,6 +56,8 @@ abstract interface class FileSegmentTransport {
 
 abstract interface class NativeE2eeFileSegmentTransport
     implements FileSegmentTransport {
+  bool get supportsNativeE2eeFileSegments;
+
   void sendNativeE2eeFileSegment(
     AbstractMessage message, {
     required TransportFileSource source,

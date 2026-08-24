@@ -1510,15 +1510,20 @@ class NativeIncomingMessage {
   bool get hasNativeHandle => handle > 0;
 
   int takeHandle() {
-    if (!_tryMarkReleased()) {
+    if (_released) {
       return 0;
     }
-    _releaseHandle = null;
     final takeOverride = _takeOverride;
-    if (takeOverride != null) {
-      return takeOverride(handle);
+    if (takeOverride == null) {
+      return 0;
     }
-    return 0;
+    final takenHandle = takeOverride(handle);
+    if (takenHandle <= 0) {
+      return 0;
+    }
+    _released = true;
+    _releaseHandle = null;
+    return takenHandle;
   }
 
   int retainHandle() {

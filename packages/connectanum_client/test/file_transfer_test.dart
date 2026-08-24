@@ -204,6 +204,51 @@ void main() {
     );
 
     test(
+      'setFile falls back when native E2EE segments are unavailable',
+      () async {
+        final transport = _NativeE2eeFileSegmentTransferTransport(
+          supportsNativeSegments: false,
+        );
+        final provider = _NativeFileSegmentE2eeProvider();
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+          e2eeProvider: provider,
+        ).connect().first;
+        var bufferedOpenCount = 0;
+        final source = WampFileSource(
+          name: 'encrypted.bin',
+          length: 5,
+          nativePath: '/tmp/encrypted.bin',
+          openRead: () {
+            bufferedOpenCount++;
+            return Stream<Uint8List>.value(
+              Uint8List.fromList(const <int>[1, 2, 3, 4, 5]),
+            );
+          },
+        );
+
+        final result = await session.setFile(
+          'files.set',
+          source,
+          chunkSize: 2,
+          options: CallOptions(
+            pptScheme: ConnectanumE2eeProfile.scheme,
+            pptSerializer: 'cbor',
+            pptCipher: ConnectanumE2eeProfile.aes256Gcm,
+            pptKeyId: 'test-key',
+          ),
+        );
+
+        expect(result.arguments, equals(const <dynamic>['ok']));
+        expect(bufferedOpenCount, 1);
+        expect(transport.openedPath, isNull);
+        expect(transport.nativeSegments, isEmpty);
+        expect(provider.preparedOptions, isEmpty);
+      },
+    );
+
+    test(
       'setFile uses source-provided exact chunks without rechunking',
       () async {
         final transport = _FileTransferTransport();
@@ -703,6 +748,11 @@ void main() {
       await receiver.close();
     });
 
+    test('native-backed chunk consumption requires explicit sink opt-in', () {
+      expect(_CollectingFileSink(), isNot(isA<WampFileSinkConsumesChunks>()));
+      expect(_ImmediateConsumingFileSink(), isA<WampFileSinkConsumesChunks>());
+    });
+
     test('receiver aborts an idle transfer and releases capacity', () async {
       final transport = _FileTransferTransport();
       final session = await Client(
@@ -852,6 +902,9 @@ class _CollectingFileSink extends WampFileSink {
     aborted = true;
   }
 }
+
+class _ImmediateConsumingFileSink extends _CollectingFileSink
+    implements WampFileSinkConsumesChunks {}
 
 class _BlockingFileSink extends WampFileSink {
   final Completer<void> _write = Completer<void>();
@@ -1163,9 +1216,17 @@ class _RemoteErrorDrainFileSegmentTransferTransport
 class _NativeE2eeFileSegmentTransferTransport
     extends _FileSegmentTransferTransport
     implements NativeE2eeFileSegmentTransport {
+  _NativeE2eeFileSegmentTransferTransport({
+    this.supportsNativeSegments = true,
+  });
+
+  final bool supportsNativeSegments;
   final List<_SentFileSegment> nativeSegments = <_SentFileSegment>[];
   final List<NativeE2eeFileSegmentContext> contexts =
       <NativeE2eeFileSegmentContext>[];
+
+  @override
+  bool get supportsNativeE2eeFileSegments => supportsNativeSegments;
 
   @override
   void sendNativeE2eeFileSegment(

@@ -1669,7 +1669,7 @@ final class McpStreamableHttpClient {
       endpoint,
       clientInfo: const <String, Object?>{
         'name': 'connectanum-http-auth-discovery',
-        'version': '3.0.0-beta',
+        'version': '3.0.0-beta.1',
       },
       requestTimeout: requestTimeout,
       maxResponseBytes: maxResponseBytes,
@@ -2410,7 +2410,7 @@ final class McpStreamableHttpClient {
     McpJsonMap capabilities = const <String, Object?>{},
     McpJsonMap clientInfo = const <String, Object?>{
       'name': 'connectanum_client',
-      'version': '3.0.0-beta',
+      'version': '3.0.0-beta.1',
     },
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},

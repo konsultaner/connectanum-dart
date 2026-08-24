@@ -416,6 +416,20 @@ class VerificationScriptsTest(unittest.TestCase):
         )
         self.assertIn('return "$status"', script)
 
+    def test_full_verify_runs_browser_scram_worker_tests(self) -> None:
+        script = TEST_ALL.read_text(encoding="utf-8")
+
+        self.assertIn("run_core_browser_scram_test()", script)
+        self.assertIn(
+            "test/authentication/scram_key_derivation_web_test.dart",
+            script,
+        )
+        self.assertIn('"Browser SCRAM Worker tests"', script)
+        self.assertIn(
+            "run_core_browser_scram_test\n  run_client_browser_websocket_test",
+            script,
+        )
+
     def test_timeout_helper_does_not_leave_success_watchdog_alive(self) -> None:
         script = textwrap.dedent(
             f"""

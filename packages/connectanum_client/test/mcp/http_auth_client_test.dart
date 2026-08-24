@@ -569,17 +569,20 @@ void main() {
 
       final client = ConnectanumHttpAuthClient(endpoint.uri);
       addTearDown(() => client.close(force: true));
+      final authentication = _NoopAuthentication('wamp-scram');
 
       await expectLater(
         client.authenticate(
           realm: 'realm1',
           authId: 'user-1',
-          authentication: _NoopAuthentication('wamp-scram'),
+          authentication: authentication,
         ),
         completion(isA<ConnectanumHttpAuthGrant>()),
       );
 
       expect(endpoint.requests.first.body['authmethod'], 'scram');
+      expect(authentication.verifiedAuthId, 'user-1');
+      expect(authentication.verifiedAuthMethod, 'wamp-scram');
     });
 
     test('refreshes and revokes bridge tokens', () async {
@@ -1571,6 +1574,8 @@ final class _NoopAuthentication extends AbstractAuthentication {
   _NoopAuthentication(this._method);
 
   final String _method;
+  String? verifiedAuthId;
+  String? verifiedAuthMethod;
   final StreamController<Extra> _challengeController =
       StreamController<Extra>.broadcast();
 
@@ -1586,6 +1591,16 @@ final class _NoopAuthentication extends AbstractAuthentication {
   Future<Authenticate> challenge(Extra extra) async {
     await AbstractAuthentication.streamAddAwaited(_challengeController, extra);
     return Authenticate(signature: 'noop-signature');
+  }
+
+  @override
+  Future<void> verifyFinal({
+    required String? authId,
+    required String? authMethod,
+    required Map<String, Object?>? authExtra,
+  }) async {
+    verifiedAuthId = authId;
+    verifiedAuthMethod = authMethod;
   }
 
   @override

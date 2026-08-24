@@ -6,6 +6,7 @@ import 'package:args/args.dart';
 import 'package:connectanum_bench/src/wamp_transport_targets.dart';
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
+import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:logging/logging.dart';
 
 Future<void> main(List<String> args) async {
@@ -152,13 +153,20 @@ Future<void> main(List<String> args) async {
         Logger(
           'NativeWampWorker',
         ).warning('Failed to run WAMP workload', error, stackTrace);
-        stdout.writeln(jsonEncode({'error': error.toString()}));
+        stdout.writeln(jsonEncode({'error': _describeWorkerError(error)}));
         await stdout.flush();
       }
     }
   } finally {
     NativeClientRuntime.shutdownShared();
   }
+}
+
+String _describeWorkerError(Object error) {
+  if (error is wamp_core.Error) {
+    return 'WAMP ${error.error ?? wamp_core.Error.unknown}';
+  }
+  return '${error.runtimeType}: $error';
 }
 
 Map<WampTransport, WampTransportTarget> _decodeTargets(String raw) {

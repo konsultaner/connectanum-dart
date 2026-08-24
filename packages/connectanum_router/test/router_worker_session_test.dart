@@ -2313,7 +2313,7 @@ void main() {
     );
 
     test(
-      'releases only unsent publish handles when boss send fails after first forward',
+      'releases unsent publish handles when native boss sends fail',
       () async {
         final bossMessages = <Map<String, Object?>>[];
         final bossPort = ReceivePort()
@@ -2469,6 +2469,43 @@ void main() {
         expect(takenHandles, equals([950]));
         expect(retainedHandles, equals([951]));
         expect(releasedHandles, equals([951]));
+
+        final firstForwarded = <Object?>[];
+        final firstThrowingBoss = _FailAfterNSendPort(
+          // The routed diagnostic is the first send; fail the first native
+          // command after ownership has moved out of the incoming message.
+          failOnSendNumber: 2,
+          onSend: firstForwarded.add,
+        );
+        final firstReleasedHandles = <int>[];
+        final firstIncoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.json,
+          message: publish,
+          handle: 960,
+          onTake: (handle) => handle,
+          onRetain: (handle) => handle + 1,
+          onRelease: firstReleasedHandles.add,
+        );
+
+        await expectLater(
+          handleSessionMessageForTest(
+            bossPort: firstThrowingBoss,
+            statePort: stateStore.commandPort,
+            realmContexts: realmContexts,
+            state: publisherState,
+            message: publish,
+            connectionId: 123,
+            incomingMessage: firstIncoming,
+          ),
+          throwsA(isA<StateError>()),
+        );
+        expect(
+          firstForwarded.whereType<Map<String, Object?>>().where(
+            (command) => command['type'] == 'worker_forward_native_event',
+          ),
+          hasLength(1),
+        );
+        expect(firstReleasedHandles, equals([960, 961]));
       },
       tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
@@ -4125,7 +4162,7 @@ void main() {
     );
 
     test(
-      'preserves lazy publish kwargs without decoding on Dart fallback',
+      'preserves lazy kwargs and custom details on Dart fallback',
       () async {
         final bossMessages = <Map<String, Object?>>[];
         final bossPort = ReceivePort()
@@ -4184,6 +4221,9 @@ void main() {
         final kwargsBytes = _jsonFragmentBytes(const {'worker': 7});
         var decodeCount = 0;
         final publish = publish_msg.Publish(9011, 'com.example.lazy.topic');
+        publish.options = publish_msg.PublishOptions(
+          custom: const {'trace_id': 'trace-7'},
+        );
         publish.setLazyPayload(
           argumentsKeywordsBytes: kwargsBytes,
           argumentsKeywordsDecoder: (_) {
@@ -4191,6 +4231,20 @@ void main() {
             return const {'worker': 7};
           },
           encoding: LazyPayloadEncoding.json,
+        );
+        var transferredNativeHandles = 0;
+        final incoming = NativeIncomingMessage.test(
+          serializer: NativeMessageSerializer.json,
+          message: publish,
+          handle: 79,
+          onTake: (handle) {
+            transferredNativeHandles += 1;
+            return handle;
+          },
+          onRetain: (handle) {
+            transferredNativeHandles += 1;
+            return handle + 1;
+          },
         );
 
         await handleSessionMessageForTest(
@@ -4200,6 +4254,7 @@ void main() {
           state: publisherState,
           message: publish,
           connectionId: 11,
+          incomingMessage: incoming,
         );
         await Future<void>.delayed(Duration.zero);
 
@@ -4212,6 +4267,14 @@ void main() {
           orderedEquals(kwargsBytes),
         );
         expect(decodeCount, 0);
+        expect(event.details.custom['trace_id'], equals('trace-7'));
+        expect(transferredNativeHandles, 0);
+        expect(
+          bossMessages.where(
+            (message) => message['type'] == 'worker_forward_native_event',
+          ),
+          isEmpty,
+        );
       },
     );
 
@@ -4334,7 +4397,7 @@ void main() {
     });
 
     test(
-      'uses native forwarding for publish payloads when handle is present',
+      'uses native forwarding only for serializer-compatible subscribers',
       () async {
         final bossMessages = <Map<String, Object?>>[];
         final bossPort = ReceivePort()
@@ -4371,6 +4434,13 @@ void main() {
           listener: listener,
           connectionId: 12,
         );
+        _openSession(
+          stateStore,
+          sessionId: 553,
+          listener: listener,
+          connectionId: 13,
+          serializerId: NativeMessageSerializer.messagePack.id,
+        );
         await Future<void>.delayed(Duration.zero);
 
         final subscribeReply = ReceivePort();
@@ -4386,6 +4456,19 @@ void main() {
         );
         await subscribeReply.first;
         subscribeReply.close();
+        final mixedSerializerSubscribeReply = ReceivePort();
+        stateStore.commandPort.send(
+          SubscriptionAddCommand(
+            realmUri: 'realm1',
+            sessionId: 553,
+            topic: 'com.zero.topic',
+            matchPolicy: TopicMatchPolicy.exact,
+            details: const {},
+            replyPort: mixedSerializerSubscribeReply.sendPort,
+          ),
+        );
+        await mixedSerializerSubscribeReply.first;
+        mixedSerializerSubscribeReply.close();
 
         final realmContexts = RealmContextCache(
           statePort: stateStore.commandPort,
@@ -4399,6 +4482,7 @@ void main() {
               );
 
         final takenHandles = <int>[];
+        final retainedHandles = <int>[];
         final incoming = NativeIncomingMessage.test(
           serializer: NativeMessageSerializer.json,
           message: publish,
@@ -4406,6 +4490,10 @@ void main() {
           onTake: (handle) {
             takenHandles.add(handle);
             return handle;
+          },
+          onRetain: (handle) {
+            retainedHandles.add(handle + 1);
+            return handle + 1;
           },
         );
 
@@ -4427,14 +4515,20 @@ void main() {
             )
             .toList();
         expect(nativeCommands, hasLength(1));
-        expect(nativeCommands.single['handle'], equals(77));
-        expect(takenHandles, equals([77]));
-        expect(
-          bossMessages.where(
-            (message) => message['type'] == 'worker_forward_message',
-          ),
-          isEmpty,
-        );
+        expect(nativeCommands.single['connectionId'], equals(12));
+        expect(nativeCommands.single['handle'], equals(78));
+        expect(takenHandles, isEmpty);
+        expect(retainedHandles, equals([78]));
+        final fallbackCommands = bossMessages
+            .where(
+              (message) => message['type'] == 'worker_forward_message',
+            )
+            .toList();
+        expect(fallbackCommands, hasLength(1));
+        expect(fallbackCommands.single['connectionId'], equals(13));
+        final fallbackEvent =
+            fallbackCommands.single['message'] as event_msg.Event;
+        expect(fallbackEvent.arguments, equals(['payload']));
       },
       tags: _zeroCopyPublishTag,
       skip: _nativePublishSkipReason,
@@ -5061,8 +5155,8 @@ void main() {
         );
         await Future<void>.delayed(Duration.zero);
 
-        expect(takenHandles, equals([901]));
-        expect(releasedHandles, equals([901, 777]));
+        expect(takenHandles, isEmpty);
+        expect(releasedHandles, equals([777]));
         final forwarded = bossMessages
             .where((message) => message['type'] == 'worker_forward_message')
             .toList();
@@ -9599,6 +9693,7 @@ void _openSession(
   int connectionId = 99,
   String? authRole = 'member',
   String? authId = 'tester',
+  int serializerId = 1,
   SendPort? internalSendPort,
 }) {
   final session = SessionRecord(
@@ -9610,6 +9705,7 @@ void _openSession(
     connectionId: connectionId,
     lastActivity: DateTime.now(),
     listener: listener,
+    serializerId: serializerId,
     internalSendPort: internalSendPort,
   );
   store.commandPort.send(

@@ -288,24 +288,42 @@ class Session {
     }
 
     final welcomeCompleter = Completer<Session>();
+    AbstractAuthentication? challengedAuthMethod;
+    Future<void> cancelAuthentication() async {
+      if (authMethods == null) return;
+      await Future.wait(
+        authMethods.map((method) async {
+          try {
+            await method.cancelPendingChallenge();
+          } catch (_) {
+            // Authentication teardown is best-effort and must reach every method.
+          }
+        }),
+      );
+    }
+
     session
         ._transportStreamSubscription = session._receiveSessionMessages().listen(
       (message) {
         final materialized = session._materializeTransportMessage(message);
         if (materialized is Challenge) {
-          final foundAuthMethod = authMethods
-              ?.where(
-                (authenticationMethod) =>
-                    authenticationMethod.getName() == materialized.authMethod,
-              )
-              .first;
+          AbstractAuthentication? foundAuthMethod;
+          for (final authenticationMethod
+              in authMethods ?? const <AbstractAuthentication>[]) {
+            if (authenticationMethod.getName() == materialized.authMethod) {
+              foundAuthMethod = authenticationMethod;
+              break;
+            }
+          }
           if (foundAuthMethod != null) {
+            challengedAuthMethod = foundAuthMethod;
             try {
               foundAuthMethod
                   .challenge(materialized.extra)
                   .then(
                     (authenticate) => session.authenticate(authenticate),
                     onError: (error) {
+                      unawaited(cancelAuthentication());
                       if (!welcomeCompleter.isCompleted) {
                         welcomeCompleter.completeError(
                           Abort(
@@ -324,6 +342,7 @@ class Session {
                     },
                   );
             } catch (exception) {
+              unawaited(cancelAuthentication());
               try {
                 transport.close();
               } catch (_) {
@@ -345,7 +364,6 @@ class Session {
         }
 
         if (materialized is Welcome) {
-          session.id = materialized.sessionId;
           if ((session.realm ?? materialized.details.realm) == null) {
             welcomeCompleter.completeError(
               Abort(
@@ -356,46 +374,63 @@ class Session {
             );
             return;
           }
-          if (materialized.details.realm == null) {
-            if (_logger.level <= Level.INFO) {
-              _logger.info('Warning! No realm returned by the router');
-            }
-          } else {
-            session.realm = materialized.details.realm;
-          }
-          session.authId = materialized.details.authid;
-          session.authRole = materialized.details.authrole;
-          session.authMethod = materialized.details.authmethod;
-          session.authProvider = materialized.details.authprovider;
-          session.authExtra = materialized.details.authextra;
-          session._initializeSessionE2eeProvider().then(
-            (_) {
-              if (welcomeCompleter.isCompleted) {
-                return;
-              }
-              session._transportStreamSubscription.onData(
-                session._handleTransportMessage,
+          session._transportStreamSubscription.pause();
+          unawaited(
+            Future<void>(() async {
+              await challengedAuthMethod?.verifyFinal(
+                authId: materialized.details.authid,
+                authMethod: materialized.details.authmethod,
+                authExtra: materialized.details.authextra,
               );
-              session._transportStreamSubscription.onDone(() {
-                unawaited(session._handleTransportClosed());
-              });
-              welcomeCompleter.complete(session);
-            },
-            onError: (error, stackTrace) {
-              try {
-                transport.close();
-              } catch (_) {
-                /* transport may already be closed */
+              session.id = materialized.sessionId;
+              if (materialized.details.realm == null) {
+                if (_logger.level <= Level.INFO) {
+                  _logger.info('Warning! No realm returned by the router');
+                }
+              } else {
+                session.realm = materialized.details.realm;
               }
-              if (!welcomeCompleter.isCompleted) {
+              session.authId = materialized.details.authid;
+              session.authRole = materialized.details.authrole;
+              session.authMethod = materialized.details.authmethod;
+              session.authProvider = materialized.details.authprovider;
+              session.authExtra = materialized.details.authextra;
+              await session._initializeSessionE2eeProvider();
+            }).then(
+              (_) {
+                if (welcomeCompleter.isCompleted) {
+                  unawaited(session._transportStreamSubscription.cancel());
+                  return;
+                }
+                session._transportStreamSubscription.onData(
+                  session._handleTransportMessage,
+                );
+                session._transportStreamSubscription.onDone(() {
+                  unawaited(session._handleTransportClosed());
+                });
+                welcomeCompleter.complete(session);
+                session._transportStreamSubscription.resume();
+              },
+              onError: (error, stackTrace) {
+                unawaited(cancelAuthentication());
+                unawaited(session._transportStreamSubscription.cancel());
+                try {
+                  transport.close();
+                } catch (_) {
+                  /* transport may already be closed */
+                }
+                if (welcomeCompleter.isCompleted) {
+                  return;
+                }
                 welcomeCompleter.completeError(error, stackTrace);
-              }
-            },
+              },
+            ),
           );
           return;
         }
 
         if (materialized is Abort) {
+          unawaited(cancelAuthentication());
           try {
             transport.close();
           } catch (_) {
@@ -406,6 +441,7 @@ class Session {
         }
 
         if (materialized is Goodbye) {
+          unawaited(cancelAuthentication());
           if (!welcomeCompleter.isCompleted) {
             welcomeCompleter.completeError(materialized);
           }
@@ -415,6 +451,7 @@ class Session {
       },
       cancelOnError: true,
       onError: (error, stackTrace) {
+        unawaited(cancelAuthentication());
         _logger.warning(error);
         if (!welcomeCompleter.isCompleted) {
           welcomeCompleter.completeError(error, stackTrace);
@@ -423,6 +460,7 @@ class Session {
         transport.close(error: error);
       },
       onDone: () {
+        unawaited(cancelAuthentication());
         if (!welcomeCompleter.isCompleted) {
           welcomeCompleter.completeError(
             StateError('Transport closed before session welcome'),
@@ -785,7 +823,8 @@ class Session {
     }
     NativeE2eeFileSegmentTransport? nativeE2eeFileTransport;
     if (nativeE2eeProvider != null &&
-        availableFileTransport is NativeE2eeFileSegmentTransport) {
+        availableFileTransport is NativeE2eeFileSegmentTransport &&
+        availableFileTransport.supportsNativeE2eeFileSegments) {
       nativeE2eeFileTransport = availableFileTransport;
     }
     final sourceTransport = fileTransport ?? nativeE2eeFileTransport;

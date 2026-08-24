@@ -77,4 +77,52 @@ IFS= read -r stop || true
         ? 'The direct-launch fixture uses a POSIX shell script.'
         : false,
   );
+
+  test(
+    'client worker forwards Dart implementation scenarios unchanged',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'connectanum_dart_worker_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+      final executable = File('${tempDirectory.path}/fake-worker');
+      await executable.writeAsString(r'''#!/bin/sh
+printf 'READY\n'
+IFS= read -r request
+case "$request" in
+  *'"client_impl":"dart"'*)
+    printf '%s\n' '{"samples":[],"file_segment_metrics":{},"process_metrics":{"pid":43,"rss_before_bytes":1,"current_rss_bytes":2,"max_rss_bytes":3}}'
+    ;;
+  *)
+    printf '%s\n' '{"error":"client implementation changed"}'
+    ;;
+esac
+IFS= read -r stop || true
+''');
+      final chmod = await Process.run('chmod', ['+x', executable.path]);
+      expect(chmod.exitCode, 0, reason: '${chmod.stderr}');
+
+      final worker = NativeWampWorker(
+        realmUri: 'bench.control',
+        wampTargets: const {},
+        nativeLibraryPath: '${tempDirectory.path}/unused_native_library',
+        workerScriptPath: executable.path,
+      );
+      final result = await worker.runWithMetrics(
+        WampScenario.fromJson({
+          'transport': 'websocket',
+          'client_impl': 'dart',
+          'serializer': 'json',
+          'mode': 'file_transfer',
+          'uri': 'bench.file.set',
+        }),
+      );
+
+      expect(result.samples, isEmpty);
+      expect(result.processMetrics?.pid, 43);
+    },
+    skip: Platform.isWindows
+        ? 'The direct-launch fixture uses a POSIX shell script.'
+        : false,
+  );
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.0-beta.1
+
+- Complete router-hosted MCP auth/session correctness, direct JSON tool and
+  Meta APIs, pub/sub, resources, prompts, and Streamable HTTP compatibility.
+- Expand packaged consumer smokes across anonymous, SCRAM, WAMP-CRA, bearer,
+  grant-refresh, JSON-response, batch, and session-lifecycle paths.
+
 ## 3.0.0-beta
 
 - Join the synchronized Connectanum 3.0 beta package graph.

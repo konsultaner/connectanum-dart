@@ -362,10 +362,6 @@ class _BenchControlRegistry {
     required this.nativeLibraryPath,
     required this.workerScriptPath,
   }) {
-    _wampRunner = WampWorkloadRunner(
-      sessionFactory: _openWampSession,
-      logger: _logger,
-    );
     _nativeWampWorker = NativeWampWorker(
       realmUri: realmUri,
       wampTargets: wampTargets,
@@ -390,54 +386,7 @@ class _BenchControlRegistry {
   final List<_BenchRegisteredHandler> _registrations = [];
   final _httpStreamDiagnostics = BenchHttpStreamDiagnostics();
   bool _stopping = false;
-  late final WampWorkloadRunner _wampRunner;
   late final NativeWampWorker _nativeWampWorker;
-
-  Future<WampSession> _openWampSession(WampScenario scenario) {
-    final target = resolveWampTransportTargetForScenario(
-      scenario: scenario,
-      wampTargets: wampTargets,
-      secureWampTargets: secureWampTargets,
-    );
-    switch (scenario.transport) {
-      case WampTransport.rawsocket:
-        final factory = RawSocketWampSessionFactory(
-          host: target.host,
-          port: target.port,
-          realmUri: scenario.realmUri,
-          authId: scenario.authId,
-          authenticationMethods: authenticationMethodsForScenario(scenario),
-          serializer: scenario.serializer,
-          clientImplementation: scenario.clientImplementation,
-          ssl: target.secure,
-          allowInsecureCertificates: target.secure,
-          messageLengthExponent: scenario.rawSocketMessageLengthExponent,
-          nativeLibraryPath: nativeLibraryPath,
-          e2eeProviderFactory: e2eeProviderFactoryForScenario(
-            scenario,
-            nativeLibraryPath: nativeLibraryPath,
-          ),
-        );
-        return factory.call();
-      case WampTransport.websocket:
-        final factory = WebSocketWampSessionFactory(
-          url: target.webSocketUri.toString(),
-          realmUri: scenario.realmUri,
-          authId: scenario.authId,
-          authenticationMethods: authenticationMethodsForScenario(scenario),
-          serializer: scenario.serializer,
-          clientImplementation: scenario.clientImplementation,
-          headers: const {'x-connectanum-bench': '1'},
-          allowInsecureCertificates: target.secure,
-          nativeLibraryPath: nativeLibraryPath,
-          e2eeProviderFactory: e2eeProviderFactoryForScenario(
-            scenario,
-            nativeLibraryPath: nativeLibraryPath,
-          ),
-        );
-        return factory.call();
-    }
-  }
 
   void markStopping() {
     _stopping = true;
@@ -723,17 +672,12 @@ class _BenchControlRegistry {
       } catch (_) {
         baselineMetrics = null;
       }
-      NativeWampWorkerFileSegmentMetrics? fileSegmentMetrics;
-      NativeWampWorkerProcessMetrics? clientProcessMetrics;
-      final List<WampSample> samples;
-      if (scenario.clientImplementation == WampClientImplementation.native) {
-        final result = await _nativeWampWorker.runWithMetrics(scenario);
-        samples = result.samples;
-        fileSegmentMetrics = result.fileSegmentMetrics;
-        clientProcessMetrics = result.processMetrics;
-      } else {
-        samples = await _wampRunner.run(scenario);
-      }
+      // Keep client CPU and RSS separate from the router/control process. The
+      // worker honors the scenario's Dart or native client implementation.
+      final result = await _nativeWampWorker.runWithMetrics(scenario);
+      final samples = result.samples;
+      final fileSegmentMetrics = result.fileSegmentMetrics;
+      final clientProcessMetrics = result.processMetrics;
       if (baselineMetrics != null) {
         await _awaitRouterQuiescence(baselineMetrics);
       }
@@ -742,8 +686,7 @@ class _BenchControlRegistry {
         body: {
           'samples': samples.map((sample) => sample.toJson()).toList(),
           if (dataWindow != null) 'data_window': dataWindow.toJson(),
-          if (fileSegmentMetrics != null)
-            'file_segment_metrics': fileSegmentMetrics.toJson(),
+          'file_segment_metrics': fileSegmentMetrics.toJson(),
           if (clientProcessMetrics != null)
             'client_process_metrics': clientProcessMetrics.toJson(),
         },

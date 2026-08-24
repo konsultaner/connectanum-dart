@@ -9,8 +9,8 @@ Pub/Sub example. A Connectanum router deployment has three parts:
 
 ## Beta Availability
 
-The workspace is synchronized at `3.0.0-beta`, but the modular Dart packages
-and matching `v3.0.0-beta` native release assets are not public yet. Use the
+The workspace is synchronized at `3.0.0-beta.1`, but the modular Dart packages
+and matching `v3.0.0-beta.1` native release assets are not public yet. Use the
 [source-checkout path](#run-the-current-beta-from-source) for current beta
 testing. The [package path](#install-the-published-package) is the installation
 contract to use after the coordinated beta is published.
@@ -67,7 +67,7 @@ Stop the router with `Ctrl+C`.
 
 ## Install The Published Package
 
-After `3.0.0-beta` is available on pub.dev and the matching GitHub Release is
+After `3.0.0-beta.1` is available on pub.dev and the matching GitHub Release is
 published, create a small Dart runner project. Its `pubspec.yaml` should pin
 the package version and configure both native-asset hooks with the same release
 tag:
@@ -80,14 +80,14 @@ environment:
   sdk: ^3.9.2
 
 dependencies:
-  connectanum_router: 3.0.0-beta
+  connectanum_router: 3.0.0-beta.1
 
 hooks:
   user_defines:
     connectanum_client:
-      CONNECTANUM_NATIVE_RELEASE_TAG: v3.0.0-beta
+      CONNECTANUM_NATIVE_RELEASE_TAG: v3.0.0-beta.1
     connectanum_router:
-      CONNECTANUM_NATIVE_RELEASE_TAG: v3.0.0-beta
+      CONNECTANUM_NATIVE_RELEASE_TAG: v3.0.0-beta.1
 ```
 
 `connectanum_router` depends on `connectanum_client`, and both packages expose a

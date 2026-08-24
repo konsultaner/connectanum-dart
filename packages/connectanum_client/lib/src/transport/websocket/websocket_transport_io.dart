@@ -7,6 +7,7 @@ import 'package:connectanum_core/connectanum_core.dart';
 
 import 'websocket_transport_serialization.dart';
 import '../../transport/abstract_transport.dart';
+import '../../transport/native/canonical_base64_io.dart';
 import 'package:connectanum_core/json_serializer.dart' as serializer_json;
 import 'package:connectanum_core/msgpack_serializer.dart' as serializer_msgpack;
 import 'package:connectanum_core/cbor_serializer.dart' as serializer_cbor;
@@ -46,7 +47,9 @@ class WebSocketTransport extends AbstractTransport {
          _serializerType == WebSocketSerialization.serializationJson ||
              _serializerType == WebSocketSerialization.serializationMsgpack ||
              _serializerType == WebSocketSerialization.serializationCbor,
-       );
+       ) {
+    installNativeCanonicalBase64Codecs(_serializer);
+  }
 
   factory WebSocketTransport.withJsonSerializer(
     String url, [

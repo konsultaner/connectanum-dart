@@ -24,7 +24,7 @@ standalone router, and expose WAMP services to AI agents through MCP.
 </div>
 
 > **3.0 beta:** all Connectanum Dart packages and native Rust crates move
-> together at `3.0.0-beta`. The beta is intended for integration testing before
+> together at `3.0.0-beta.1`. The beta is intended for integration testing before
 > the final `3.0.0` release.
 
 ## Why Connectanum?
@@ -101,32 +101,81 @@ shutdown handling and expected output. Continue with the
 [example catalog](docs/examples.md) for progressive calls, cancellation,
 payload E2EE, router hosting, authentication, and MCP.
 
-## Benchmarks
+## Transport Benchmark
 
-Connectanum gates WAMP performance in CI instead of publishing an isolated
-headline number. The latest
-[hosted `master` run](https://github.com/konsultaner/connectanum-dart/actions/runs/29580331118)
-passed every transport-counter and performance policy.
+Connectanum gates WAMP performance across transports, serializers, security
+profiles, and workload shapes instead of publishing an isolated headline
+number. The current complete production-gate snapshot covers 78 workloads and
+passes every throughput, lifecycle, transport, and zero-copy policy. Each cell
+below reports **sustained data-window / full-lifecycle throughput** in Gbit/s;
+the lifecycle value includes connection, session, routing, and teardown costs.
 
-Representative response-throughput ranges from that run:
+### 64 MiB file transfer
 
-| Workload family | Throughput | Observed p95 latency |
-| --- | ---: | ---: |
-| Cleartext RPC + Pub/Sub | **101.8-448.1 Mbps** | 33.1-137.7 ms |
-| TLS RPC + Pub/Sub | **60.2-257.2 Mbps** | 46.1-247.8 ms |
-| Pub/Sub fan-out to 8 subscribers | **106.7-138.4 Mbps** | 182.8-223.8 ms |
-| Native payload E2EE | **21.9-53.1 Mbps** | 65.8-90.2 ms |
+| Transport and path | JSON (Gbit/s) | MessagePack (Gbit/s) | CBOR (Gbit/s) |
+| --- | ---: | ---: | ---: |
+| Native RawSocket | 16.102 / 14.913 | 18.242 / 16.843 | 19.174 / 17.180 |
+| Dart RawSocket, buffered | 5.292 / 4.804 | 9.491 / 8.013 | 12.007 / 9.630 |
+| Native RawSocket TLS | 13.262 / 12.504 | 18.340 / 16.943 | 17.324 / 15.966 |
+| Native WebSocket | 15.663 / 14.437 | 19.407 / 17.748 | 19.057 / 17.180 |
+| Dart WebSocket, buffered | 2.351 / 2.239 | 9.430 / 7.697 | 9.370 / 7.483 |
+| Native WebSocket TLS | 12.874 / 12.014 | 18.155 / 16.424 | 16.951 / 15.203 |
+| Native RawSocket + E2EE | 8.725 / 8.397 | 20.843 / 19.131 | 21.182 / 19.303 |
+| Native RawSocket TLS + E2EE | 8.592 / 8.244 | 18.097 / 16.777 | 17.853 / 16.487 |
+| Native WebSocket + E2EE | 8.516 / 8.142 | 20.891 / 18.921 | 19.218 / 17.424 |
+| Native WebSocket TLS + E2EE | 8.329 / 7.932 | 17.339 / 15.704 | 15.701 / 14.413 |
 
-The same hosted gate verified progressive invocations at 16.1-19.6 ms p95,
-50 ms call timeouts at 56.8-60.5 ms p95, and the full 15-procedure statistics
-Meta API sweep at 29.2-51.0 ms p95.
+The file scenario uses 64 MiB files and 4 MiB binary chunks. Identity-preserving
+clear RawSocket MessagePack and CBOR can use kernel `sendfile`; JSON, TLS,
+WebSocket masking, and E2EE use bounded copy-minimized transformations.
 
-These are short regression-gate measurements on GitHub-hosted Linux x64 with
-one router worker, one native runtime thread, six-way concurrency, and 64 KiB
-payloads. They are evidence for this measured configuration, not a
-cross-project comparison or a substitute for workload-specific load testing.
-The [benchmark contract](docs/wamp_profile_benchmarks.md) documents scenarios,
-budgets, reproduction commands, and limitations.
+### Large RPC frames
+
+| Transport and path | JSON (Gbit/s) | MessagePack (Gbit/s) | CBOR (Gbit/s) |
+| --- | ---: | ---: | ---: |
+| Native RawSocket | 13.612 / 4.965 | 21.246 / 6.638 | 19.525 / 4.914 |
+| Native WebSocket | 6.816 / 5.949 | 9.132 / 7.809 | 6.644 / 5.674 |
+| Native RawSocket TLS | 8.820 / 4.146 | 11.417 / 5.150 | 10.798 / 4.067 |
+| Native WebSocket TLS | 5.578 / 4.965 | 6.613 / 5.828 | 5.276 / 4.628 |
+| Dart RawSocket | 2.411 / 1.851 | 19.749 / 6.547 | 18.651 / 4.810 |
+| Dart WebSocket | 2.616 / 2.475 | 7.886 / 6.883 | 7.306 / 6.216 |
+| Dart RawSocket TLS reference[^dart-tls] | 0.741 / 0.678 | 0.989 / 0.896 | 0.987 / 0.858 |
+| Dart WebSocket TLS reference[^dart-tls] | 0.717 / 0.706 | 0.934 / 0.917 | 0.929 / 0.906 |
+
+RawSocket frames are 64 MiB and WebSocket frames are 8 MiB. Native TLS and
+WebSocket TLS are the production secure paths.
+
+### WebSocket fragmentation and Pub/Sub
+
+| Transport and workload | JSON (Gbit/s) | MessagePack (Gbit/s) | CBOR (Gbit/s) |
+| --- | ---: | ---: | ---: |
+| WebSocket RPC, contiguous | 18.156 / 14.364 | 26.577 / 19.089 | 12.631 / 10.154 |
+| WebSocket RPC, 4 KiB fragments | 8.761 / 7.683 | 11.047 / 9.460 | 7.444 / 6.557 |
+| WebSocket Pub/Sub, contiguous | 6.962 / 6.032 | 11.818 / 9.673 | 4.229 / 3.825 |
+| WebSocket Pub/Sub, 4 KiB fragments | 6.706 / 5.884 | 7.232 / 6.363 | 4.515 / 4.090 |
+| WebSocket TLS RPC, contiguous | 9.469 / 8.212 | 12.251 / 10.399 | 7.977 / 6.961 |
+| WebSocket TLS RPC, 4 KiB fragments | 8.134 / 7.206 | 8.981 / 7.954 | 6.969 / 6.180 |
+| WebSocket TLS Pub/Sub, contiguous | 3.472 / 3.208 | 4.715 / 4.265 | 2.725 / 2.540 |
+| WebSocket TLS Pub/Sub, 4 KiB fragments | 3.635 / 3.363 | 4.620 / 4.215 | 2.517 / 2.355 |
+
+Fragmentation workloads use 4 MiB payloads, 4 KiB continuation frames, and
+four concurrent in-flight messages. The exact scenario definitions and gates
+are checked in for [file transfer](native/bench/scenarios/wamp_file_transfer_throughput.toml),
+[large frames](native/bench/scenarios/wamp_large_transport_frames_heavy.toml),
+and [WebSocket fragmentation](native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml).
+
+The latest
+[hosted `master` profile run](https://github.com/konsultaner/connectanum-dart/actions/runs/29580331118)
+also passes progressive invocation, call-timeout, Meta API, transport-counter,
+and performance policies. The full multi-gigabit matrix above is the local
+completion artifact from 2026-08-24; exact-head hosted confirmation remains
+pending until these implementation changes are pushed. Results describe the
+measured configuration, not a cross-project comparison or a substitute for
+workload-specific load testing. See the
+[benchmark contract](docs/wamp_profile_benchmarks.md) for reproduction commands,
+budgets, and limitations.
+
+[^dart-tls]: Pure-Dart TLS is constrained by the Dart SDK's asynchronous 8/10 KiB TLS staging and is retained as an explicit reference, not a production-gated secure path.
 
 ## Packages
 
@@ -144,7 +193,7 @@ coordinated stack.
 | [`connectanum_bench`](packages/connectanum_bench) | Reproducible router, transport, profile, and release-feature benchmark scenarios. |
 
 The existing `connectanum` 2.x facade is available on
-[pub.dev](https://pub.dev/packages/connectanum). The modular `3.0.0-beta`
+[pub.dev](https://pub.dev/packages/connectanum). The modular `3.0.0-beta.1`
 packages are synchronized and publish-ready but are not yet public on pub.dev;
 beta testers can use the Git workspace paths until the coordinated publish.
 
@@ -164,7 +213,7 @@ Start at the [documentation index](docs/README.md), or jump directly to:
 
 ## Project Status
 
-`3.0.0-beta` is feature-complete for the announced release profile and is
+`3.0.0-beta.1` is feature-complete for the announced release profile and is
 ready for controlled integration testing. The remaining path to final `3.0.0`
 is broader soak, multi-worker, multi-runtime-thread, and downstream workload
 evidence, followed by the coordinated public package release.

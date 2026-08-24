@@ -544,6 +544,12 @@ class NativeRawSocketTransport extends _NativeTransportBase
   }
 
   @override
+  bool get supportsNativeE2eeFileSegments =>
+      supportsFileSegments &&
+      (_serializerType != SocketHelper.serializationJson ||
+          _runtime.supportsBase64NativeE2eeFileSegments);
+
+  @override
   TransportFileSource openFileSegmentSource(String path, int expectedLength) {
     if (!supportsFileSegments) {
       throw UnsupportedError(
@@ -612,12 +618,13 @@ class NativeRawSocketTransport extends _NativeTransportBase
     if (connectionId == null) {
       throw StateError('Transport is not connected.');
     }
-    if (_serializerType != SocketHelper.serializationCbor ||
+    if (!supportsNativeE2eeFileSegments ||
         source is! _NativeTransportFileSource ||
         !identical(source.runtime, _runtime) ||
         !identical(e2ee.runtimeIdentity, _runtime)) {
       throw UnsupportedError(
-        'Native E2EE file segments require one CBOR transport/runtime',
+        'Native E2EE file segments are unavailable for this '
+        'serializer/runtime',
       );
     }
     if (source.isClosed) {
@@ -641,6 +648,8 @@ class NativeRawSocketTransport extends _NativeTransportBase
       sessionHandle: e2ee.sessionHandle,
       keyId: e2ee.keyId,
       cipher: e2ee.cipher,
+      encodeBase64: _serializerType == SocketHelper.serializationJson,
+      suffix: _nativeFileSegmentSuffix(_serializerType),
     );
   }
 
@@ -754,6 +763,12 @@ class NativeWebSocketTransport extends _NativeTransportBase
   }
 
   @override
+  bool get supportsNativeE2eeFileSegments =>
+      supportsFileSegments &&
+      (_fileSegmentSerializerType != SocketHelper.serializationJson ||
+          _runtime.supportsBase64NativeE2eeFileSegments);
+
+  @override
   TransportFileSource openFileSegmentSource(String path, int expectedLength) {
     if (!supportsFileSegments) {
       throw UnsupportedError(
@@ -823,12 +838,13 @@ class NativeWebSocketTransport extends _NativeTransportBase
     if (connectionId == null) {
       throw StateError('Transport is not connected.');
     }
-    if (_fileSegmentSerializerType != SocketHelper.serializationCbor ||
+    if (!supportsNativeE2eeFileSegments ||
         source is! _NativeTransportFileSource ||
         !identical(source.runtime, _runtime) ||
         !identical(e2ee.runtimeIdentity, _runtime)) {
       throw UnsupportedError(
-        'Native E2EE file segments require one CBOR transport/runtime',
+        'Native E2EE file segments are unavailable for this '
+        'serializer/runtime',
       );
     }
     if (source.isClosed) {
@@ -852,6 +868,9 @@ class NativeWebSocketTransport extends _NativeTransportBase
       sessionHandle: e2ee.sessionHandle,
       keyId: e2ee.keyId,
       cipher: e2ee.cipher,
+      encodeBase64:
+          _fileSegmentSerializerType == SocketHelper.serializationJson,
+      suffix: _nativeFileSegmentSuffix(_fileSegmentSerializerType),
     );
   }
 

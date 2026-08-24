@@ -20,6 +20,7 @@ run_client_vm_tests() {
   dart test packages/connectanum_client/test/mcp
 
   if native_runtime_supported; then
+    dart test packages/connectanum_client/test/transport/native/external_byte_buffer_test.dart
     dart test packages/connectanum_client/test/transport/native/e2ee_provider_test.dart
     dart test packages/connectanum_client/test/transport/native/native_transports_test.dart
   else
@@ -54,6 +55,29 @@ run_bench_vm_tests() {
   (
     cd packages/connectanum_bench
     env -u CONNECTANUM_NATIVE_LIB CONNECTANUM_SKIP_NATIVE_BUILD=1 dart test test
+  )
+}
+
+run_core_browser_scram_test() {
+  (
+    cd packages/connectanum_core
+    local browser_compiler
+
+    browser_compiler=dart2wasm
+    if [[ "${CI:-}" == "true" && "$(uname -s)" == "Linux" ]]; then
+      browser_compiler=dart2js
+      printf 'Using dart2js for hosted Linux SCRAM Worker tests.\n'
+    fi
+
+    run_command_with_timeout \
+      "Browser SCRAM Worker tests" \
+      "${CONNECTANUM_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-420}" \
+      dart test \
+        test/authentication/scram_key_derivation_web_test.dart \
+        -p chrome \
+        --compiler="$browser_compiler" \
+        --timeout=5m \
+        --concurrency=1
   )
 }
 
@@ -163,6 +187,7 @@ run_router_vm_tests
 run_router_zero_copy_publish_tests
 
 if ensure_chrome_env; then
+  run_core_browser_scram_test
   run_client_browser_websocket_test
 else
   printf 'Chrome not found; skipping browser-platform tests.\n'

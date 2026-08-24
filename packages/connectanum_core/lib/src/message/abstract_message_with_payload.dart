@@ -323,15 +323,28 @@ MaterializedPayloadView decodeLazyPayloadView(
       argumentsKeywords: payload.argumentsKeywords,
     );
   }
+  final resolvedE2eeProvider = e2eeProvider ?? payload.e2eeProvider;
+  final resolvedRuntimeContext = runtimeContext ?? payload.e2eeRuntimeContext;
+  final runtimePayloadProvider = switch (resolvedE2eeProvider) {
+    WampE2eeRuntimePayloadProvider provider => provider,
+    _ => null,
+  };
+  final canUseRuntimePayload =
+      pptScheme == 'wamp' &&
+      (payload.hasEncodedArguments || payload.hasEncodedArgumentsKeywords) &&
+      runtimePayloadProvider != null &&
+      runtimePayloadProvider.canUnpackFromRuntimeContext(
+        resolvedRuntimeContext,
+      );
   return decodePayloadView(
-    payload.arguments,
-    payload.argumentsKeywords,
+    canUseRuntimePayload ? null : payload.arguments,
+    canUseRuntimePayload ? null : payload.argumentsKeywords,
     pptScheme: pptScheme,
     pptSerializer: pptSerializer,
     pptCipher: pptCipher,
     pptKeyId: pptKeyId,
-    e2eeProvider: e2eeProvider ?? payload.e2eeProvider,
-    runtimeContext: runtimeContext ?? payload.e2eeRuntimeContext,
+    e2eeProvider: resolvedE2eeProvider,
+    runtimeContext: resolvedRuntimeContext,
   );
 }
 
@@ -349,6 +362,22 @@ LazyMessagePayload unwrapLazyPayloadView(
   if (pptScheme == null ||
       payload.pptDecoded ||
       payload.packedPayloadBytes != null) {
+    return payload
+        .withE2eeProvider(resolvedE2eeProvider)
+        .withE2eeRuntimeContext(resolvedRuntimeContext);
+  }
+  final runtimePayloadProvider = switch (resolvedE2eeProvider) {
+    WampE2eeRuntimePayloadProvider provider => provider,
+    _ => null,
+  };
+  final canUseRuntimePayload =
+      pptScheme == 'wamp' &&
+      (payload.hasEncodedArguments || payload.hasEncodedArgumentsKeywords) &&
+      runtimePayloadProvider != null &&
+      runtimePayloadProvider.canUnpackFromRuntimeContext(
+        resolvedRuntimeContext,
+      );
+  if (canUseRuntimePayload) {
     return payload
         .withE2eeProvider(resolvedE2eeProvider)
         .withE2eeRuntimeContext(resolvedRuntimeContext);

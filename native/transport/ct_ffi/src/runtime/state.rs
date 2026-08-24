@@ -1095,6 +1095,17 @@ impl StoredRawFrame {
             .get_or_init(|| self.raw.clone().into_bytes())
     }
 
+    pub fn as_contiguous(&self) -> Option<&Bytes> {
+        self.raw.as_contiguous()
+    }
+
+    pub fn into_contiguous(self) -> Option<Bytes> {
+        match self.raw {
+            WampRawFrame::Contiguous(bytes) => Some(bytes),
+            WampRawFrame::Segmented { .. } => None,
+        }
+    }
+
     #[cfg(test)]
     pub fn is_segmented(&self) -> bool {
         matches!(self.raw, WampRawFrame::Segmented { .. })

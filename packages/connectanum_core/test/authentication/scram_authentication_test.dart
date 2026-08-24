@@ -165,8 +165,23 @@ void main() {
         authExtra,
       );
       var clientKey = await authMethod.clientKey;
+      final serverSecrets = ScramAuthentication.deriveServerSecrets(
+        secret: secret,
+        salt: challengeExtraArgon2.salt!,
+        kdf: challengeExtraArgon2.kdf!,
+        iterations: challengeExtraArgon2.iterations!,
+        memory: challengeExtraArgon2.memory,
+      );
       authenticateSignature = ScramAuthentication.fromClientKey(
         clientKey,
+        serverKey: base64.decode(serverSecrets.serverKey),
+        binding: ScramKeyCacheBinding(
+          authId: user,
+          salt: challengeExtraArgon2.salt!,
+          kdf: challengeExtraArgon2.kdf!,
+          iterations: challengeExtraArgon2.iterations!,
+          memory: challengeExtraArgon2.memory!,
+        ),
       ).createSignature(user, helloNonce, challengeExtraArgon2, authExtra);
       expect(authenticateSignature, equals(signatureArgon));
     });

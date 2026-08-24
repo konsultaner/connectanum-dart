@@ -190,6 +190,31 @@ impl AsyncWrite for IoStream {
         }
     }
 
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[io::IoSlice<'_>],
+    ) -> Poll<Result<usize, io::Error>> {
+        let me = self.get_mut();
+        match &mut me.inner {
+            StreamInner::Tcp(stream) => Pin::new(stream).poll_write_vectored(cx, bufs),
+            StreamInner::TlsServer(stream) => Pin::new(stream).poll_write_vectored(cx, bufs),
+            StreamInner::TlsClient(stream) => Pin::new(stream).poll_write_vectored(cx, bufs),
+            #[cfg(target_os = "linux")]
+            StreamInner::KtlsServer(stream) => Pin::new(stream).poll_write_vectored(cx, bufs),
+        }
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        match &self.inner {
+            StreamInner::Tcp(stream) => stream.is_write_vectored(),
+            StreamInner::TlsServer(stream) => stream.is_write_vectored(),
+            StreamInner::TlsClient(stream) => stream.is_write_vectored(),
+            #[cfg(target_os = "linux")]
+            StreamInner::KtlsServer(stream) => stream.is_write_vectored(),
+        }
+    }
+
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         let me = self.get_mut();
         match &mut me.inner {

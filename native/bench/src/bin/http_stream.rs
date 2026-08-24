@@ -6698,26 +6698,89 @@ mod tests {
     }
 
     #[test]
-    fn file_transfer_e2ee_workload_uses_release_profile() {
+    fn websocket_fragmentation_throughput_covers_every_native_release_profile() {
+        let scenario_path = format!(
+            "{}/scenarios/wamp_websocket_fragmentation_throughput.toml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let scenario = load_scenario(&scenario_path).unwrap();
+        assert_eq!(scenario.workloads.len(), 24);
+
+        for mode in ["rpc", "pubsub"] {
+            let protocol = format!("wamp_websocket_{mode}");
+            for secure in [false, true] {
+                for serializer in ["json", "msgpack", "cbor"] {
+                    for fragment_size in [None, Some(4096)] {
+                        let workload = scenario
+                            .workloads
+                            .iter()
+                            .find(|workload| {
+                                workload.protocol == protocol
+                                    && workload.secure_transport == secure
+                                    && workload.client_impl == "native"
+                                    && workload.serializer == serializer
+                                    && workload.websocket_fragment_size == fragment_size
+                            })
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "missing {mode} secure={secure} {serializer} fragment={fragment_size:?} workload"
+                                )
+                            });
+                        assert_eq!(workload.request_bytes, 4 * 1024 * 1024);
+                        assert_eq!(workload.iterations, 32);
+                        assert_eq!(workload.concurrency, 4);
+                        assert_eq!(workload.in_flight_per_session, 4);
+                        if secure {
+                            assert_eq!(workload.auth_realm.as_deref(), Some("bench.secure"));
+                            assert_eq!(workload.auth_method.as_deref(), Some("ticket"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn file_transfer_e2ee_workloads_cover_every_native_release_profile() {
         let scenario_path = format!(
             "{}/scenarios/wamp_file_transfer_throughput.toml",
             env!("CARGO_MANIFEST_DIR")
         );
         let scenario = load_scenario(&scenario_path).unwrap();
-        let workload = scenario
+        let encrypted = scenario
             .workloads
             .iter()
-            .find(|workload| workload.name == "rawsocket_file_cbor_e2ee_64m_native_segmented")
-            .expect("missing E2EE file-transfer workload");
+            .filter(|workload| workload.ppt_scheme.as_deref() == Some("wamp"))
+            .collect::<Vec<_>>();
+        assert_eq!(encrypted.len(), 12);
 
-        assert_eq!(workload.ppt_scheme.as_deref(), Some("wamp"));
-        assert_eq!(workload.ppt_serializer.as_deref(), Some("cbor"));
-        assert_eq!(workload.ppt_cipher.as_deref(), Some("aes256gcm"));
-        assert_eq!(workload.ppt_keyid.as_deref(), Some("bench-key"));
-        assert_eq!(workload.request_bytes, 64 * 1024 * 1024);
-        assert_eq!(workload.request_chunk_bytes, 4 * 1024 * 1024);
-        assert_eq!(workload.iterations, 8);
-        assert_eq!(workload.concurrency, 2);
+        for (transport, secure, suffix) in [
+            ("wamp_rawsocket_file_transfer", false, "rawsocket"),
+            ("wamp_rawsocket_file_transfer", true, "rawsocket_tls"),
+            ("wamp_websocket_file_transfer", false, "websocket"),
+            ("wamp_websocket_file_transfer", true, "websocket_tls"),
+        ] {
+            for serializer in ["json", "msgpack", "cbor"] {
+                let workload = encrypted
+                    .iter()
+                    .find(|workload| {
+                        workload.protocol == transport
+                            && workload.secure_transport == secure
+                            && workload.client_impl == "native"
+                            && workload.serializer == serializer
+                    })
+                    .unwrap_or_else(|| {
+                        panic!("missing {suffix} native {serializer} E2EE file workload")
+                    });
+                assert_eq!(workload.ppt_serializer.as_deref(), Some("cbor"));
+                assert_eq!(workload.ppt_cipher.as_deref(), Some("aes256gcm"));
+                assert_eq!(workload.ppt_keyid.as_deref(), Some("bench-key"));
+                assert_eq!(workload.request_bytes, 64 * 1024 * 1024);
+                assert_eq!(workload.request_chunk_bytes, 4 * 1024 * 1024);
+                assert_eq!(workload.iterations, 8);
+                assert_eq!(workload.concurrency, 2);
+            }
+        }
     }
 
     #[test]
@@ -6732,6 +6795,7 @@ mod tests {
             ("wamp_rawsocket_file_transfer", false, "rawsocket"),
             ("wamp_rawsocket_file_transfer", true, "rawsocket_tls"),
             ("wamp_websocket_file_transfer", false, "websocket"),
+            ("wamp_websocket_file_transfer", true, "websocket_tls"),
         ] {
             for serializer in ["json", "msgpack", "cbor"] {
                 let workload = scenario
@@ -6750,6 +6814,75 @@ mod tests {
                 assert_eq!(workload.request_chunk_bytes, 4 * 1024 * 1024);
             }
         }
+    }
+
+    #[test]
+    fn file_transfer_throughput_covers_every_serializer_per_clear_dart_transport() {
+        let scenario_path = format!(
+            "{}/scenarios/wamp_file_transfer_throughput.toml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let scenario = load_scenario(&scenario_path).unwrap();
+
+        for (transport, suffix) in [
+            ("wamp_rawsocket_file_transfer", "rawsocket"),
+            ("wamp_websocket_file_transfer", "websocket"),
+        ] {
+            for serializer in ["json", "msgpack", "cbor"] {
+                let workload = scenario
+                    .workloads
+                    .iter()
+                    .find(|workload| {
+                        workload.protocol == transport
+                            && !workload.secure_transport
+                            && workload.client_impl == "dart"
+                            && workload.serializer == serializer
+                    })
+                    .unwrap_or_else(|| panic!("missing {suffix} Dart {serializer} file workload"));
+                assert_eq!(workload.request_bytes, 64 * 1024 * 1024);
+                assert_eq!(workload.request_chunk_bytes, 4 * 1024 * 1024);
+            }
+        }
+    }
+
+    #[test]
+    fn large_transport_frames_cover_every_client_transport_security_profile() {
+        let scenario_path = format!(
+            "{}/scenarios/wamp_large_transport_frames_heavy.toml",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let scenario = load_scenario(&scenario_path).unwrap();
+
+        for client_impl in ["native", "dart"] {
+            for (transport, request_bytes) in [
+                ("wamp_rawsocket_rpc", 64 * 1024 * 1024),
+                ("wamp_websocket_rpc", 8 * 1024 * 1024),
+            ] {
+                for secure in [false, true] {
+                    for serializer in ["json", "msgpack", "cbor"] {
+                        let workload = scenario
+                            .workloads
+                            .iter()
+                            .find(|workload| {
+                                workload.protocol == transport
+                                    && workload.secure_transport == secure
+                                    && workload.client_impl == client_impl
+                                    && workload.serializer == serializer
+                            })
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "missing {client_impl} {transport} secure={secure} {serializer} workload"
+                                )
+                            });
+                        assert_eq!(workload.request_bytes, request_bytes);
+                        assert_eq!(workload.concurrency, 1);
+                        assert_eq!(workload.in_flight_per_session, 1);
+                    }
+                }
+            }
+        }
+
+        assert_eq!(scenario.workloads.len(), 24);
     }
 
     #[test]

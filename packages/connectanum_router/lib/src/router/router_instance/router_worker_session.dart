@@ -3,7 +3,7 @@ part of '../router_instance.dart';
 const String _wampErrorNoSuchInvocation = 'wamp.error.no_such_invocation';
 const bool _forwardNativePublishEventsConst = bool.fromEnvironment(
   'CONNECTANUM_FORWARD_NATIVE_PUBLISH',
-  defaultValue: false,
+  defaultValue: true,
 );
 const Set<String> _routerOwnedInvocationDetailKeys = {
   'caller',
@@ -25,9 +25,9 @@ const Set<String> _routerOwnedInvocationDetailKeys = {
   'transaction_hash',
 };
 
-bool _parseForwardNativePublishFlag(String? raw) {
+bool _parseForwardNativePublishFlag(String? raw, {required bool fallback}) {
   if (raw == null) {
-    return false;
+    return fallback;
   }
   final normalized = raw.trim().toLowerCase();
   return normalized == 'true' ||
@@ -36,11 +36,10 @@ bool _parseForwardNativePublishFlag(String? raw) {
       normalized == 'on';
 }
 
-final bool forwardNativePublishEvents =
-    _forwardNativePublishEventsConst ||
-    _parseForwardNativePublishFlag(
-      Platform.environment['CONNECTANUM_FORWARD_NATIVE_PUBLISH'],
-    );
+final bool forwardNativePublishEvents = _parseForwardNativePublishFlag(
+  Platform.environment['CONNECTANUM_FORWARD_NATIVE_PUBLISH'],
+  fallback: _forwardNativePublishEventsConst,
+);
 
 void _safeSend(SendPort port, Object? message) {
   try {
@@ -613,10 +612,6 @@ Future<void> _handlePublish({
   required publish_msg.Publish message,
   NativeIncomingMessage? incomingMessage,
 }) async {
-  // Zero-copy forwarding of publish payloads is disabled by default to avoid
-  // the bench/pubsub hang observed under higher concurrency. Opt in via the
-  // CONNECTANUM_FORWARD_NATIVE_PUBLISH flag (compile-time define or env var)
-  // once the native path is proven stable end-to-end.
   final payloadEncoding = message.lazyPayloadEncoding;
   final encodedArgumentsBytes = payloadEncoding == null
       ? null
@@ -718,116 +713,19 @@ Future<void> _handlePublish({
         externalMatches.add(match);
       }
     }
-    var usedZeroCopy = false;
+    final sourceSerializer = state.serializer ?? NativeMessageSerializer.json;
     final nativeMessage = incomingMessage;
-    if (forwardNativePublishEvents &&
+    final nativeMatches = <SubscriptionMatch>[];
+    final dartForwardMatches = <SubscriptionMatch>[];
+    final canForwardNative =
+        forwardNativePublishEvents &&
         nativeMessage?.hasNativeHandle == true &&
-        externalMatches.isNotEmpty) {
-      final messageHandle = nativeMessage!;
-      final pending = <Map<String, Object?>>[];
-      var failed = false;
-      for (var i = 0; i < externalMatches.length; i += 1) {
-        final match = externalMatches[i];
-        final forwardedHandle = i == 0
-            ? messageHandle.takeHandle()
-            : messageHandle.retainHandle();
-        if (forwardedHandle <= 0) {
-          failed = true;
-          break;
-        }
-        final command = <String, Object?>{
-          'type': 'worker_forward_native_event',
-          'connectionId': match.connectionId,
-          'handle': forwardedHandle,
-          'subscriptionId': match.subscriptionId,
-          'publicationId': routing.publicationId,
-        };
-        final publisherSessionId = discloseMe ? state.sessionId : null;
-        if (publisherSessionId != null) {
-          command['publisherSessionId'] = publisherSessionId;
-        }
-        final topic = _eventTopicForMatch(match.details, message.topic);
-        if (topic != null) {
-          command['topic'] = topic;
-        }
-        pending.add(command);
-      }
-      if (failed) {
-        for (final command in pending) {
-          messageHandle.releaseRetainedHandle(command['handle'] as int);
-        }
+        message.options?.custom.isNotEmpty != true;
+    for (final match in externalMatches) {
+      if (canForwardNative && match.serializerId == sourceSerializer.id) {
+        nativeMatches.add(match);
       } else {
-        var sentCount = 0;
-        try {
-          for (final command in pending) {
-            bossPort.send(command);
-            sentCount += 1;
-          }
-          usedZeroCopy = true;
-        } catch (error) {
-          nativeForwardingFailed = true;
-          for (var i = sentCount; i < pending.length; i += 1) {
-            final command = pending[i];
-            messageHandle.releaseRetainedHandle(command['handle'] as int);
-          }
-          rethrow;
-        }
-      }
-    }
-
-    for (final match in internalMatches) {
-      final topic = _eventTopicForMatch(match.details, message.topic);
-      final eventDetails = Map<String, Object?>.from(match.details);
-      if (message.options?.custom.isNotEmpty == true) {
-        eventDetails.addAll(message.options!.custom);
-      }
-      if (message.options?.pptScheme != null) {
-        eventDetails['ppt_scheme'] = message.options!.pptScheme;
-      }
-      if (message.options?.pptSerializer != null) {
-        eventDetails['ppt_serializer'] = message.options!.pptSerializer;
-      }
-      if (message.options?.pptCipher != null) {
-        eventDetails['ppt_cipher'] = message.options!.pptCipher;
-      }
-      if (message.options?.pptKeyId != null) {
-        eventDetails['ppt_keyid'] = message.options!.pptKeyId;
-      }
-      match.internalSendPort!.send({
-        'type': 'event',
-        'subscriptionId': match.subscriptionId,
-        'publicationId': routing.publicationId,
-        'topic': topic,
-        _internalMsgLazyPayload: transferredPayload,
-        'publisherSessionId': discloseMe ? state.sessionId : null,
-        'details': eventDetails,
-      });
-    }
-
-    if (!usedZeroCopy) {
-      for (final match in externalMatches) {
-        final eventDetails = event_msg.EventDetails(
-          publisher: discloseMe ? state.sessionId : null,
-          topic: _eventTopicForMatch(match.details, message.topic),
-          pptScheme: message.options?.pptScheme,
-          pptSerializer: message.options?.pptSerializer,
-          pptCipher: message.options?.pptCipher,
-          pptKeyid: message.options?.pptKeyId,
-        );
-        if (message.options?.custom.isNotEmpty == true) {
-          eventDetails.custom.addAll(message.options!.custom);
-        }
-        final event = event_msg.Event(
-          match.subscriptionId,
-          routing.publicationId,
-          eventDetails,
-        );
-        _applyTransferredLazyPayload(event, transferredPayload);
-        _forwardToConnection(
-          bossPort: bossPort,
-          connectionId: match.connectionId,
-          message: event,
-        );
+        dartForwardMatches.add(match);
       }
     }
     if (message.options?.acknowledge == true) {
@@ -841,8 +739,8 @@ Future<void> _handlePublish({
           'topic': message.topic,
           'stage': 'ack_sending',
         });
-        // Fire-and-forget ACK to avoid blocking the publish path; surface any
-        // error back to the bossPort for observability.
+        // Queue the acknowledgement before subscriber forwarding so a
+        // publisher subscribed to the topic observes PUBLISHED before EVENT.
         unawaited(
           sendMessage(
                 bossPort,
@@ -906,6 +804,127 @@ Future<void> _handlePublish({
         });
         rethrow;
       }
+    }
+    if (nativeMatches.isNotEmpty) {
+      final messageHandle = nativeMessage!;
+      final pending = <Map<String, Object?>>[];
+      final forwardedHandles = List<int>.filled(nativeMatches.length, 0);
+      var failed = false;
+      final preserveOriginalHandle =
+          internalMatches.isNotEmpty || dartForwardMatches.isNotEmpty;
+      final firstRetainedIndex = preserveOriginalHandle ? 0 : 1;
+      for (var i = firstRetainedIndex; i < nativeMatches.length; i += 1) {
+        final forwardedHandle = messageHandle.retainHandle();
+        if (forwardedHandle <= 0) {
+          failed = true;
+          break;
+        }
+        forwardedHandles[i] = forwardedHandle;
+      }
+      if (!failed && !preserveOriginalHandle) {
+        final forwardedHandle = messageHandle.takeHandle();
+        if (forwardedHandle <= 0) {
+          failed = true;
+        } else {
+          forwardedHandles[0] = forwardedHandle;
+        }
+      }
+      if (failed) {
+        for (final forwardedHandle in forwardedHandles) {
+          if (forwardedHandle > 0) {
+            messageHandle.releaseRetainedHandle(forwardedHandle);
+          }
+        }
+        dartForwardMatches.addAll(nativeMatches);
+      } else {
+        for (var i = 0; i < nativeMatches.length; i += 1) {
+          final match = nativeMatches[i];
+          final command = <String, Object?>{
+            'type': 'worker_forward_native_event',
+            'connectionId': match.connectionId,
+            'handle': forwardedHandles[i],
+            'subscriptionId': match.subscriptionId,
+            'publicationId': routing.publicationId,
+          };
+          final publisherSessionId = discloseMe ? state.sessionId : null;
+          if (publisherSessionId != null) {
+            command['publisherSessionId'] = publisherSessionId;
+          }
+          final topic = _eventTopicForMatch(match.details, message.topic);
+          if (topic != null) {
+            command['topic'] = topic;
+          }
+          pending.add(command);
+        }
+        var sentCount = 0;
+        try {
+          for (final command in pending) {
+            bossPort.send(command);
+            sentCount += 1;
+          }
+        } catch (error) {
+          nativeForwardingFailed = true;
+          for (var i = sentCount; i < pending.length; i += 1) {
+            final command = pending[i];
+            messageHandle.releaseRetainedHandle(command['handle'] as int);
+          }
+          rethrow;
+        }
+      }
+    }
+
+    for (final match in internalMatches) {
+      final topic = _eventTopicForMatch(match.details, message.topic);
+      final eventDetails = Map<String, Object?>.from(match.details);
+      if (message.options?.custom.isNotEmpty == true) {
+        eventDetails.addAll(message.options!.custom);
+      }
+      if (message.options?.pptScheme != null) {
+        eventDetails['ppt_scheme'] = message.options!.pptScheme;
+      }
+      if (message.options?.pptSerializer != null) {
+        eventDetails['ppt_serializer'] = message.options!.pptSerializer;
+      }
+      if (message.options?.pptCipher != null) {
+        eventDetails['ppt_cipher'] = message.options!.pptCipher;
+      }
+      if (message.options?.pptKeyId != null) {
+        eventDetails['ppt_keyid'] = message.options!.pptKeyId;
+      }
+      match.internalSendPort!.send({
+        'type': 'event',
+        'subscriptionId': match.subscriptionId,
+        'publicationId': routing.publicationId,
+        'topic': topic,
+        _internalMsgLazyPayload: transferredPayload,
+        'publisherSessionId': discloseMe ? state.sessionId : null,
+        'details': eventDetails,
+      });
+    }
+
+    for (final match in dartForwardMatches) {
+      final eventDetails = event_msg.EventDetails(
+        publisher: discloseMe ? state.sessionId : null,
+        topic: _eventTopicForMatch(match.details, message.topic),
+        pptScheme: message.options?.pptScheme,
+        pptSerializer: message.options?.pptSerializer,
+        pptCipher: message.options?.pptCipher,
+        pptKeyid: message.options?.pptKeyId,
+      );
+      if (message.options?.custom.isNotEmpty == true) {
+        eventDetails.custom.addAll(message.options!.custom);
+      }
+      final event = event_msg.Event(
+        match.subscriptionId,
+        routing.publicationId,
+        eventDetails,
+      );
+      _applyTransferredLazyPayload(event, transferredPayload);
+      _forwardToConnection(
+        bossPort: bossPort,
+        connectionId: match.connectionId,
+        message: event,
+      );
     }
   } on ArgumentError catch (error) {
     _safeSend(bossPort, {

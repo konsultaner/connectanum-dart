@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:pinenacl/ed25519.dart';
@@ -19,6 +20,8 @@ class LocalTransport extends AbstractTransport {
   Hello? _hello;
   AbstractAuthentication? _authentication;
   String? _signature;
+  Extra? _scramChallenge;
+  String? _scramClientNonce;
   bool _isOpen = false;
 
   LocalTransport({
@@ -43,6 +46,7 @@ class LocalTransport extends AbstractTransport {
   @override
   Future<void>? close({error}) async {
     _isOpen = false;
+    await _authentication?.dispose();
     _receiveController.close();
     _sentMessagesController.close();
     if (!_onDisconnect.isCompleted) _onDisconnect.complete();
@@ -126,18 +130,10 @@ class LocalTransport extends AbstractTransport {
           nonce: '${message.details.authextra?['nonce']}AQ==',
           kdf: ScramAuthentication.kdfArgon,
         );
-        var authExtra = HashMap<String, Object?>();
-        authExtra['nonce'] = extra.nonce;
-        authExtra['channel_binding'] = null;
-        authExtra['cbind_data'] = null;
         _hello = message;
         _authentication = scramAuthentication;
-        _signature = scramAuthentication.createSignature(
-          message.details.authid ?? '',
-          message.details.authextra?['nonce'],
-          extra,
-          authExtra,
-        );
+        _scramChallenge = extra;
+        _scramClientNonce = message.details.authextra?['nonce'] as String?;
         _receiveController.add(Challenge(scramAuthentication.getName(), extra));
       } else if (message.details.authmethods?.contains(
             cryptosignAuthentication.getName(),
@@ -168,35 +164,99 @@ class LocalTransport extends AbstractTransport {
         );
       }
     } else if (message is Authenticate) {
-      bool success = false;
-      if (_authentication is TicketAuthentication ||
-          _authentication is CraAuthentication ||
-          _authentication is ScramAuthentication ||
-          _authentication is CryptosignAuthentication) {
-        success = message.signature == _signature;
-      }
-      if (success) {
-        _receiveController.add(
-          Welcome(
-            1,
-            Details.forWelcome(
-              authId: _hello?.details.authid,
-              authMethod: _authentication?.getName(),
-              authProvider: 'local',
-              authRole: 'client',
-              realm: _hello?.realm,
-            ),
-          ),
-        );
-      } else {
-        _receiveController.add(
-          Abort(
-            Error.authorizationFailed,
-            message: "Authentication process failed!",
-          ),
-        );
-      }
+      unawaited(_handleAuthenticate(message));
     }
     _sentMessagesController.add(message);
+  }
+
+  Future<void> _handleAuthenticate(Authenticate message) async {
+    if (_authentication is ScramAuthentication) {
+      final challenge = _scramChallenge;
+      final clientNonce = _scramClientNonce;
+      final authId = _hello?.details.authid;
+      if (challenge == null || clientNonce == null || authId == null) {
+        _sendAuthenticationFailure();
+        return;
+      }
+      final authExtra = HashMap<String, Object?>.from(
+        message.extra ?? const <String, Object?>{},
+      );
+      try {
+        final secrets = await ScramAuthentication.deriveServerSecretsAsync(
+          secret: authenticationPassword,
+          salt: challenge.salt!,
+          kdf: challenge.kdf!,
+          iterations: challenge.iterations!,
+          memory: challenge.memory,
+        );
+        final storedKey = Uint8List.fromList(base64.decode(secrets.storedKey));
+        final serverKey = Uint8List.fromList(base64.decode(secrets.serverKey));
+        try {
+          final authMessage = ScramAuthentication.createAuthMessage(
+            authId,
+            clientNonce,
+            authExtra,
+            challenge,
+          );
+          final proof = base64.decode(message.signature ?? '');
+          if (!ScramAuthentication.verifyClientProof(
+            proof,
+            storedKey,
+            authMessage,
+          )) {
+            _sendAuthenticationFailure();
+            return;
+          }
+          final verifier = ScramAuthentication.createServerSignature(
+            serverKey: serverKey,
+            authMessage: authMessage,
+          );
+          _sendWelcome(verifier: verifier);
+        } finally {
+          storedKey.fillRange(0, storedKey.length, 0);
+          serverKey.fillRange(0, serverKey.length, 0);
+        }
+      } on Object {
+        _sendAuthenticationFailure();
+      }
+      return;
+    }
+
+    final supportsAuthentication =
+        _authentication is TicketAuthentication ||
+        _authentication is CraAuthentication ||
+        _authentication is CryptosignAuthentication;
+    if (supportsAuthentication && message.signature == _signature) {
+      _sendWelcome();
+    } else {
+      _sendAuthenticationFailure();
+    }
+  }
+
+  void _sendWelcome({String? verifier}) {
+    _receiveController.add(
+      Welcome(
+        1,
+        Details.forWelcome(
+          authId: _hello?.details.authid,
+          authMethod: _authentication?.getName(),
+          authProvider: 'local',
+          authRole: 'client',
+          realm: _hello?.realm,
+          authExtra: verifier == null
+              ? null
+              : <String, dynamic>{'verifier': verifier},
+        ),
+      ),
+    );
+  }
+
+  void _sendAuthenticationFailure() {
+    _receiveController.add(
+      Abort(
+        Error.authorizationFailed,
+        message: 'Authentication process failed!',
+      ),
+    );
   }
 }

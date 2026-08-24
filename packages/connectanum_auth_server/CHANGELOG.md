@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.1
+
+- Advance the coordinated beta with asynchronous SCRAM derivation and verified
+  server signatures supplied by the synchronized core and router packages.
+
 ## 3.0.0-beta
 
 - Join the synchronized Connectanum 3.0 beta package graph.

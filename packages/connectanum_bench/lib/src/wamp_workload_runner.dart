@@ -295,6 +295,10 @@ class WampWorkloadRunner {
         subscriptions.add(subscription);
         eventBuffers.add(eventBuffer);
       }
+      final payloadFactory = _buildLazyPayloadFactory(
+        scenario,
+        arguments: [payload],
+      );
       samples.addAll(
         await _runWithInFlightLimit(
           iterations: scenario.iterations,
@@ -303,7 +307,7 @@ class WampWorkloadRunner {
             workerId,
             iteration,
             scenario,
-            payload,
+            payloadFactory,
             eventBuffers,
             publisher!,
           ),
@@ -350,7 +354,10 @@ class WampWorkloadRunner {
     int workerId,
     int iteration,
     WampScenario scenario,
-    String payload,
+    wamp_core.LazyMessagePayload Function([
+      Map<String, Object?>? argumentsKeywords,
+    ])
+    payloadFactory,
     List<WampEventBuffer> eventBuffers,
     WampSession publisher,
   ) async {
@@ -374,11 +381,7 @@ class WampWorkloadRunner {
     await _runTimedOperation(
       publisher.publishLazyPayload(
         scenario.uri,
-        payload: _buildLazyPayload(
-          scenario,
-          arguments: [payload],
-          argumentsKeywords: metadata,
-        ),
+        payload: payloadFactory(metadata),
         options: _buildPublishOptions(scenario),
       ),
       timeout: _eventTimeout,
@@ -1870,7 +1873,10 @@ class WampWorkloadRunner {
     )();
   }
 
-  wamp_core.LazyMessagePayload Function() _buildLazyPayloadFactory(
+  wamp_core.LazyMessagePayload Function([
+    Map<String, Object?>? overrideArgumentsKeywords,
+  ])
+  _buildLazyPayloadFactory(
     WampScenario scenario, {
     required List<dynamic>? arguments,
     Map<String, Object?>? argumentsKeywords,
@@ -1892,15 +1898,27 @@ class WampWorkloadRunner {
     final kwargsBytes = kwargsMap == null
         ? null
         : _encodePayloadFragment(scenario.serializer, kwargsMap);
-    return () => wamp_core.LazyMessagePayload.encoded(
-      encoding: encoding,
-      argumentsBytes: argsBytes,
-      argumentsKeywordsBytes: kwargsBytes,
-      argumentsDecoder: argsBytes == null ? null : (_) => immutableArguments!,
-      argumentsKeywordsDecoder: kwargsBytes == null ? null : (_) => kwargsMap!,
-      arguments: argsBytes == null ? immutableArguments : null,
-      argumentsKeywords: kwargsBytes == null ? kwargsMap : null,
-    );
+    return ([overrideArgumentsKeywords]) {
+      final effectiveKwargsMap = overrideArgumentsKeywords == null
+          ? kwargsMap
+          : Map<String, dynamic>.unmodifiable(overrideArgumentsKeywords);
+      final effectiveKwargsBytes = overrideArgumentsKeywords == null
+          ? kwargsBytes
+          : _encodePayloadFragment(scenario.serializer, effectiveKwargsMap!);
+      return wamp_core.LazyMessagePayload.encoded(
+        encoding: encoding,
+        argumentsBytes: argsBytes,
+        argumentsKeywordsBytes: effectiveKwargsBytes,
+        argumentsDecoder: argsBytes == null ? null : (_) => immutableArguments!,
+        argumentsKeywordsDecoder: effectiveKwargsBytes == null
+            ? null
+            : (_) => effectiveKwargsMap!,
+        arguments: argsBytes == null ? immutableArguments : null,
+        argumentsKeywords: effectiveKwargsBytes == null
+            ? effectiveKwargsMap
+            : null,
+      );
+    };
   }
 
   Uint8List _encodePayloadFragment(WampSerializer serializer, Object? value) {
@@ -2189,7 +2207,8 @@ class WampRegistration {
   Future<void> cancel() => _cancel();
 }
 
-class _DiscardingWampFileSink extends wamp_client.WampFileSink {
+class _DiscardingWampFileSink extends wamp_client.WampFileSink
+    implements wamp_client.WampFileSinkConsumesChunks {
   @override
   void add(Uint8List chunk) {}
 

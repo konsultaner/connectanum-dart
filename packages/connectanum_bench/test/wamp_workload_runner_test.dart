@@ -959,6 +959,28 @@ void main() {
 
         expect(samples, hasLength(4));
         expect(broker.maxConcurrentPublishes, greaterThanOrEqualTo(2));
+        expect(broker.lazyPublishPayloads, hasLength(4));
+        final argumentsBytes = broker.lazyPublishPayloads.first.argumentsBytes;
+        expect(argumentsBytes, isNotNull);
+        expect(
+          broker.lazyPublishPayloads.every(
+            (payload) => identical(payload.argumentsBytes, argumentsBytes),
+          ),
+          isTrue,
+        );
+        expect(
+          broker.lazyPublishPayloads
+              .map(
+                (payload) => (
+                  payload.argumentsKeywords!['worker'],
+                  payload.argumentsKeywords!['iteration'],
+                ),
+              )
+              .toSet(),
+          equals({
+            for (var iteration = 0; iteration < 4; iteration++) (0, iteration),
+          }),
+        );
       },
     );
 
@@ -1591,6 +1613,7 @@ class _FakeWampBroker {
   _payloadCallbackSubscribers = {};
   final Map<String, int> callCounts = {};
   final List<wamp_core.LazyMessagePayload> lazyCallPayloads = [];
+  final List<wamp_core.LazyMessagePayload> lazyPublishPayloads = [];
   final bool dropMetadata;
   final Duration callDelay;
   final Duration publishDelay;
@@ -2024,6 +2047,7 @@ class _FakeWampSession implements WampSession, WampFileSession {
     if (hangPublishLazyPayload) {
       return Completer<void>().future;
     }
+    _broker.lazyPublishPayloads.add(payload);
     return publish(
       topic,
       arguments: payload.arguments,

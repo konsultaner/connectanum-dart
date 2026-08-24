@@ -146,14 +146,19 @@ final class ConnectanumHttpAuthClient {
     required String authId,
     required String secret,
     Map<String, String> headers = const <String, String>{},
-  }) {
-    return authenticate(
-      realm: realm,
-      authId: authId,
-      authentication: ScramAuthentication(secret),
-      authMethod: 'scram',
-      headers: headers,
-    );
+  }) async {
+    final authentication = ScramAuthentication(secret);
+    try {
+      return await authenticate(
+        realm: realm,
+        authId: authId,
+        authentication: authentication,
+        authMethod: 'scram',
+        headers: headers,
+      );
+    } finally {
+      await authentication.dispose();
+    }
   }
 
   Future<ConnectanumHttpAuthGrant> authenticate({
@@ -165,69 +170,88 @@ final class ConnectanumHttpAuthClient {
     Map<String, String> headers = const <String, String>{},
   }) {
     return _runTrackedOperation((openRequest) async {
-      final requestRealm = _nonEmptyArgument(realm, 'realm');
-      final requestAuthId = _nonEmptyArgument(authId, 'authId');
-      final method = _httpAuthMethodName(
-        authMethod ?? authentication.getName(),
-      );
-      final details = Details.forHello()
-        ..authid = requestAuthId
-        ..authmethods = <String>[method];
-      if (authextra.isNotEmpty) {
-        details.authextra = Map<String, dynamic>.from(authextra);
+      try {
+        final requestRealm = _nonEmptyArgument(realm, 'realm');
+        final requestAuthId = _nonEmptyArgument(authId, 'authId');
+        final method = _httpAuthMethodName(
+          authMethod ?? authentication.getName(),
+        );
+        final details = Details.forHello()
+          ..authid = requestAuthId
+          ..authmethods = <String>[method];
+        if (authextra.isNotEmpty) {
+          details.authextra = Map<String, dynamic>.from(authextra);
+        }
+        await authentication.hello(requestRealm, details);
+        final normalizedAuthId = details.authid ?? requestAuthId;
+
+        final startBody = <String, Object?>{
+          'realm': requestRealm,
+          'authmethod': method,
+          'authid': normalizedAuthId,
+          if (details.authextra != null && details.authextra!.isNotEmpty)
+            'authextra': Map<String, Object?>.from(details.authextra!),
+        };
+        final challenge = await _postJsonObject(
+          startBody,
+          expectedStatus: HttpStatus.unauthorized,
+          label: 'HTTP auth challenge',
+          extraHeaders: headers,
+          openRequest: openRequest,
+        );
+        _validateAuthResponseIdentity(
+          challenge,
+          label: 'HTTP auth challenge',
+          realm: requestRealm,
+          authMethod: method,
+        );
+        final state = _nonEmptyString(challenge['state'], 'state');
+        final authenticate = await authentication.challenge(
+          _challengeExtraFrom(challenge['challenge']),
+        );
+
+        final grant = await _postJsonObject(
+          <String, Object?>{
+            'state': state,
+            if (authenticate.signature != null)
+              'signature': authenticate.signature,
+            if (authenticate.extra != null)
+              'extra': Map<String, Object?>.from(authenticate.extra!),
+          },
+          expectedStatus: HttpStatus.ok,
+          label: 'HTTP auth token request',
+          extraHeaders: headers,
+          openRequest: openRequest,
+        );
+        final parsedGrant = ConnectanumHttpAuthGrant.fromJson(
+          grant,
+          authEndpoint: endpoint,
+        );
+        _validateAuthResponseIdentity(
+          grant,
+          label: 'HTTP auth grant',
+          realm: requestRealm,
+          authMethod: method,
+          authId: normalizedAuthId,
+        );
+        final finalAuthExtra = parsedGrant.details['authextra'];
+        Map<String, Object?>? verifierFields;
+        if (finalAuthExtra is Map) {
+          verifierFields = <String, Object?>{
+            for (final entry in finalAuthExtra.entries)
+              if (entry.key is String) entry.key as String: entry.value,
+          };
+        }
+        await authentication.verifyFinal(
+          authId: parsedGrant.authId,
+          authMethod: authentication.getName(),
+          authExtra: verifierFields,
+        );
+        return parsedGrant;
+      } on Object {
+        await authentication.cancelPendingChallenge();
+        rethrow;
       }
-      await authentication.hello(requestRealm, details);
-
-      final startBody = <String, Object?>{
-        'realm': requestRealm,
-        'authmethod': method,
-        'authid': requestAuthId,
-        if (details.authextra != null && details.authextra!.isNotEmpty)
-          'authextra': Map<String, Object?>.from(details.authextra!),
-      };
-      final challenge = await _postJsonObject(
-        startBody,
-        expectedStatus: HttpStatus.unauthorized,
-        label: 'HTTP auth challenge',
-        extraHeaders: headers,
-        openRequest: openRequest,
-      );
-      _validateAuthResponseIdentity(
-        challenge,
-        label: 'HTTP auth challenge',
-        realm: requestRealm,
-        authMethod: method,
-      );
-      final state = _nonEmptyString(challenge['state'], 'state');
-      final authenticate = await authentication.challenge(
-        _challengeExtraFrom(challenge['challenge']),
-      );
-
-      final grant = await _postJsonObject(
-        <String, Object?>{
-          'state': state,
-          if (authenticate.signature != null)
-            'signature': authenticate.signature,
-          if (authenticate.extra != null)
-            'extra': Map<String, Object?>.from(authenticate.extra!),
-        },
-        expectedStatus: HttpStatus.ok,
-        label: 'HTTP auth token request',
-        extraHeaders: headers,
-        openRequest: openRequest,
-      );
-      final parsedGrant = ConnectanumHttpAuthGrant.fromJson(
-        grant,
-        authEndpoint: endpoint,
-      );
-      _validateAuthResponseIdentity(
-        grant,
-        label: 'HTTP auth grant',
-        realm: requestRealm,
-        authMethod: method,
-        authId: requestAuthId,
-      );
-      return parsedGrant;
     });
   }
 
