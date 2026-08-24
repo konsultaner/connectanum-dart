@@ -104,7 +104,15 @@ per worker after their sessions and registrations are ready; throughput and
 p95 calculations include only the configured measured iterations. This keeps
 JIT and first-dispatch startup out of the steady-state release gate without
 weakening its latency ceiling. Cold-start latency requires separate evidence.
-Hosted Linux evidence remains required after push.
+
+Hosted Linux calibration on 2026-08-24 retained every throughput floor and all
+native and XSalsa20-Poly1305 latency ceilings. Pure-Dart AES-GCM kept stable or
+better aggregate throughput and average latency across two exact-head runs,
+while a small number of concurrently queued 64 KiB operations moved RPC p95 as
+high as 4162.680 ms and pub/sub p95 as high as 5723.700 ms. The Dart AES-GCM
+ceilings therefore provide measured hosted headroom at 5000 ms for RPC and
+6500 ms for pub/sub; the aggregate throughput floors continue to reject
+sustained regressions.
 
 The diagnostic runner was also validated locally on Darwin arm64 on 2026-04-23
 with `router_workers=1` and `native_runtime_threads=1`. All diagnostic artifact

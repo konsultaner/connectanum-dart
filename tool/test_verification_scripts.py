@@ -114,6 +114,50 @@ class VerificationScriptsTest(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_ensure_chrome_env_exposes_canonical_launcher(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            fake_chrome = tmp_path / "chrome-under-test"
+            fake_chrome.write_text(
+                "#!/usr/bin/env bash\nprintf 'fake chrome: %s\\n' \"$*\"\n",
+                encoding="utf-8",
+            )
+            fake_chrome.chmod(0o755)
+            launcher_dir = tmp_path / "launchers"
+            script = textwrap.dedent(
+                f"""
+                set -euo pipefail
+                source "{COMMON}"
+
+                export CHROME_EXECUTABLE="{fake_chrome}"
+                export CONNECTANUM_CHROME_LAUNCHER_DIR="{launcher_dir}"
+                export CI=true
+                ensure_chrome_env
+                [[ "$(command -v connectanum-chrome)" == \
+                  "{launcher_dir}/connectanum-chrome" ]]
+                [[ "$CHROME_EXECUTABLE" == \
+                  "{launcher_dir}/connectanum-chrome" ]]
+                [[ "$(connectanum-chrome --probe)" == \
+                  "fake chrome: --no-sandbox --probe" ]]
+
+                export CI=false
+                [[ "$(connectanum-chrome --probe)" == "fake chrome: --probe" ]]
+                ensure_chrome_env
+                [[ "$CONNECTANUM_CHROME_BINARY" == "{fake_chrome}" ]]
+                """
+            )
+
+            result = subprocess.run(
+                ["bash", "-c", script],
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_dart_pub_with_retry_bounds_and_retries_stalled_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             attempts_path = Path(tmp_dir) / "attempts.txt"

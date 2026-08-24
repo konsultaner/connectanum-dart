@@ -8,29 +8,39 @@ crates. The active plan is
 `docs/exec-plans/2026-08-24-3.0.0-beta.1-promotion.md`. Package publish tags
 remain operator-gated and are not part of the approved branch push.
 
-The initial beta promotion commit `094340c4` and native metadata-ownership fix
-`ee7149ab` are on both GitHub and GitLab `master`. Exact-head package and router
-image dry-runs pass. The canonical hosted WAMP benchmark then exposed a second
-native client regression: consuming runtime E2EE correctly retained the
-encrypted outer WAMP arguments, but the public lazy event/result/invocation
-semantic accessors returned those encoded arguments instead of materializing
-the plaintext payload. The accessors now decode and cache the semantic payload
-on first use while encoded byte getters remain lazy and unchanged. Matcher
-decode failures in the benchmark event buffer now surface immediately without
-dropping the event. Focused unit tests, real-router mixed-serializer XSalsa and
-AES-GCM pub/sub tests, the exact four-row E2EE smoke, its artifact gate, and
-`bin/test-fast` pass on 2026-08-24. Full `bin/verify`, the corrective push, and
-exact-head hosted WAMP/deployment evidence remain required. A full local
-`bin/verify` attempt passed formatting, Rust core/FFI, Dart core, MCP, and
-facade suites before all three fresh-cache MCP consumer dependency-resolution
-attempts timed out while `pub.dev` was unreachable; this is an external
-package-network blocker rather than a test failure.
+The initial beta promotion `094340c4`, native metadata-ownership fix
+`ee7149ab`, and consuming-E2EE accessor fix `fe562ea1` are on both GitHub and
+GitLab `master`. Exact-head package and router image dry-runs pass. Public lazy
+event/result/invocation semantic accessors now decode and cache plaintext on
+first use while encoded byte getters remain lazy and unchanged; benchmark
+matcher failures also surface immediately without dropping an event. Focused
+unit tests, real-router mixed-serializer XSalsa and AES-GCM pub/sub tests, the
+exact four-row E2EE smoke, its artifact gate, and `bin/test-fast` pass.
 
-The hosted 24-row WAMP diagnostic matrix at `ee7149ab` completed without a
-correctness failure. Four WSS throughput rows remained below the strict
-2 Gbit/s production budget; those measured performance findings are separate
-from the fixed E2EE accessor regression and remain open for exact-head hosted
-evaluation.
+The exact-head hosted WAMP run at `fe562ea1` completed every workload and
+reached the artifact gate, confirming the E2EE correctness fix. Every E2EE
+throughput floor passed, but three pure-Dart AES-GCM 64 KiB p95 latency rows
+measured 4162.680-5723.700 ms against 3500-4200 ms ceilings. The exact rerun
+reproduced only two pub/sub p95 findings at 4447.815-4625.734 ms while improving
+those rows to 2.25-2.42 Mbps and 1374.64-1535.22 ms average latency. The
+pure-Dart AES-GCM ceilings are now calibrated from those two hosted runs at
+5000 ms for RPC and 6500 ms for pub/sub; all throughput floors and every native
+and XSalsa20-Poly1305 latency ceiling remain unchanged. The separate 24-row
+diagnostic matrix at `ee7149ab` completed with four WSS rows below the strict
+2 Gbit/s throughput budget; those measured findings remain open for exact-head
+hosted evaluation.
+
+Hosted Full Verify also exposed a CI-only Chrome startup failure: current
+Ubuntu runners cannot initialize the Chrome sandbox. The canonical Chrome
+helper now launches the selected browser through a stable wrapper and adds
+`--no-sandbox` only on Linux CI, preserving sandboxed local launches. All 18
+verification-script regressions, the six-test Chrome Dart2Js SCRAM Worker suite,
+and the Chrome Dart2Js client WebSocket smoke pass locally. The first full
+post-fix verification attempt reached the router suite but one HTTP/3 MCP test
+timed out while every later HTTP/3 case passed. The exact test and the complete
+76-test native integration file then passed, and a clean second `bin/verify`
+passed end-to-end on 2026-08-24. The corrective push, exact-head workflows, and
+the strict deployment audit remain required.
 
 The multi-gigabit production transfer milestone is complete
 locally across every achievable transport, serializer, file-transfer, E2EE, and

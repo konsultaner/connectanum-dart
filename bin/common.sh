@@ -398,6 +398,11 @@ native_runtime_supported() {
 chrome_binary() {
   local candidate
 
+  if [[ -n "${CONNECTANUM_CHROME_BINARY:-}" && -x "${CONNECTANUM_CHROME_BINARY}" ]]; then
+    printf '%s\n' "${CONNECTANUM_CHROME_BINARY}"
+    return 0
+  fi
+
   if [[ -n "${CHROME_EXECUTABLE:-}" && -x "${CHROME_EXECUTABLE}" ]]; then
     printf '%s\n' "${CHROME_EXECUTABLE}"
     return 0
@@ -428,11 +433,32 @@ chrome_binary() {
 ensure_chrome_env() {
   local binary
   local binary_dir
+  local launcher_dir
+  local launcher_path
+  local launcher_temp
 
   if binary="$(chrome_binary)"; then
     binary_dir="$(cd "$(dirname "$binary")" && pwd)"
     path_prepend_unique "$binary_dir"
-    export CHROME_EXECUTABLE="$binary"
+    export CONNECTANUM_CHROME_BINARY="$binary"
+
+    # Keep package:test on its CHROME_EXECUTABLE path while adding the hosted
+    # Linux sandbox override without weakening local browser launches.
+    launcher_dir="${CONNECTANUM_CHROME_LAUNCHER_DIR:-$ROOT_DIR/.dart_tool/connectanum-bin}"
+    launcher_path="$launcher_dir/connectanum-chrome"
+    launcher_temp="$launcher_path.$$"
+    mkdir -p "$launcher_dir"
+    {
+      printf '#!/usr/bin/env bash\n'
+      printf 'if [[ "${CI:-}" == "true" && "$(uname -s)" == "Linux" ]]; then\n'
+      printf '  exec %q --no-sandbox "$@"\n' "$binary"
+      printf 'fi\n'
+      printf 'exec %q "$@"\n' "$binary"
+    } >"$launcher_temp"
+    chmod +x "$launcher_temp"
+    mv -f "$launcher_temp" "$launcher_path"
+    path_prepend_unique "$launcher_dir"
+    export CHROME_EXECUTABLE="$launcher_path"
     return 0
   fi
 
