@@ -23,6 +23,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _recipientController = TextEditingController();
   final _messageController = TextEditingController();
+  bool _oneTime = false;
+  Duration? _expiresAfter;
 
   @override
   void dispose() {
@@ -36,10 +38,37 @@ class _HomePageState extends State<HomePage> {
     await widget.controller.sendMessage(
       recipientUsername: _recipientController.text,
       text: text,
+      oneTime: _oneTime,
+      expiresAfter: _expiresAfter,
     );
     if (mounted && widget.controller.messageError == null) {
       _messageController.clear();
     }
+  }
+
+  Future<void> _openMessage(LocalChatMessage message) async {
+    if (message.outgoing) return;
+    if (!message.oneTime) {
+      await widget.controller.markMessageRead(message.messageId);
+      return;
+    }
+    final text = await widget.controller.consumeOneTimeMessage(
+      message.messageId,
+    );
+    if (!mounted || text == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('View-once message'),
+        content: Text(text, key: const Key('one-time-message-content')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -60,6 +89,12 @@ class _HomePageState extends State<HomePage> {
               recipientController: _recipientController,
               messageController: _messageController,
               onSend: _send,
+              oneTime: _oneTime,
+              expiresAfter: _expiresAfter,
+              onOneTimeChanged: (value) => setState(() => _oneTime = value),
+              onExpiresAfterChanged: (value) =>
+                  setState(() => _expiresAfter = value),
+              onOpenMessage: _openMessage,
             );
             return Padding(
               padding: const EdgeInsets.all(18),
@@ -237,12 +272,22 @@ class _ConversationPanel extends StatelessWidget {
     required this.recipientController,
     required this.messageController,
     required this.onSend,
+    required this.oneTime,
+    required this.expiresAfter,
+    required this.onOneTimeChanged,
+    required this.onExpiresAfterChanged,
+    required this.onOpenMessage,
   });
 
   final WampAppController controller;
   final TextEditingController recipientController;
   final TextEditingController messageController;
   final Future<void> Function() onSend;
+  final bool oneTime;
+  final Duration? expiresAfter;
+  final ValueChanged<bool> onOneTimeChanged;
+  final ValueChanged<Duration?> onExpiresAfterChanged;
+  final Future<void> Function(LocalChatMessage message) onOpenMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -292,7 +337,12 @@ class _ConversationPanel extends StatelessWidget {
                       itemBuilder: (context, index) {
                         final message = controller
                             .messages[controller.messages.length - index - 1];
-                        return _MessageBubble(message: message);
+                        return _MessageBubble(
+                          message: message,
+                          onTap: message.outgoing || controller.messageBusy
+                              ? null
+                              : () => onOpenMessage(message),
+                        );
                       },
                     ),
             ),
@@ -308,6 +358,51 @@ class _ConversationPanel extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 14),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilterChip(
+                  key: const Key('message-one-time'),
+                  selected: oneTime,
+                  onSelected: controller.messageBusy ? null : onOneTimeChanged,
+                  avatar: const Icon(Icons.visibility_off_outlined, size: 18),
+                  label: const Text('View once'),
+                ),
+                PopupMenuButton<Duration>(
+                  key: const Key('message-expiry'),
+                  enabled: !controller.messageBusy,
+                  initialValue: expiresAfter ?? Duration.zero,
+                  onSelected: (value) => onExpiresAfterChanged(
+                    value == Duration.zero ? null : value,
+                  ),
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: Duration.zero,
+                      child: Text('Keep messages'),
+                    ),
+                    PopupMenuItem(
+                      value: Duration(hours: 1),
+                      child: Text('Delete after 1 hour'),
+                    ),
+                    PopupMenuItem(
+                      value: Duration(days: 1),
+                      child: Text('Delete after 1 day'),
+                    ),
+                    PopupMenuItem(
+                      value: Duration(days: 7),
+                      child: Text('Delete after 7 days'),
+                    ),
+                  ],
+                  child: Chip(
+                    avatar: const Icon(Icons.timer_outlined, size: 18),
+                    label: Text(_expiryLabel(expiresAfter)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -342,6 +437,14 @@ class _ConversationPanel extends StatelessWidget {
       ),
     );
   }
+
+  static String _expiryLabel(Duration? value) => switch (value) {
+    null => 'Keep messages',
+    const Duration(hours: 1) => 'Delete after 1 hour',
+    const Duration(days: 1) => 'Delete after 1 day',
+    const Duration(days: 7) => 'Delete after 7 days',
+    _ => 'Auto-delete enabled',
+  };
 }
 
 class _NoMessages extends StatelessWidget {
@@ -362,9 +465,10 @@ class _NoMessages extends StatelessWidget {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
+  const _MessageBubble({required this.message, this.onTap});
 
   final LocalChatMessage message;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -372,34 +476,51 @@ class _MessageBubble extends StatelessWidget {
       alignment: message.outgoing
           ? Alignment.centerRight
           : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 520),
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-        decoration: BoxDecoration(
-          color: message.outgoing ? WampAppTheme.mint : const Color(0xFFF1EBDD),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '@${message.peerUsername}',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 4),
-            Text(message.text),
-            const SizedBox(height: 5),
-            Text(
-              message.outgoing
-                  ? (message.readAt != null
-                        ? 'Read'
-                        : message.deliveredAt != null
-                        ? 'Delivered'
-                        : 'Sent')
-                  : 'Received',
-              style: const TextStyle(fontSize: 10),
-            ),
-          ],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 520),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+          decoration: BoxDecoration(
+            color: message.outgoing
+                ? WampAppTheme.mint
+                : const Color(0xFFF1EBDD),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '@${message.peerUsername}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                message.oneTime && !message.outgoing
+                    ? 'Tap to view once'
+                    : message.text,
+              ),
+              const SizedBox(height: 5),
+              Text(
+                message.outgoing
+                    ? (message.readAt != null
+                          ? (message.oneTime ? 'Opened' : 'Read')
+                          : message.deliveredAt != null
+                          ? 'Delivered'
+                          : 'Sent')
+                    : message.oneTime
+                    ? 'View once'
+                    : message.readAt != null
+                    ? 'Read'
+                    : 'Tap to mark read',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ],
+          ),
         ),
       ),
     );

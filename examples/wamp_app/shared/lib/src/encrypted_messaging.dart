@@ -183,9 +183,12 @@ final class MailboxMessage {
     required DateTime acceptedAt,
     DateTime? deliveredAt,
     DateTime? readAt,
+    DateTime? consumedAt,
+    this.consumedByDeviceId,
   }) : acceptedAt = acceptedAt.toUtc(),
        deliveredAt = deliveredAt?.toUtc(),
-       readAt = readAt?.toUtc() {
+       readAt = readAt?.toUtc(),
+       consumedAt = consumedAt?.toUtc() {
     validate();
   }
 
@@ -194,6 +197,8 @@ final class MailboxMessage {
   final DateTime acceptedAt;
   final DateTime? deliveredAt;
   final DateTime? readAt;
+  final DateTime? consumedAt;
+  final String? consumedByDeviceId;
 
   void validate() {
     if (cursor < 1) throw const FormatException('Mailbox cursor is invalid.');
@@ -209,6 +214,19 @@ final class MailboxMessage {
             (deliveredAt != null && readAt!.isBefore(deliveredAt!)))) {
       throw const FormatException('Read receipt has invalid ordering.');
     }
+    if ((consumedAt == null) != (consumedByDeviceId == null)) {
+      throw const FormatException('One-time consumption state is incomplete.');
+    }
+    if (consumedAt != null) {
+      if (!message.oneTime || readAt == null || consumedAt != readAt) {
+        throw const FormatException('One-time consumption state is invalid.');
+      }
+      _validateBase64Url(
+        consumedByDeviceId!,
+        expectedBytes: 32,
+        field: 'consumed_by_device_id',
+      );
+    }
   }
 
   Map<String, dynamic> toWampKeywords() {
@@ -220,6 +238,8 @@ final class MailboxMessage {
       if (deliveredAt case final value?)
         'delivered_at': value.toIso8601String(),
       if (readAt case final value?) 'read_at': value.toIso8601String(),
+      if (consumedAt case final value?) 'consumed_at': value.toIso8601String(),
+      'consumed_by_device_id': ?consumedByDeviceId,
     };
   }
 
@@ -251,6 +271,11 @@ final class MailboxMessage {
       acceptedAt: _readUtcDate(value['accepted_at'], 'accepted_at'),
       deliveredAt: _readOptionalUtcDate(value['delivered_at'], 'delivered_at'),
       readAt: _readOptionalUtcDate(value['read_at'], 'read_at'),
+      consumedAt: _readOptionalUtcDate(value['consumed_at'], 'consumed_at'),
+      consumedByDeviceId: switch (value['consumed_by_device_id']) {
+        null => null,
+        final Object raw => _readString(raw, 'consumed_by_device_id'),
+      },
     );
   }
 }
@@ -362,8 +387,10 @@ final class MessageReceipt {
     required this.cursor,
     DateTime? deliveredAt,
     DateTime? readAt,
+    DateTime? consumedAt,
   }) : deliveredAt = deliveredAt?.toUtc(),
-       readAt = readAt?.toUtc() {
+       readAt = readAt?.toUtc(),
+       consumedAt = consumedAt?.toUtc() {
     _validateToken(messageId, 'message_id', maxLength: 128);
     if (cursor < 1) throw const FormatException('Message cursor is invalid.');
     if (readAt != null && deliveredAt == null) {
@@ -372,18 +399,25 @@ final class MessageReceipt {
     if (readAt != null && readAt.isBefore(deliveredAt!)) {
       throw const FormatException('Read receipt predates delivery.');
     }
+    if (consumedAt != null && (readAt == null || consumedAt != readAt)) {
+      throw const FormatException(
+        'Consumed receipt requires matching read time.',
+      );
+    }
   }
 
   final String messageId;
   final int cursor;
   final DateTime? deliveredAt;
   final DateTime? readAt;
+  final DateTime? consumedAt;
 
   Map<String, dynamic> toWampKeywords() => {
     'message_id': messageId,
     'cursor': cursor,
     if (deliveredAt case final value?) 'delivered_at': value.toIso8601String(),
     if (readAt case final value?) 'read_at': value.toIso8601String(),
+    if (consumedAt case final value?) 'consumed_at': value.toIso8601String(),
   };
 
   factory MessageReceipt.fromWampKeywords(Map<String, dynamic>? value) {
@@ -395,6 +429,75 @@ final class MessageReceipt {
       cursor: _readInt(value['cursor'], 'cursor', min: 1),
       deliveredAt: _readOptionalUtcDate(value['delivered_at'], 'delivered_at'),
       readAt: _readOptionalUtcDate(value['read_at'], 'read_at'),
+      consumedAt: _readOptionalUtcDate(value['consumed_at'], 'consumed_at'),
+    );
+  }
+}
+
+final class OneTimeMessageConsumption {
+  OneTimeMessageConsumption({
+    required this.messageId,
+    required this.deviceId,
+    required this.signature,
+  }) {
+    validate();
+  }
+
+  static const signatureVersion = 'wampapp-consume-v1';
+
+  final String messageId;
+  final String deviceId;
+  final String signature;
+
+  void validate() {
+    _validateToken(messageId, 'message_id', maxLength: 128);
+    _validateBase64Url(deviceId, expectedBytes: 32, field: 'device_id');
+    _validateBase64Url(signature, expectedBytes: 64, field: 'signature');
+  }
+
+  List<int> signaturePayload(String username) => signaturePayloadFor(
+    username: username,
+    messageId: messageId,
+    deviceId: deviceId,
+  );
+
+  static List<int> signaturePayloadFor({
+    required String username,
+    required String messageId,
+    required String deviceId,
+  }) {
+    final normalizedUsername = AccountRegistration.normalizeUsername(username);
+    if (normalizedUsername.isEmpty) {
+      throw const FormatException('Consumption username is required.');
+    }
+    _validateToken(messageId, 'message_id', maxLength: 128);
+    _validateBase64Url(deviceId, expectedBytes: 32, field: 'device_id');
+    return utf8.encode(
+      <String>[
+        signatureVersion,
+        normalizedUsername,
+        messageId,
+        deviceId,
+      ].join('\n'),
+    );
+  }
+
+  Map<String, dynamic> toWampKeywords() => {
+    'message_id': messageId,
+    'device_id': deviceId,
+    'signature': signature,
+  };
+
+  factory OneTimeMessageConsumption.fromWampKeywords(
+    Map<String, dynamic>? value,
+  ) {
+    if (value == null) {
+      throw const FormatException('One-time consumption proof is required.');
+    }
+    return OneTimeMessageConsumption(
+      messageId: _readString(value['message_id'], 'message_id'),
+      deviceId: _readString(value['device_id'], 'device_id'),
+      signature: _readString(value['signature'], 'signature'),
     );
   }
 }

@@ -109,25 +109,62 @@ void main() {
             service.send('alice', tampered, now: DateTime.utc(2026, 8, 24, 12)),
         throwsFormatException,
       );
-
-      final oneTime = EncryptedChatMessage(
-        messageId: _token(16, 77),
-        conversationId: valid.conversationId,
-        senderUsername: valid.senderUsername,
-        senderDeviceId: valid.senderDeviceId,
-        recipientUsername: valid.recipientUsername,
-        createdAt: valid.createdAt,
-        oneTime: true,
-        encryptedPayload: valid.encryptedPayload,
-        wrappedKeys: valid.wrappedKeys,
-      );
-      expect(
-        () =>
-            service.send('alice', oneTime, now: DateTime.utc(2026, 8, 24, 12)),
-        throwsFormatException,
-      );
     },
   );
+
+  test('one-time messages require an active consuming device', () async {
+    final message = _message(alice, bob, oneTime: true, messageSeed: 77);
+    final sent = await service.send(
+      'alice',
+      message,
+      now: DateTime.utc(2026, 8, 24, 12),
+    );
+
+    expect(sent.duplicate, isFalse);
+    expect(
+      () => service.consumeOneTime(
+        'bob',
+        OneTimeMessageConsumption(
+          messageId: message.messageId,
+          deviceId: _token(32, 99),
+          signature: _token(64, 98),
+        ),
+      ),
+      throwsStateError,
+    );
+    final forged = _consumption(alice, 'bob', message.messageId);
+    final claimedBob = OneTimeMessageConsumption(
+      messageId: forged.messageId,
+      deviceId: bob.record.deviceId,
+      signature: forged.signature,
+    );
+    expect(() => service.consumeOneTime('bob', claimedBob), throwsStateError);
+    final consumed = await service.consumeOneTime(
+      'bob',
+      _consumption(bob, 'bob', message.messageId),
+      now: DateTime.utc(2026, 8, 24, 12, 1),
+    );
+    expect(consumed.receipt.consumedAt, DateTime.utc(2026, 8, 24, 12, 1));
+  });
+
+  test('revoked devices cannot consume one-time messages', () async {
+    final message = _message(alice, bob, oneTime: true, messageSeed: 78);
+    await service.send('alice', message, now: DateTime.utc(2026, 8, 24, 12));
+    await accounts.revokeDevice(
+      'bob',
+      bob.record.deviceId,
+      now: DateTime.utc(2026, 8, 24, 12, 1),
+    );
+
+    expect(
+      () => service.consumeOneTime(
+        'bob',
+        _consumption(bob, 'bob', message.messageId),
+      ),
+      throwsStateError,
+    );
+    expect((await service.sync('alice', afterCursor: 0)).nextCursor, 1);
+  });
 
   test(
     'device lookup can preserve historical revoked signing identities',
@@ -149,16 +186,41 @@ void main() {
   );
 }
 
-EncryptedChatMessage _message(_TestDevice sender, _TestDevice recipient) {
+OneTimeMessageConsumption _consumption(
+  _TestDevice device,
+  String username,
+  String messageId,
+) {
+  final payload = OneTimeMessageConsumption.signaturePayloadFor(
+    username: username,
+    messageId: messageId,
+    deviceId: device.record.deviceId,
+  );
+  return OneTimeMessageConsumption(
+    messageId: messageId,
+    deviceId: device.record.deviceId,
+    signature: _encode(
+      device.signingKey.sign(Uint8List.fromList(payload)).signature.asTypedList,
+    ),
+  );
+}
+
+EncryptedChatMessage _message(
+  _TestDevice sender,
+  _TestDevice recipient, {
+  bool oneTime = false,
+  int messageSeed = 9,
+}) {
   final conversationId = _token(32, 8);
   final createdAt = DateTime.utc(2026, 8, 24, 12);
   return EncryptedChatMessage(
-    messageId: _token(16, 9),
+    messageId: _token(16, messageSeed),
     conversationId: conversationId,
     senderUsername: sender.record.username,
     senderDeviceId: sender.record.deviceId,
     recipientUsername: recipient.record.username,
     createdAt: createdAt,
+    oneTime: oneTime,
     encryptedPayload: Uint8List.fromList(List<int>.filled(64, 10)),
     wrappedKeys: [
       _wrapped(sender, sender.record, conversationId, createdAt),

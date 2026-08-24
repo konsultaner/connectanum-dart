@@ -36,6 +36,12 @@ final class MessageNotFound implements Exception {
   final String messageId;
 }
 
+final class OneTimeMessageConsumed implements Exception {
+  const OneTimeMessageConsumed(this.messageId);
+
+  final String messageId;
+}
+
 final class MailboxLimitExceeded implements Exception {
   const MailboxLimitExceeded();
 }
@@ -112,12 +118,25 @@ class MailboxStore {
       throw const FormatException('after_cursor is ahead of the mailbox.');
     }
     final timestamp = (now ?? DateTime.now()).toUtc();
+    final latestOneTime = <String, MailboxMessage>{};
+    for (final entry in document.messages) {
+      if (entry.message.oneTime) {
+        latestOneTime[entry.message.messageId] = entry;
+      }
+    }
     final messages = <MailboxMessage>[];
     for (final entry in document.messages) {
       if (entry.cursor <= afterCursor ||
           entry.message.isExpiredAt(timestamp) ||
           (entry.message.senderUsername != username &&
               entry.message.recipientUsername != username)) {
+        continue;
+      }
+      final latest = latestOneTime[entry.message.messageId];
+      if (entry.message.oneTime &&
+          entry.message.recipientUsername == username &&
+          latest?.consumedAt != null &&
+          entry.cursor != latest!.cursor) {
         continue;
       }
       messages.add(entry);
@@ -144,6 +163,11 @@ class MailboxStore {
       if (existing.message.recipientUsername != username) {
         throw StateError('Only the recipient may acknowledge a message.');
       }
+      if (read && existing.message.oneTime) {
+        throw const FormatException(
+          'One-time messages must use atomic consumption.',
+        );
+      }
       final needsUpdate =
           existing.deliveredAt == null || (read && existing.readAt == null);
       if (!needsUpdate) {
@@ -153,18 +177,24 @@ class MailboxStore {
             cursor: existing.cursor,
             deliveredAt: existing.deliveredAt,
             readAt: existing.readAt,
+            consumedAt: existing.consumedAt,
           ),
           senderUsername: existing.message.senderUsername,
           recipientUsername: existing.message.recipientUsername,
         );
       }
       final timestamp = (now ?? DateTime.now()).toUtc();
+      if (existing.message.isExpiredAt(timestamp)) {
+        throw MessageNotFound(messageId);
+      }
       final updated = MailboxMessage(
         cursor: document.nextCursor,
         message: existing.message,
         acceptedAt: existing.acceptedAt,
         deliveredAt: existing.deliveredAt ?? timestamp,
         readAt: read ? (existing.readAt ?? timestamp) : existing.readAt,
+        consumedAt: existing.consumedAt,
+        consumedByDeviceId: existing.consumedByDeviceId,
       );
       await _writeDocument(
         _MailboxDocument(
@@ -178,6 +208,82 @@ class MailboxStore {
           cursor: updated.cursor,
           deliveredAt: updated.deliveredAt,
           readAt: updated.readAt,
+          consumedAt: updated.consumedAt,
+        ),
+        senderUsername: updated.message.senderUsername,
+        recipientUsername: updated.message.recipientUsername,
+      );
+    });
+  }
+
+  Future<MailboxReceiptUpdate> consumeOneTime(
+    String username,
+    String deviceId,
+    String messageId, {
+    DateTime? now,
+  }) {
+    return _serializeWrite(() async {
+      final document = await _readDocument();
+      final existing = document.messages.reversed
+          .where((entry) => entry.message.messageId == messageId)
+          .firstOrNull;
+      if (existing == null) throw MessageNotFound(messageId);
+      if (existing.message.recipientUsername != username) {
+        throw StateError('Only the recipient may consume a message.');
+      }
+      if (!existing.message.oneTime) {
+        throw const FormatException('Message is not a one-time message.');
+      }
+      final encryptedForDevice = existing.message.wrappedKeys.any(
+        (wrapped) =>
+            wrapped.recipientUsername == username &&
+            wrapped.recipientDeviceId == deviceId,
+      );
+      if (!encryptedForDevice) {
+        throw StateError('The message was not encrypted for this device.');
+      }
+      final timestamp = (now ?? DateTime.now()).toUtc();
+      if (existing.consumedAt != null) {
+        if (existing.consumedByDeviceId != deviceId) {
+          throw OneTimeMessageConsumed(messageId);
+        }
+        return MailboxReceiptUpdate(
+          receipt: MessageReceipt(
+            messageId: messageId,
+            cursor: existing.cursor,
+            deliveredAt: existing.deliveredAt,
+            readAt: existing.readAt,
+            consumedAt: existing.consumedAt,
+          ),
+          senderUsername: existing.message.senderUsername,
+          recipientUsername: existing.message.recipientUsername,
+        );
+      }
+      if (existing.message.isExpiredAt(timestamp)) {
+        throw MessageNotFound(messageId);
+      }
+      final updated = MailboxMessage(
+        cursor: document.nextCursor,
+        message: existing.message,
+        acceptedAt: existing.acceptedAt,
+        deliveredAt: existing.deliveredAt ?? timestamp,
+        readAt: timestamp,
+        consumedAt: timestamp,
+        consumedByDeviceId: deviceId,
+      );
+      await _writeDocument(
+        _MailboxDocument(
+          nextCursor: document.nextCursor + 1,
+          messages: [...document.messages, updated],
+        ),
+      );
+      return MailboxReceiptUpdate(
+        receipt: MessageReceipt(
+          messageId: messageId,
+          cursor: updated.cursor,
+          deliveredAt: updated.deliveredAt,
+          readAt: updated.readAt,
+          consumedAt: updated.consumedAt,
         ),
         senderUsername: updated.message.senderUsername,
         recipientUsername: updated.message.recipientUsername,

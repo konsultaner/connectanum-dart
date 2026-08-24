@@ -6,6 +6,9 @@ import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 final class FakeDeviceTrustStore implements DeviceTrustStore {
+  FakeDeviceTrustStore({this.initialMessages = const []});
+
+  final List<LocalChatMessage> initialMessages;
   String? password;
   FakeDeviceTrustSession? session;
   Object? failure;
@@ -20,12 +23,17 @@ final class FakeDeviceTrustStore implements DeviceTrustStore {
     this.password = password;
     final failure = this.failure;
     if (failure != null) throw failure;
-    return session = FakeDeviceTrustSession(username);
+    return session = FakeDeviceTrustSession(username, initialMessages);
   }
 }
 
 final class FakeDeviceTrustSession implements DeviceTrustSession {
-  FakeDeviceTrustSession(this.username);
+  FakeDeviceTrustSession(
+    this.username,
+    List<LocalChatMessage> initialMessages,
+  ) {
+    _messages.addAll(initialMessages);
+  }
 
   final String username;
   bool disposed = false;
@@ -70,6 +78,15 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     required Uint8List conversationKey,
   }) {
     throw UnimplementedError();
+  }
+
+  @override
+  OneTimeMessageConsumption signOneTimeConsumption(String messageId) {
+    return OneTimeMessageConsumption(
+      messageId: messageId,
+      deviceId: deviceId,
+      signature: _token(64, 8),
+    );
   }
 
   @override

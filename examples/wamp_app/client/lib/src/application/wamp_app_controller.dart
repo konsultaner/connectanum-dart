@@ -214,6 +214,8 @@ class WampAppController extends ChangeNotifier {
   Future<void> sendMessage({
     required String recipientUsername,
     required String text,
+    bool oneTime = false,
+    Duration? expiresAfter,
   }) async {
     final connection = _connection;
     final trust = _trustSession;
@@ -242,12 +244,19 @@ class WampAppController extends ChangeNotifier {
         ])
           '${device.username}\n${device.deviceId}': device,
       };
+      if (expiresAfter != null && expiresAfter <= Duration.zero) {
+        throw const FormatException('Message expiry must be positive.');
+      }
+      final now = DateTime.now().toUtc();
       final message = _messageCipher.encrypt(
         senderUsername: connection.username,
         recipientUsername: recipientUsername,
         text: text,
         trust: trust,
         participantDevices: participants.values.toList(growable: false),
+        now: now,
+        expiresAt: expiresAfter == null ? null : now.add(expiresAfter),
+        oneTime: oneTime,
       );
       await connection.sendMessage(message);
       final updated = await _synchronize(connection, trust, localDevice);
@@ -265,6 +274,113 @@ class WampAppController extends ChangeNotifier {
           connection == _connection) {
         _messageError = error;
       }
+    } finally {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          connection == _connection) {
+        _messageBusy = false;
+        notifyListeners();
+        if (synchronized) _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  Future<void> markMessageRead(String messageId) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    final localDevice = _localDevice;
+    final message = _messages
+        .where((candidate) => candidate.messageId == messageId)
+        .firstOrNull;
+    if (_disposed ||
+        _messageBusy ||
+        connection == null ||
+        trust == null ||
+        localDevice == null ||
+        message == null ||
+        message.outgoing ||
+        message.oneTime ||
+        message.readAt != null) {
+      return;
+    }
+    final generation = _operationGeneration;
+    var synchronized = false;
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      await connection.markMessageDelivered(messageId, read: true);
+      final updated = await _synchronize(connection, trust, localDevice);
+      if (_disposed ||
+          generation != _operationGeneration ||
+          connection != _connection ||
+          trust != _trustSession) {
+        return;
+      }
+      _messages = List<LocalChatMessage>.unmodifiable(updated);
+      synchronized = true;
+    } catch (error) {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          connection == _connection) {
+        _messageError = error;
+      }
+    } finally {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          connection == _connection) {
+        _messageBusy = false;
+        notifyListeners();
+        if (synchronized) _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  Future<String?> consumeOneTimeMessage(String messageId) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    final localDevice = _localDevice;
+    final message = _messages
+        .where((candidate) => candidate.messageId == messageId)
+        .firstOrNull;
+    if (_disposed ||
+        _messageBusy ||
+        connection == null ||
+        trust == null ||
+        localDevice == null ||
+        message == null ||
+        message.outgoing ||
+        !message.oneTime) {
+      return null;
+    }
+    final generation = _operationGeneration;
+    var synchronized = false;
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      final consumption = trust.signOneTimeConsumption(messageId);
+      if (consumption.deviceId != localDevice.deviceId) {
+        throw StateError('The local device identity changed unexpectedly.');
+      }
+      await connection.consumeOneTime(consumption);
+      final updated = await _synchronize(connection, trust, localDevice);
+      if (_disposed ||
+          generation != _operationGeneration ||
+          connection != _connection ||
+          trust != _trustSession) {
+        return null;
+      }
+      _messages = List<LocalChatMessage>.unmodifiable(updated);
+      synchronized = true;
+      return message.text;
+    } catch (error) {
+      if (!_disposed &&
+          generation == _operationGeneration &&
+          connection == _connection) {
+        _messageError = error;
+      }
+      return null;
     } finally {
       if (!_disposed &&
           generation == _operationGeneration &&
@@ -410,6 +526,12 @@ class WampAppController extends ChangeNotifier {
       }
       for (final stored in batch.messages) {
         final encrypted = stored.message;
+        if (encrypted.oneTime &&
+            encrypted.recipientUsername == connection.username &&
+            stored.consumedAt != null) {
+          byId.remove(encrypted.messageId);
+          continue;
+        }
         var local = byId[encrypted.messageId];
         if (local == null) {
           final sender = encrypted.senderDeviceId == localDevice.deviceId

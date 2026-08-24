@@ -256,6 +256,10 @@ class WampAppServer {
                 ..allowOperations(const ['call']),
             )
             ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.messageConsume)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.mailboxChanged)
                 ..setMatchPolicy(PermissionMatchPolicy.exact)
                 ..allowOperations(const ['subscribe', 'unsubscribe']),
@@ -289,6 +293,10 @@ class WampAppServer {
             )
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.messageReceipt)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.messageConsume)
                 ..allowOperations(const ['register', 'unregister']),
             )
             ..addPermissionFromBuilder(
@@ -538,6 +546,26 @@ Future<void> _registerMessageHandlers(
       _respondWithMessageError(invocation, error);
     }
   }, options: options);
+  await session.registerHandler(WampAppProtocol.messageConsume, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final consumption = OneTimeMessageConsumption.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final update = await messages.consumeOneTime(username, consumption);
+      await _publishMailboxWakeup(session, update.receipt.cursor, [
+        update.senderUsername,
+        update.recipientUsername,
+      ]);
+      invocation.respondWith(
+        argumentsKeywords: update.receipt.toWampKeywords(),
+      );
+    } catch (error) {
+      _respondWithMessageError(invocation, error);
+    }
+  }, options: options);
 }
 
 Future<void> _publishMailboxWakeup(
@@ -604,6 +632,10 @@ void _respondWithMessageError(Invocation invocation, Object error) {
     MessageNotFound() => (
       WampAppProtocol.errorMessageNotFound,
       'That message was not found.',
+    ),
+    OneTimeMessageConsumed() => (
+      WampAppProtocol.errorMessageConsumed,
+      'That one-time message was already opened on another device.',
     ),
     _CallerNotAuthorized() || StateError() => (
       WampAppProtocol.errorNotAuthorized,

@@ -75,6 +75,85 @@ void main() {
     );
   });
 
+  test(
+    'one-time consumption state round-trips without weakening invariants',
+    () {
+      final consumedAt = DateTime.utc(2026, 8, 24, 12, 1);
+      final stored = MailboxMessage(
+        cursor: 2,
+        message: _message(oneTime: true),
+        acceptedAt: DateTime.utc(2026, 8, 24, 12),
+        deliveredAt: consumedAt,
+        readAt: consumedAt,
+        consumedAt: consumedAt,
+        consumedByDeviceId: _token(32, 9),
+      );
+
+      expect(
+        MailboxMessage.fromWampKeywords(stored.toWampKeywords()).toJson(),
+        stored.toJson(),
+      );
+      expect(
+        MailboxMessage.fromJson(stored.toJson()).toJson(),
+        stored.toJson(),
+      );
+      final receipt = MessageReceipt(
+        messageId: stored.message.messageId,
+        cursor: stored.cursor,
+        deliveredAt: consumedAt,
+        readAt: consumedAt,
+        consumedAt: consumedAt,
+      );
+      expect(
+        MessageReceipt.fromWampKeywords(receipt.toWampKeywords()).consumedAt,
+        consumedAt,
+      );
+    },
+  );
+
+  test(
+    'one-time consumption state rejects incomplete or mismatched records',
+    () {
+      final consumedAt = DateTime.utc(2026, 8, 24, 12, 1);
+      MailboxMessage create({
+        bool oneTime = true,
+        DateTime? readAt,
+        DateTime? consumed,
+        String? deviceId,
+      }) => MailboxMessage(
+        cursor: 2,
+        message: _message(oneTime: oneTime),
+        acceptedAt: DateTime.utc(2026, 8, 24, 12),
+        deliveredAt: consumedAt,
+        readAt: readAt,
+        consumedAt: consumed,
+        consumedByDeviceId: deviceId,
+      );
+
+      expect(
+        () => create(readAt: consumedAt, consumed: consumedAt),
+        throwsFormatException,
+      );
+      expect(
+        () => create(
+          oneTime: false,
+          readAt: consumedAt,
+          consumed: consumedAt,
+          deviceId: _token(32, 9),
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => create(
+          readAt: consumedAt.add(const Duration(seconds: 1)),
+          consumed: consumedAt,
+          deviceId: _token(32, 9),
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
   test('mailbox wakeups and receipts preserve their exact cursor', () {
     final wakeup = MailboxWakeup(cursor: 42);
     expect(MailboxWakeup.fromWampKeywords(wakeup.toWampKeywords()).cursor, 42);
@@ -97,9 +176,33 @@ void main() {
       );
     }
   });
+
+  test('one-time consumption proofs bind account, message, and device', () {
+    final proof = OneTimeMessageConsumption(
+      messageId: _token(16, 8),
+      deviceId: _token(32, 9),
+      signature: _token(64, 10),
+    );
+
+    expect(
+      OneTimeMessageConsumption.fromWampKeywords(
+        proof.toWampKeywords(),
+      ).toWampKeywords(),
+      proof.toWampKeywords(),
+    );
+    expect(
+      utf8.decode(proof.signaturePayload(' Alice ')),
+      [
+        OneTimeMessageConsumption.signatureVersion,
+        'alice',
+        proof.messageId,
+        proof.deviceId,
+      ].join('\n'),
+    );
+  });
 }
 
-EncryptedChatMessage _message() {
+EncryptedChatMessage _message({bool oneTime = false}) {
   final senderDevice = _token(32, 1);
   return EncryptedChatMessage(
     messageId: _token(16, 2),
@@ -108,6 +211,7 @@ EncryptedChatMessage _message() {
     senderDeviceId: senderDevice,
     recipientUsername: 'bob',
     createdAt: DateTime.utc(2026, 8, 24, 11, 59),
+    oneTime: oneTime,
     encryptedPayload: Uint8List.fromList(List<int>.filled(64, 4)),
     wrappedKeys: [
       WrappedConversationKey(

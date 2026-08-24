@@ -29,6 +29,7 @@ class AccountConnection {
     required this.sendMessageCallback,
     required this.syncMessagesCallback,
     required this.markMessageReceiptCallback,
+    required this.consumeOneTimeCallback,
     required this.mailboxWakeups,
     required this.latestMailboxWakeupCursorCallback,
     required this.latestMailboxWakeupErrorCallback,
@@ -51,6 +52,8 @@ class AccountConnection {
   syncMessagesCallback;
   final Future<MessageReceipt> Function(String messageId, bool read)
   markMessageReceiptCallback;
+  final Future<MessageReceipt> Function(OneTimeMessageConsumption consumption)
+  consumeOneTimeCallback;
   final Stream<MailboxWakeup> mailboxWakeups;
   final int Function() latestMailboxWakeupCursorCallback;
   final Object? Function() latestMailboxWakeupErrorCallback;
@@ -101,6 +104,11 @@ class AccountConnection {
   }) {
     _ensureOpen();
     return markMessageReceiptCallback(messageId, read);
+  }
+
+  Future<MessageReceipt> consumeOneTime(OneTimeMessageConsumption consumption) {
+    _ensureOpen();
+    return consumeOneTimeCallback(consumption);
   }
 
   Future<void> close() async {
@@ -254,6 +262,15 @@ class WampAccountGateway implements AccountGateway {
                   'message_id': messageId,
                   'state': read ? 'read' : 'delivered',
                 },
+              )
+              .timeout(connectionTimeout);
+          return MessageReceipt.fromWampKeywords(result.argumentsKeywords);
+        },
+        consumeOneTimeCallback: (consumption) async {
+          final result = await session
+              .callSingle(
+                WampAppProtocol.messageConsume,
+                argumentsKeywords: consumption.toWampKeywords(),
               )
               .timeout(connectionTimeout);
           return MessageReceipt.fromWampKeywords(result.argumentsKeywords);

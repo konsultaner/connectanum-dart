@@ -32,6 +32,7 @@ abstract interface class DeviceTrustSession {
     required DeviceRecord recipient,
     required Uint8List conversationKey,
   });
+  OneTimeMessageConsumption signOneTimeConsumption(String messageId);
   Uint8List unwrapConversationKey({
     required WrappedConversationKey envelope,
     required DeviceRecord sender,
@@ -378,6 +379,15 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
       conversationId: conversationId,
       recipient: recipient,
       conversationKey: conversationKey,
+    );
+  }
+
+  @override
+  OneTimeMessageConsumption signOneTimeConsumption(String messageId) {
+    _ensureActive();
+    return identity.signOneTimeConsumption(
+      username: username,
+      messageId: messageId,
     );
   }
 

@@ -39,11 +39,6 @@ class MessageService {
     if (caller != message.senderUsername) {
       throw StateError('The authenticated sender does not match the message.');
     }
-    if (message.oneTime) {
-      throw const FormatException(
-        'One-time message consumption is not enabled yet.',
-      );
-    }
     final timestamp = (now ?? DateTime.now()).toUtc();
     if (message.createdAt.isBefore(timestamp.subtract(maximumClockSkew)) ||
         message.createdAt.isAfter(timestamp.add(maximumClockSkew))) {
@@ -102,6 +97,46 @@ class MessageService {
       cursor: result.message.cursor,
       acceptedAt: result.message.acceptedAt,
       duplicate: result.duplicate,
+    );
+  }
+
+  Future<MailboxReceiptUpdate> consumeOneTime(
+    String callerUsername,
+    OneTimeMessageConsumption consumption, {
+    DateTime? now,
+  }) async {
+    consumption.validate();
+    final caller = AccountRegistration.normalizeUsername(callerUsername);
+    final account = await accounts.find(caller);
+    final device = account?.devices[consumption.deviceId];
+    if (device == null || device.isRevoked) {
+      throw StateError('The consuming device is not active for this account.');
+    }
+    try {
+      ed.VerifyKey(
+        _decode(
+          device.enrollment.signingPublicKey,
+          'signing_public_key',
+          expectedBytes: ed.VerifyKey.keyLength,
+        ),
+      ).verify(
+        signature: ed.Signature(
+          _decode(
+            consumption.signature,
+            'signature',
+            expectedBytes: ed.Signature.signatureLength,
+          ),
+        ),
+        message: Uint8List.fromList(consumption.signaturePayload(caller)),
+      );
+    } catch (_) {
+      throw StateError('The one-time consumption signature is invalid.');
+    }
+    return mailbox.consumeOneTime(
+      caller,
+      consumption.deviceId,
+      consumption.messageId,
+      now: now,
     );
   }
 

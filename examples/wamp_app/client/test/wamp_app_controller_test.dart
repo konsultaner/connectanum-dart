@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
+import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -266,6 +267,48 @@ void main() {
     expect(controller.messageError, 'Mailbox wakeup cursor is invalid.');
     expect(controller.messages, isEmpty);
   });
+
+  test('sign out fences a late one-time consume response', () async {
+    final gateway = _RecordingGateway();
+    final message = LocalChatMessage(
+      messageId: 'one-time-message',
+      conversationId: 'alice-bob',
+      peerUsername: 'bob',
+      text: 'ephemeral plaintext',
+      sentAt: DateTime.utc(2026, 8, 24, 12),
+      outgoing: false,
+      oneTime: true,
+    );
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(initialMessages: [message]),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final connection = gateway.connections.single;
+    final blocked = connection.blockNextConsume();
+
+    final reveal = controller.consumeOneTimeMessage(message.messageId);
+    await _waitFor(() => connection.consumeCalls.length == 1);
+    await controller.signOut();
+    blocked.complete(
+      MessageReceipt(
+        messageId: message.messageId,
+        cursor: 1,
+        deliveredAt: DateTime.utc(2026, 8, 24, 12, 1),
+        readAt: DateTime.utc(2026, 8, 24, 12, 1),
+        consumedAt: DateTime.utc(2026, 8, 24, 12, 1),
+      ),
+    );
+
+    expect(await reveal, isNull);
+    expect(controller.status, WampAppStatus.signedOut);
+    expect(controller.messageError, isNull);
+  });
 }
 
 class _RecordingGateway implements AccountGateway {
@@ -314,6 +357,7 @@ class _RecordingGateway implements AccountGateway {
       sendMessageCallback: (_) => throw UnimplementedError(),
       syncMessagesCallback: connection.sync,
       markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
+      consumeOneTimeCallback: connection.consume,
       mailboxWakeups: connection.wakeups.stream,
       latestMailboxWakeupCursorCallback: () => connection.latestWakeupCursor,
       latestMailboxWakeupErrorCallback: () => null,
@@ -334,9 +378,14 @@ final class _GatewayConnection {
   final List<int> syncAfterCursors = [];
   int latestWakeupCursor = 0;
   int serverCursor = 0;
+  final List<OneTimeMessageConsumption> consumeCalls = [];
   Completer<void>? _syncGate;
+  Completer<MessageReceipt>? _consumeGate;
 
   Completer<void> blockNextSync() => _syncGate = Completer<void>();
+
+  Completer<MessageReceipt> blockNextConsume() =>
+      _consumeGate = Completer<MessageReceipt>();
 
   Future<MailboxBatch> sync(int afterCursor, int _) async {
     syncAfterCursors.add(afterCursor);
@@ -345,6 +394,14 @@ final class _GatewayConnection {
     _syncGate = null;
     await gate?.future;
     return MailboxBatch(nextCursor: cursor, messages: const []);
+  }
+
+  Future<MessageReceipt> consume(OneTimeMessageConsumption consumption) {
+    consumeCalls.add(consumption);
+    final gate = _consumeGate;
+    _consumeGate = null;
+    if (gate == null) throw StateError('No consume response was configured.');
+    return gate.future;
   }
 
   void emitWakeup(int cursor) {

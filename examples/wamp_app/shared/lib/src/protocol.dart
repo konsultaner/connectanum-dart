@@ -11,6 +11,7 @@ abstract final class WampAppProtocol {
   static const messageSend = 'com.wampapp.message.send';
   static const messageSync = 'com.wampapp.message.sync';
   static const messageReceipt = 'com.wampapp.message.receipt';
+  static const messageConsume = 'com.wampapp.message.consume';
   static const mailboxChanged = 'com.wampapp.mailbox.changed';
 
   static const errorInvalidRegistration =
@@ -26,6 +27,7 @@ abstract final class WampAppProtocol {
   static const errorInvalidMessage = 'com.wampapp.error.invalid_message';
   static const errorMessageConflict = 'com.wampapp.error.message_conflict';
   static const errorMessageNotFound = 'com.wampapp.error.message_not_found';
+  static const errorMessageConsumed = 'com.wampapp.error.message_consumed';
   static const errorMessageUnavailable =
       'com.wampapp.error.message_unavailable';
   static const errorNotAuthorized = 'com.wampapp.error.not_authorized';

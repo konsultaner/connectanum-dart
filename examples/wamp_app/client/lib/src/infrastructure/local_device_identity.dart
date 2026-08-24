@@ -209,6 +209,27 @@ final class LocalDeviceIdentity {
     );
   }
 
+  OneTimeMessageConsumption signOneTimeConsumption({
+    required String username,
+    required String messageId,
+  }) {
+    _ensureActive();
+    final payload = OneTimeMessageConsumption.signaturePayloadFor(
+      username: username,
+      messageId: messageId,
+      deviceId: deviceId,
+    );
+    final signature = ed.SigningKey.fromSeed(_signingSeed)
+        .sign(Uint8List.fromList(payload))
+        .signature
+        .asTypedList;
+    return OneTimeMessageConsumption(
+      messageId: messageId,
+      deviceId: deviceId,
+      signature: _encode(signature),
+    );
+  }
+
   Uint8List unwrapConversationKey({
     required String username,
     required WrappedConversationKey envelope,

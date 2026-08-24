@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/app.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
+import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
@@ -9,9 +10,18 @@ import 'test_support.dart';
 
 void main() {
   testWidgets('registers and opens the authenticated shell', (tester) async {
+    final oneTimeMessage = LocalChatMessage(
+      messageId: 'one-time-message',
+      conversationId: 'alice-bob',
+      peerUsername: 'bob',
+      text: 'hidden until consumed',
+      sentAt: DateTime.utc(2026, 8, 24, 12),
+      outgoing: false,
+      oneTime: true,
+    );
     final controller = WampAppController(
       gateway: _FakeGateway(),
-      trustStore: FakeDeviceTrustStore(),
+      trustStore: FakeDeviceTrustStore(initialMessages: [oneTimeMessage]),
     );
     addTearDown(controller.dispose);
     await tester.pumpWidget(WampApp(controller: controller));
@@ -41,6 +51,21 @@ void main() {
     expect(find.text('@alice'), findsOneWidget);
     expect(find.text('Encrypted device vault'), findsOneWidget);
     expect(find.text('Test device'), findsOneWidget);
+    expect(find.text('hidden until consumed'), findsNothing);
+    expect(find.text('Tap to view once'), findsOneWidget);
+
+    final oneTime = find.byKey(const Key('message-one-time'));
+    await tester.ensureVisible(oneTime);
+    await tester.tap(oneTime);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(oneTime).selected, isTrue);
+
+    final expiry = find.byKey(const Key('message-expiry'));
+    await tester.tap(expiry);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete after 1 day'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete after 1 day'), findsOneWidget);
   });
 
   testWidgets('clears password after a failed attempt', (tester) async {
@@ -105,6 +130,7 @@ class _FakeGateway implements AccountGateway {
       syncMessagesCallback: (afterCursor, _) async =>
           MailboxBatch(nextCursor: afterCursor, messages: const []),
       markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
+      consumeOneTimeCallback: (_) => throw UnimplementedError(),
       mailboxWakeups: const Stream<MailboxWakeup>.empty(),
       latestMailboxWakeupCursorCallback: () => 0,
       latestMailboxWakeupErrorCallback: () => null,

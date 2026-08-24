@@ -142,6 +142,54 @@ void main() {
             !alice.messageBusy,
       );
       expect(alice.messages.single.deliveredAt, isNotNull);
+      final durableMessageId = alice.messages.single.messageId;
+      await bob.markMessageRead(durableMessageId);
+      await _waitFor(
+        () =>
+            alice.messages
+                .where((message) => message.messageId == durableMessageId)
+                .single
+                .readAt !=
+            null,
+      );
+
+      const oneTimePlaintext = 'This message may only be opened once.';
+      await alice.sendMessage(
+        recipientUsername: 'bob',
+        text: oneTimePlaintext,
+        oneTime: true,
+        expiresAfter: const Duration(hours: 1),
+      );
+      expect(alice.messageError, isNull);
+      final oneTimeMessage = alice.messages.singleWhere(
+        (message) => message.oneTime,
+      );
+      await _waitFor(
+        () =>
+            bob.messages.any(
+              (message) => message.messageId == oneTimeMessage.messageId,
+            ) &&
+            !bob.messageBusy,
+      );
+      final revealed = await bob.consumeOneTimeMessage(
+        oneTimeMessage.messageId,
+      );
+      expect(revealed, oneTimePlaintext);
+      expect(
+        bob.messages.any(
+          (message) => message.messageId == oneTimeMessage.messageId,
+        ),
+        isFalse,
+      );
+      await _waitFor(
+        () =>
+            alice.messages
+                .singleWhere(
+                  (message) => message.messageId == oneTimeMessage.messageId,
+                )
+                .readAt !=
+            null,
+      );
       await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(unrelatedWakeups, 0);
       expect(mallory.messages, isEmpty);
@@ -149,7 +197,9 @@ void main() {
       final mailboxDocument = await File('${temporary.path}/messages.json')
           .readAsString();
       expect(mailboxDocument, isNot(contains(plaintext)));
+      expect(mailboxDocument, isNot(contains(oneTimePlaintext)));
       expect(mailboxDocument, contains('encrypted_payload'));
+      expect(mailboxDocument, contains('consumed_by_device_id'));
 
       await bob.signOut();
       bob.dispose();
@@ -160,7 +210,7 @@ void main() {
         password: 'bob secret phrase',
       );
       expect(bob.messages, hasLength(1));
-      expect(bob.messages.single.messageId, alice.messages.single.messageId);
+      expect(bob.messages.single.messageId, durableMessageId);
       expect(bob.messages.single.text, plaintext);
     },
     timeout: const Timeout(Duration(minutes: 3)),

@@ -10,8 +10,8 @@ standardized `wamp-scram` authentication, encrypted per-device identity
 storage, authenticated device enrollment/revocation, safety numbers, signed
 conversation-key wrapping, opaque server mailboxes, reconnect cursors, and
 encrypted one-to-one messages with authenticated push-driven synchronization.
-Groups, explicit read and one-time-consumption semantics, and retry/conflict UX
-remain open.
+Explicit read state and signed, atomic one-time consumption are now complete.
+Groups and retry/conflict UX remain open.
 The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
 WampApp lives under `examples/wamp_app` as standalone client, server, and shared
@@ -77,7 +77,26 @@ payload. A three-account native-router test proves automatic recipient delivery
 and sender receipt updates while an unrelated authenticated account receives no
 wakeup. `bin/test-wamp-app` and repository `bin/verify` pass on 2026-08-24; the
 focused suites cover 16 shared, 21 server, and 23 Flutter tests plus a release
-web build. Exact-head hosted evidence is pending for this implementation.
+web build. Commit `1ae4c3ea` is pushed to GitLab and GitHub. Exact-head CI run
+`32773529505` passed Fast Checks, WampApp Consumer, Full Verify, and Dart VM
+Coverage. The feature-branch audit confirms the exact checked-out head, clean
+job topology and logs, visible workflows, and the public router package; the
+separate strict audit confirms the protected `master` release policy.
+
+Explicit read state and atomic one-time consumption are complete locally.
+Normal incoming messages expose a deliberate read action and publish durable
+sender-visible receipt cursors. One-time messages use the same encrypted binary
+WAMP envelope, but reveal only after a message-specific Ed25519 proof from an
+active recipient device is verified and atomically recorded under the mailbox
+lock. The server also requires that the consuming device had an original
+wrapped content key. Same-device retries retain one cursor, competing devices
+fail closed, expired messages cannot create new receipt state, recipient sync
+removes consumed content, and lifecycle fences prevent stale responses from
+crossing sign-out. The Flutter composer exposes view-once and one-hour/day/week
+expiry controls, hides one-time plaintext before consumption, and reports
+Opened to the sender. `bin/test-wamp-app` passes with 19 shared, 26 server, and
+24 Flutter tests plus a release web build, and repository `bin/verify` passes
+on 2026-08-24. Hosted exact-head evidence is pending for this revision.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages
