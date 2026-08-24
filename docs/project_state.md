@@ -29,8 +29,14 @@ before Flutter had resolved their dependencies. Root analysis now excludes
 `examples/wamp_app/**`, and the required `WampApp Consumer` job verifies its
 shared, server, and client packages with Flutter 3.47.1 before Full Verify and
 coverage may start. The matching local `bin/test-wamp-app` command passes all
-17 package tests, analysis, and the release web build; final exact-head hosted
-evidence remains pending the corrective push.
+17 package tests, formatting, analysis, and the release web build. Exact-head
+CI run `32746938142` confirmed both Fast Checks and the new WampApp Consumer
+job, then exposed the equivalent ownership gap in root formatting: unresolved
+Flutter lints caused `dart format .` to rewrite a standalone client test before
+Full Verify could start. Root verification now formats tracked and untracked
+non-ignored workspace Dart files outside the WampApp subtree, while
+`bin/test-wamp-app` owns formatting for all three standalone packages; final
+exact-head hosted evidence remains pending the follow-up push.
 
 `v3.0.0-beta.2` is published as a public GitHub prerelease with validated signed
 native assets and a multi-architecture router image. All seven synchronized

@@ -14,6 +14,7 @@ fi
 (
   cd examples/wamp_app/shared
   dart pub get
+  dart format --output=none --set-exit-if-changed .
   dart analyze
   dart test
 )
@@ -21,6 +22,7 @@ fi
 (
   cd examples/wamp_app/server
   dart pub get
+  dart format --output=none --set-exit-if-changed .
   dart analyze
   dart test
 )
@@ -28,6 +30,7 @@ fi
 (
   cd examples/wamp_app/client
   flutter pub get
+  dart format --output=none --set-exit-if-changed .
   flutter analyze
   flutter test
   flutter build web --release

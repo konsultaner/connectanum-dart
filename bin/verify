@@ -7,5 +7,15 @@ source "$(dirname "$0")/common.sh"
 cd_repo_root
 require_command dart
 
-dart format --output=none --set-exit-if-changed .
+dart_files=()
+while IFS= read -r -d '' dart_file; do
+  dart_files+=("$dart_file")
+done < <(
+  git ls-files --cached --others --exclude-standard -z -- \
+    '*.dart' ':(exclude)examples/wamp_app/**'
+)
+
+if ((${#dart_files[@]} > 0)); then
+  dart format --output=none --set-exit-if-changed "${dart_files[@]}"
+fi
 "$(repo_root)/bin/test-all"
