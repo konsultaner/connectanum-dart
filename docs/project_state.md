@@ -23,6 +23,15 @@ desktop and 390-pixel layouts. Repository-wide `bin/verify` passes.
 The Flutter client also produces a clean release web build, including the
 Dart2Wasm dry-run and packaged icon fonts.
 
+The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
+scope issue: the root Dart-only job traversed the standalone WampApp packages
+before Flutter had resolved their dependencies. Root analysis now excludes
+`examples/wamp_app/**`, and the required `WampApp Consumer` job verifies its
+shared, server, and client packages with Flutter 3.47.1 before Full Verify and
+coverage may start. The matching local `bin/test-wamp-app` command passes all
+17 package tests, analysis, and the release web build; final exact-head hosted
+evidence remains pending the corrective push.
+
 `v3.0.0-beta.2` is published as a public GitHub prerelease with validated signed
 native assets and a multi-architecture router image. All seven synchronized
 Dart packages are indexed on pub.dev. A fresh external pub cache resolves the

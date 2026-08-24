@@ -39,11 +39,30 @@ jobs:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
         run: bin/test-fast
 
+  wamp-app:
+    name: WampApp Consumer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify standalone WampApp packages
+        run: bin/test-wamp-app
+
   verify:
     name: Full Verify
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    needs: fast
+    needs: [fast, wamp-app]
 
     steps:
       - uses: actions/checkout@v5
@@ -69,7 +88,7 @@ jobs:
     name: Dart VM Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    needs: fast
+    needs: [fast, wamp-app]
     permissions:
       contents: read
       id-token: write

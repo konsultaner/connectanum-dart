@@ -50,6 +50,7 @@ CONNECTANUM_BENCH_PACKAGE_PUBSPEC = (
 PACKAGE_NATIVE_ARTIFACT = REPO_ROOT / "bin" / "package-native-artifact"
 TEST_ALL = REPO_ROOT / "bin" / "test-all"
 TEST_FAST = REPO_ROOT / "bin" / "test-fast"
+TEST_WAMP_APP = REPO_ROOT / "bin" / "test-wamp-app"
 
 
 class VerificationScriptsTest(unittest.TestCase):
@@ -62,6 +63,7 @@ class VerificationScriptsTest(unittest.TestCase):
             PACKAGE_NATIVE_ARTIFACT,
             TEST_ALL,
             TEST_FAST,
+            TEST_WAMP_APP,
         ]:
             with self.subTest(script=script_path.relative_to(REPO_ROOT)):
                 result = subprocess.run(

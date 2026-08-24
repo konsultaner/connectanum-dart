@@ -5,4 +5,5 @@ formatter:
 
 analyzer:
   exclude:
+    - examples/wamp_app/**
     - out/**

@@ -62,6 +62,14 @@ graph LR
   `connectanum_client` directly; router, MCP server, auth-server, and benchmark
   APIs stay in their dedicated packages.
 
+- **WampApp consumer example (`examples/wamp_app`)**
+  The production-oriented Flutter example is intentionally outside the root
+  Dart workspace. Its `shared`, `server`, and `client` packages consume the
+  hosted Connectanum prerelease graph and are verified separately by
+  `bin/test-wamp-app` with Flutter 3.47.1 in CI. Root Dart analysis excludes
+  this subtree so clean Dart-only jobs do not mistake unresolved standalone
+  Flutter packages for workspace members.
+
 - **MCP server primitives (`packages/connectanum_mcp/lib`)**
   The first Model Context Protocol package slice defines the current MCP protocol version, JSON-RPC error/response helpers, typed server info and capability objects, an in-memory `McpServer` lifecycle, a callback-backed tool registry, a stdio transport adapter, and a WAMP-backed tool delegate. The current verified surface covers `initialize`, `notifications/initialized`, `tools/list`, `tools/call`, protocol errors, parse errors, tool execution errors, stdio line framing, notification suppression, shutdown state, MCP-argument-to-WAMP-kwargs forwarding, custom WAMP argument/result mapping, and `Session.callSinglePayload` delegation. Streamable HTTP and router-backed HTTP remain conditional follow-up adapters.
 

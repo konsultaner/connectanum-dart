@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+cd_repo_root
+
+if ! command -v flutter >/dev/null 2>&1; then
+  printf 'Flutter is required to verify examples/wamp_app.\n' >&2
+  exit 1
+fi
+
+(
+  cd examples/wamp_app/shared
+  dart pub get
+  dart analyze
+  dart test
+)
+
+(
+  cd examples/wamp_app/server
+  dart pub get
+  dart analyze
+  dart test
+)
+
+(
+  cd examples/wamp_app/client
+  flutter pub get
+  flutter analyze
+  flutter test
+  flutter build web --release
+)
