@@ -35,8 +35,12 @@ job, then exposed the equivalent ownership gap in root formatting: unresolved
 Flutter lints caused `dart format .` to rewrite a standalone client test before
 Full Verify could start. Root verification now formats tracked and untracked
 non-ignored workspace Dart files outside the WampApp subtree, while
-`bin/test-wamp-app` owns formatting for all three standalone packages; final
-exact-head hosted evidence remains pending the follow-up push.
+`bin/test-wamp-app` owns formatting for all three standalone packages.
+Exact-head CI run `32749847198` passed Fast Checks, WampApp Consumer, Full
+Verify, and Dart VM Coverage, confirming the standalone-package analysis and
+formatting ownership on a clean hosted checkout. The strict deployment auditor
+now treats WampApp Consumer as part of the expected CI topology; exact-head
+hosted evidence for that audit-contract update remains pending its push.
 
 `v3.0.0-beta.2` is published as a public GitHub prerelease with validated signed
 native assets and a multi-architecture router image. All seven synchronized

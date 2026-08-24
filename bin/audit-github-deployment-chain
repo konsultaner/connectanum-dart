@@ -121,7 +121,12 @@ require_workflows_visible=0
 show_required_checks_plan=0
 show_rc_readiness=0
 require_rc_ready=0
-expected_ci_jobs=('Fast Checks' 'Dart VM Coverage' 'Full Verify')
+expected_ci_jobs=(
+  'Fast Checks'
+  'WampApp Consumer'
+  'Dart VM Coverage'
+  'Full Verify'
+)
 dart_package_publish_workflow='Dart Package Publish Dry Run'
 expected_dart_package_publish_jobs=('Publish Dry Run')
 native_release_workflow='Native Artifacts'
