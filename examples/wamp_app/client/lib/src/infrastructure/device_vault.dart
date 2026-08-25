@@ -47,11 +47,22 @@ abstract interface class DeviceTrustSession {
     required DeviceRecord recipient,
     required Uint8List conversationKey,
   });
+  EncryptedCallSignal sealCallSignal({
+    required String callId,
+    required String signalId,
+    required CallSignalKind kind,
+    required DeviceRecord recipient,
+    required Uint8List plaintext,
+  });
   OneTimeMessageConsumption signOneTimeConsumption(String messageId);
   Uint8List unwrapConversationKey({
     required WrappedConversationKey envelope,
     required DeviceRecord sender,
     bool allowRevokedSender = false,
+  });
+  Uint8List openCallSignal({
+    required EncryptedCallSignal signal,
+    required DeviceRecord sender,
   });
   int get mailboxCursor;
   List<LocalChatMessage> get messages;
@@ -685,6 +696,25 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   }
 
   @override
+  EncryptedCallSignal sealCallSignal({
+    required String callId,
+    required String signalId,
+    required CallSignalKind kind,
+    required DeviceRecord recipient,
+    required Uint8List plaintext,
+  }) {
+    _ensureActive();
+    return identity.sealCallSignal(
+      username: username,
+      callId: callId,
+      signalId: signalId,
+      kind: kind,
+      recipient: recipient,
+      plaintext: plaintext,
+    );
+  }
+
+  @override
   OneTimeMessageConsumption signOneTimeConsumption(String messageId) {
     _ensureActive();
     return identity.signOneTimeConsumption(
@@ -705,6 +735,19 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
       envelope: envelope,
       sender: sender,
       allowRevokedSender: allowRevokedSender,
+    );
+  }
+
+  @override
+  Uint8List openCallSignal({
+    required EncryptedCallSignal signal,
+    required DeviceRecord sender,
+  }) {
+    _ensureActive();
+    return identity.openCallSignal(
+      username: username,
+      signal: signal,
+      sender: sender,
     );
   }
 

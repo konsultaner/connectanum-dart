@@ -26,6 +26,13 @@ abstract final class WampAppProtocol {
   static const backupMetadataGet = 'com.wampapp.backup.metadata.get';
   static const backupChunkGet = 'com.wampapp.backup.chunk.get';
   static const backupDelete = 'com.wampapp.backup.delete';
+  static const callConfiguration = 'com.wampapp.call.configuration';
+  static const callStart = 'com.wampapp.call.start';
+  static const callAccept = 'com.wampapp.call.accept';
+  static const callSignal = 'com.wampapp.call.signal';
+  static const callEnd = 'com.wampapp.call.end';
+  static const callSync = 'com.wampapp.call.sync';
+  static const callChanged = 'com.wampapp.call.changed';
 
   static const errorInvalidRegistration =
       'com.wampapp.error.invalid_registration';
@@ -70,6 +77,12 @@ abstract final class WampAppProtocol {
   static const errorBackupQuotaExceeded =
       'com.wampapp.error.backup_quota_exceeded';
   static const errorBackupUnavailable = 'com.wampapp.error.backup_unavailable';
+  static const errorInvalidCall = 'com.wampapp.error.invalid_call';
+  static const errorCallConflict = 'com.wampapp.error.call_conflict';
+  static const errorCallNotFound = 'com.wampapp.error.call_not_found';
+  static const errorCallAnswered = 'com.wampapp.error.call_answered';
+  static const errorCallEnded = 'com.wampapp.error.call_ended';
+  static const errorCallUnavailable = 'com.wampapp.error.call_unavailable';
   static const errorNotAuthorized = 'com.wampapp.error.not_authorized';
 
   static const serviceAuthId = 'wampapp.service';

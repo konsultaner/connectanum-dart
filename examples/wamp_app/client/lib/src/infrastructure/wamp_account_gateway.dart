@@ -215,6 +215,51 @@ final class EncryptedRemoteBackup {
   Uint8List get archive => Uint8List.fromList(_archive);
 }
 
+enum CallSignalingFailureKind {
+  retryable,
+  rejected,
+  conflict,
+  notFound,
+  answeredElsewhere,
+  ended,
+}
+
+final class CallSignalingException implements Exception {
+  const CallSignalingException(this.kind);
+
+  factory CallSignalingException.fromWampError(wamp.Error error) {
+    final kind = switch (error.error) {
+      WampAppProtocol.errorCallConflict => CallSignalingFailureKind.conflict,
+      WampAppProtocol.errorCallNotFound => CallSignalingFailureKind.notFound,
+      WampAppProtocol.errorCallAnswered =>
+        CallSignalingFailureKind.answeredElsewhere,
+      WampAppProtocol.errorCallEnded => CallSignalingFailureKind.ended,
+      WampAppProtocol.errorInvalidCall ||
+      WampAppProtocol.errorNotAuthorized ||
+      wamp.Error.notAuthorized => CallSignalingFailureKind.rejected,
+      WampAppProtocol.errorCallUnavailable ||
+      _ => CallSignalingFailureKind.retryable,
+    };
+    return CallSignalingException(kind);
+  }
+
+  final CallSignalingFailureKind kind;
+
+  @override
+  String toString() => switch (kind) {
+    CallSignalingFailureKind.retryable =>
+      'Call signaling is temporarily unavailable.',
+    CallSignalingFailureKind.rejected =>
+      'The server rejected this call operation.',
+    CallSignalingFailureKind.conflict =>
+      'The call signal conflicts with existing state.',
+    CallSignalingFailureKind.notFound => 'That call was not found.',
+    CallSignalingFailureKind.answeredElsewhere =>
+      'That call was answered on another device.',
+    CallSignalingFailureKind.ended => 'That call has already ended.',
+  };
+}
+
 class AccountConnection {
   AccountConnection({
     required this.endpoint,
@@ -242,10 +287,20 @@ class AccountConnection {
     this.getBackupMetadataCallback,
     this.getBackupChunkCallback,
     this.deleteBackupCallback,
+    this.getCallConfigurationCallback,
+    this.startCallCallback,
+    this.acceptCallCallback,
+    this.sendCallSignalCallback,
+    this.endCallCallback,
+    this.syncCallsCallback,
+    Stream<CallWakeup>? callWakeups,
+    this.latestCallWakeupCursorCallback,
+    this.latestCallWakeupErrorCallback,
     required this.mailboxWakeups,
     required this.latestMailboxWakeupCursorCallback,
     required this.latestMailboxWakeupErrorCallback,
-  }) : _profile = initialProfile;
+  }) : _profile = initialProfile,
+       callWakeups = callWakeups ?? const Stream<CallWakeup>.empty();
 
   final ServerEndpoint endpoint;
   final String username;
@@ -302,6 +357,20 @@ class AccountConnection {
   )?
   getBackupChunkCallback;
   final Future<bool> Function(int expectedRevision)? deleteBackupCallback;
+  final Future<CallConfiguration> Function()? getCallConfigurationCallback;
+  final Future<CallUpdate> Function(CallStartRequest request)?
+  startCallCallback;
+  final Future<CallUpdate> Function(EncryptedCallSignal answer)?
+  acceptCallCallback;
+  final Future<CallUpdate> Function(EncryptedCallSignal signal)?
+  sendCallSignalCallback;
+  final Future<CallUpdate> Function(EncryptedCallSignal signal)?
+  endCallCallback;
+  final Future<CallBatch> Function(String deviceId, int afterCursor, int limit)?
+  syncCallsCallback;
+  final Stream<CallWakeup> callWakeups;
+  final int Function()? latestCallWakeupCursorCallback;
+  final Object? Function()? latestCallWakeupErrorCallback;
   final Stream<MailboxWakeup> mailboxWakeups;
   final int Function() latestMailboxWakeupCursorCallback;
   final Object? Function() latestMailboxWakeupErrorCallback;
@@ -311,6 +380,8 @@ class AccountConnection {
   String get displayName => _profile.displayName;
   int get latestMailboxWakeupCursor => latestMailboxWakeupCursorCallback();
   Object? get latestMailboxWakeupError => latestMailboxWakeupErrorCallback();
+  int get latestCallWakeupCursor => latestCallWakeupCursorCallback?.call() ?? 0;
+  Object? get latestCallWakeupError => latestCallWakeupErrorCallback?.call();
 
   Future<DeviceRecord> enrollDevice(DeviceEnrollment enrollment) {
     _ensureOpen();
@@ -555,6 +626,66 @@ class AccountConnection {
     return callback(expectedRevision);
   }
 
+  Future<CallConfiguration> getCallConfiguration() {
+    _ensureOpen();
+    final callback = getCallConfigurationCallback;
+    if (callback == null) {
+      throw StateError('Call configuration is unavailable on this connection.');
+    }
+    return callback();
+  }
+
+  Future<CallUpdate> startCall(CallStartRequest request) {
+    _ensureOpen();
+    final callback = startCallCallback;
+    if (callback == null) {
+      throw StateError('Call signaling is unavailable on this connection.');
+    }
+    return callback(request);
+  }
+
+  Future<CallUpdate> acceptCall(EncryptedCallSignal answer) {
+    _ensureOpen();
+    final callback = acceptCallCallback;
+    if (callback == null) {
+      throw StateError('Call signaling is unavailable on this connection.');
+    }
+    return callback(answer);
+  }
+
+  Future<CallUpdate> sendCallSignal(EncryptedCallSignal signal) {
+    _ensureOpen();
+    final callback = sendCallSignalCallback;
+    if (callback == null) {
+      throw StateError('Call signaling is unavailable on this connection.');
+    }
+    return callback(signal);
+  }
+
+  Future<CallUpdate> endCall(EncryptedCallSignal signal) {
+    _ensureOpen();
+    final callback = endCallCallback;
+    if (callback == null) {
+      throw StateError('Call signaling is unavailable on this connection.');
+    }
+    return callback(signal);
+  }
+
+  Future<CallBatch> syncCalls({
+    required String deviceId,
+    required int afterCursor,
+    int limit = 100,
+  }) {
+    _ensureOpen();
+    final callback = syncCallsCallback;
+    if (callback == null) {
+      throw StateError(
+        'Call synchronization is unavailable on this connection.',
+      );
+    }
+    return callback(deviceId, afterCursor, limit);
+  }
+
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
@@ -625,12 +756,19 @@ class WampAccountGateway implements AccountGateway {
       authenticationMethods: [authentication],
     );
     final wakeups = _MailboxWakeupFeed();
+    final callWakeups = _CallWakeupFeed();
     try {
       final session = await _connect(client);
       await session
           .subscribePayloadHandler(
             WampAppProtocol.mailboxChanged,
             wakeups.addEvent,
+          )
+          .timeout(connectionTimeout);
+      await session
+          .subscribePayloadHandler(
+            WampAppProtocol.callChanged,
+            callWakeups.addEvent,
           )
           .timeout(connectionTimeout);
       Future<AccountProfile> getProfile(String username) async {
@@ -961,12 +1099,94 @@ class WampAccountGateway implements AccountGateway {
             throw RemoteBackupException.fromWampError(error);
           }
         },
+        getCallConfigurationCallback: () async {
+          try {
+            final result = await session
+                .callSingle(WampAppProtocol.callConfiguration)
+                .timeout(connectionTimeout);
+            return CallConfiguration.fromWampKeywords(result.argumentsKeywords);
+          } on wamp.Error catch (error) {
+            throw CallSignalingException.fromWampError(error);
+          }
+        },
+        startCallCallback: (request) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.callStart,
+                  argumentsKeywords: request.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            return CallUpdate.fromWampKeywords(result.argumentsKeywords);
+          } on wamp.Error catch (error) {
+            throw CallSignalingException.fromWampError(error);
+          }
+        },
+        acceptCallCallback: (answer) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.callAccept,
+                  argumentsKeywords: answer.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            return CallUpdate.fromWampKeywords(result.argumentsKeywords);
+          } on wamp.Error catch (error) {
+            throw CallSignalingException.fromWampError(error);
+          }
+        },
+        sendCallSignalCallback: (signal) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.callSignal,
+                  argumentsKeywords: signal.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            return CallUpdate.fromWampKeywords(result.argumentsKeywords);
+          } on wamp.Error catch (error) {
+            throw CallSignalingException.fromWampError(error);
+          }
+        },
+        endCallCallback: (signal) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.callEnd,
+                  argumentsKeywords: signal.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            return CallUpdate.fromWampKeywords(result.argumentsKeywords);
+          } on wamp.Error catch (error) {
+            throw CallSignalingException.fromWampError(error);
+          }
+        },
+        syncCallsCallback: (deviceId, afterCursor, limit) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.callSync,
+                  argumentsKeywords: {
+                    'device_id': deviceId,
+                    'after_cursor': afterCursor,
+                    'limit': limit,
+                  },
+                )
+                .timeout(connectionTimeout);
+            return CallBatch.fromWampKeywords(result.argumentsKeywords);
+          } on wamp.Error catch (error) {
+            throw CallSignalingException.fromWampError(error);
+          }
+        },
+        callWakeups: callWakeups.stream,
+        latestCallWakeupCursorCallback: () => callWakeups.latestCursor,
+        latestCallWakeupErrorCallback: () => callWakeups.latestError,
         mailboxWakeups: wakeups.stream,
         latestMailboxWakeupCursorCallback: () => wakeups.latestCursor,
         latestMailboxWakeupErrorCallback: () => wakeups.latestError,
         closeTransport: () async {
           try {
-            await wakeups.close();
+            await Future.wait([wakeups.close(), callWakeups.close()]);
             await _close(client, session);
           } finally {
             await authentication.dispose();
@@ -975,7 +1195,7 @@ class WampAccountGateway implements AccountGateway {
       );
     } catch (_) {
       try {
-        await wakeups.close();
+        await Future.wait([wakeups.close(), callWakeups.close()]);
         await client.disconnect();
       } finally {
         await authentication.dispose();
@@ -1019,6 +1239,37 @@ final class _MailboxWakeupFeed {
     if (_closed) return;
     try {
       final wakeup = MailboxWakeup.fromWampKeywords(event.argumentsKeywords);
+      if (wakeup.cursor <= _latestCursor) return;
+      _latestCursor = wakeup.cursor;
+      _controller.add(wakeup);
+    } catch (error, stackTrace) {
+      _latestError = error;
+      _controller.addError(error, stackTrace);
+    }
+  }
+
+  Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    await _controller.close();
+  }
+}
+
+final class _CallWakeupFeed {
+  final StreamController<CallWakeup> _controller =
+      StreamController<CallWakeup>.broadcast(sync: true);
+  int _latestCursor = 0;
+  Object? _latestError;
+  bool _closed = false;
+
+  Stream<CallWakeup> get stream => _controller.stream;
+  int get latestCursor => _latestCursor;
+  Object? get latestError => _latestError;
+
+  void addEvent(EventPayload event) {
+    if (_closed) return;
+    try {
+      final wakeup = CallWakeup.fromWampKeywords(event.argumentsKeywords);
       if (wakeup.cursor <= _latestCursor) return;
       _latestCursor = wakeup.cursor;
       _controller.add(wakeup);

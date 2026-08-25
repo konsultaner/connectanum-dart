@@ -19,6 +19,7 @@ dependencies:
   firebase_messaging: 16.6.0
   flutter:
     sdk: flutter
+  flutter_webrtc: ^1.6.0
   idb_shim: ^2.9.8
   path: ^1.9.1
   path_provider: ^2.1.6

@@ -14,6 +14,9 @@ import 'attachment_retention.dart';
 import 'attachment_store.dart';
 import 'backup_service.dart';
 import 'backup_store.dart' as backups;
+import 'call_configuration_service.dart';
+import 'call_service.dart';
+import 'call_store.dart';
 import 'device_service.dart';
 import 'fcm_platform_push_gateway.dart';
 import 'mailbox_store.dart';
@@ -78,6 +81,10 @@ class WampAppServer {
       maximumTotalBytes: config.backupMaxTotalBytes,
     );
     await backupStore.initialize();
+    final callStore = CallStore(
+      config.callStorePath ?? '${config.messageStorePath}.calls.json',
+    );
+    await callStore.initialize();
     final random = Random.secure();
     final serviceTicket = base64Url.encode(
       List<int>.generate(32, (_) => random.nextInt(256)),
@@ -204,6 +211,14 @@ class WampAppServer {
       await _registerBackupHandlers(
         appServiceSession,
         BackupService(store: backupStore),
+      );
+      await _registerCallHandlers(
+        appServiceSession,
+        CallService(accounts: store, store: callStore),
+        CallConfigurationService(
+          stunUrls: config.stunUrls,
+          turnRest: config.turnRest,
+        ),
       );
       await _registerMessageHandlers(
         appServiceSession,
@@ -418,6 +433,35 @@ class WampAppServer {
                 ..allowOperations(const ['call']),
             )
             ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callConfiguration)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callStart)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callAccept)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callSignal)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callEnd)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callSync)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callChanged)
+                ..setMatchPolicy(PermissionMatchPolicy.exact)
+                ..allowOperations(const ['subscribe', 'unsubscribe']),
+            )
+            ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.mailboxChanged)
                 ..setMatchPolicy(PermissionMatchPolicy.exact)
                 ..allowOperations(const ['subscribe', 'unsubscribe']),
@@ -508,6 +552,35 @@ class WampAppServer {
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.backupDelete)
                 ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callConfiguration)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callStart)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callAccept)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callSignal)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callEnd)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callSync)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.callChanged)
+                ..setMatchPolicy(PermissionMatchPolicy.exact)
+                ..allowOperations(const ['publish']),
             )
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.mailboxChanged)
@@ -1064,6 +1137,133 @@ Future<void> _registerMessageHandlers(
   }, options: options);
 }
 
+Future<void> _registerCallHandlers(
+  Session session,
+  CallService calls,
+  CallConfigurationService configurations,
+) async {
+  final options = RegisterOptions(discloseCaller: true);
+  await session.registerHandler(WampAppProtocol.callConfiguration, (
+    invocation,
+  ) async {
+    try {
+      final configuration = configurations.forAccount(
+        _callerUsername(invocation),
+      );
+      invocation.respondWith(argumentsKeywords: configuration.toWampKeywords());
+    } catch (error) {
+      _respondWithCallError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.callStart, (invocation) async {
+    try {
+      final request = CallStartRequest.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final result = await calls.start(_callerUsername(invocation), request);
+      await _publishCallWakeup(session, result.update);
+      invocation.respondWith(
+        argumentsKeywords: {
+          ...result.update.toWampKeywords(),
+          'duplicate': result.duplicate,
+        },
+      );
+    } catch (error) {
+      _respondWithCallError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.callAccept, (invocation) async {
+    try {
+      final answer = EncryptedCallSignal.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final result = await calls.accept(_callerUsername(invocation), answer);
+      await _publishCallWakeup(session, result.update);
+      invocation.respondWith(
+        argumentsKeywords: {
+          ...result.update.toWampKeywords(),
+          'duplicate': result.duplicate,
+        },
+      );
+    } catch (error) {
+      _respondWithCallError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.callSignal, (invocation) async {
+    try {
+      final signal = EncryptedCallSignal.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final result = await calls.signal(_callerUsername(invocation), signal);
+      await _publishCallWakeup(session, result.update);
+      invocation.respondWith(
+        argumentsKeywords: {
+          ...result.update.toWampKeywords(),
+          'duplicate': result.duplicate,
+        },
+      );
+    } catch (error) {
+      _respondWithCallError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.callEnd, (invocation) async {
+    try {
+      final signal = EncryptedCallSignal.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final result = await calls.end(_callerUsername(invocation), signal);
+      await _publishCallWakeup(session, result.update);
+      invocation.respondWith(
+        argumentsKeywords: {
+          ...result.update.toWampKeywords(),
+          'duplicate': result.duplicate,
+        },
+      );
+    } catch (error) {
+      _respondWithCallError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.callSync, (invocation) async {
+    try {
+      final keywords = invocation.argumentsKeywords;
+      final deviceId = keywords?['device_id'];
+      final afterCursor = keywords?['after_cursor'];
+      final limit = keywords?['limit'] ?? 100;
+      if (deviceId is! String || afterCursor is! int || limit is! int) {
+        throw const FormatException(
+          'device_id, after_cursor, and limit are required.',
+        );
+      }
+      final batch = await calls.sync(
+        _callerUsername(invocation),
+        deviceId,
+        afterCursor: afterCursor,
+        limit: limit,
+      );
+      invocation.respondWith(argumentsKeywords: batch.toWampKeywords());
+    } catch (error) {
+      _respondWithCallError(invocation, error);
+    }
+  }, options: options);
+}
+
+Future<void> _publishCallWakeup(Session session, CallUpdate update) async {
+  try {
+    await session.publish(
+      WampAppProtocol.callChanged,
+      argumentsKeywords: CallWakeup(cursor: update.cursor).toWampKeywords(),
+      options: PublishOptions(
+        eligibleAuthId: [
+          update.call.callerUsername,
+          update.call.calleeUsername,
+        ],
+      ),
+    );
+  } catch (_) {
+    // Durable call cursor synchronization remains authoritative.
+  }
+}
+
 Future<void> _publishMailboxWakeup(
   Session session,
   int cursor,
@@ -1288,6 +1488,44 @@ void _respondWithBackupError(Invocation invocation, Object error) {
         ? null
         : {'current_revision': conflictRevision},
   );
+}
+
+void _respondWithCallError(Invocation invocation, Object error) {
+  final (uri, message) = switch (error) {
+    CallConflict() => (
+      WampAppProtocol.errorCallConflict,
+      'That call or signal identifier conflicts with existing state.',
+    ),
+    CallNotFound() => (
+      WampAppProtocol.errorCallNotFound,
+      'That call was not found.',
+    ),
+    CallAlreadyAnswered() => (
+      WampAppProtocol.errorCallAnswered,
+      'That call was already answered on another device.',
+    ),
+    CallAlreadyEnded() => (
+      WampAppProtocol.errorCallEnded,
+      'That call has already ended.',
+    ),
+    CallLimitExceeded() => (
+      WampAppProtocol.errorCallUnavailable,
+      'The call signaling capacity has been reached.',
+    ),
+    _CallerNotAuthorized() || StateError() => (
+      WampAppProtocol.errorNotAuthorized,
+      'The authenticated account or device cannot perform this operation.',
+    ),
+    FormatException(:final message) => (
+      WampAppProtocol.errorInvalidCall,
+      message,
+    ),
+    _ => (
+      WampAppProtocol.errorCallUnavailable,
+      'Call signaling is temporarily unavailable.',
+    ),
+  };
+  invocation.respondWith(isError: true, errorUri: uri, arguments: [message]);
 }
 
 class _CallerNotAuthorized implements Exception {

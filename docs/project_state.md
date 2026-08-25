@@ -3,8 +3,9 @@
 Last updated: 2026-08-25
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example.
-Milestone 6 encrypted local and router-hosted backup/recovery is complete
-locally. Authenticated public profiles with editable
+Milestone 7 encrypted WebRTC voice/video calling is complete locally; milestone
+8 authenticated MCP integration is next. Milestone 6 encrypted local and
+router-hosted backup/recovery is complete locally. Authenticated public profiles with editable
 display names, status, and bounded avatars, plus on-device global message
 search, received-message read/unread filters, encrypted system/light/dark theme
 preferences, per-chat notification mute, and the provider-neutral platform
@@ -403,6 +404,26 @@ account crossover, and corrupt committed archives fail closed. The latest
 `bin/test-wamp-app` passes with 45 shared, 100 server, 136 native Flutter, and 53
 Chrome tests plus Dart2Wasm and a release-web build. Repository-wide
 `bin/verify` passes; hosted exact-head evidence is pending.
+
+WampApp milestone 7 encrypted voice/video calling is complete locally. Direct
+calls use WebRTC DTLS-SRTP media while offers, answers, ICE candidates, and
+hangup controls are sealed independently to each active recipient device with
+the existing X25519/Ed25519 identity boundary and carried in WAMP binary fields.
+The caller-bound service persists only ciphertext, applies first-answer-wins
+atomically across recipient devices, publishes account-scoped cursor wakeups,
+and replays bounded durable call state after reconnect. The client buffers ICE
+until the accepted device is known, fences stale media callbacks and WAMP
+responses across calls and sign-out, closes media before connection/trust
+teardown, and terminates calls whose live WebRTC state cannot be restored after
+a fresh process. Short-lived TURN REST credentials are derived from an
+environment-only shared secret; checked-in YAML contains only STUN and TURN
+policy. The responsive Flutter shell exposes incoming, outgoing, connecting,
+active, ended, answered-elsewhere, and failed states plus mute, camera,
+speaker, and hangup controls. `bin/test-wamp-app` passes with 51 shared, 113
+server, 148 native Flutter, and 63 Chrome tests plus Dart2Wasm and a release-web
+build. An Android debug APK and repository-wide `bin/verify` pass. The macOS
+debug build did not reach compilation because Xcode dependency resolution
+stalled without an error; hosted exact-head evidence is pending.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

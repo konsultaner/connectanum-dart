@@ -76,8 +76,10 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     List<LocalChatGroup> initialGroups,
     List<OutboundChatMessage> initialOutbox,
     this._mailboxCursor,
-    this._preferences,
-  ) {
+    this._preferences, {
+    this.sealCallSignalCallback,
+    this.openCallSignalCallback,
+  }) {
     _messages.addAll(initialMessages);
     _groups.addAll(initialGroups);
     _outbox.addAll(initialOutbox);
@@ -95,6 +97,19 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   int savePreferencesCalls = 0;
   Object? exportBackupFailure;
   int exportBackupCalls = 0;
+  final EncryptedCallSignal Function({
+    required String callId,
+    required String signalId,
+    required CallSignalKind kind,
+    required DeviceRecord recipient,
+    required Uint8List plaintext,
+  })?
+  sealCallSignalCallback;
+  final Uint8List Function({
+    required EncryptedCallSignal signal,
+    required DeviceRecord sender,
+  })?
+  openCallSignalCallback;
 
   @override
   late final DeviceEnrollment enrollment = DeviceEnrollment(
@@ -163,6 +178,27 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   }
 
   @override
+  EncryptedCallSignal sealCallSignal({
+    required String callId,
+    required String signalId,
+    required CallSignalKind kind,
+    required DeviceRecord recipient,
+    required Uint8List plaintext,
+  }) {
+    final callback = sealCallSignalCallback;
+    if (callback == null) {
+      throw UnsupportedError('Fake call signaling is not configured.');
+    }
+    return callback(
+      callId: callId,
+      signalId: signalId,
+      kind: kind,
+      recipient: recipient,
+      plaintext: plaintext,
+    );
+  }
+
+  @override
   OneTimeMessageConsumption signOneTimeConsumption(String messageId) {
     return OneTimeMessageConsumption(
       messageId: messageId,
@@ -178,6 +214,18 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     bool allowRevokedSender = false,
   }) {
     throw UnimplementedError();
+  }
+
+  @override
+  Uint8List openCallSignal({
+    required EncryptedCallSignal signal,
+    required DeviceRecord sender,
+  }) {
+    final callback = openCallSignalCallback;
+    if (callback == null) {
+      throw UnsupportedError('Fake call signaling is not configured.');
+    }
+    return callback(signal: signal, sender: sender);
   }
 
   @override

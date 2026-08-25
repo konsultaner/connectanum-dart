@@ -97,6 +97,41 @@ void main() {
     expect(find.byKey(const Key('conversation-create-group')), findsOneWidget);
   });
 
+  testWidgets('direct call actions fail closed with a recoverable result', (
+    tester,
+  ) async {
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    final voiceCall = find.byKey(const Key('conversation-voice-call'));
+    final videoCall = find.byKey(const Key('conversation-video-call'));
+    expect(voiceCall, findsOneWidget);
+    expect(videoCall, findsOneWidget);
+    expect(tester.widget<IconButton>(voiceCall).onPressed, isNull);
+
+    await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
+    await tester.pump();
+    expect(tester.widget<IconButton>(voiceCall).onPressed, isNotNull);
+    await tester.tap(voiceCall);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Call unavailable'), findsOneWidget);
+    expect(find.byKey(const Key('call-error')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('call-dismiss')));
+    await tester.pumpAndSettle();
+    expect(find.text('Encrypted messages'), findsOneWidget);
+  });
+
   testWidgets('edits the public profile and views a recipient profile', (
     tester,
   ) async {

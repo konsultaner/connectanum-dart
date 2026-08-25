@@ -9,12 +9,15 @@ import '../domain/local_chat_message.dart';
 import '../domain/outbound_chat_message.dart';
 import '../infrastructure/attachment_chunk_cache.dart';
 import '../infrastructure/attachment_cipher.dart';
+import '../infrastructure/call_media.dart';
 import '../infrastructure/device_backup_file.dart';
 import '../infrastructure/device_vault.dart';
+import '../infrastructure/flutter_webrtc_call_media.dart';
 import '../infrastructure/message_cipher.dart';
 import '../infrastructure/platform_push_registration.dart';
 import '../infrastructure/platform_push_token_source.dart';
 import '../infrastructure/wamp_account_gateway.dart';
+import 'call_controller.dart';
 
 enum WampAppStatus { signedOut, busy, connected, failed }
 
@@ -26,6 +29,7 @@ class WampAppController extends ChangeNotifier {
     AttachmentChunkCache? attachmentCache,
     AttachmentCipher? attachmentCipher,
     DeviceBackupFileGateway? backupFiles,
+    CallMediaFactory? callMediaFactory,
     PlatformPushTokenSource? platformPushTokenSource,
     this.deviceName = 'This device',
   }) : _gateway = gateway ?? const WampAccountGateway(),
@@ -33,6 +37,8 @@ class WampAppController extends ChangeNotifier {
        _messageCipher = messageCipher ?? MessageCipher(),
        _attachmentCache = attachmentCache ?? createAttachmentChunkCache(),
        _attachmentCipher = attachmentCipher ?? AttachmentCipher(),
+       _callMediaFactory =
+           callMediaFactory ?? const FlutterWebRtcCallMediaFactory(),
        _backupFiles =
            backupFiles ?? const FileSelectorDeviceBackupFileGateway() {
     _platformPush = PlatformPushRegistrationCoordinator(
@@ -46,6 +52,7 @@ class WampAppController extends ChangeNotifier {
   final MessageCipher _messageCipher;
   final AttachmentChunkCache _attachmentCache;
   final AttachmentCipher _attachmentCipher;
+  final CallMediaFactory _callMediaFactory;
   final DeviceBackupFileGateway _backupFiles;
   late final PlatformPushRegistrationCoordinator _platformPush;
   final String deviceName;
@@ -53,6 +60,7 @@ class WampAppController extends ChangeNotifier {
   AccountConnection? _connection;
   DeviceTrustSession? _trustSession;
   DeviceRecord? _localDevice;
+  CallController? _calls;
   Object? _error;
   Object? _messageError;
   Object? _profileError;
@@ -75,6 +83,7 @@ class WampAppController extends ChangeNotifier {
   bool get isBusy => _status == WampAppStatus.busy || _backupBusy;
   AccountConnection? get connection => _connection;
   DeviceRecord? get localDevice => _localDevice;
+  CallController? get calls => _calls;
   String? get safetyNumber => _trustSession?.safetyNumber;
   List<LocalChatMessage> get messages => _messages;
   List<LocalChatGroup> get groups => _trustSession?.groups ?? const [];
@@ -410,9 +419,11 @@ class WampAppController extends ChangeNotifier {
     final connection = _connection;
     final trustSession = _trustSession;
     final wakeupSubscription = _mailboxWakeupSubscription;
+    final calls = _calls;
     _connection = null;
     _trustSession = null;
     _localDevice = null;
+    _calls = null;
     _mailboxWakeupSubscription = null;
     _pendingMailboxWakeupCursor = 0;
     _automaticSyncRunning = false;
@@ -431,7 +442,7 @@ class WampAppController extends ChangeNotifier {
     _status = WampAppStatus.signedOut;
     if (!_disposed) notifyListeners();
     await _platformPush.clear();
-    await _closeState(connection, trustSession, wakeupSubscription);
+    await _closeState(connection, trustSession, wakeupSubscription, calls);
   }
 
   Future<bool> updateProfile(AccountProfileUpdate update) async {
@@ -507,6 +518,7 @@ class WampAppController extends ChangeNotifier {
     AccountConnection? next;
     DeviceTrustSession? nextTrust;
     DeviceRecord? nextDevice;
+    CallController? nextCalls;
     List<LocalChatMessage>? nextMessages;
     StreamSubscription<MailboxWakeup>? nextWakeupSubscription;
     var nextPendingWakeupCursor = 0;
@@ -546,6 +558,13 @@ class WampAppController extends ChangeNotifier {
           'The server returned an invalid local device record.',
         );
       }
+      nextCalls = CallController(
+        connection: next,
+        trust: nextTrust,
+        localDevice: nextDevice,
+        mediaFactory: _callMediaFactory,
+      );
+      await nextCalls.initialize();
       bool pendingConnectionIsCurrent() =>
           !_disposed && generation == _operationGeneration;
       nextMessages = await _synchronize(next, nextTrust, nextDevice);
@@ -576,7 +595,7 @@ class WampAppController extends ChangeNotifier {
       }
     } catch (error) {
       try {
-        await _closeState(next, nextTrust, nextWakeupSubscription);
+        await _closeState(next, nextTrust, nextWakeupSubscription, nextCalls);
       } catch (_) {
         // Preserve the connection or trust failure that triggered cleanup.
       }
@@ -590,15 +609,17 @@ class WampAppController extends ChangeNotifier {
     }
 
     if (generation != _operationGeneration || _disposed) {
-      await _closeState(next, nextTrust, nextWakeupSubscription);
+      await _closeState(next, nextTrust, nextWakeupSubscription, nextCalls);
       return;
     }
 
     final previous = _connection;
     final previousTrust = _trustSession;
     final previousWakeupSubscription = _mailboxWakeupSubscription;
+    final previousCalls = _calls;
     _connection = next;
     _trustSession = nextTrust;
+    _calls = nextCalls;
     _preferences = nextTrust.preferences;
     _localDevice = nextDevice;
     _mailboxWakeupSubscription = nextWakeupSubscription;
@@ -619,7 +640,12 @@ class WampAppController extends ChangeNotifier {
       mutedConversationIds: nextTrust.preferences.mutedConversationIds,
     );
     try {
-      await _closeState(previous, previousTrust, previousWakeupSubscription);
+      await _closeState(
+        previous,
+        previousTrust,
+        previousWakeupSubscription,
+        previousCalls,
+      );
     } catch (_) {
       // The replacement connection remains valid even if stale cleanup fails.
     }
@@ -1740,16 +1766,19 @@ class WampAppController extends ChangeNotifier {
     final connection = _connection;
     final trustSession = _trustSession;
     final wakeupSubscription = _mailboxWakeupSubscription;
+    final calls = _calls;
     _connection = null;
     _trustSession = null;
     _localDevice = null;
+    _calls = null;
     _mailboxWakeupSubscription = null;
     _pendingMailboxWakeupCursor = 0;
     _automaticSyncRunning = false;
     unawaited(
       Future.wait<void>([
         _platformPush.dispose().then(
-          (_) => _closeState(connection, trustSession, wakeupSubscription),
+          (_) =>
+              _closeState(connection, trustSession, wakeupSubscription, calls),
         ),
         _attachmentCache.dispose(),
         _attachmentCipher.dispose(),
@@ -1763,9 +1792,17 @@ Future<void> _closeState(
   AccountConnection? connection,
   DeviceTrustSession? trustSession, [
   StreamSubscription<MailboxWakeup>? wakeupSubscription,
+  CallController? calls,
 ]) async {
   Object? failure;
   StackTrace? failureStack;
+  try {
+    await calls?.close();
+    calls?.dispose();
+  } catch (error, stackTrace) {
+    failure = error;
+    failureStack = stackTrace;
+  }
   try {
     await wakeupSubscription?.cancel();
   } catch (error, stackTrace) {

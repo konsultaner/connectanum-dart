@@ -37,6 +37,12 @@ void main() {
       '${directory.path}/data/messages.json.backups',
     );
     expect(
+      config.callStorePath,
+      '${directory.path}/data/messages.json.calls.json',
+    );
+    expect(config.stunUrls, isEmpty);
+    expect(config.turnRest, isNull);
+    expect(
       config.backupMaxTotalBytes,
       WampAppServerConfig.defaultBackupMaxTotalBytes,
     );
@@ -124,6 +130,63 @@ platform_push:
     expect(config.fcmPush?.projectId, 'wampapp-test1');
   });
 
+  test('WebRTC config resolves STUN and secret-backed TURN REST', () async {
+    final directory = await Directory.systemTemp.createTemp('wampapp-config-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/server.yaml');
+    await file.writeAsString(
+      _configYaml(
+        callStore: 'call_store: durable/calls.json\n',
+        webrtc: '''
+webrtc:
+  stun_urls:
+    - stun:stun.example.net:3478
+  turn_rest:
+    urls:
+      - turns:turn.example.net:5349?transport=tcp
+    shared_secret_environment: TEST_TURN_SECRET
+    credential_ttl_seconds: 900
+''',
+      ),
+    );
+
+    final config = await WampAppServerConfig.load(
+      file.path,
+      environment: const {'TEST_TURN_SECRET': 'private-test-secret'},
+    );
+
+    expect(config.callStorePath, '${directory.path}/durable/calls.json');
+    expect(config.stunUrls, ['stun:stun.example.net:3478']);
+    expect(config.turnRest?.urls, [
+      'turns:turn.example.net:5349?transport=tcp',
+    ]);
+    expect(config.turnRest?.credentialTtl, const Duration(minutes: 15));
+    expect(config.turnRest.toString(), contains('[redacted]'));
+    expect(config.turnRest.toString(), isNot(contains('private-test-secret')));
+  });
+
+  test('missing TURN secret fails configuration closed', () async {
+    final directory = await Directory.systemTemp.createTemp('wampapp-config-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/server.yaml');
+    await file.writeAsString(
+      _configYaml(
+        webrtc: '''
+webrtc:
+  turn_rest:
+    urls:
+      - turn:turn.example.net:3478
+    shared_secret_environment: MISSING_TURN_SECRET
+''',
+      ),
+    );
+
+    await expectLater(
+      WampAppServerConfig.load(file.path, environment: const {}),
+      throwsFormatException,
+    );
+  });
+
   for (final malformed in const [
     'platform_push: []\n',
     'platform_push:\n  fcm: []\n',
@@ -173,6 +236,8 @@ String _configYaml({
   String backupStore = '',
   String backupLimits = '',
   String platformPush = '',
+  String callStore = '',
+  String webrtc = '',
 }) =>
     '''
 listen:
@@ -185,6 +250,8 @@ $pushStore
 $backupStore
 $backupLimits
 $platformPush
+$callStore
+$webrtc
 attachment_store: data/attachments
 $attachmentLimits
 argon2id13:

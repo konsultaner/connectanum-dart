@@ -224,6 +224,60 @@ void main() {
     );
   });
 
+  test('call signals are recipient-sealed, sender-signed, and bound', () async {
+    final alice = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    final bob = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'bob',
+      password: 'another correct horse',
+      deviceName: 'Bob phone',
+    );
+    addTearDown(alice.dispose);
+    addTearDown(bob.dispose);
+    final aliceRecord = _record('alice', alice.enrollment);
+    final bobRecord = _record('bob', bob.enrollment);
+    final plaintext = utf8.encode(
+      '{"type":"offer","sdp":"private session description"}',
+    );
+
+    final signal = alice.sealCallSignal(
+      callId: _token(16, 31),
+      signalId: _token(16, 32),
+      kind: CallSignalKind.offer,
+      recipient: bobRecord,
+      plaintext: Uint8List.fromList(plaintext),
+    );
+    expect(
+      utf8.decode(signal.sealedPayload, allowMalformed: true),
+      isNot(contains('private')),
+    );
+    final opened = bob.openCallSignal(signal: signal, sender: aliceRecord);
+    expect(opened, plaintext);
+    opened.fillRange(0, opened.length, 0);
+
+    final tampered = EncryptedCallSignal(
+      callId: signal.callId,
+      signalId: signal.signalId,
+      kind: CallSignalKind.answer,
+      senderUsername: signal.senderUsername,
+      senderDeviceId: signal.senderDeviceId,
+      recipientUsername: signal.recipientUsername,
+      recipientDeviceId: signal.recipientDeviceId,
+      sealedPayload: signal.sealedPayload,
+      signature: signal.signature,
+      createdAt: signal.createdAt,
+    );
+    expect(
+      () => bob.openCallSignal(signal: tampered, sender: aliceRecord),
+      throwsFormatException,
+    );
+  });
+
   test(
     'persists the exact bounded outbox only inside encrypted storage',
     () async {
@@ -694,6 +748,10 @@ Uint8List _decodeUnpadded(String value) {
   final suffix = List<String>.filled(padding, '=').join();
   return base64Url.decode('$value$suffix');
 }
+
+String _token(int bytes, int seed) => base64Url
+    .encode(List<int>.generate(bytes, (index) => (index + seed) % 256))
+    .replaceAll('=', '');
 
 DeviceRecord _record(String username, DeviceEnrollment enrollment) {
   return DeviceRecord(

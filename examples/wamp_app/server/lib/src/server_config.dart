@@ -16,6 +16,36 @@ final class FcmPlatformPushConfig {
   final String? projectId;
 }
 
+final class TurnRestConfig {
+  TurnRestConfig({
+    required Iterable<String> urls,
+    required this.sharedSecret,
+    this.credentialTtl = const Duration(hours: 1),
+  }) : urls = List<String>.unmodifiable(urls) {
+    if (this.urls.isEmpty ||
+        this.urls.length > 8 ||
+        this.urls.any(
+          (url) =>
+              !(url.startsWith('turn:') || url.startsWith('turns:')) ||
+              url.length > 2048,
+        ) ||
+        sharedSecret.isEmpty ||
+        credentialTtl < const Duration(minutes: 5) ||
+        credentialTtl > const Duration(hours: 24)) {
+      throw const FormatException('TURN REST configuration is invalid.');
+    }
+  }
+
+  final List<String> urls;
+  final String sharedSecret;
+  final Duration credentialTtl;
+
+  @override
+  String toString() =>
+      'TurnRestConfig(urls: $urls, credentialTtl: $credentialTtl, '
+      'sharedSecret: [redacted])';
+}
+
 class WampAppServerConfig {
   static const defaultAttachmentMaxTotalBytes = 10 * 1024 * 1024 * 1024;
   static const defaultAttachmentMaxBytesPerSender = 2 * 1024 * 1024 * 1024;
@@ -34,6 +64,9 @@ class WampAppServerConfig {
     this.fcmPush,
     this.attachmentStorePath,
     this.backupStorePath,
+    this.callStorePath,
+    this.stunUrls = const [],
+    this.turnRest,
     this.backupMaxTotalBytes = defaultBackupMaxTotalBytes,
     this.attachmentMaxTotalBytes = defaultAttachmentMaxTotalBytes,
     this.attachmentMaxBytesPerSender = defaultAttachmentMaxBytesPerSender,
@@ -52,6 +85,9 @@ class WampAppServerConfig {
   final FcmPlatformPushConfig? fcmPush;
   final String? attachmentStorePath;
   final String? backupStorePath;
+  final String? callStorePath;
+  final List<String> stunUrls;
+  final TurnRestConfig? turnRest;
   final int backupMaxTotalBytes;
   final int attachmentMaxTotalBytes;
   final int attachmentMaxBytesPerSender;
@@ -60,7 +96,10 @@ class WampAppServerConfig {
   final int argonIterations;
   final int argonMemoryKiB;
 
-  static Future<WampAppServerConfig> load(String path) async {
+  static Future<WampAppServerConfig> load(
+    String path, {
+    Map<String, String>? environment,
+  }) async {
     final file = File(path);
     final document = loadYaml(await file.readAsString());
     if (document is! YamlMap) {
@@ -80,6 +119,12 @@ class WampAppServerConfig {
     final fcm = platformPush == null || platformPush['fcm'] == null
         ? null
         : _map(platformPush['fcm'], 'platform_push.fcm');
+    final webrtc = document['webrtc'] == null
+        ? null
+        : _map(document['webrtc'], 'webrtc');
+    final turnRest = webrtc == null || webrtc['turn_rest'] == null
+        ? null
+        : _map(webrtc['turn_rest'], 'webrtc.turn_rest');
     final host = _string(listen['host'], 'listen.host');
     final port = _integer(listen['port'], 'listen.port', min: 0, max: 65535);
     final websocketPath = _string(document['websocket_path'], 'websocket_path');
@@ -130,6 +175,38 @@ class WampAppServerConfig {
     final backupStore = p.isAbsolute(configuredBackups)
         ? configuredBackups
         : p.normalize(p.join(base, configuredBackups));
+    final configuredCalls = document['call_store'] == null
+        ? '$configuredMessages.calls.json'
+        : _string(document['call_store'], 'call_store');
+    final callStore = p.isAbsolute(configuredCalls)
+        ? configuredCalls
+        : p.normalize(p.join(base, configuredCalls));
+    final stunUrls = _urlList(
+      webrtc?['stun_urls'],
+      'webrtc.stun_urls',
+      schemes: const {'stun'},
+    );
+    final turnUrls = _urlList(
+      turnRest?['urls'],
+      'webrtc.turn_rest.urls',
+      schemes: const {'turn', 'turns'},
+    );
+    final turnSecretEnvironment = turnRest == null
+        ? null
+        : _string(
+            turnRest['shared_secret_environment'],
+            'webrtc.turn_rest.shared_secret_environment',
+          );
+    final turnSecret = turnSecretEnvironment == null
+        ? null
+        : (environment ?? Platform.environment)[turnSecretEnvironment];
+    if (turnSecretEnvironment != null &&
+        (turnSecret == null || turnSecret.isEmpty)) {
+      throw FormatException(
+        'webrtc.turn_rest requires environment variable '
+        '$turnSecretEnvironment.',
+      );
+    }
     final backupMaxTotalBytes = backupLimits == null
         ? defaultBackupMaxTotalBytes
         : _integer(
@@ -175,6 +252,22 @@ class WampAppServerConfig {
             ),
       attachmentStorePath: attachmentStore,
       backupStorePath: backupStore,
+      callStorePath: callStore,
+      stunUrls: stunUrls,
+      turnRest: turnRest == null
+          ? null
+          : TurnRestConfig(
+              urls: turnUrls,
+              sharedSecret: turnSecret!,
+              credentialTtl: Duration(
+                seconds: _integer(
+                  turnRest['credential_ttl_seconds'] ?? 3600,
+                  'webrtc.turn_rest.credential_ttl_seconds',
+                  min: 300,
+                  max: 24 * 60 * 60,
+                ),
+              ),
+            ),
       backupMaxTotalBytes: backupMaxTotalBytes,
       attachmentMaxTotalBytes: attachmentMaxTotalBytes,
       attachmentMaxBytesPerSender: attachmentMaxBytesPerSender,
@@ -237,5 +330,32 @@ class WampAppServerConfig {
       throw FormatException('$name must be between $min and $max.');
     }
     return value;
+  }
+
+  static List<String> _urlList(
+    Object? value,
+    String name, {
+    required Set<String> schemes,
+  }) {
+    if (value == null) return const [];
+    if (value is! List || value.isEmpty || value.length > 8) {
+      throw FormatException('$name must be a non-empty list.');
+    }
+    final urls = value
+        .map((entry) {
+          if (entry is! String ||
+              entry.trim() != entry ||
+              entry.length > 2048) {
+            throw FormatException('$name entries must be valid ICE URLs.');
+          }
+          final separator = entry.indexOf(':');
+          if (separator < 1 ||
+              !schemes.contains(entry.substring(0, separator))) {
+            throw FormatException('$name contains an unsupported URL scheme.');
+          }
+          return entry;
+        })
+        .toList(growable: false);
+    return List<String>.unmodifiable(urls);
   }
 }

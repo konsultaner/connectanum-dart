@@ -209,6 +209,69 @@ final class LocalDeviceIdentity {
     );
   }
 
+  EncryptedCallSignal sealCallSignal({
+    required String username,
+    required String callId,
+    required String signalId,
+    required CallSignalKind kind,
+    required DeviceRecord recipient,
+    required Uint8List plaintext,
+    DateTime? now,
+  }) {
+    _ensureActive();
+    recipient.validate();
+    if (recipient.isRevoked) {
+      throw const FormatException('Cannot signal a revoked device.');
+    }
+    if (plaintext.isEmpty ||
+        plaintext.length > WampAppCallLimits.maximumSignalPlaintextBytes) {
+      throw const FormatException('Call signal plaintext size is invalid.');
+    }
+    final plaintextCopy = Uint8List.fromList(plaintext);
+    late final Uint8List sealed;
+    try {
+      sealed = x.SealedBox(
+        x.PublicKey(
+          _decode(
+            recipient.enrollment.exchangePublicKey,
+            'exchange_public_key',
+            expectedBytes: x.PublicKey.keyLength,
+          ),
+        ),
+      ).encrypt(plaintextCopy);
+    } finally {
+      plaintextCopy.fillRange(0, plaintextCopy.length, 0);
+    }
+    final createdAt = (now ?? DateTime.now()).toUtc();
+    final payload = EncryptedCallSignal.signaturePayloadFor(
+      callId: callId,
+      signalId: signalId,
+      kind: kind,
+      senderUsername: username,
+      senderDeviceId: deviceId,
+      recipientUsername: recipient.username,
+      recipientDeviceId: recipient.deviceId,
+      sealedPayload: sealed,
+      createdAt: createdAt,
+    );
+    final signature = ed.SigningKey.fromSeed(_signingSeed)
+        .sign(Uint8List.fromList(payload))
+        .signature
+        .asTypedList;
+    return EncryptedCallSignal(
+      callId: callId,
+      signalId: signalId,
+      kind: kind,
+      senderUsername: username,
+      senderDeviceId: deviceId,
+      recipientUsername: recipient.username,
+      recipientDeviceId: recipient.deviceId,
+      sealedPayload: sealed,
+      signature: _encode(signature),
+      createdAt: createdAt,
+    );
+  }
+
   OneTimeMessageConsumption signOneTimeConsumption({
     required String username,
     required String messageId,
@@ -288,6 +351,59 @@ final class LocalDeviceIdentity {
     if (plaintext.length != 32) {
       plaintext.fillRange(0, plaintext.length, 0);
       throw const FormatException('Conversation key has an invalid length.');
+    }
+    return plaintext;
+  }
+
+  Uint8List openCallSignal({
+    required String username,
+    required EncryptedCallSignal signal,
+    required DeviceRecord sender,
+  }) {
+    _ensureActive();
+    signal.validate();
+    sender.validate();
+    if (sender.isRevoked) {
+      throw const FormatException('Call signal came from a revoked device.');
+    }
+    if (signal.senderUsername != sender.username ||
+        signal.senderDeviceId != sender.deviceId ||
+        signal.recipientUsername !=
+            AccountRegistration.normalizeUsername(username) ||
+        signal.recipientDeviceId != deviceId) {
+      throw const FormatException('Call signal identities do not match.');
+    }
+    try {
+      ed.VerifyKey(
+        _decode(
+          sender.enrollment.signingPublicKey,
+          'signing_public_key',
+          expectedBytes: ed.VerifyKey.keyLength,
+        ),
+      ).verify(
+        signature: ed.Signature(
+          _decode(
+            signal.signature,
+            'signature',
+            expectedBytes: ed.Signature.signatureLength,
+          ),
+        ),
+        message: Uint8List.fromList(signal.signaturePayload()),
+      );
+    } catch (_) {
+      throw const FormatException('Call signal signature is invalid.');
+    }
+    late final Uint8List plaintext;
+    try {
+      plaintext = x.SealedBox(x.PrivateKey(_exchangePrivateKey))
+          .decrypt(signal.sealedPayload);
+    } catch (_) {
+      throw const FormatException('Call signal envelope is invalid.');
+    }
+    if (plaintext.isEmpty ||
+        plaintext.length > WampAppCallLimits.maximumSignalPlaintextBytes) {
+      plaintext.fillRange(0, plaintext.length, 0);
+      throw const FormatException('Call signal plaintext size is invalid.');
     }
     return plaintext;
   }

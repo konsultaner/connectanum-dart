@@ -1,5 +1,6 @@
 export 'src/account_registration.dart';
 export 'src/account_profile.dart';
+export 'src/call_signaling.dart';
 export 'src/device_identity.dart';
 export 'src/encrypted_attachment.dart';
 export 'src/encrypted_backup.dart';

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import '../application/wamp_app_controller.dart';
+import '../application/call_controller.dart';
 import '../domain/local_app_preferences.dart';
 import '../domain/local_chat_message.dart';
 import '../domain/local_message_query.dart';
@@ -16,6 +17,7 @@ import '../infrastructure/voice_note_playback.dart';
 import '../infrastructure/voice_note_recorder.dart';
 import '../infrastructure/wamp_account_gateway.dart';
 import 'backup_passphrase_dialog.dart';
+import 'call_overlay.dart';
 import 'expression_picker.dart';
 
 class HomePage extends StatefulWidget {
@@ -722,88 +724,111 @@ class _HomePageState extends State<HomePage> {
     if (action == 'remote') await _uploadRemoteBackup();
   }
 
+  Future<void> _startCall(CallMediaKind media) async {
+    final calls = widget.controller.calls;
+    if (calls == null || _selectedGroupId != null) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    await calls.startCall(
+      recipientUsername: _recipientController.text,
+      media: media,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 760;
-            final account = _AccountPanel(
-              connection: widget.connection,
-              localDevice: widget.controller.localDevice!,
-              safetyNumber: widget.controller.safetyNumber!,
-              compact: !wide,
-              profileBusy: widget.controller.profileBusy,
-              preferenceBusy: widget.controller.preferenceBusy,
-              backupBusy: widget.controller.backupBusy,
-              themePreference: widget.controller.themePreference,
-              onEditProfile: _editProfile,
-              onThemeChanged: _setThemePreference,
-              onBackup: _showBackupMenu,
-              onRemoteBackup: _uploadRemoteBackup,
-              onSignOut: widget.controller.signOut,
-            );
-            final conversation = _ConversationPanel(
-              controller: widget.controller,
-              recipientController: _recipientController,
-              messageController: _messageController,
-              searchController: _searchController,
-              searchQuery: _searchQuery,
-              readFilter: _readFilter,
-              onSearchChanged: _onSearchChanged,
-              onClearSearch: _clearSearch,
-              onReadFilterChanged: (value) =>
-                  setState(() => _readFilter = value),
-              onSearchResultSelected: _selectSearchResult,
-              onSend: _send,
-              onViewProfile: _showPeerProfile,
-              oneTime: _oneTime,
-              expiresAfter: _expiresAfter,
-              selectedGroupId: _selectedGroupId,
-              onRecipientChanged: () => setState(() {}),
-              onConversationChanged: (value) => setState(() {
-                _selectedGroupId = value;
-                if (value != null) _oneTime = false;
-              }),
-              onCreateGroup: _createGroup,
-              onMuteChanged: _setConversationMuted,
-              onOneTimeChanged: (value) => setState(() => _oneTime = value),
-              onExpiresAfterChanged: (value) =>
-                  setState(() => _expiresAfter = value),
-              onOpenMessage: _openMessage,
-              selectedAttachments: _attachments,
-              onPickAttachments: _pickAttachments,
-              onPickExpression: _showExpressionPicker,
-              onRemoveAttachment: _removeAttachment,
-              onOpenAttachment: _openAttachment,
-              voiceRecording: _voiceRecording != null,
-              voiceControlBusy: _voiceControlBusy,
-              voiceRecordingElapsed: _voiceRecordingElapsed,
-              onToggleVoiceRecording: _toggleVoiceRecording,
-              onCancelVoiceRecording: _cancelVoiceRecording,
-              stickerBusy: _stickerBusy,
-            );
-            return Padding(
-              padding: const EdgeInsets.all(18),
-              child: wide
-                  ? Row(
-                      children: [
-                        SizedBox(width: 320, child: account),
-                        const SizedBox(width: 18),
-                        Expanded(child: conversation),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        account,
-                        const SizedBox(height: 18),
-                        Expanded(child: conversation),
-                      ],
-                    ),
-            );
-          },
-        ),
+    final calls = widget.controller.calls!;
+    return AnimatedBuilder(
+      animation: calls,
+      builder: (context, _) => Stack(
+        children: [
+          Scaffold(
+            body: SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide = constraints.maxWidth >= 760;
+                  final account = _AccountPanel(
+                    connection: widget.connection,
+                    localDevice: widget.controller.localDevice!,
+                    safetyNumber: widget.controller.safetyNumber!,
+                    compact: !wide,
+                    profileBusy: widget.controller.profileBusy,
+                    preferenceBusy: widget.controller.preferenceBusy,
+                    backupBusy: widget.controller.backupBusy,
+                    themePreference: widget.controller.themePreference,
+                    onEditProfile: _editProfile,
+                    onThemeChanged: _setThemePreference,
+                    onBackup: _showBackupMenu,
+                    onRemoteBackup: _uploadRemoteBackup,
+                    onSignOut: widget.controller.signOut,
+                  );
+                  final conversation = _ConversationPanel(
+                    controller: widget.controller,
+                    calls: calls,
+                    recipientController: _recipientController,
+                    messageController: _messageController,
+                    searchController: _searchController,
+                    searchQuery: _searchQuery,
+                    readFilter: _readFilter,
+                    onSearchChanged: _onSearchChanged,
+                    onClearSearch: _clearSearch,
+                    onReadFilterChanged: (value) =>
+                        setState(() => _readFilter = value),
+                    onSearchResultSelected: _selectSearchResult,
+                    onSend: _send,
+                    onViewProfile: _showPeerProfile,
+                    onStartVoiceCall: () => _startCall(CallMediaKind.voice),
+                    onStartVideoCall: () => _startCall(CallMediaKind.video),
+                    oneTime: _oneTime,
+                    expiresAfter: _expiresAfter,
+                    selectedGroupId: _selectedGroupId,
+                    onRecipientChanged: () => setState(() {}),
+                    onConversationChanged: (value) => setState(() {
+                      _selectedGroupId = value;
+                      if (value != null) _oneTime = false;
+                    }),
+                    onCreateGroup: _createGroup,
+                    onMuteChanged: _setConversationMuted,
+                    onOneTimeChanged: (value) =>
+                        setState(() => _oneTime = value),
+                    onExpiresAfterChanged: (value) =>
+                        setState(() => _expiresAfter = value),
+                    onOpenMessage: _openMessage,
+                    selectedAttachments: _attachments,
+                    onPickAttachments: _pickAttachments,
+                    onPickExpression: _showExpressionPicker,
+                    onRemoveAttachment: _removeAttachment,
+                    onOpenAttachment: _openAttachment,
+                    voiceRecording: _voiceRecording != null,
+                    voiceControlBusy: _voiceControlBusy,
+                    voiceRecordingElapsed: _voiceRecordingElapsed,
+                    onToggleVoiceRecording: _toggleVoiceRecording,
+                    onCancelVoiceRecording: _cancelVoiceRecording,
+                    stickerBusy: _stickerBusy,
+                  );
+                  return Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: wide
+                        ? Row(
+                            children: [
+                              SizedBox(width: 320, child: account),
+                              const SizedBox(width: 18),
+                              Expanded(child: conversation),
+                            ],
+                          )
+                        : Column(
+                            children: [
+                              account,
+                              const SizedBox(height: 18),
+                              Expanded(child: conversation),
+                            ],
+                          ),
+                  );
+                },
+              ),
+            ),
+          ),
+          if (calls.hasCall) CallOverlay(controller: calls),
+        ],
       ),
     );
   }
@@ -1309,6 +1334,7 @@ class _OnlineBadge extends StatelessWidget {
 class _ConversationPanel extends StatelessWidget {
   const _ConversationPanel({
     required this.controller,
+    required this.calls,
     required this.recipientController,
     required this.messageController,
     required this.searchController,
@@ -1320,6 +1346,8 @@ class _ConversationPanel extends StatelessWidget {
     required this.onSearchResultSelected,
     required this.onSend,
     required this.onViewProfile,
+    required this.onStartVoiceCall,
+    required this.onStartVideoCall,
     required this.oneTime,
     required this.expiresAfter,
     required this.selectedGroupId,
@@ -1344,6 +1372,7 @@ class _ConversationPanel extends StatelessWidget {
   });
 
   final WampAppController controller;
+  final CallController calls;
   final TextEditingController recipientController;
   final TextEditingController messageController;
   final TextEditingController searchController;
@@ -1355,6 +1384,8 @@ class _ConversationPanel extends StatelessWidget {
   final Future<void> Function(LocalChatMessage message) onSearchResultSelected;
   final Future<void> Function() onSend;
   final Future<void> Function() onViewProfile;
+  final VoidCallback onStartVoiceCall;
+  final VoidCallback onStartVideoCall;
   final bool oneTime;
   final Duration? expiresAfter;
   final String? selectedGroupId;
@@ -1395,6 +1426,11 @@ class _ConversationPanel extends StatelessWidget {
     final conversationMuted =
         activeConversationId != null &&
         controller.isConversationMuted(activeConversationId);
+    final canStartCall =
+        !groupMode &&
+        recipientController.text.trim().isNotEmpty &&
+        !calls.hasCall &&
+        !calls.busy;
     final query = LocalMessageQuery(
       text: searchQuery,
       readFilter: readFilter,
@@ -1420,6 +1456,22 @@ class _ConversationPanel extends StatelessWidget {
                     selectedGroup?.title ?? 'Encrypted messages',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
+                ),
+                IconButton(
+                  key: const Key('conversation-voice-call'),
+                  tooltip: groupMode
+                      ? 'Group calls are not available yet'
+                      : 'Start encrypted voice call',
+                  onPressed: canStartCall ? onStartVoiceCall : null,
+                  icon: const Icon(Icons.call_outlined),
+                ),
+                IconButton(
+                  key: const Key('conversation-video-call'),
+                  tooltip: groupMode
+                      ? 'Group calls are not available yet'
+                      : 'Start encrypted video call',
+                  onPressed: canStartCall ? onStartVideoCall : null,
+                  icon: const Icon(Icons.videocam_outlined),
                 ),
                 if (activeConversationId != null)
                   IconButton(

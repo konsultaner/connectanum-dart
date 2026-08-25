@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
+import 'package:wamp_app/src/infrastructure/local_device_identity.dart';
 import 'package:wamp_app/src/infrastructure/vault_storage.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -503,6 +504,172 @@ void main() {
     },
     timeout: const Timeout(Duration(minutes: 3)),
   );
+
+  test(
+    'typed WAMP calling signals stay encrypted and replay after reconnect',
+    () async {
+      final temporary = await Directory.systemTemp.createTemp(
+        'wamp-app-call-consumer-',
+      );
+      addTearDown(() => temporary.delete(recursive: true));
+      final server = await WampAppServer.start(
+        WampAppServerConfig(
+          host: '127.0.0.1',
+          port: 0,
+          websocketPath: '/ws',
+          accountStorePath: '${temporary.path}/accounts.json',
+          messageStorePath: '${temporary.path}/messages.json',
+          callStorePath: '${temporary.path}/calls.json',
+          argonIterations: 1,
+          argonMemoryKiB: 8192,
+        ),
+      );
+      addTearDown(server.close);
+      final endpoint = ServerEndpoint.parse(server.websocketUri.toString());
+      final gateway = WampAccountGateway(
+        connectionTimeout: const Duration(seconds: 15),
+        derivationTimeout: const Duration(seconds: 30),
+      );
+      await gateway.register(
+        endpoint: endpoint,
+        registration: AccountRegistration(
+          username: 'alice',
+          displayName: 'Alice',
+          password: 'alice call secret',
+        ),
+      );
+      await gateway.register(
+        endpoint: endpoint,
+        registration: AccountRegistration(
+          username: 'bob',
+          displayName: 'Bob',
+          password: 'bob call secret',
+        ),
+      );
+      final aliceIdentity = LocalDeviceIdentity.generate(
+        deviceName: 'Alice phone',
+        now: DateTime.utc(2026, 8, 25, 10),
+      );
+      final bobIdentity = LocalDeviceIdentity.generate(
+        deviceName: 'Bob phone',
+        now: DateTime.utc(2026, 8, 25, 10),
+      );
+      addTearDown(aliceIdentity.dispose);
+      addTearDown(bobIdentity.dispose);
+      final alice = await gateway.login(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'alice call secret',
+      );
+      var bob = await gateway.login(
+        endpoint: endpoint,
+        username: 'bob',
+        password: 'bob call secret',
+      );
+      addTearDown(alice.close);
+      addTearDown(() => bob.close());
+      final aliceRecord = await alice.enrollDevice(
+        aliceIdentity.enrollment('alice'),
+      );
+      final bobRecord = await bob.enrollDevice(bobIdentity.enrollment('bob'));
+      expect((await alice.getCallConfiguration()).iceServers, isEmpty);
+
+      final callId = _callToken(16, 71);
+      final offerPlaintext = Uint8List.fromList(
+        utf8.encode('{"type":"offer","sdp":"private offer"}'),
+      );
+      final offer = aliceIdentity.sealCallSignal(
+        username: 'alice',
+        callId: callId,
+        signalId: _callToken(16, 72),
+        kind: CallSignalKind.offer,
+        recipient: bobRecord,
+        plaintext: offerPlaintext,
+      );
+      final bobWakeup = bob.callWakeups.first.timeout(
+        const Duration(seconds: 5),
+      );
+      final started = await alice.startCall(
+        CallStartRequest(
+          media: CallMediaKind.video,
+          calleeUsername: 'bob',
+          offers: [offer],
+        ),
+      );
+      expect((await bobWakeup).cursor, started.cursor);
+      final incoming = await bob.syncCalls(
+        deviceId: bobRecord.deviceId,
+        afterCursor: 0,
+      );
+      final openedOffer = bobIdentity.openCallSignal(
+        username: 'bob',
+        signal: incoming.updates.single.signals.single,
+        sender: aliceRecord,
+      );
+      expect(utf8.decode(openedOffer), contains('private offer'));
+      openedOffer.fillRange(0, openedOffer.length, 0);
+
+      final answer = bobIdentity.sealCallSignal(
+        username: 'bob',
+        callId: callId,
+        signalId: _callToken(16, 73),
+        kind: CallSignalKind.answer,
+        recipient: aliceRecord,
+        plaintext: Uint8List.fromList(
+          utf8.encode('{"type":"answer","sdp":"private answer"}'),
+        ),
+      );
+      final accepted = await bob.acceptCall(answer);
+      expect(accepted.call.state, CallState.active);
+      expect(accepted.call.acceptedDeviceId, bobRecord.deviceId);
+
+      final candidate = aliceIdentity.sealCallSignal(
+        username: 'alice',
+        callId: callId,
+        signalId: _callToken(16, 74),
+        kind: CallSignalKind.iceCandidate,
+        recipient: bobRecord,
+        plaintext: Uint8List.fromList(
+          utf8.encode('{"candidate":"private candidate"}'),
+        ),
+      );
+      await alice.sendCallSignal(candidate);
+      await bob.close();
+      bob = await gateway.login(
+        endpoint: endpoint,
+        username: 'bob',
+        password: 'bob call secret',
+      );
+      final replay = await bob.syncCalls(
+        deviceId: bobRecord.deviceId,
+        afterCursor: 0,
+      );
+      expect(replay.updates, hasLength(3));
+      final replayedCandidate = replay.updates.last.signals.single;
+      final openedCandidate = bobIdentity.openCallSignal(
+        username: 'bob',
+        signal: replayedCandidate,
+        sender: aliceRecord,
+      );
+      expect(utf8.decode(openedCandidate), contains('private candidate'));
+      openedCandidate.fillRange(0, openedCandidate.length, 0);
+
+      final hangup = bobIdentity.sealCallSignal(
+        username: 'bob',
+        callId: callId,
+        signalId: _callToken(16, 75),
+        kind: CallSignalKind.hangup,
+        recipient: aliceRecord,
+        plaintext: Uint8List.fromList(utf8.encode('{"reason":"local"}')),
+      );
+      expect((await bob.endCall(hangup)).call.state, CallState.ended);
+      expect(
+        await File('${temporary.path}/calls.json').readAsString(),
+        isNot(contains('private offer')),
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
 }
 
 Future<void> _waitFor(bool Function() condition) async {
@@ -526,6 +693,10 @@ WampAppController _controller(_MemoryVaultStorage storage, String deviceName) {
     deviceName: deviceName,
   );
 }
+
+String _callToken(int bytes, int seed) => base64Url
+    .encode(List<int>.generate(bytes, (index) => (index + seed) % 256))
+    .replaceAll('=', '');
 
 final class _MemoryVaultStorage implements VaultStorage {
   final Map<String, String> values = {};
