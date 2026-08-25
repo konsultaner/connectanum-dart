@@ -197,6 +197,12 @@ final class _RecordingGateway implements PlatformPushGateway {
   final List<_Delivery> deliveries = <_Delivery>[];
 
   @override
+  Set<String> get providers => const {'apns'};
+
+  @override
+  Future<void> close() async {}
+
+  @override
   Future<PlatformPushDeliveryResult> deliver({
     required String provider,
     required String token,

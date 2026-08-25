@@ -300,11 +300,34 @@ smoke proves unavailable-provider failure, caller/device binding,
 register/unregister, cursor-only delivery, reconnect persistence, revocation
 cleanup, and rejected reuse of a revoked device. `bin/test-wamp-app` passes with
 40 shared, 64 server, 100 native Flutter, and 34 Chrome tests plus Dart2Wasm and
-a release-web build. Concrete APNs, FCM, and Web Push gateway adapters, Flutter
-platform-token acquisition, OS background handlers, and mute-aware local
-presentation remain; this slice does not claim provider deployment is complete.
-Repository-wide `bin/verify` passes on 2026-08-25; hosted exact-head evidence
-is pending.
+a release-web build. Concrete provider delivery and client platform-token
+integration remained at that checkpoint.
+Repository-wide `bin/verify` passes on 2026-08-25. Exact-head CI run
+`32846782748` passes WampApp Consumer in 3m58s, Fast Checks in 9m08s, Full
+Verify in 11m35s, and Dart VM Coverage in 13m04s for commit `dbc44a78`; the
+feature-head cleanliness/log audit and protected-`master`
+policy/workflow/package strict audit also pass.
+
+The first concrete provider path is complete locally through Firebase Cloud
+Messaging HTTP v1. Strict optional `platform_push.fcm` YAML resolves an
+operator-owned service-account file relative to the server configuration and
+starts an OAuth-authenticated client without checked-in credentials. Android,
+APNs-backed Apple devices, and web clients share the single `fcm` registration
+provider. The server sends only the durable mailbox cursor and provider-required
+background headers, with no account, sender, conversation, message, attachment,
+ciphertext, or key metadata. Initialization and request deadlines, bounded
+credential and response bodies, malformed-response isolation, provider-aware
+registration, idempotent owned disposal, and sanitized failure reporting fail
+closed. Only FCM-specific invalid-token details trigger the existing
+compare-remove retirement path; generic request, quota, provider credential,
+and transient service failures preserve the token. The live consumer smoke now
+also proves unsupported-provider rejection and server-owned gateway disposal.
+`bin/test-wamp-app` passes with 40 shared, 82 server, 100 native Flutter, and 34
+Chrome tests plus Dart2Wasm and a release-web build; the focused post-review
+gateway matrix has 14 passing cases, and repository-wide `bin/verify` passes.
+Flutter token acquisition/refresh, OS background handling, mute-aware local
+presentation, and credential-backed FCM deployment evidence remain; hosted
+exact-head evidence is pending.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

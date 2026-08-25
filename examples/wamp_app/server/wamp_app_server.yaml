@@ -8,6 +8,14 @@ message_store: data/messages.json
 push_store: data/push-subscriptions.json
 attachment_store: data/attachments
 
+# Optional Firebase Cloud Messaging delivery. Keep the service-account JSON
+# outside the repository and grant it only the Firebase Messaging permission.
+# platform_push:
+#   fcm:
+#     service_account_file: /run/secrets/firebase-service-account.json
+#     # Defaults to project_id in the service-account JSON when omitted.
+#     project_id: your-firebase-project
+
 attachment_limits:
   # Ciphertext bytes stored across all accounts and per authenticated sender.
   max_total_bytes: 10737418240

@@ -14,11 +14,15 @@ enum PlatformPushDispatchFailure {
 }
 
 abstract interface class PlatformPushGateway {
+  Set<String> get providers;
+
   Future<PlatformPushDeliveryResult> deliver({
     required String provider,
     required String token,
     required int cursor,
   });
+
+  Future<void> close();
 }
 
 final class PlatformPushService {

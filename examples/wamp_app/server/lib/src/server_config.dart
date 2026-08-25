@@ -3,6 +3,16 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+final class FcmPlatformPushConfig {
+  const FcmPlatformPushConfig({
+    required this.serviceAccountPath,
+    this.projectId,
+  });
+
+  final String serviceAccountPath;
+  final String? projectId;
+}
+
 class WampAppServerConfig {
   static const defaultAttachmentMaxTotalBytes = 10 * 1024 * 1024 * 1024;
   static const defaultAttachmentMaxBytesPerSender = 2 * 1024 * 1024 * 1024;
@@ -16,6 +26,7 @@ class WampAppServerConfig {
     required this.accountStorePath,
     required this.messageStorePath,
     this.pushStorePath,
+    this.fcmPush,
     this.attachmentStorePath,
     this.attachmentMaxTotalBytes = defaultAttachmentMaxTotalBytes,
     this.attachmentMaxBytesPerSender = defaultAttachmentMaxBytesPerSender,
@@ -31,6 +42,7 @@ class WampAppServerConfig {
   final String accountStorePath;
   final String messageStorePath;
   final String? pushStorePath;
+  final FcmPlatformPushConfig? fcmPush;
   final String? attachmentStorePath;
   final int attachmentMaxTotalBytes;
   final int attachmentMaxBytesPerSender;
@@ -50,6 +62,12 @@ class WampAppServerConfig {
     final attachmentLimits = document['attachment_limits'] == null
         ? null
         : _map(document['attachment_limits'], 'attachment_limits');
+    final platformPush = document['platform_push'] == null
+        ? null
+        : _map(document['platform_push'], 'platform_push');
+    final fcm = platformPush == null || platformPush['fcm'] == null
+        ? null
+        : _map(platformPush['fcm'], 'platform_push.fcm');
     final host = _string(listen['host'], 'listen.host');
     final port = _integer(listen['port'], 'listen.port', min: 0, max: 65535);
     final websocketPath = _string(document['websocket_path'], 'websocket_path');
@@ -74,6 +92,20 @@ class WampAppServerConfig {
     final pushStore = p.isAbsolute(configuredPush)
         ? configuredPush
         : p.normalize(p.join(base, configuredPush));
+    final configuredServiceAccount = fcm == null
+        ? null
+        : _string(
+            fcm['service_account_file'],
+            'platform_push.fcm.service_account_file',
+          );
+    final serviceAccountPath = configuredServiceAccount == null
+        ? null
+        : p.isAbsolute(configuredServiceAccount)
+        ? configuredServiceAccount
+        : p.normalize(p.join(base, configuredServiceAccount));
+    final projectId = fcm == null || fcm['project_id'] == null
+        ? null
+        : _string(fcm['project_id'], 'platform_push.fcm.project_id');
     final configuredAttachments = document['attachment_store'] == null
         ? '$configuredMessages.attachments'
         : _string(document['attachment_store'], 'attachment_store');
@@ -109,6 +141,12 @@ class WampAppServerConfig {
       accountStorePath: accountStore,
       messageStorePath: messageStore,
       pushStorePath: pushStore,
+      fcmPush: serviceAccountPath == null
+          ? null
+          : FcmPlatformPushConfig(
+              serviceAccountPath: serviceAccountPath,
+              projectId: projectId,
+            ),
       attachmentStorePath: attachmentStore,
       attachmentMaxTotalBytes: attachmentMaxTotalBytes,
       attachmentMaxBytesPerSender: attachmentMaxBytesPerSender,

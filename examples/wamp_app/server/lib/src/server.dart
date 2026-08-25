@@ -13,6 +13,7 @@ import 'attachment_service.dart';
 import 'attachment_retention.dart';
 import 'attachment_store.dart';
 import 'device_service.dart';
+import 'fcm_platform_push_gateway.dart';
 import 'mailbox_store.dart';
 import 'message_service.dart';
 import 'platform_push_service.dart';
@@ -31,12 +32,14 @@ class WampAppServer {
     required List<Session> serviceSessions,
     required AttachmentRetentionController attachmentRetention,
     required PlatformPushDispatcher? pushDispatcher,
+    required PlatformPushGateway? pushGateway,
   }) : _runtime = runtime,
        _binding = binding,
        _serviceClients = List<Client>.unmodifiable(serviceClients),
        _serviceSessions = List<Session>.unmodifiable(serviceSessions),
        _attachmentRetention = attachmentRetention,
-       _pushDispatcher = pushDispatcher;
+       _pushDispatcher = pushDispatcher,
+       _pushGateway = pushGateway;
 
   final Uri websocketUri;
   final NativeTransportRuntime _runtime;
@@ -45,6 +48,7 @@ class WampAppServer {
   final List<Session> _serviceSessions;
   final AttachmentRetentionController _attachmentRetention;
   final PlatformPushDispatcher? _pushDispatcher;
+  final PlatformPushGateway? _pushGateway;
   bool _closed = false;
 
   static Future<WampAppServer> start(
@@ -60,15 +64,6 @@ class WampAppServer {
     );
     await pushStore.initialize();
     final pushService = PlatformPushService(accounts: store, store: pushStore);
-    final pushDispatcher = pushGateway == null
-        ? null
-        : PlatformPushDispatcher(
-            service: pushService,
-            gateway: pushGateway,
-            onBackgroundFailure: (_) {
-              stderr.writeln('WampApp platform push delivery failed.');
-            },
-          );
     final attachments = AttachmentStore(
       config.attachmentStorePath ?? '${config.messageStorePath}.attachments',
       maxTotalBytes: config.attachmentMaxTotalBytes,
@@ -108,7 +103,23 @@ class WampAppServer {
     final serviceClients = <Client>[];
     final serviceSessions = <Session>[];
     AttachmentRetentionController? attachmentRetention;
+    PlatformPushGateway? activePushGateway;
+    PlatformPushDispatcher? pushDispatcher;
     try {
+      activePushGateway = pushGateway;
+      final fcmPush = config.fcmPush;
+      if (activePushGateway == null && fcmPush != null) {
+        activePushGateway = await FcmPlatformPushGateway.fromConfig(fcmPush);
+      }
+      if (activePushGateway != null) {
+        pushDispatcher = PlatformPushDispatcher(
+          service: pushService,
+          gateway: activePushGateway,
+          onBackgroundFailure: (_) {
+            stderr.writeln('WampApp platform push delivery failed.');
+          },
+        );
+      }
       final listener = binding.listeners.single;
       final connectHost = switch (config.host) {
         '0.0.0.0' || '::' => '127.0.0.1',
@@ -173,7 +184,7 @@ class WampAppServer {
       await _registerPushHandlers(
         appServiceSession,
         pushService,
-        deliveryAvailable: pushDispatcher != null,
+        supportedProviders: activePushGateway?.providers ?? const {},
       );
       await _registerProfileHandlers(
         appServiceSession,
@@ -209,10 +220,16 @@ class WampAppServer {
         serviceSessions: serviceSessions,
         attachmentRetention: attachmentRetention,
         pushDispatcher: pushDispatcher,
+        pushGateway: activePushGateway,
       );
     } catch (_) {
       try {
         await pushDispatcher?.close();
+      } catch (_) {
+        // Preserve the startup failure while releasing remaining resources.
+      }
+      try {
+        await activePushGateway?.close();
       } catch (_) {
         // Preserve the startup failure while releasing remaining resources.
       }
@@ -474,6 +491,11 @@ class WampAppServer {
       failure ??= error;
     }
     try {
+      await _pushGateway?.close();
+    } catch (error) {
+      failure ??= error;
+    }
+    try {
       await _attachmentRetention.close();
     } catch (error) {
       failure ??= error;
@@ -605,18 +627,21 @@ Future<void> _registerDeviceHandlers(
 Future<void> _registerPushHandlers(
   Session session,
   PlatformPushService push, {
-  required bool deliveryAvailable,
+  required Set<String> supportedProviders,
 }) async {
   final options = RegisterOptions(discloseCaller: true);
   await session.registerHandler(WampAppProtocol.pushRegister, (
     invocation,
   ) async {
     try {
-      if (!deliveryAvailable) throw const _PlatformPushUnavailable();
+      if (supportedProviders.isEmpty) throw const _PlatformPushUnavailable();
       final username = _callerUsername(invocation);
       final request = PlatformPushSubscriptionRequest.fromWampKeywords(
         invocation.argumentsKeywords,
       );
+      if (!supportedProviders.contains(request.provider)) {
+        throw const FormatException('Platform push provider is not supported.');
+      }
       final receipt = await push.register(username, request);
       invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
     } catch (error) {

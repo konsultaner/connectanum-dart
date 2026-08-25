@@ -424,6 +424,22 @@ void main() {
         gateway.deliveries.every((delivery) => delivery.cursor > 0),
         isTrue,
       );
+      await expectLater(
+        alice.connection!.registerPlatformPush(
+          PlatformPushSubscriptionRequest(
+            deviceId: aliceDevice,
+            provider: 'unsupported-provider',
+            token: 'unsupported-token',
+          ),
+        ),
+        throwsA(
+          isA<PlatformPushSubscriptionException>().having(
+            (error) => error.kind,
+            'kind',
+            PlatformPushSubscriptionFailureKind.rejected,
+          ),
+        ),
+      );
       var pushDocument = await File('${temporary.path}/push.json')
           .readAsString();
       expect(pushDocument, contains('alice-opaque-token'));
@@ -469,6 +485,8 @@ void main() {
       );
       pushDocument = await File('${temporary.path}/push.json').readAsString();
       expect(pushDocument, isNot(contains('alice-opaque-token')));
+      await server.close();
+      expect(gateway.closed, isTrue);
     },
     timeout: const Timeout(Duration(minutes: 3)),
   );
@@ -532,6 +550,15 @@ final class _TestKeyDeriver implements VaultKeyDeriver {
 
 final class _RecordingPushGateway implements PlatformPushGateway {
   final List<_PushDelivery> deliveries = <_PushDelivery>[];
+  bool closed = false;
+
+  @override
+  Set<String> get providers => const {'test-provider'};
+
+  @override
+  Future<void> close() async {
+    closed = true;
+  }
 
   @override
   Future<PlatformPushDeliveryResult> deliver({

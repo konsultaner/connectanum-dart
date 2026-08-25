@@ -32,6 +32,7 @@ void main() {
       config.pushStorePath,
       '${directory.path}/data/messages.json.push.json',
     );
+    expect(config.fcmPush, isNull);
   });
 
   test('attachment limits load from YAML', () async {
@@ -71,6 +72,50 @@ attachment_limits:
     expect(config.pushStorePath, '${directory.path}/secrets/push.json');
   });
 
+  test('FCM platform push config resolves secrets relative to YAML', () async {
+    final directory = await Directory.systemTemp.createTemp('wampapp-config-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/server.yaml');
+    await file.writeAsString(
+      _configYaml(
+        platformPush: '''
+platform_push:
+  fcm:
+    service_account_file: secrets/firebase-service-account.json
+    project_id: wampapp-test1
+''',
+      ),
+    );
+
+    final config = await WampAppServerConfig.load(file.path);
+
+    expect(
+      config.fcmPush?.serviceAccountPath,
+      '${directory.path}/secrets/firebase-service-account.json',
+    );
+    expect(config.fcmPush?.projectId, 'wampapp-test1');
+  });
+
+  for (final malformed in const [
+    'platform_push: []\n',
+    'platform_push:\n  fcm: []\n',
+    'platform_push:\n  fcm:\n    service_account_file: ""\n',
+  ]) {
+    test('malformed platform push config fails closed', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'wampapp-config-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final file = File('${directory.path}/server.yaml');
+      await file.writeAsString(_configYaml(platformPush: malformed));
+
+      await expectLater(
+        WampAppServerConfig.load(file.path),
+        throwsA(isA<FormatException>()),
+      );
+    });
+  }
+
   test('per-sender attachment limit cannot exceed the global limit', () async {
     final directory = await Directory.systemTemp.createTemp('wampapp-config-');
     addTearDown(() => directory.delete(recursive: true));
@@ -94,7 +139,11 @@ attachment_limits:
   });
 }
 
-String _configYaml({String attachmentLimits = '', String pushStore = ''}) =>
+String _configYaml({
+  String attachmentLimits = '',
+  String pushStore = '',
+  String platformPush = '',
+}) =>
     '''
 listen:
   host: 127.0.0.1
@@ -103,6 +152,7 @@ websocket_path: /ws
 account_store: data/accounts.json
 message_store: data/messages.json
 $pushStore
+$platformPush
 attachment_store: data/attachments
 $attachmentLimits
 argon2id13:
