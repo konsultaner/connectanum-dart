@@ -7,6 +7,11 @@ account_store: data/accounts.json
 message_store: data/messages.json
 push_store: data/push-subscriptions.json
 attachment_store: data/attachments
+backup_store: data/backups
+
+backup_limits:
+  # Committed archives plus in-progress ciphertext across all accounts.
+  max_total_bytes: 10737418240
 
 # Optional Firebase Cloud Messaging delivery. Keep the service-account JSON
 # outside the repository and grant it only the Firebase Messaging permission.

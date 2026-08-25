@@ -22,7 +22,7 @@ void main() {
       storage: storage,
       keyDeriver: const _TestKeyDeriver(),
       iterations: 2,
-      memoryKiB: 64,
+      memoryKiB: 8192,
     );
   });
 
@@ -444,6 +444,176 @@ void main() {
     expect(session.messages, isEmpty);
     expect(session.outbox, isEmpty);
   });
+
+  test(
+    'encrypted backup restores the same device under a new password',
+    () async {
+      final session = await vault.openOrCreate(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'old account password',
+        deviceName: 'Alice phone',
+      );
+      await session.savePreferences(
+        LocalAppPreferences(
+          theme: WampAppThemePreference.dark,
+          mutedConversationIds: const ['private-conversation-id'],
+        ),
+      );
+      final deviceId = session.deviceId;
+      final archive = await session.exportBackup(
+        recoveryPassphrase: 'correct backup recovery phrase',
+      );
+      await session.dispose();
+
+      final encoded = utf8.decode(archive);
+      expect(encoded, contains('ciphertext'));
+      expect(encoded, isNot(contains('alice')));
+      expect(encoded, isNot(contains('private-conversation-id')));
+      expect(encoded, isNot(contains('signing_seed')));
+      final backupEnvelope = jsonDecode(encoded) as Map<String, dynamic>;
+      final vaultEnvelope =
+          jsonDecode(storage.values.values.single) as Map<String, dynamic>;
+      expect(backupEnvelope['salt'], isNot(vaultEnvelope['salt']));
+      storage.values.clear();
+
+      await vault.importBackup(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'new account password',
+        recoveryPassphrase: 'correct backup recovery phrase',
+        archive: archive,
+      );
+      archive.fillRange(0, archive.length, 0);
+      final restored = await vault.openOrCreate(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'new account password',
+        deviceName: 'Ignored replacement name',
+      );
+      addTearDown(restored.dispose);
+      expect(restored.deviceId, deviceId);
+      expect(restored.preferences.theme, WampAppThemePreference.dark);
+      expect(restored.preferences.isMuted('private-conversation-id'), isTrue);
+    },
+  );
+
+  test(
+    'backup wrong key, corruption, and account rebinding fail closed',
+    () async {
+      final session = await vault.openOrCreate(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'account password',
+        deviceName: 'Alice phone',
+      );
+      final archive = await session.exportBackup(
+        recoveryPassphrase: 'correct backup recovery phrase',
+      );
+      await session.dispose();
+      final originalEntry = storage.values.entries.single;
+
+      await expectLater(
+        vault.importBackup(
+          endpoint: endpoint,
+          username: 'alice',
+          password: 'replacement password',
+          recoveryPassphrase: 'incorrect backup recovery phrase',
+          archive: archive,
+        ),
+        throwsA(isA<BackupRestoreException>()),
+      );
+      expect(storage.values[originalEntry.key], originalEntry.value);
+
+      final corrupted = Uint8List.fromList(archive);
+      corrupted[corrupted.length - 2] ^= 1;
+      await expectLater(
+        vault.importBackup(
+          endpoint: endpoint,
+          username: 'alice',
+          password: 'replacement password',
+          recoveryPassphrase: 'correct backup recovery phrase',
+          archive: corrupted,
+        ),
+        throwsA(isA<BackupRestoreException>()),
+      );
+      corrupted.fillRange(0, corrupted.length, 0);
+      expect(storage.values[originalEntry.key], originalEntry.value);
+
+      await expectLater(
+        vault.importBackup(
+          endpoint: endpoint,
+          username: 'bob',
+          password: 'replacement password',
+          recoveryPassphrase: 'correct backup recovery phrase',
+          archive: archive,
+        ),
+        throwsA(isA<BackupRestoreException>()),
+      );
+      expect(storage.values, hasLength(1));
+      expect(storage.values[originalEntry.key], originalEntry.value);
+      archive.fillRange(0, archive.length, 0);
+    },
+  );
+
+  test('backup recovery passphrase bounds preserve storage', () async {
+    final session = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'account password',
+      deviceName: 'Alice phone',
+    );
+    addTearDown(session.dispose);
+    final originalEntry = storage.values.entries.single;
+
+    await expectLater(
+      session.exportBackup(recoveryPassphrase: 'fifteen bytes!!'),
+      throwsA(isA<BackupExportException>()),
+    );
+    await expectLater(
+      session.exportBackup(recoveryPassphrase: 'x' * 1025),
+      throwsA(isA<BackupExportException>()),
+    );
+    expect(storage.values[originalEntry.key], originalEntry.value);
+  });
+
+  test('backup KDF parameters survive local vault policy upgrades', () async {
+    final session = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'old account password',
+      deviceName: 'Alice phone',
+    );
+    final deviceId = session.deviceId;
+    final archive = await session.exportBackup(
+      recoveryPassphrase: 'correct backup recovery phrase',
+    );
+    await session.dispose();
+    storage.values.clear();
+    final upgradedVault = EncryptedDeviceVault(
+      storage: storage,
+      keyDeriver: const _TestKeyDeriver(),
+      iterations: 4,
+      memoryKiB: 16384,
+    );
+
+    await upgradedVault.importBackup(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'new account password',
+      recoveryPassphrase: 'correct backup recovery phrase',
+      archive: archive,
+    );
+    archive.fillRange(0, archive.length, 0);
+    final restored = await upgradedVault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'new account password',
+      deviceName: 'Ignored replacement name',
+    );
+    addTearDown(restored.dispose);
+    expect(restored.deviceId, deviceId);
+  });
 }
 
 final class MemoryVaultStorage implements VaultStorage {
@@ -495,7 +665,7 @@ Future<void> _rewriteInnerDocument(
     password: password,
     salt: salt,
     iterations: 2,
-    memoryKiB: 64,
+    memoryKiB: 8192,
     timeout: const Duration(seconds: 1),
   );
   final ciphertext = _decodeUnpadded(envelope['ciphertext'] as String);

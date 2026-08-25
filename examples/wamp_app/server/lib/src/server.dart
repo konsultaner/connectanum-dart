@@ -12,6 +12,8 @@ import 'account_store.dart';
 import 'attachment_service.dart';
 import 'attachment_retention.dart';
 import 'attachment_store.dart';
+import 'backup_service.dart';
+import 'backup_store.dart' as backups;
 import 'device_service.dart';
 import 'fcm_platform_push_gateway.dart';
 import 'mailbox_store.dart';
@@ -71,6 +73,11 @@ class WampAppServer {
       stagingTtl: config.attachmentStagingTtl,
     );
     await attachments.initialize();
+    final backupStore = backups.BackupStore(
+      config.backupStorePath ?? '${config.messageStorePath}.backups',
+      maximumTotalBytes: config.backupMaxTotalBytes,
+    );
+    await backupStore.initialize();
     final random = Random.secure();
     final serviceTicket = base64Url.encode(
       List<int>.generate(32, (_) => random.nextInt(256)),
@@ -193,6 +200,10 @@ class WampAppServer {
       await _registerAttachmentHandlers(
         appServiceSession,
         AttachmentService(store: attachments, mailbox: mailbox),
+      );
+      await _registerBackupHandlers(
+        appServiceSession,
+        BackupService(store: backupStore),
       );
       await _registerMessageHandlers(
         appServiceSession,
@@ -383,6 +394,30 @@ class WampAppServer {
                 ..allowOperations(const ['call']),
             )
             ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupUploadBegin)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupChunkPut)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupUploadCommit)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupMetadataGet)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupChunkGet)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupDelete)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.mailboxChanged)
                 ..setMatchPolicy(PermissionMatchPolicy.exact)
                 ..allowOperations(const ['subscribe', 'unsubscribe']),
@@ -448,6 +483,30 @@ class WampAppServer {
             )
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.attachmentChunkGet)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupUploadBegin)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupChunkPut)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupUploadCommit)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupMetadataGet)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupChunkGet)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.backupDelete)
                 ..allowOperations(const ['register', 'unregister']),
             )
             ..addPermissionFromBuilder(
@@ -776,6 +835,110 @@ Future<void> _registerAttachmentHandlers(
   }, options: options);
 }
 
+Future<void> _registerBackupHandlers(
+  Session session,
+  BackupService backups,
+) async {
+  final options = RegisterOptions(discloseCaller: true);
+  await session.registerHandler(WampAppProtocol.backupUploadBegin, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final request = BackupUploadRequest.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final upload = await backups.begin(username, request);
+      invocation.respondWith(argumentsKeywords: upload.toWampKeywords());
+    } catch (error) {
+      _respondWithBackupError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.backupChunkPut, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final chunk = EncryptedBackupChunk.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      await backups.putChunk(username, chunk);
+      invocation.respondWith(
+        argumentsKeywords: {
+          'upload_id': chunk.uploadId,
+          'chunk_index': chunk.chunkIndex,
+        },
+      );
+    } catch (error) {
+      _respondWithBackupError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.backupUploadCommit, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final uploadId = invocation.argumentsKeywords?['upload_id'];
+      if (uploadId is! String) {
+        throw const FormatException('upload_id must be a string.');
+      }
+      final metadata = await backups.commit(username, uploadId);
+      invocation.respondWith(argumentsKeywords: metadata.toWampKeywords());
+    } catch (error) {
+      _respondWithBackupError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.backupMetadataGet, (
+    invocation,
+  ) async {
+    try {
+      final metadata = await backups.metadata(_callerUsername(invocation));
+      invocation.respondWith(argumentsKeywords: metadata.toWampKeywords());
+    } catch (error) {
+      _respondWithBackupError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.backupChunkGet, (
+    invocation,
+  ) async {
+    try {
+      final revision = invocation.argumentsKeywords?['revision'];
+      final chunkIndex = invocation.argumentsKeywords?['chunk_index'];
+      if (revision is! int || chunkIndex is! int) {
+        throw const FormatException(
+          'revision and chunk_index must be integers.',
+        );
+      }
+      final chunk = await backups.readChunk(
+        username: _callerUsername(invocation),
+        revision: revision,
+        chunkIndex: chunkIndex,
+      );
+      invocation.respondWith(argumentsKeywords: chunk.toWampKeywords());
+    } catch (error) {
+      _respondWithBackupError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.backupDelete, (
+    invocation,
+  ) async {
+    try {
+      final expectedRevision =
+          invocation.argumentsKeywords?['expected_revision'];
+      if (expectedRevision is! int) {
+        throw const FormatException('expected_revision must be an integer.');
+      }
+      final removed = await backups.delete(
+        _callerUsername(invocation),
+        expectedRevision,
+      );
+      invocation.respondWith(argumentsKeywords: {'removed': removed});
+    } catch (error) {
+      _respondWithBackupError(invocation, error);
+    }
+  }, options: options);
+}
+
 Future<void> _registerMessageHandlers(
   Session session,
   MessageService messages,
@@ -1075,6 +1238,56 @@ void _respondWithMessageError(Invocation invocation, Object error) {
     ),
   };
   invocation.respondWith(isError: true, errorUri: uri, arguments: [message]);
+}
+
+void _respondWithBackupError(Invocation invocation, Object error) {
+  final (uri, message) = switch (error) {
+    backups.BackupConflict() => (
+      WampAppProtocol.errorBackupConflict,
+      'The encrypted backup changed before this operation completed.',
+    ),
+    backups.BackupNotFound() || backups.BackupUploadNotFound() => (
+      WampAppProtocol.errorBackupNotFound,
+      'No matching encrypted backup or upload exists.',
+    ),
+    backups.BackupIncomplete() => (
+      WampAppProtocol.errorBackupIncomplete,
+      'Every encrypted backup chunk must upload before commit.',
+    ),
+    backups.BackupQuotaExceeded() => (
+      WampAppProtocol.errorBackupQuotaExceeded,
+      'The server backup upload limit has been reached.',
+    ),
+    _CallerNotAuthorized() || StateError() => (
+      WampAppProtocol.errorNotAuthorized,
+      'The authenticated account cannot perform this operation.',
+    ),
+    FormatException(:final message) => (
+      WampAppProtocol.errorInvalidBackup,
+      message,
+    ),
+    backups.BackupUnavailable() => (
+      WampAppProtocol.errorBackupUnavailable,
+      'The encrypted backup could not be verified.',
+    ),
+    _ => (
+      WampAppProtocol.errorBackupUnavailable,
+      'The encrypted backup service is temporarily unavailable.',
+    ),
+  };
+  final conflictRevision = switch (error) {
+    backups.BackupConflict(:final currentRevision) when currentRevision >= 0 =>
+      currentRevision,
+    _ => null,
+  };
+  invocation.respondWith(
+    isError: true,
+    errorUri: uri,
+    arguments: [message],
+    argumentsKeywords: conflictRevision == null
+        ? null
+        : {'current_revision': conflictRevision},
+  );
 }
 
 class _CallerNotAuthorized implements Exception {

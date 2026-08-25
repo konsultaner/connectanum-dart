@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:connectanum_client/connectanum.dart' hide Error;
 import 'package:connectanum_client/connectanum.dart' as wamp show Error;
+import 'package:crypto/crypto.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 abstract interface class AccountGateway {
@@ -155,6 +158,63 @@ final class PlatformPushSubscriptionException implements Exception {
   };
 }
 
+enum RemoteBackupFailureKind {
+  retryable,
+  rejected,
+  quotaExceeded,
+  conflict,
+  notFound,
+  incomplete,
+}
+
+final class RemoteBackupException implements Exception {
+  const RemoteBackupException(this.kind);
+
+  factory RemoteBackupException.fromWampError(wamp.Error error) {
+    final kind = switch (error.error) {
+      WampAppProtocol.errorBackupConflict => RemoteBackupFailureKind.conflict,
+      WampAppProtocol.errorBackupNotFound => RemoteBackupFailureKind.notFound,
+      WampAppProtocol.errorBackupIncomplete =>
+        RemoteBackupFailureKind.incomplete,
+      WampAppProtocol.errorBackupQuotaExceeded =>
+        RemoteBackupFailureKind.quotaExceeded,
+      WampAppProtocol.errorInvalidBackup ||
+      WampAppProtocol.errorNotAuthorized ||
+      wamp.Error.notAuthorized => RemoteBackupFailureKind.rejected,
+      WampAppProtocol.errorBackupUnavailable ||
+      _ => RemoteBackupFailureKind.retryable,
+    };
+    return RemoteBackupException(kind);
+  }
+
+  final RemoteBackupFailureKind kind;
+
+  @override
+  String toString() => switch (kind) {
+    RemoteBackupFailureKind.retryable =>
+      'Encrypted cloud backup is temporarily unavailable.',
+    RemoteBackupFailureKind.rejected =>
+      'The server rejected this encrypted cloud backup.',
+    RemoteBackupFailureKind.quotaExceeded =>
+      'The server backup upload limit has been reached.',
+    RemoteBackupFailureKind.conflict =>
+      'The cloud backup changed on another device. Try again.',
+    RemoteBackupFailureKind.notFound => 'No encrypted cloud backup was found.',
+    RemoteBackupFailureKind.incomplete =>
+      'The encrypted cloud backup upload is incomplete.',
+  };
+}
+
+final class EncryptedRemoteBackup {
+  EncryptedRemoteBackup({required this.metadata, required Uint8List archive})
+    : _archive = Uint8List.fromList(archive);
+
+  final BackupMetadata metadata;
+  final Uint8List _archive;
+
+  Uint8List get archive => Uint8List.fromList(_archive);
+}
+
 class AccountConnection {
   AccountConnection({
     required this.endpoint,
@@ -176,6 +236,12 @@ class AccountConnection {
     this.getAttachmentChunkCallback,
     this.registerPlatformPushCallback,
     this.unregisterPlatformPushCallback,
+    this.beginBackupUploadCallback,
+    this.putBackupChunkCallback,
+    this.commitBackupUploadCallback,
+    this.getBackupMetadataCallback,
+    this.getBackupChunkCallback,
+    this.deleteBackupCallback,
     required this.mailboxWakeups,
     required this.latestMailboxWakeupCursorCallback,
     required this.latestMailboxWakeupErrorCallback,
@@ -223,6 +289,19 @@ class AccountConnection {
   registerPlatformPushCallback;
   final Future<bool> Function(PlatformPushSubscriptionKey key)?
   unregisterPlatformPushCallback;
+  final Future<BackupUploadSession> Function(BackupUploadRequest request)?
+  beginBackupUploadCallback;
+  final Future<void> Function(EncryptedBackupChunk chunk)?
+  putBackupChunkCallback;
+  final Future<BackupMetadata> Function(String uploadId)?
+  commitBackupUploadCallback;
+  final Future<BackupMetadata?> Function()? getBackupMetadataCallback;
+  final Future<EncryptedBackupDownloadChunk> Function(
+    int revision,
+    int chunkIndex,
+  )?
+  getBackupChunkCallback;
+  final Future<bool> Function(int expectedRevision)? deleteBackupCallback;
   final Stream<MailboxWakeup> mailboxWakeups;
   final int Function() latestMailboxWakeupCursorCallback;
   final Object? Function() latestMailboxWakeupErrorCallback;
@@ -368,6 +447,112 @@ class AccountConnection {
       );
     }
     return callback(key);
+  }
+
+  Future<BackupMetadata?> getRemoteBackupMetadata() {
+    _ensureOpen();
+    final callback = getBackupMetadataCallback;
+    if (callback == null) {
+      throw StateError('Cloud backup is unavailable on this connection.');
+    }
+    return callback();
+  }
+
+  Future<BackupMetadata> uploadRemoteBackup(
+    Uint8List archive, {
+    int? expectedRevision,
+  }) async {
+    _ensureOpen();
+    final begin = beginBackupUploadCallback;
+    final put = putBackupChunkCallback;
+    final commit = commitBackupUploadCallback;
+    if (begin == null || put == null || commit == null) {
+      throw StateError('Cloud backup is unavailable on this connection.');
+    }
+    if (archive.isEmpty ||
+        archive.length > WampAppBackupTransferLimits.maximumArchiveBytes) {
+      throw const FormatException('Backup size is invalid.');
+    }
+    final currentRevision =
+        expectedRevision ?? (await getRemoteBackupMetadata())?.revision ?? 0;
+    final chunkCount =
+        (archive.length + WampAppBackupTransferLimits.chunkBytes - 1) ~/
+        WampAppBackupTransferLimits.chunkBytes;
+    final request = BackupUploadRequest(
+      expectedRevision: currentRevision,
+      byteCount: archive.length,
+      chunkCount: chunkCount,
+      sha256: sha256.convert(archive).toString(),
+    );
+    final upload = await begin(request);
+    if (upload.expectedRevision != currentRevision) {
+      throw const FormatException(
+        'The server returned an invalid backup upload session.',
+      );
+    }
+    for (var index = 0; index < chunkCount; index += 1) {
+      final start = index * WampAppBackupTransferLimits.chunkBytes;
+      final end = min(
+        start + WampAppBackupTransferLimits.chunkBytes,
+        archive.length,
+      );
+      final bytes = Uint8List.sublistView(archive, start, end);
+      await put(
+        EncryptedBackupChunk(
+          uploadId: upload.uploadId,
+          chunkIndex: index,
+          bytes: bytes,
+        ),
+      );
+    }
+    final metadata = await commit(upload.uploadId);
+    if (metadata.revision != currentRevision + 1 ||
+        metadata.byteCount != request.byteCount ||
+        metadata.chunkCount != request.chunkCount ||
+        metadata.sha256 != request.sha256) {
+      throw const FormatException(
+        'The server returned invalid backup metadata.',
+      );
+    }
+    return metadata;
+  }
+
+  Future<EncryptedRemoteBackup?> downloadRemoteBackup() async {
+    _ensureOpen();
+    final getChunk = getBackupChunkCallback;
+    if (getChunk == null) {
+      throw StateError('Cloud backup is unavailable on this connection.');
+    }
+    final metadata = await getRemoteBackupMetadata();
+    if (metadata == null) return null;
+    final builder = BytesBuilder(copy: false);
+    for (var index = 0; index < metadata.chunkCount; index += 1) {
+      final chunk = await getChunk(metadata.revision, index);
+      if (chunk.revision != metadata.revision || chunk.chunkIndex != index) {
+        throw const FormatException(
+          'The server returned the wrong backup chunk.',
+        );
+      }
+      builder.add(chunk.bytes);
+    }
+    final archive = builder.takeBytes();
+    if (archive.length != metadata.byteCount ||
+        sha256.convert(archive).toString() != metadata.sha256) {
+      archive.fillRange(0, archive.length, 0);
+      throw const FormatException(
+        'The downloaded backup failed integrity verification.',
+      );
+    }
+    return EncryptedRemoteBackup(metadata: metadata, archive: archive);
+  }
+
+  Future<bool> deleteRemoteBackup(int expectedRevision) {
+    _ensureOpen();
+    final callback = deleteBackupCallback;
+    if (callback == null) {
+      throw StateError('Cloud backup is unavailable on this connection.');
+    }
+    return callback(expectedRevision);
   }
 
   Future<void> close() async {
@@ -679,6 +864,101 @@ class WampAccountGateway implements AccountGateway {
             return removed;
           } on wamp.Error catch (error) {
             throw PlatformPushSubscriptionException.fromWampError(error);
+          }
+        },
+        beginBackupUploadCallback: (request) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.backupUploadBegin,
+                  argumentsKeywords: request.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            return BackupUploadSession.fromWampKeywords(
+              result.argumentsKeywords,
+            );
+          } on wamp.Error catch (error) {
+            throw RemoteBackupException.fromWampError(error);
+          }
+        },
+        putBackupChunkCallback: (chunk) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.backupChunkPut,
+                  argumentsKeywords: chunk.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            if (result.argumentsKeywords?['upload_id'] != chunk.uploadId ||
+                result.argumentsKeywords?['chunk_index'] != chunk.chunkIndex) {
+              throw const FormatException(
+                'The server acknowledged the wrong backup chunk.',
+              );
+            }
+          } on wamp.Error catch (error) {
+            throw RemoteBackupException.fromWampError(error);
+          }
+        },
+        commitBackupUploadCallback: (uploadId) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.backupUploadCommit,
+                  argumentsKeywords: {'upload_id': uploadId},
+                )
+                .timeout(connectionTimeout);
+            return BackupMetadata.fromWampKeywords(result.argumentsKeywords);
+          } on wamp.Error catch (error) {
+            throw RemoteBackupException.fromWampError(error);
+          }
+        },
+        getBackupMetadataCallback: () async {
+          try {
+            final result = await session
+                .callSingle(WampAppProtocol.backupMetadataGet)
+                .timeout(connectionTimeout);
+            return BackupMetadata.fromWampKeywords(result.argumentsKeywords);
+          } on wamp.Error catch (error) {
+            final mapped = RemoteBackupException.fromWampError(error);
+            if (mapped.kind == RemoteBackupFailureKind.notFound) return null;
+            throw mapped;
+          }
+        },
+        getBackupChunkCallback: (revision, chunkIndex) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.backupChunkGet,
+                  argumentsKeywords: {
+                    'revision': revision,
+                    'chunk_index': chunkIndex,
+                  },
+                )
+                .timeout(connectionTimeout);
+            return EncryptedBackupDownloadChunk.fromWampKeywords(
+              result.argumentsKeywords,
+            );
+          } on wamp.Error catch (error) {
+            throw RemoteBackupException.fromWampError(error);
+          }
+        },
+        deleteBackupCallback: (expectedRevision) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.backupDelete,
+                  argumentsKeywords: {'expected_revision': expectedRevision},
+                )
+                .timeout(connectionTimeout);
+            final removed = result.argumentsKeywords?['removed'];
+            if (removed is! bool) {
+              throw const FormatException(
+                'The server returned an invalid backup deletion receipt.',
+              );
+            }
+            return removed;
+          } on wamp.Error catch (error) {
+            throw RemoteBackupException.fromWampError(error);
           }
         },
         mailboxWakeups: wakeups.stream,

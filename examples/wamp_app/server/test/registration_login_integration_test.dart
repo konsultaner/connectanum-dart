@@ -22,6 +22,7 @@ void main() {
           websocketPath: '/ws',
           accountStorePath: accountFile.path,
           messageStorePath: '${directory.path}/messages.json',
+          backupStorePath: '${directory.path}/backups',
           attachmentMaxTotalBytes:
               WampAppAttachmentLimits.secretBoxOverheadBytes,
           attachmentMaxBytesPerSender:
@@ -296,6 +297,68 @@ void main() {
       ),
     );
 
+    final backupBytes = Uint8List(WampAppBackupTransferLimits.chunkBytes + 17);
+    for (var index = 0; index < backupBytes.length; index += 1) {
+      backupBytes[index] = index % 251;
+    }
+    final backupRequest = BackupUploadRequest(
+      expectedRevision: 0,
+      byteCount: backupBytes.length,
+      chunkCount: 2,
+      sha256: sha256.convert(backupBytes).toString(),
+    );
+    final backupUpload = BackupUploadSession.fromWampKeywords(
+      (await appSession.callSingle(
+        WampAppProtocol.backupUploadBegin,
+        argumentsKeywords: backupRequest.toWampKeywords(),
+      )).argumentsKeywords,
+    );
+    for (var index = 0; index < backupRequest.chunkCount; index += 1) {
+      final start = index * WampAppBackupTransferLimits.chunkBytes;
+      final end = (start + WampAppBackupTransferLimits.chunkBytes).clamp(
+        0,
+        backupBytes.length,
+      );
+      await appSession.callSingle(
+        WampAppProtocol.backupChunkPut,
+        argumentsKeywords: EncryptedBackupChunk(
+          uploadId: backupUpload.uploadId,
+          chunkIndex: index,
+          bytes: Uint8List.sublistView(backupBytes, start, end),
+        ).toWampKeywords(),
+      );
+    }
+    final backupMetadata = BackupMetadata.fromWampKeywords(
+      (await appSession.callSingle(
+        WampAppProtocol.backupUploadCommit,
+        argumentsKeywords: {'upload_id': backupUpload.uploadId},
+      )).argumentsKeywords,
+    );
+    expect(backupMetadata.revision, 1);
+    expect(backupMetadata.byteCount, backupBytes.length);
+    expect(
+      BackupMetadata.fromWampKeywords(
+        (await appSession.callSingle(
+          WampAppProtocol.backupMetadataGet,
+        )).argumentsKeywords,
+      ).toWampKeywords(),
+      backupMetadata.toWampKeywords(),
+    );
+    final downloadedBackup = BytesBuilder(copy: false);
+    for (var index = 0; index < backupMetadata.chunkCount; index += 1) {
+      final chunk = EncryptedBackupDownloadChunk.fromWampKeywords(
+        (await appSession.callSingle(
+          WampAppProtocol.backupChunkGet,
+          argumentsKeywords: {
+            'revision': backupMetadata.revision,
+            'chunk_index': index,
+          },
+        )).argumentsKeywords,
+      );
+      downloadedBackup.add(chunk.bytes);
+    }
+    expect(downloadedBackup.takeBytes(), backupBytes);
+
     final revoked = DeviceRecord.fromWampKeywords(
       (await appSession.callSingle(
         WampAppProtocol.deviceRevoke,
@@ -340,6 +403,16 @@ void main() {
         .connect(options: _singleAttempt)
         .first
         .timeout(const Duration(seconds: 45));
+    await expectLater(
+      bobSession.callSingle(WampAppProtocol.backupMetadataGet),
+      throwsA(
+        isA<Error>().having(
+          (error) => error.error,
+          'error URI',
+          WampAppProtocol.errorBackupNotFound,
+        ),
+      ),
+    );
     final aliceProfileSeenByBob = AccountProfile.fromWampKeywords(
       (await bobSession.callSingle(
         WampAppProtocol.profileGet,

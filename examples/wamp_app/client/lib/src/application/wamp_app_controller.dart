@@ -9,6 +9,7 @@ import '../domain/local_chat_message.dart';
 import '../domain/outbound_chat_message.dart';
 import '../infrastructure/attachment_chunk_cache.dart';
 import '../infrastructure/attachment_cipher.dart';
+import '../infrastructure/device_backup_file.dart';
 import '../infrastructure/device_vault.dart';
 import '../infrastructure/message_cipher.dart';
 import '../infrastructure/platform_push_registration.dart';
@@ -24,13 +25,16 @@ class WampAppController extends ChangeNotifier {
     MessageCipher? messageCipher,
     AttachmentChunkCache? attachmentCache,
     AttachmentCipher? attachmentCipher,
+    DeviceBackupFileGateway? backupFiles,
     PlatformPushTokenSource? platformPushTokenSource,
     this.deviceName = 'This device',
   }) : _gateway = gateway ?? const WampAccountGateway(),
        _trustStore = trustStore ?? EncryptedDeviceVault(),
        _messageCipher = messageCipher ?? MessageCipher(),
        _attachmentCache = attachmentCache ?? createAttachmentChunkCache(),
-       _attachmentCipher = attachmentCipher ?? AttachmentCipher() {
+       _attachmentCipher = attachmentCipher ?? AttachmentCipher(),
+       _backupFiles =
+           backupFiles ?? const FileSelectorDeviceBackupFileGateway() {
     _platformPush = PlatformPushRegistrationCoordinator(
       source: platformPushTokenSource,
       onError: _recordPlatformPushError,
@@ -42,6 +46,7 @@ class WampAppController extends ChangeNotifier {
   final MessageCipher _messageCipher;
   final AttachmentChunkCache _attachmentCache;
   final AttachmentCipher _attachmentCipher;
+  final DeviceBackupFileGateway _backupFiles;
   late final PlatformPushRegistrationCoordinator _platformPush;
   final String deviceName;
   WampAppStatus _status = WampAppStatus.signedOut;
@@ -53,10 +58,12 @@ class WampAppController extends ChangeNotifier {
   Object? _profileError;
   Object? _preferenceError;
   Object? _platformPushError;
+  Object? _backupError;
   List<LocalChatMessage> _messages = const [];
   bool _messageBusy = false;
   bool _profileBusy = false;
   bool _preferenceBusy = false;
+  bool _backupBusy = false;
   LocalAppPreferences _preferences = LocalAppPreferences.defaults;
   StreamSubscription<MailboxWakeup>? _mailboxWakeupSubscription;
   int _pendingMailboxWakeupCursor = 0;
@@ -65,7 +72,7 @@ class WampAppController extends ChangeNotifier {
   bool _disposed = false;
 
   WampAppStatus get status => _status;
-  bool get isBusy => _status == WampAppStatus.busy;
+  bool get isBusy => _status == WampAppStatus.busy || _backupBusy;
   AccountConnection? get connection => _connection;
   DeviceRecord? get localDevice => _localDevice;
   String? get safetyNumber => _trustSession?.safetyNumber;
@@ -78,6 +85,7 @@ class WampAppController extends ChangeNotifier {
   bool get messageBusy => _messageBusy;
   bool get profileBusy => _profileBusy;
   bool get preferenceBusy => _preferenceBusy;
+  bool get backupBusy => _backupBusy;
   WampAppThemePreference get themePreference => _preferences.theme;
   String? get preferenceError => switch (_preferenceError) {
     FormatException(:final message) => message,
@@ -87,6 +95,14 @@ class WampAppController extends ChangeNotifier {
   String? get platformPushError => _platformPushError == null
       ? null
       : 'Platform push notifications are unavailable.';
+  String? get backupError => switch (_backupError) {
+    BackupExportException() => 'Could not create the encrypted backup.',
+    BackupRestoreException() => 'Could not read the encrypted backup.',
+    RemoteBackupException() => _backupError.toString(),
+    FormatException(:final message) => message,
+    _ when _backupError != null => 'The backup file operation failed.',
+    _ => null,
+  };
   String? get profileError => switch (_profileError) {
     FormatException(:final message) => message,
     ProfileUpdateException() => _profileError.toString(),
@@ -101,6 +117,9 @@ class WampAppController extends ChangeNotifier {
   String? get errorMessage => switch (_error) {
     FormatException(:final message) => message,
     VaultUnlockException() => 'Could not unlock encrypted device storage.',
+    BackupRestoreException() =>
+      'Could not restore this backup. Check its account and recovery phrase.',
+    RemoteBackupException() => _error.toString(),
     _ when _error != null =>
       'Could not connect. Check the address and credentials.',
     _ => null,
@@ -215,7 +234,178 @@ class WampAppController extends ChangeNotifier {
     });
   }
 
+  Future<bool> exportLocalBackup({required String recoveryPassphrase}) async {
+    final trust = _trustSession;
+    if (_disposed || isBusy || _messageBusy || trust == null) return false;
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(trust, _trustSession);
+    _backupBusy = true;
+    _backupError = null;
+    notifyListeners();
+    Uint8List? archive;
+    try {
+      archive = await trust.exportBackup(
+        recoveryPassphrase: recoveryPassphrase,
+      );
+      if (!isCurrent()) return false;
+      final now = DateTime.now().toUtc();
+      final date =
+          '${now.year.toString().padLeft(4, '0')}'
+          '${now.month.toString().padLeft(2, '0')}'
+          '${now.day.toString().padLeft(2, '0')}';
+      return await _backupFiles.save(
+        archive,
+        suggestedName: 'wampapp-device-$date.wampbackup',
+      );
+    } catch (error) {
+      if (isCurrent()) _backupError = error;
+      return false;
+    } finally {
+      archive?.fillRange(0, archive.length, 0);
+      if (isCurrent()) {
+        _backupBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> restoreLocalBackupAndLogin({
+    required String serverAddress,
+    required String username,
+    required String password,
+    required String recoveryPassphrase,
+  }) async {
+    if (_disposed || isBusy || _messageBusy) return;
+    _backupBusy = true;
+    _backupError = null;
+    notifyListeners();
+    Uint8List? archive;
+    try {
+      archive = await _backupFiles.open();
+    } catch (error) {
+      if (!_disposed) {
+        _backupError = error;
+        _backupBusy = false;
+        notifyListeners();
+      }
+      return;
+    }
+    if (archive == null) {
+      if (!_disposed) {
+        _backupBusy = false;
+        notifyListeners();
+      }
+      return;
+    }
+    _backupBusy = false;
+    try {
+      await _run(
+        password: password,
+        beforeTrustOpen: (connection) => _trustStore.importBackup(
+          endpoint: connection.endpoint,
+          username: connection.username,
+          password: password,
+          recoveryPassphrase: recoveryPassphrase,
+          archive: archive!,
+        ),
+        () {
+          final endpoint = ServerEndpoint.parse(serverAddress);
+          endpoint.requireSecureRegistration();
+          return _gateway.login(
+            endpoint: endpoint,
+            username: username,
+            password: password,
+          );
+        },
+      );
+    } finally {
+      archive.fillRange(0, archive.length, 0);
+    }
+  }
+
+  Future<bool> uploadRemoteBackup({required String recoveryPassphrase}) async {
+    final trust = _trustSession;
+    final connection = _connection;
+    if (_disposed ||
+        isBusy ||
+        _messageBusy ||
+        trust == null ||
+        connection == null) {
+      return false;
+    }
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(trust, _trustSession) &&
+        identical(connection, _connection);
+    _backupBusy = true;
+    _backupError = null;
+    notifyListeners();
+    Uint8List? archive;
+    try {
+      archive = await trust.exportBackup(
+        recoveryPassphrase: recoveryPassphrase,
+      );
+      if (!isCurrent()) return false;
+      await connection.uploadRemoteBackup(archive);
+      return isCurrent();
+    } catch (error) {
+      if (isCurrent()) _backupError = error;
+      return false;
+    } finally {
+      archive?.fillRange(0, archive.length, 0);
+      if (isCurrent()) {
+        _backupBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> restoreRemoteBackupAndLogin({
+    required String serverAddress,
+    required String username,
+    required String password,
+    required String recoveryPassphrase,
+  }) async {
+    Uint8List? archive;
+    try {
+      await _run(
+        password: password,
+        beforeTrustOpen: (connection) async {
+          final remote = await connection.downloadRemoteBackup();
+          if (remote == null) {
+            throw const RemoteBackupException(RemoteBackupFailureKind.notFound);
+          }
+          archive = remote.archive;
+          await _trustStore.importBackup(
+            endpoint: connection.endpoint,
+            username: connection.username,
+            password: password,
+            recoveryPassphrase: recoveryPassphrase,
+            archive: archive!,
+          );
+        },
+        () {
+          final endpoint = ServerEndpoint.parse(serverAddress);
+          endpoint.requireSecureRegistration();
+          return _gateway.login(
+            endpoint: endpoint,
+            username: username,
+            password: password,
+          );
+        },
+      );
+    } finally {
+      archive?.fillRange(0, archive!.length, 0);
+    }
+  }
+
   Future<void> signOut() async {
+    if (_backupBusy) return;
     _operationGeneration += 1;
     final connection = _connection;
     final trustSession = _trustSession;
@@ -231,10 +421,12 @@ class WampAppController extends ChangeNotifier {
     _profileError = null;
     _preferenceError = null;
     _platformPushError = null;
+    _backupError = null;
     _messages = const [];
     _messageBusy = false;
     _profileBusy = false;
     _preferenceBusy = false;
+    _backupBusy = false;
     _preferences = LocalAppPreferences.defaults;
     _status = WampAppStatus.signedOut;
     if (!_disposed) notifyListeners();
@@ -304,6 +496,7 @@ class WampAppController extends ChangeNotifier {
   Future<void> _run(
     Future<AccountConnection> Function() action, {
     required String password,
+    Future<void> Function(AccountConnection connection)? beforeTrustOpen,
   }) async {
     if (_disposed || isBusy || _messageBusy) return;
     final generation = ++_operationGeneration;
@@ -338,6 +531,7 @@ class WampAppController extends ChangeNotifier {
           }
         },
       );
+      await beforeTrustOpen?.call(next);
       nextTrust = await _trustStore.openOrCreate(
         endpoint: next.endpoint,
         username: next.username,

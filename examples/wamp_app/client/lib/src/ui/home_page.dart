@@ -15,6 +15,7 @@ import '../infrastructure/attachment_cipher.dart';
 import '../infrastructure/voice_note_playback.dart';
 import '../infrastructure/voice_note_recorder.dart';
 import '../infrastructure/wamp_account_gateway.dart';
+import 'backup_passphrase_dialog.dart';
 import 'expression_picker.dart';
 
 class HomePage extends StatefulWidget {
@@ -645,6 +646,82 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _exportBackup() async {
+    final recoveryPassphrase = await showBackupPassphraseDialog(
+      context,
+      confirm: true,
+    );
+    if (recoveryPassphrase == null || !mounted) return;
+    final saved = await widget.controller.exportLocalBackup(
+      recoveryPassphrase: recoveryPassphrase,
+    );
+    if (!mounted) return;
+    _showMessage(
+      saved
+          ? 'Encrypted device backup saved.'
+          : widget.controller.backupError ?? 'Backup was cancelled.',
+    );
+  }
+
+  Future<void> _uploadRemoteBackup() async {
+    final recoveryPassphrase = await showBackupPassphraseDialog(
+      context,
+      confirm: true,
+    );
+    if (recoveryPassphrase == null || !mounted) return;
+    final saved = await widget.controller.uploadRemoteBackup(
+      recoveryPassphrase: recoveryPassphrase,
+    );
+    if (!mounted) return;
+    _showMessage(
+      saved
+          ? 'Encrypted backup stored on this server.'
+          : widget.controller.backupError ?? 'Cloud backup was cancelled.',
+    );
+  }
+
+  Future<void> _showBackupMenu() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Encrypted backup',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                key: const Key('backup-action-local'),
+                leading: const Icon(Icons.save_alt_outlined),
+                title: const Text('Save backup file'),
+                subtitle: const Text('Keep an encrypted archive yourself.'),
+                onTap: () => Navigator.of(context).pop('local'),
+              ),
+              ListTile(
+                key: const Key('backup-action-remote'),
+                leading: const Icon(Icons.cloud_upload_outlined),
+                title: const Text('Back up to this server'),
+                subtitle: const Text(
+                  'The server stores only the encrypted archive.',
+                ),
+                onTap: () => Navigator.of(context).pop('remote'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'local') await _exportBackup();
+    if (action == 'remote') await _uploadRemoteBackup();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -659,9 +736,12 @@ class _HomePageState extends State<HomePage> {
               compact: !wide,
               profileBusy: widget.controller.profileBusy,
               preferenceBusy: widget.controller.preferenceBusy,
+              backupBusy: widget.controller.backupBusy,
               themePreference: widget.controller.themePreference,
               onEditProfile: _editProfile,
               onThemeChanged: _setThemePreference,
+              onBackup: _showBackupMenu,
+              onRemoteBackup: _uploadRemoteBackup,
               onSignOut: widget.controller.signOut,
             );
             final conversation = _ConversationPanel(
@@ -938,9 +1018,12 @@ class _AccountPanel extends StatelessWidget {
     required this.compact,
     required this.profileBusy,
     required this.preferenceBusy,
+    required this.backupBusy,
     required this.themePreference,
     required this.onEditProfile,
     required this.onThemeChanged,
+    required this.onBackup,
+    required this.onRemoteBackup,
     required this.onSignOut,
   });
 
@@ -950,9 +1033,12 @@ class _AccountPanel extends StatelessWidget {
   final bool compact;
   final bool profileBusy;
   final bool preferenceBusy;
+  final bool backupBusy;
   final WampAppThemePreference themePreference;
   final VoidCallback onEditProfile;
   final ValueChanged<WampAppThemePreference> onThemeChanged;
+  final VoidCallback onBackup;
+  final VoidCallback onRemoteBackup;
   final VoidCallback onSignOut;
 
   @override
@@ -961,150 +1047,204 @@ class _AccountPanel extends StatelessWidget {
     return Card(
       child: Padding(
         padding: EdgeInsets.all(compact ? 14 : 22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final content = Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  Icons.waves_rounded,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 9),
-                const Text(
-                  'WampApp',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-                ),
-                const Spacer(),
-                const _OnlineBadge(),
-              ],
-            ),
-            SizedBox(height: compact ? 12 : 24),
-            Row(
-              children: [
-                _ProfileAvatar(profile: profile, radius: 25),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        connection.displayName,
-                        style: Theme.of(context).textTheme.titleLarge,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.waves_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 9),
+                    const Text(
+                      'WampApp',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
                       ),
-                      Text('@${connection.username}'),
-                      if (profile.status.isNotEmpty)
+                    ),
+                    const Spacer(),
+                    if (!compact) const _OnlineBadge(),
+                    if (compact) ...[
+                      IconButton(
+                        key: const Key('account-backup-compact'),
+                        tooltip: 'Export encrypted backup',
+                        onPressed: backupBusy ? null : onBackup,
+                        icon: backupBusy
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.backup_outlined),
+                      ),
+                      IconButton(
+                        key: const Key('account-sign-out-compact'),
+                        tooltip: 'Sign out',
+                        onPressed: onSignOut,
+                        icon: const Icon(Icons.logout),
+                      ),
+                    ],
+                  ],
+                ),
+                SizedBox(height: compact ? 12 : 24),
+                Row(
+                  children: [
+                    _ProfileAvatar(profile: profile, radius: 25),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            connection.displayName,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Text('@${connection.username}'),
+                          if (profile.status.isNotEmpty)
+                            Text(
+                              profile.status,
+                              key: const Key('account-profile-status'),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      key: const Key('account-profile-edit'),
+                      tooltip: 'Edit public profile',
+                      onPressed: profileBusy ? null : onEditProfile,
+                      icon: profileBusy
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.edit_outlined),
+                    ),
+                    PopupMenuButton<WampAppThemePreference>(
+                      key: const Key('account-theme-menu'),
+                      enabled: !preferenceBusy,
+                      initialValue: themePreference,
+                      tooltip: 'Choose appearance',
+                      onSelected: onThemeChanged,
+                      itemBuilder: (context) => [
+                        for (final preference in WampAppThemePreference.values)
+                          CheckedPopupMenuItem<WampAppThemePreference>(
+                            key: ValueKey('appearance-${preference.wireName}'),
+                            value: preference,
+                            checked: preference == themePreference,
+                            child: Text(switch (preference) {
+                              WampAppThemePreference.system =>
+                                'System appearance',
+                              WampAppThemePreference.light =>
+                                'Light appearance',
+                              WampAppThemePreference.dark => 'Dark appearance',
+                            }),
+                          ),
+                      ],
+                      icon: preferenceBusy
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.brightness_6_outlined),
+                    ),
+                  ],
+                ),
+                SizedBox(height: compact ? 10 : 16),
+                Text(
+                  compact
+                      ? '${localDevice.enrollment.deviceName} · ${connection.endpoint.websocketUri.authority}'
+                      : connection.endpoint.websocketUri.authority,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                if (!compact) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.verified_user_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Encrypted device vault',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 9),
+                        Text(localDevice.enrollment.deviceName),
+                        const SizedBox(height: 4),
                         Text(
-                          profile.status,
-                          key: const Key('account-profile-status'),
+                          safetyNumber,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  key: const Key('account-profile-edit'),
-                  tooltip: 'Edit public profile',
-                  onPressed: profileBusy ? null : onEditProfile,
-                  icon: profileBusy
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.edit_outlined),
-                ),
-                PopupMenuButton<WampAppThemePreference>(
-                  key: const Key('account-theme-menu'),
-                  enabled: !preferenceBusy,
-                  initialValue: themePreference,
-                  tooltip: 'Choose appearance',
-                  onSelected: onThemeChanged,
-                  itemBuilder: (context) => [
-                    for (final preference in WampAppThemePreference.values)
-                      CheckedPopupMenuItem<WampAppThemePreference>(
-                        key: ValueKey('appearance-${preference.wireName}'),
-                        value: preference,
-                        checked: preference == themePreference,
-                        child: Text(switch (preference) {
-                          WampAppThemePreference.system => 'System appearance',
-                          WampAppThemePreference.light => 'Light appearance',
-                          WampAppThemePreference.dark => 'Dark appearance',
-                        }),
-                      ),
-                  ],
-                  icon: preferenceBusy
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.brightness_6_outlined),
-                ),
-                if (compact)
-                  IconButton(
-                    key: const Key('account-sign-out-compact'),
-                    tooltip: 'Sign out',
-                    onPressed: onSignOut,
-                    icon: const Icon(Icons.logout),
-                  ),
-              ],
-            ),
-            SizedBox(height: compact ? 10 : 16),
-            Text(
-              compact
-                  ? '${localDevice.enrollment.deviceName} · ${connection.endpoint.websocketUri.authority}'
-                  : connection.endpoint.websocketUri.authority,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12),
-            ),
-            if (!compact) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.verified_user_outlined, size: 18),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Encrypted device vault',
-                            style: TextStyle(fontWeight: FontWeight.w800),
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 10,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 9),
-                    Text(localDevice.enrollment.deviceName),
-                    const SizedBox(height: 4),
-                    Text(
-                      safetyNumber,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 10,
-                        letterSpacing: 0.3,
-                      ),
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    key: const Key('account-backup'),
+                    onPressed: backupBusy ? null : onBackup,
+                    icon: backupBusy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.backup_outlined),
+                    label: const Text('Backup options'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    key: const Key('account-backup-remote'),
+                    onPressed: backupBusy ? null : onRemoteBackup,
+                    icon: const Icon(Icons.cloud_upload_outlined),
+                    label: const Text('Back up to this server'),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Includes device identity, chats, settings, and attachment keys. Cached media bytes are not included.',
+                    key: const Key('backup-export-boundary'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: onSignOut,
-                icon: const Icon(Icons.logout),
-                label: const Text('Sign out'),
-              ),
-            ],
-          ],
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: onSignOut,
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Sign out'),
+                  ),
+                ],
+              ],
+            );
+            if (compact || !constraints.hasBoundedHeight) return content;
+            return SingleChildScrollView(child: content);
+          },
         ),
       ),
     );

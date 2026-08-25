@@ -1,7 +1,10 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'package:yaml/yaml.dart';
+
+import 'backup_store.dart';
 
 final class FcmPlatformPushConfig {
   const FcmPlatformPushConfig({
@@ -18,6 +21,8 @@ class WampAppServerConfig {
   static const defaultAttachmentMaxBytesPerSender = 2 * 1024 * 1024 * 1024;
   static const defaultAttachmentStagingTtl = Duration(hours: 24);
   static const defaultAttachmentCleanupInterval = Duration(minutes: 15);
+  static const defaultBackupMaxTotalBytes =
+      BackupStore.defaultMaximumTotalBytes;
 
   const WampAppServerConfig({
     required this.host,
@@ -28,6 +33,8 @@ class WampAppServerConfig {
     this.pushStorePath,
     this.fcmPush,
     this.attachmentStorePath,
+    this.backupStorePath,
+    this.backupMaxTotalBytes = defaultBackupMaxTotalBytes,
     this.attachmentMaxTotalBytes = defaultAttachmentMaxTotalBytes,
     this.attachmentMaxBytesPerSender = defaultAttachmentMaxBytesPerSender,
     this.attachmentStagingTtl = defaultAttachmentStagingTtl,
@@ -44,6 +51,8 @@ class WampAppServerConfig {
   final String? pushStorePath;
   final FcmPlatformPushConfig? fcmPush;
   final String? attachmentStorePath;
+  final String? backupStorePath;
+  final int backupMaxTotalBytes;
   final int attachmentMaxTotalBytes;
   final int attachmentMaxBytesPerSender;
   final Duration attachmentStagingTtl;
@@ -62,6 +71,9 @@ class WampAppServerConfig {
     final attachmentLimits = document['attachment_limits'] == null
         ? null
         : _map(document['attachment_limits'], 'attachment_limits');
+    final backupLimits = document['backup_limits'] == null
+        ? null
+        : _map(document['backup_limits'], 'backup_limits');
     final platformPush = document['platform_push'] == null
         ? null
         : _map(document['platform_push'], 'platform_push');
@@ -112,6 +124,20 @@ class WampAppServerConfig {
     final attachmentStore = p.isAbsolute(configuredAttachments)
         ? configuredAttachments
         : p.normalize(p.join(base, configuredAttachments));
+    final configuredBackups = document['backup_store'] == null
+        ? '$configuredMessages.backups'
+        : _string(document['backup_store'], 'backup_store');
+    final backupStore = p.isAbsolute(configuredBackups)
+        ? configuredBackups
+        : p.normalize(p.join(base, configuredBackups));
+    final backupMaxTotalBytes = backupLimits == null
+        ? defaultBackupMaxTotalBytes
+        : _integer(
+            backupLimits['max_total_bytes'],
+            'backup_limits.max_total_bytes',
+            min: WampAppBackupTransferLimits.maximumArchiveBytes,
+            max: 1 << 50,
+          );
     final attachmentMaxTotalBytes = attachmentLimits == null
         ? defaultAttachmentMaxTotalBytes
         : _integer(
@@ -148,6 +174,8 @@ class WampAppServerConfig {
               projectId: projectId,
             ),
       attachmentStorePath: attachmentStore,
+      backupStorePath: backupStore,
+      backupMaxTotalBytes: backupMaxTotalBytes,
       attachmentMaxTotalBytes: attachmentMaxTotalBytes,
       attachmentMaxBytesPerSender: attachmentMaxBytesPerSender,
       attachmentStagingTtl: attachmentLimits == null

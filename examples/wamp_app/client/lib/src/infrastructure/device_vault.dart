@@ -14,12 +14,24 @@ import '../domain/outbound_chat_message.dart';
 import 'local_device_identity.dart';
 import 'vault_storage.dart';
 
+abstract final class WampAppBackupLimits {
+  static const maximumArchiveBytes = 12 * 1024 * 1024;
+}
+
 abstract interface class DeviceTrustStore {
   Future<DeviceTrustSession> openOrCreate({
     required ServerEndpoint endpoint,
     required String username,
     required String password,
     required String deviceName,
+  });
+
+  Future<void> importBackup({
+    required ServerEndpoint endpoint,
+    required String username,
+    required String password,
+    required String recoveryPassphrase,
+    required Uint8List archive,
   });
 }
 
@@ -46,6 +58,7 @@ abstract interface class DeviceTrustSession {
   List<LocalChatGroup> get groups;
   List<OutboundChatMessage> get outbox;
   LocalAppPreferences get preferences;
+  Future<Uint8List> exportBackup({required String recoveryPassphrase});
   Future<void> saveMailboxState({
     required int cursor,
     required List<LocalChatMessage> messages,
@@ -102,6 +115,11 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
   static const _schema = 1;
   static const _cipher = 'xsalsa20-poly1305-secretbox';
   static const _maximumEnvelopeBytes = 8 * 1024 * 1024;
+  static const _backupSchema = 1;
+  static const _backupFormat = 'wamp-app-device-backup';
+  static const _minimumBackupMemoryKiB = 8192;
+  static const _maximumBackupMemoryKiB = 262144;
+  static const _maximumBackupIterations = 16;
 
   final VaultStorage storage;
   final VaultKeyDeriver keyDeriver;
@@ -147,6 +165,88 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
     });
   }
 
+  @override
+  Future<void> importBackup({
+    required ServerEndpoint endpoint,
+    required String username,
+    required String password,
+    required String recoveryPassphrase,
+    required Uint8List archive,
+  }) {
+    return _serializeOpen(() async {
+      final normalizedUsername = AccountRegistration.normalizeUsername(
+        username,
+      );
+      if (normalizedUsername.isEmpty || password.isEmpty) {
+        throw const BackupRestoreException();
+      }
+      final endpointBinding = endpoint.websocketUri.toString();
+      final plaintext = await _decryptBackup(
+        archive,
+        recoveryPassphrase: recoveryPassphrase,
+      );
+      Uint8List? localKey;
+      LocalDeviceIdentity? identity;
+      try {
+        final document = jsonDecode(utf8.decode(plaintext));
+        if (document is! Map<String, dynamic> ||
+            document['schema'] != _schema ||
+            document['endpoint'] != endpointBinding ||
+            document['username'] != normalizedUsername ||
+            document['identity'] is! Map<String, dynamic>) {
+          throw const BackupRestoreException();
+        }
+        identity = LocalDeviceIdentity.fromJson(
+          document['identity'] as Map<String, dynamic>,
+        );
+        final verifications = _readVerifications(document['verifications']);
+        final mailbox = _readMailbox(document['mailbox']);
+        final groups = _readGroups(document['groups']);
+        final outbox = _readOutbox(document['outbox'], mailbox.$2);
+        final preferences = LocalAppPreferences.fromJson(
+          document['preferences'],
+        );
+        final saltBytes = Uint8List.fromList(
+          List<int>.generate(16, (_) => _random.nextInt(256)),
+        );
+        final salt = base64.encode(saltBytes);
+        saltBytes.fillRange(0, saltBytes.length, 0);
+        localKey = await _derive(password, salt);
+        final session = _UnlockedDeviceVault(
+          storage: storage,
+          storageKey: _storageKey(endpointBinding, normalizedUsername),
+          endpointBinding: endpointBinding,
+          username: normalizedUsername,
+          salt: salt,
+          iterations: iterations,
+          memoryKiB: memoryKiB,
+          encryptionKey: localKey,
+          identity: identity,
+          verifications: verifications,
+          mailboxCursor: mailbox.$1,
+          messages: mailbox.$2,
+          groups: groups,
+          outbox: outbox,
+          preferences: preferences,
+          backupEncoder: _encryptBackup,
+        );
+        identity = null;
+        try {
+          await session.persist();
+        } finally {
+          await session.dispose();
+        }
+      } catch (error) {
+        identity?.dispose();
+        if (error is BackupRestoreException) rethrow;
+        throw const BackupRestoreException();
+      } finally {
+        localKey?.fillRange(0, localKey.length, 0);
+        plaintext.fillRange(0, plaintext.length, 0);
+      }
+    });
+  }
+
   Future<DeviceTrustSession> _create({
     required String endpointBinding,
     required String username,
@@ -179,6 +279,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         groups: const [],
         outbox: const [],
         preferences: LocalAppPreferences.defaults,
+        backupEncoder: _encryptBackup,
       );
       identity = null;
       try {
@@ -254,6 +355,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         groups: groups,
         outbox: outbox,
         preferences: preferences,
+        backupEncoder: _encryptBackup,
       );
       identity = null;
       return session;
@@ -279,6 +381,146 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
       throw const VaultUnlockException();
     }
     return key;
+  }
+
+  Future<Uint8List> _encryptBackup(
+    Uint8List plaintext,
+    String recoveryPassphrase,
+  ) async {
+    _validateRecoveryPassphrase(recoveryPassphrase, exporting: true);
+    final saltBytes = Uint8List.fromList(
+      List<int>.generate(16, (_) => _random.nextInt(256)),
+    );
+    final salt = base64.encode(saltBytes);
+    saltBytes.fillRange(0, saltBytes.length, 0);
+    Uint8List? key;
+    try {
+      _validateBackupKdf(iterations, memoryKiB);
+      key = await _deriveBackupKey(
+        recoveryPassphrase,
+        salt,
+        backupIterations: iterations,
+        backupMemoryKiB: memoryKiB,
+      );
+      final ciphertext = SecretBox(key).encrypt(plaintext).asTypedList;
+      final encoded = Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'format': _backupFormat,
+            'schema': _backupSchema,
+            'kdf': ScramAuthentication.kdfArgon,
+            'iterations': iterations,
+            'memory_kib': memoryKiB,
+            'salt': salt,
+            'cipher': _cipher,
+            'content': 'device-state',
+            'media': 'descriptors-only',
+            'ciphertext': _encode(ciphertext),
+          }),
+        ),
+      );
+      if (encoded.length > WampAppBackupLimits.maximumArchiveBytes) {
+        encoded.fillRange(0, encoded.length, 0);
+        throw const BackupExportException();
+      }
+      return encoded;
+    } catch (error) {
+      if (error is BackupExportException) rethrow;
+      throw const BackupExportException();
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
+  }
+
+  Future<Uint8List> _decryptBackup(
+    Uint8List archive, {
+    required String recoveryPassphrase,
+  }) async {
+    _validateRecoveryPassphrase(recoveryPassphrase, exporting: false);
+    Uint8List? key;
+    try {
+      if (archive.isEmpty ||
+          archive.length > WampAppBackupLimits.maximumArchiveBytes) {
+        throw const BackupRestoreException();
+      }
+      final envelope = jsonDecode(utf8.decode(archive));
+      if (envelope is! Map<String, dynamic> ||
+          envelope['format'] != _backupFormat ||
+          envelope['schema'] != _backupSchema ||
+          envelope['kdf'] != ScramAuthentication.kdfArgon ||
+          envelope['cipher'] != _cipher ||
+          envelope['content'] != 'device-state' ||
+          envelope['media'] != 'descriptors-only') {
+        throw const BackupRestoreException();
+      }
+      final backupIterations = envelope['iterations'];
+      final backupMemoryKiB = envelope['memory_kib'];
+      if (backupIterations is! int || backupMemoryKiB is! int) {
+        throw const BackupRestoreException();
+      }
+      _validateBackupKdf(backupIterations, backupMemoryKiB);
+      final salt = _readSalt(envelope['salt']);
+      final ciphertext = _decodeCiphertext(envelope['ciphertext']);
+      key = await _deriveBackupKey(
+        recoveryPassphrase,
+        salt,
+        backupIterations: backupIterations,
+        backupMemoryKiB: backupMemoryKiB,
+      );
+      final plaintext = SecretBox(key)
+          .decrypt(EncryptedMessage.fromList(ciphertext));
+      if (plaintext.length > _maximumEnvelopeBytes) {
+        plaintext.fillRange(0, plaintext.length, 0);
+        throw const BackupRestoreException();
+      }
+      return plaintext;
+    } catch (error) {
+      if (error is BackupRestoreException) rethrow;
+      throw const BackupRestoreException();
+    } finally {
+      key?.fillRange(0, key.length, 0);
+    }
+  }
+
+  Future<Uint8List> _deriveBackupKey(
+    String passphrase,
+    String salt, {
+    required int backupIterations,
+    required int backupMemoryKiB,
+  }) async {
+    final key = await keyDeriver.derive(
+      password: passphrase,
+      salt: salt,
+      iterations: backupIterations,
+      memoryKiB: backupMemoryKiB,
+      timeout: derivationTimeout,
+    );
+    if (key.length != SecretBox.keyLength) {
+      key.fillRange(0, key.length, 0);
+      throw const BackupRestoreException();
+    }
+    return key;
+  }
+
+  static void _validateBackupKdf(int iterations, int memoryKiB) {
+    if (iterations < 1 ||
+        iterations > _maximumBackupIterations ||
+        memoryKiB < _minimumBackupMemoryKiB ||
+        memoryKiB > _maximumBackupMemoryKiB) {
+      throw const BackupRestoreException();
+    }
+  }
+
+  static void _validateRecoveryPassphrase(
+    String passphrase, {
+    required bool exporting,
+  }) {
+    final encoded = utf8.encode(passphrase);
+    final valid = encoded.length >= 16 && encoded.length <= 1024;
+    encoded.fillRange(0, encoded.length, 0);
+    if (valid) return;
+    if (exporting) throw const BackupExportException();
+    throw const BackupRestoreException();
   }
 
   Future<T> _serializeOpen<T>(Future<T> Function() action) async {
@@ -311,6 +553,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     required List<LocalChatGroup> groups,
     required List<OutboundChatMessage> outbox,
     required this._preferences,
+    required this.backupEncoder,
   }) : _encryptionKey = Uint8List.fromList(encryptionKey),
        _verifications = Map<String, _ContactVerification>.of(verifications),
        _messages = List<LocalChatMessage>.of(messages),
@@ -332,6 +575,8 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   final List<LocalChatGroup> _groups;
   final List<OutboundChatMessage> _outbox;
   LocalAppPreferences _preferences;
+  final Future<Uint8List> Function(Uint8List plaintext, String passphrase)
+  backupEncoder;
   Future<void> _writeTail = Future<void>.value();
   bool _disposed = false;
   bool _closing = false;
@@ -382,6 +627,19 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   LocalAppPreferences get preferences {
     _ensureActive();
     return _preferences;
+  }
+
+  @override
+  Future<Uint8List> exportBackup({required String recoveryPassphrase}) {
+    _ensureActive();
+    return _serializeWrite(() async {
+      final plaintext = _snapshotPlaintext(_preferences);
+      try {
+        return await backupEncoder(plaintext, recoveryPassphrase);
+      } finally {
+        plaintext.fillRange(0, plaintext.length, 0);
+      }
+    });
   }
 
   @override
@@ -500,7 +758,31 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   }
 
   Future<void> _writeSnapshot(LocalAppPreferences preferences) async {
-    final plaintext = Uint8List.fromList(
+    final plaintext = _snapshotPlaintext(preferences);
+    final box = SecretBox(_encryptionKey);
+    try {
+      final ciphertext = box.encrypt(plaintext).asTypedList;
+      final envelope = jsonEncode({
+        'schema': EncryptedDeviceVault._schema,
+        'kdf': ScramAuthentication.kdfArgon,
+        'iterations': iterations,
+        'memory_kib': memoryKiB,
+        'salt': salt,
+        'cipher': EncryptedDeviceVault._cipher,
+        'ciphertext': _encode(ciphertext),
+      });
+      if (utf8.encode(envelope).length >
+          EncryptedDeviceVault._maximumEnvelopeBytes) {
+        throw const FormatException('Encrypted vault is too large.');
+      }
+      await storage.write(storageKey, envelope);
+    } finally {
+      plaintext.fillRange(0, plaintext.length, 0);
+    }
+  }
+
+  Uint8List _snapshotPlaintext(LocalAppPreferences preferences) {
+    return Uint8List.fromList(
       utf8.encode(
         jsonEncode({
           'schema': EncryptedDeviceVault._schema,
@@ -526,22 +808,6 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
         }),
       ),
     );
-    final box = SecretBox(_encryptionKey);
-    try {
-      final ciphertext = box.encrypt(plaintext).asTypedList;
-      final envelope = jsonEncode({
-        'schema': EncryptedDeviceVault._schema,
-        'kdf': ScramAuthentication.kdfArgon,
-        'iterations': iterations,
-        'memory_kib': memoryKiB,
-        'salt': salt,
-        'cipher': EncryptedDeviceVault._cipher,
-        'ciphertext': _encode(ciphertext),
-      });
-      await storage.write(storageKey, envelope);
-    } finally {
-      plaintext.fillRange(0, plaintext.length, 0);
-    }
   }
 
   @override
@@ -615,6 +881,20 @@ final class VaultUnlockException implements Exception {
 
   @override
   String toString() => 'Could not unlock encrypted device storage.';
+}
+
+final class BackupExportException implements Exception {
+  const BackupExportException();
+
+  @override
+  String toString() => 'Could not create the encrypted device backup.';
+}
+
+final class BackupRestoreException implements Exception {
+  const BackupRestoreException();
+
+  @override
+  String toString() => 'Could not restore the encrypted device backup.';
 }
 
 (int, List<LocalChatMessage>) _readMailbox(Object? value) {

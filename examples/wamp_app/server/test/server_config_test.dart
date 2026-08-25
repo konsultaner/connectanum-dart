@@ -32,6 +32,14 @@ void main() {
       config.pushStorePath,
       '${directory.path}/data/messages.json.push.json',
     );
+    expect(
+      config.backupStorePath,
+      '${directory.path}/data/messages.json.backups',
+    );
+    expect(
+      config.backupMaxTotalBytes,
+      WampAppServerConfig.defaultBackupMaxTotalBytes,
+    );
     expect(config.fcmPush, isNull);
   });
 
@@ -70,6 +78,26 @@ attachment_limits:
     final config = await WampAppServerConfig.load(file.path);
 
     expect(config.pushStorePath, '${directory.path}/secrets/push.json');
+  });
+
+  test('backup store and total quota load from YAML', () async {
+    final directory = await Directory.systemTemp.createTemp('wampapp-config-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/server.yaml');
+    await file.writeAsString(
+      _configYaml(
+        backupStore: 'backup_store: durable/backups\n',
+        backupLimits: '''
+backup_limits:
+  max_total_bytes: 25165824
+''',
+      ),
+    );
+
+    final config = await WampAppServerConfig.load(file.path);
+
+    expect(config.backupStorePath, '${directory.path}/durable/backups');
+    expect(config.backupMaxTotalBytes, 25165824);
   });
 
   test('FCM platform push config resolves secrets relative to YAML', () async {
@@ -142,6 +170,8 @@ attachment_limits:
 String _configYaml({
   String attachmentLimits = '',
   String pushStore = '',
+  String backupStore = '',
+  String backupLimits = '',
   String platformPush = '',
 }) =>
     '''
@@ -152,6 +182,8 @@ websocket_path: /ws
 account_store: data/accounts.json
 message_store: data/messages.json
 $pushStore
+$backupStore
+$backupLimits
 $platformPush
 attachment_store: data/attachments
 $attachmentLimits

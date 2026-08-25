@@ -226,10 +226,8 @@ void main() {
   testWidgets('searches local history and filters received read state', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final deliveredAt = DateTime.utc(2026, 8, 25, 12, 1);
     final readAt = DateTime.utc(2026, 8, 25, 12, 2);
     final messages = [
@@ -357,7 +355,16 @@ void main() {
     expect(messageText('Launch checklist'), findsNothing);
     expect(find.text('Local search · 1 result'), findsOneWidget);
 
-    await tester.tap(messageText('Board minutes'));
+    final boardMinutes = messageText('Board minutes');
+    await tester.scrollUntilVisible(
+      boardMinutes,
+      120,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('message-history')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.tap(boardMinutes);
     await tester.pumpAndSettle();
     expect(
       tester
@@ -673,6 +680,107 @@ void main() {
     );
     expect(password.controller.text, isEmpty);
     expect(find.byKey(const Key('connection-error')), findsOneWidget);
+  });
+
+  testWidgets('restores an encrypted backup before opening the device vault', (
+    tester,
+  ) async {
+    final operations = <String>[];
+    final trustStore = FakeDeviceTrustStore(operations: operations);
+    final backupFiles = FakeDeviceBackupFileGateway()
+      ..archiveToOpen = Uint8List.fromList(utf8.encode('encrypted archive'));
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: trustStore,
+      backupFiles: backupFiles,
+    );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(WampApp(controller: controller));
+
+    await tester.tap(find.text('Sign in'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('restore-local-backup')), findsOneWidget);
+    expect(find.byKey(const Key('restore-remote-backup')), findsOneWidget);
+    expect(find.byKey(const Key('backup-restore-boundary')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('username')), 'alice');
+    await tester.enterText(
+      find.byKey(const Key('password')),
+      'correct horse battery',
+    );
+    final restore = find.byKey(const Key('restore-local-backup'));
+    await tester.ensureVisible(restore);
+    await tester.tap(restore);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('backup-recovery-passphrase')),
+      'sixteen byte recovery phrase',
+    );
+    await tester.tap(find.byKey(const Key('backup-passphrase-submit')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Encrypted messages'), findsOneWidget);
+    expect(backupFiles.openCalls, 1);
+    expect(trustStore.importCalls, 1);
+    expect(operations, ['backup-import', 'vault-open']);
+    expect(trustStore.password, 'correct horse battery');
+  });
+
+  testWidgets('validates and exports an encrypted device backup', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final backupFiles = FakeDeviceBackupFileGateway();
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+      backupFiles: backupFiles,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('backup-export-boundary')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('account-backup')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('backup-action-local')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('backup-recovery-passphrase')),
+      'too short',
+    );
+    await tester.tap(find.byKey(const Key('backup-passphrase-submit')));
+    await tester.pumpAndSettle();
+    expect(find.text('Use 16 to 1024 UTF-8 bytes.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('backup-recovery-passphrase')),
+      'sixteen byte recovery phrase',
+    );
+    await tester.enterText(
+      find.byKey(const Key('backup-recovery-confirmation')),
+      'a different recovery phrase',
+    );
+    await tester.tap(find.byKey(const Key('backup-passphrase-submit')));
+    await tester.pumpAndSettle();
+    expect(find.text('The recovery phrases do not match.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('backup-recovery-confirmation')),
+      'sixteen byte recovery phrase',
+    );
+    await tester.tap(find.byKey(const Key('backup-passphrase-submit')));
+    await tester.pumpAndSettle();
+
+    expect(backupFiles.saveCalls, 1);
+    expect(utf8.decode(backupFiles.savedArchive!), 'fake encrypted backup');
+    expect(backupFiles.suggestedName, endsWith('.wampbackup'));
+    expect(find.text('Encrypted device backup saved.'), findsOneWidget);
   });
 
   testWidgets('retries and discards a persisted outbound message', (

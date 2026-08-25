@@ -20,6 +20,12 @@ abstract final class WampAppProtocol {
   static const attachmentChunkPut = 'com.wampapp.attachment.chunk.put';
   static const attachmentUploadStatus = 'com.wampapp.attachment.upload.status';
   static const attachmentChunkGet = 'com.wampapp.attachment.chunk.get';
+  static const backupUploadBegin = 'com.wampapp.backup.upload.begin';
+  static const backupChunkPut = 'com.wampapp.backup.chunk.put';
+  static const backupUploadCommit = 'com.wampapp.backup.upload.commit';
+  static const backupMetadataGet = 'com.wampapp.backup.metadata.get';
+  static const backupChunkGet = 'com.wampapp.backup.chunk.get';
+  static const backupDelete = 'com.wampapp.backup.delete';
 
   static const errorInvalidRegistration =
       'com.wampapp.error.invalid_registration';
@@ -57,6 +63,13 @@ abstract final class WampAppProtocol {
       'com.wampapp.error.attachment_quota_exceeded';
   static const errorAttachmentUnavailable =
       'com.wampapp.error.attachment_unavailable';
+  static const errorInvalidBackup = 'com.wampapp.error.invalid_backup';
+  static const errorBackupConflict = 'com.wampapp.error.backup_conflict';
+  static const errorBackupNotFound = 'com.wampapp.error.backup_not_found';
+  static const errorBackupIncomplete = 'com.wampapp.error.backup_incomplete';
+  static const errorBackupQuotaExceeded =
+      'com.wampapp.error.backup_quota_exceeded';
+  static const errorBackupUnavailable = 'com.wampapp.error.backup_unavailable';
   static const errorNotAuthorized = 'com.wampapp.error.not_authorized';
 
   static const serviceAuthId = 'wampapp.service';

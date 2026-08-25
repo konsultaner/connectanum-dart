@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto/crypto.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
@@ -82,6 +83,187 @@ void main() {
     expect(controller.status, WampAppStatus.signedOut);
     expect(gateway.closed, isTrue);
     expect(trustStore.session?.disposed, isTrue);
+  });
+
+  test(
+    'local backup export saves an encrypted snapshot and clears busy state',
+    () async {
+      final files = FakeDeviceBackupFileGateway();
+      final trustStore = FakeDeviceTrustStore();
+      final controller = WampAppController(
+        gateway: _RecordingGateway(),
+        trustStore: trustStore,
+        backupFiles: files,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+
+      final saved = await controller.exportLocalBackup(
+        recoveryPassphrase: 'correct backup recovery phrase',
+      );
+
+      expect(saved, isTrue);
+      expect(files.saveCalls, 1);
+      expect(utf8.decode(files.savedArchive!), 'fake encrypted backup');
+      expect(
+        files.suggestedName,
+        matches(r'^wampapp-device-\d{8}\.wampbackup$'),
+      );
+      expect(trustStore.session?.exportBackupCalls, 1);
+      expect(controller.backupBusy, isFalse);
+      expect(controller.backupError, isNull);
+    },
+  );
+
+  test(
+    'local backup restore imports before opening and enrolling trust',
+    () async {
+      final files = FakeDeviceBackupFileGateway()
+        ..archiveToOpen = Uint8List.fromList(utf8.encode('encrypted archive'));
+      final operations = <String>[];
+      final trustStore = FakeDeviceTrustStore(operations: operations);
+      final gateway = _RecordingGateway();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+        backupFiles: files,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.restoreLocalBackupAndLogin(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'current account password',
+        recoveryPassphrase: 'correct backup recovery phrase',
+      );
+
+      expect(controller.status, WampAppStatus.connected);
+      expect(files.openCalls, 1);
+      expect(trustStore.importCalls, 1);
+      expect(utf8.decode(trustStore.importedArchive!), 'encrypted archive');
+      expect(trustStore.password, 'current account password');
+      expect(operations, ['backup-import', 'vault-open']);
+      expect(gateway.operations, contains('enroll'));
+    },
+  );
+
+  test(
+    'failed local restore closes login and never opens a trust session',
+    () async {
+      final files = FakeDeviceBackupFileGateway()
+        ..archiveToOpen = Uint8List.fromList(utf8.encode('encrypted archive'));
+      final trustStore = FakeDeviceTrustStore()
+        ..importFailure = const BackupRestoreException();
+      final gateway = _RecordingGateway();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+        backupFiles: files,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.restoreLocalBackupAndLogin(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'current account password',
+        recoveryPassphrase: 'incorrect backup recovery phrase',
+      );
+
+      expect(controller.status, WampAppStatus.failed);
+      expect(controller.errorMessage, contains('restore'));
+      expect(trustStore.session, isNull);
+      expect(gateway.closed, isTrue);
+      expect(controller.backupBusy, isFalse);
+    },
+  );
+
+  test('remote backup upload stores the encrypted local archive', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'current account password',
+    );
+
+    final stored = await controller.uploadRemoteBackup(
+      recoveryPassphrase: 'correct backup recovery phrase',
+    );
+
+    expect(stored, isTrue);
+    expect(utf8.decode(gateway.remoteBackup!), 'fake encrypted backup');
+    expect(gateway.remoteMetadata?.revision, 1);
+    expect(trustStore.session?.exportBackupCalls, 1);
+    expect(controller.backupBusy, isFalse);
+    expect(controller.backupError, isNull);
+  });
+
+  test('remote restore downloads before opening the local vault', () async {
+    final operations = <String>[];
+    final gateway = _RecordingGateway(operations: operations)
+      ..seedRemoteBackup(
+        Uint8List.fromList(utf8.encode('remote encrypted archive')),
+      );
+    final trustStore = FakeDeviceTrustStore(operations: operations);
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.restoreRemoteBackupAndLogin(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'current account password',
+      recoveryPassphrase: 'correct backup recovery phrase',
+    );
+
+    expect(controller.status, WampAppStatus.connected);
+    expect(
+      utf8.decode(trustStore.importedArchive!),
+      'remote encrypted archive',
+    );
+    expect(
+      operations,
+      containsAllInOrder([
+        'backup-metadata',
+        'backup-chunk:0',
+        'backup-import',
+        'vault-open',
+        'enroll',
+      ]),
+    );
+  });
+
+  test('missing remote backup fails before opening the local vault', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.restoreRemoteBackupAndLogin(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'current account password',
+      recoveryPassphrase: 'correct backup recovery phrase',
+    );
+
+    expect(controller.status, WampAppStatus.failed);
+    expect(controller.errorMessage, contains('No encrypted cloud backup'));
+    expect(trustStore.session, isNull);
+    expect(gateway.closed, isTrue);
   });
 
   test(
@@ -1190,6 +1372,9 @@ AccountProfile _profileFor(String username) => AccountProfile(
 );
 
 class _RecordingGateway implements AccountGateway {
+  _RecordingGateway({List<String>? operations})
+    : operations = operations ?? <String>[];
+
   AccountRegistration? registered;
   String? loginPassword;
   bool closed = false;
@@ -1200,9 +1385,26 @@ class _RecordingGateway implements AccountGateway {
   final List<_GatewayConnection> connections = [];
   final Map<String, List<DeviceRecord>> deviceDirectories = {};
   final List<EncryptedChatMessage> sentMessages = [];
-  final List<String> operations = [];
+  final List<String> operations;
   final List<PlatformPushSubscriptionRequest> pushRegistrations = [];
   final List<PlatformPushSubscriptionKey> pushUnregistrations = [];
+  BackupUploadRequest? backupRequest;
+  final List<Uint8List> backupChunks = [];
+  BackupMetadata? remoteMetadata;
+  Uint8List? remoteBackup;
+
+  void seedRemoteBackup(Uint8List archive) {
+    remoteBackup = Uint8List.fromList(archive);
+    remoteMetadata = BackupMetadata(
+      revision: 1,
+      byteCount: archive.length,
+      chunkCount:
+          (archive.length + WampAppBackupTransferLimits.chunkBytes - 1) ~/
+          WampAppBackupTransferLimits.chunkBytes,
+      sha256: sha256.convert(archive).toString(),
+      updatedAt: DateTime.utc(2026, 8, 25),
+    );
+  }
 
   @override
   Future<RegistrationReceipt> register({
@@ -1289,6 +1491,61 @@ class _RecordingGateway implements AccountGateway {
       unregisterPlatformPushCallback: (key) async {
         operations.add('push-unregister');
         pushUnregistrations.add(key);
+        return true;
+      },
+      beginBackupUploadCallback: (request) async {
+        operations.add('backup-begin');
+        backupRequest = request;
+        backupChunks.clear();
+        return BackupUploadSession(
+          uploadId: 'abcdefghijklmnop',
+          expectedRevision: request.expectedRevision,
+        );
+      },
+      putBackupChunkCallback: (chunk) async {
+        operations.add('backup-put:${chunk.chunkIndex}');
+        backupChunks.add(chunk.bytes);
+      },
+      commitBackupUploadCallback: (_) async {
+        operations.add('backup-commit');
+        final request = backupRequest!;
+        final builder = BytesBuilder(copy: false);
+        for (final chunk in backupChunks) {
+          builder.add(chunk);
+        }
+        final archive = builder.takeBytes();
+        remoteBackup = archive;
+        return remoteMetadata = BackupMetadata(
+          revision: request.expectedRevision + 1,
+          byteCount: request.byteCount,
+          chunkCount: request.chunkCount,
+          sha256: request.sha256,
+          updatedAt: DateTime.utc(2026, 8, 25),
+        );
+      },
+      getBackupMetadataCallback: () async {
+        operations.add('backup-metadata');
+        return remoteMetadata;
+      },
+      getBackupChunkCallback: (revision, chunkIndex) async {
+        operations.add('backup-chunk:$chunkIndex');
+        final archive = remoteBackup!;
+        final start = chunkIndex * WampAppBackupTransferLimits.chunkBytes;
+        final end = (start + WampAppBackupTransferLimits.chunkBytes).clamp(
+          0,
+          archive.length,
+        );
+        return EncryptedBackupDownloadChunk(
+          revision: revision,
+          chunkIndex: chunkIndex,
+          bytes: Uint8List.sublistView(archive, start, end),
+        );
+      },
+      deleteBackupCallback: (expectedRevision) async {
+        operations.add('backup-delete');
+        if (remoteMetadata?.revision != expectedRevision) return false;
+        remoteMetadata = null;
+        remoteBackup = null;
         return true;
       },
       mailboxWakeups: connection.wakeups.stream,

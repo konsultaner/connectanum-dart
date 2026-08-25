@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../application/wamp_app_controller.dart';
+import 'backup_passphrase_dialog.dart';
 
 enum _AccountMode { register, login }
 
@@ -46,6 +47,44 @@ class _OnboardingPageState extends State<OnboardingPage> {
           password: password,
         );
       }
+    } finally {
+      _password.clear();
+    }
+  }
+
+  Future<void> _restoreFromBackup() async {
+    final recoveryPassphrase = await showBackupPassphraseDialog(
+      context,
+      confirm: false,
+    );
+    if (recoveryPassphrase == null || !mounted) return;
+    final password = _password.text;
+    try {
+      await widget.controller.restoreLocalBackupAndLogin(
+        serverAddress: _server.text,
+        username: _username.text,
+        password: password,
+        recoveryPassphrase: recoveryPassphrase,
+      );
+    } finally {
+      _password.clear();
+    }
+  }
+
+  Future<void> _restoreFromCloud() async {
+    final recoveryPassphrase = await showBackupPassphraseDialog(
+      context,
+      confirm: false,
+    );
+    if (recoveryPassphrase == null || !mounted) return;
+    final password = _password.text;
+    try {
+      await widget.controller.restoreRemoteBackupAndLogin(
+        serverAddress: _server.text,
+        username: _username.text,
+        password: password,
+        recoveryPassphrase: recoveryPassphrase,
+      );
     } finally {
       _password.clear();
     }
@@ -177,7 +216,8 @@ class _AccountCard extends StatelessWidget {
                   prefixIcon: Icon(Icons.key_outlined),
                 ),
               ),
-              if (controller.errorMessage case final message?) ...[
+              if ((controller.backupError ?? controller.errorMessage)
+                  case final message?) ...[
                 const SizedBox(height: 14),
                 Semantics(
                   liveRegion: true,
@@ -204,6 +244,34 @@ class _AccountCard extends StatelessWidget {
                   registering ? 'Create and connect' : 'Connect securely',
                 ),
               ),
+              if (!registering) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  key: const Key('restore-local-backup'),
+                  onPressed: controller.isBusy
+                      ? null
+                      : state._restoreFromBackup,
+                  icon: const Icon(Icons.settings_backup_restore),
+                  label: const Text('Restore encrypted backup'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  key: const Key('restore-remote-backup'),
+                  onPressed: controller.isBusy ? null : state._restoreFromCloud,
+                  icon: const Icon(Icons.cloud_download_outlined),
+                  label: const Text('Restore backup from server'),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Both restore paths recover this account\'s device identity, chats, settings, and attachment keys. The server copy is end-to-end encrypted. Cached media bytes are not included and must be downloaded again.',
+                  key: const Key('backup-restore-boundary'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               Text(
                 'SCRAM derives the password key off the UI thread. Plaintext passwords are not stored by the app or server.',

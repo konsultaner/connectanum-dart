@@ -2,8 +2,9 @@
 
 Last updated: 2026-08-25
 Current branch: `codex/wamp-app`
-Current milestone: continue the standalone WampApp Flutter consumer example
-with milestone 5 user experience. Authenticated public profiles with editable
+Current milestone: continue the standalone WampApp Flutter consumer example.
+Milestone 6 encrypted local and router-hosted backup/recovery is complete
+locally. Authenticated public profiles with editable
 display names, status, and bounded avatars, plus on-device global message
 search, received-message read/unread filters, encrypted system/light/dark theme
 preferences, per-chat notification mute, and the provider-neutral platform
@@ -375,8 +376,33 @@ mute set, bounded coalescing fails toward fewer notifications, and durable
 cursor sync remains authoritative. `bin/test-wamp-app` passes with 43 shared,
 87 server, 121 native Flutter, and 51 Chrome tests plus Dart2Wasm and a release
 web build; repository-wide `bin/verify` passes on 2026-08-25. Credential-backed
-FCM deployment evidence remains, and hosted exact-head evidence is pending the
-implementation push.
+FCM deployment evidence remains. Commit `006112d0` is pushed to GitLab and
+GitHub. Exact-head CI run `32871399482` passes WampApp Consumer in 4m13s, Fast
+Checks in 8m52s, Full Verify in 11m29s, and Dart VM Coverage in 12m43s,
+including Codecov and artifact uploads. The feature-head job/log cleanliness
+and workflow/package visibility audit passes.
+
+WampApp milestone 6 encrypted backup and recovery is complete locally. The
+client exports a versioned SecretBox device archive through an independent
+Argon2id13 passphrase and restores it before vault open or device enrollment.
+The archive preserves identity, trust, messages, outbox, preferences, groups,
+and encrypted attachment descriptors, while replaceable cached media bytes are
+explicitly excluded. Local file import/export and router-hosted upload,
+download, and delete are available from signed-out and authenticated UI flows.
+The remote path stays on the existing authenticated WAMP session, transfers
+opaque ciphertext in bounded 128 KiB binary chunks under a 12 MiB cap, and uses
+SHA-256 integrity, revision compare-and-swap, expiring staged uploads, atomic
+manifests, mode-`0600` files, and an operator-configurable global quota that
+reserves committed and staged ciphertext and is revalidated on restart.
+Procedures bind ownership to disclosed caller identity; a live native-router
+smoke proves multi-chunk transfer and isolation
+from another authenticated account. Storage is single-writer per configured
+backup directory and does not claim clustered shared-filesystem coordination.
+Wrong passphrases, tampering, stale revisions, incomplete or reordered chunks,
+account crossover, and corrupt committed archives fail closed. The latest
+`bin/test-wamp-app` passes with 45 shared, 100 server, 136 native Flutter, and 53
+Chrome tests plus Dart2Wasm and a release-web build. Repository-wide
+`bin/verify` passes; hosted exact-head evidence is pending.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages
