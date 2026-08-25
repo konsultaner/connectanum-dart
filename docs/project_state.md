@@ -14,7 +14,10 @@ discard state. The milestone 4 attachment foundation now provides bounded
 chunked E2EE, resumable upload/download on the same authenticated WAMP session,
 native-file and IndexedDB ciphertext caches, and file/image/GIF picker,
 preview, and save UX. Voice recording, sticker/emoji selection, attachment
-native/Web Worker crypto acceleration remain. Server attachment storage is now
+remain. Attachment crypto acceleration is complete: new writes use versioned
+AES-256-GCM chunks through a maintained asynchronous native backend or a
+dedicated Web Worker, while existing XSalsa20-Poly1305 v1 attachments remain
+readable. Server attachment storage is now
 bounded by configurable global and per-sender ciphertext quotas, reconciled on
 startup, and pruned by staged TTL without racing mailbox commits.
 The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
@@ -174,6 +177,26 @@ VM Coverage for attachment commit `304edc8f`. The feature-head cleanliness and
 hosted-log audit passed with no skipped, missing, unexpected, warning,
 deprecation, reset, or connection-noise findings; the separate protected
 `master` strict audit also passed.
+
+Attachment crypto acceleration is complete locally. Descriptor v2 makes
+AES-256-GCM the default for new independently authenticated chunks, binds the
+descriptor and chunk envelope to authenticated data, and preserves byte-exact
+v1 XSalsa20-Poly1305 reads. The web implementation runs Web Crypto only in a
+dedicated Blob Worker with transferable buffers and no synchronous fallback;
+the native implementation uses the maintained `cryptography` and
+`cryptography_flutter` backend, selecting registered OS crypto on Android,
+iOS, and macOS and `BackgroundAesGcm` elsewhere. Cancellation, timeout, worker
+crash, disposal, malformed output, concurrent derivations, stale responses,
+and temporary-buffer clearing fail closed. Native and Chrome tests share an
+exact AES-256-GCM vector, and a 64 MiB Chrome operation proves event-loop
+responsiveness. `bin/test-wamp-app` passes with 30 shared, 47 server, 55 native
+Flutter, and 5 real-Chrome tests plus a release web build; repository
+`bin/verify` passes on 2026-08-25. A five-iteration 64 MiB benchmark of the
+non-plugin native fallback reports 0.121/0.125 Gbit/s memory-cache
+encrypt/decrypt and 0.114/0.105 Gbit/s durable-disk encrypt/decrypt. These are
+conservative fallback results, not unmeasured OS-accelerated mobile claims.
+Voice recording and sticker/emoji selection remain before milestone 4 is
+complete; hosted exact-head evidence is pending for this revision.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

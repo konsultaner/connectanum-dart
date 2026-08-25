@@ -100,6 +100,7 @@ Future<_TransferSample> _runIteration(
       decryptSeconds: decryptWatch.elapsedMicroseconds / 1000000,
     );
   } finally {
+    await cipher.dispose();
     await cache.dispose();
     if (temporary != null && await temporary.exists()) {
       await temporary.delete(recursive: true);

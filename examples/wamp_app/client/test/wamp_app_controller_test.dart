@@ -488,7 +488,9 @@ void main() {
         List<int>.generate(8193, (index) => (index * 29) % 256),
       );
       const messageId = 'incoming_message_123456';
-      final descriptor = (await AttachmentCipher().encryptSources(
+      final producerCipher = AttachmentCipher();
+      addTearDown(producerCipher.dispose);
+      final descriptor = (await producerCipher.encryptSources(
         scope: 'producer',
         senderUsername: 'alice',
         messageId: messageId,

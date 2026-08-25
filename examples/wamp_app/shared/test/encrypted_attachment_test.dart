@@ -23,11 +23,40 @@ void main() {
     );
 
     expect(restored.attachmentId, descriptor.attachmentId);
+    expect(restored.version, EncryptedAttachmentDescriptor.currentVersion);
+    expect(restored.algorithm, EncryptedAttachmentDescriptor.currentAlgorithm);
     expect(restored.kind, ChatAttachmentKind.image);
     expect(restored.name, 'holiday.jpg');
     expect(restored.contentType, 'image/jpeg');
     expect(restored.plaintextBytes, descriptor.plaintextBytes);
     expect(restored.key, descriptor.key);
+  });
+
+  test('legacy descriptors remain readable without accepting mixed suites', () {
+    final legacy = EncryptedAttachmentDescriptor(
+      version: EncryptedAttachmentDescriptor.legacyVersion,
+      algorithm: EncryptedAttachmentDescriptor.legacyAlgorithm,
+      attachmentId: _token(16, 8),
+      kind: ChatAttachmentKind.file,
+      name: 'legacy.bin',
+      contentType: 'application/octet-stream',
+      plaintextBytes: 1,
+      chunkBytes: 1,
+      chunkCount: 1,
+      plaintextSha256: 'd' * 64,
+      key: Uint8List(32),
+    );
+
+    final restored = EncryptedAttachmentDescriptor.fromJson(legacy.toJson());
+    expect(restored.version, EncryptedAttachmentDescriptor.legacyVersion);
+    expect(restored.algorithm, EncryptedAttachmentDescriptor.legacyAlgorithm);
+
+    final mixed = legacy.toJson()
+      ..['algorithm'] = EncryptedAttachmentDescriptor.currentAlgorithm;
+    expect(
+      () => EncryptedAttachmentDescriptor.fromJson(mixed),
+      throwsFormatException,
+    );
   });
 
   test('private descriptors reject mismatched chunks and unsafe metadata', () {
@@ -83,6 +112,22 @@ void main() {
     expect(restored.encryptedBytes, everyElement(7));
     (wire['encrypted_bytes'] as Uint8List).fillRange(0, bytes.length, 42);
     expect(restored.encryptedBytes, everyElement(7));
+  });
+
+  test('opaque chunks accept the bounded AES-GCM empty payload', () {
+    final bytes = Uint8List(WampAppAttachmentLimits.aesGcmOverheadBytes);
+    expect(
+      () => EncryptedAttachmentChunk(
+        senderUsername: 'alice',
+        messageId: _token(16, 9),
+        attachmentId: _token(16, 10),
+        chunkIndex: 0,
+        chunkCount: 1,
+        ciphertextSha256: 'e' * 64,
+        encryptedBytes: bytes,
+      ),
+      returnsNormally,
+    );
   });
 
   test('upload status is sorted, unique, bounded, and self-consistent', () {

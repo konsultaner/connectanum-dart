@@ -11,13 +11,17 @@ abstract final class WampAppAttachmentLimits {
   static const defaultChunkBytes = 1024 * 1024;
   static const maxChunkBytes = defaultChunkBytes;
   static const maxChunkCount = 64;
+  static const aesGcmOverheadBytes = 28;
   static const secretBoxOverheadBytes = 40;
+  static const minEncryptedChunkBytes = aesGcmOverheadBytes;
   static const maxEncryptedChunkBytes = maxChunkBytes + secretBoxOverheadBytes;
 }
 
 /// Private attachment metadata carried inside an encrypted chat payload.
 final class EncryptedAttachmentDescriptor {
   EncryptedAttachmentDescriptor({
+    this.version = currentVersion,
+    this.algorithm = currentAlgorithm,
     required this.attachmentId,
     required this.kind,
     required this.name,
@@ -31,9 +35,13 @@ final class EncryptedAttachmentDescriptor {
     validate();
   }
 
-  static const version = 'wampapp-attachment-v1';
-  static const algorithm = 'xsalsa20poly1305-chunked';
+  static const legacyVersion = 'wampapp-attachment-v1';
+  static const legacyAlgorithm = 'xsalsa20poly1305-chunked';
+  static const currentVersion = 'wampapp-attachment-v2';
+  static const currentAlgorithm = 'aes256gcm-chunked';
 
+  final String version;
+  final String algorithm;
   final String attachmentId;
   final ChatAttachmentKind kind;
   final String name;
@@ -47,6 +55,12 @@ final class EncryptedAttachmentDescriptor {
   Uint8List get key => Uint8List.fromList(_key);
 
   void validate() {
+    final supported =
+        (version == legacyVersion && algorithm == legacyAlgorithm) ||
+        (version == currentVersion && algorithm == currentAlgorithm);
+    if (!supported) {
+      throw const FormatException('Unsupported attachment descriptor.');
+    }
     _validateOpaqueId(attachmentId, 'attachment_id');
     if (name.isEmpty ||
         name.length > 255 ||
@@ -100,9 +114,7 @@ final class EncryptedAttachmentDescriptor {
   }
 
   factory EncryptedAttachmentDescriptor.fromJson(Map<String, dynamic>? value) {
-    if (value == null ||
-        value['version'] != version ||
-        value['algorithm'] != algorithm) {
+    if (value == null) {
       throw const FormatException('Unsupported attachment descriptor.');
     }
     final kindName = _readString(value['kind'], 'kind');
@@ -113,6 +125,8 @@ final class EncryptedAttachmentDescriptor {
       throw const FormatException('Attachment kind is invalid.');
     }
     return EncryptedAttachmentDescriptor(
+      version: _readString(value['version'], 'version'),
+      algorithm: _readString(value['algorithm'], 'algorithm'),
       attachmentId: _readString(value['attachment_id'], 'attachment_id'),
       kind: kind,
       name: _readString(value['name'], 'name'),
@@ -169,7 +183,7 @@ final class EncryptedAttachmentChunk {
       throw const FormatException('Attachment chunk position is invalid.');
     }
     if (_encryptedBytes.length <
-            WampAppAttachmentLimits.secretBoxOverheadBytes ||
+            WampAppAttachmentLimits.minEncryptedChunkBytes ||
         _encryptedBytes.length >
             WampAppAttachmentLimits.maxEncryptedChunkBytes) {
       throw const FormatException('Encrypted attachment chunk is invalid.');

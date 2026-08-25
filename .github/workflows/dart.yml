@@ -55,7 +55,12 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - id: chrome
+        uses: browser-actions/setup-chrome@v2
+
       - name: Verify standalone WampApp packages
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
         run: bin/test-wamp-app
 
   verify:

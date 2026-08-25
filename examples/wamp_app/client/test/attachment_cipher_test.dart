@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinenacl/x25519.dart';
 import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
 import 'package:wamp_app/src/infrastructure/attachment_chunk_cache_factory_io.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
+import 'package:wamp_app/src/infrastructure/attachment_crypto_worker.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 void main() {
@@ -24,6 +27,7 @@ void main() {
       final cache = MemoryAttachmentChunkCache();
       addTearDown(cache.dispose);
       final cipher = AttachmentCipher(random: Random(7));
+      addTearDown(cipher.dispose);
 
       final attachments = await cipher.encryptSources(
         scope: scope,
@@ -46,6 +50,11 @@ void main() {
       );
 
       final attachment = attachments.single;
+      expect(attachment.version, EncryptedAttachmentDescriptor.currentVersion);
+      expect(
+        attachment.algorithm,
+        EncryptedAttachmentDescriptor.currentAlgorithm,
+      );
       expect(attachment.chunkCount, 3);
       expect(attachment.plaintextBytes, plaintext.length);
       for (var index = 0; index < attachment.chunkCount; index += 1) {
@@ -80,6 +89,7 @@ void main() {
     );
     final first = NativeAttachmentChunkCache(rootDirectory: () async => root);
     final cipher = AttachmentCipher(random: Random(11));
+    addTearDown(cipher.dispose);
     final attachment = (await cipher.encryptSources(
       scope: scope,
       senderUsername: 'alice',
@@ -120,6 +130,7 @@ void main() {
       final cache = MemoryAttachmentChunkCache();
       addTearDown(cache.dispose);
       final cipher = AttachmentCipher(random: Random(19));
+      addTearDown(cipher.dispose);
       final attachment = (await cipher.encryptSources(
         scope: scope,
         senderUsername: 'alice',
@@ -222,4 +233,115 @@ void main() {
       );
     },
   );
+
+  test('legacy XSalsa20-Poly1305 cached chunks remain readable', () async {
+    final cache = MemoryAttachmentChunkCache();
+    addTearDown(cache.dispose);
+    final cipher = AttachmentCipher(random: Random(23));
+    addTearDown(cipher.dispose);
+    final plaintext = Uint8List.fromList(
+      List<int>.generate(1025, (index) => index % 251),
+    );
+    final key = Uint8List.fromList(List<int>.generate(32, (index) => index));
+    const attachmentId = 'legacy_attachment_id_1234';
+    final chunkKey = Uint8List.fromList(
+      Hmac(sha256, key)
+          .convert(
+            utf8.encode(
+              '${EncryptedAttachmentChunk.version}\n$messageId\n'
+              '$attachmentId\n0\n1',
+            ),
+          )
+          .bytes,
+    );
+    final encrypted = SecretBox(chunkKey).encrypt(plaintext).asTypedList;
+    chunkKey.fillRange(0, chunkKey.length, 0);
+    await cache.put(
+      scope: scope,
+      chunk: EncryptedAttachmentChunk(
+        senderUsername: 'alice',
+        messageId: messageId,
+        attachmentId: attachmentId,
+        chunkIndex: 0,
+        chunkCount: 1,
+        ciphertextSha256: attachmentCacheDigest(encrypted),
+        encryptedBytes: encrypted,
+      ),
+    );
+    final descriptor = EncryptedAttachmentDescriptor(
+      version: EncryptedAttachmentDescriptor.legacyVersion,
+      algorithm: EncryptedAttachmentDescriptor.legacyAlgorithm,
+      attachmentId: attachmentId,
+      kind: ChatAttachmentKind.file,
+      name: 'legacy.bin',
+      contentType: 'application/octet-stream',
+      plaintextBytes: plaintext.length,
+      chunkBytes: WampAppAttachmentLimits.defaultChunkBytes,
+      chunkCount: 1,
+      plaintextSha256: sha256.convert(plaintext).toString(),
+      key: key,
+    );
+
+    expect(
+      await cipher.decryptToBytes(
+        scope: scope,
+        senderUsername: 'alice',
+        messageId: messageId,
+        attachment: descriptor,
+        cache: cache,
+      ),
+      plaintext,
+    );
+  });
+
+  test('rejects malformed crypto backend output before caching', () async {
+    final cache = MemoryAttachmentChunkCache();
+    addTearDown(cache.dispose);
+    final cipher = AttachmentCipher(
+      random: Random(29),
+      cryptoWorker: _MalformedAttachmentCryptoWorker(),
+    );
+    addTearDown(cipher.dispose);
+
+    await expectLater(
+      cipher.encryptSources(
+        scope: scope,
+        senderUsername: 'alice',
+        messageId: 'malformed_crypto_message',
+        sources: [
+          AttachmentPlaintextSource(
+            name: 'invalid.bin',
+            contentType: 'application/octet-stream',
+            kind: ChatAttachmentKind.file,
+            byteCount: 1,
+            openRead: () => Stream.value(Uint8List.fromList([1])),
+          ),
+        ],
+        cache: cache,
+      ),
+      throwsA(isA<AttachmentCryptoException>()),
+    );
+  });
+}
+
+final class _MalformedAttachmentCryptoWorker implements AttachmentCryptoWorker {
+  @override
+  AttachmentCryptoTask start(
+    AttachmentCryptoRequest request, {
+    Duration? timeout,
+  }) => _MalformedAttachmentCryptoTask(request);
+
+  @override
+  Future<void> dispose() async {}
+}
+
+final class _MalformedAttachmentCryptoTask implements AttachmentCryptoTask {
+  _MalformedAttachmentCryptoTask(AttachmentCryptoRequest request)
+    : result = Future<Uint8List>.value(Uint8List(request.input.length));
+
+  @override
+  final Future<Uint8List> result;
+
+  @override
+  Future<void> cancel() async {}
 }

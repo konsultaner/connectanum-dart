@@ -33,5 +33,12 @@ fi
   dart format --output=none --set-exit-if-changed .
   flutter analyze
   flutter test
+  if ensure_chrome_env; then
+    flutter test --platform chrome \
+      test/attachment_chunk_cache_web_test.dart \
+      test/attachment_crypto_worker_web_test.dart
+  else
+    printf 'Chrome unavailable; skipping WampApp browser worker tests.\n' >&2
+  fi
   flutter build web --release
 )

@@ -7,6 +7,7 @@ import 'package:pinenacl/x25519.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'attachment_chunk_cache.dart';
+import 'attachment_crypto_worker.dart';
 
 final class AttachmentPlaintextSource {
   AttachmentPlaintextSource({
@@ -37,9 +38,17 @@ final class AttachmentTransferCancelled implements Exception {
 }
 
 final class AttachmentCipher {
-  AttachmentCipher({Random? random}) : _random = random ?? Random.secure();
+  AttachmentCipher({
+    Random? random,
+    AttachmentCryptoWorker? cryptoWorker,
+    this.workerTimeout = const Duration(seconds: 30),
+  }) : _random = random ?? Random.secure(),
+       _cryptoWorker = cryptoWorker ?? AttachmentCryptoWorker();
 
   final Random _random;
+  final AttachmentCryptoWorker _cryptoWorker;
+  final Duration workerTimeout;
+  bool _disposed = false;
 
   Future<List<EncryptedAttachmentDescriptor>> encryptSources({
     required String scope,
@@ -49,6 +58,7 @@ final class AttachmentCipher {
     required AttachmentChunkCache cache,
     bool Function()? isCancelled,
   }) async {
+    _throwIfDisposed();
     if (sources.isEmpty ||
         sources.length > WampAppAttachmentLimits.maxAttachmentsPerMessage) {
       throw const FormatException('Attachment count is outside the limit.');
@@ -87,6 +97,7 @@ final class AttachmentCipher {
     Future<EncryptedAttachmentChunk> Function(int chunkIndex)? fetchChunk,
     bool Function()? isCancelled,
   }) async {
+    _throwIfDisposed();
     final chunks = <Uint8List>[];
     try {
       await decryptToSink(
@@ -124,6 +135,7 @@ final class AttachmentCipher {
     Future<EncryptedAttachmentChunk> Function(int chunkIndex)? fetchChunk,
     bool Function()? isCancelled,
   }) async {
+    _throwIfDisposed();
     attachment.validate();
     final digest = _Sha256Digest();
     var plaintextBytes = 0;
@@ -177,6 +189,8 @@ final class AttachmentCipher {
         final attachmentKey = attachment.key;
         final chunkKey = _chunkKey(
           attachmentKey,
+          attachmentVersion: attachment.version,
+          algorithm: attachment.algorithm,
           messageId: messageId,
           attachmentId: attachment.attachmentId,
           chunkIndex: chunkIndex,
@@ -185,19 +199,60 @@ final class AttachmentCipher {
         attachmentKey.fillRange(0, attachmentKey.length, 0);
         Uint8List? plaintext;
         try {
-          plaintext = SecretBox(chunkKey).decrypt(
-            EncryptedMessage(
-              nonce: Uint8List.sublistView(
-                encrypted,
-                0,
-                EncryptedMessage.nonceLength,
+          if (attachment.algorithm ==
+              EncryptedAttachmentDescriptor.legacyAlgorithm) {
+            await Future<void>.delayed(Duration.zero);
+            plaintext = SecretBox(chunkKey).decrypt(
+              EncryptedMessage(
+                nonce: Uint8List.sublistView(
+                  encrypted,
+                  0,
+                  EncryptedMessage.nonceLength,
+                ),
+                cipherText: Uint8List.sublistView(
+                  encrypted,
+                  EncryptedMessage.nonceLength,
+                ),
               ),
-              cipherText: Uint8List.sublistView(
-                encrypted,
-                EncryptedMessage.nonceLength,
-              ),
-            ),
-          );
+            );
+          } else {
+            if (encrypted.length <
+                WampAppAttachmentLimits.aesGcmOverheadBytes) {
+              throw const FormatException(
+                'Encrypted attachment chunk is too short.',
+              );
+            }
+            final nonce = Uint8List.fromList(
+              Uint8List.sublistView(encrypted, 0, 12),
+            );
+            final ciphertextAndTag = Uint8List.fromList(
+              Uint8List.sublistView(encrypted, 12),
+            );
+            final additionalData = _chunkAdditionalData(
+              attachmentVersion: attachment.version,
+              algorithm: attachment.algorithm,
+              messageId: messageId,
+              attachmentId: attachment.attachmentId,
+              chunkIndex: chunkIndex,
+              chunkCount: attachment.chunkCount,
+            );
+            try {
+              plaintext = await _runCrypto(
+                AttachmentCryptoRequest(
+                  operation: AttachmentCryptoOperation.decrypt,
+                  key: chunkKey,
+                  nonce: nonce,
+                  additionalData: additionalData,
+                  input: ciphertextAndTag,
+                ),
+                isCancelled: isCancelled,
+              );
+            } finally {
+              nonce.fillRange(0, nonce.length, 0);
+              ciphertextAndTag.fillRange(0, ciphertextAndTag.length, 0);
+              additionalData.fillRange(0, additionalData.length, 0);
+            }
+          }
           final expectedBytes = _expectedPlaintextBytes(attachment, chunkIndex);
           if (plaintext.length != expectedBytes) {
             throw const FormatException(
@@ -209,7 +264,10 @@ final class AttachmentCipher {
           await write(plaintext);
           _throwIfCancelled(isCancelled);
         } catch (error) {
-          if (error is FormatException) rethrow;
+          if (error is FormatException ||
+              error is AttachmentTransferCancelled) {
+            rethrow;
+          }
           throw const FormatException(
             'Encrypted attachment chunk could not be opened.',
           );
@@ -252,13 +310,46 @@ final class AttachmentCipher {
       final plaintext = pending.takeBytes();
       final chunkKey = _chunkKey(
         key,
+        attachmentVersion: EncryptedAttachmentDescriptor.currentVersion,
+        algorithm: EncryptedAttachmentDescriptor.currentAlgorithm,
+        messageId: messageId,
+        attachmentId: attachmentId,
+        chunkIndex: chunkIndex,
+        chunkCount: chunkCount,
+      );
+      final nonce = _bytes(12);
+      final additionalData = _chunkAdditionalData(
+        attachmentVersion: EncryptedAttachmentDescriptor.currentVersion,
+        algorithm: EncryptedAttachmentDescriptor.currentAlgorithm,
         messageId: messageId,
         attachmentId: attachmentId,
         chunkIndex: chunkIndex,
         chunkCount: chunkCount,
       );
       try {
-        final encrypted = SecretBox(chunkKey).encrypt(plaintext).asTypedList;
+        final ciphertextAndTag = await _runCrypto(
+          AttachmentCryptoRequest(
+            operation: AttachmentCryptoOperation.encrypt,
+            key: chunkKey,
+            nonce: nonce,
+            additionalData: additionalData,
+            input: plaintext,
+          ),
+          isCancelled: isCancelled,
+        );
+        if (ciphertextAndTag.length != plaintext.length + 16) {
+          throw const AttachmentCryptoException(
+            'attachment crypto returned an invalid payload',
+          );
+        }
+        final encrypted = Uint8List(nonce.length + ciphertextAndTag.length)
+          ..setRange(0, nonce.length, nonce)
+          ..setRange(
+            nonce.length,
+            nonce.length + ciphertextAndTag.length,
+            ciphertextAndTag,
+          );
+        ciphertextAndTag.fillRange(0, ciphertextAndTag.length, 0);
         final chunk = EncryptedAttachmentChunk(
           senderUsername: senderUsername,
           messageId: messageId,
@@ -273,6 +364,8 @@ final class AttachmentCipher {
         chunkIndex += 1;
       } finally {
         chunkKey.fillRange(0, chunkKey.length, 0);
+        nonce.fillRange(0, nonce.length, 0);
+        additionalData.fillRange(0, additionalData.length, 0);
         plaintext.fillRange(0, plaintext.length, 0);
       }
     }
@@ -347,20 +440,60 @@ final class AttachmentCipher {
 
   Uint8List _chunkKey(
     Uint8List attachmentKey, {
+    required String attachmentVersion,
+    required String algorithm,
+    required String messageId,
+    required String attachmentId,
+    required int chunkIndex,
+    required int chunkCount,
+  }) {
+    final context =
+        attachmentVersion == EncryptedAttachmentDescriptor.legacyVersion
+        ? '${EncryptedAttachmentChunk.version}\n$messageId\n$attachmentId\n'
+              '$chunkIndex\n$chunkCount'
+        : '$attachmentVersion\n$algorithm\n'
+              '${EncryptedAttachmentChunk.version}\n$messageId\n$attachmentId\n'
+              '$chunkIndex\n$chunkCount';
+    return Uint8List.fromList(
+      Hmac(sha256, attachmentKey).convert(utf8.encode(context)).bytes,
+    );
+  }
+
+  Uint8List _chunkAdditionalData({
+    required String attachmentVersion,
+    required String algorithm,
     required String messageId,
     required String attachmentId,
     required int chunkIndex,
     required int chunkCount,
   }) => Uint8List.fromList(
-    Hmac(sha256, attachmentKey)
-        .convert(
-          utf8.encode(
-            '${EncryptedAttachmentChunk.version}\n$messageId\n$attachmentId\n'
-            '$chunkIndex\n$chunkCount',
-          ),
-        )
-        .bytes,
+    utf8.encode(
+      '$attachmentVersion\n$algorithm\n'
+      '${EncryptedAttachmentChunk.version}\n$messageId\n$attachmentId\n'
+      '$chunkIndex\n$chunkCount',
+    ),
   );
+
+  Future<Uint8List> _runCrypto(
+    AttachmentCryptoRequest request, {
+    required bool Function()? isCancelled,
+  }) async {
+    _throwIfCancelled(isCancelled);
+    final task = _cryptoWorker.start(request, timeout: workerTimeout);
+    Timer? cancellationTimer;
+    if (isCancelled != null) {
+      cancellationTimer = Timer.periodic(const Duration(milliseconds: 10), (_) {
+        if (isCancelled()) unawaited(task.cancel());
+      });
+    }
+    try {
+      return await task.result;
+    } on AttachmentCryptoCancelledException {
+      throw const AttachmentTransferCancelled();
+    } finally {
+      cancellationTimer?.cancel();
+    }
+  }
 
   int _expectedPlaintextBytes(
     EncryptedAttachmentDescriptor attachment,
@@ -376,6 +509,16 @@ final class AttachmentCipher {
     if (isCancelled?.call() ?? false) {
       throw const AttachmentTransferCancelled();
     }
+  }
+
+  void _throwIfDisposed() {
+    if (_disposed) throw StateError('Attachment cipher is disposed');
+  }
+
+  Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+    await _cryptoWorker.dispose();
   }
 
   String _token(int length) =>

@@ -1372,6 +1372,7 @@ class WampAppController extends ChangeNotifier {
       Future.wait<void>([
         _closeState(connection, trustSession, wakeupSubscription),
         _attachmentCache.dispose(),
+        _attachmentCipher.dispose(),
       ]).then<void>((_) {}).catchError((_) {}),
     );
     super.dispose();
