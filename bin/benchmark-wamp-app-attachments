@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+cd_repo_root
+
+if ! command -v flutter >/dev/null 2>&1; then
+  printf 'Flutter is required to benchmark WampApp attachments.\n' >&2
+  exit 1
+fi
+
+(
+  cd examples/wamp_app/client
+  flutter test benchmark/attachment_transfer_benchmark_test.dart \
+    --reporter expanded
+)

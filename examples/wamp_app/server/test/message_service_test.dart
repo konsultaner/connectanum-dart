@@ -9,6 +9,7 @@ import 'package:wamp_app_server/wamp_app_server.dart';
 void main() {
   late Directory directory;
   late AccountStore accounts;
+  late AttachmentStore attachments;
   late MailboxStore mailbox;
   late MessageService service;
   late _TestDevice alice;
@@ -19,8 +20,10 @@ void main() {
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('wamp-message-service-');
     accounts = AccountStore('${directory.path}/accounts.json');
+    attachments = AttachmentStore('${directory.path}/attachments');
     mailbox = MailboxStore('${directory.path}/messages.json');
     await accounts.initialize();
+    await attachments.initialize();
     await mailbox.initialize();
     await accounts.create(_account('alice'));
     await accounts.create(_account('bob'));
@@ -30,7 +33,11 @@ void main() {
     bob = await _enroll(accounts, 'bob', 2);
     carol = await _enroll(accounts, 'carol', 3);
     mallory = await _enroll(accounts, 'mallory', 4);
-    service = MessageService(accounts: accounts, mailbox: mailbox);
+    service = MessageService(
+      accounts: accounts,
+      mailbox: mailbox,
+      attachments: attachments,
+    );
   });
 
   tearDown(() => directory.delete(recursive: true));
@@ -59,6 +66,44 @@ void main() {
       );
     },
   );
+
+  test('rejects messages until every referenced chunk is durable', () async {
+    final attachmentId = _token(16, 80);
+    final message = _message(
+      alice,
+      bob,
+      messageSeed: 79,
+      attachmentIds: [attachmentId],
+    );
+
+    await expectLater(
+      service.send('alice', message, now: DateTime.utc(2026, 8, 24, 12)),
+      throwsA(isA<AttachmentIncomplete>()),
+    );
+    expect((await mailbox.sync('alice', afterCursor: 0)).messages, isEmpty);
+
+    final bytes = Uint8List.fromList(
+      List<int>.filled(WampAppAttachmentLimits.secretBoxOverheadBytes, 81),
+    );
+    await attachments.put(
+      EncryptedAttachmentChunk(
+        senderUsername: 'alice',
+        messageId: message.messageId,
+        attachmentId: attachmentId,
+        chunkIndex: 0,
+        chunkCount: 1,
+        ciphertextSha256: sha256.convert(bytes).toString(),
+        encryptedBytes: bytes,
+      ),
+    );
+
+    final receipt = await service.send(
+      'alice',
+      message,
+      now: DateTime.utc(2026, 8, 24, 12),
+    );
+    expect(receipt.duplicate, isFalse);
+  });
 
   test(
     'rejects caller spoofing, missing device coverage, and bad signatures',
@@ -305,6 +350,7 @@ EncryptedChatMessage _message(
   _TestDevice recipient, {
   bool oneTime = false,
   int messageSeed = 9,
+  List<String> attachmentIds = const [],
 }) {
   final conversationId = _token(32, 8);
   final createdAt = DateTime.utc(2026, 8, 24, 12);
@@ -317,6 +363,7 @@ EncryptedChatMessage _message(
     createdAt: createdAt,
     oneTime: oneTime,
     encryptedPayload: Uint8List.fromList(List<int>.filled(64, 10)),
+    attachmentIds: attachmentIds,
     wrappedKeys: [
       _wrapped(sender, sender.record, conversationId, createdAt),
       _wrapped(sender, recipient.record, conversationId, createdAt),

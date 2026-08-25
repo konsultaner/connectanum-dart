@@ -1,4 +1,6 @@
 export 'src/account_store.dart';
+export 'src/attachment_service.dart';
+export 'src/attachment_store.dart';
 export 'src/device_service.dart';
 export 'src/mailbox_store.dart';
 export 'src/message_service.dart';

@@ -33,4 +33,32 @@ void main() {
       'Message delivery is temporarily unavailable.',
     );
   });
+
+  test('classifies attachment failures without exposing ciphertext', () {
+    AttachmentTransferException classified(String? uri) =>
+        AttachmentTransferException.fromWampError(
+          wamp.Error(48, 1, const {}, uri),
+        );
+
+    expect(
+      classified(WampAppProtocol.errorAttachmentConflict).kind,
+      AttachmentTransferFailureKind.conflict,
+    );
+    expect(
+      classified(WampAppProtocol.errorAttachmentNotFound).kind,
+      AttachmentTransferFailureKind.notFound,
+    );
+    expect(
+      classified(WampAppProtocol.errorAttachmentIncomplete).kind,
+      AttachmentTransferFailureKind.incomplete,
+    );
+    expect(
+      classified(WampAppProtocol.errorInvalidAttachment).kind,
+      AttachmentTransferFailureKind.rejected,
+    );
+    expect(
+      classified('com.example.unknown').kind,
+      AttachmentTransferFailureKind.retryable,
+    );
+  });
 }

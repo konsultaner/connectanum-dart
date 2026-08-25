@@ -51,7 +51,13 @@ final class OutboundChatMessage {
         localMessage.sentAt != envelope.createdAt ||
         localMessage.oneTime != envelope.oneTime ||
         localMessage.expiresAt != envelope.expiresAt ||
-        localMessage.isGroup != envelope.isGroup) {
+        localMessage.isGroup != envelope.isGroup ||
+        !_sameStrings(
+          localMessage.attachments
+              .map((attachment) => attachment.attachmentId)
+              .toList(growable: false),
+          envelope.attachmentIds,
+        )) {
       throw const FormatException(
         'Outbound message metadata does not match its envelope.',
       );

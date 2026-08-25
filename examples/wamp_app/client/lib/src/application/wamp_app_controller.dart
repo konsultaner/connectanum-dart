@@ -6,6 +6,8 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import '../domain/local_chat_group.dart';
 import '../domain/local_chat_message.dart';
 import '../domain/outbound_chat_message.dart';
+import '../infrastructure/attachment_chunk_cache.dart';
+import '../infrastructure/attachment_cipher.dart';
 import '../infrastructure/device_vault.dart';
 import '../infrastructure/message_cipher.dart';
 import '../infrastructure/wamp_account_gateway.dart';
@@ -17,14 +19,20 @@ class WampAppController extends ChangeNotifier {
     AccountGateway? gateway,
     DeviceTrustStore? trustStore,
     MessageCipher? messageCipher,
+    AttachmentChunkCache? attachmentCache,
+    AttachmentCipher? attachmentCipher,
     this.deviceName = 'This device',
   }) : _gateway = gateway ?? const WampAccountGateway(),
        _trustStore = trustStore ?? EncryptedDeviceVault(),
-       _messageCipher = messageCipher ?? MessageCipher();
+       _messageCipher = messageCipher ?? MessageCipher(),
+       _attachmentCache = attachmentCache ?? createAttachmentChunkCache(),
+       _attachmentCipher = attachmentCipher ?? AttachmentCipher();
 
   final AccountGateway _gateway;
   final DeviceTrustStore _trustStore;
   final MessageCipher _messageCipher;
+  final AttachmentChunkCache _attachmentCache;
+  final AttachmentCipher _attachmentCipher;
   final String deviceName;
   WampAppStatus _status = WampAppStatus.signedOut;
   AccountConnection? _connection;
@@ -250,6 +258,7 @@ class WampAppController extends ChangeNotifier {
     required String text,
     bool oneTime = false,
     Duration? expiresAfter,
+    List<AttachmentPlaintextSource> attachmentSources = const [],
   }) async {
     final connection = _connection;
     final trust = _trustSession;
@@ -269,12 +278,18 @@ class WampAppController extends ChangeNotifier {
         identical(trust, _trustSession);
     var enqueued = false;
     var synchronized = false;
+    String? stagedAttachmentMessageId;
     _messageBusy = true;
     _messageError = null;
     notifyListeners();
     try {
       if (expiresAfter != null && expiresAfter <= Duration.zero) {
         throw const FormatException('Message expiry must be positive.');
+      }
+      if (oneTime && attachmentSources.isNotEmpty) {
+        throw const FormatException(
+          'View-once attachments are not supported yet.',
+        );
       }
       final ownDevices = await connection.listDevices();
       final recipientDevices = await connection.lookupDevices(
@@ -289,6 +304,33 @@ class WampAppController extends ChangeNotifier {
       };
       if (!isCurrent()) return false;
       final now = DateTime.now().toUtc();
+      final messageId = _messageCipher.newMessageId();
+      final attachments = attachmentSources.isEmpty
+          ? const <EncryptedAttachmentDescriptor>[]
+          : await _attachmentCipher.encryptSources(
+              scope: attachmentCacheScope(
+                connection.endpoint,
+                connection.username,
+              ),
+              senderUsername: connection.username,
+              messageId: messageId,
+              sources: attachmentSources,
+              cache: _attachmentCache,
+              isCancelled: () => !isCurrent(),
+            );
+      if (attachments.isNotEmpty) stagedAttachmentMessageId = messageId;
+      if (!isCurrent()) {
+        if (stagedAttachmentMessageId != null) {
+          await _attachmentCache.removeMessage(
+            scope: attachmentCacheScope(
+              connection.endpoint,
+              connection.username,
+            ),
+            messageId: stagedAttachmentMessageId,
+          );
+        }
+        return false;
+      }
       final envelope = _messageCipher.encrypt(
         senderUsername: connection.username,
         recipientUsername: recipientUsername,
@@ -298,6 +340,8 @@ class WampAppController extends ChangeNotifier {
         now: now,
         expiresAt: expiresAfter == null ? null : now.add(expiresAfter),
         oneTime: oneTime,
+        messageId: messageId,
+        attachments: attachments,
       );
       final pending = OutboundChatMessage(
         envelope: envelope,
@@ -310,6 +354,7 @@ class WampAppController extends ChangeNotifier {
           outgoing: true,
           oneTime: envelope.oneTime,
           expiresAt: envelope.expiresAt,
+          attachments: attachments,
         ),
         state: OutboundMessageState.queued,
         attemptCount: 0,
@@ -339,6 +384,19 @@ class WampAppController extends ChangeNotifier {
       }
       return true;
     } catch (error) {
+      if (!enqueued && stagedAttachmentMessageId != null) {
+        try {
+          await _attachmentCache.removeMessage(
+            scope: attachmentCacheScope(
+              connection.endpoint,
+              connection.username,
+            ),
+            messageId: stagedAttachmentMessageId,
+          );
+        } catch (_) {
+          // Preserve the staging or encryption failure for the UI.
+        }
+      }
       if (isCurrent()) _messageError = error;
       return enqueued;
     } finally {
@@ -428,6 +486,7 @@ class WampAppController extends ChangeNotifier {
     required String groupId,
     required String text,
     Duration? expiresAfter,
+    List<AttachmentPlaintextSource> attachmentSources = const [],
   }) async {
     final connection = _connection;
     final trust = _trustSession;
@@ -451,6 +510,7 @@ class WampAppController extends ChangeNotifier {
         identical(trust, _trustSession);
     var enqueued = false;
     var synchronized = false;
+    String? stagedAttachmentMessageId;
     _messageBusy = true;
     _messageError = null;
     notifyListeners();
@@ -472,6 +532,33 @@ class WampAppController extends ChangeNotifier {
       }
       if (!isCurrent()) return false;
       final now = DateTime.now().toUtc();
+      final messageId = _messageCipher.newMessageId();
+      final attachments = attachmentSources.isEmpty
+          ? const <EncryptedAttachmentDescriptor>[]
+          : await _attachmentCipher.encryptSources(
+              scope: attachmentCacheScope(
+                connection.endpoint,
+                connection.username,
+              ),
+              senderUsername: connection.username,
+              messageId: messageId,
+              sources: attachmentSources,
+              cache: _attachmentCache,
+              isCancelled: () => !isCurrent(),
+            );
+      if (attachments.isNotEmpty) stagedAttachmentMessageId = messageId;
+      if (!isCurrent()) {
+        if (stagedAttachmentMessageId != null) {
+          await _attachmentCache.removeMessage(
+            scope: attachmentCacheScope(
+              connection.endpoint,
+              connection.username,
+            ),
+            messageId: stagedAttachmentMessageId,
+          );
+        }
+        return false;
+      }
       final envelope = _messageCipher.encryptGroup(
         senderUsername: connection.username,
         group: group,
@@ -480,6 +567,8 @@ class WampAppController extends ChangeNotifier {
         participantDevices: participants.values.toList(growable: false),
         now: now,
         expiresAt: expiresAfter == null ? null : now.add(expiresAfter),
+        messageId: messageId,
+        attachments: attachments,
       );
       final pending = OutboundChatMessage(
         envelope: envelope,
@@ -495,6 +584,7 @@ class WampAppController extends ChangeNotifier {
           participantUsernames: group.memberUsernames,
           groupCreatedBy: group.createdBy,
           groupCreatedAt: group.createdAt,
+          attachments: attachments,
         ),
         state: OutboundMessageState.queued,
         attemptCount: 0,
@@ -524,6 +614,19 @@ class WampAppController extends ChangeNotifier {
       }
       return true;
     } catch (error) {
+      if (!enqueued && stagedAttachmentMessageId != null) {
+        try {
+          await _attachmentCache.removeMessage(
+            scope: attachmentCacheScope(
+              connection.endpoint,
+              connection.username,
+            ),
+            messageId: stagedAttachmentMessageId,
+          );
+        } catch (_) {
+          // Preserve the staging or encryption failure for the UI.
+        }
+      }
       if (isCurrent()) _messageError = error;
       return enqueued;
     } finally {
@@ -590,6 +693,68 @@ class WampAppController extends ChangeNotifier {
     }
   }
 
+  Future<Uint8List?> loadAttachment({
+    required String messageId,
+    required String attachmentId,
+  }) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    final message = _messages
+        .where((candidate) => candidate.messageId == messageId)
+        .firstOrNull;
+    final attachment = message?.attachments
+        .where((candidate) => candidate.attachmentId == attachmentId)
+        .firstOrNull;
+    if (_disposed ||
+        _messageBusy ||
+        connection == null ||
+        trust == null ||
+        message == null ||
+        attachment == null) {
+      return null;
+    }
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      final senderUsername = message.outgoing
+          ? connection.username
+          : message.peerUsername;
+      final opened = await _attachmentCipher.decryptToBytes(
+        scope: attachmentCacheScope(connection.endpoint, connection.username),
+        senderUsername: senderUsername,
+        messageId: message.messageId,
+        attachment: attachment,
+        cache: _attachmentCache,
+        fetchChunk: (chunkIndex) => connection.getAttachmentChunk(
+          messageId: message.messageId,
+          attachmentId: attachment.attachmentId,
+          chunkIndex: chunkIndex,
+        ),
+        isCancelled: () => !isCurrent(),
+      );
+      if (!isCurrent()) {
+        opened.fillRange(0, opened.length, 0);
+        return null;
+      }
+      return opened;
+    } catch (error) {
+      if (isCurrent()) _messageError = error;
+      return null;
+    } finally {
+      if (isCurrent()) {
+        _messageBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
   Future<bool> discardOutboundMessage(String messageId) async {
     final connection = _connection;
     final trust = _trustSession;
@@ -613,6 +778,12 @@ class WampAppController extends ChangeNotifier {
     notifyListeners();
     try {
       await _removeOutboxMessage(trust, messageId);
+      if (pending.localMessage.attachments.isNotEmpty) {
+        await _attachmentCache.removeMessage(
+          scope: attachmentCacheScope(connection.endpoint, connection.username),
+          messageId: messageId,
+        );
+      }
       if (!isCurrent()) return true;
       _messages = List<LocalChatMessage>.unmodifiable(_visibleMessages(trust));
       return true;
@@ -931,6 +1102,12 @@ class WampAppController extends ChangeNotifier {
 
     MessageSendReceipt receipt;
     try {
+      await _uploadAttachments(
+        connection: connection,
+        pending: attempted,
+        isCurrent: isCurrent,
+      );
+      if (!isCurrent()) return false;
       receipt = await connection.sendMessage(attempted.envelope);
     } catch (error) {
       if (!isCurrent()) return false;
@@ -945,12 +1122,83 @@ class WampAppController extends ChangeNotifier {
     return true;
   }
 
+  Future<void> _uploadAttachments({
+    required AccountConnection connection,
+    required OutboundChatMessage pending,
+    required bool Function() isCurrent,
+  }) async {
+    if (pending.localMessage.attachments.isEmpty) return;
+    final scope = attachmentCacheScope(
+      connection.endpoint,
+      connection.username,
+    );
+    for (final attachment in pending.localMessage.attachments) {
+      if (!isCurrent()) throw const AttachmentTransferCancelled();
+      final status = await connection.attachmentUploadStatus(
+        messageId: pending.envelope.messageId,
+        attachmentId: attachment.attachmentId,
+        chunkCount: attachment.chunkCount,
+      );
+      if (status.messageId != pending.envelope.messageId ||
+          status.attachmentId != attachment.attachmentId ||
+          status.chunkCount != attachment.chunkCount) {
+        throw const FormatException('Attachment upload status conflicts.');
+      }
+      final received = status.receivedChunks.toSet();
+      for (
+        var chunkIndex = 0;
+        chunkIndex < attachment.chunkCount;
+        chunkIndex++
+      ) {
+        if (received.contains(chunkIndex)) continue;
+        if (!isCurrent()) throw const AttachmentTransferCancelled();
+        final chunk = await _attachmentCache.get(
+          scope: scope,
+          senderUsername: connection.username,
+          messageId: pending.envelope.messageId,
+          attachmentId: attachment.attachmentId,
+          chunkIndex: chunkIndex,
+          chunkCount: attachment.chunkCount,
+        );
+        if (chunk == null) throw const AttachmentCacheMiss();
+        final receipt = await connection.putAttachmentChunk(chunk);
+        received.add(chunkIndex);
+        if (receipt.messageId != pending.envelope.messageId ||
+            receipt.attachmentId != attachment.attachmentId ||
+            receipt.chunkIndex != chunkIndex ||
+            receipt.ciphertextSha256 != chunk.ciphertextSha256 ||
+            receipt.complete != (received.length == attachment.chunkCount)) {
+          throw const FormatException('Attachment upload receipt conflicts.');
+        }
+      }
+      if (received.length != attachment.chunkCount) {
+        throw const FormatException('Attachment upload did not complete.');
+      }
+    }
+  }
+
   OutboundMessageState _outboundFailureState(Object error) {
     if (error case MessageSendException(:final kind)) {
       return switch (kind) {
         MessageSendFailureKind.retryable => OutboundMessageState.retryable,
         MessageSendFailureKind.rejected => OutboundMessageState.rejected,
         MessageSendFailureKind.conflict => OutboundMessageState.conflict,
+      };
+    }
+    if (error is AttachmentCacheConflict) {
+      return OutboundMessageState.conflict;
+    }
+    if (error is AttachmentCacheMiss) {
+      return OutboundMessageState.rejected;
+    }
+    if (error case AttachmentTransferException(:final kind)) {
+      return switch (kind) {
+        AttachmentTransferFailureKind.conflict => OutboundMessageState.conflict,
+        AttachmentTransferFailureKind.rejected => OutboundMessageState.rejected,
+        AttachmentTransferFailureKind.retryable ||
+        AttachmentTransferFailureKind.notFound ||
+        AttachmentTransferFailureKind.incomplete =>
+          OutboundMessageState.retryable,
       };
     }
     return OutboundMessageState.retryable;
@@ -1119,11 +1367,10 @@ class WampAppController extends ChangeNotifier {
     _pendingMailboxWakeupCursor = 0;
     _automaticSyncRunning = false;
     unawaited(
-      _closeState(
-        connection,
-        trustSession,
-        wakeupSubscription,
-      ).catchError((_) {}),
+      Future.wait<void>([
+        _closeState(connection, trustSession, wakeupSubscription),
+        _attachmentCache.dispose(),
+      ]).then<void>((_) {}).catchError((_) {}),
     );
     super.dispose();
   }

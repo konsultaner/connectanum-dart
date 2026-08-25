@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'account_registration.dart';
 import 'device_identity.dart';
+import 'encrypted_attachment.dart';
 
 enum ChatConversationType { direct, group }
 
@@ -16,6 +17,7 @@ final class EncryptedChatMessage {
     required DateTime createdAt,
     required Uint8List encryptedPayload,
     required List<WrappedConversationKey> wrappedKeys,
+    List<String> attachmentIds = const [],
     bool oneTime = false,
     DateTime? expiresAt,
   }) {
@@ -34,6 +36,7 @@ final class EncryptedChatMessage {
       oneTime: oneTime,
       encryptedPayload: encryptedPayload,
       wrappedKeys: wrappedKeys,
+      attachmentIds: attachmentIds,
     );
   }
 
@@ -46,6 +49,7 @@ final class EncryptedChatMessage {
     required DateTime createdAt,
     required Uint8List encryptedPayload,
     required List<WrappedConversationKey> wrappedKeys,
+    List<String> attachmentIds = const [],
     DateTime? expiresAt,
   }) {
     final sender = AccountRegistration.normalizeUsername(senderUsername);
@@ -61,6 +65,7 @@ final class EncryptedChatMessage {
       oneTime: false,
       encryptedPayload: encryptedPayload,
       wrappedKeys: wrappedKeys,
+      attachmentIds: attachmentIds,
     );
   }
 
@@ -74,6 +79,7 @@ final class EncryptedChatMessage {
     required DateTime createdAt,
     required Uint8List encryptedPayload,
     required List<WrappedConversationKey> wrappedKeys,
+    required List<String> attachmentIds,
     required this.oneTime,
     this.recipientUsername,
     DateTime? expiresAt,
@@ -81,6 +87,7 @@ final class EncryptedChatMessage {
        expiresAt = expiresAt?.toUtc(),
        _encryptedPayload = Uint8List.fromList(encryptedPayload),
        wrappedKeys = List<WrappedConversationKey>.unmodifiable(wrappedKeys),
+       attachmentIds = List<String>.unmodifiable(attachmentIds),
        participantUsernames = List<String>.unmodifiable(participantUsernames) {
     validate();
   }
@@ -104,6 +111,7 @@ final class EncryptedChatMessage {
   final bool oneTime;
   final Uint8List _encryptedPayload;
   final List<WrappedConversationKey> wrappedKeys;
+  final List<String> attachmentIds;
 
   bool get isGroup => conversationType == ChatConversationType.group;
 
@@ -149,6 +157,9 @@ final class EncryptedChatMessage {
           !participantUsernames.contains(recipient)) {
         throw const FormatException('Direct message participants are invalid.');
       }
+      if (oneTime && attachmentIds.isNotEmpty) {
+        throw const FormatException('View-once attachments are not supported.');
+      }
     }
     _validateBase64Url(
       senderDeviceId,
@@ -164,6 +175,20 @@ final class EncryptedChatMessage {
     }
     if (wrappedKeys.isEmpty || wrappedKeys.length > maxWrappedKeys) {
       throw const FormatException('Message wrapped-key count is invalid.');
+    }
+    if (attachmentIds.length >
+        WampAppAttachmentLimits.maxAttachmentsPerMessage) {
+      throw const FormatException('Message attachment count is invalid.');
+    }
+    for (var index = 0; index < attachmentIds.length; index += 1) {
+      final attachmentId = attachmentIds[index];
+      if (!RegExp(r'^[A-Za-z0-9_-]{16,128}$').hasMatch(attachmentId) ||
+          (index > 0 &&
+              attachmentIds[index - 1].compareTo(attachmentId) >= 0)) {
+        throw const FormatException(
+          'Message attachment identifiers must be sorted and unique.',
+        );
+      }
     }
     final recipients = <String>{};
     final wrappedAccounts = <String>{};
@@ -207,6 +232,7 @@ final class EncryptedChatMessage {
       if (expiresAt case final value?) 'expires_at': value.toIso8601String(),
       'one_time': oneTime,
       'encrypted_payload': encryptedPayload,
+      if (attachmentIds.isNotEmpty) 'attachment_ids': attachmentIds,
       'wrapped_keys': wrappedKeys
           .map((envelope) => envelope.toWampKeywords())
           .toList(growable: false),
@@ -252,6 +278,7 @@ final class EncryptedChatMessage {
           );
         })
         .toList(growable: false);
+    final attachmentIds = _readAttachmentIds(value['attachment_ids']);
     final envelopeVersion = value['version'];
     if (envelopeVersion == version) {
       final type = value['conversation_type'];
@@ -284,6 +311,7 @@ final class EncryptedChatMessage {
         oneTime: _readBool(value['one_time'], 'one_time'),
         encryptedPayload: payload,
         wrappedKeys: wrappedKeys,
+        attachmentIds: attachmentIds,
       );
     }
     if (envelopeVersion != groupVersion ||
@@ -314,6 +342,7 @@ final class EncryptedChatMessage {
       },
       encryptedPayload: payload,
       wrappedKeys: wrappedKeys,
+      attachmentIds: attachmentIds,
     );
   }
 
@@ -889,6 +918,16 @@ int _readInt(Object? value, String field, {required int min}) {
     throw FormatException('$field must be an integer at least $min.');
   }
   return value;
+}
+
+List<String> _readAttachmentIds(Object? value) {
+  if (value == null) return const [];
+  if (value is! List) {
+    throw const FormatException('attachment_ids must be a list.');
+  }
+  return value
+      .map((item) => _readString(item, 'attachment_ids'))
+      .toList(growable: false);
 }
 
 DateTime _readUtcDate(Object? value, String field) {

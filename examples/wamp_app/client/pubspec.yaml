@@ -11,8 +11,12 @@ dependencies:
   connectanum_core: 3.0.0-beta.2
   crypto: ^3.0.7
   cupertino_icons: ^1.0.8
+  file_selector: ^1.1.0
   flutter:
     sdk: flutter
+  idb_shim: ^2.9.8
+  path: ^1.9.1
+  path_provider: ^2.1.6
   pinenacl: ^0.6.0
   shared_preferences: ^2.5.3
   wamp_app_protocol:

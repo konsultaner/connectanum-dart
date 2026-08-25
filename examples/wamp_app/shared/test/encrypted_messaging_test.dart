@@ -22,6 +22,34 @@ void main() {
     },
   );
 
+  test('message envelopes preserve sorted opaque attachment identifiers', () {
+    final attachmentIds = [_token(16, 20), _token(16, 21)]..sort();
+    final message = _message(attachmentIds: attachmentIds);
+
+    expect(
+      EncryptedChatMessage.fromWampKeywords(
+        message.toWampKeywords(),
+      ).attachmentIds,
+      attachmentIds,
+    );
+    expect(
+      EncryptedChatMessage.fromJson(message.toJson()).attachmentIds,
+      attachmentIds,
+    );
+    expect(
+      () => _message(attachmentIds: attachmentIds.reversed.toList()),
+      throwsFormatException,
+    );
+    expect(
+      () => _message(attachmentIds: [attachmentIds.first, attachmentIds.first]),
+      throwsFormatException,
+    );
+    expect(
+      () => _message(oneTime: true, attachmentIds: [attachmentIds.first]),
+      throwsFormatException,
+    );
+  });
+
   test('wire parser rejects base64 text in the binary payload field', () {
     final wire = _message().toWampKeywords();
     wire['encrypted_payload'] = base64Url.encode(List<int>.filled(40, 9));
@@ -302,7 +330,10 @@ void main() {
   );
 }
 
-EncryptedChatMessage _message({bool oneTime = false}) {
+EncryptedChatMessage _message({
+  bool oneTime = false,
+  List<String> attachmentIds = const [],
+}) {
   final senderDevice = _token(32, 1);
   return EncryptedChatMessage(
     messageId: _token(16, 2),
@@ -313,6 +344,7 @@ EncryptedChatMessage _message({bool oneTime = false}) {
     createdAt: DateTime.utc(2026, 8, 24, 11, 59),
     oneTime: oneTime,
     encryptedPayload: Uint8List.fromList(List<int>.filled(64, 4)),
+    attachmentIds: attachmentIds,
     wrappedKeys: [
       WrappedConversationKey(
         conversationId: _token(32, 3),

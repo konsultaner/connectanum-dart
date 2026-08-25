@@ -1,3 +1,5 @@
+import 'package:wamp_app_protocol/wamp_app_protocol.dart';
+
 import 'local_chat_group.dart';
 
 final class LocalChatMessage {
@@ -16,6 +18,7 @@ final class LocalChatMessage {
     Iterable<String> participantUsernames = const [],
     String? groupCreatedBy,
     DateTime? groupCreatedAt,
+    Iterable<EncryptedAttachmentDescriptor> attachments = const [],
   }) : peerUsername = peerUsername.trim().toLowerCase(),
        sentAt = sentAt.toUtc(),
        expiresAt = expiresAt?.toUtc(),
@@ -30,7 +33,12 @@ final class LocalChatMessage {
            ..sort(),
        ),
        groupCreatedBy = groupCreatedBy?.trim().toLowerCase(),
-       groupCreatedAt = groupCreatedAt?.toUtc() {
+       groupCreatedAt = groupCreatedAt?.toUtc(),
+       attachments = List<EncryptedAttachmentDescriptor>.unmodifiable(
+         attachments.toList(growable: false)..sort(
+           (left, right) => left.attachmentId.compareTo(right.attachmentId),
+         ),
+       ) {
     validate();
   }
 
@@ -48,6 +56,7 @@ final class LocalChatMessage {
   final List<String> participantUsernames;
   final String? groupCreatedBy;
   final DateTime? groupCreatedAt;
+  final List<EncryptedAttachmentDescriptor> attachments;
 
   bool get isGroup => groupTitle != null;
 
@@ -71,9 +80,20 @@ final class LocalChatMessage {
         conversationId.length > 200 ||
         peerUsername.isEmpty ||
         peerUsername.length > 64 ||
-        text.trim().isEmpty ||
+        (text.trim().isEmpty && attachments.isEmpty) ||
         text.length > 65536) {
       throw const FormatException('Local chat message is invalid.');
+    }
+    if (attachments.length > WampAppAttachmentLimits.maxAttachmentsPerMessage) {
+      throw const FormatException('Local attachment count is invalid.');
+    }
+    for (var index = 0; index < attachments.length; index += 1) {
+      attachments[index].validate();
+      if (index > 0 &&
+          attachments[index - 1].attachmentId ==
+              attachments[index].attachmentId) {
+        throw const FormatException('Local attachment identifiers conflict.');
+      }
     }
     final groupFields = [
       groupTitle,
@@ -122,6 +142,7 @@ final class LocalChatMessage {
         participantUsernames: participantUsernames,
         groupCreatedBy: groupCreatedBy,
         groupCreatedAt: groupCreatedAt,
+        attachments: attachments,
       );
 
   Map<String, dynamic> toJson() => {
@@ -141,12 +162,20 @@ final class LocalChatMessage {
     'group_created_by': ?groupCreatedBy,
     if (groupCreatedAt case final value?)
       'group_created_at': value.toIso8601String(),
+    if (attachments.isNotEmpty)
+      'attachments': attachments
+          .map((attachment) => attachment.toJson())
+          .toList(growable: false),
   };
 
   factory LocalChatMessage.fromJson(Map<String, dynamic> value) {
     final rawParticipants = value['participant_usernames'];
+    final rawAttachments = value['attachments'];
     if (rawParticipants != null && rawParticipants is! List) {
       throw const FormatException('Group participants must be a list.');
+    }
+    if (rawAttachments != null && rawAttachments is! List) {
+      throw const FormatException('Message attachments must be a list.');
     }
     return LocalChatMessage(
       messageId: _string(value['message_id']),
@@ -173,6 +202,15 @@ final class LocalChatMessage {
         final Object raw => _string(raw),
       },
       groupCreatedAt: _optionalDate(value['group_created_at']),
+      attachments:
+          rawAttachments
+              ?.map<EncryptedAttachmentDescriptor>(
+                (raw) => EncryptedAttachmentDescriptor.fromJson(
+                  raw is Map ? Map<String, dynamic>.from(raw) : null,
+                ),
+              )
+              .toList(growable: false) ??
+          const [],
     );
   }
 }

@@ -10,7 +10,11 @@ signed atomic one-time consumption, expiry, and bounded durable retry/conflict
 recovery. The client persists each exact encrypted outbound envelope and its
 optimistic plaintext only inside the encrypted device vault, reconciles lost
 replies idempotently, and exposes per-message retry, rejection, conflict, and
-discard state. Encrypted attachments and resumable transfer UX are next.
+discard state. The milestone 4 attachment foundation now provides bounded
+chunked E2EE, resumable upload/download on the same authenticated WAMP session,
+native-file and IndexedDB ciphertext caches, and file/image/GIF picker,
+preview, and save UX. Voice recording, sticker/emoji selection, attachment
+storage quota/retention, and native/Web Worker crypto acceleration remain.
 The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
 WampApp lives under `examples/wamp_app` as standalone client, server, and shared
@@ -133,6 +137,26 @@ with retry/discard controls. `bin/test-wamp-app` passes with 23 shared, 29
 server, and 40 Flutter tests plus a release web build, and repository
 `bin/verify` passes on 2026-08-25. Milestone 4 encrypted rich content is next;
 hosted exact-head evidence is pending for this revision.
+
+The milestone 4 encrypted attachment foundation is complete locally. Clients
+stream selected files into independently authenticated 1 MiB
+XSalsa20-Poly1305 chunks, retain only ciphertext outside the encrypted vault,
+upload every missing chunk before atomically publishing the message envelope,
+and resume exact outbox bytes from server-reported chunk state after lost
+replies or reconnects. The server stores opaque chunks separately from mailbox
+records, rejects incomplete/conflicting envelopes, and authorizes download only
+after an attachment is referenced by a caller-visible mailbox record. Direct
+and group attachment-only messages, ciphertext/plaintext integrity, cache
+restart, cancellation, stale-session fencing, and browser IndexedDB persistence
+have focused regressions. View-once attachments fail closed pending atomic
+consumption/deletion. `bin/test-wamp-app` passes with 28 shared, 36 server, and
+50 Flutter tests plus a release web build; Chrome separately passes the real
+IndexedDB test, and repository `bin/verify` passes on 2026-08-25. Five measured
+64 MiB iterations establish a macOS baseline of
+0.159/0.139 Gbit/s memory-cache encrypt/decrypt and 0.154/0.122 Gbit/s durable
+disk encrypt/decrypt. The cache delta is small, so native and Web Worker crypto
+acceleration, plus server quota/retention, remain production blockers for rich
+media rather than being hidden behind optimistic benchmark claims.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

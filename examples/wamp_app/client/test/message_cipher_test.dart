@@ -73,6 +73,71 @@ void main() {
     );
   });
 
+  test(
+    'attachment descriptors stay inside E2EE payload and bind outer ids',
+    () async {
+      final fixtures = await _fixtures();
+      addTearDown(fixtures.dispose);
+      final descriptor = EncryptedAttachmentDescriptor(
+        attachmentId: 'attachment_identifier_1234',
+        kind: ChatAttachmentKind.image,
+        name: 'private-name.jpg',
+        contentType: 'image/jpeg',
+        plaintextBytes: 7,
+        chunkBytes: 1024,
+        chunkCount: 1,
+        plaintextSha256:
+            '00c2022f72e87c4dd19fbbcde2e81698de69782c23f0b8c56c9b3581b1e2d770',
+        key: Uint8List.fromList(List<int>.generate(32, (index) => index)),
+      );
+      final encrypted = MessageCipher().encrypt(
+        senderUsername: 'alice',
+        recipientUsername: 'bob',
+        text: '',
+        trust: fixtures.alice,
+        participantDevices: [fixtures.aliceRecord, fixtures.bobRecord],
+        now: DateTime.utc(2026, 8, 24, 12),
+        attachments: [descriptor],
+      );
+
+      expect(encrypted.attachmentIds, [descriptor.attachmentId]);
+      expect(
+        encrypted.toJson().toString(),
+        isNot(contains('private-name.jpg')),
+      );
+      expect(encrypted.toJson().toString(), isNot(contains('image/jpeg')));
+      final decrypted = MessageCipher().decrypt(
+        message: encrypted,
+        username: 'bob',
+        trust: fixtures.bob,
+        sender: fixtures.aliceRecord,
+      );
+      expect(decrypted.text, isEmpty);
+      expect(decrypted.attachments.single.toJson(), descriptor.toJson());
+
+      final conflicting = EncryptedChatMessage(
+        messageId: encrypted.messageId,
+        conversationId: encrypted.conversationId,
+        senderUsername: encrypted.senderUsername,
+        senderDeviceId: encrypted.senderDeviceId,
+        recipientUsername: encrypted.recipientUsername!,
+        createdAt: encrypted.createdAt,
+        encryptedPayload: encrypted.encryptedPayload,
+        wrappedKeys: encrypted.wrappedKeys,
+        attachmentIds: const ['different_attachment_1234'],
+      );
+      expect(
+        () => MessageCipher().decrypt(
+          message: conflicting,
+          username: 'bob',
+          trust: fixtures.bob,
+          sender: fixtures.aliceRecord,
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
   test('one group ciphertext opens for every participant device', () async {
     final fixtures = await _fixtures();
     addTearDown(fixtures.dispose);

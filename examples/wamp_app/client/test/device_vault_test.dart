@@ -234,6 +234,18 @@ void main() {
       );
       final aliceRecord = _record('alice', first.enrollment);
       final bobRecord = _record('bob', first.enrollment);
+      final attachment = EncryptedAttachmentDescriptor(
+        attachmentId: 'outbox_attachment_1234',
+        kind: ChatAttachmentKind.file,
+        name: 'private-contract.pdf',
+        contentType: 'application/pdf',
+        plaintextBytes: 12,
+        chunkBytes: 1024,
+        chunkCount: 1,
+        plaintextSha256:
+            'f4c4d1448fdc87c22f0e5415166a8ab27e9b11d267597a4972266d4f6959d23f',
+        key: Uint8List.fromList(List<int>.generate(32, (index) => index + 1)),
+      );
       final encrypted = MessageCipher().encrypt(
         senderUsername: 'alice',
         recipientUsername: 'bob',
@@ -241,6 +253,7 @@ void main() {
         trust: first,
         participantDevices: [aliceRecord, bobRecord],
         now: DateTime.utc(2026, 8, 25, 12),
+        attachments: [attachment],
       );
       final pending = OutboundChatMessage(
         envelope: encrypted,
@@ -251,10 +264,19 @@ void main() {
           text: 'durable retry plaintext',
           sentAt: encrypted.createdAt,
           outgoing: true,
+          attachments: [attachment],
         ),
         state: OutboundMessageState.retryable,
         attemptCount: 1,
         lastAttemptAt: DateTime.utc(2026, 8, 25, 12, 1),
+      );
+      expect(
+        OutboundChatMessage.fromJson(pending.toJson())
+            .localMessage
+            .attachments
+            .single
+            .toJson(),
+        attachment.toJson(),
       );
 
       await first.saveMailboxState(
@@ -264,6 +286,8 @@ void main() {
       );
       final encoded = storage.values.values.single;
       expect(encoded, isNot(contains('durable retry plaintext')));
+      expect(encoded, isNot(contains('private-contract.pdf')));
+      expect(encoded, isNot(contains('application/pdf')));
       expect(encoded, isNot(contains(encrypted.messageId)));
       await first.dispose();
 
@@ -280,6 +304,10 @@ void main() {
       expect(
         reopened.outbox.single.localMessage.text,
         'durable retry plaintext',
+      );
+      expect(
+        reopened.outbox.single.localMessage.attachments.single.toJson(),
+        attachment.toJson(),
       );
     },
   );

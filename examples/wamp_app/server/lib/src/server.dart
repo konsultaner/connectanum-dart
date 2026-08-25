@@ -8,6 +8,8 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'account_credential_provider.dart';
 import 'account_store.dart';
+import 'attachment_service.dart';
+import 'attachment_store.dart';
 import 'device_service.dart';
 import 'mailbox_store.dart';
 import 'message_service.dart';
@@ -39,6 +41,10 @@ class WampAppServer {
     await store.initialize();
     final mailbox = MailboxStore(config.messageStorePath);
     await mailbox.initialize();
+    final attachments = AttachmentStore(
+      config.attachmentStorePath ?? '${config.messageStorePath}.attachments',
+    );
+    await attachments.initialize();
     final random = Random.secure();
     final serviceTicket = base64Url.encode(
       List<int>.generate(32, (_) => random.nextInt(256)),
@@ -131,9 +137,17 @@ class WampAppServer {
         appServiceSession,
         DeviceService(store: store),
       );
+      await _registerAttachmentHandlers(
+        appServiceSession,
+        AttachmentService(store: attachments, mailbox: mailbox),
+      );
       await _registerMessageHandlers(
         appServiceSession,
-        MessageService(accounts: store, mailbox: mailbox),
+        MessageService(
+          accounts: store,
+          mailbox: mailbox,
+          attachments: attachments,
+        ),
       );
       return WampAppServer._(
         websocketUri: websocketUri,
@@ -260,6 +274,18 @@ class WampAppServer {
                 ..allowOperations(const ['call']),
             )
             ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.attachmentChunkPut)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.attachmentUploadStatus)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.attachmentChunkGet)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.mailboxChanged)
                 ..setMatchPolicy(PermissionMatchPolicy.exact)
                 ..allowOperations(const ['subscribe', 'unsubscribe']),
@@ -297,6 +323,18 @@ class WampAppServer {
             )
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.messageConsume)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.attachmentChunkPut)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.attachmentUploadStatus)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.attachmentChunkGet)
                 ..allowOperations(const ['register', 'unregister']),
             )
             ..addPermissionFromBuilder(
@@ -448,6 +486,81 @@ Future<void> _registerDeviceHandlers(
       invocation.respondWith(argumentsKeywords: device.toWampKeywords());
     } catch (error) {
       _respondWithDeviceError(invocation, error);
+    }
+  }, options: options);
+}
+
+Future<void> _registerAttachmentHandlers(
+  Session session,
+  AttachmentService attachments,
+) async {
+  final options = RegisterOptions(discloseCaller: true);
+  await session.registerHandler(WampAppProtocol.attachmentChunkPut, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final chunk = EncryptedAttachmentChunk.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final result = await attachments.putChunk(username, chunk);
+      invocation.respondWith(
+        argumentsKeywords: result.receipt.toWampKeywords(),
+      );
+    } catch (error) {
+      _respondWithAttachmentError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.attachmentUploadStatus, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final messageId = invocation.argumentsKeywords?['message_id'];
+      final attachmentId = invocation.argumentsKeywords?['attachment_id'];
+      final chunkCount = invocation.argumentsKeywords?['chunk_count'];
+      if (messageId is! String ||
+          attachmentId is! String ||
+          chunkCount is! int) {
+        throw const FormatException(
+          'message_id, attachment_id, and chunk_count are required.',
+        );
+      }
+      final status = await attachments.status(
+        username,
+        messageId: messageId,
+        attachmentId: attachmentId,
+        chunkCount: chunkCount,
+      );
+      invocation.respondWith(argumentsKeywords: status.toWampKeywords());
+    } catch (error) {
+      _respondWithAttachmentError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.attachmentChunkGet, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final messageId = invocation.argumentsKeywords?['message_id'];
+      final attachmentId = invocation.argumentsKeywords?['attachment_id'];
+      final chunkIndex = invocation.argumentsKeywords?['chunk_index'];
+      if (messageId is! String ||
+          attachmentId is! String ||
+          chunkIndex is! int) {
+        throw const FormatException(
+          'message_id, attachment_id, and chunk_index are required.',
+        );
+      }
+      final chunk = await attachments.getChunk(
+        username,
+        messageId: messageId,
+        attachmentId: attachmentId,
+        chunkIndex: chunkIndex,
+      );
+      invocation.respondWith(argumentsKeywords: chunk.toWampKeywords());
+    } catch (error) {
+      _respondWithAttachmentError(invocation, error);
     }
   }, options: options);
 }
@@ -626,6 +739,40 @@ void _respondWithDeviceError(Invocation invocation, Object error) {
   invocation.respondWith(isError: true, errorUri: uri, arguments: [message]);
 }
 
+void _respondWithAttachmentError(Invocation invocation, Object error) {
+  final (uri, message) = switch (error) {
+    AttachmentConflict() => (
+      WampAppProtocol.errorAttachmentConflict,
+      'That attachment identifier is already used for different ciphertext.',
+    ),
+    AttachmentNotFound() => (
+      WampAppProtocol.errorAttachmentNotFound,
+      'That attachment chunk was not found.',
+    ),
+    AttachmentIncomplete() => (
+      WampAppProtocol.errorAttachmentIncomplete,
+      'The encrypted attachment upload is incomplete.',
+    ),
+    _CallerNotAuthorized() || StateError() => (
+      WampAppProtocol.errorNotAuthorized,
+      'The authenticated account cannot perform this operation.',
+    ),
+    FormatException(:final message) => (
+      WampAppProtocol.errorInvalidAttachment,
+      message,
+    ),
+    AttachmentUnavailable() => (
+      WampAppProtocol.errorAttachmentUnavailable,
+      'The attachment service could not verify stored ciphertext.',
+    ),
+    _ => (
+      WampAppProtocol.errorAttachmentUnavailable,
+      'The attachment service is temporarily unavailable.',
+    ),
+  };
+  invocation.respondWith(isError: true, errorUri: uri, arguments: [message]);
+}
+
 void _respondWithMessageError(Invocation invocation, Object error) {
   final (uri, message) = switch (error) {
     MessageConflict() => (
@@ -639,6 +786,10 @@ void _respondWithMessageError(Invocation invocation, Object error) {
     OneTimeMessageConsumed() => (
       WampAppProtocol.errorMessageConsumed,
       'That one-time message was already opened on another device.',
+    ),
+    AttachmentIncomplete() => (
+      WampAppProtocol.errorAttachmentIncomplete,
+      'Every encrypted attachment must finish uploading before the message.',
     ),
     _CallerNotAuthorized() || StateError() => (
       WampAppProtocol.errorNotAuthorized,

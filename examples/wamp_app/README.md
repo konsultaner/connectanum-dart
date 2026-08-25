@@ -21,15 +21,29 @@ The implemented slices provide:
 - a permission-restricted opaque mailbox with idempotent message IDs,
   monotonic reconnect cursors, expiry filtering, and durable delivery receipts;
 - encrypted local message history and cursor persistence across reconnects;
-- a responsive Flutter onboarding, composer, history, and sync flow;
+- direct and immutable group conversations with read, expiry, one-time, and
+  bounded durable retry/conflict recovery;
+- encrypted file, image, and GIF attachments carried as bounded binary WAMP
+  chunks on the existing authenticated session;
+- upload-before-message publication, idempotent chunk retry, server-reported
+  resume state, recipient-authorized download, and full ciphertext/plaintext
+  integrity verification;
+- encrypted-chunk caches backed by native files or browser IndexedDB, while
+  names, MIME types, plaintext hashes, and attachment keys remain inside the
+  encrypted message and device vault;
+- a responsive Flutter onboarding, composer, history, sync, attachment picker,
+  preview, and platform save flow;
 - hosted `3.0.0-beta.2` dependencies for both client and server; and
 - end-to-end tests covering registration, device trust, encrypted two-account
-  delivery, receipt propagation, reconnect deduplication, server-signature
-  verification, and plaintext non-persistence.
+  and group delivery, attachment authorization/resume, receipt propagation,
+  reconnect deduplication, server-signature verification, and plaintext
+  non-persistence.
 
-Group membership, explicit read and one-time-consumption UX, rich media,
-backups, notifications, WebRTC calling, and MCP application tools remain
-planned and are not represented by fake data in the current UI.
+In-app voice recording, a sticker/emoji picker, attachment storage quotas and
+retention, backups, notifications, WebRTC calling, and MCP application tools
+remain planned and are not represented by fake data in the current UI.
+View-once attachments are rejected until attachment consumption and deletion
+can be made atomic.
 
 ## Run Locally
 
@@ -47,7 +61,10 @@ dart run wamp_app_server --config wamp_app_server.yaml
 
 The default configuration listens at `ws://127.0.0.1:8080/ws`, stores account
 verifiers and public device records in `server/data/accounts.json`, and stores
-opaque encrypted mailbox records in `server/data/messages.json`.
+opaque encrypted mailbox records in `server/data/messages.json`. Encrypted
+attachment chunks are stored separately under
+`server/data/messages.json.attachments`; the server never receives attachment
+names, MIME types, plaintext hashes, or content keys.
 
 In another terminal, start the Flutter client:
 
@@ -73,3 +90,30 @@ cd examples/wamp_app/client && flutter analyze && flutter test
 
 The three packages are standalone on purpose. The Flutter SDK is not added to
 the root Dart workspace or its package release graph.
+
+## Attachment Benchmark
+
+Run the opt-in native benchmark from the repository root:
+
+```bash
+bin/benchmark-wamp-app-attachments
+```
+
+Defaults are a 4 MiB warmup followed by five 64 MiB iterations for both the
+memory cache and the durable native-file cache. Override
+`WAMP_APP_BENCH_SIZE_MIB`, `WAMP_APP_BENCH_ITERATIONS`, or
+`WAMP_APP_BENCH_CACHES=memory,disk` when collecting a larger matrix. Each
+machine-readable result includes MiB/s, Gbit/s, average duration, and p95.
+
+The 2026-08-25 baseline on a 32-logical-core macOS host was:
+
+| Cache | Encrypt Gbit/s | Decrypt Gbit/s | Encrypt p95 | Decrypt p95 |
+| --- | ---: | ---: | ---: | ---: |
+| Memory | 0.159 | 0.139 | 3.405 s | 3.897 s |
+| Durable disk | 0.154 | 0.122 | 3.539 s | 4.534 s |
+
+These application-level figures include chunking, XSalsa20-Poly1305, SHA-256,
+cache copies, integrity verification, and disk flushes. They are a baseline,
+not a release gate. The small memory-to-disk delta identifies client crypto,
+hashing, and copies as the next optimization target; native and Web Worker
+acceleration still need production evidence.

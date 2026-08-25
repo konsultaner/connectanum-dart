@@ -5,6 +5,7 @@ listen:
 websocket_path: /ws
 account_store: data/accounts.json
 message_store: data/messages.json
+attachment_store: data/attachments
 
 argon2id13:
   iterations: 3

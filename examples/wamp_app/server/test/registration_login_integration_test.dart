@@ -31,6 +31,11 @@ void main() {
         'Server bootstrap aborted: ${abort.reason} '
         '${abort.message?.message ?? abort.arguments ?? abort.argumentsKeywords ?? ''}',
       );
+    } on Error catch (error) {
+      fail(
+        'Server bootstrap WAMP error: ${error.error} '
+        '${error.arguments ?? error.argumentsKeywords ?? ''}',
+      );
     }
     addTearDown(server.close);
 
@@ -132,6 +137,64 @@ void main() {
       )).argumentsKeywords,
     );
     expect(deviceDirectory.devices.single.username, 'alice');
+
+    final attachmentBytes = Uint8List.fromList(
+      List<int>.filled(WampAppAttachmentLimits.secretBoxOverheadBytes, 31),
+    );
+    final attachmentChunk = EncryptedAttachmentChunk(
+      senderUsername: 'alice',
+      messageId: _encode(List<int>.filled(16, 32)),
+      attachmentId: _encode(List<int>.filled(16, 33)),
+      chunkIndex: 0,
+      chunkCount: 1,
+      ciphertextSha256: sha256.convert(attachmentBytes).toString(),
+      encryptedBytes: attachmentBytes,
+    );
+    final firstAttachmentReceipt = AttachmentChunkReceipt.fromWampKeywords(
+      (await appSession.callSingle(
+        WampAppProtocol.attachmentChunkPut,
+        argumentsKeywords: attachmentChunk.toWampKeywords(),
+      )).argumentsKeywords,
+    );
+    expect(firstAttachmentReceipt.duplicate, isFalse);
+    expect(firstAttachmentReceipt.complete, isTrue);
+    final duplicateAttachmentReceipt = AttachmentChunkReceipt.fromWampKeywords(
+      (await appSession.callSingle(
+        WampAppProtocol.attachmentChunkPut,
+        argumentsKeywords: attachmentChunk.toWampKeywords(),
+      )).argumentsKeywords,
+    );
+    expect(duplicateAttachmentReceipt.duplicate, isTrue);
+    expect(
+      AttachmentUploadStatus.fromWampKeywords(
+        (await appSession.callSingle(
+          WampAppProtocol.attachmentUploadStatus,
+          argumentsKeywords: {
+            'message_id': attachmentChunk.messageId,
+            'attachment_id': attachmentChunk.attachmentId,
+            'chunk_count': attachmentChunk.chunkCount,
+          },
+        )).argumentsKeywords,
+      ).receivedChunks,
+      [0],
+    );
+    await expectLater(
+      appSession.callSingle(
+        WampAppProtocol.attachmentChunkGet,
+        argumentsKeywords: {
+          'message_id': attachmentChunk.messageId,
+          'attachment_id': attachmentChunk.attachmentId,
+          'chunk_index': 0,
+        },
+      ),
+      throwsA(
+        isA<Error>().having(
+          (error) => error.error,
+          'error URI',
+          WampAppProtocol.errorAttachmentNotFound,
+        ),
+      ),
+    );
 
     final revoked = DeviceRecord.fromWampKeywords(
       (await appSession.callSingle(

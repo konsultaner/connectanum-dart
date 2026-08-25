@@ -46,6 +46,51 @@ final class MessageSendException implements Exception {
   };
 }
 
+enum AttachmentTransferFailureKind {
+  retryable,
+  rejected,
+  conflict,
+  notFound,
+  incomplete,
+}
+
+final class AttachmentTransferException implements Exception {
+  const AttachmentTransferException(this.kind);
+
+  factory AttachmentTransferException.fromWampError(wamp.Error error) {
+    final kind = switch (error.error) {
+      WampAppProtocol.errorAttachmentConflict =>
+        AttachmentTransferFailureKind.conflict,
+      WampAppProtocol.errorAttachmentNotFound =>
+        AttachmentTransferFailureKind.notFound,
+      WampAppProtocol.errorAttachmentIncomplete =>
+        AttachmentTransferFailureKind.incomplete,
+      WampAppProtocol.errorInvalidAttachment ||
+      WampAppProtocol.errorNotAuthorized ||
+      wamp.Error.notAuthorized => AttachmentTransferFailureKind.rejected,
+      WampAppProtocol.errorAttachmentUnavailable ||
+      _ => AttachmentTransferFailureKind.retryable,
+    };
+    return AttachmentTransferException(kind);
+  }
+
+  final AttachmentTransferFailureKind kind;
+
+  @override
+  String toString() => switch (kind) {
+    AttachmentTransferFailureKind.retryable =>
+      'Attachment transfer is temporarily unavailable.',
+    AttachmentTransferFailureKind.rejected =>
+      'The server rejected this attachment transfer.',
+    AttachmentTransferFailureKind.conflict =>
+      'The attachment identifier conflicts with server state.',
+    AttachmentTransferFailureKind.notFound =>
+      'The encrypted attachment chunk was not found.',
+    AttachmentTransferFailureKind.incomplete =>
+      'The encrypted attachment upload is incomplete.',
+  };
+}
+
 class AccountConnection {
   AccountConnection({
     required this.endpoint,
@@ -60,6 +105,9 @@ class AccountConnection {
     required this.syncMessagesCallback,
     required this.markMessageReceiptCallback,
     required this.consumeOneTimeCallback,
+    this.putAttachmentChunkCallback,
+    this.attachmentUploadStatusCallback,
+    this.getAttachmentChunkCallback,
     required this.mailboxWakeups,
     required this.latestMailboxWakeupCursorCallback,
     required this.latestMailboxWakeupErrorCallback,
@@ -84,6 +132,20 @@ class AccountConnection {
   markMessageReceiptCallback;
   final Future<MessageReceipt> Function(OneTimeMessageConsumption consumption)
   consumeOneTimeCallback;
+  final Future<AttachmentChunkReceipt> Function(EncryptedAttachmentChunk chunk)?
+  putAttachmentChunkCallback;
+  final Future<AttachmentUploadStatus> Function(
+    String messageId,
+    String attachmentId,
+    int chunkCount,
+  )?
+  attachmentUploadStatusCallback;
+  final Future<EncryptedAttachmentChunk> Function(
+    String messageId,
+    String attachmentId,
+    int chunkIndex,
+  )?
+  getAttachmentChunkCallback;
   final Stream<MailboxWakeup> mailboxWakeups;
   final int Function() latestMailboxWakeupCursorCallback;
   final Object? Function() latestMailboxWakeupErrorCallback;
@@ -139,6 +201,45 @@ class AccountConnection {
   Future<MessageReceipt> consumeOneTime(OneTimeMessageConsumption consumption) {
     _ensureOpen();
     return consumeOneTimeCallback(consumption);
+  }
+
+  Future<AttachmentChunkReceipt> putAttachmentChunk(
+    EncryptedAttachmentChunk chunk,
+  ) {
+    _ensureOpen();
+    final callback = putAttachmentChunkCallback;
+    if (callback == null) {
+      throw StateError('Attachment upload is unavailable on this connection.');
+    }
+    return callback(chunk);
+  }
+
+  Future<AttachmentUploadStatus> attachmentUploadStatus({
+    required String messageId,
+    required String attachmentId,
+    required int chunkCount,
+  }) {
+    _ensureOpen();
+    final callback = attachmentUploadStatusCallback;
+    if (callback == null) {
+      throw StateError('Attachment status is unavailable on this connection.');
+    }
+    return callback(messageId, attachmentId, chunkCount);
+  }
+
+  Future<EncryptedAttachmentChunk> getAttachmentChunk({
+    required String messageId,
+    required String attachmentId,
+    required int chunkIndex,
+  }) {
+    _ensureOpen();
+    final callback = getAttachmentChunkCallback;
+    if (callback == null) {
+      throw StateError(
+        'Attachment download is unavailable on this connection.',
+      );
+    }
+    return callback(messageId, attachmentId, chunkIndex);
   }
 
   Future<void> close() async {
@@ -311,6 +412,61 @@ class WampAccountGateway implements AccountGateway {
               .timeout(connectionTimeout);
           return MessageReceipt.fromWampKeywords(result.argumentsKeywords);
         },
+        putAttachmentChunkCallback: (chunk) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.attachmentChunkPut,
+                  argumentsKeywords: chunk.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            return AttachmentChunkReceipt.fromWampKeywords(
+              result.argumentsKeywords,
+            );
+          } on wamp.Error catch (error) {
+            throw AttachmentTransferException.fromWampError(error);
+          }
+        },
+        attachmentUploadStatusCallback:
+            (messageId, attachmentId, chunkCount) async {
+              try {
+                final result = await session
+                    .callSingle(
+                      WampAppProtocol.attachmentUploadStatus,
+                      argumentsKeywords: {
+                        'message_id': messageId,
+                        'attachment_id': attachmentId,
+                        'chunk_count': chunkCount,
+                      },
+                    )
+                    .timeout(connectionTimeout);
+                return AttachmentUploadStatus.fromWampKeywords(
+                  result.argumentsKeywords,
+                );
+              } on wamp.Error catch (error) {
+                throw AttachmentTransferException.fromWampError(error);
+              }
+            },
+        getAttachmentChunkCallback:
+            (messageId, attachmentId, chunkIndex) async {
+              try {
+                final result = await session
+                    .callSingle(
+                      WampAppProtocol.attachmentChunkGet,
+                      argumentsKeywords: {
+                        'message_id': messageId,
+                        'attachment_id': attachmentId,
+                        'chunk_index': chunkIndex,
+                      },
+                    )
+                    .timeout(connectionTimeout);
+                return EncryptedAttachmentChunk.fromWampKeywords(
+                  result.argumentsKeywords,
+                );
+              } on wamp.Error catch (error) {
+                throw AttachmentTransferException.fromWampError(error);
+              }
+            },
         mailboxWakeups: wakeups.stream,
         latestMailboxWakeupCursorCallback: () => wakeups.latestCursor,
         latestMailboxWakeupErrorCallback: () => wakeups.latestError,

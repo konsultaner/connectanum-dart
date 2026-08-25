@@ -1,9 +1,11 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import '../application/wamp_app_controller.dart';
 import '../domain/local_chat_message.dart';
 import '../domain/outbound_chat_message.dart';
+import '../infrastructure/attachment_cipher.dart';
 import '../infrastructure/wamp_account_gateway.dart';
 import 'wamp_app_theme.dart';
 
@@ -27,6 +29,7 @@ class _HomePageState extends State<HomePage> {
   bool _oneTime = false;
   Duration? _expiresAfter;
   String? _selectedGroupId;
+  List<_SelectedAttachment> _attachments = const [];
 
   @override
   void dispose() {
@@ -38,20 +41,143 @@ class _HomePageState extends State<HomePage> {
   Future<void> _send() async {
     final text = _messageController.text;
     final groupId = _selectedGroupId;
+    final attachmentSources = _attachments
+        .map((attachment) => attachment.source)
+        .toList(growable: false);
     final queued = groupId == null
         ? await widget.controller.sendMessage(
             recipientUsername: _recipientController.text,
             text: text,
             oneTime: _oneTime,
             expiresAfter: _expiresAfter,
+            attachmentSources: attachmentSources,
           )
         : await widget.controller.sendGroupMessage(
             groupId: groupId,
             text: text,
             expiresAfter: _expiresAfter,
+            attachmentSources: attachmentSources,
           );
     if (mounted && queued) {
-      _messageController.clear();
+      setState(() {
+        _messageController.clear();
+        _attachments = const [];
+      });
+    }
+  }
+
+  Future<void> _pickAttachments() async {
+    try {
+      final files = await openFiles();
+      if (!mounted || files.isEmpty) return;
+      final remaining =
+          WampAppAttachmentLimits.maxAttachmentsPerMessage -
+          _attachments.length;
+      if (remaining <= 0 || files.length > remaining) {
+        throw const FormatException(
+          'A message can contain up to 8 attachments.',
+        );
+      }
+      final selected = <_SelectedAttachment>[];
+      for (final file in files) {
+        final byteCount = await file.length();
+        if (byteCount > WampAppAttachmentLimits.maxAttachmentBytes) {
+          throw const FormatException(
+            'Each attachment must be 64 MiB or smaller.',
+          );
+        }
+        selected.add(_SelectedAttachment(file, byteCount));
+      }
+      if (!mounted) return;
+      setState(() {
+        _attachments = List<_SelectedAttachment>.unmodifiable([
+          ..._attachments,
+          ...selected,
+        ]);
+        _oneTime = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is FormatException
+          ? error.message
+          : 'The selected files could not be opened.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message.toString())));
+    }
+  }
+
+  void _removeAttachment(int index) {
+    setState(() {
+      _attachments = List<_SelectedAttachment>.unmodifiable([
+        ..._attachments.take(index),
+        ..._attachments.skip(index + 1),
+      ]);
+    });
+  }
+
+  Future<void> _openAttachment(
+    LocalChatMessage message,
+    EncryptedAttachmentDescriptor attachment,
+  ) async {
+    if (!message.outgoing) {
+      await widget.controller.markMessageRead(message.messageId);
+    }
+    final bytes = await widget.controller.loadAttachment(
+      messageId: message.messageId,
+      attachmentId: attachment.attachmentId,
+    );
+    if (!mounted || bytes == null) return;
+    MemoryImage? preview;
+    if (attachment.kind == ChatAttachmentKind.image ||
+        attachment.kind == ChatAttachmentKind.gif ||
+        attachment.kind == ChatAttachmentKind.sticker) {
+      preview = MemoryImage(bytes);
+    }
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(attachment.name),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 560),
+            child: preview == null
+                ? _FileSummary(attachment: attachment)
+                : Image(
+                    key: ValueKey(
+                      'attachment-preview-${attachment.attachmentId}',
+                    ),
+                    image: preview,
+                    fit: BoxFit.contain,
+                    semanticLabel: attachment.name,
+                    gaplessPlayback: true,
+                  ),
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () async {
+                final location = await getSaveLocation(
+                  suggestedName: attachment.name,
+                );
+                if (location == null) return;
+                await XFile.fromData(
+                  bytes,
+                  name: attachment.name,
+                  mimeType: attachment.contentType,
+                ).saveTo(location.path);
+              },
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Save copy'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      await preview?.evict();
+      bytes.fillRange(0, bytes.length, 0);
     }
   }
 
@@ -167,6 +293,10 @@ class _HomePageState extends State<HomePage> {
               onExpiresAfterChanged: (value) =>
                   setState(() => _expiresAfter = value),
               onOpenMessage: _openMessage,
+              selectedAttachments: _attachments,
+              onPickAttachments: _pickAttachments,
+              onRemoveAttachment: _removeAttachment,
+              onOpenAttachment: _openAttachment,
             );
             return Padding(
               padding: const EdgeInsets.all(18),
@@ -352,6 +482,10 @@ class _ConversationPanel extends StatelessWidget {
     required this.onOneTimeChanged,
     required this.onExpiresAfterChanged,
     required this.onOpenMessage,
+    required this.selectedAttachments,
+    required this.onPickAttachments,
+    required this.onRemoveAttachment,
+    required this.onOpenAttachment,
   });
 
   final WampAppController controller;
@@ -366,6 +500,14 @@ class _ConversationPanel extends StatelessWidget {
   final ValueChanged<bool> onOneTimeChanged;
   final ValueChanged<Duration?> onExpiresAfterChanged;
   final Future<void> Function(LocalChatMessage message) onOpenMessage;
+  final List<_SelectedAttachment> selectedAttachments;
+  final Future<void> Function() onPickAttachments;
+  final ValueChanged<int> onRemoveAttachment;
+  final Future<void> Function(
+    LocalChatMessage message,
+    EncryptedAttachmentDescriptor attachment,
+  )
+  onOpenAttachment;
 
   @override
   Widget build(BuildContext context) {
@@ -500,6 +642,10 @@ class _ConversationPanel extends StatelessWidget {
                                     message.messageId,
                                   );
                                 },
+                          onOpenAttachment: controller.messageBusy
+                              ? null
+                              : (attachment) =>
+                                    onOpenAttachment(message, attachment),
                         );
                       },
                     ),
@@ -524,7 +670,10 @@ class _ConversationPanel extends StatelessWidget {
                 FilterChip(
                   key: const Key('message-one-time'),
                   selected: !groupMode && oneTime,
-                  onSelected: controller.messageBusy || groupMode
+                  onSelected:
+                      controller.messageBusy ||
+                          groupMode ||
+                          selectedAttachments.isNotEmpty
                       ? null
                       : onOneTimeChanged,
                   avatar: const Icon(Icons.visibility_off_outlined, size: 18),
@@ -563,9 +712,48 @@ class _ConversationPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
+            if (selectedAttachments.isNotEmpty) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  key: const Key('selected-attachments'),
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (
+                      var index = 0;
+                      index < selectedAttachments.length;
+                      index += 1
+                    )
+                      InputChip(
+                        key: ValueKey('selected-attachment-$index'),
+                        avatar: Icon(
+                          _attachmentIcon(selectedAttachments[index].kind),
+                          size: 18,
+                        ),
+                        label: Text(
+                          '${selectedAttachments[index].name} · '
+                          '${_formatBytes(selectedAttachments[index].byteCount)}',
+                        ),
+                        onDeleted: controller.messageBusy
+                            ? null
+                            : () => onRemoveAttachment(index),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                IconButton(
+                  key: const Key('message-attach'),
+                  tooltip: 'Attach encrypted files',
+                  onPressed: controller.messageBusy ? null : onPickAttachments,
+                  icon: const Icon(Icons.attach_file_rounded),
+                ),
+                const SizedBox(width: 4),
                 Expanded(
                   child: TextField(
                     key: const Key('message-composer'),
@@ -633,6 +821,7 @@ class _MessageBubble extends StatelessWidget {
     this.onTap,
     this.onRetry,
     this.onDiscard,
+    this.onOpenAttachment,
   });
 
   final LocalChatMessage message;
@@ -640,6 +829,8 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback? onTap;
   final Future<void> Function()? onRetry;
   final Future<void> Function()? onDiscard;
+  final Future<void> Function(EncryptedAttachmentDescriptor attachment)?
+  onOpenAttachment;
 
   String get _statusLabel {
     final pending = outbound;
@@ -700,12 +891,23 @@ class _MessageBubble extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                message.oneTime && !message.outgoing
-                    ? 'Tap to view once'
-                    : message.text,
-              ),
+              if (message.text.isNotEmpty || message.oneTime) ...[
+                const SizedBox(height: 4),
+                Text(
+                  message.oneTime && !message.outgoing
+                      ? 'Tap to view once'
+                      : message.text,
+                ),
+              ],
+              for (final attachment in message.attachments) ...[
+                const SizedBox(height: 7),
+                _AttachmentCard(
+                  attachment: attachment,
+                  onOpen: onOpenAttachment == null
+                      ? null
+                      : () => onOpenAttachment!(attachment),
+                ),
+              ],
               const SizedBox(height: 5),
               Text(_statusLabel, style: const TextStyle(fontSize: 10)),
               if (pending?.canRetry == true || pending?.canDiscard == true) ...[
@@ -737,4 +939,150 @@ class _MessageBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+final class _SelectedAttachment {
+  _SelectedAttachment(this.file, this.byteCount)
+    : contentType = _contentType(file),
+      kind = _attachmentKind(file);
+
+  final XFile file;
+  final int byteCount;
+  final String contentType;
+  final ChatAttachmentKind kind;
+
+  String get name => file.name;
+
+  AttachmentPlaintextSource get source => AttachmentPlaintextSource(
+    name: name,
+    contentType: contentType,
+    kind: kind,
+    byteCount: byteCount,
+    openRead: file.openRead,
+  );
+
+  static String _contentType(XFile file) {
+    final explicit = file.mimeType?.trim().toLowerCase();
+    if (explicit != null && explicit.isNotEmpty) return explicit;
+    return switch (_extension(file.name)) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'gif' => 'image/gif',
+      'webp' => 'image/webp',
+      'svg' => 'image/svg+xml',
+      'pdf' => 'application/pdf',
+      'txt' => 'text/plain',
+      'json' => 'application/json',
+      'mp3' => 'audio/mpeg',
+      'm4a' => 'audio/mp4',
+      'ogg' || 'opus' => 'audio/ogg',
+      'wav' => 'audio/wav',
+      'mp4' => 'video/mp4',
+      'webm' => 'video/webm',
+      _ => 'application/octet-stream',
+    };
+  }
+
+  static ChatAttachmentKind _attachmentKind(XFile file) {
+    final contentType = _contentType(file);
+    if (contentType == 'image/gif') return ChatAttachmentKind.gif;
+    if (contentType.startsWith('image/')) return ChatAttachmentKind.image;
+    return ChatAttachmentKind.file;
+  }
+
+  static String _extension(String name) {
+    final separator = name.lastIndexOf('.');
+    return separator < 0 ? '' : name.substring(separator + 1).toLowerCase();
+  }
+}
+
+class _AttachmentCard extends StatelessWidget {
+  const _AttachmentCard({required this.attachment, this.onOpen});
+
+  final EncryptedAttachmentDescriptor attachment;
+  final Future<void> Function()? onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        key: ValueKey('attachment-open-${attachment.attachmentId}'),
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_attachmentIcon(attachment.kind), size: 20),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      attachment.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      '${_formatBytes(attachment.plaintextBytes)} · encrypted',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.open_in_new_rounded, size: 17),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FileSummary extends StatelessWidget {
+  const _FileSummary({required this.attachment});
+
+  final EncryptedAttachmentDescriptor attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_attachmentIcon(attachment.kind), size: 52),
+          const SizedBox(height: 14),
+          Text(attachment.contentType),
+          const SizedBox(height: 4),
+          Text(_formatBytes(attachment.plaintextBytes)),
+          const SizedBox(height: 12),
+          const Text(
+            'The file was authenticated and decrypted on this device.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _attachmentIcon(ChatAttachmentKind kind) => switch (kind) {
+  ChatAttachmentKind.image => Icons.image_outlined,
+  ChatAttachmentKind.gif => Icons.gif_box_outlined,
+  ChatAttachmentKind.sticker => Icons.emoji_emotions_outlined,
+  ChatAttachmentKind.voiceNote => Icons.graphic_eq_rounded,
+  ChatAttachmentKind.file => Icons.insert_drive_file_outlined,
+};
+
+String _formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KiB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB';
 }

@@ -149,6 +149,27 @@ class MailboxStore {
     return MailboxBatch(nextCursor: nextCursor, messages: messages);
   }
 
+  Future<MailboxMessage?> findVisibleMessage(
+    String username,
+    String messageId, {
+    DateTime? now,
+  }) async {
+    final normalizedUsername = AccountRegistration.normalizeUsername(username);
+    if (normalizedUsername.isEmpty || messageId.isEmpty) {
+      throw const FormatException('Mailbox message lookup is invalid.');
+    }
+    final document = await _readDocument();
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    return document.messages
+        .where(
+          (entry) =>
+              entry.message.messageId == messageId &&
+              entry.message.participantUsernames.contains(normalizedUsername) &&
+              !entry.message.isExpiredAt(timestamp),
+        )
+        .lastOrNull;
+  }
+
   Future<MailboxReceiptUpdate> markReceipt(
     String username,
     String messageId, {

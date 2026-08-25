@@ -5,16 +5,22 @@ import 'package:pinenacl/ed25519.dart' as ed;
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'account_store.dart';
+import 'attachment_store.dart';
 import 'mailbox_store.dart';
 
 class MessageService {
-  const MessageService({required this.accounts, required this.mailbox});
+  const MessageService({
+    required this.accounts,
+    required this.mailbox,
+    this.attachments,
+  });
 
   static const maximumClockSkew = Duration(minutes: 10);
   static const maximumLifetime = Duration(days: 30);
 
   final AccountStore accounts;
   final MailboxStore mailbox;
+  final AttachmentStore? attachments;
 
   Future<DeviceDirectory> lookupDevices(
     String username, {
@@ -92,6 +98,13 @@ class MessageService {
       );
     }
 
+    if (message.attachmentIds.isNotEmpty) {
+      final attachmentStore = attachments;
+      if (attachmentStore == null) {
+        throw const AttachmentIncomplete('attachment-storage-unavailable');
+      }
+      await attachmentStore.requireComplete(message);
+    }
     final result = await mailbox.append(message, now: timestamp);
     return MessageSendReceipt(
       messageId: message.messageId,

@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
+import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
+import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -356,6 +358,208 @@ void main() {
     expect(trustStore.session!.messages, hasLength(1));
   });
 
+  test(
+    'uploads encrypted chunks before publishing an attachment envelope',
+    () async {
+      final gateway = _OutboxGateway();
+      final trustStore = FakeDeviceTrustStore();
+      final cache = MemoryAttachmentChunkCache();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+        attachmentCache: cache,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      gateway.deviceDirectories['bob'] = [
+        activeDeviceRecord('bob', trustStore.session!.enrollment),
+      ];
+      final plaintext = Uint8List.fromList(
+        List<int>.generate(33000, (index) => (index * 17) % 256),
+      );
+
+      expect(
+        await controller.sendMessage(
+          recipientUsername: 'bob',
+          text: '',
+          attachmentSources: [
+            AttachmentPlaintextSource(
+              name: 'private-photo.jpg',
+              contentType: 'image/jpeg',
+              kind: ChatAttachmentKind.image,
+              byteCount: plaintext.length,
+              openRead: () => Stream.value(plaintext),
+            ),
+          ],
+        ),
+        isTrue,
+      );
+
+      expect(gateway.operations, ['put:0', 'send']);
+      expect(gateway.attempts.single.attachmentIds, hasLength(1));
+      expect(
+        gateway.attempts.single.toJson().toString(),
+        isNot(contains('jpg')),
+      );
+      final local = controller.messages.single;
+      expect(local.text, isEmpty);
+      expect(local.attachments.single.name, 'private-photo.jpg');
+      expect(
+        await controller.loadAttachment(
+          messageId: local.messageId,
+          attachmentId: local.attachments.single.attachmentId,
+        ),
+        plaintext,
+      );
+      expect(gateway.attachmentGetAttempts, isEmpty);
+    },
+  );
+
+  test('reconnect resumes after a committed chunk reply is lost', () async {
+    final gateway = _OutboxGateway()..failAfterStoredChunkIndex = 0;
+    final trustStore = FakeDeviceTrustStore();
+    final cache = MemoryAttachmentChunkCache();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+      attachmentCache: cache,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', trustStore.session!.enrollment),
+    ];
+    final plaintext = Uint8List.fromList(
+      List<int>.generate(
+        WampAppAttachmentLimits.defaultChunkBytes + 17,
+        (index) => index % 251,
+      ),
+    );
+
+    expect(
+      await controller.sendMessage(
+        recipientUsername: 'bob',
+        text: 'resume safely',
+        attachmentSources: [
+          AttachmentPlaintextSource(
+            name: 'large.bin',
+            contentType: 'application/octet-stream',
+            kind: ChatAttachmentKind.file,
+            byteCount: plaintext.length,
+            openRead: () => Stream.value(plaintext),
+          ),
+        ],
+      ),
+      isTrue,
+    );
+    final pending = trustStore.session!.outbox.single;
+    expect(pending.state, OutboundMessageState.retryable);
+    expect(gateway.attachmentPutAttempts, [0]);
+    expect(gateway.attempts, isEmpty);
+
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    expect(gateway.attachmentPutAttempts, [0, 1]);
+    expect(gateway.attempts, hasLength(1));
+    expect(gateway.attempts.single.messageId, pending.envelope.messageId);
+    expect(trustStore.session!.outbox, isEmpty);
+    expect(controller.messages.single.attachments, hasLength(1));
+  });
+
+  test(
+    'downloads a missing ciphertext chunk once and verifies plaintext',
+    () async {
+      final gateway = _OutboxGateway();
+      final producerCache = MemoryAttachmentChunkCache();
+      addTearDown(producerCache.dispose);
+      final plaintext = Uint8List.fromList(
+        List<int>.generate(8193, (index) => (index * 29) % 256),
+      );
+      const messageId = 'incoming_message_123456';
+      final descriptor = (await AttachmentCipher().encryptSources(
+        scope: 'producer',
+        senderUsername: 'alice',
+        messageId: messageId,
+        sources: [
+          AttachmentPlaintextSource(
+            name: 'received.png',
+            contentType: 'image/png',
+            kind: ChatAttachmentKind.image,
+            byteCount: plaintext.length,
+            openRead: () => Stream.value(plaintext),
+          ),
+        ],
+        cache: producerCache,
+      )).single;
+      for (var index = 0; index < descriptor.chunkCount; index += 1) {
+        final chunk = (await producerCache.get(
+          scope: 'producer',
+          senderUsername: 'alice',
+          messageId: messageId,
+          attachmentId: descriptor.attachmentId,
+          chunkIndex: index,
+          chunkCount: descriptor.chunkCount,
+        ))!;
+        gateway.attachmentChunks[gateway._attachmentKey(
+              messageId,
+              descriptor.attachmentId,
+              index,
+            )] =
+            chunk;
+      }
+      final trustStore = FakeDeviceTrustStore(
+        initialMessages: [
+          LocalChatMessage(
+            messageId: messageId,
+            conversationId: 'alice-bob',
+            peerUsername: 'alice',
+            text: '',
+            sentAt: DateTime.utc(2026, 8, 25, 12),
+            outgoing: false,
+            attachments: [descriptor],
+          ),
+        ],
+      );
+      final cache = MemoryAttachmentChunkCache();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+        attachmentCache: cache,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'bob',
+        password: 'correct horse battery',
+      );
+
+      final first = await controller.loadAttachment(
+        messageId: messageId,
+        attachmentId: descriptor.attachmentId,
+      );
+      final second = await controller.loadAttachment(
+        messageId: messageId,
+        attachmentId: descriptor.attachmentId,
+      );
+
+      expect(first, plaintext);
+      expect(second, plaintext);
+      expect(gateway.attachmentGetAttempts, [0]);
+    },
+  );
+
   test('message conflicts are terminal until explicitly discarded', () async {
     final gateway = _OutboxGateway()
       ..nextFailureKind = MessageSendFailureKind.conflict;
@@ -607,6 +811,60 @@ void main() {
     expect(gateway.sentMessages.single.wrappedKeys, hasLength(3));
     expect(controller.messageError, isNull);
   });
+
+  test('uploads group attachments before the atomic group envelope', () async {
+    final gateway = _OutboxGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final cache = MemoryAttachmentChunkCache();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+      attachmentCache: cache,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final enrollment = trustStore.session!.enrollment;
+    gateway.deviceDirectories['bob'] = [activeDeviceRecord('bob', enrollment)];
+    gateway.deviceDirectories['carol'] = [
+      activeDeviceRecord('carol', enrollment),
+    ];
+    final group = await controller.createGroup(
+      title: 'Field team',
+      memberUsernames: const ['bob', 'carol'],
+    );
+    final plaintext = Uint8List.fromList(
+      List<int>.generate(17000, (index) => (index * 31) % 256),
+    );
+
+    expect(
+      await controller.sendGroupMessage(
+        groupId: group!.conversationId,
+        text: '',
+        attachmentSources: [
+          AttachmentPlaintextSource(
+            name: 'field-map.png',
+            contentType: 'image/png',
+            kind: ChatAttachmentKind.image,
+            byteCount: plaintext.length,
+            openRead: () => Stream.value(plaintext),
+          ),
+        ],
+      ),
+      isTrue,
+    );
+
+    expect(gateway.operations, ['put:0', 'send']);
+    final envelope = gateway.attempts.single;
+    expect(envelope.isGroup, isTrue);
+    expect(envelope.participantUsernames, ['alice', 'bob', 'carol']);
+    expect(envelope.attachmentIds, hasLength(1));
+    expect(controller.messages.single.attachments.single.name, 'field-map.png');
+    expect(controller.messageError, isNull);
+  });
 }
 
 class _RecordingGateway implements AccountGateway {
@@ -698,6 +956,11 @@ final class _OutboxGateway implements AccountGateway {
   MessageSendFailureKind? nextFailureKind;
   int _cursor = 0;
   Completer<MessageSendReceipt>? _sendGate;
+  final Map<String, EncryptedAttachmentChunk> attachmentChunks = {};
+  final List<int> attachmentPutAttempts = [];
+  final List<int> attachmentGetAttempts = [];
+  final List<String> operations = [];
+  int? failAfterStoredChunkIndex;
 
   Completer<MessageSendReceipt> blockNextSend() =>
       _sendGate = Completer<MessageSendReceipt>();
@@ -745,6 +1008,9 @@ final class _OutboxGateway implements AccountGateway {
       ),
       revokeDeviceCallback: (_) => throw UnimplementedError(),
       sendMessageCallback: _send,
+      putAttachmentChunkCallback: _putAttachmentChunk,
+      attachmentUploadStatusCallback: _attachmentStatus,
+      getAttachmentChunkCallback: _getAttachmentChunk,
       syncMessagesCallback: (afterCursor, limit) async {
         final messages = _mailbox
             .where((message) => message.cursor > afterCursor)
@@ -762,6 +1028,7 @@ final class _OutboxGateway implements AccountGateway {
   }
 
   Future<MessageSendReceipt> _send(EncryptedChatMessage message) async {
+    operations.add('send');
     attempts.add(message);
     final sendGate = _sendGate;
     _sendGate = null;
@@ -804,6 +1071,94 @@ final class _OutboxGateway implements AccountGateway {
       duplicate: false,
     );
   }
+
+  Future<AttachmentChunkReceipt> _putAttachmentChunk(
+    EncryptedAttachmentChunk chunk,
+  ) async {
+    attachmentPutAttempts.add(chunk.chunkIndex);
+    operations.add('put:${chunk.chunkIndex}');
+    final key = _attachmentKey(
+      chunk.messageId,
+      chunk.attachmentId,
+      chunk.chunkIndex,
+    );
+    final existing = attachmentChunks[key];
+    if (existing != null &&
+        jsonEncode(existing.toWampKeywords()) !=
+            jsonEncode(chunk.toWampKeywords())) {
+      throw const AttachmentTransferException(
+        AttachmentTransferFailureKind.conflict,
+      );
+    }
+    attachmentChunks[key] = chunk;
+    final duplicate = existing != null;
+    if (failAfterStoredChunkIndex == chunk.chunkIndex) {
+      failAfterStoredChunkIndex = null;
+      throw TimeoutException('attachment reply was lost');
+    }
+    final complete =
+        attachmentChunks.values
+            .where(
+              (candidate) =>
+                  candidate.messageId == chunk.messageId &&
+                  candidate.attachmentId == chunk.attachmentId,
+            )
+            .length ==
+        chunk.chunkCount;
+    return AttachmentChunkReceipt(
+      messageId: chunk.messageId,
+      attachmentId: chunk.attachmentId,
+      chunkIndex: chunk.chunkIndex,
+      ciphertextSha256: chunk.ciphertextSha256,
+      duplicate: duplicate,
+      complete: complete,
+    );
+  }
+
+  Future<AttachmentUploadStatus> _attachmentStatus(
+    String messageId,
+    String attachmentId,
+    int chunkCount,
+  ) async {
+    final received =
+        attachmentChunks.values
+            .where(
+              (chunk) =>
+                  chunk.messageId == messageId &&
+                  chunk.attachmentId == attachmentId,
+            )
+            .map((chunk) => chunk.chunkIndex)
+            .toList(growable: false)
+          ..sort();
+    return AttachmentUploadStatus(
+      messageId: messageId,
+      attachmentId: attachmentId,
+      chunkCount: chunkCount,
+      receivedChunks: received,
+    );
+  }
+
+  Future<EncryptedAttachmentChunk> _getAttachmentChunk(
+    String messageId,
+    String attachmentId,
+    int chunkIndex,
+  ) async {
+    attachmentGetAttempts.add(chunkIndex);
+    final chunk =
+        attachmentChunks[_attachmentKey(messageId, attachmentId, chunkIndex)];
+    if (chunk == null) {
+      throw const AttachmentTransferException(
+        AttachmentTransferFailureKind.notFound,
+      );
+    }
+    return chunk;
+  }
+
+  String _attachmentKey(
+    String messageId,
+    String attachmentId,
+    int chunkIndex,
+  ) => '$messageId\n$attachmentId\n$chunkIndex';
 }
 
 final class _GatewayConnection {

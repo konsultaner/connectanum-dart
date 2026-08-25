@@ -23,6 +23,8 @@ class MessageCipher {
     DateTime? now,
     DateTime? expiresAt,
     bool oneTime = false,
+    String? messageId,
+    Iterable<EncryptedAttachmentDescriptor> attachments = const [],
   }) {
     final normalizedSender = AccountRegistration.normalizeUsername(
       senderUsername,
@@ -40,6 +42,8 @@ class MessageCipher {
       createdAt: (now ?? DateTime.now()).toUtc(),
       expiresAt: expiresAt,
       oneTime: oneTime,
+      messageId: messageId,
+      attachments: attachments,
     );
   }
 
@@ -51,6 +55,8 @@ class MessageCipher {
     required List<DeviceRecord> participantDevices,
     DateTime? now,
     DateTime? expiresAt,
+    String? messageId,
+    Iterable<EncryptedAttachmentDescriptor> attachments = const [],
   }) {
     group.validate();
     final normalizedSender = AccountRegistration.normalizeUsername(
@@ -69,6 +75,8 @@ class MessageCipher {
       createdAt: (now ?? DateTime.now()).toUtc(),
       expiresAt: expiresAt,
       oneTime: false,
+      messageId: messageId,
+      attachments: attachments,
     );
   }
 
@@ -81,13 +89,30 @@ class MessageCipher {
     required DateTime createdAt,
     required DateTime? expiresAt,
     required bool oneTime,
+    required String? messageId,
+    required Iterable<EncryptedAttachmentDescriptor> attachments,
     String? recipientUsername,
     LocalChatGroup? group,
   }) {
     final normalizedText = text.trim();
-    if (normalizedText.isEmpty || normalizedText.length > 65536) {
+    final sortedAttachments = attachments.toList(growable: false)
+      ..sort((left, right) => left.attachmentId.compareTo(right.attachmentId));
+    if (sortedAttachments.length >
+        WampAppAttachmentLimits.maxAttachmentsPerMessage) {
+      throw const FormatException('Message attachment count is invalid.');
+    }
+    for (var index = 0; index < sortedAttachments.length; index += 1) {
+      sortedAttachments[index].validate();
+      if (index > 0 &&
+          sortedAttachments[index - 1].attachmentId ==
+              sortedAttachments[index].attachmentId) {
+        throw const FormatException('Message attachment identifiers conflict.');
+      }
+    }
+    if ((normalizedText.isEmpty && sortedAttachments.isEmpty) ||
+        normalizedText.length > 65536) {
       throw const FormatException(
-        'Message text must contain 1-65536 characters.',
+        'Message must contain text or an attachment.',
       );
     }
     final participants =
@@ -103,15 +128,25 @@ class MessageCipher {
     final conversationId = isGroup
         ? group.conversationId
         : directConversationId(senderUsername, recipientUsername!);
-    final messageId = _token(16);
+    final resolvedMessageId = messageId ?? newMessageId();
+    if (!RegExp(r'^[A-Za-z0-9_-]{16,128}$').hasMatch(resolvedMessageId)) {
+      throw const FormatException('Message identifier is invalid.');
+    }
+    final hasAttachments = sortedAttachments.isNotEmpty;
     final key = _bytes(32);
     Uint8List? plaintext;
     try {
       plaintext = Uint8List.fromList(
         utf8.encode(
           jsonEncode({
-            'schema': isGroup ? 2 : 1,
-            'message_id': messageId,
+            'schema': isGroup
+                ? hasAttachments
+                      ? 4
+                      : 2
+                : hasAttachments
+                ? 3
+                : 1,
+            'message_id': resolvedMessageId,
             'conversation_id': conversationId,
             'sender_username': senderUsername,
             if (!isGroup) 'recipient_username': recipientUsername,
@@ -122,6 +157,10 @@ class MessageCipher {
               'expires_at': value.toUtc().toIso8601String(),
             'one_time': oneTime,
             'text': normalizedText,
+            if (hasAttachments)
+              'attachments': sortedAttachments
+                  .map((attachment) => attachment.toJson())
+                  .toList(growable: false),
           }),
         ),
       );
@@ -159,7 +198,7 @@ class MessageCipher {
           .toList(growable: false);
       return isGroup
           ? EncryptedChatMessage.group(
-              messageId: messageId,
+              messageId: resolvedMessageId,
               conversationId: conversationId,
               senderUsername: senderUsername,
               senderDeviceId: trust.deviceId,
@@ -168,9 +207,12 @@ class MessageCipher {
               expiresAt: expiresAt,
               encryptedPayload: encrypted,
               wrappedKeys: wrappedKeys,
+              attachmentIds: sortedAttachments
+                  .map((attachment) => attachment.attachmentId)
+                  .toList(growable: false),
             )
           : EncryptedChatMessage(
-              messageId: messageId,
+              messageId: resolvedMessageId,
               conversationId: conversationId,
               senderUsername: senderUsername,
               senderDeviceId: trust.deviceId,
@@ -180,6 +222,9 @@ class MessageCipher {
               oneTime: oneTime,
               encryptedPayload: encrypted,
               wrappedKeys: wrappedKeys,
+              attachmentIds: sortedAttachments
+                  .map((attachment) => attachment.attachmentId)
+                  .toList(growable: false),
             );
     } finally {
       key.fillRange(0, key.length, 0);
@@ -225,8 +270,41 @@ class MessageCipher {
         throw const FormatException('Encrypted message metadata is invalid.');
       }
       LocalChatGroup? group;
+      final schema = decoded['schema'];
+      final hasAttachments = schema == 3 || schema == 4;
+      final attachments = <EncryptedAttachmentDescriptor>[];
+      if (hasAttachments) {
+        final rawAttachments = decoded['attachments'];
+        if (rawAttachments is! List || rawAttachments.isEmpty) {
+          throw const FormatException(
+            'Encrypted attachment metadata is invalid.',
+          );
+        }
+        for (final raw in rawAttachments) {
+          attachments.add(
+            EncryptedAttachmentDescriptor.fromJson(
+              raw is Map ? Map<String, dynamic>.from(raw) : null,
+            ),
+          );
+        }
+        attachments.sort(
+          (left, right) => left.attachmentId.compareTo(right.attachmentId),
+        );
+      } else if (decoded.containsKey('attachments')) {
+        throw const FormatException(
+          'Encrypted attachment metadata is invalid.',
+        );
+      }
+      if (!_sameStrings(
+        attachments
+            .map((attachment) => attachment.attachmentId)
+            .toList(growable: false),
+        message.attachmentIds,
+      )) {
+        throw const FormatException('Encrypted attachment metadata conflicts.');
+      }
       if (message.isGroup) {
-        if (decoded['schema'] != 2 ||
+        if ((schema != 2 && schema != 4) ||
             decoded['conversation_type'] != ChatConversationType.group.name ||
             decoded['group'] is! Map) {
           throw const FormatException('Encrypted group metadata is invalid.');
@@ -241,7 +319,7 @@ class MessageCipher {
             )) {
           throw const FormatException('Encrypted group metadata conflicts.');
         }
-      } else if (decoded['schema'] != 1 ||
+      } else if ((schema != 1 && schema != 3) ||
           decoded['recipient_username'] != message.recipientUsername) {
         throw const FormatException('Encrypted message metadata is invalid.');
       }
@@ -262,6 +340,7 @@ class MessageCipher {
         participantUsernames: group?.memberUsernames ?? const [],
         groupCreatedBy: group?.createdBy,
         groupCreatedAt: group?.createdAt,
+        attachments: attachments,
       );
     } catch (error) {
       if (error is FormatException) rethrow;
@@ -290,6 +369,8 @@ class MessageCipher {
   }
 
   String newGroupConversationId() => _token(32);
+
+  String newMessageId() => _token(16);
 
   static bool _sameStrings(List<String> left, List<String> right) {
     if (left.length != right.length) return false;
