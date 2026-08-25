@@ -13,8 +13,10 @@ replies idempotently, and exposes per-message retry, rejection, conflict, and
 discard state. The milestone 4 attachment foundation now provides bounded
 chunked E2EE, resumable upload/download on the same authenticated WAMP session,
 native-file and IndexedDB ciphertext caches, and file/image/GIF picker,
-preview, and save UX. Voice recording, sticker/emoji selection, attachment
-remain. Attachment crypto acceleration is complete: new writes use versioned
+preview, and save UX. Bounded cross-platform voice recording and authenticated
+playback now use that same encrypted attachment path; sticker/emoji selection
+remains before milestone 4 is complete. Attachment crypto acceleration is
+complete: new writes use versioned
 AES-256-GCM chunks through a maintained asynchronous native backend or a
 dedicated Web Worker, while existing XSalsa20-Poly1305 v1 attachments remain
 readable. Server attachment storage is now
@@ -195,8 +197,22 @@ Flutter, and 5 real-Chrome tests plus a release web build; repository
 non-plugin native fallback reports 0.121/0.125 Gbit/s memory-cache
 encrypt/decrypt and 0.114/0.105 Gbit/s durable-disk encrypt/decrypt. These are
 conservative fallback results, not unmeasured OS-accelerated mobile claims.
-Voice recording and sticker/emoji selection remain before milestone 4 is
-complete; hosted exact-head evidence is pending for this revision.
+Voice notes are complete locally. The Flutter client records at most five
+minutes of mono 16 kHz PCM16 audio, creates a strictly validated WAV, keeps its
+duration inside the encrypted descriptor, and transfers it through the existing
+resumable E2EE attachment flow on the authenticated WAMP session. Permission,
+format adjustment, cancellation, timeout, stream failure, disposal, final-block
+drain, concurrent attempt, and stale-attempt paths fail closed. Playback rejects
+malformed or duration-mismatched WAV data before player initialization. Android,
+Windows, and web use explicitly wiped in-memory sources; iOS, macOS, and Linux
+release the player before overwriting and deleting an atomically unique managed
+temporary file. Microphone declarations are checked in for Android, iOS, and
+both macOS schemes, and the guide records Linux runtime dependencies.
+`bin/test-wamp-app` passes with 31 shared, 47 server, 68 native Flutter, and 11
+real-Chrome tests plus a Dart2Wasm dry run and release web build. Sticker/emoji
+selection remains before milestone 4 is complete. A macOS debug application
+build and repository-wide `bin/verify` also pass on 2026-08-25; hosted
+exact-head evidence is pending for this revision.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

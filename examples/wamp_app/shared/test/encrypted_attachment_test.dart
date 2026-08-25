@@ -59,6 +59,38 @@ void main() {
     );
   });
 
+  test('voice-note descriptors require bounded private duration metadata', () {
+    EncryptedAttachmentDescriptor voice({
+      int? durationMilliseconds = 1000,
+      ChatAttachmentKind kind = ChatAttachmentKind.voiceNote,
+    }) => EncryptedAttachmentDescriptor(
+      attachmentId: _token(16, 11),
+      kind: kind,
+      name: 'voice.wav',
+      contentType: 'audio/wav',
+      plaintextBytes: 32044,
+      chunkBytes: 32044,
+      chunkCount: 1,
+      plaintextSha256: 'e' * 64,
+      durationMilliseconds: durationMilliseconds,
+      key: Uint8List(32),
+    );
+
+    final restored = EncryptedAttachmentDescriptor.fromJson(voice().toJson());
+    expect(restored.durationMilliseconds, 1000);
+    expect(restored.toJson()['duration_milliseconds'], 1000);
+    expect(() => voice(durationMilliseconds: null), throwsFormatException);
+    expect(() => voice(durationMilliseconds: 0), throwsFormatException);
+    expect(
+      () => voice(
+        durationMilliseconds:
+            WampAppAttachmentLimits.maxVoiceNoteDurationMilliseconds + 1,
+      ),
+      throwsFormatException,
+    );
+    expect(() => voice(kind: ChatAttachmentKind.file), throwsFormatException);
+  });
+
   test('private descriptors reject mismatched chunks and unsafe metadata', () {
     EncryptedAttachmentDescriptor create({
       String name = 'file.bin',

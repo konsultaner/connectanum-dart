@@ -12,6 +12,36 @@ import 'package:wamp_app/src/infrastructure/attachment_crypto_worker.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 void main() {
+  test('voice-note duration stays inside the encrypted descriptor', () async {
+    final cache = MemoryAttachmentChunkCache();
+    addTearDown(cache.dispose);
+    final cipher = AttachmentCipher();
+    addTearDown(cipher.dispose);
+    final plaintext = Uint8List.fromList(
+      List<int>.generate(40044, (i) => i % 256),
+    );
+
+    final attachment = (await cipher.encryptSources(
+      scope: 'voice-scope',
+      senderUsername: 'alice',
+      messageId: 'voice_message_identifier_31',
+      sources: [
+        AttachmentPlaintextSource(
+          name: 'voice.wav',
+          contentType: 'audio/wav',
+          kind: ChatAttachmentKind.voiceNote,
+          byteCount: plaintext.length,
+          durationMilliseconds: 1250,
+          openRead: () => Stream.value(plaintext),
+        ),
+      ],
+      cache: cache,
+    )).single;
+
+    expect(attachment.kind, ChatAttachmentKind.voiceNote);
+    expect(attachment.durationMilliseconds, 1250);
+  });
+
   const scope = 'cache-scope';
   const messageId = 'message_identifier_1234';
 

@@ -15,11 +15,24 @@ final class AttachmentPlaintextSource {
     required this.contentType,
     required this.kind,
     required this.byteCount,
+    this.durationMilliseconds,
     required this.openRead,
   }) {
     if (byteCount < 0 ||
         byteCount > WampAppAttachmentLimits.maxAttachmentBytes) {
       throw const FormatException('Attachment size is outside the limit.');
+    }
+    if (kind == ChatAttachmentKind.voiceNote) {
+      final duration = durationMilliseconds;
+      if (duration == null ||
+          duration <= 0 ||
+          duration > WampAppAttachmentLimits.maxVoiceNoteDurationMilliseconds) {
+        throw const FormatException('Voice-note duration is invalid.');
+      }
+    } else if (durationMilliseconds != null) {
+      throw const FormatException(
+        'Only voice notes may include duration metadata.',
+      );
     }
   }
 
@@ -27,6 +40,7 @@ final class AttachmentPlaintextSource {
   final String contentType;
   final ChatAttachmentKind kind;
   final int byteCount;
+  final int? durationMilliseconds;
   final Stream<List<int>> Function() openRead;
 }
 
@@ -409,6 +423,7 @@ final class AttachmentCipher {
         chunkBytes: chunkBytes,
         chunkCount: chunkCount,
         plaintextSha256: digest.finish(),
+        durationMilliseconds: source.durationMilliseconds,
         key: key,
       );
     } finally {

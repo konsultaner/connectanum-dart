@@ -33,15 +33,20 @@ The implemented slices provide:
   encrypted message and device vault;
 - a responsive Flutter onboarding, composer, history, sync, attachment picker,
   preview, and platform save flow;
+- five-minute encrypted voice notes recorded as mono 16 kHz PCM16 WAV, with
+  private duration metadata, bounded memory, explicit cancellation, and
+  authenticated playback on the existing WAMP attachment path;
+- in-memory playback on Android, Windows, and web, plus managed temporary
+  playback files that are overwritten and deleted on iOS, macOS, and Linux;
 - hosted `3.0.0-beta.2` dependencies for both client and server; and
 - end-to-end tests covering registration, device trust, encrypted two-account
   and group delivery, attachment authorization/resume, receipt propagation,
   reconnect deduplication, server-signature verification, and plaintext
   non-persistence.
 
-In-app voice recording, a sticker/emoji picker, attachment storage quotas and
-retention, backups, notifications, WebRTC calling, and MCP application tools
-remain planned and are not represented by fake data in the current UI.
+A sticker/emoji picker, backups, notifications, WebRTC calling, and MCP
+application tools remain planned and are not represented by fake data in the
+current UI.
 View-once attachments are rejected until attachment consumption and deletion
 can be made atomic.
 
@@ -50,6 +55,15 @@ can be made atomic.
 Requirements: Flutter 3.47.1 or newer, Dart 3.13.1 or newer, and a Rust
 toolchain. The hosted Connectanum build hooks compile or install the native
 runtime during package builds.
+
+Linux voice recording also requires PulseAudio utilities and FFmpeg:
+
+```bash
+sudo apt install pulseaudio-utils ffmpeg
+```
+
+Android, iOS, and macOS microphone declarations are included in the client;
+the operating system asks for access only when the microphone button is used.
 
 Start the server:
 

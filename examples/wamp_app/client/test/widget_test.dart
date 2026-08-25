@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -9,6 +10,8 @@ import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
+import 'package:wamp_app/src/infrastructure/voice_note_recorder.dart';
+import 'package:wamp_app/src/ui/home_page.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'test_support.dart';
@@ -140,6 +143,60 @@ void main() {
     );
   });
 
+  testWidgets('records, stages, and cancels encrypted voice notes', (
+    tester,
+  ) async {
+    final capture = _FakeVoiceNoteCapture();
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomePage(
+          controller: controller,
+          connection: controller.connection!,
+          voiceNoteCaptureFactory: () => capture,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final microphone = find.byKey(const Key('message-voice'));
+    await tester.ensureVisible(microphone);
+    await tester.tap(microphone);
+    await tester.pump();
+    expect(find.byKey(const Key('voice-recording-status')), findsOneWidget);
+    expect(find.byKey(const Key('message-composer')), findsNothing);
+
+    await tester.ensureVisible(microphone);
+    await tester.tap(microphone);
+    await tester.pump();
+    expect(capture.sessions.first.stopCalls, 1);
+    expect(find.byKey(const Key('voice-recording-status')), findsNothing);
+    expect(find.byKey(const Key('selected-attachment-0')), findsOneWidget);
+    expect(find.textContaining('voice-note-'), findsOneWidget);
+
+    await tester.tap(microphone);
+    await tester.pump();
+    expect(find.byKey(const Key('voice-recording-status')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('voice-recording-cancel')));
+    await tester.pump();
+    expect(find.byKey(const Key('voice-recording-status')), findsNothing);
+    expect(find.byKey(const Key('selected-attachment-1')), findsNothing);
+    expect(capture.sessions.last.cancelCalls, 1);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
   testWidgets('clears password after a failed attempt', (tester) async {
     final controller = WampAppController(
       gateway: _FailingGateway(),
@@ -265,6 +322,70 @@ class _FailingGateway extends _FakeGateway {
     required AccountRegistration registration,
   }) {
     throw StateError('offline');
+  }
+}
+
+final class _FakeVoiceNoteCapture implements VoiceNoteCapture {
+  final sessions = <_FakeVoiceNoteCaptureSession>[];
+  bool disposed = false;
+
+  @override
+  Future<VoiceNoteCaptureSession> start() async {
+    final session = _FakeVoiceNoteCaptureSession();
+    sessions.add(session);
+    return session;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+  }
+}
+
+final class _FakeVoiceNoteCaptureSession implements VoiceNoteCaptureSession {
+  final _completion = Completer<VoiceNoteRecording>();
+  int stopCalls = 0;
+  int cancelCalls = 0;
+
+  @override
+  Future<VoiceNoteRecording> get completed => _completion.future;
+
+  @override
+  Future<VoiceNoteRecording> stop() async {
+    stopCalls += 1;
+    final recording = _FakeVoiceNoteRecording();
+    _completion.complete(recording);
+    return recording;
+  }
+
+  @override
+  Future<void> cancel() async {
+    cancelCalls += 1;
+    _completion.completeError(const VoiceNoteRecordingCancelled());
+  }
+}
+
+final class _FakeVoiceNoteRecording implements VoiceNoteRecording {
+  Uint8List? _bytes = Uint8List.fromList(List<int>.filled(364, 7));
+
+  @override
+  int get byteCount => _bytes?.length ?? 0;
+
+  @override
+  int get durationMilliseconds => 10;
+
+  @override
+  Uint8List takeBytes() {
+    final bytes = _bytes!;
+    _bytes = null;
+    return bytes;
+  }
+
+  @override
+  void dispose() {
+    final bytes = _bytes;
+    _bytes = null;
+    bytes?.fillRange(0, bytes.length, 0);
   }
 }
 

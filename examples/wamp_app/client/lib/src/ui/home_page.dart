@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -6,6 +10,8 @@ import '../application/wamp_app_controller.dart';
 import '../domain/local_chat_message.dart';
 import '../domain/outbound_chat_message.dart';
 import '../infrastructure/attachment_cipher.dart';
+import '../infrastructure/voice_note_playback.dart';
+import '../infrastructure/voice_note_recorder.dart';
 import '../infrastructure/wamp_account_gateway.dart';
 import 'wamp_app_theme.dart';
 
@@ -14,10 +20,12 @@ class HomePage extends StatefulWidget {
     super.key,
     required this.controller,
     required this.connection,
+    this.voiceNoteCaptureFactory,
   });
 
   final WampAppController controller;
   final AccountConnection connection;
+  final VoiceNoteCapture Function()? voiceNoteCaptureFactory;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -30,9 +38,24 @@ class _HomePageState extends State<HomePage> {
   Duration? _expiresAfter;
   String? _selectedGroupId;
   List<_SelectedAttachment> _attachments = const [];
+  VoiceNoteCapture? _voiceNoteCapture;
+  VoiceNoteCaptureSession? _voiceRecording;
+  Timer? _voiceRecordingTicker;
+  DateTime? _voiceRecordingStartedAt;
+  Duration _voiceRecordingElapsed = Duration.zero;
+  bool _voiceControlBusy = false;
+
+  VoiceNoteCapture get _recorder => _voiceNoteCapture ??=
+      widget.voiceNoteCaptureFactory?.call() ?? VoiceNoteRecorder();
 
   @override
   void dispose() {
+    _voiceRecordingTicker?.cancel();
+    for (final attachment in _attachments) {
+      attachment.dispose();
+    }
+    final recorder = _voiceNoteCapture;
+    recorder?.dispose().ignore();
     _recipientController.dispose();
     _messageController.dispose();
     super.dispose();
@@ -59,10 +82,14 @@ class _HomePageState extends State<HomePage> {
             attachmentSources: attachmentSources,
           );
     if (mounted && queued) {
+      final sentAttachments = _attachments;
       setState(() {
         _messageController.clear();
         _attachments = const [];
       });
+      for (final attachment in sentAttachments) {
+        attachment.dispose();
+      }
     }
   }
 
@@ -107,12 +134,142 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _removeAttachment(int index) {
+    final removed = _attachments[index];
     setState(() {
       _attachments = List<_SelectedAttachment>.unmodifiable([
         ..._attachments.take(index),
         ..._attachments.skip(index + 1),
       ]);
     });
+    removed.dispose();
+  }
+
+  Future<void> _toggleVoiceRecording() async {
+    final active = _voiceRecording;
+    if (active != null) {
+      setState(() => _voiceControlBusy = true);
+      try {
+        await active.stop();
+      } catch (error) {
+        _failVoiceRecording(active, error);
+      }
+      return;
+    }
+    if (_attachments.length >=
+        WampAppAttachmentLimits.maxAttachmentsPerMessage) {
+      _showMessage('A message can contain up to 8 attachments.');
+      return;
+    }
+    setState(() => _voiceControlBusy = true);
+    try {
+      final session = await _recorder.start();
+      if (!mounted) {
+        await session.cancel();
+        return;
+      }
+      setState(() {
+        _voiceRecording = session;
+        _voiceRecordingStartedAt = DateTime.now();
+        _voiceRecordingElapsed = Duration.zero;
+        _voiceControlBusy = false;
+      });
+      _voiceRecordingTicker = Timer.periodic(
+        const Duration(milliseconds: 250),
+        (_) => _updateVoiceRecordingElapsed(session),
+      );
+      session.completed.then(
+        (recording) => _completeVoiceRecording(session, recording),
+        onError: (Object error, StackTrace _) =>
+            _failVoiceRecording(session, error),
+      );
+    } on VoiceNoteRecordingException catch (error) {
+      if (!mounted) return;
+      setState(() => _voiceControlBusy = false);
+      _showMessage(error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _voiceControlBusy = false);
+      _showMessage('The microphone could not start recording.');
+    }
+  }
+
+  Future<void> _cancelVoiceRecording() async {
+    final active = _voiceRecording;
+    if (active == null || _voiceControlBusy) return;
+    setState(() => _voiceControlBusy = true);
+    try {
+      await active.cancel();
+    } catch (error) {
+      _failVoiceRecording(active, error);
+    }
+  }
+
+  void _updateVoiceRecordingElapsed(VoiceNoteCaptureSession session) {
+    if (!mounted || !identical(_voiceRecording, session)) return;
+    final startedAt = _voiceRecordingStartedAt;
+    if (startedAt == null) return;
+    final elapsed = DateTime.now().difference(startedAt);
+    const maximum = Duration(
+      milliseconds: WampAppAttachmentLimits.maxVoiceNoteDurationMilliseconds,
+    );
+    setState(() {
+      _voiceRecordingElapsed = elapsed > maximum ? maximum : elapsed;
+    });
+  }
+
+  void _completeVoiceRecording(
+    VoiceNoteCaptureSession session,
+    VoiceNoteRecording recording,
+  ) {
+    if (!mounted || !identical(_voiceRecording, session)) {
+      recording.dispose();
+      return;
+    }
+    _voiceRecordingTicker?.cancel();
+    _voiceRecordingTicker = null;
+    final durationMilliseconds = recording.durationMilliseconds;
+    final bytes = recording.takeBytes();
+    recording.dispose();
+    final attachment = _SelectedAttachment.voiceNote(
+      bytes,
+      durationMilliseconds: durationMilliseconds,
+    );
+    setState(() {
+      _voiceRecording = null;
+      _voiceRecordingStartedAt = null;
+      _voiceRecordingElapsed = Duration.zero;
+      _voiceControlBusy = false;
+      _attachments = List<_SelectedAttachment>.unmodifiable([
+        ..._attachments,
+        attachment,
+      ]);
+      _oneTime = false;
+    });
+  }
+
+  void _failVoiceRecording(VoiceNoteCaptureSession session, Object error) {
+    if (!mounted || !identical(_voiceRecording, session)) return;
+    _voiceRecordingTicker?.cancel();
+    _voiceRecordingTicker = null;
+    setState(() {
+      _voiceRecording = null;
+      _voiceRecordingStartedAt = null;
+      _voiceRecordingElapsed = Duration.zero;
+      _voiceControlBusy = false;
+    });
+    if (error is! VoiceNoteRecordingCancelled) {
+      _showMessage(
+        error is VoiceNoteRecordingException
+            ? error.message
+            : 'The voice-note recording failed.',
+      );
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openAttachment(
@@ -126,21 +283,38 @@ class _HomePageState extends State<HomePage> {
       messageId: message.messageId,
       attachmentId: attachment.attachmentId,
     );
-    if (!mounted || bytes == null) return;
-    MemoryImage? preview;
-    if (attachment.kind == ChatAttachmentKind.image ||
-        attachment.kind == ChatAttachmentKind.gif ||
-        attachment.kind == ChatAttachmentKind.sticker) {
-      preview = MemoryImage(bytes);
+    if (bytes == null) return;
+    if (!mounted) {
+      bytes.fillRange(0, bytes.length, 0);
+      return;
     }
+    MemoryImage? preview;
+    VoiceNotePlaybackController? voicePlayer;
     try {
+      if (attachment.kind == ChatAttachmentKind.image ||
+          attachment.kind == ChatAttachmentKind.gif ||
+          attachment.kind == ChatAttachmentKind.sticker) {
+        preview = MemoryImage(bytes);
+      } else if (attachment.kind == ChatAttachmentKind.voiceNote) {
+        voicePlayer = VoiceNotePlaybackController(
+          bytes,
+          expectedDuration: Duration(
+            milliseconds: attachment.durationMilliseconds!,
+          ),
+        );
+      }
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(attachment.name),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560, maxHeight: 560),
-            child: preview == null
+            child: voicePlayer != null
+                ? _VoiceNotePlayer(
+                    controller: voicePlayer,
+                    attachment: attachment,
+                  )
+                : preview == null
                 ? _FileSummary(attachment: attachment)
                 : Image(
                     key: ValueKey(
@@ -176,8 +350,12 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     } finally {
-      await preview?.evict();
-      bytes.fillRange(0, bytes.length, 0);
+      try {
+        await voicePlayer?.disposeAsync();
+      } finally {
+        await preview?.evict();
+        bytes.fillRange(0, bytes.length, 0);
+      }
     }
   }
 
@@ -297,6 +475,11 @@ class _HomePageState extends State<HomePage> {
               onPickAttachments: _pickAttachments,
               onRemoveAttachment: _removeAttachment,
               onOpenAttachment: _openAttachment,
+              voiceRecording: _voiceRecording != null,
+              voiceControlBusy: _voiceControlBusy,
+              voiceRecordingElapsed: _voiceRecordingElapsed,
+              onToggleVoiceRecording: _toggleVoiceRecording,
+              onCancelVoiceRecording: _cancelVoiceRecording,
             );
             return Padding(
               padding: const EdgeInsets.all(18),
@@ -486,6 +669,11 @@ class _ConversationPanel extends StatelessWidget {
     required this.onPickAttachments,
     required this.onRemoveAttachment,
     required this.onOpenAttachment,
+    required this.voiceRecording,
+    required this.voiceControlBusy,
+    required this.voiceRecordingElapsed,
+    required this.onToggleVoiceRecording,
+    required this.onCancelVoiceRecording,
   });
 
   final WampAppController controller;
@@ -508,6 +696,11 @@ class _ConversationPanel extends StatelessWidget {
     EncryptedAttachmentDescriptor attachment,
   )
   onOpenAttachment;
+  final bool voiceRecording;
+  final bool voiceControlBusy;
+  final Duration voiceRecordingElapsed;
+  final Future<void> Function() onToggleVoiceRecording;
+  final Future<void> Function() onCancelVoiceRecording;
 
   @override
   Widget build(BuildContext context) {
@@ -733,7 +926,8 @@ class _ConversationPanel extends StatelessWidget {
                         ),
                         label: Text(
                           '${selectedAttachments[index].name} · '
-                          '${_formatBytes(selectedAttachments[index].byteCount)}',
+                          '${_formatBytes(selectedAttachments[index].byteCount)}'
+                          '${_durationSuffix(selectedAttachments[index].durationMilliseconds)}',
                         ),
                         onDeleted: controller.messageBusy
                             ? null
@@ -750,29 +944,101 @@ class _ConversationPanel extends StatelessWidget {
                 IconButton(
                   key: const Key('message-attach'),
                   tooltip: 'Attach encrypted files',
-                  onPressed: controller.messageBusy ? null : onPickAttachments,
+                  onPressed: controller.messageBusy || voiceRecording
+                      ? null
+                      : onPickAttachments,
                   icon: const Icon(Icons.attach_file_rounded),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
-                  child: TextField(
-                    key: const Key('message-composer'),
-                    controller: messageController,
-                    enabled: !controller.messageBusy,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      hintText: groupMode
-                          ? 'Write to the encrypted group'
-                          : 'Write an encrypted message',
-                    ),
-                  ),
+                  child: voiceRecording
+                      ? Container(
+                          key: const Key('voice-recording-status'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFE9E4),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.fiber_manual_record,
+                                color: Color(0xFFB23A2B),
+                                size: 15,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Recording ${_formatDuration(voiceRecordingElapsed)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                key: const Key('voice-recording-cancel'),
+                                tooltip: 'Cancel voice note',
+                                onPressed: voiceControlBusy
+                                    ? null
+                                    : onCancelVoiceRecording,
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(Icons.delete_outline),
+                              ),
+                            ],
+                          ),
+                        )
+                      : TextField(
+                          key: const Key('message-composer'),
+                          controller: messageController,
+                          enabled: !controller.messageBusy,
+                          minLines: 1,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: groupMode
+                                ? 'Write to the encrypted group'
+                                : 'Write an encrypted message',
+                          ),
+                        ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 6),
+                IconButton(
+                  key: const Key('message-voice'),
+                  tooltip: voiceRecording
+                      ? 'Finish voice note'
+                      : 'Record encrypted voice note',
+                  onPressed:
+                      controller.messageBusy ||
+                          voiceControlBusy ||
+                          (!voiceRecording &&
+                              selectedAttachments.length >=
+                                  WampAppAttachmentLimits
+                                      .maxAttachmentsPerMessage)
+                      ? null
+                      : onToggleVoiceRecording,
+                  icon: voiceControlBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          voiceRecording
+                              ? Icons.stop_circle_outlined
+                              : Icons.mic_none_rounded,
+                          color: voiceRecording
+                              ? const Color(0xFFB23A2B)
+                              : null,
+                        ),
+                ),
+                const SizedBox(width: 4),
                 IconButton.filled(
                   key: const Key('message-send'),
                   tooltip: 'Send encrypted message',
-                  onPressed: controller.messageBusy ? null : onSend,
+                  onPressed: controller.messageBusy || voiceRecording
+                      ? null
+                      : onSend,
                   icon: controller.messageBusy
                       ? const SizedBox.square(
                           dimension: 18,
@@ -942,24 +1208,56 @@ class _MessageBubble extends StatelessWidget {
 }
 
 final class _SelectedAttachment {
-  _SelectedAttachment(this.file, this.byteCount)
-    : contentType = _contentType(file),
-      kind = _attachmentKind(file);
+  _SelectedAttachment(XFile selectedFile, this.byteCount)
+    : file = selectedFile,
+      name = selectedFile.name,
+      contentType = _contentType(selectedFile),
+      kind = _attachmentKind(selectedFile),
+      durationMilliseconds = null,
+      _ownedBytes = null;
 
-  final XFile file;
+  _SelectedAttachment.voiceNote(
+    Uint8List bytes, {
+    required this.durationMilliseconds,
+  }) : file = null,
+       name = 'voice-note-${DateTime.now().toUtc().millisecondsSinceEpoch}.wav',
+       byteCount = bytes.length,
+       contentType = 'audio/wav',
+       kind = ChatAttachmentKind.voiceNote,
+       _ownedBytes = bytes;
+
+  final XFile? file;
+  final String name;
   final int byteCount;
   final String contentType;
   final ChatAttachmentKind kind;
+  final int? durationMilliseconds;
+  Uint8List? _ownedBytes;
 
-  String get name => file.name;
+  AttachmentPlaintextSource get source {
+    final ownedBytes = _ownedBytes;
+    return AttachmentPlaintextSource(
+      name: name,
+      contentType: contentType,
+      kind: kind,
+      byteCount: byteCount,
+      durationMilliseconds: durationMilliseconds,
+      openRead: ownedBytes == null
+          ? file!.openRead
+          : () {
+              if (!identical(_ownedBytes, ownedBytes)) {
+                throw StateError('The recorded voice note was disposed.');
+              }
+              return Stream<List<int>>.value(ownedBytes);
+            },
+    );
+  }
 
-  AttachmentPlaintextSource get source => AttachmentPlaintextSource(
-    name: name,
-    contentType: contentType,
-    kind: kind,
-    byteCount: byteCount,
-    openRead: file.openRead,
-  );
+  void dispose() {
+    final ownedBytes = _ownedBytes;
+    _ownedBytes = null;
+    ownedBytes?.fillRange(0, ownedBytes.length, 0);
+  }
 
   static String _contentType(XFile file) {
     final explicit = file.mimeType?.trim().toLowerCase();
@@ -1029,7 +1327,9 @@ class _AttachmentCard extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                     Text(
-                      '${_formatBytes(attachment.plaintextBytes)} · encrypted',
+                      '${_formatBytes(attachment.plaintextBytes)}'
+                      '${_durationSuffix(attachment.durationMilliseconds)}'
+                      ' · encrypted',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -1073,6 +1373,77 @@ class _FileSummary extends StatelessWidget {
   }
 }
 
+class _VoiceNotePlayer extends StatelessWidget {
+  const _VoiceNotePlayer({required this.controller, required this.attachment});
+
+  final VoiceNotePlaybackController controller;
+  final EncryptedAttachmentDescriptor attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final durationMilliseconds = max(1, controller.duration.inMilliseconds);
+        final positionMilliseconds = controller.position.inMilliseconds.clamp(
+          0,
+          durationMilliseconds,
+        );
+        return Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton.filled(
+                key: ValueKey('voice-play-${attachment.attachmentId}'),
+                tooltip: controller.state == VoiceNotePlaybackState.playing
+                    ? 'Pause voice note'
+                    : 'Play voice note',
+                onPressed: controller.busy ? null : controller.toggle,
+                icon: controller.busy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        controller.state == VoiceNotePlaybackState.playing
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                      ),
+              ),
+              Slider(
+                key: ValueKey('voice-seek-${attachment.attachmentId}'),
+                value: positionMilliseconds.toDouble(),
+                max: durationMilliseconds.toDouble(),
+                onChanged: controller.busy
+                    ? null
+                    : (value) => unawaited(
+                        controller.seek(Duration(milliseconds: value.round())),
+                      ),
+              ),
+              Text(
+                '${_formatDuration(controller.position)} / '
+                '${_formatDuration(controller.duration)}',
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${_formatBytes(attachment.plaintextBytes)} · '
+                'authenticated and decrypted on this device',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              if (controller.error case final error?) ...[
+                const SizedBox(height: 8),
+                Text(error, style: const TextStyle(color: Color(0xFF9E2A2B))),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 IconData _attachmentIcon(ChatAttachmentKind kind) => switch (kind) {
   ChatAttachmentKind.image => Icons.image_outlined,
   ChatAttachmentKind.gif => Icons.gif_box_outlined,
@@ -1086,3 +1457,15 @@ String _formatBytes(int bytes) {
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KiB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MiB';
 }
+
+String _formatDuration(Duration duration) {
+  final totalSeconds = duration.inSeconds;
+  final minutes = totalSeconds ~/ 60;
+  final seconds = totalSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
+}
+
+String _durationSuffix(int? durationMilliseconds) =>
+    durationMilliseconds == null
+    ? ''
+    : ' · ${_formatDuration(Duration(milliseconds: durationMilliseconds))}';

@@ -8,6 +8,12 @@ enum ChatAttachmentKind { file, image, gif, sticker, voiceNote }
 abstract final class WampAppAttachmentLimits {
   static const maxAttachmentsPerMessage = 8;
   static const maxAttachmentBytes = 64 * 1024 * 1024;
+  static const maxVoiceNoteDurationMilliseconds = 5 * 60 * 1000;
+  static const voiceNoteWavHeaderBytes = 44;
+  static const voiceNotePcmBytesPerSecond = 16000 * 1 * 2;
+  static const maxVoiceNoteWavBytes =
+      voiceNoteWavHeaderBytes +
+      (voiceNotePcmBytesPerSecond * maxVoiceNoteDurationMilliseconds ~/ 1000);
   static const defaultChunkBytes = 1024 * 1024;
   static const maxChunkBytes = defaultChunkBytes;
   static const maxChunkCount = 64;
@@ -30,6 +36,7 @@ final class EncryptedAttachmentDescriptor {
     required this.chunkBytes,
     required this.chunkCount,
     required this.plaintextSha256,
+    this.durationMilliseconds,
     required Uint8List key,
   }) : _key = Uint8List.fromList(key) {
     validate();
@@ -50,6 +57,7 @@ final class EncryptedAttachmentDescriptor {
   final int chunkBytes;
   final int chunkCount;
   final String plaintextSha256;
+  final int? durationMilliseconds;
   final Uint8List _key;
 
   Uint8List get key => Uint8List.fromList(_key);
@@ -91,6 +99,33 @@ final class EncryptedAttachmentDescriptor {
       throw const FormatException('Attachment chunk count is invalid.');
     }
     _validateSha256(plaintextSha256, 'plaintext_sha256');
+    if (kind == ChatAttachmentKind.voiceNote) {
+      final duration = durationMilliseconds;
+      if (duration == null ||
+          duration <= 0 ||
+          duration > WampAppAttachmentLimits.maxVoiceNoteDurationMilliseconds) {
+        throw const FormatException('Voice-note duration is invalid.');
+      }
+      final pcmBytes =
+          plaintextBytes - WampAppAttachmentLimits.voiceNoteWavHeaderBytes;
+      final expectedDuration = pcmBytes <= 0
+          ? 0
+          : (pcmBytes * 1000 +
+                    WampAppAttachmentLimits.voiceNotePcmBytesPerSecond -
+                    1) ~/
+                WampAppAttachmentLimits.voiceNotePcmBytesPerSecond;
+      if (contentType != 'audio/wav' ||
+          plaintextBytes > WampAppAttachmentLimits.maxVoiceNoteWavBytes ||
+          pcmBytes <= 0 ||
+          pcmBytes.isOdd ||
+          duration != expectedDuration) {
+        throw const FormatException('Voice-note WAV metadata is invalid.');
+      }
+    } else if (durationMilliseconds != null) {
+      throw const FormatException(
+        'Only voice notes may include duration metadata.',
+      );
+    }
     if (_key.length != 32) {
       throw const FormatException('Attachment key is invalid.');
     }
@@ -109,6 +144,7 @@ final class EncryptedAttachmentDescriptor {
       'chunk_bytes': chunkBytes,
       'chunk_count': chunkCount,
       'plaintext_sha256': plaintextSha256.toLowerCase(),
+      'duration_milliseconds': ?durationMilliseconds,
       'key': base64Url.encode(_key),
     };
   }
@@ -138,6 +174,9 @@ final class EncryptedAttachmentDescriptor {
         value['plaintext_sha256'],
         'plaintext_sha256',
       ),
+      durationMilliseconds: value['duration_milliseconds'] == null
+          ? null
+          : _readInt(value['duration_milliseconds'], 'duration_milliseconds'),
       key: _decodeBase64Url(_readString(value['key'], 'key'), 'key'),
     );
   }
