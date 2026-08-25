@@ -93,6 +93,7 @@ abstract final class WampAppProtocol {
   static const errorCallEnded = 'com.wampapp.error.call_ended';
   static const errorCallUnavailable = 'com.wampapp.error.call_unavailable';
   static const errorNotAuthorized = 'com.wampapp.error.not_authorized';
+  static const errorRateLimited = 'com.wampapp.error.rate_limited';
 
   static const serviceAuthId = 'wampapp.service';
   static const anonymousRole = 'anonymous';

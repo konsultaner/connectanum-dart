@@ -3,8 +3,11 @@
 Last updated: 2026-08-26
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example.
-Milestone 8 authenticated MCP integration is complete locally; milestone 9
-production evidence is next. Milestone 7 encrypted WebRTC voice/video calling
+Milestone 9 production hardening is underway. Unified WAMP procedure abuse
+protection now bounds expensive registration plus authenticated control and
+binary-transfer traffic with configurable global, per-account, request-rate,
+concurrency, and tracked-account limits. Milestone 8 authenticated MCP
+integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete
 locally. Authenticated public profiles with editable
 display names, status, and bounded avatars, plus on-device global message
@@ -442,6 +445,26 @@ default denial, account isolation, dynamic resource reads, consent revocation,
 and access-token revocation. Router MCP routes can now disable built-in API
 meta tools with `include_api_meta_tools: false` for an exact allowlist while
 preserving the existing default. `bin/test-wamp-app` passes with 53 shared, 125
+server, 152 native Flutter, and 64 Chrome tests plus Dart2Wasm and a release-web
+build; repository-wide `bin/verify` passes on 2026-08-26. Commit `a69f647e` is
+pushed to GitLab and GitHub. Exact-head CI run `32904130086` passes WampApp
+Consumer in 4m26s, Fast Checks in 9m02s, Full Verify in 11m09s, and Dart VM
+Coverage in 9m07s. Dart package publish dry-run `32904130107` also passes. The
+feature-head job/log cleanliness, publish-readiness, workflow visibility, and
+router-package audit passes, as does the protected-`master` strict policy
+audit.
+
+WampApp milestone 9 production hardening now includes a unified abuse guard for
+all application procedures. Anonymous registration has a dedicated global
+request and concurrency budget before Argon2id13 derivation, while authenticated
+control and binary-transfer operations use independent global and per-account
+token buckets and concurrency caps. Tracked account state is bounded with idle
+eviction and fails closed when every candidate is active. YAML policy parsing is
+bounded and fail-closed; rate-limit WAMP errors expose only a stable URI, a
+generic message, and `retry_after_ms`. Deterministic tests cover refill, account
+isolation, global exhaustion, concurrency, action failure, eviction, and budget
+independence. A real native-router smoke proves registration, control, and
+transfer enforcement over WAMP. `bin/test-wamp-app` passes with 53 shared, 140
 server, 152 native Flutter, and 64 Chrome tests plus Dart2Wasm and a release-web
 build; repository-wide `bin/verify` passes on 2026-08-26. Hosted exact-head
 evidence is pending.

@@ -9,6 +9,7 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'account_credential_provider.dart';
 import 'account_store.dart';
+import 'abuse_protection.dart';
 import 'attachment_service.dart';
 import 'attachment_retention.dart';
 import 'attachment_store.dart';
@@ -64,6 +65,7 @@ class WampAppServer {
     WampAppServerConfig config, {
     PlatformPushGateway? pushGateway,
   }) async {
+    final abuseGuard = WampAppAbuseGuard(config.abuseProtection);
     final store = AccountStore(config.accountStorePath);
     await store.initialize();
     final mailbox = MailboxStore(config.messageStorePath);
@@ -186,7 +188,11 @@ class WampAppServer {
         iterations: config.argonIterations,
         memoryKiB: config.argonMemoryKiB,
       );
-      await _registerAccountHandler(registrationServiceSession, registrations);
+      await _registerAccountHandler(
+        registrationServiceSession,
+        registrations,
+        abuseGuard,
+      );
 
       final appServiceClient = Client(
         transport: WebSocketTransport.withCborSerializer(
@@ -211,27 +217,33 @@ class WampAppServer {
         appServiceSession,
         DeviceService(store: store),
         pushService,
+        abuseGuard,
       );
       await _registerPushHandlers(
         appServiceSession,
         pushService,
+        abuseGuard,
         supportedProviders: activePushGateway?.providers ?? const {},
       );
       await _registerProfileHandlers(
         appServiceSession,
         ProfileService(store: store),
+        abuseGuard,
       );
       await _registerMcpHandlers(
         appServiceSession,
         WampAppMcpService(accounts: store, consents: mcpConsentStore),
+        abuseGuard,
       );
       await _registerAttachmentHandlers(
         appServiceSession,
         AttachmentService(store: attachments, mailbox: mailbox),
+        abuseGuard,
       );
       await _registerBackupHandlers(
         appServiceSession,
         BackupService(store: backupStore),
+        abuseGuard,
       );
       await _registerCallHandlers(
         appServiceSession,
@@ -240,6 +252,7 @@ class WampAppServer {
           stunUrls: config.stunUrls,
           turnRest: config.turnRest,
         ),
+        abuseGuard,
       );
       await _registerMessageHandlers(
         appServiceSession,
@@ -249,6 +262,7 @@ class WampAppServer {
           attachments: attachments,
         ),
         pushDispatcher,
+        abuseGuard,
       );
       attachmentRetention = AttachmentRetentionController(
         store: attachments,
@@ -865,6 +879,7 @@ Map<String, Object?> _mcpRouteOptions(WampAppServerConfig config) => {
 Future<void> _registerAccountHandler(
   Session session,
   RegistrationService registrations,
+  WampAppAbuseGuard abuseGuard,
 ) {
   return session.registerHandler(WampAppProtocol.accountRegister, (
     invocation,
@@ -873,8 +888,12 @@ Future<void> _registerAccountHandler(
       final request = AccountRegistration.fromWampKeywords(
         invocation.argumentsKeywords,
       );
-      final receipt = await registrations.register(request);
+      final receipt = await abuseGuard.runRegistration(
+        () => registrations.register(request),
+      );
       invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
+    } on WampAppRateLimitExceeded catch (error) {
+      _respondWithRateLimit(invocation, error);
     } on AccountAlreadyExists {
       invocation.respondWith(
         isError: true,
@@ -897,191 +916,278 @@ Future<void> _registerAccountHandler(
   });
 }
 
+Future<void> _registerAuthenticatedHandler(
+  Session session,
+  WampAppAbuseGuard abuseGuard,
+  WampAppOperationClass operationClass,
+  String procedure,
+  Future<void> Function(Invocation) handler,
+) {
+  return session.registerHandler(procedure, (invocation) async {
+    try {
+      final username = _callerUsername(invocation);
+      await abuseGuard.runForAccount(
+        username,
+        operationClass,
+        () => handler(invocation),
+      );
+    } on WampAppRateLimitExceeded catch (error) {
+      _respondWithRateLimit(invocation, error);
+    } on _CallerNotAuthorized {
+      invocation.respondWith(
+        isError: true,
+        errorUri: WampAppProtocol.errorNotAuthorized,
+        arguments: const ['Authentication is required.'],
+      );
+    }
+  }, options: RegisterOptions(discloseCaller: true));
+}
+
+void _respondWithRateLimit(
+  Invocation invocation,
+  WampAppRateLimitExceeded error,
+) {
+  invocation.respondWith(
+    isError: true,
+    errorUri: WampAppProtocol.errorRateLimited,
+    arguments: const ['Too many requests. Retry later.'],
+    argumentsKeywords: {'retry_after_ms': error.retryAfterMilliseconds},
+  );
+}
+
 Future<void> _registerDeviceHandlers(
   Session session,
   DeviceService devices,
   PlatformPushService push,
+  WampAppAbuseGuard abuseGuard,
 ) async {
-  final options = RegisterOptions(discloseCaller: true);
-  await session.registerHandler(WampAppProtocol.deviceEnroll, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final enrollment = DeviceEnrollment.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final device = await devices.enroll(username, enrollment);
-      invocation.respondWith(argumentsKeywords: device.toWampKeywords());
-    } catch (error) {
-      _respondWithDeviceError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.deviceList, (invocation) async {
-    try {
-      final username = _callerUsername(invocation);
-      final includeRevoked = switch (invocation
-          .argumentsKeywords?['include_revoked']) {
-        null => false,
-        final bool value => value,
-        _ => throw const FormatException('include_revoked must be a boolean.'),
-      };
-      final directory = await devices.list(
-        username,
-        includeRevoked: includeRevoked,
-      );
-      invocation.respondWith(argumentsKeywords: directory.toWampKeywords());
-    } catch (error) {
-      _respondWithDeviceError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.deviceRevoke, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final deviceId = invocation.argumentsKeywords?['device_id'];
-      if (deviceId is! String) {
-        throw const FormatException('device_id must be a string.');
-      }
-      final device = await devices.revoke(username, deviceId);
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.deviceEnroll,
+    (invocation) async {
       try {
-        await push.deviceRevoked(username, deviceId);
-      } catch (_) {
-        // Active-device checks prevent delivery even if eager cleanup fails.
+        final username = _callerUsername(invocation);
+        final enrollment = DeviceEnrollment.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final device = await devices.enroll(username, enrollment);
+        invocation.respondWith(argumentsKeywords: device.toWampKeywords());
+      } catch (error) {
+        _respondWithDeviceError(invocation, error);
       }
-      invocation.respondWith(argumentsKeywords: device.toWampKeywords());
-    } catch (error) {
-      _respondWithDeviceError(invocation, error);
-    }
-  }, options: options);
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.deviceList,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final includeRevoked =
+            switch (invocation.argumentsKeywords?['include_revoked']) {
+              null => false,
+              final bool value => value,
+              _ => throw const FormatException(
+                'include_revoked must be a boolean.',
+              ),
+            };
+        final directory = await devices.list(
+          username,
+          includeRevoked: includeRevoked,
+        );
+        invocation.respondWith(argumentsKeywords: directory.toWampKeywords());
+      } catch (error) {
+        _respondWithDeviceError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.deviceRevoke,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final deviceId = invocation.argumentsKeywords?['device_id'];
+        if (deviceId is! String) {
+          throw const FormatException('device_id must be a string.');
+        }
+        final device = await devices.revoke(username, deviceId);
+        try {
+          await push.deviceRevoked(username, deviceId);
+        } catch (_) {
+          // Active-device checks prevent delivery even if eager cleanup fails.
+        }
+        invocation.respondWith(argumentsKeywords: device.toWampKeywords());
+      } catch (error) {
+        _respondWithDeviceError(invocation, error);
+      }
+    },
+  );
 }
 
 Future<void> _registerPushHandlers(
   Session session,
-  PlatformPushService push, {
+  PlatformPushService push,
+  WampAppAbuseGuard abuseGuard, {
   required Set<String> supportedProviders,
 }) async {
-  final options = RegisterOptions(discloseCaller: true);
-  await session.registerHandler(WampAppProtocol.pushRegister, (
-    invocation,
-  ) async {
-    try {
-      if (supportedProviders.isEmpty) throw const _PlatformPushUnavailable();
-      final username = _callerUsername(invocation);
-      final request = PlatformPushSubscriptionRequest.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      if (!supportedProviders.contains(request.provider)) {
-        throw const FormatException('Platform push provider is not supported.');
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.pushRegister,
+    (invocation) async {
+      try {
+        if (supportedProviders.isEmpty) throw const _PlatformPushUnavailable();
+        final username = _callerUsername(invocation);
+        final request = PlatformPushSubscriptionRequest.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        if (!supportedProviders.contains(request.provider)) {
+          throw const FormatException(
+            'Platform push provider is not supported.',
+          );
+        }
+        final receipt = await push.register(username, request);
+        invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
+      } catch (error) {
+        _respondWithPushError(invocation, error);
       }
-      final receipt = await push.register(username, request);
-      invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
-    } catch (error) {
-      _respondWithPushError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.pushUnregister, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final key = PlatformPushSubscriptionKey.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final removed = await push.unregister(username, key);
-      invocation.respondWith(argumentsKeywords: {'removed': removed});
-    } catch (error) {
-      _respondWithPushError(invocation, error);
-    }
-  }, options: options);
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.pushUnregister,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final key = PlatformPushSubscriptionKey.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final removed = await push.unregister(username, key);
+        invocation.respondWith(argumentsKeywords: {'removed': removed});
+      } catch (error) {
+        _respondWithPushError(invocation, error);
+      }
+    },
+  );
 }
 
 Future<void> _registerProfileHandlers(
   Session session,
   ProfileService profiles,
+  WampAppAbuseGuard abuseGuard,
 ) async {
-  final options = RegisterOptions(discloseCaller: true);
-  await session.registerHandler(WampAppProtocol.profileGet, (invocation) async {
-    try {
-      final caller = _callerUsername(invocation);
-      final requested = invocation.argumentsKeywords?['username'];
-      if (requested != null && requested is! String) {
-        throw const FormatException('username must be a string.');
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.profileGet,
+    (invocation) async {
+      try {
+        final caller = _callerUsername(invocation);
+        final requested = invocation.argumentsKeywords?['username'];
+        if (requested != null && requested is! String) {
+          throw const FormatException('username must be a string.');
+        }
+        final username = requested == null
+            ? caller
+            : AccountRegistration.normalizeUsername(requested);
+        final profile = await profiles.get(username);
+        invocation.respondWith(argumentsKeywords: profile.toWampKeywords());
+      } catch (error) {
+        _respondWithProfileError(invocation, error);
       }
-      final username = requested == null
-          ? caller
-          : AccountRegistration.normalizeUsername(requested);
-      final profile = await profiles.get(username);
-      invocation.respondWith(argumentsKeywords: profile.toWampKeywords());
-    } catch (error) {
-      _respondWithProfileError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.profileUpdate, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final update = AccountProfileUpdate.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final profile = await profiles.update(username, update);
-      invocation.respondWith(argumentsKeywords: profile.toWampKeywords());
-    } catch (error) {
-      _respondWithProfileError(invocation, error);
-    }
-  }, options: options);
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.profileUpdate,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final update = AccountProfileUpdate.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final profile = await profiles.update(username, update);
+        invocation.respondWith(argumentsKeywords: profile.toWampKeywords());
+      } catch (error) {
+        _respondWithProfileError(invocation, error);
+      }
+    },
+  );
 }
 
 Future<void> _registerMcpHandlers(
   Session session,
   WampAppMcpService mcp,
+  WampAppAbuseGuard abuseGuard,
 ) async {
-  final options = RegisterOptions(discloseCaller: true);
-  await session.registerHandler(WampAppProtocol.mcpConsentGet, (
-    invocation,
-  ) async {
-    try {
-      _requireEmptyMcpInvocation(invocation);
-      final username = _callerUsername(invocation);
-      final consent = await mcp.getConsent(username);
-      invocation.respondWith(argumentsKeywords: consent.toWampKeywords());
-    } catch (error) {
-      _respondWithMcpError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.mcpConsentUpdate, (
-    invocation,
-  ) async {
-    try {
-      if (invocation.arguments?.isNotEmpty ?? false) {
-        throw const FormatException(
-          'MCP consent updates accept keyword arguments only.',
-        );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.mcpConsentGet,
+    (invocation) async {
+      try {
+        _requireEmptyMcpInvocation(invocation);
+        final username = _callerUsername(invocation);
+        final consent = await mcp.getConsent(username);
+        invocation.respondWith(argumentsKeywords: consent.toWampKeywords());
+      } catch (error) {
+        _respondWithMcpError(invocation, error);
       }
-      final username = _callerUsername(invocation);
-      final update = WampAppMcpConsentUpdate.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final consent = await mcp.updateConsent(username, update);
-      invocation.respondWith(argumentsKeywords: consent.toWampKeywords());
-    } catch (error) {
-      _respondWithMcpError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.mcpProfileSummary, (
-    invocation,
-  ) async {
-    try {
-      _requireProfileSummaryInvocation(invocation);
-      final username = _callerUsername(invocation);
-      final profile = await mcp.readProfileSummary(username);
-      invocation.respondWith(argumentsKeywords: profile);
-    } catch (error) {
-      _respondWithMcpError(invocation, error);
-    }
-  }, options: options);
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.mcpConsentUpdate,
+    (invocation) async {
+      try {
+        if (invocation.arguments?.isNotEmpty ?? false) {
+          throw const FormatException(
+            'MCP consent updates accept keyword arguments only.',
+          );
+        }
+        final username = _callerUsername(invocation);
+        final update = WampAppMcpConsentUpdate.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final consent = await mcp.updateConsent(username, update);
+        invocation.respondWith(argumentsKeywords: consent.toWampKeywords());
+      } catch (error) {
+        _respondWithMcpError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.mcpProfileSummary,
+    (invocation) async {
+      try {
+        _requireProfileSummaryInvocation(invocation);
+        final username = _callerUsername(invocation);
+        final profile = await mcp.readProfileSummary(username);
+        invocation.respondWith(argumentsKeywords: profile);
+      } catch (error) {
+        _respondWithMcpError(invocation, error);
+      }
+    },
+  );
 }
 
 void _requireEmptyMcpInvocation(Invocation invocation) {
@@ -1113,415 +1219,509 @@ void _requireProfileSummaryInvocation(Invocation invocation) {
 Future<void> _registerAttachmentHandlers(
   Session session,
   AttachmentService attachments,
+  WampAppAbuseGuard abuseGuard,
 ) async {
-  final options = RegisterOptions(discloseCaller: true);
-  await session.registerHandler(WampAppProtocol.attachmentChunkPut, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final chunk = EncryptedAttachmentChunk.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final result = await attachments.putChunk(username, chunk);
-      invocation.respondWith(
-        argumentsKeywords: result.receipt.toWampKeywords(),
-      );
-    } catch (error) {
-      _respondWithAttachmentError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.attachmentUploadStatus, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final messageId = invocation.argumentsKeywords?['message_id'];
-      final attachmentId = invocation.argumentsKeywords?['attachment_id'];
-      final chunkCount = invocation.argumentsKeywords?['chunk_count'];
-      if (messageId is! String ||
-          attachmentId is! String ||
-          chunkCount is! int) {
-        throw const FormatException(
-          'message_id, attachment_id, and chunk_count are required.',
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.transfer,
+    WampAppProtocol.attachmentChunkPut,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final chunk = EncryptedAttachmentChunk.fromWampKeywords(
+          invocation.argumentsKeywords,
         );
-      }
-      final status = await attachments.status(
-        username,
-        messageId: messageId,
-        attachmentId: attachmentId,
-        chunkCount: chunkCount,
-      );
-      invocation.respondWith(argumentsKeywords: status.toWampKeywords());
-    } catch (error) {
-      _respondWithAttachmentError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.attachmentChunkGet, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final messageId = invocation.argumentsKeywords?['message_id'];
-      final attachmentId = invocation.argumentsKeywords?['attachment_id'];
-      final chunkIndex = invocation.argumentsKeywords?['chunk_index'];
-      if (messageId is! String ||
-          attachmentId is! String ||
-          chunkIndex is! int) {
-        throw const FormatException(
-          'message_id, attachment_id, and chunk_index are required.',
+        final result = await attachments.putChunk(username, chunk);
+        invocation.respondWith(
+          argumentsKeywords: result.receipt.toWampKeywords(),
         );
+      } catch (error) {
+        _respondWithAttachmentError(invocation, error);
       }
-      final chunk = await attachments.getChunk(
-        username,
-        messageId: messageId,
-        attachmentId: attachmentId,
-        chunkIndex: chunkIndex,
-      );
-      invocation.respondWith(argumentsKeywords: chunk.toWampKeywords());
-    } catch (error) {
-      _respondWithAttachmentError(invocation, error);
-    }
-  }, options: options);
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.transfer,
+    WampAppProtocol.attachmentUploadStatus,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final messageId = invocation.argumentsKeywords?['message_id'];
+        final attachmentId = invocation.argumentsKeywords?['attachment_id'];
+        final chunkCount = invocation.argumentsKeywords?['chunk_count'];
+        if (messageId is! String ||
+            attachmentId is! String ||
+            chunkCount is! int) {
+          throw const FormatException(
+            'message_id, attachment_id, and chunk_count are required.',
+          );
+        }
+        final status = await attachments.status(
+          username,
+          messageId: messageId,
+          attachmentId: attachmentId,
+          chunkCount: chunkCount,
+        );
+        invocation.respondWith(argumentsKeywords: status.toWampKeywords());
+      } catch (error) {
+        _respondWithAttachmentError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.transfer,
+    WampAppProtocol.attachmentChunkGet,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final messageId = invocation.argumentsKeywords?['message_id'];
+        final attachmentId = invocation.argumentsKeywords?['attachment_id'];
+        final chunkIndex = invocation.argumentsKeywords?['chunk_index'];
+        if (messageId is! String ||
+            attachmentId is! String ||
+            chunkIndex is! int) {
+          throw const FormatException(
+            'message_id, attachment_id, and chunk_index are required.',
+          );
+        }
+        final chunk = await attachments.getChunk(
+          username,
+          messageId: messageId,
+          attachmentId: attachmentId,
+          chunkIndex: chunkIndex,
+        );
+        invocation.respondWith(argumentsKeywords: chunk.toWampKeywords());
+      } catch (error) {
+        _respondWithAttachmentError(invocation, error);
+      }
+    },
+  );
 }
 
 Future<void> _registerBackupHandlers(
   Session session,
   BackupService backups,
+  WampAppAbuseGuard abuseGuard,
 ) async {
-  final options = RegisterOptions(discloseCaller: true);
-  await session.registerHandler(WampAppProtocol.backupUploadBegin, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final request = BackupUploadRequest.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final upload = await backups.begin(username, request);
-      invocation.respondWith(argumentsKeywords: upload.toWampKeywords());
-    } catch (error) {
-      _respondWithBackupError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.backupChunkPut, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final chunk = EncryptedBackupChunk.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      await backups.putChunk(username, chunk);
-      invocation.respondWith(
-        argumentsKeywords: {
-          'upload_id': chunk.uploadId,
-          'chunk_index': chunk.chunkIndex,
-        },
-      );
-    } catch (error) {
-      _respondWithBackupError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.backupUploadCommit, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final uploadId = invocation.argumentsKeywords?['upload_id'];
-      if (uploadId is! String) {
-        throw const FormatException('upload_id must be a string.');
-      }
-      final metadata = await backups.commit(username, uploadId);
-      invocation.respondWith(argumentsKeywords: metadata.toWampKeywords());
-    } catch (error) {
-      _respondWithBackupError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.backupMetadataGet, (
-    invocation,
-  ) async {
-    try {
-      final metadata = await backups.metadata(_callerUsername(invocation));
-      invocation.respondWith(argumentsKeywords: metadata.toWampKeywords());
-    } catch (error) {
-      _respondWithBackupError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.backupChunkGet, (
-    invocation,
-  ) async {
-    try {
-      final revision = invocation.argumentsKeywords?['revision'];
-      final chunkIndex = invocation.argumentsKeywords?['chunk_index'];
-      if (revision is! int || chunkIndex is! int) {
-        throw const FormatException(
-          'revision and chunk_index must be integers.',
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.transfer,
+    WampAppProtocol.backupUploadBegin,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final request = BackupUploadRequest.fromWampKeywords(
+          invocation.argumentsKeywords,
         );
+        final upload = await backups.begin(username, request);
+        invocation.respondWith(argumentsKeywords: upload.toWampKeywords());
+      } catch (error) {
+        _respondWithBackupError(invocation, error);
       }
-      final chunk = await backups.readChunk(
-        username: _callerUsername(invocation),
-        revision: revision,
-        chunkIndex: chunkIndex,
-      );
-      invocation.respondWith(argumentsKeywords: chunk.toWampKeywords());
-    } catch (error) {
-      _respondWithBackupError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.backupDelete, (
-    invocation,
-  ) async {
-    try {
-      final expectedRevision =
-          invocation.argumentsKeywords?['expected_revision'];
-      if (expectedRevision is! int) {
-        throw const FormatException('expected_revision must be an integer.');
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.transfer,
+    WampAppProtocol.backupChunkPut,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final chunk = EncryptedBackupChunk.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        await backups.putChunk(username, chunk);
+        invocation.respondWith(
+          argumentsKeywords: {
+            'upload_id': chunk.uploadId,
+            'chunk_index': chunk.chunkIndex,
+          },
+        );
+      } catch (error) {
+        _respondWithBackupError(invocation, error);
       }
-      final removed = await backups.delete(
-        _callerUsername(invocation),
-        expectedRevision,
-      );
-      invocation.respondWith(argumentsKeywords: {'removed': removed});
-    } catch (error) {
-      _respondWithBackupError(invocation, error);
-    }
-  }, options: options);
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.transfer,
+    WampAppProtocol.backupUploadCommit,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final uploadId = invocation.argumentsKeywords?['upload_id'];
+        if (uploadId is! String) {
+          throw const FormatException('upload_id must be a string.');
+        }
+        final metadata = await backups.commit(username, uploadId);
+        invocation.respondWith(argumentsKeywords: metadata.toWampKeywords());
+      } catch (error) {
+        _respondWithBackupError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.transfer,
+    WampAppProtocol.backupMetadataGet,
+    (invocation) async {
+      try {
+        final metadata = await backups.metadata(_callerUsername(invocation));
+        invocation.respondWith(argumentsKeywords: metadata.toWampKeywords());
+      } catch (error) {
+        _respondWithBackupError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.transfer,
+    WampAppProtocol.backupChunkGet,
+    (invocation) async {
+      try {
+        final revision = invocation.argumentsKeywords?['revision'];
+        final chunkIndex = invocation.argumentsKeywords?['chunk_index'];
+        if (revision is! int || chunkIndex is! int) {
+          throw const FormatException(
+            'revision and chunk_index must be integers.',
+          );
+        }
+        final chunk = await backups.readChunk(
+          username: _callerUsername(invocation),
+          revision: revision,
+          chunkIndex: chunkIndex,
+        );
+        invocation.respondWith(argumentsKeywords: chunk.toWampKeywords());
+      } catch (error) {
+        _respondWithBackupError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.transfer,
+    WampAppProtocol.backupDelete,
+    (invocation) async {
+      try {
+        final expectedRevision =
+            invocation.argumentsKeywords?['expected_revision'];
+        if (expectedRevision is! int) {
+          throw const FormatException('expected_revision must be an integer.');
+        }
+        final removed = await backups.delete(
+          _callerUsername(invocation),
+          expectedRevision,
+        );
+        invocation.respondWith(argumentsKeywords: {'removed': removed});
+      } catch (error) {
+        _respondWithBackupError(invocation, error);
+      }
+    },
+  );
 }
 
 Future<void> _registerMessageHandlers(
   Session session,
   MessageService messages,
   PlatformPushDispatcher? pushDispatcher,
+  WampAppAbuseGuard abuseGuard,
 ) async {
-  final options = RegisterOptions(discloseCaller: true);
-  await session.registerHandler(WampAppProtocol.deviceLookup, (
-    invocation,
-  ) async {
-    try {
-      _callerUsername(invocation);
-      final username = invocation.argumentsKeywords?['username'];
-      final includeRevoked =
-          invocation.argumentsKeywords?['include_revoked'] ?? false;
-      if (username is! String) {
-        throw const FormatException('username must be a string.');
-      }
-      if (includeRevoked is! bool) {
-        throw const FormatException('include_revoked must be a boolean.');
-      }
-      final directory = await messages.lookupDevices(
-        username,
-        includeRevoked: includeRevoked,
-      );
-      invocation.respondWith(argumentsKeywords: directory.toWampKeywords());
-    } catch (error) {
-      _respondWithMessageError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.messageSend, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final message = EncryptedChatMessage.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final receipt = await messages.send(username, message);
-      await _publishMailboxWakeup(
-        session,
-        receipt.cursor,
-        message.participantUsernames,
-        pushDispatcher,
-        presentationConversationId: message.conversationId,
-        presentationUsernames: message.recipientUsernames,
-      );
-      invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
-    } catch (error) {
-      _respondWithMessageError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.messageSync, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final afterCursor = invocation.argumentsKeywords?['after_cursor'];
-      final limit = invocation.argumentsKeywords?['limit'] ?? 100;
-      if (afterCursor is! int || limit is! int) {
-        throw const FormatException('after_cursor and limit must be integers.');
-      }
-      final batch = await messages.sync(
-        username,
-        afterCursor: afterCursor,
-        limit: limit,
-      );
-      invocation.respondWith(argumentsKeywords: batch.toWampKeywords());
-    } catch (error) {
-      _respondWithMessageError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.messageReceipt, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final messageId = invocation.argumentsKeywords?['message_id'];
-      final state = invocation.argumentsKeywords?['state'];
-      if (messageId is! String || (state != 'delivered' && state != 'read')) {
-        throw const FormatException(
-          'message_id and a delivered/read state are required.',
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.deviceLookup,
+    (invocation) async {
+      try {
+        _callerUsername(invocation);
+        final username = invocation.argumentsKeywords?['username'];
+        final includeRevoked =
+            invocation.argumentsKeywords?['include_revoked'] ?? false;
+        if (username is! String) {
+          throw const FormatException('username must be a string.');
+        }
+        if (includeRevoked is! bool) {
+          throw const FormatException('include_revoked must be a boolean.');
+        }
+        final directory = await messages.lookupDevices(
+          username,
+          includeRevoked: includeRevoked,
         );
+        invocation.respondWith(argumentsKeywords: directory.toWampKeywords());
+      } catch (error) {
+        _respondWithMessageError(invocation, error);
       }
-      final update = await messages.markReceipt(
-        username,
-        messageId,
-        read: state == 'read',
-      );
-      await _publishMailboxWakeup(
-        session,
-        update.receipt.cursor,
-        update.participantUsernames,
-        pushDispatcher,
-      );
-      invocation.respondWith(
-        argumentsKeywords: update.receipt.toWampKeywords(),
-      );
-    } catch (error) {
-      _respondWithMessageError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.messageConsume, (
-    invocation,
-  ) async {
-    try {
-      final username = _callerUsername(invocation);
-      final consumption = OneTimeMessageConsumption.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final update = await messages.consumeOneTime(username, consumption);
-      await _publishMailboxWakeup(
-        session,
-        update.receipt.cursor,
-        update.participantUsernames,
-        pushDispatcher,
-      );
-      invocation.respondWith(
-        argumentsKeywords: update.receipt.toWampKeywords(),
-      );
-    } catch (error) {
-      _respondWithMessageError(invocation, error);
-    }
-  }, options: options);
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.messageSend,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final message = EncryptedChatMessage.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final receipt = await messages.send(username, message);
+        await _publishMailboxWakeup(
+          session,
+          receipt.cursor,
+          message.participantUsernames,
+          pushDispatcher,
+          presentationConversationId: message.conversationId,
+          presentationUsernames: message.recipientUsernames,
+        );
+        invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
+      } catch (error) {
+        _respondWithMessageError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.messageSync,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final afterCursor = invocation.argumentsKeywords?['after_cursor'];
+        final limit = invocation.argumentsKeywords?['limit'] ?? 100;
+        if (afterCursor is! int || limit is! int) {
+          throw const FormatException(
+            'after_cursor and limit must be integers.',
+          );
+        }
+        final batch = await messages.sync(
+          username,
+          afterCursor: afterCursor,
+          limit: limit,
+        );
+        invocation.respondWith(argumentsKeywords: batch.toWampKeywords());
+      } catch (error) {
+        _respondWithMessageError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.messageReceipt,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final messageId = invocation.argumentsKeywords?['message_id'];
+        final state = invocation.argumentsKeywords?['state'];
+        if (messageId is! String || (state != 'delivered' && state != 'read')) {
+          throw const FormatException(
+            'message_id and a delivered/read state are required.',
+          );
+        }
+        final update = await messages.markReceipt(
+          username,
+          messageId,
+          read: state == 'read',
+        );
+        await _publishMailboxWakeup(
+          session,
+          update.receipt.cursor,
+          update.participantUsernames,
+          pushDispatcher,
+        );
+        invocation.respondWith(
+          argumentsKeywords: update.receipt.toWampKeywords(),
+        );
+      } catch (error) {
+        _respondWithMessageError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.messageConsume,
+    (invocation) async {
+      try {
+        final username = _callerUsername(invocation);
+        final consumption = OneTimeMessageConsumption.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final update = await messages.consumeOneTime(username, consumption);
+        await _publishMailboxWakeup(
+          session,
+          update.receipt.cursor,
+          update.participantUsernames,
+          pushDispatcher,
+        );
+        invocation.respondWith(
+          argumentsKeywords: update.receipt.toWampKeywords(),
+        );
+      } catch (error) {
+        _respondWithMessageError(invocation, error);
+      }
+    },
+  );
 }
 
 Future<void> _registerCallHandlers(
   Session session,
   CallService calls,
   CallConfigurationService configurations,
+  WampAppAbuseGuard abuseGuard,
 ) async {
-  final options = RegisterOptions(discloseCaller: true);
-  await session.registerHandler(WampAppProtocol.callConfiguration, (
-    invocation,
-  ) async {
-    try {
-      final configuration = configurations.forAccount(
-        _callerUsername(invocation),
-      );
-      invocation.respondWith(argumentsKeywords: configuration.toWampKeywords());
-    } catch (error) {
-      _respondWithCallError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.callStart, (invocation) async {
-    try {
-      final request = CallStartRequest.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final result = await calls.start(_callerUsername(invocation), request);
-      await _publishCallWakeup(session, result.update);
-      invocation.respondWith(
-        argumentsKeywords: {
-          ...result.update.toWampKeywords(),
-          'duplicate': result.duplicate,
-        },
-      );
-    } catch (error) {
-      _respondWithCallError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.callAccept, (invocation) async {
-    try {
-      final answer = EncryptedCallSignal.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final result = await calls.accept(_callerUsername(invocation), answer);
-      await _publishCallWakeup(session, result.update);
-      invocation.respondWith(
-        argumentsKeywords: {
-          ...result.update.toWampKeywords(),
-          'duplicate': result.duplicate,
-        },
-      );
-    } catch (error) {
-      _respondWithCallError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.callSignal, (invocation) async {
-    try {
-      final signal = EncryptedCallSignal.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final result = await calls.signal(_callerUsername(invocation), signal);
-      await _publishCallWakeup(session, result.update);
-      invocation.respondWith(
-        argumentsKeywords: {
-          ...result.update.toWampKeywords(),
-          'duplicate': result.duplicate,
-        },
-      );
-    } catch (error) {
-      _respondWithCallError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.callEnd, (invocation) async {
-    try {
-      final signal = EncryptedCallSignal.fromWampKeywords(
-        invocation.argumentsKeywords,
-      );
-      final result = await calls.end(_callerUsername(invocation), signal);
-      await _publishCallWakeup(session, result.update);
-      invocation.respondWith(
-        argumentsKeywords: {
-          ...result.update.toWampKeywords(),
-          'duplicate': result.duplicate,
-        },
-      );
-    } catch (error) {
-      _respondWithCallError(invocation, error);
-    }
-  }, options: options);
-  await session.registerHandler(WampAppProtocol.callSync, (invocation) async {
-    try {
-      final keywords = invocation.argumentsKeywords;
-      final deviceId = keywords?['device_id'];
-      final afterCursor = keywords?['after_cursor'];
-      final limit = keywords?['limit'] ?? 100;
-      if (deviceId is! String || afterCursor is! int || limit is! int) {
-        throw const FormatException(
-          'device_id, after_cursor, and limit are required.',
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.callConfiguration,
+    (invocation) async {
+      try {
+        final configuration = configurations.forAccount(
+          _callerUsername(invocation),
         );
+        invocation.respondWith(
+          argumentsKeywords: configuration.toWampKeywords(),
+        );
+      } catch (error) {
+        _respondWithCallError(invocation, error);
       }
-      final batch = await calls.sync(
-        _callerUsername(invocation),
-        deviceId,
-        afterCursor: afterCursor,
-        limit: limit,
-      );
-      invocation.respondWith(argumentsKeywords: batch.toWampKeywords());
-    } catch (error) {
-      _respondWithCallError(invocation, error);
-    }
-  }, options: options);
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.callStart,
+    (invocation) async {
+      try {
+        final request = CallStartRequest.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final result = await calls.start(_callerUsername(invocation), request);
+        await _publishCallWakeup(session, result.update);
+        invocation.respondWith(
+          argumentsKeywords: {
+            ...result.update.toWampKeywords(),
+            'duplicate': result.duplicate,
+          },
+        );
+      } catch (error) {
+        _respondWithCallError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.callAccept,
+    (invocation) async {
+      try {
+        final answer = EncryptedCallSignal.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final result = await calls.accept(_callerUsername(invocation), answer);
+        await _publishCallWakeup(session, result.update);
+        invocation.respondWith(
+          argumentsKeywords: {
+            ...result.update.toWampKeywords(),
+            'duplicate': result.duplicate,
+          },
+        );
+      } catch (error) {
+        _respondWithCallError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.callSignal,
+    (invocation) async {
+      try {
+        final signal = EncryptedCallSignal.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final result = await calls.signal(_callerUsername(invocation), signal);
+        await _publishCallWakeup(session, result.update);
+        invocation.respondWith(
+          argumentsKeywords: {
+            ...result.update.toWampKeywords(),
+            'duplicate': result.duplicate,
+          },
+        );
+      } catch (error) {
+        _respondWithCallError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.callEnd,
+    (invocation) async {
+      try {
+        final signal = EncryptedCallSignal.fromWampKeywords(
+          invocation.argumentsKeywords,
+        );
+        final result = await calls.end(_callerUsername(invocation), signal);
+        await _publishCallWakeup(session, result.update);
+        invocation.respondWith(
+          argumentsKeywords: {
+            ...result.update.toWampKeywords(),
+            'duplicate': result.duplicate,
+          },
+        );
+      } catch (error) {
+        _respondWithCallError(invocation, error);
+      }
+    },
+  );
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.callSync,
+    (invocation) async {
+      try {
+        final keywords = invocation.argumentsKeywords;
+        final deviceId = keywords?['device_id'];
+        final afterCursor = keywords?['after_cursor'];
+        final limit = keywords?['limit'] ?? 100;
+        if (deviceId is! String || afterCursor is! int || limit is! int) {
+          throw const FormatException(
+            'device_id, after_cursor, and limit are required.',
+          );
+        }
+        final batch = await calls.sync(
+          _callerUsername(invocation),
+          deviceId,
+          afterCursor: afterCursor,
+          limit: limit,
+        );
+        invocation.respondWith(argumentsKeywords: batch.toWampKeywords());
+      } catch (error) {
+        _respondWithCallError(invocation, error);
+      }
+    },
+  );
 }
 
 Future<void> _publishCallWakeup(Session session, CallUpdate update) async {

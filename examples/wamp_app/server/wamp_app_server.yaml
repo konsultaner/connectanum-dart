@@ -19,6 +19,34 @@ mcp:
   consent_store: data/mcp-consent.json
   allow_insecure_transport: true
 
+abuse_protection:
+  # Registration performs Argon2id13, so its anonymous global budget is kept
+  # deliberately small. Control and binary-transfer traffic have independent
+  # budgets so large encrypted transfers cannot starve normal app operations.
+  max_tracked_accounts: 4096
+  registration:
+    max_requests: 20
+    window_seconds: 60
+    max_concurrent: 2
+  control:
+    global:
+      max_requests: 30000
+      window_seconds: 60
+      max_concurrent: 256
+    per_account:
+      max_requests: 2400
+      window_seconds: 60
+      max_concurrent: 16
+  transfer:
+    global:
+      max_requests: 120000
+      window_seconds: 60
+      max_concurrent: 512
+    per_account:
+      max_requests: 12000
+      window_seconds: 60
+      max_concurrent: 32
+
 webrtc:
   # Host candidates still allow same-network calls. Add production STUN/TURN
   # endpoints here for calls across NAT boundaries.

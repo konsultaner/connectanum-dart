@@ -1,4 +1,5 @@
 export 'src/account_store.dart';
+export 'src/abuse_protection.dart';
 export 'src/attachment_service.dart';
 export 'src/attachment_store.dart';
 export 'src/backup_service.dart';

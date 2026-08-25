@@ -52,7 +52,86 @@ void main() {
       config.mcp.consentStorePath,
       '${directory.path}/data/messages.json.mcp-consent.json',
     );
+    expect(config.abuseProtection.registration.maxRequests, 20);
+    expect(config.abuseProtection.controlPerAccount.maxRequests, 2400);
+    expect(config.abuseProtection.transferPerAccount.maxRequests, 12000);
+    expect(config.abuseProtection.maxTrackedAccounts, 4096);
   });
+
+  test('abuse-protection budgets load from YAML', () async {
+    final directory = await Directory.systemTemp.createTemp('wampapp-config-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/server.yaml');
+    await file.writeAsString(
+      _configYaml(
+        abuseProtection: '''
+abuse_protection:
+  max_tracked_accounts: 12
+  registration:
+    max_requests: 3
+    window_seconds: 30
+    max_concurrent: 1
+  control:
+    global:
+      max_requests: 100
+      window_seconds: 20
+      max_concurrent: 10
+    per_account:
+      max_requests: 8
+      window_seconds: 10
+      max_concurrent: 2
+  transfer:
+    global:
+      max_requests: 200
+      window_seconds: 40
+      max_concurrent: 20
+    per_account:
+      max_requests: 16
+      window_seconds: 5
+      max_concurrent: 4
+''',
+      ),
+    );
+
+    final config = await WampAppServerConfig.load(file.path);
+
+    expect(config.abuseProtection.maxTrackedAccounts, 12);
+    expect(config.abuseProtection.registration.maxRequests, 3);
+    expect(
+      config.abuseProtection.registration.window,
+      const Duration(seconds: 30),
+    );
+    expect(config.abuseProtection.registration.maxConcurrent, 1);
+    expect(config.abuseProtection.controlGlobal.maxRequests, 100);
+    expect(config.abuseProtection.controlPerAccount.maxConcurrent, 2);
+    expect(
+      config.abuseProtection.transferGlobal.window,
+      const Duration(seconds: 40),
+    );
+    expect(config.abuseProtection.transferPerAccount.maxRequests, 16);
+  });
+
+  for (final malformed in const [
+    'abuse_protection: []\n',
+    'abuse_protection:\n  max_tracked_accounts: 0\n',
+    'abuse_protection:\n  registration:\n    max_requests: 0\n',
+    'abuse_protection:\n  control:\n    global: []\n',
+    'abuse_protection:\n  transfer:\n    per_account:\n      window_seconds: 0\n',
+  ]) {
+    test('malformed abuse-protection config fails closed', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'wampapp-config-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final file = File('${directory.path}/server.yaml');
+      await file.writeAsString(_configYaml(abuseProtection: malformed));
+
+      await expectLater(
+        WampAppServerConfig.load(file.path),
+        throwsFormatException,
+      );
+    });
+  }
 
   test('MCP endpoint and consent store load from YAML', () async {
     final directory = await Directory.systemTemp.createTemp('wampapp-config-');
@@ -318,6 +397,7 @@ String _configYaml({
   String callStore = '',
   String webrtc = '',
   String mcp = '',
+  String abuseProtection = '',
 }) =>
     '''
 listen:
@@ -333,6 +413,7 @@ $platformPush
 $callStore
 $webrtc
 $mcp
+$abuseProtection
 attachment_store: data/attachments
 $attachmentLimits
 argon2id13:

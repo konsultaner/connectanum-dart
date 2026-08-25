@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'package:yaml/yaml.dart';
 
+import 'abuse_protection.dart';
 import 'backup_store.dart';
 
 final class FcmPlatformPushConfig {
@@ -91,9 +92,11 @@ class WampAppServerConfig {
     this.attachmentMaxBytesPerSender = defaultAttachmentMaxBytesPerSender,
     this.attachmentStagingTtl = defaultAttachmentStagingTtl,
     this.attachmentCleanupInterval = defaultAttachmentCleanupInterval,
+    this.abuseProtection = const WampAppAbuseProtectionConfig(),
     required this.argonIterations,
     required this.argonMemoryKiB,
   }) : mcp = mcp ?? WampAppMcpConfig.disabled {
+    abuseProtection.validate();
     _validateRoutePath(websocketPath, 'websocketPath');
     _validateRoutePath(this.mcp.path, 'mcp.path');
     _validateRoutePath(this.mcp.authPath, 'mcp.authPath');
@@ -132,6 +135,7 @@ class WampAppServerConfig {
   final int attachmentMaxBytesPerSender;
   final Duration attachmentStagingTtl;
   final Duration attachmentCleanupInterval;
+  final WampAppAbuseProtectionConfig abuseProtection;
   final int argonIterations;
   final int argonMemoryKiB;
 
@@ -165,6 +169,15 @@ class WampAppServerConfig {
         ? null
         : _map(webrtc['turn_rest'], 'webrtc.turn_rest');
     final mcp = document['mcp'] == null ? null : _map(document['mcp'], 'mcp');
+    final abuseProtection = document['abuse_protection'] == null
+        ? null
+        : _map(document['abuse_protection'], 'abuse_protection');
+    final control = abuseProtection?['control'] == null
+        ? null
+        : _map(abuseProtection?['control'], 'abuse_protection.control');
+    final transfer = abuseProtection?['transfer'] == null
+        ? null
+        : _map(abuseProtection?['transfer'], 'abuse_protection.transfer');
     final host = _string(listen['host'], 'listen.host');
     final port = _integer(listen['port'], 'listen.port', min: 0, max: 65535);
     final websocketPath = _string(document['websocket_path'], 'websocket_path');
@@ -349,6 +362,39 @@ class WampAppServerConfig {
                 max: 24 * 60 * 60,
               ),
             ),
+      abuseProtection: WampAppAbuseProtectionConfig(
+        registration: _rateLimitPolicy(
+          abuseProtection?['registration'],
+          'abuse_protection.registration',
+          WampAppAbuseProtectionConfig.defaultRegistration,
+        ),
+        controlGlobal: _rateLimitPolicy(
+          control?['global'],
+          'abuse_protection.control.global',
+          WampAppAbuseProtectionConfig.defaultControlGlobal,
+        ),
+        controlPerAccount: _rateLimitPolicy(
+          control?['per_account'],
+          'abuse_protection.control.per_account',
+          WampAppAbuseProtectionConfig.defaultControlPerAccount,
+        ),
+        transferGlobal: _rateLimitPolicy(
+          transfer?['global'],
+          'abuse_protection.transfer.global',
+          WampAppAbuseProtectionConfig.defaultTransferGlobal,
+        ),
+        transferPerAccount: _rateLimitPolicy(
+          transfer?['per_account'],
+          'abuse_protection.transfer.per_account',
+          WampAppAbuseProtectionConfig.defaultTransferPerAccount,
+        ),
+        maxTrackedAccounts: _integer(
+          abuseProtection?['max_tracked_accounts'] ?? 4096,
+          'abuse_protection.max_tracked_accounts',
+          min: 1,
+          max: 1000000,
+        ),
+      ),
       argonIterations: _integer(
         argon['iterations'],
         'argon2id13.iterations',
@@ -395,6 +441,37 @@ class WampAppServerConfig {
       throw FormatException('$name must be a boolean.');
     }
     return value;
+  }
+
+  static WampAppRateLimitPolicy _rateLimitPolicy(
+    Object? value,
+    String name,
+    WampAppRateLimitPolicy defaults,
+  ) {
+    if (value == null) return defaults;
+    final policy = _map(value, name);
+    return WampAppRateLimitPolicy(
+      maxRequests: _integer(
+        policy['max_requests'] ?? defaults.maxRequests,
+        '$name.max_requests',
+        min: 1,
+        max: 1000000000,
+      ),
+      window: Duration(
+        seconds: _integer(
+          policy['window_seconds'] ?? defaults.window.inSeconds,
+          '$name.window_seconds',
+          min: 1,
+          max: 86400,
+        ),
+      ),
+      maxConcurrent: _integer(
+        policy['max_concurrent'] ?? defaults.maxConcurrent,
+        '$name.max_concurrent',
+        min: 1,
+        max: 1000000,
+      ),
+    );
   }
 
   static List<String> _urlList(
