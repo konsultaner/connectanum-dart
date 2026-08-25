@@ -1194,7 +1194,9 @@ class WampAppController extends ChangeNotifier {
     if (error case AttachmentTransferException(:final kind)) {
       return switch (kind) {
         AttachmentTransferFailureKind.conflict => OutboundMessageState.conflict,
-        AttachmentTransferFailureKind.rejected => OutboundMessageState.rejected,
+        AttachmentTransferFailureKind.rejected ||
+        AttachmentTransferFailureKind.quotaExceeded =>
+          OutboundMessageState.rejected,
         AttachmentTransferFailureKind.retryable ||
         AttachmentTransferFailureKind.notFound ||
         AttachmentTransferFailureKind.incomplete =>

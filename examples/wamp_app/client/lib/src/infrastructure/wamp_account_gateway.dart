@@ -49,6 +49,7 @@ final class MessageSendException implements Exception {
 enum AttachmentTransferFailureKind {
   retryable,
   rejected,
+  quotaExceeded,
   conflict,
   notFound,
   incomplete,
@@ -65,6 +66,8 @@ final class AttachmentTransferException implements Exception {
         AttachmentTransferFailureKind.notFound,
       WampAppProtocol.errorAttachmentIncomplete =>
         AttachmentTransferFailureKind.incomplete,
+      WampAppProtocol.errorAttachmentQuotaExceeded =>
+        AttachmentTransferFailureKind.quotaExceeded,
       WampAppProtocol.errorInvalidAttachment ||
       WampAppProtocol.errorNotAuthorized ||
       wamp.Error.notAuthorized => AttachmentTransferFailureKind.rejected,
@@ -82,6 +85,8 @@ final class AttachmentTransferException implements Exception {
       'Attachment transfer is temporarily unavailable.',
     AttachmentTransferFailureKind.rejected =>
       'The server rejected this attachment transfer.',
+    AttachmentTransferFailureKind.quotaExceeded =>
+      'The attachment storage quota is exhausted.',
     AttachmentTransferFailureKind.conflict =>
       'The attachment identifier conflicts with server state.',
     AttachmentTransferFailureKind.notFound =>

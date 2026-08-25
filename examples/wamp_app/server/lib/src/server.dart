@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:connectanum_client/connectanum.dart' hide Error;
@@ -9,6 +10,7 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'account_credential_provider.dart';
 import 'account_store.dart';
 import 'attachment_service.dart';
+import 'attachment_retention.dart';
 import 'attachment_store.dart';
 import 'device_service.dart';
 import 'mailbox_store.dart';
@@ -24,16 +26,19 @@ class WampAppServer {
     required RouterBinding binding,
     required List<Client> serviceClients,
     required List<Session> serviceSessions,
+    required AttachmentRetentionController attachmentRetention,
   }) : _runtime = runtime,
        _binding = binding,
        _serviceClients = List<Client>.unmodifiable(serviceClients),
-       _serviceSessions = List<Session>.unmodifiable(serviceSessions);
+       _serviceSessions = List<Session>.unmodifiable(serviceSessions),
+       _attachmentRetention = attachmentRetention;
 
   final Uri websocketUri;
   final NativeTransportRuntime _runtime;
   final RouterBinding _binding;
   final List<Client> _serviceClients;
   final List<Session> _serviceSessions;
+  final AttachmentRetentionController _attachmentRetention;
   bool _closed = false;
 
   static Future<WampAppServer> start(WampAppServerConfig config) async {
@@ -43,6 +48,9 @@ class WampAppServer {
     await mailbox.initialize();
     final attachments = AttachmentStore(
       config.attachmentStorePath ?? '${config.messageStorePath}.attachments',
+      maxTotalBytes: config.attachmentMaxTotalBytes,
+      maxBytesPerSender: config.attachmentMaxBytesPerSender,
+      stagingTtl: config.attachmentStagingTtl,
     );
     await attachments.initialize();
     final random = Random.secure();
@@ -76,6 +84,7 @@ class WampAppServer {
     );
     final serviceClients = <Client>[];
     final serviceSessions = <Session>[];
+    AttachmentRetentionController? attachmentRetention;
     try {
       final listener = binding.listeners.single;
       final connectHost = switch (config.host) {
@@ -149,14 +158,29 @@ class WampAppServer {
           attachments: attachments,
         ),
       );
+      attachmentRetention = AttachmentRetentionController(
+        store: attachments,
+        mailbox: mailbox,
+        interval: config.attachmentCleanupInterval,
+        onBackgroundError: (_, _) {
+          stderr.writeln('WampApp attachment retention cleanup failed.');
+        },
+      );
+      await attachmentRetention.start();
       return WampAppServer._(
         websocketUri: websocketUri,
         runtime: runtime,
         binding: binding,
         serviceClients: serviceClients,
         serviceSessions: serviceSessions,
+        attachmentRetention: attachmentRetention,
       );
     } catch (_) {
+      try {
+        await attachmentRetention?.close();
+      } catch (_) {
+        // Preserve the startup failure while releasing remaining resources.
+      }
       for (final session in serviceSessions.reversed) {
         try {
           await session.close(timeout: Duration.zero);
@@ -372,6 +396,11 @@ class WampAppServer {
     if (_closed) return;
     _closed = true;
     Object? failure;
+    try {
+      await _attachmentRetention.close();
+    } catch (error) {
+      failure ??= error;
+    }
     for (final session in _serviceSessions.reversed) {
       try {
         await session.close(timeout: Duration.zero);
@@ -752,6 +781,10 @@ void _respondWithAttachmentError(Invocation invocation, Object error) {
     AttachmentIncomplete() => (
       WampAppProtocol.errorAttachmentIncomplete,
       'The encrypted attachment upload is incomplete.',
+    ),
+    AttachmentQuotaExceeded() => (
+      WampAppProtocol.errorAttachmentQuotaExceeded,
+      'The encrypted attachment storage quota is exhausted.',
     ),
     _CallerNotAuthorized() || StateError() => (
       WampAppProtocol.errorNotAuthorized,

@@ -7,6 +7,14 @@ account_store: data/accounts.json
 message_store: data/messages.json
 attachment_store: data/attachments
 
+attachment_limits:
+  # Ciphertext bytes stored across all accounts and per authenticated sender.
+  max_total_bytes: 10737418240
+  max_bytes_per_sender: 2147483648
+  # Uncommitted uploads expire after 24 hours; cleanup runs every 15 minutes.
+  staging_ttl_seconds: 86400
+  cleanup_interval_seconds: 900
+
 argon2id13:
   iterations: 3
   memory_kib: 65536

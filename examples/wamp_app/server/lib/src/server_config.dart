@@ -4,6 +4,11 @@ import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 class WampAppServerConfig {
+  static const defaultAttachmentMaxTotalBytes = 10 * 1024 * 1024 * 1024;
+  static const defaultAttachmentMaxBytesPerSender = 2 * 1024 * 1024 * 1024;
+  static const defaultAttachmentStagingTtl = Duration(hours: 24);
+  static const defaultAttachmentCleanupInterval = Duration(minutes: 15);
+
   const WampAppServerConfig({
     required this.host,
     required this.port,
@@ -11,6 +16,10 @@ class WampAppServerConfig {
     required this.accountStorePath,
     required this.messageStorePath,
     this.attachmentStorePath,
+    this.attachmentMaxTotalBytes = defaultAttachmentMaxTotalBytes,
+    this.attachmentMaxBytesPerSender = defaultAttachmentMaxBytesPerSender,
+    this.attachmentStagingTtl = defaultAttachmentStagingTtl,
+    this.attachmentCleanupInterval = defaultAttachmentCleanupInterval,
     required this.argonIterations,
     required this.argonMemoryKiB,
   });
@@ -21,6 +30,10 @@ class WampAppServerConfig {
   final String accountStorePath;
   final String messageStorePath;
   final String? attachmentStorePath;
+  final int attachmentMaxTotalBytes;
+  final int attachmentMaxBytesPerSender;
+  final Duration attachmentStagingTtl;
+  final Duration attachmentCleanupInterval;
   final int argonIterations;
   final int argonMemoryKiB;
 
@@ -32,6 +45,9 @@ class WampAppServerConfig {
     }
     final listen = _map(document['listen'], 'listen');
     final argon = _map(document['argon2id13'], 'argon2id13');
+    final attachmentLimits = document['attachment_limits'] == null
+        ? null
+        : _map(document['attachment_limits'], 'attachment_limits');
     final host = _string(listen['host'], 'listen.host');
     final port = _integer(listen['port'], 'listen.port', min: 0, max: 65535);
     final websocketPath = _string(document['websocket_path'], 'websocket_path');
@@ -56,6 +72,28 @@ class WampAppServerConfig {
     final attachmentStore = p.isAbsolute(configuredAttachments)
         ? configuredAttachments
         : p.normalize(p.join(base, configuredAttachments));
+    final attachmentMaxTotalBytes = attachmentLimits == null
+        ? defaultAttachmentMaxTotalBytes
+        : _integer(
+            attachmentLimits['max_total_bytes'],
+            'attachment_limits.max_total_bytes',
+            min: 1,
+            max: 1 << 50,
+          );
+    final attachmentMaxBytesPerSender = attachmentLimits == null
+        ? defaultAttachmentMaxBytesPerSender
+        : _integer(
+            attachmentLimits['max_bytes_per_sender'],
+            'attachment_limits.max_bytes_per_sender',
+            min: 1,
+            max: 1 << 50,
+          );
+    if (attachmentMaxBytesPerSender > attachmentMaxTotalBytes) {
+      throw const FormatException(
+        'attachment_limits.max_bytes_per_sender must not exceed '
+        'max_total_bytes.',
+      );
+    }
     return WampAppServerConfig(
       host: host,
       port: port,
@@ -63,6 +101,28 @@ class WampAppServerConfig {
       accountStorePath: accountStore,
       messageStorePath: messageStore,
       attachmentStorePath: attachmentStore,
+      attachmentMaxTotalBytes: attachmentMaxTotalBytes,
+      attachmentMaxBytesPerSender: attachmentMaxBytesPerSender,
+      attachmentStagingTtl: attachmentLimits == null
+          ? defaultAttachmentStagingTtl
+          : Duration(
+              seconds: _integer(
+                attachmentLimits['staging_ttl_seconds'],
+                'attachment_limits.staging_ttl_seconds',
+                min: 1,
+                max: 30 * 24 * 60 * 60,
+              ),
+            ),
+      attachmentCleanupInterval: attachmentLimits == null
+          ? defaultAttachmentCleanupInterval
+          : Duration(
+              seconds: _integer(
+                attachmentLimits['cleanup_interval_seconds'],
+                'attachment_limits.cleanup_interval_seconds',
+                min: 1,
+                max: 24 * 60 * 60,
+              ),
+            ),
       argonIterations: _integer(
         argon['iterations'],
         'argon2id13.iterations',

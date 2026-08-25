@@ -14,7 +14,9 @@ discard state. The milestone 4 attachment foundation now provides bounded
 chunked E2EE, resumable upload/download on the same authenticated WAMP session,
 native-file and IndexedDB ciphertext caches, and file/image/GIF picker,
 preview, and save UX. Voice recording, sticker/emoji selection, attachment
-storage quota/retention, and native/Web Worker crypto acceleration remain.
+native/Web Worker crypto acceleration remain. Server attachment storage is now
+bounded by configurable global and per-sender ciphertext quotas, reconciled on
+startup, and pruned by staged TTL without racing mailbox commits.
 The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
 WampApp lives under `examples/wamp_app` as standalone client, server, and shared
@@ -155,8 +157,23 @@ IndexedDB test, and repository `bin/verify` passes on 2026-08-25. Five measured
 64 MiB iterations establish a macOS baseline of
 0.159/0.139 Gbit/s memory-cache encrypt/decrypt and 0.154/0.122 Gbit/s durable
 disk encrypt/decrypt. The cache delta is small, so native and Web Worker crypto
-acceleration, plus server quota/retention, remain production blockers for rich
-media rather than being hidden behind optimistic benchmark claims.
+acceleration remains a production blocker for rich media rather than being
+hidden behind optimistic benchmark claims. Server quota/retention is complete:
+the YAML config sets global and per-sender ciphertext caps, staged TTL, and
+cleanup cadence; manifest v2 timestamps migrate from v1 file times; startup
+rebuilds exact usage and removes orphan bytes; periodic cleanup retains only
+unexpired mailbox references or fresh resumable staging; and one mutation lock
+spans completeness verification plus mailbox append so either commit wins and
+prune retains it, or prune wins and send fails closed. Same-length corruption
+is re-hashed before commit, quota errors have a redacted typed WAMP URI, and
+shutdown waits for active cleanup. `bin/test-wamp-app` passes with 28 shared, 47
+server, and 50 Flutter tests plus a release web build, and repository
+`bin/verify` passes on 2026-08-25. Exact-head
+CI run `32800458584` passed Fast Checks, WampApp Consumer, Full Verify, and Dart
+VM Coverage for attachment commit `304edc8f`. The feature-head cleanliness and
+hosted-log audit passed with no skipped, missing, unexpected, warning,
+deprecation, reset, or connection-noise findings; the separate protected
+`master` strict audit also passed.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

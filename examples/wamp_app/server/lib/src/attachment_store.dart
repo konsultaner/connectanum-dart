@@ -42,111 +42,263 @@ final class AttachmentUnavailable implements Exception {
   final String attachmentId;
 }
 
+final class AttachmentQuotaExceeded implements Exception {
+  const AttachmentQuotaExceeded();
+}
+
+final class AttachmentPruneResult {
+  const AttachmentPruneResult({
+    required this.removedAttachments,
+    required this.removedBytes,
+  });
+
+  final int removedAttachments;
+  final int removedBytes;
+}
+
 /// Stores only opaque attachment ciphertext and routing-safe identifiers.
 final class AttachmentStore {
-  AttachmentStore(String path) : directory = Directory(path);
+  AttachmentStore(
+    String path, {
+    this.maxTotalBytes = 10 * 1024 * 1024 * 1024,
+    this.maxBytesPerSender = 2 * 1024 * 1024 * 1024,
+    this.stagingTtl = const Duration(hours: 24),
+    DateTime Function()? clock,
+  }) : directory = Directory(path),
+       _clock = clock ?? DateTime.now {
+    if (maxTotalBytes <= 0 ||
+        maxBytesPerSender <= 0 ||
+        maxBytesPerSender > maxTotalBytes ||
+        stagingTtl <= Duration.zero) {
+      throw ArgumentError('Attachment storage limits are invalid.');
+    }
+  }
 
   final Directory directory;
+  final int maxTotalBytes;
+  final int maxBytesPerSender;
+  final Duration stagingTtl;
+  final DateTime Function() _clock;
   final Map<String, Future<void>> _writeTails = {};
+  final Map<String, _AttachmentRecord> _records = {};
+  final Map<String, int> _senderBytes = {};
   final Random _random = Random.secure();
+  var _totalBytes = 0;
+  var _initialized = false;
 
-  Future<void> initialize() async {
+  int get totalBytes => _totalBytes;
+
+  int bytesForSender(String senderUsername) =>
+      _senderBytes[AccountRegistration.normalizeUsername(senderUsername)] ?? 0;
+
+  Future<void> initialize() => _serializeMutation(() async {
+    _initialized = false;
+    _records.clear();
+    _senderBytes.clear();
+    _totalBytes = 0;
     await directory.create(recursive: true);
-    await for (final entity in directory.list(recursive: true)) {
-      if (entity is File && p.basename(entity.path).contains('.tmp-')) {
-        try {
-          await entity.delete();
-        } on FileSystemException {
-          // A concurrent process may already have removed a stale temp file.
+    await _reconcileDirectoryTree();
+    _initialized = true;
+  });
+
+  Future<void> _reconcileDirectoryTree() async {
+    await for (final senderEntity in directory.list(followLinks: false)) {
+      if (senderEntity is! Directory) {
+        await _deleteEntity(senderEntity);
+        continue;
+      }
+      await for (final messageEntity in senderEntity.list(followLinks: false)) {
+        if (messageEntity is! Directory) {
+          await _deleteEntity(messageEntity);
+          continue;
         }
+        await for (final attachmentEntity in messageEntity.list(
+          followLinks: false,
+        )) {
+          if (attachmentEntity is! Directory) {
+            await _deleteEntity(attachmentEntity);
+            continue;
+          }
+          await _reconcileAttachmentDirectory(
+            senderEntity,
+            messageEntity,
+            attachmentEntity,
+          );
+        }
+        await _deleteIfEmpty(messageEntity);
+      }
+      await _deleteIfEmpty(senderEntity);
+    }
+  }
+
+  Future<void> _reconcileAttachmentDirectory(
+    Directory senderDirectory,
+    Directory messageDirectory,
+    Directory attachmentDirectory,
+  ) async {
+    final manifestFile = File(
+      p.join(attachmentDirectory.path, 'manifest.json'),
+    );
+    final manifest = await _readManifest(manifestFile);
+    if (manifest == null) {
+      await attachmentDirectory.delete(recursive: true);
+      return;
+    }
+    if (p.basename(senderDirectory.path) != _segment(manifest.senderUsername) ||
+        p.basename(messageDirectory.path) != _segment(manifest.messageId) ||
+        p.basename(attachmentDirectory.path) !=
+            _segment(manifest.attachmentId)) {
+      throw AttachmentUnavailable(manifest.attachmentId);
+    }
+
+    final expectedFiles = <String>{'manifest.json'};
+    for (final entry in manifest.chunks.entries) {
+      final chunkName = _chunkName(entry.key);
+      expectedFiles.add(chunkName);
+      final chunkFile = File(p.join(attachmentDirectory.path, chunkName));
+      if (!await chunkFile.exists()) {
+        throw AttachmentUnavailable(manifest.attachmentId);
+      }
+      final bytes = await chunkFile.readAsBytes();
+      if (bytes.length != entry.value.bytes ||
+          sha256.convert(bytes).toString() != entry.value.sha256Digest) {
+        throw AttachmentUnavailable(manifest.attachmentId);
       }
     }
+    await for (final entity in attachmentDirectory.list(followLinks: false)) {
+      if (!expectedFiles.contains(p.basename(entity.path))) {
+        await _deleteEntity(entity);
+      }
+    }
+    if (manifest.needsRewrite) {
+      await _writeJsonAtomically(manifestFile, manifest.toJson());
+    }
+    final key = _storageKey(
+      manifest.senderUsername,
+      manifest.messageId,
+      manifest.attachmentId,
+    );
+    if (_records.containsKey(key)) {
+      throw AttachmentUnavailable(manifest.attachmentId);
+    }
+    final record = _AttachmentRecord(
+      directory: attachmentDirectory,
+      manifest: manifest,
+    );
+    _records[key] = record;
+    _addUsage(manifest.senderUsername, manifest.storedBytes);
   }
 
   Future<AttachmentChunkStoreResult> put(EncryptedAttachmentChunk chunk) {
     chunk.validate();
+    _ensureInitialized();
     final key = _storageKey(
       chunk.senderUsername,
       chunk.messageId,
       chunk.attachmentId,
     );
-    return _serialize(key, () async {
-      final bytes = chunk.encryptedBytes;
-      final actualDigest = sha256.convert(bytes).toString();
-      if (actualDigest != chunk.ciphertextSha256.toLowerCase()) {
-        throw const FormatException(
-          'Attachment ciphertext checksum does not match its bytes.',
+    return _serializeMutation(
+      () => _serialize(key, () async {
+        final bytes = chunk.encryptedBytes;
+        final actualDigest = sha256.convert(bytes).toString();
+        if (actualDigest != chunk.ciphertextSha256.toLowerCase()) {
+          throw const FormatException(
+            'Attachment ciphertext checksum does not match its bytes.',
+          );
+        }
+        final attachmentDirectory = _attachmentDirectory(
+          chunk.senderUsername,
+          chunk.messageId,
+          chunk.attachmentId,
         );
-      }
-      final attachmentDirectory = _attachmentDirectory(
-        chunk.senderUsername,
-        chunk.messageId,
-        chunk.attachmentId,
-      );
-      await attachmentDirectory.create(recursive: true);
-      final manifestFile = File(
-        p.join(attachmentDirectory.path, 'manifest.json'),
-      );
-      final manifest =
-          await _readManifest(manifestFile) ??
-          _AttachmentManifest(
-            senderUsername: chunk.senderUsername,
+        final manifestFile = File(
+          p.join(attachmentDirectory.path, 'manifest.json'),
+        );
+        final timestamp = _now();
+        final manifest =
+            await _readManifest(manifestFile) ??
+            _AttachmentManifest(
+              senderUsername: chunk.senderUsername,
+              messageId: chunk.messageId,
+              attachmentId: chunk.attachmentId,
+              chunkCount: chunk.chunkCount,
+              chunks: const {},
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            );
+        if (!manifest.matchesChunk(chunk)) {
+          throw AttachmentConflict(chunk.attachmentId);
+        }
+
+        final existing = manifest.chunks[chunk.chunkIndex];
+        final chunkFile = File(
+          p.join(attachmentDirectory.path, _chunkName(chunk.chunkIndex)),
+        );
+        var duplicate = false;
+        var wroteChunk = false;
+        if (existing != null) {
+          if (existing.sha256Digest != actualDigest ||
+              existing.bytes != bytes.length ||
+              !await chunkFile.exists() ||
+              !_sameBytes(await chunkFile.readAsBytes(), bytes)) {
+            throw AttachmentConflict(chunk.attachmentId);
+          }
+          duplicate = true;
+        } else if (await chunkFile.exists()) {
+          final stored = await chunkFile.readAsBytes();
+          if (!_sameBytes(stored, bytes)) {
+            throw AttachmentConflict(chunk.attachmentId);
+          }
+        } else {
+          _ensureQuota(chunk.senderUsername, bytes.length);
+          await attachmentDirectory.create(recursive: true);
+          await _writeBytesAtomically(chunkFile, bytes);
+          wroteChunk = true;
+        }
+
+        final nextManifest = existing == null
+            ? manifest.withChunk(
+                chunk.chunkIndex,
+                _StoredChunk(bytes: bytes.length, sha256Digest: actualDigest),
+                updatedAt: timestamp,
+              )
+            : manifest;
+        if (existing == null) {
+          if (!wroteChunk) {
+            _ensureQuota(chunk.senderUsername, bytes.length);
+          }
+          try {
+            await attachmentDirectory.create(recursive: true);
+            await _writeJsonAtomically(manifestFile, nextManifest.toJson());
+          } catch (_) {
+            if (wroteChunk && await chunkFile.exists()) {
+              await chunkFile.delete();
+            }
+            rethrow;
+          }
+          _addUsage(chunk.senderUsername, bytes.length);
+        }
+        _records[key] = _AttachmentRecord(
+          directory: attachmentDirectory,
+          manifest: nextManifest,
+        );
+        final status = await _statusForManifest(
+          attachmentDirectory,
+          nextManifest,
+        );
+        return AttachmentChunkStoreResult(
+          receipt: AttachmentChunkReceipt(
             messageId: chunk.messageId,
             attachmentId: chunk.attachmentId,
-            chunkCount: chunk.chunkCount,
-            chunks: const {},
-          );
-      if (!manifest.matchesChunk(chunk)) {
-        throw AttachmentConflict(chunk.attachmentId);
-      }
-
-      final existing = manifest.chunks[chunk.chunkIndex];
-      final chunkFile = File(
-        p.join(attachmentDirectory.path, _chunkName(chunk.chunkIndex)),
-      );
-      var duplicate = false;
-      if (existing != null) {
-        if (existing.sha256Digest != actualDigest ||
-            existing.bytes != bytes.length ||
-            !await chunkFile.exists() ||
-            !_sameBytes(await chunkFile.readAsBytes(), bytes)) {
-          throw AttachmentConflict(chunk.attachmentId);
-        }
-        duplicate = true;
-      } else if (await chunkFile.exists()) {
-        final stored = await chunkFile.readAsBytes();
-        if (!_sameBytes(stored, bytes)) {
-          throw AttachmentConflict(chunk.attachmentId);
-        }
-      } else {
-        await _writeBytesAtomically(chunkFile, bytes);
-      }
-
-      final nextManifest = existing == null
-          ? manifest.withChunk(
-              chunk.chunkIndex,
-              _StoredChunk(bytes: bytes.length, sha256Digest: actualDigest),
-            )
-          : manifest;
-      if (existing == null) {
-        await _writeJsonAtomically(manifestFile, nextManifest.toJson());
-      }
-      final status = await _statusForManifest(
-        attachmentDirectory,
-        nextManifest,
-      );
-      return AttachmentChunkStoreResult(
-        receipt: AttachmentChunkReceipt(
-          messageId: chunk.messageId,
-          attachmentId: chunk.attachmentId,
-          chunkIndex: chunk.chunkIndex,
-          ciphertextSha256: actualDigest,
-          duplicate: duplicate,
-          complete: status.complete,
-        ),
-        status: status,
-      );
-    });
+            chunkIndex: chunk.chunkIndex,
+            ciphertextSha256: actualDigest,
+            duplicate: duplicate,
+            complete: status.complete,
+          ),
+          status: status,
+        );
+      }),
+    );
   }
 
   Future<AttachmentUploadStatus> status({
@@ -155,6 +307,7 @@ final class AttachmentStore {
     required String attachmentId,
     required int chunkCount,
   }) {
+    _ensureInitialized();
     final normalizedSender = AccountRegistration.normalizeUsername(
       senderUsername,
     );
@@ -190,6 +343,22 @@ final class AttachmentStore {
   }
 
   Future<void> requireComplete(EncryptedChatMessage message) async {
+    _ensureInitialized();
+    await _serializeMutation(() => _requireCompleteLocked(message));
+  }
+
+  Future<T> commitMessage<T>(
+    EncryptedChatMessage message,
+    Future<T> Function() commit,
+  ) {
+    _ensureInitialized();
+    return _serializeMutation(() async {
+      await _requireCompleteLocked(message);
+      return commit();
+    });
+  }
+
+  Future<void> _requireCompleteLocked(EncryptedChatMessage message) async {
     for (final attachmentId in message.attachmentIds) {
       final key = _storageKey(
         message.senderUsername,
@@ -215,8 +384,66 @@ final class AttachmentStore {
         }
         final status = await _statusForManifest(attachmentDirectory, manifest);
         if (!status.complete) throw AttachmentIncomplete(attachmentId);
+        await _verifyManifestContents(attachmentDirectory, manifest);
       });
     }
+  }
+
+  Future<AttachmentPruneResult> prune({
+    required Future<Iterable<EncryptedChatMessage>> Function()
+    loadActiveMessages,
+    DateTime? now,
+  }) {
+    _ensureInitialized();
+    return _serializeMutation(() async {
+      final timestamp = (now ?? _clock()).toUtc();
+      final activeKeys = <String>{};
+      for (final message in await loadActiveMessages()) {
+        if (message.isExpiredAt(timestamp)) continue;
+        for (final attachmentId in message.attachmentIds) {
+          activeKeys.add(
+            _storageKey(
+              message.senderUsername,
+              message.messageId,
+              attachmentId,
+            ),
+          );
+        }
+      }
+      final cutoff = timestamp.subtract(stagingTtl);
+      var removedAttachments = 0;
+      var removedBytes = 0;
+      for (final entry in List<MapEntry<String, _AttachmentRecord>>.of(
+        _records.entries,
+      )) {
+        if (activeKeys.contains(entry.key) ||
+            entry.value.manifest.updatedAt.isAfter(cutoff)) {
+          continue;
+        }
+        await _serialize(entry.key, () async {
+          final record = _records[entry.key];
+          if (record == null || activeKeys.contains(entry.key)) return;
+          final manifestFile = File(
+            p.join(record.directory.path, 'manifest.json'),
+          );
+          final manifest = await _readManifest(manifestFile);
+          if (manifest != null && manifest.updatedAt.isAfter(cutoff)) return;
+          if (await record.directory.exists()) {
+            await record.directory.delete(recursive: true);
+          }
+          _records.remove(entry.key);
+          final bytes = manifest?.storedBytes ?? record.manifest.storedBytes;
+          _removeUsage(record.manifest.senderUsername, bytes);
+          removedAttachments += 1;
+          removedBytes += bytes;
+          await _deleteEmptyParents(record.directory);
+        });
+      }
+      return AttachmentPruneResult(
+        removedAttachments: removedAttachments,
+        removedBytes: removedBytes,
+      );
+    });
   }
 
   Future<EncryptedAttachmentChunk> readChunk({
@@ -225,6 +452,7 @@ final class AttachmentStore {
     required String attachmentId,
     required int chunkIndex,
   }) {
+    _ensureInitialized();
     final normalizedSender = AccountRegistration.normalizeUsername(
       senderUsername,
     );
@@ -298,12 +526,34 @@ final class AttachmentStore {
     );
   }
 
+  Future<void> _verifyManifestContents(
+    Directory attachmentDirectory,
+    _AttachmentManifest manifest,
+  ) async {
+    for (final entry in manifest.chunks.entries) {
+      final file = File(
+        p.join(attachmentDirectory.path, _chunkName(entry.key)),
+      );
+      if (!await file.exists()) {
+        throw AttachmentUnavailable(manifest.attachmentId);
+      }
+      final bytes = await file.readAsBytes();
+      if (bytes.length != entry.value.bytes ||
+          sha256.convert(bytes).toString() != entry.value.sha256Digest) {
+        throw AttachmentUnavailable(manifest.attachmentId);
+      }
+    }
+  }
+
   Future<_AttachmentManifest?> _readManifest(File file) async {
     if (!await file.exists()) return null;
     try {
       final decoded = jsonDecode(await file.readAsString());
       if (decoded is! Map) throw const FormatException();
-      return _AttachmentManifest.fromJson(Map<String, dynamic>.from(decoded));
+      return _AttachmentManifest.fromJson(
+        Map<String, dynamic>.from(decoded),
+        legacyTimestamp: (await file.lastModified()).toUtc(),
+      );
     } on FormatException {
       throw AttachmentUnavailable(p.basename(file.parent.path));
     }
@@ -333,6 +583,57 @@ final class AttachmentStore {
 
   String _chunkName(int index) =>
       'chunk-${index.toString().padLeft(3, '0')}.bin';
+
+  DateTime _now() => _clock().toUtc();
+
+  void _ensureInitialized() {
+    if (!_initialized) {
+      throw StateError('AttachmentStore.initialize must complete first.');
+    }
+  }
+
+  void _ensureQuota(String senderUsername, int additionalBytes) {
+    if (_totalBytes + additionalBytes > maxTotalBytes ||
+        (_senderBytes[senderUsername] ?? 0) + additionalBytes >
+            maxBytesPerSender) {
+      throw const AttachmentQuotaExceeded();
+    }
+  }
+
+  void _addUsage(String senderUsername, int bytes) {
+    _totalBytes += bytes;
+    _senderBytes[senderUsername] = (_senderBytes[senderUsername] ?? 0) + bytes;
+  }
+
+  void _removeUsage(String senderUsername, int bytes) {
+    _totalBytes -= bytes;
+    final remaining = (_senderBytes[senderUsername] ?? bytes) - bytes;
+    if (remaining <= 0) {
+      _senderBytes.remove(senderUsername);
+    } else {
+      _senderBytes[senderUsername] = remaining;
+    }
+  }
+
+  Future<void> _deleteEmptyParents(Directory attachmentDirectory) async {
+    var parent = attachmentDirectory.parent;
+    final root = p.normalize(directory.absolute.path);
+    while (p.normalize(parent.absolute.path) != root) {
+      if (!await parent.exists() || !await parent.list().isEmpty) return;
+      final next = parent.parent;
+      await parent.delete();
+      parent = next;
+    }
+  }
+
+  Future<void> _deleteIfEmpty(Directory value) async {
+    if (await value.exists() && await value.list().isEmpty) {
+      await value.delete();
+    }
+  }
+
+  Future<void> _deleteEntity(FileSystemEntity entity) =>
+      entity.delete(recursive: entity is Directory);
 
   Future<void> _writeBytesAtomically(File file, Uint8List bytes) async {
     final temporary = File('${file.path}.tmp-${_random.nextInt(1 << 32)}');
@@ -376,24 +677,45 @@ final class AttachmentStore {
     _writeTails[key] = tail;
     return completer.future;
   }
+
+  Future<T> _serializeMutation<T>(Future<T> Function() action) =>
+      _serialize('\u0000attachment-store-mutation', action);
+}
+
+final class _AttachmentRecord {
+  const _AttachmentRecord({required this.directory, required this.manifest});
+
+  final Directory directory;
+  final _AttachmentManifest manifest;
 }
 
 final class _AttachmentManifest {
+  static const version = 2;
+
   const _AttachmentManifest({
     required this.senderUsername,
     required this.messageId,
     required this.attachmentId,
     required this.chunkCount,
     required this.chunks,
+    required this.createdAt,
+    required this.updatedAt,
+    this.sourceVersion = version,
   });
-
-  static const version = 1;
 
   final String senderUsername;
   final String messageId;
   final String attachmentId;
   final int chunkCount;
   final Map<int, _StoredChunk> chunks;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final int sourceVersion;
+
+  bool get needsRewrite => sourceVersion != version;
+
+  int get storedBytes =>
+      chunks.values.fold(0, (sum, chunk) => sum + chunk.bytes);
 
   bool matchesChunk(EncryptedAttachmentChunk chunk) => matches(
     senderUsername: chunk.senderUsername,
@@ -424,14 +746,19 @@ final class _AttachmentManifest {
       this.messageId == messageId &&
       this.attachmentId == attachmentId;
 
-  _AttachmentManifest withChunk(int index, _StoredChunk chunk) =>
-      _AttachmentManifest(
-        senderUsername: senderUsername,
-        messageId: messageId,
-        attachmentId: attachmentId,
-        chunkCount: chunkCount,
-        chunks: Map<int, _StoredChunk>.unmodifiable({...chunks, index: chunk}),
-      );
+  _AttachmentManifest withChunk(
+    int index,
+    _StoredChunk chunk, {
+    required DateTime updatedAt,
+  }) => _AttachmentManifest(
+    senderUsername: senderUsername,
+    messageId: messageId,
+    attachmentId: attachmentId,
+    chunkCount: chunkCount,
+    chunks: Map<int, _StoredChunk>.unmodifiable({...chunks, index: chunk}),
+    createdAt: createdAt,
+    updatedAt: updatedAt.toUtc(),
+  );
 
   Map<String, dynamic> toJson() => {
     'version': version,
@@ -439,13 +766,20 @@ final class _AttachmentManifest {
     'message_id': messageId,
     'attachment_id': attachmentId,
     'chunk_count': chunkCount,
+    'created_at': createdAt.toUtc().toIso8601String(),
+    'updated_at': updatedAt.toUtc().toIso8601String(),
     'chunks': {
       for (final entry in chunks.entries) '${entry.key}': entry.value.toJson(),
     },
   };
 
-  factory _AttachmentManifest.fromJson(Map<String, dynamic> value) {
-    if (value['version'] != version || value['chunks'] is! Map) {
+  factory _AttachmentManifest.fromJson(
+    Map<String, dynamic> value, {
+    required DateTime legacyTimestamp,
+  }) {
+    final sourceVersion = value['version'];
+    if ((sourceVersion != 1 && sourceVersion != version) ||
+        value['chunks'] is! Map) {
       throw const FormatException('Attachment manifest is invalid.');
     }
     final senderUsername = value['sender_username'];
@@ -459,6 +793,17 @@ final class _AttachmentManifest {
       throw const FormatException('Attachment manifest fields are invalid.');
     }
     _validateLookup(senderUsername, messageId, attachmentId, chunkCount);
+    final createdAt = sourceVersion == 1
+        ? legacyTimestamp.toUtc()
+        : _manifestTimestamp(value['created_at']);
+    final updatedAt = sourceVersion == 1
+        ? legacyTimestamp.toUtc()
+        : _manifestTimestamp(value['updated_at']);
+    if (updatedAt.isBefore(createdAt)) {
+      throw const FormatException(
+        'Attachment manifest timestamps are invalid.',
+      );
+    }
     final chunks = <int, _StoredChunk>{};
     for (final entry in (value['chunks'] as Map).entries) {
       final index = int.tryParse('${entry.key}');
@@ -479,8 +824,22 @@ final class _AttachmentManifest {
       attachmentId: attachmentId,
       chunkCount: chunkCount,
       chunks: Map<int, _StoredChunk>.unmodifiable(chunks),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      sourceVersion: sourceVersion as int,
     );
   }
+}
+
+DateTime _manifestTimestamp(Object? value) {
+  if (value is! String) {
+    throw const FormatException('Attachment manifest timestamp is invalid.');
+  }
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) {
+    throw const FormatException('Attachment manifest timestamp is invalid.');
+  }
+  return parsed.toUtc();
 }
 
 final class _StoredChunk {

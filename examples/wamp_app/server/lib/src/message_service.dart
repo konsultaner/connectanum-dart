@@ -103,7 +103,16 @@ class MessageService {
       if (attachmentStore == null) {
         throw const AttachmentIncomplete('attachment-storage-unavailable');
       }
-      await attachmentStore.requireComplete(message);
+      final result = await attachmentStore.commitMessage(
+        message,
+        () => mailbox.append(message, now: timestamp),
+      );
+      return MessageSendReceipt(
+        messageId: message.messageId,
+        cursor: result.message.cursor,
+        acceptedAt: result.message.acceptedAt,
+        duplicate: result.duplicate,
+      );
     }
     final result = await mailbox.append(message, now: timestamp);
     return MessageSendReceipt(

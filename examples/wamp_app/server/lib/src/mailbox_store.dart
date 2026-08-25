@@ -149,6 +149,22 @@ class MailboxStore {
     return MailboxBatch(nextCursor: nextCursor, messages: messages);
   }
 
+  Future<List<EncryptedChatMessage>> activeAttachmentMessages({
+    DateTime? now,
+  }) => _serializeWrite(() async {
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    final document = await _readDocument();
+    return List<EncryptedChatMessage>.unmodifiable(
+      document.messages
+          .map((entry) => entry.message)
+          .where(
+            (message) =>
+                message.attachmentIds.isNotEmpty &&
+                !message.isExpiredAt(timestamp),
+          ),
+    );
+  });
+
   Future<MailboxMessage?> findVisibleMessage(
     String username,
     String messageId, {

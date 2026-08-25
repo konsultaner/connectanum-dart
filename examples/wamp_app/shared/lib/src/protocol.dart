@@ -40,6 +40,8 @@ abstract final class WampAppProtocol {
       'com.wampapp.error.attachment_not_found';
   static const errorAttachmentIncomplete =
       'com.wampapp.error.attachment_incomplete';
+  static const errorAttachmentQuotaExceeded =
+      'com.wampapp.error.attachment_quota_exceeded';
   static const errorAttachmentUnavailable =
       'com.wampapp.error.attachment_unavailable';
   static const errorNotAuthorized = 'com.wampapp.error.not_authorized';

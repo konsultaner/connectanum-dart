@@ -22,6 +22,10 @@ void main() {
           websocketPath: '/ws',
           accountStorePath: accountFile.path,
           messageStorePath: '${directory.path}/messages.json',
+          attachmentMaxTotalBytes:
+              WampAppAttachmentLimits.secretBoxOverheadBytes,
+          attachmentMaxBytesPerSender:
+              WampAppAttachmentLimits.secretBoxOverheadBytes,
           argonIterations: 2,
           argonMemoryKiB: 8192,
         ),
@@ -165,6 +169,28 @@ void main() {
       )).argumentsKeywords,
     );
     expect(duplicateAttachmentReceipt.duplicate, isTrue);
+    final quotaChunk = EncryptedAttachmentChunk(
+      senderUsername: 'alice',
+      messageId: _encode(List<int>.filled(16, 34)),
+      attachmentId: _encode(List<int>.filled(16, 35)),
+      chunkIndex: 0,
+      chunkCount: 1,
+      ciphertextSha256: sha256.convert(attachmentBytes).toString(),
+      encryptedBytes: attachmentBytes,
+    );
+    await expectLater(
+      appSession.callSingle(
+        WampAppProtocol.attachmentChunkPut,
+        argumentsKeywords: quotaChunk.toWampKeywords(),
+      ),
+      throwsA(
+        isA<Error>().having(
+          (error) => error.error,
+          'error URI',
+          WampAppProtocol.errorAttachmentQuotaExceeded,
+        ),
+      ),
+    );
     expect(
       AttachmentUploadStatus.fromWampKeywords(
         (await appSession.callSingle(

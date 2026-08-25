@@ -53,6 +53,10 @@ void main() {
       AttachmentTransferFailureKind.incomplete,
     );
     expect(
+      classified(WampAppProtocol.errorAttachmentQuotaExceeded).kind,
+      AttachmentTransferFailureKind.quotaExceeded,
+    );
+    expect(
       classified(WampAppProtocol.errorInvalidAttachment).kind,
       AttachmentTransferFailureKind.rejected,
     );
