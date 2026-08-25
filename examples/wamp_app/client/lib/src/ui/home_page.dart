@@ -1,13 +1,14 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import '../application/wamp_app_controller.dart';
 import '../domain/local_chat_message.dart';
+import '../domain/local_message_query.dart';
 import '../domain/outbound_chat_message.dart';
 import '../infrastructure/attachment_cipher.dart';
 import '../infrastructure/voice_note_playback.dart';
@@ -37,9 +38,13 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _recipientController = TextEditingController();
   final _messageController = TextEditingController();
+  final _searchController = TextEditingController();
   bool _oneTime = false;
   Duration? _expiresAfter;
   String? _selectedGroupId;
+  String _searchQuery = '';
+  LocalMessageReadFilter _readFilter = LocalMessageReadFilter.all;
+  Timer? _searchDebounce;
   List<_SelectedAttachment> _attachments = const [];
   VoiceNoteCapture? _voiceNoteCapture;
   VoiceNoteCaptureSession? _voiceRecording;
@@ -54,6 +59,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _voiceRecordingTicker?.cancel();
     for (final attachment in _attachments) {
       attachment.dispose();
@@ -62,6 +68,7 @@ class _HomePageState extends State<HomePage> {
     recorder?.dispose().ignore();
     _recipientController.dispose();
     _messageController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -520,6 +527,32 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 150), () {
+      if (mounted) setState(() => _searchQuery = value);
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+  }
+
+  Future<void> _selectSearchResult(LocalChatMessage message) async {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _readFilter = LocalMessageReadFilter.all;
+      _selectedGroupId = message.isGroup ? message.conversationId : null;
+      if (!message.isGroup) _recipientController.text = message.peerUsername;
+      if (message.isGroup) _oneTime = false;
+    });
+    await _openMessage(message);
+  }
+
   Future<void> _editProfile() async {
     final update = await showDialog<AccountProfileUpdate>(
       context: context,
@@ -596,6 +629,7 @@ class _HomePageState extends State<HomePage> {
               connection: widget.connection,
               localDevice: widget.controller.localDevice!,
               safetyNumber: widget.controller.safetyNumber!,
+              compact: !wide,
               profileBusy: widget.controller.profileBusy,
               onEditProfile: _editProfile,
               onSignOut: widget.controller.signOut,
@@ -604,6 +638,14 @@ class _HomePageState extends State<HomePage> {
               controller: widget.controller,
               recipientController: _recipientController,
               messageController: _messageController,
+              searchController: _searchController,
+              searchQuery: _searchQuery,
+              readFilter: _readFilter,
+              onSearchChanged: _onSearchChanged,
+              onClearSearch: _clearSearch,
+              onReadFilterChanged: (value) =>
+                  setState(() => _readFilter = value),
+              onSearchResultSelected: _selectSearchResult,
               onSend: _send,
               onViewProfile: _showPeerProfile,
               oneTime: _oneTime,
@@ -861,6 +903,7 @@ class _AccountPanel extends StatelessWidget {
     required this.connection,
     required this.localDevice,
     required this.safetyNumber,
+    required this.compact,
     required this.profileBusy,
     required this.onEditProfile,
     required this.onSignOut,
@@ -869,6 +912,7 @@ class _AccountPanel extends StatelessWidget {
   final AccountConnection connection;
   final DeviceRecord localDevice;
   final String safetyNumber;
+  final bool compact;
   final bool profileBusy;
   final VoidCallback onEditProfile;
   final VoidCallback onSignOut;
@@ -878,7 +922,7 @@ class _AccountPanel extends StatelessWidget {
     final profile = connection.profile;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(22),
+        padding: EdgeInsets.all(compact ? 14 : 22),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -895,7 +939,7 @@ class _AccountPanel extends StatelessWidget {
                 _OnlineBadge(),
               ],
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: compact ? 12 : 24),
             Row(
               children: [
                 _ProfileAvatar(profile: profile, radius: 25),
@@ -930,66 +974,69 @@ class _AccountPanel extends StatelessWidget {
                         )
                       : const Icon(Icons.edit_outlined),
                 ),
+                if (compact)
+                  IconButton(
+                    key: const Key('account-sign-out-compact'),
+                    tooltip: 'Sign out',
+                    onPressed: onSignOut,
+                    icon: const Icon(Icons.logout),
+                  ),
               ],
             ),
-            const SizedBox(height: 22),
-            TextField(
-              enabled: false,
-              decoration: const InputDecoration(
-                hintText: 'Search conversations',
-                prefixIcon: Icon(Icons.search),
-              ),
-            ),
-            const SizedBox(height: 16),
+            SizedBox(height: compact ? 10 : 16),
             Text(
-              connection.endpoint.websocketUri.authority,
+              compact
+                  ? '${localDevice.enrollment.deviceName} · ${connection.endpoint.websocketUri.authority}'
+                  : connection.endpoint.websocketUri.authority,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12),
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: WampAppTheme.mint.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.verified_user_outlined, size: 18),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Encrypted device vault',
-                          style: TextStyle(fontWeight: FontWeight.w800),
+            if (!compact) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: WampAppTheme.mint.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.verified_user_outlined, size: 18),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Encrypted device vault',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 9),
-                  Text(localDevice.enrollment.deviceName),
-                  const SizedBox(height: 4),
-                  Text(
-                    safetyNumber,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 10,
-                      letterSpacing: 0.3,
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 9),
+                    Text(localDevice.enrollment.deviceName),
+                    const SizedBox(height: 4),
+                    Text(
+                      safetyNumber,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 10,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: onSignOut,
-              icon: const Icon(Icons.logout),
-              label: const Text('Sign out'),
-            ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: onSignOut,
+                icon: const Icon(Icons.logout),
+                label: const Text('Sign out'),
+              ),
+            ],
           ],
         ),
       ),
@@ -1057,6 +1104,13 @@ class _ConversationPanel extends StatelessWidget {
     required this.controller,
     required this.recipientController,
     required this.messageController,
+    required this.searchController,
+    required this.searchQuery,
+    required this.readFilter,
+    required this.onSearchChanged,
+    required this.onClearSearch,
+    required this.onReadFilterChanged,
+    required this.onSearchResultSelected,
     required this.onSend,
     required this.onViewProfile,
     required this.oneTime,
@@ -1083,6 +1137,13 @@ class _ConversationPanel extends StatelessWidget {
   final WampAppController controller;
   final TextEditingController recipientController;
   final TextEditingController messageController;
+  final TextEditingController searchController;
+  final String searchQuery;
+  final LocalMessageReadFilter readFilter;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onClearSearch;
+  final ValueChanged<LocalMessageReadFilter> onReadFilterChanged;
+  final Future<void> Function(LocalChatMessage message) onSearchResultSelected;
   final Future<void> Function() onSend;
   final Future<void> Function() onViewProfile;
   final bool oneTime;
@@ -1115,16 +1176,17 @@ class _ConversationPanel extends StatelessWidget {
         .where((group) => group.conversationId == selectedGroupId)
         .firstOrNull;
     final groupMode = selectedGroupId != null;
-    final visibleMessages = controller.messages
-        .where(
-          (message) => groupMode
-              ? message.conversationId == selectedGroupId && message.isGroup
-              : !message.isGroup,
-        )
-        .toList(growable: false);
+    final query = LocalMessageQuery(
+      text: searchQuery,
+      readFilter: readFilter,
+      selectedGroupId: selectedGroupId,
+    );
+    final globalSearch = query.isGlobalSearch;
+    final visibleMessages = query.select(controller.messages);
+    final compact = MediaQuery.sizeOf(context).width < 760;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(22),
+        padding: EdgeInsets.all(compact ? 14 : 22),
         child: Column(
           children: [
             Row(
@@ -1147,12 +1209,39 @@ class _ConversationPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
+            TextField(
+              key: const Key('message-global-search'),
+              controller: searchController,
+              maxLength: LocalMessageQuery.maxQueryLength,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              buildCounter: (
+                _, {
+                required currentLength,
+                required isFocused,
+                maxLength,
+              }) => null,
+              decoration: InputDecoration(
+                labelText: globalSearch
+                    ? 'Local search · ${visibleMessages.length} result${visibleMessages.length == 1 ? '' : 's'}'
+                    : 'Search local messages · stays on this device',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        key: const Key('message-search-clear'),
+                        tooltip: 'Clear message search',
+                        onPressed: onClearSearch,
+                        icon: const Icon(Icons.close),
+                      ),
+              ),
+              onChanged: onSearchChanged,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+            ),
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
                   ChoiceChip(
                     key: const Key('conversation-direct'),
@@ -1163,7 +1252,8 @@ class _ConversationPanel extends StatelessWidget {
                     avatar: const Icon(Icons.person_outline, size: 18),
                     label: const Text('Direct'),
                   ),
-                  for (final group in controller.groups)
+                  for (final group in controller.groups) ...[
+                    const SizedBox(width: 8),
                     ChoiceChip(
                       key: ValueKey(
                         'conversation-group-${group.conversationId}',
@@ -1175,11 +1265,42 @@ class _ConversationPanel extends StatelessWidget {
                       avatar: const Icon(Icons.group_outlined, size: 18),
                       label: Text(group.title),
                     ),
+                  ],
+                  const SizedBox(width: 8),
                   ActionChip(
                     key: const Key('conversation-create-group'),
                     onPressed: controller.messageBusy ? null : onCreateGroup,
                     avatar: const Icon(Icons.add, size: 18),
                     label: const Text('New group'),
+                  ),
+                  const SizedBox(width: 16),
+                  FilterChip(
+                    key: const Key('message-filter-all'),
+                    selected: readFilter == LocalMessageReadFilter.all,
+                    onSelected: (_) =>
+                        onReadFilterChanged(LocalMessageReadFilter.all),
+                    label: const Text('All'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilterChip(
+                    key: const Key('message-filter-unread'),
+                    selected: readFilter == LocalMessageReadFilter.unread,
+                    onSelected: (_) =>
+                        onReadFilterChanged(LocalMessageReadFilter.unread),
+                    avatar: const Icon(
+                      Icons.mark_chat_unread_outlined,
+                      size: 18,
+                    ),
+                    label: const Text('Unread received'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilterChip(
+                    key: const Key('message-filter-read'),
+                    selected: readFilter == LocalMessageReadFilter.read,
+                    onSelected: (_) =>
+                        onReadFilterChanged(LocalMessageReadFilter.read),
+                    avatar: const Icon(Icons.done_all, size: 18),
+                    label: const Text('Read received'),
                   ),
                 ],
               ),
@@ -1224,7 +1345,15 @@ class _ConversationPanel extends StatelessWidget {
             const SizedBox(height: 14),
             Expanded(
               child: visibleMessages.isEmpty
-                  ? const _NoMessages()
+                  ? _NoMessages(
+                      message: globalSearch
+                          ? 'No local messages match this search and filter.'
+                          : switch (readFilter) {
+                              LocalMessageReadFilter.all => 'No messages yet. Choose a registered account and send the first end-to-end encrypted message.',
+                              LocalMessageReadFilter.unread => 'No unread received messages in this conversation.',
+                              LocalMessageReadFilter.read => 'No read received messages in this conversation.',
+                            },
+                    )
                   : ListView.separated(
                       key: const Key('message-history'),
                       reverse: true,
@@ -1238,7 +1367,11 @@ class _ConversationPanel extends StatelessWidget {
                           outbound: controller.outboundMessageFor(
                             message.messageId,
                           ),
-                          onTap: message.outgoing || controller.messageBusy
+                          onTap: controller.messageBusy
+                              ? null
+                              : globalSearch
+                              ? () => onSearchResultSelected(message)
+                              : message.outgoing
                               ? null
                               : () => onOpenMessage(message),
                           onRetry: controller.messageBusy
@@ -1275,54 +1408,55 @@ class _ConversationPanel extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                FilterChip(
-                  key: const Key('message-one-time'),
-                  selected: !groupMode && oneTime,
-                  onSelected:
-                      controller.messageBusy ||
-                          groupMode ||
-                          selectedAttachments.isNotEmpty
-                      ? null
-                      : onOneTimeChanged,
-                  avatar: const Icon(Icons.visibility_off_outlined, size: 18),
-                  label: const Text('View once'),
-                ),
-                PopupMenuButton<Duration>(
-                  key: const Key('message-expiry'),
-                  enabled: !controller.messageBusy,
-                  initialValue: expiresAfter ?? Duration.zero,
-                  onSelected: (value) => onExpiresAfterChanged(
-                    value == Duration.zero ? null : value,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  FilterChip(
+                    key: const Key('message-one-time'),
+                    selected: !groupMode && oneTime,
+                    onSelected:
+                        controller.messageBusy ||
+                            groupMode ||
+                            selectedAttachments.isNotEmpty
+                        ? null
+                        : onOneTimeChanged,
+                    avatar: const Icon(Icons.visibility_off_outlined, size: 18),
+                    label: const Text('View once'),
                   ),
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: Duration.zero,
-                      child: Text('Keep messages'),
+                  const SizedBox(width: 12),
+                  PopupMenuButton<Duration>(
+                    key: const Key('message-expiry'),
+                    enabled: !controller.messageBusy,
+                    initialValue: expiresAfter ?? Duration.zero,
+                    onSelected: (value) => onExpiresAfterChanged(
+                      value == Duration.zero ? null : value,
                     ),
-                    PopupMenuItem(
-                      value: Duration(hours: 1),
-                      child: Text('Delete after 1 hour'),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: Duration.zero,
+                        child: Text('Keep messages'),
+                      ),
+                      PopupMenuItem(
+                        value: Duration(hours: 1),
+                        child: Text('Delete after 1 hour'),
+                      ),
+                      PopupMenuItem(
+                        value: Duration(days: 1),
+                        child: Text('Delete after 1 day'),
+                      ),
+                      PopupMenuItem(
+                        value: Duration(days: 7),
+                        child: Text('Delete after 7 days'),
+                      ),
+                    ],
+                    child: Chip(
+                      avatar: const Icon(Icons.timer_outlined, size: 18),
+                      label: Text(_expiryLabel(expiresAfter)),
                     ),
-                    PopupMenuItem(
-                      value: Duration(days: 1),
-                      child: Text('Delete after 1 day'),
-                    ),
-                    PopupMenuItem(
-                      value: Duration(days: 7),
-                      child: Text('Delete after 7 days'),
-                    ),
-                  ],
-                  child: Chip(
-                    avatar: const Icon(Icons.timer_outlined, size: 18),
-                    label: Text(_expiryLabel(expiresAfter)),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             if (selectedAttachments.isNotEmpty) ...[
@@ -1493,17 +1627,16 @@ class _ConversationPanel extends StatelessWidget {
 }
 
 class _NoMessages extends StatelessWidget {
-  const _NoMessages();
+  const _NoMessages({required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
-        child: Text(
-          'No messages yet. Choose a registered account and send the first end-to-end encrypted message.',
-          textAlign: TextAlign.center,
-        ),
+        padding: const EdgeInsets.all(24),
+        child: Text(message, textAlign: TextAlign.center),
       ),
     );
   }

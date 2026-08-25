@@ -4,9 +4,10 @@ Last updated: 2026-08-25
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example
 with milestone 5 user experience. Authenticated public profiles with editable
-display names, status, and bounded avatars are complete; contacts import,
-global search, read/unread filters, themes, per-chat mute, and platform push
-notifications remain. Milestone 3 durable messaging is complete across
+display names, status, and bounded avatars, plus on-device global message
+search and received-message read/unread filters, are complete; contacts import,
+themes, per-chat mute, and platform push notifications remain. Milestone 3
+durable messaging is complete across
 opaque server mailboxes, reconnect cursors, authenticated push synchronization,
 encrypted one-to-one and immutable group conversations, delivery/read state,
 signed atomic one-time consumption, expiry, and bounded durable retry/conflict
@@ -242,7 +243,10 @@ an explicit visibility disclosure. `bin/test-wamp-app` passes with 36 shared,
 49 server, 76 native Flutter, and 11 real-Chrome tests plus Dart2Wasm and a
 release-web build. All 9 widget tests pass explicitly in Chrome, a macOS debug
 application build passes, and repository-wide `bin/verify` passes on
-2026-08-25. Hosted exact-head evidence is pending for this revision.
+2026-08-25. Exact-head CI run `32825869072` passes WampApp Consumer in 3m26s,
+Fast Checks in 9m18s, Full Verify in 11m20s, and Dart VM Coverage in 12m52s for
+commit `a1af7d4d`. The feature-head cleanliness/log audit and protected-`master`
+policy/workflow/package strict audit pass.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

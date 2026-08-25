@@ -139,6 +139,179 @@ void main() {
     expect(find.text('Testing WampApp'), findsOneWidget);
   });
 
+  testWidgets('searches local history and filters received read state', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final deliveredAt = DateTime.utc(2026, 8, 25, 12, 1);
+    final readAt = DateTime.utc(2026, 8, 25, 12, 2);
+    final messages = [
+      LocalChatMessage(
+        messageId: 'unread-direct',
+        conversationId: 'alice-bob',
+        peerUsername: 'bob',
+        text: 'Launch checklist',
+        sentAt: DateTime.utc(2026, 8, 25, 12),
+        outgoing: false,
+      ),
+      LocalChatMessage(
+        messageId: 'read-group',
+        conversationId: 'launch-crew',
+        peerUsername: 'carol',
+        text: 'Board minutes',
+        sentAt: DateTime.utc(2026, 8, 25, 12, 3),
+        outgoing: false,
+        deliveredAt: deliveredAt,
+        readAt: readAt,
+        groupTitle: 'Launch crew',
+        participantUsernames: const ['alice', 'bob', 'carol'],
+        groupCreatedBy: 'alice',
+        groupCreatedAt: DateTime.utc(2026, 8, 25, 11),
+      ),
+      LocalChatMessage(
+        messageId: 'outgoing-read',
+        conversationId: 'alice-dave',
+        peerUsername: 'dave',
+        text: 'Outbound only',
+        sentAt: DateTime.utc(2026, 8, 25, 12, 4),
+        outgoing: true,
+        deliveredAt: deliveredAt,
+        readAt: readAt,
+      ),
+      LocalChatMessage(
+        messageId: 'hidden-once',
+        conversationId: 'alice-erin',
+        peerUsername: 'erin',
+        text: 'Secret token',
+        sentAt: DateTime.utc(2026, 8, 25, 12, 5),
+        outgoing: false,
+        oneTime: true,
+      ),
+    ];
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(
+        initialMessages: messages,
+        initialGroups: [
+          LocalChatGroup(
+            conversationId: 'launch-crew',
+            title: 'Launch crew',
+            memberUsernames: const ['alice', 'bob', 'carol'],
+            createdBy: 'alice',
+            createdAt: DateTime.utc(2026, 8, 25, 11),
+          ),
+        ],
+      ),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+    Finder messageText(String value) => find.descendant(
+      of: find.byKey(const Key('message-history')),
+      matching: find.text(value),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(messageText('Secret token'), findsNothing);
+    expect(find.text('Tap to view once'), findsOneWidget);
+
+    final unreadFilter = find.byKey(const Key('message-filter-unread'));
+    await tester.ensureVisible(unreadFilter);
+    await tester.tap(unreadFilter);
+    await tester.enterText(
+      find.byKey(const Key('message-global-search')),
+      'Launch checklist',
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(messageText('Launch checklist'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('message-global-search')),
+      'Outbound only',
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(messageText('Outbound only'), findsNothing);
+    expect(
+      find.text('No local messages match this search and filter.'),
+      findsOneWidget,
+    );
+
+    final allFilter = find.byKey(const Key('message-filter-all'));
+    await tester.ensureVisible(allFilter);
+    await tester.tap(allFilter);
+    await tester.enterText(
+      find.byKey(const Key('message-global-search')),
+      'Launch checklist',
+    );
+    await tester.pump(const Duration(milliseconds: 75));
+    await tester.enterText(
+      find.byKey(const Key('message-global-search')),
+      'Outbound only',
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(messageText('Outbound only'), findsOneWidget);
+    expect(messageText('Launch checklist'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('message-global-search')),
+      'LAUNCH BOARD',
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(messageText('Board minutes'), findsOneWidget);
+    expect(messageText('Launch checklist'), findsNothing);
+    expect(find.text('Local search · 1 result'), findsOneWidget);
+
+    await tester.tap(messageText('Board minutes'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('message-global-search')))
+          .controller!
+          .text,
+      isEmpty,
+    );
+    expect(find.byKey(const Key('group-members-summary')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('message-global-search')),
+      'Secret token',
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(messageText('Secret token'), findsNothing);
+    expect(
+      find.text('No local messages match this search and filter.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('message-search-clear')));
+    final directConversation = find.byKey(const Key('conversation-direct'));
+    await tester.ensureVisible(directConversation);
+    await tester.tap(directConversation);
+    final readFilter = find.byKey(const Key('message-filter-read'));
+    await tester.ensureVisible(readFilter);
+    await tester.tap(readFilter);
+    await tester.pumpAndSettle();
+    expect(messageText('Outbound only'), findsNothing);
+    expect(
+      find.text('No read received messages in this conversation.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('renders encrypted attachment metadata without loading bytes', (
     tester,
   ) async {
