@@ -41,15 +41,18 @@ The implemented slices provide:
 - an optional server-side Firebase Cloud Messaging HTTP v1 gateway that sends
   only a data cursor, validates configured providers, retires invalid tokens,
   and bounds credentials and response bodies;
+- optional FlutterFire FCM token acquisition after authenticated device
+  enrollment, serialized token refresh replacement, APNs readiness, web VAPID
+  and service-worker support, plus unregister-before-close lifecycle cleanup;
 - hosted `3.0.0-beta.2` dependencies for both client and server; and
 - end-to-end tests covering registration, device trust, encrypted two-account
   and group delivery, attachment authorization/resume, receipt propagation,
   reconnect deduplication, server-signature verification, and plaintext
   non-persistence.
 
-A sticker/emoji picker, backups, client notification-token acquisition and
-presentation, WebRTC calling, and MCP application tools remain planned and are
-not represented by fake data in the current UI.
+A sticker/emoji picker, backups, OS background notification presentation,
+WebRTC calling, and MCP application tools remain planned and are not represented
+by fake data in the current UI.
 View-once attachments are rejected until attachment consumption and deletion
 can be made atomic.
 

@@ -1502,6 +1502,17 @@ class _ConversationPanel extends StatelessWidget {
                       },
                     ),
             ),
+            if (controller.platformPushError case final error?) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  error,
+                  key: const Key('platform-push-error'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            ],
             if (controller.messageError case final error?) ...[
               const SizedBox(height: 10),
               Align(

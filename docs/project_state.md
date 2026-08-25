@@ -7,8 +7,10 @@ with milestone 5 user experience. Authenticated public profiles with editable
 display names, status, and bounded avatars, plus on-device global message
 search, received-message read/unread filters, encrypted system/light/dark theme
 preferences, per-chat notification mute, and the provider-neutral platform
-push registration/delivery foundation are complete; contacts import, concrete
-APNs/FCM/Web Push adapters, and OS background-notification presentation remain.
+push registration/delivery foundation are complete. Concrete FCM server
+delivery and client token acquisition/refresh now cover Android, APNs-backed
+Apple platforms, and web; contacts import, OS background-notification
+presentation, and credential-backed deployment evidence remain.
 Milestone 3
 durable messaging is complete across
 opaque server mailboxes, reconnect cursors, authenticated push synchronization,
@@ -326,8 +328,32 @@ also proves unsupported-provider rejection and server-owned gateway disposal.
 Chrome tests plus Dart2Wasm and a release-web build; the focused post-review
 gateway matrix has 14 passing cases, and repository-wide `bin/verify` passes.
 Flutter token acquisition/refresh, OS background handling, mute-aware local
-presentation, and credential-backed FCM deployment evidence remain; hosted
-exact-head evidence is pending.
+presentation, and credential-backed FCM deployment evidence remain. Exact-head
+CI run `32852830387` passes WampApp Consumer in 4m13s, Fast Checks in 9m20s,
+Full Verify in 11m48s, and Dart VM Coverage in 10m15s for commit `a0351374`;
+the feature-head cleanliness/log audit and protected-`master`
+policy/workflow/package strict audit also pass.
+
+The Flutter FCM token lifecycle is complete locally. Operator-supplied
+compile-time Firebase values configure Android, APNs-backed Apple, and web
+clients without checking in project credentials; absent configuration disables
+the adapter, while partial or invalid configuration fails closed. Firebase
+initialization is lazy and begins only after authenticated device enrollment,
+so first frame and WAMP login do not wait on provider startup. Permission,
+support, APNs readiness, initial token acquisition, refresh, timeout, disposal,
+and stale-result handling are bounded and sanitized. Registration changes are
+serialized, stale in-flight results unregister themselves, and a replaced or
+signed-out WAMP connection unregisters its old provider binding before the
+transport closes. Chat mute does not suppress cursor synchronization. The web
+worker imports the Firebase SDK version matched to the pinned FlutterFire
+packages and relays only a validated cursor to open clients; it does not render
+provider content, preserving the mute/presentation boundary. `bin/test-wamp-app`
+passes with 40 shared, 82 server, 118 native Flutter, and 48 Chrome tests plus
+Dart2Wasm and a release-web build. Native macOS and Android debug builds pass,
+the worker/config JavaScript syntax checks pass, and repository-wide
+`bin/verify` passes on 2026-08-25. OS background-notification presentation and
+credential-backed FCM deployment evidence remain; hosted exact-head evidence is
+pending the implementation push.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

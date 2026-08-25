@@ -239,7 +239,13 @@ class VerificationScriptsTest(unittest.TestCase):
             wamp_app_script.count(
                 "dart format --output=none --set-exit-if-changed ."
             ),
-            3,
+            2,
+        )
+        self.assertEqual(
+            wamp_app_script.count(
+                "dart format --output=none --set-exit-if-changed lib test"
+            ),
+            1,
         )
 
     def test_connectanum_router_wrapper_delegates_help_without_native_build(

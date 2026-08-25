@@ -10,6 +10,7 @@ import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
+import 'package:wamp_app/src/infrastructure/platform_push_token_source.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
@@ -82,6 +83,105 @@ void main() {
     expect(gateway.closed, isTrue);
     expect(trustStore.session?.disposed, isTrue);
   });
+
+  test(
+    'platform tokens bind after enrollment and refresh despite mute',
+    () async {
+      final gateway = _RecordingGateway();
+      final source = _ControllerTokenSource(gateway.operations);
+      final session = source.addSession();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: FakeDeviceTrustStore(),
+        platformPushTokenSource: source,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      expect(
+        gateway.operations.indexOf('enroll'),
+        lessThan(gateway.operations.indexOf('token-open')),
+      );
+
+      session.emit(const PlatformPushToken(provider: 'fcm', token: 'token-1'));
+      await _waitFor(() => gateway.pushRegistrations.length == 1);
+      final directId = controller.directConversationIdFor('bob')!;
+      expect(await controller.setConversationMuted(directId, true), isTrue);
+      session.emit(const PlatformPushToken(provider: 'fcm', token: 'token-2'));
+      await _waitFor(() => gateway.pushRegistrations.length == 2);
+
+      expect(gateway.pushRegistrations.map((request) => request.token), [
+        'token-1',
+        'token-2',
+      ]);
+      await controller.signOut();
+      expect(session.closed, isTrue);
+      expect(gateway.pushUnregistrations, hasLength(1));
+      expect(gateway.closed, isTrue);
+    },
+  );
+
+  test('push provider failure does not disconnect the WAMP session', () async {
+    final gateway = _RecordingGateway();
+    final source = _ControllerTokenSource(gateway.operations)
+      ..openFailure = StateError('provider unavailable');
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+      platformPushTokenSource: source,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    expect(controller.status, WampAppStatus.connected);
+    expect(controller.connection, isNotNull);
+    expect(controller.platformPushError, contains('unavailable'));
+    expect(gateway.closed, isFalse);
+  });
+
+  test(
+    'replacement unregisters push before closing the old transport',
+    () async {
+      final gateway = _RecordingGateway();
+      final source = _ControllerTokenSource(gateway.operations);
+      final first = source.addSession();
+      source.addSession();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: FakeDeviceTrustStore(),
+        platformPushTokenSource: source,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      first.emit(const PlatformPushToken(provider: 'fcm', token: 'token-1'));
+      await _waitFor(() => gateway.pushRegistrations.length == 1);
+
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+
+      expect(
+        gateway.operations.indexOf('push-unregister'),
+        lessThan(gateway.operations.indexOf('transport-close')),
+      );
+      expect(controller.status, WampAppStatus.connected);
+    },
+  );
 
   test(
     'account preferences persist while sign out clears live state',
@@ -1095,6 +1195,9 @@ class _RecordingGateway implements AccountGateway {
   final List<_GatewayConnection> connections = [];
   final Map<String, List<DeviceRecord>> deviceDirectories = {};
   final List<EncryptedChatMessage> sentMessages = [];
+  final List<String> operations = [];
+  final List<PlatformPushSubscriptionRequest> pushRegistrations = [];
+  final List<PlatformPushSubscriptionKey> pushUnregistrations = [];
 
   @override
   Future<RegistrationReceipt> register({
@@ -1141,6 +1244,7 @@ class _RecordingGateway implements AccountGateway {
         );
       },
       enrollDeviceCallback: (enrollment) async {
+        operations.add('enroll');
         final record = activeDeviceRecord(normalizedUsername, enrollment);
         deviceDirectories[normalizedUsername] = [record];
         return record;
@@ -1167,10 +1271,26 @@ class _RecordingGateway implements AccountGateway {
       syncMessagesCallback: connection.sync,
       markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
       consumeOneTimeCallback: connection.consume,
+      registerPlatformPushCallback: (request) async {
+        operations.add('push-register');
+        pushRegistrations.add(request);
+        return PlatformPushSubscriptionReceipt(
+          deviceId: request.deviceId,
+          provider: request.provider,
+          registeredAt: DateTime.utc(2026, 8, 25),
+          updatedAt: DateTime.utc(2026, 8, 25),
+        );
+      },
+      unregisterPlatformPushCallback: (key) async {
+        operations.add('push-unregister');
+        pushUnregistrations.add(key);
+        return true;
+      },
       mailboxWakeups: connection.wakeups.stream,
       latestMailboxWakeupCursorCallback: () => connection.latestWakeupCursor,
       latestMailboxWakeupErrorCallback: () => null,
       closeTransport: () async {
+        operations.add('transport-close');
         closed = true;
         if (failNextClose) {
           failNextClose = false;
@@ -1178,6 +1298,57 @@ class _RecordingGateway implements AccountGateway {
         }
       },
     );
+  }
+}
+
+final class _ControllerTokenSource implements PlatformPushTokenSource {
+  _ControllerTokenSource(this.operations);
+
+  final List<String> operations;
+  final List<_ControllerTokenSession> _sessions = [];
+  Object? openFailure;
+  bool disposed = false;
+
+  _ControllerTokenSession addSession() {
+    final session = _ControllerTokenSession();
+    _sessions.add(session);
+    return session;
+  }
+
+  @override
+  Future<PlatformPushTokenSession?> open() async {
+    operations.add('token-open');
+    final failure = openFailure;
+    if (failure != null) throw failure;
+    return _sessions.isEmpty ? null : _sessions.removeAt(0);
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    for (final session in _sessions) {
+      await session.close();
+    }
+    _sessions.clear();
+  }
+}
+
+final class _ControllerTokenSession implements PlatformPushTokenSession {
+  final _tokens = StreamController<PlatformPushToken>();
+  bool closed = false;
+
+  @override
+  Stream<PlatformPushToken> get tokens => _tokens.stream;
+
+  void emit(PlatformPushToken token) {
+    if (!closed) _tokens.add(token);
+  }
+
+  @override
+  Future<void> close() async {
+    if (closed) return;
+    closed = true;
+    await _tokens.close();
   }
 }
 

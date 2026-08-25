@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 
 import 'application/wamp_app_controller.dart';
 import 'domain/local_app_preferences.dart';
+import 'infrastructure/platform_push_token_source.dart';
 import 'ui/home_page.dart';
 import 'ui/onboarding_page.dart';
 import 'ui/wamp_app_theme.dart';
 
 class WampApp extends StatefulWidget {
-  const WampApp({super.key, this.controller});
+  const WampApp({super.key, this.controller, this.platformPushTokenSource})
+    : assert(controller == null || platformPushTokenSource == null);
 
   final WampAppController? controller;
+  final PlatformPushTokenSource? platformPushTokenSource;
 
   @override
   State<WampApp> createState() => _WampAppState();
@@ -23,7 +26,11 @@ class _WampAppState extends State<WampApp> {
   void initState() {
     super.initState();
     _ownsController = widget.controller == null;
-    _controller = widget.controller ?? WampAppController();
+    _controller =
+        widget.controller ??
+        WampAppController(
+          platformPushTokenSource: widget.platformPushTokenSource,
+        );
   }
 
   @override

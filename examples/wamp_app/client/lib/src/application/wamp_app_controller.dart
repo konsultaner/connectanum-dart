@@ -11,6 +11,8 @@ import '../infrastructure/attachment_chunk_cache.dart';
 import '../infrastructure/attachment_cipher.dart';
 import '../infrastructure/device_vault.dart';
 import '../infrastructure/message_cipher.dart';
+import '../infrastructure/platform_push_registration.dart';
+import '../infrastructure/platform_push_token_source.dart';
 import '../infrastructure/wamp_account_gateway.dart';
 
 enum WampAppStatus { signedOut, busy, connected, failed }
@@ -22,18 +24,25 @@ class WampAppController extends ChangeNotifier {
     MessageCipher? messageCipher,
     AttachmentChunkCache? attachmentCache,
     AttachmentCipher? attachmentCipher,
+    PlatformPushTokenSource? platformPushTokenSource,
     this.deviceName = 'This device',
   }) : _gateway = gateway ?? const WampAccountGateway(),
        _trustStore = trustStore ?? EncryptedDeviceVault(),
        _messageCipher = messageCipher ?? MessageCipher(),
        _attachmentCache = attachmentCache ?? createAttachmentChunkCache(),
-       _attachmentCipher = attachmentCipher ?? AttachmentCipher();
+       _attachmentCipher = attachmentCipher ?? AttachmentCipher() {
+    _platformPush = PlatformPushRegistrationCoordinator(
+      source: platformPushTokenSource,
+      onError: _recordPlatformPushError,
+    );
+  }
 
   final AccountGateway _gateway;
   final DeviceTrustStore _trustStore;
   final MessageCipher _messageCipher;
   final AttachmentChunkCache _attachmentCache;
   final AttachmentCipher _attachmentCipher;
+  late final PlatformPushRegistrationCoordinator _platformPush;
   final String deviceName;
   WampAppStatus _status = WampAppStatus.signedOut;
   AccountConnection? _connection;
@@ -43,6 +52,7 @@ class WampAppController extends ChangeNotifier {
   Object? _messageError;
   Object? _profileError;
   Object? _preferenceError;
+  Object? _platformPushError;
   List<LocalChatMessage> _messages = const [];
   bool _messageBusy = false;
   bool _profileBusy = false;
@@ -74,6 +84,9 @@ class WampAppController extends ChangeNotifier {
     _ when _preferenceError != null => 'Could not save local preferences.',
     _ => null,
   };
+  String? get platformPushError => _platformPushError == null
+      ? null
+      : 'Platform push notifications are unavailable.';
   String? get profileError => switch (_profileError) {
     FormatException(:final message) => message,
     ProfileUpdateException() => _profileError.toString(),
@@ -213,6 +226,7 @@ class WampAppController extends ChangeNotifier {
     _messageError = null;
     _profileError = null;
     _preferenceError = null;
+    _platformPushError = null;
     _messages = const [];
     _messageBusy = false;
     _profileBusy = false;
@@ -220,6 +234,7 @@ class WampAppController extends ChangeNotifier {
     _preferences = LocalAppPreferences.defaults;
     _status = WampAppStatus.signedOut;
     if (!_disposed) notifyListeners();
+    await _platformPush.clear();
     await _closeState(connection, trustSession, wakeupSubscription);
   }
 
@@ -394,10 +409,16 @@ class WampAppController extends ChangeNotifier {
     _messages = List<LocalChatMessage>.unmodifiable(nextMessages);
     _messageError = nextWakeupError;
     _preferenceError = null;
+    _platformPushError = null;
     _preferenceBusy = false;
     _status = WampAppStatus.connected;
     notifyListeners();
     _startAutomaticSyncIfNeeded();
+    await _platformPush.replace(
+      deviceId: nextDevice.deviceId,
+      register: next.registerPlatformPush,
+      unregister: next.unregisterPlatformPush,
+    );
     try {
       await _closeState(previous, previousTrust, previousWakeupSubscription);
     } catch (_) {
@@ -1110,6 +1131,12 @@ class WampAppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _recordPlatformPushError(Object error) {
+    if (_disposed || _connection == null) return;
+    _platformPushError = error;
+    notifyListeners();
+  }
+
   void _startAutomaticSyncIfNeeded() {
     final connection = _connection;
     final trust = _trustSession;
@@ -1522,7 +1549,9 @@ class WampAppController extends ChangeNotifier {
     _automaticSyncRunning = false;
     unawaited(
       Future.wait<void>([
-        _closeState(connection, trustSession, wakeupSubscription),
+        _platformPush.dispose().then(
+          (_) => _closeState(connection, trustSession, wakeupSubscription),
+        ),
         _attachmentCache.dispose(),
         _attachmentCipher.dispose(),
       ]).then<void>((_) {}).catchError((_) {}),
