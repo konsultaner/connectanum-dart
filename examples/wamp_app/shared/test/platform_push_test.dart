@@ -24,6 +24,31 @@ void main() {
     );
   });
 
+  test('push request canonicalizes and round-trips muted conversations', () {
+    final request = PlatformPushSubscriptionRequest(
+      deviceId: deviceId,
+      provider: 'fcm',
+      token: 'opaque-token',
+      mutedConversationIds: const ['conversation-b', 'conversation-a'],
+    );
+
+    expect(request.mutedConversationIds, ['conversation-a', 'conversation-b']);
+    final decoded = PlatformPushSubscriptionRequest.fromWampKeywords(
+      request.toWampKeywords(),
+    );
+    expect(decoded.mutedConversationIds, request.mutedConversationIds);
+  });
+
+  test('push request remains compatible when mute policy is absent', () {
+    final decoded = PlatformPushSubscriptionRequest.fromWampKeywords({
+      'device_id': deviceId,
+      'provider': 'fcm',
+      'token': 'opaque-token',
+    });
+
+    expect(decoded.mutedConversationIds, isEmpty);
+  });
+
   test('push receipt never includes the provider token', () {
     final receipt = PlatformPushSubscriptionReceipt(
       deviceId: deviceId,
@@ -74,6 +99,55 @@ void main() {
           'x',
         ).join(),
       ),
+      throwsFormatException,
+    );
+  });
+
+  test('push subscription bounds reject malformed mute policy', () {
+    PlatformPushSubscriptionRequest requestWith(Iterable<String> values) =>
+        PlatformPushSubscriptionRequest(
+          deviceId: deviceId,
+          provider: 'fcm',
+          token: 'opaque-token',
+          mutedConversationIds: values,
+        );
+
+    expect(
+      () => requestWith(const ['conversation', 'conversation']),
+      throwsFormatException,
+    );
+    expect(() => requestWith(const ['']), throwsFormatException);
+    expect(
+      () => requestWith([
+        'x' * (PlatformPushSubscriptionRequest.maxConversationIdLength + 1),
+      ]),
+      throwsFormatException,
+    );
+    expect(
+      () => requestWith(
+        List<String>.generate(
+          PlatformPushSubscriptionRequest.maxMutedConversations + 1,
+          (index) => 'conversation-$index',
+        ),
+      ),
+      throwsFormatException,
+    );
+    expect(
+      () => PlatformPushSubscriptionRequest.fromWampKeywords({
+        'device_id': deviceId,
+        'provider': 'fcm',
+        'token': 'opaque-token',
+        'muted_conversation_ids': 'conversation',
+      }),
+      throwsFormatException,
+    );
+    expect(
+      () => PlatformPushSubscriptionRequest.fromWampKeywords({
+        'device_id': deviceId,
+        'provider': 'fcm',
+        'token': 'opaque-token',
+        'muted_conversation_ids': [42],
+      }),
       throwsFormatException,
     );
   });

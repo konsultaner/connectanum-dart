@@ -41,10 +41,19 @@ to Firebase, and a physical device; token acquisition waits for APNs readiness
 instead of racing it. Provider denial or initialization failure leaves the
 authenticated WAMP session connected and reports push as unavailable.
 
-The server sends data-only cursor wakeups, so Firebase cannot bypass encrypted
-per-chat mute preferences with provider-rendered message content. Background
-OS presentation remains a separate slice; reconnect and durable mailbox cursors
-remain the lossless fallback.
+Every push carries only the durable mailbox cursor as data. For an unmuted
+incoming message, the server additionally requests generic `WampApp` / `New
+message` presentation; sender, conversation, message, attachment, ciphertext,
+and key metadata never enter the provider payload. Background and terminated
+Android, Apple, and web clients can therefore use OS-rendered notification
+messages, while foreground clients continue to update from encrypted mailbox
+sync. Muted chats still receive silent cursor wakeups, and reconnect plus the
+durable mailbox cursor remain the lossless fallback.
+
+Mute changes re-register the current device token with a bounded conversation
+ID policy after the encrypted local preference write succeeds. Registration,
+token refresh, sign-out, and connection replacement are serialized so policy
+from one account cannot cross into another account's provider binding.
 
 See the [parent guide](../README.md) for setup, current limitations, attachment
 benchmark instructions, and feature status.

@@ -11,10 +11,17 @@ final class StoredPlatformPushSubscription {
     required this.deviceId,
     required String provider,
     required this.token,
+    Iterable<String> mutedConversationIds = const [],
     required DateTime registeredAt,
     required DateTime updatedAt,
   }) : username = AccountRegistration.normalizeUsername(username),
        provider = provider.trim().toLowerCase(),
+       mutedConversationIds = PlatformPushSubscriptionRequest(
+         deviceId: deviceId,
+         provider: provider,
+         token: token,
+         mutedConversationIds: mutedConversationIds,
+       ).mutedConversationIds,
        registeredAt = registeredAt.toUtc(),
        updatedAt = updatedAt.toUtc() {
     validate();
@@ -24,6 +31,7 @@ final class StoredPlatformPushSubscription {
   final String deviceId;
   final String provider;
   final String token;
+  final List<String> mutedConversationIds;
   final DateTime registeredAt;
   final DateTime updatedAt;
 
@@ -37,6 +45,7 @@ final class StoredPlatformPushSubscription {
       deviceId: deviceId,
       provider: provider,
       token: token,
+      mutedConversationIds: mutedConversationIds,
     ).validate();
     if (updatedAt.isBefore(registeredAt)) {
       throw const FormatException('Push update predates registration.');
@@ -58,6 +67,7 @@ final class StoredPlatformPushSubscription {
       'device_id': deviceId,
       'provider': provider,
       'token': token,
+      'muted_conversation_ids': mutedConversationIds,
       'registered_at': registeredAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -69,6 +79,11 @@ final class StoredPlatformPushSubscription {
       deviceId: _string(value['device_id'], 'device_id'),
       provider: _string(value['provider'], 'provider'),
       token: _string(value['token'], 'token'),
+      mutedConversationIds: _stringList(
+        value['muted_conversation_ids'],
+        'muted_conversation_ids',
+        allowMissing: true,
+      ),
       registeredAt: _utcDate(value['registered_at'], 'registered_at'),
       updatedAt: _utcDate(value['updated_at'], 'updated_at'),
     );
@@ -121,7 +136,14 @@ final class PlatformPushSubscriptionStore {
           '$normalizedUsername\n${request.deviceId}\n${request.provider}';
       final existingIndex = subscriptions.indexWhere((item) => item.key == key);
       final existing = existingIndex < 0 ? null : subscriptions[existingIndex];
-      if (existing != null && existing.token == request.token) return existing;
+      if (existing != null &&
+          existing.token == request.token &&
+          _listsEqual(
+            existing.mutedConversationIds,
+            request.mutedConversationIds,
+          )) {
+        return existing;
+      }
 
       subscriptions.removeWhere(
         (item) =>
@@ -146,6 +168,7 @@ final class PlatformPushSubscriptionStore {
         deviceId: request.deviceId,
         provider: request.provider,
         token: request.token,
+        mutedConversationIds: request.mutedConversationIds,
         registeredAt: existing?.registeredAt ?? timestamp,
         updatedAt: updatedAt,
       );
@@ -294,6 +317,33 @@ String _string(Object? value, String field) {
     throw FormatException('$field must be a non-empty string.');
   }
   return value;
+}
+
+List<String> _stringList(
+  Object? value,
+  String field, {
+  bool allowMissing = false,
+}) {
+  if (value == null && allowMissing) return const [];
+  if (value is! List) {
+    throw FormatException('$field must be a list.');
+  }
+  return value
+      .map((item) {
+        if (item is! String) {
+          throw FormatException('$field must contain only strings.');
+        }
+        return item;
+      })
+      .toList(growable: false);
+}
+
+bool _listsEqual(List<String> left, List<String> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index += 1) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 DateTime _utcDate(Object? value, String field) {

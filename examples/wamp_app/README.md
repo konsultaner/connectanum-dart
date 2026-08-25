@@ -39,20 +39,21 @@ The implemented slices provide:
 - in-memory playback on Android, Windows, and web, plus managed temporary
   playback files that are overwritten and deleted on iOS, macOS, and Linux;
 - an optional server-side Firebase Cloud Messaging HTTP v1 gateway that sends
-  only a data cursor, validates configured providers, retires invalid tokens,
-  and bounds credentials and response bodies;
+  a data cursor plus, only for unmuted incoming messages, generic notification
+  text with no sender, conversation, message, attachment, or key metadata;
 - optional FlutterFire FCM token acquisition after authenticated device
   enrollment, serialized token refresh replacement, APNs readiness, web VAPID
-  and service-worker support, plus unregister-before-close lifecycle cleanup;
+  and service-worker support, per-device mute-policy refresh, background OS
+  presentation, plus unregister-before-close lifecycle cleanup;
 - hosted `3.0.0-beta.2` dependencies for both client and server; and
 - end-to-end tests covering registration, device trust, encrypted two-account
   and group delivery, attachment authorization/resume, receipt propagation,
   reconnect deduplication, server-signature verification, and plaintext
   non-persistence.
 
-A sticker/emoji picker, backups, OS background notification presentation,
-WebRTC calling, and MCP application tools remain planned and are not represented
-by fake data in the current UI.
+Contacts import, backups, credential-backed FCM deployment evidence, WebRTC
+calling, and MCP application tools remain planned and are not represented by
+fake data in the current UI.
 View-once attachments are rejected until attachment consumption and deletion
 can be made atomic.
 

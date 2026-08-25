@@ -57,6 +57,53 @@ void main() {
     expect(client.sends, 1);
   });
 
+  test(
+    'adds only generic notification metadata when presentation is allowed',
+    () async {
+      final client = _RecordingClient((request, body) async {
+        final payload = jsonDecode(utf8.decode(body)) as Map<String, dynamic>;
+        expect(payload['message'], {
+          'token': 'opaque-provider-token',
+          'data': {'cursor': '43'},
+          'android': {'priority': 'HIGH'},
+          'apns': {
+            'headers': {'apns-push-type': 'alert', 'apns-priority': '10'},
+            'payload': {
+              'aps': {'content-available': 1, 'sound': 'default'},
+            },
+          },
+          'webpush': {
+            'headers': {'Urgency': 'high'},
+          },
+          'notification': {'title': 'WampApp', 'body': 'New message'},
+        });
+        final encoded = utf8.decode(body);
+        expect(encoded, isNot(contains('conversation-1')));
+        expect(encoded, isNot(contains('alice')));
+        expect(encoded, isNot(contains('message_id')));
+        expect(encoded, isNot(contains('ciphertext')));
+        return _jsonResponse(request, 200, {
+          'name': 'projects/wampapp-test1/messages/accepted-message',
+        });
+      });
+      final gateway = FcmPlatformPushGateway(
+        projectId: 'wampapp-test1',
+        client: client,
+      );
+      addTearDown(gateway.close);
+
+      expect(
+        await gateway.deliver(
+          provider: 'fcm',
+          token: 'opaque-provider-token',
+          cursor: 43,
+          present: true,
+        ),
+        PlatformPushDeliveryResult.accepted,
+      );
+    },
+  );
+
   test('unsupported providers and invalid cursors do not reach FCM', () async {
     final client = _RecordingClient(_unexpectedRequest);
     final gateway = FcmPlatformPushGateway(

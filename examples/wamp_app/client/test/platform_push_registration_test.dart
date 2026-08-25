@@ -35,6 +35,66 @@ void main() {
     await coordinator.dispose();
   });
 
+  test('registers and refreshes the current mute policy', () async {
+    final source = _FakeTokenSource();
+    final session = source.addSession();
+    final requests = <PlatformPushSubscriptionRequest>[];
+    final coordinator = PlatformPushRegistrationCoordinator(source: source);
+
+    await coordinator.replace(
+      deviceId: _deviceOne,
+      mutedConversationIds: const ['conversation-b', 'conversation-a'],
+      register: (request) async {
+        requests.add(request);
+        return _receiptFor(request);
+      },
+      unregister: (_) async => true,
+    );
+    await session.waitUntilListened();
+    session.emit(const PlatformPushToken(provider: 'fcm', token: 'token-1'));
+    await _waitFor(() => requests.length == 1);
+    expect(requests.single.mutedConversationIds, [
+      'conversation-a',
+      'conversation-b',
+    ]);
+
+    await coordinator.updateMutedConversationIds(const ['conversation-c']);
+    await _waitFor(() => requests.length == 2);
+    expect(requests.last.token, 'token-1');
+    expect(requests.last.mutedConversationIds, ['conversation-c']);
+
+    await coordinator.updateMutedConversationIds(const ['conversation-c']);
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(requests, hasLength(2));
+    await coordinator.dispose();
+  });
+
+  test(
+    'mute changes before the first token apply to initial registration',
+    () async {
+      final source = _FakeTokenSource();
+      final session = source.addSession();
+      final requests = <PlatformPushSubscriptionRequest>[];
+      final coordinator = PlatformPushRegistrationCoordinator(source: source);
+
+      await coordinator.replace(
+        deviceId: _deviceOne,
+        register: (request) async {
+          requests.add(request);
+          return _receiptFor(request);
+        },
+        unregister: (_) async => true,
+      );
+      await session.waitUntilListened();
+      await coordinator.updateMutedConversationIds(const ['conversation-a']);
+      session.emit(const PlatformPushToken(provider: 'fcm', token: 'token-1'));
+      await _waitFor(() => requests.isNotEmpty);
+
+      expect(requests.single.mutedConversationIds, ['conversation-a']);
+      await coordinator.dispose();
+    },
+  );
+
   test(
     'stale in-flight registration unregisters itself before clear',
     () async {
@@ -126,6 +186,56 @@ void main() {
       await _waitFor(() => requests.length == 2);
       expect(requests.last.deviceId, _deviceTwo);
       expect(requests.last.token, 'token-2');
+
+      await coordinator.dispose();
+    },
+  );
+
+  test(
+    'mute update during replacement never reaches the old binding',
+    () async {
+      final source = _FakeTokenSource();
+      final first = source.addSession();
+      final second = source.addSession();
+      final requests = <PlatformPushSubscriptionRequest>[];
+      final coordinator = PlatformPushRegistrationCoordinator(source: source);
+
+      await coordinator.replace(
+        deviceId: _deviceOne,
+        register: (request) async {
+          requests.add(request);
+          return _receiptFor(request);
+        },
+        unregister: (_) async => true,
+      );
+      await first.waitUntilListened();
+      first.emit(const PlatformPushToken(provider: 'fcm', token: 'token-1'));
+      await _waitFor(() => requests.length == 1);
+
+      final gate = Completer<void>();
+      source.nextOpenGate = gate;
+      final replacement = coordinator.replace(
+        deviceId: _deviceTwo,
+        register: (request) async {
+          requests.add(request);
+          return _receiptFor(request);
+        },
+        unregister: (_) async => true,
+      );
+      final muteUpdate = coordinator.updateMutedConversationIds(const [
+        'conversation-new-account',
+      ]);
+      await source.waitUntilOpenStarted();
+      expect(requests, hasLength(1));
+
+      gate.complete();
+      await replacement;
+      await muteUpdate;
+      await second.waitUntilListened();
+      second.emit(const PlatformPushToken(provider: 'fcm', token: 'token-2'));
+      await _waitFor(() => requests.length == 2);
+      expect(requests.last.deviceId, _deviceTwo);
+      expect(requests.last.mutedConversationIds, ['conversation-new-account']);
 
       await coordinator.dispose();
     },

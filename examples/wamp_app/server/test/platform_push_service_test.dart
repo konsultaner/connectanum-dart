@@ -87,6 +87,70 @@ void main() {
     },
   );
 
+  test('presentation is evaluated independently for each device', () async {
+    final secondDevice = _enrollment(20);
+    await accounts.enrollDevice('alice', secondDevice);
+    await service.register(
+      'alice',
+      _request(
+        aliceDevice,
+        'muted-token',
+        mutedConversationIds: const ['conversation-1'],
+      ),
+    );
+    await service.register('alice', _request(secondDevice, 'unmuted-token'));
+    final gateway = _RecordingGateway(
+      (_) async => PlatformPushDeliveryResult.accepted,
+    );
+    final dispatcher = PlatformPushDispatcher(
+      service: service,
+      gateway: gateway,
+    );
+
+    dispatcher.enqueue(
+      11,
+      ['alice'],
+      presentationConversationId: 'conversation-1',
+      presentationUsernames: ['alice'],
+    );
+    await dispatcher.close();
+
+    expect(
+      gateway.deliveries.where((item) => item.token == 'muted-token').single,
+      const _Delivery(provider: 'apns', token: 'muted-token', cursor: 11),
+    );
+    expect(
+      gateway.deliveries.where((item) => item.token == 'unmuted-token').single,
+      const _Delivery(
+        provider: 'apns',
+        token: 'unmuted-token',
+        cursor: 11,
+        present: true,
+      ),
+    );
+  });
+
+  test('non-recipient and receipt wakeups remain silent', () async {
+    await service.register('alice', _request(aliceDevice, 'token-one'));
+    final gateway = _RecordingGateway(
+      (_) async => PlatformPushDeliveryResult.accepted,
+    );
+    final dispatcher = PlatformPushDispatcher(
+      service: service,
+      gateway: gateway,
+    );
+
+    dispatcher.enqueue(
+      12,
+      ['alice'],
+      presentationConversationId: 'conversation-1',
+      presentationUsernames: const [],
+    );
+    await dispatcher.close();
+
+    expect(gateway.deliveries.single.present, isFalse);
+  });
+
   test('invalid result cannot remove a concurrently refreshed token', () async {
     await service.register('alice', _request(aliceDevice, 'token-old'));
     final gateway = _RecordingGateway((delivery) async {
@@ -207,11 +271,13 @@ final class _RecordingGateway implements PlatformPushGateway {
     required String provider,
     required String token,
     required int cursor,
+    bool present = false,
   }) {
     final delivery = _Delivery(
       provider: provider,
       token: token,
       cursor: cursor,
+      present: present,
     );
     deliveries.add(delivery);
     return handler(delivery);
@@ -223,21 +289,24 @@ final class _Delivery {
     required this.provider,
     required this.token,
     required this.cursor,
+    this.present = false,
   });
 
   final String provider;
   final String token;
   final int cursor;
+  final bool present;
 
   @override
   bool operator ==(Object other) =>
       other is _Delivery &&
       provider == other.provider &&
       token == other.token &&
-      cursor == other.cursor;
+      cursor == other.cursor &&
+      present == other.present;
 
   @override
-  int get hashCode => Object.hash(provider, token, cursor);
+  int get hashCode => Object.hash(provider, token, cursor, present);
 }
 
 StoredAccount _account(String username) => StoredAccount(
@@ -254,11 +323,13 @@ StoredAccount _account(String username) => StoredAccount(
 
 PlatformPushSubscriptionRequest _request(
   DeviceEnrollment device,
-  String token,
-) => PlatformPushSubscriptionRequest(
+  String token, {
+  Iterable<String> mutedConversationIds = const [],
+}) => PlatformPushSubscriptionRequest(
   deviceId: device.deviceId,
   provider: 'apns',
   token: token,
+  mutedConversationIds: mutedConversationIds,
 );
 
 DeviceEnrollment _enrollment(int seed) => DeviceEnrollment(

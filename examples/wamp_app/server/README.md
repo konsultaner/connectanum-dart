@@ -28,11 +28,16 @@ platform_push:
     project_id: your-firebase-project
 ```
 
-The server uses the FCM HTTP v1 API and sends a data-only mailbox cursor. It
-never places a sender, conversation, message body, attachment, or encryption
-material in the notification. Android, APNs-backed Apple devices, and web push
-therefore register the `fcm` provider and share one delivery path while the
-authenticated WAMP mailbox remains the canonical source of message data.
+The server uses the FCM HTTP v1 API and always sends only the durable mailbox
+cursor as provider data. Each secret device registration also stores a bounded
+set of muted conversation IDs. An incoming message for an unmuted device adds
+only generic `WampApp` / `New message` notification text; muted conversations,
+sender devices, delivery/read receipts, and one-time-consumption updates remain
+silent cursor wakeups. FCM never receives a sender, account, conversation,
+message ID, message body, attachment, ciphertext, or encryption material.
+Android, APNs-backed Apple devices, and web push therefore share one delivery
+path while the authenticated WAMP mailbox remains the canonical source of
+message data.
 Invalid provider tokens are retired;
 quota, provider authentication, and transient service failures preserve the
 token for a later mailbox wakeup.

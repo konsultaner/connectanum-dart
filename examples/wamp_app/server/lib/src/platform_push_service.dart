@@ -20,6 +20,7 @@ abstract interface class PlatformPushGateway {
     required String provider,
     required String token,
     required int cursor,
+    bool present = false,
   });
 
   Future<void> close();
@@ -99,11 +100,18 @@ final class PlatformPushDispatcher {
     required this.service,
     required this.gateway,
     this.maxPendingAccounts = 10000,
+    this.maxPendingPresentationConversationsPerAccount = 64,
     this.deliveryTimeout = const Duration(seconds: 10),
     this.onBackgroundFailure,
   }) {
     if (maxPendingAccounts <= 0) {
       throw ArgumentError.value(maxPendingAccounts, 'maxPendingAccounts');
+    }
+    if (maxPendingPresentationConversationsPerAccount <= 0) {
+      throw ArgumentError.value(
+        maxPendingPresentationConversationsPerAccount,
+        'maxPendingPresentationConversationsPerAccount',
+      );
     }
     if (deliveryTimeout <= Duration.zero) {
       throw ArgumentError.value(deliveryTimeout, 'deliveryTimeout');
@@ -113,20 +121,47 @@ final class PlatformPushDispatcher {
   final PlatformPushService service;
   final PlatformPushGateway gateway;
   final int maxPendingAccounts;
+  final int maxPendingPresentationConversationsPerAccount;
   final Duration deliveryTimeout;
   final void Function(PlatformPushDispatchFailure failure)? onBackgroundFailure;
-  final Map<String, int> _pending = <String, int>{};
+  final Map<String, _PendingPlatformPush> _pending =
+      <String, _PendingPlatformPush>{};
   Future<void>? _drainFuture;
   bool _closed = false;
 
-  void enqueue(int cursor, Iterable<String> usernames) {
+  void enqueue(
+    int cursor,
+    Iterable<String> usernames, {
+    String? presentationConversationId,
+    Iterable<String> presentationUsernames = const [],
+  }) {
     if (_closed || cursor <= 0) return;
+    final canPresent =
+        presentationConversationId != null &&
+        presentationConversationId.isNotEmpty &&
+        presentationConversationId.length <=
+            PlatformPushSubscriptionRequest.maxConversationIdLength;
+    final normalizedPresentationUsernames = canPresent
+        ? presentationUsernames
+              .map(AccountRegistration.normalizeUsername)
+              .toSet()
+        : const <String>{};
     for (final value in usernames) {
       final username = AccountRegistration.normalizeUsername(value);
       if (username.isEmpty) continue;
-      final previous = _pending[username];
-      if (previous != null || _pending.length < maxPendingAccounts) {
-        if (previous == null || cursor > previous) _pending[username] = cursor;
+      var pending = _pending[username];
+      if (pending == null && _pending.length < maxPendingAccounts) {
+        pending = _PendingPlatformPush(cursor);
+        _pending[username] = pending;
+      }
+      if (pending != null) {
+        if (cursor > pending.cursor) pending.cursor = cursor;
+        if (canPresent && normalizedPresentationUsernames.contains(username)) {
+          pending.addPresentationConversation(
+            presentationConversationId,
+            maxPendingPresentationConversationsPerAccount,
+          );
+        }
       }
     }
     _drainFuture ??= _drain();
@@ -140,7 +175,7 @@ final class PlatformPushDispatcher {
   Future<void> _drain() async {
     try {
       while (_pending.isNotEmpty) {
-        final batch = Map<String, int>.from(_pending);
+        final batch = Map<String, _PendingPlatformPush>.from(_pending);
         _pending.clear();
         List<StoredPlatformPushSubscription> subscriptions;
         try {
@@ -152,15 +187,20 @@ final class PlatformPushDispatcher {
           continue;
         }
         for (final subscription in subscriptions) {
-          final cursor = batch[subscription.username];
-          if (cursor == null) continue;
+          final pending = batch[subscription.username];
+          if (pending == null) continue;
+          final muted = subscription.mutedConversationIds.toSet();
+          final present = pending.presentationConversationIds.any(
+            (conversationId) => !muted.contains(conversationId),
+          );
           PlatformPushDeliveryResult result;
           try {
             result = await gateway
                 .deliver(
                   provider: subscription.provider,
                   token: subscription.token,
-                  cursor: cursor,
+                  cursor: pending.cursor,
+                  present: present,
                 )
                 .timeout(deliveryTimeout);
           } catch (_) {
@@ -184,5 +224,17 @@ final class PlatformPushDispatcher {
       _drainFuture = null;
       if (!_closed && _pending.isNotEmpty) _drainFuture = _drain();
     }
+  }
+}
+
+final class _PendingPlatformPush {
+  _PendingPlatformPush(this.cursor);
+
+  int cursor;
+  final Set<String> presentationConversationIds = <String>{};
+
+  void addPresentationConversation(String conversationId, int maximum) {
+    if (presentationConversationIds.length >= maximum) return;
+    presentationConversationIds.add(conversationId);
   }
 }

@@ -111,13 +111,18 @@ void main() {
       await _waitFor(() => gateway.pushRegistrations.length == 1);
       final directId = controller.directConversationIdFor('bob')!;
       expect(await controller.setConversationMuted(directId, true), isTrue);
-      session.emit(const PlatformPushToken(provider: 'fcm', token: 'token-2'));
       await _waitFor(() => gateway.pushRegistrations.length == 2);
+      expect(gateway.pushRegistrations.last.token, 'token-1');
+      expect(gateway.pushRegistrations.last.mutedConversationIds, [directId]);
+      session.emit(const PlatformPushToken(provider: 'fcm', token: 'token-2'));
+      await _waitFor(() => gateway.pushRegistrations.length == 3);
 
       expect(gateway.pushRegistrations.map((request) => request.token), [
         'token-1',
+        'token-1',
         'token-2',
       ]);
+      expect(gateway.pushRegistrations.last.mutedConversationIds, [directId]);
       await controller.signOut();
       expect(session.closed, isTrue);
       expect(gateway.pushUnregistrations, hasLength(1));

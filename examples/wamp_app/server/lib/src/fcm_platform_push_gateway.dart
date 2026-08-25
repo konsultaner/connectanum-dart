@@ -79,29 +79,45 @@ final class FcmPlatformPushGateway implements PlatformPushGateway {
     required String provider,
     required String token,
     required int cursor,
+    bool present = false,
   }) async {
     if (_closed || provider != 'fcm' || cursor <= 0) {
       return PlatformPushDeliveryResult.retryableFailure;
     }
     try {
+      final message = <String, dynamic>{
+        'token': token,
+        'data': {'cursor': '$cursor'},
+        'android': {'priority': 'HIGH'},
+        'apns': present
+            ? {
+                'headers': {'apns-push-type': 'alert', 'apns-priority': '10'},
+                'payload': {
+                  'aps': {'content-available': 1, 'sound': 'default'},
+                },
+              }
+            : {
+                'headers': {
+                  'apns-push-type': 'background',
+                  'apns-priority': '5',
+                },
+                'payload': {
+                  'aps': {'content-available': 1},
+                },
+              },
+        'webpush': {
+          'headers': {'Urgency': 'high'},
+        },
+      };
+      if (present) {
+        message['notification'] = const {
+          'title': 'WampApp',
+          'body': 'New message',
+        };
+      }
       final request = http.Request('POST', _endpoint)
         ..headers['content-type'] = 'application/json'
-        ..body = jsonEncode({
-          'message': {
-            'token': token,
-            'data': {'cursor': '$cursor'},
-            'android': {'priority': 'HIGH'},
-            'apns': {
-              'headers': {'apns-push-type': 'background', 'apns-priority': '5'},
-              'payload': {
-                'aps': {'content-available': 1},
-              },
-            },
-            'webpush': {
-              'headers': {'Urgency': 'high'},
-            },
-          },
-        });
+        ..body = jsonEncode({'message': message});
       final response = await _client.send(request).timeout(requestTimeout);
       final body = await _readBounded(response.stream);
       if (body == null) return PlatformPushDeliveryResult.retryableFailure;

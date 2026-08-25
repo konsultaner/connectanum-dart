@@ -45,6 +45,40 @@ void main() {
     },
   );
 
+  test('updates mute policy without rotating the provider token', () async {
+    final registeredAt = DateTime.utc(2026, 8, 24, 12);
+    final first = await store.upsert(
+      'alice',
+      _request(deviceSeed: 1, token: 'token-one'),
+      now: registeredAt,
+    );
+    final updated = await store.upsert(
+      'alice',
+      _request(
+        deviceSeed: 1,
+        token: 'token-one',
+        mutedConversationIds: const ['conversation-b', 'conversation-a'],
+      ),
+      now: registeredAt.add(const Duration(minutes: 5)),
+    );
+
+    expect(updated.registeredAt, first.registeredAt);
+    expect(updated.updatedAt, registeredAt.add(const Duration(minutes: 5)));
+    expect(updated.token, first.token);
+    expect(updated.mutedConversationIds, ['conversation-a', 'conversation-b']);
+
+    final unchanged = await store.upsert(
+      'alice',
+      _request(
+        deviceSeed: 1,
+        token: 'token-one',
+        mutedConversationIds: updated.mutedConversationIds,
+      ),
+      now: registeredAt.add(const Duration(minutes: 10)),
+    );
+    expect(unchanged.updatedAt, updated.updatedAt);
+  });
+
   test(
     'clamps replacement time when the server clock moves backwards',
     () async {
@@ -127,6 +161,23 @@ void main() {
     );
   });
 
+  test('reopens legacy registrations without mute policy', () async {
+    await store.upsert('alice', _request(deviceSeed: 1, token: 'token-one'));
+    final decoded =
+        jsonDecode(await store.file.readAsString()) as Map<String, dynamic>;
+    final subscriptions = decoded['subscriptions'] as List<dynamic>;
+    (subscriptions.single as Map<String, dynamic>).remove(
+      'muted_conversation_ids',
+    );
+    await store.file.writeAsString(jsonEncode(decoded));
+
+    final reopened = PlatformPushSubscriptionStore(store.file.path);
+    expect(
+      (await reopened.listForUsernames(['alice'])).single.mutedConversationIds,
+      isEmpty,
+    );
+  });
+
   test('repairs permissive secret-store permissions on startup', () async {
     if (Platform.isWindows) return;
     await Process.run('chmod', ['644', store.file.path]);
@@ -142,10 +193,12 @@ PlatformPushSubscriptionRequest _request({
   required int deviceSeed,
   required String token,
   String provider = 'apns',
+  Iterable<String> mutedConversationIds = const [],
 }) => PlatformPushSubscriptionRequest(
   deviceId: _token(32, deviceSeed),
   provider: provider,
   token: token,
+  mutedConversationIds: mutedConversationIds,
 );
 
 String _token(int length, int seed) => base64Url

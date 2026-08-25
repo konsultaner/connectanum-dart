@@ -819,6 +819,8 @@ Future<void> _registerMessageHandlers(
         receipt.cursor,
         message.participantUsernames,
         pushDispatcher,
+        presentationConversationId: message.conversationId,
+        presentationUsernames: message.recipientUsernames,
       );
       invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
     } catch (error) {
@@ -903,8 +905,10 @@ Future<void> _publishMailboxWakeup(
   Session session,
   int cursor,
   Iterable<String> usernames,
-  PlatformPushDispatcher? pushDispatcher,
-) async {
+  PlatformPushDispatcher? pushDispatcher, {
+  String? presentationConversationId,
+  Iterable<String> presentationUsernames = const [],
+}) async {
   final eligibleAuthIds = usernames.toSet().toList(growable: false)..sort();
   try {
     await session.publish(
@@ -915,7 +919,12 @@ Future<void> _publishMailboxWakeup(
   } catch (_) {
     // Durable cursor synchronization remains authoritative after a lost wakeup.
   }
-  pushDispatcher?.enqueue(cursor, eligibleAuthIds);
+  pushDispatcher?.enqueue(
+    cursor,
+    eligibleAuthIds,
+    presentationConversationId: presentationConversationId,
+    presentationUsernames: presentationUsernames,
+  );
 }
 
 String _callerUsername(Invocation invocation) {

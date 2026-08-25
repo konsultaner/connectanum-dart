@@ -20,6 +20,7 @@ final class PlatformPushRegistrationCoordinator {
   final PlatformPushTokenSource _source;
   final void Function(Object error)? onError;
   _PlatformPushBinding? _binding;
+  List<String> _mutedConversationIds = const [];
   Future<void> _lifecycleTail = Future<void>.value();
   int _generation = 0;
   bool _disposed = false;
@@ -30,8 +31,12 @@ final class PlatformPushRegistrationCoordinator {
     required String deviceId,
     required RegisterPlatformPush register,
     required UnregisterPlatformPush unregister,
+    Iterable<String> mutedConversationIds = const [],
   }) {
     if (_disposed) return Future<void>.value();
+    _mutedConversationIds = _normalizeMutedConversationIds(
+      mutedConversationIds,
+    );
     final generation = ++_generation;
     return _enqueueLifecycle(
       () => _replace(
@@ -72,9 +77,23 @@ final class PlatformPushRegistrationCoordinator {
       register: register,
       unregister: unregister,
       onError: _report,
+      mutedConversationIds: _mutedConversationIds,
     );
     _binding = binding;
     binding.start();
+  }
+
+  Future<void> updateMutedConversationIds(Iterable<String> values) {
+    if (_disposed) return Future<void>.value();
+    final normalized = _normalizeMutedConversationIds(values);
+    if (_listsEqual(_mutedConversationIds, normalized)) {
+      return Future<void>.value();
+    }
+    _mutedConversationIds = normalized;
+    return _enqueueLifecycle(() async {
+      if (_disposed || !_listsEqual(_mutedConversationIds, normalized)) return;
+      await _binding?.updateMutedConversationIds(normalized);
+    });
   }
 
   Future<void> clear() async {
@@ -132,6 +151,7 @@ final class _PlatformPushBinding {
     required this.register,
     required this.unregister,
     required this.onError,
+    required this._mutedConversationIds,
   });
 
   final PlatformPushTokenSession session;
@@ -141,6 +161,8 @@ final class _PlatformPushBinding {
   final void Function(Object error) onError;
   StreamSubscription<PlatformPushToken>? _subscription;
   PlatformPushSubscriptionKey? _registeredKey;
+  PlatformPushToken? _latestToken;
+  List<String> _mutedConversationIds;
   Future<void> _registrationTail = Future<void>.value();
   bool _active = true;
 
@@ -155,7 +177,20 @@ final class _PlatformPushBinding {
 
   void _enqueue(PlatformPushToken token) {
     if (!_active) return;
+    _latestToken = token;
     _registrationTail = _registrationTail.then((_) => _register(token));
+  }
+
+  Future<void> updateMutedConversationIds(List<String> values) {
+    if (!_active || _listsEqual(_mutedConversationIds, values)) {
+      return Future<void>.value();
+    }
+    _mutedConversationIds = values;
+    final token = _latestToken;
+    if (token == null) return Future<void>.value();
+    final registration = _registrationTail.then((_) => _register(token));
+    _registrationTail = registration;
+    return registration;
   }
 
   Future<void> _register(PlatformPushToken token) async {
@@ -166,6 +201,7 @@ final class _PlatformPushBinding {
         deviceId: deviceId,
         provider: token.provider,
         token: token.token,
+        mutedConversationIds: _mutedConversationIds,
       );
       final receipt = await register(request);
       final nextKey = PlatformPushSubscriptionKey(
@@ -215,4 +251,36 @@ final class _PlatformPushBinding {
       onError(error);
     }
   }
+}
+
+List<String> _normalizeMutedConversationIds(Iterable<String> values) {
+  final result = values.toList(growable: false);
+  if (result.length > PlatformPushSubscriptionRequest.maxMutedConversations) {
+    throw const FormatException('Too many muted conversations are registered.');
+  }
+  final unique = result.toSet();
+  if (unique.length != result.length) {
+    throw const FormatException(
+      'Muted conversation identifiers must be unique.',
+    );
+  }
+  for (final conversationId in result) {
+    if (conversationId.isEmpty ||
+        conversationId.length >
+            PlatformPushSubscriptionRequest.maxConversationIdLength) {
+      throw const FormatException(
+        'A muted conversation identifier is invalid.',
+      );
+    }
+  }
+  result.sort();
+  return List<String>.unmodifiable(result);
+}
+
+bool _listsEqual(List<String> left, List<String> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index += 1) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }

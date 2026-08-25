@@ -9,8 +9,8 @@ search, received-message read/unread filters, encrypted system/light/dark theme
 preferences, per-chat notification mute, and the provider-neutral platform
 push registration/delivery foundation are complete. Concrete FCM server
 delivery and client token acquisition/refresh now cover Android, APNs-backed
-Apple platforms, and web; contacts import, OS background-notification
-presentation, and credential-backed deployment evidence remain.
+Apple platforms, and web, including mute-aware generic OS background
+presentation; contacts import and credential-backed deployment evidence remain.
 Milestone 3
 durable messaging is complete across
 opaque server mailboxes, reconnect cursors, authenticated push synchronization,
@@ -334,7 +334,7 @@ Full Verify in 11m48s, and Dart VM Coverage in 10m15s for commit `a0351374`;
 the feature-head cleanliness/log audit and protected-`master`
 policy/workflow/package strict audit also pass.
 
-The Flutter FCM token lifecycle is complete locally. Operator-supplied
+The Flutter FCM token lifecycle is complete and hosted-verified. Operator-supplied
 compile-time Firebase values configure Android, APNs-backed Apple, and web
 clients without checking in project credentials; absent configuration disables
 the adapter, while partial or invalid configuration fails closed. Firebase
@@ -352,8 +352,31 @@ passes with 40 shared, 82 server, 118 native Flutter, and 48 Chrome tests plus
 Dart2Wasm and a release-web build. Native macOS and Android debug builds pass,
 the worker/config JavaScript syntax checks pass, and repository-wide
 `bin/verify` passes on 2026-08-25. OS background-notification presentation and
-credential-backed FCM deployment evidence remain; hosted exact-head evidence is
-pending the implementation push.
+credential-backed FCM deployment evidence remain. Commit `372a8f50` is pushed
+to GitLab and GitHub. Exact-head CI run `32865112726` passes WampApp Consumer in
+3m40s, Fast Checks in 9m05s, Full Verify in 10m07s, and Dart VM Coverage in
+13m35s. The feature-head job/log cleanliness and workflow/package visibility
+audit passes, as does the protected-`master` policy/workflow/package strict
+audit.
+
+Mute-aware OS notification presentation is complete locally. Each caller- and
+device-bound secret push registration carries a canonical bounded set of muted
+conversation IDs. Message wakeups evaluate that policy independently per
+device; the sender, muted recipients, delivery/read receipts, and one-time
+consumption updates remain silent, while an unmuted recipient receives generic
+`WampApp` / `New message` presentation. FCM data remains cursor-only and never
+contains an account, sender, conversation, message ID, attachment, ciphertext,
+plaintext, or key. Background and terminated Android, APNs-backed Apple, and
+web clients can use provider-rendered notifications, while foreground clients
+continue encrypted mailbox synchronization. Mute changes, token refresh,
+connection replacement, and sign-out share serialized lifecycle boundaries so
+policy cannot cross account bindings. Legacy registrations migrate to an empty
+mute set, bounded coalescing fails toward fewer notifications, and durable
+cursor sync remains authoritative. `bin/test-wamp-app` passes with 43 shared,
+87 server, 121 native Flutter, and 51 Chrome tests plus Dart2Wasm and a release
+web build; repository-wide `bin/verify` passes on 2026-08-25. Credential-backed
+FCM deployment evidence remains, and hosted exact-head evidence is pending the
+implementation push.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

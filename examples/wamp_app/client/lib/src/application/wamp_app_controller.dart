@@ -159,6 +159,10 @@ class WampAppController extends ChangeNotifier {
       await trust.savePreferences(preferences);
       if (!isCurrent()) return false;
       _preferences = preferences;
+      await _platformPush.updateMutedConversationIds(
+        preferences.mutedConversationIds,
+      );
+      if (!isCurrent()) return false;
       return true;
     } catch (error) {
       if (isCurrent()) _preferenceError = error;
@@ -418,6 +422,7 @@ class WampAppController extends ChangeNotifier {
       deviceId: nextDevice.deviceId,
       register: next.registerPlatformPush,
       unregister: next.unregisterPlatformPush,
+      mutedConversationIds: nextTrust.preferences.mutedConversationIds,
     );
     try {
       await _closeState(previous, previousTrust, previousWakeupSubscription);

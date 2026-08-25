@@ -424,6 +424,19 @@ void main() {
         gateway.deliveries.every((delivery) => delivery.cursor > 0),
         isTrue,
       );
+      expect(
+        gateway.deliveries
+            .where((delivery) => delivery.token == 'alice-opaque-token')
+            .every((delivery) => !delivery.present),
+        isTrue,
+      );
+      expect(
+        gateway.deliveries.any(
+          (delivery) =>
+              delivery.token == 'bob-opaque-token' && delivery.present,
+        ),
+        isTrue,
+      );
       await expectLater(
         alice.connection!.registerPlatformPush(
           PlatformPushSubscriptionRequest(
@@ -565,9 +578,15 @@ final class _RecordingPushGateway implements PlatformPushGateway {
     required String provider,
     required String token,
     required int cursor,
+    bool present = false,
   }) async {
     deliveries.add(
-      _PushDelivery(provider: provider, token: token, cursor: cursor),
+      _PushDelivery(
+        provider: provider,
+        token: token,
+        cursor: cursor,
+        present: present,
+      ),
     );
     return PlatformPushDeliveryResult.accepted;
   }
@@ -578,9 +597,11 @@ final class _PushDelivery {
     required this.provider,
     required this.token,
     required this.cursor,
+    required this.present,
   });
 
   final String provider;
   final String token;
   final int cursor;
+  final bool present;
 }

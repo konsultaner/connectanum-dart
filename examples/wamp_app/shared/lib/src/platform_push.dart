@@ -5,16 +5,23 @@ final class PlatformPushSubscriptionRequest {
     required this.deviceId,
     required String provider,
     required this.token,
-  }) : provider = provider.trim().toLowerCase() {
+    Iterable<String> mutedConversationIds = const [],
+  }) : provider = provider.trim().toLowerCase(),
+       mutedConversationIds = _normalizeMutedConversationIds(
+         mutedConversationIds,
+       ) {
     validate();
   }
 
   static const maxProviderLength = 32;
   static const maxTokenLength = 4096;
+  static const maxMutedConversations = 500;
+  static const maxConversationIdLength = 200;
 
   final String deviceId;
   final String provider;
   final String token;
+  final List<String> mutedConversationIds;
 
   void validate() {
     _validateDeviceId(deviceId);
@@ -35,7 +42,12 @@ final class PlatformPushSubscriptionRequest {
 
   Map<String, dynamic> toWampKeywords() {
     validate();
-    return {'device_id': deviceId, 'provider': provider, 'token': token};
+    return {
+      'device_id': deviceId,
+      'provider': provider,
+      'token': token,
+      'muted_conversation_ids': mutedConversationIds,
+    };
   }
 
   factory PlatformPushSubscriptionRequest.fromWampKeywords(
@@ -48,6 +60,9 @@ final class PlatformPushSubscriptionRequest {
       deviceId: _readString(value['device_id'], 'device_id'),
       provider: _readString(value['provider'], 'provider'),
       token: _readString(value['token'], 'token'),
+      mutedConversationIds: _readMutedConversationIds(
+        value['muted_conversation_ids'],
+      ),
     );
   }
 }
@@ -159,6 +174,47 @@ String _readString(Object? value, String field) {
     throw FormatException('$field must be a non-empty string.');
   }
   return value;
+}
+
+List<String> _readMutedConversationIds(Object? value) {
+  if (value == null) return const [];
+  if (value is! List) {
+    throw const FormatException('muted_conversation_ids must be a list.');
+  }
+  return value
+      .map((item) {
+        if (item is! String) {
+          throw const FormatException(
+            'Muted conversation identifiers must be strings.',
+          );
+        }
+        return item;
+      })
+      .toList(growable: false);
+}
+
+List<String> _normalizeMutedConversationIds(Iterable<String> values) {
+  final result = values.toList(growable: false);
+  if (result.length > PlatformPushSubscriptionRequest.maxMutedConversations) {
+    throw const FormatException('Too many muted conversations are registered.');
+  }
+  final unique = result.toSet();
+  if (unique.length != result.length) {
+    throw const FormatException(
+      'Muted conversation identifiers must be unique.',
+    );
+  }
+  for (final conversationId in result) {
+    if (conversationId.isEmpty ||
+        conversationId.length >
+            PlatformPushSubscriptionRequest.maxConversationIdLength) {
+      throw const FormatException(
+        'A muted conversation identifier is invalid.',
+      );
+    }
+  }
+  result.sort();
+  return List<String>.unmodifiable(result);
 }
 
 DateTime _readDate(Object? value, String field) {
