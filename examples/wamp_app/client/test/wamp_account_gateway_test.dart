@@ -91,4 +91,28 @@ void main() {
       ProfileUpdateFailureKind.retryable,
     );
   });
+
+  test('classifies platform push failures without exposing tokens', () {
+    PlatformPushSubscriptionException classified(String? uri) =>
+        PlatformPushSubscriptionException.fromWampError(
+          wamp.Error(48, 1, const {}, uri),
+        );
+
+    expect(
+      classified(WampAppProtocol.errorInvalidPushSubscription).kind,
+      PlatformPushSubscriptionFailureKind.rejected,
+    );
+    expect(
+      classified(WampAppProtocol.errorDeviceRevoked).kind,
+      PlatformPushSubscriptionFailureKind.rejected,
+    );
+    expect(
+      classified(WampAppProtocol.errorPushSubscriptionUnavailable).kind,
+      PlatformPushSubscriptionFailureKind.retryable,
+    );
+    expect(
+      classified('com.example.unknown').toString(),
+      'Platform push subscriptions are temporarily unavailable.',
+    );
+  });
 }

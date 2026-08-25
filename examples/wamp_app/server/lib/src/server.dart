@@ -15,7 +15,9 @@ import 'attachment_store.dart';
 import 'device_service.dart';
 import 'mailbox_store.dart';
 import 'message_service.dart';
+import 'platform_push_service.dart';
 import 'profile_service.dart';
+import 'push_subscription_store.dart';
 import 'registration_service.dart';
 import 'server_config.dart';
 import 'wamp_app_worker.dart';
@@ -28,11 +30,13 @@ class WampAppServer {
     required List<Client> serviceClients,
     required List<Session> serviceSessions,
     required AttachmentRetentionController attachmentRetention,
+    required PlatformPushDispatcher? pushDispatcher,
   }) : _runtime = runtime,
        _binding = binding,
        _serviceClients = List<Client>.unmodifiable(serviceClients),
        _serviceSessions = List<Session>.unmodifiable(serviceSessions),
-       _attachmentRetention = attachmentRetention;
+       _attachmentRetention = attachmentRetention,
+       _pushDispatcher = pushDispatcher;
 
   final Uri websocketUri;
   final NativeTransportRuntime _runtime;
@@ -40,13 +44,31 @@ class WampAppServer {
   final List<Client> _serviceClients;
   final List<Session> _serviceSessions;
   final AttachmentRetentionController _attachmentRetention;
+  final PlatformPushDispatcher? _pushDispatcher;
   bool _closed = false;
 
-  static Future<WampAppServer> start(WampAppServerConfig config) async {
+  static Future<WampAppServer> start(
+    WampAppServerConfig config, {
+    PlatformPushGateway? pushGateway,
+  }) async {
     final store = AccountStore(config.accountStorePath);
     await store.initialize();
     final mailbox = MailboxStore(config.messageStorePath);
     await mailbox.initialize();
+    final pushStore = PlatformPushSubscriptionStore(
+      config.pushStorePath ?? '${config.messageStorePath}.push.json',
+    );
+    await pushStore.initialize();
+    final pushService = PlatformPushService(accounts: store, store: pushStore);
+    final pushDispatcher = pushGateway == null
+        ? null
+        : PlatformPushDispatcher(
+            service: pushService,
+            gateway: pushGateway,
+            onBackgroundFailure: (_) {
+              stderr.writeln('WampApp platform push delivery failed.');
+            },
+          );
     final attachments = AttachmentStore(
       config.attachmentStorePath ?? '${config.messageStorePath}.attachments',
       maxTotalBytes: config.attachmentMaxTotalBytes,
@@ -146,6 +168,12 @@ class WampAppServer {
       await _registerDeviceHandlers(
         appServiceSession,
         DeviceService(store: store),
+        pushService,
+      );
+      await _registerPushHandlers(
+        appServiceSession,
+        pushService,
+        deliveryAvailable: pushDispatcher != null,
       );
       await _registerProfileHandlers(
         appServiceSession,
@@ -162,6 +190,7 @@ class WampAppServer {
           mailbox: mailbox,
           attachments: attachments,
         ),
+        pushDispatcher,
       );
       attachmentRetention = AttachmentRetentionController(
         store: attachments,
@@ -179,8 +208,14 @@ class WampAppServer {
         serviceClients: serviceClients,
         serviceSessions: serviceSessions,
         attachmentRetention: attachmentRetention,
+        pushDispatcher: pushDispatcher,
       );
     } catch (_) {
+      try {
+        await pushDispatcher?.close();
+      } catch (_) {
+        // Preserve the startup failure while releasing remaining resources.
+      }
       try {
         await attachmentRetention?.close();
       } catch (_) {
@@ -287,6 +322,14 @@ class WampAppServer {
                 ..allowOperations(const ['call']),
             )
             ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.pushRegister)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.pushUnregister)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.profileGet)
                 ..allowOperations(const ['call']),
             )
@@ -344,6 +387,14 @@ class WampAppServer {
             )
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.deviceLookup)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.pushRegister)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.pushUnregister)
                 ..allowOperations(const ['register', 'unregister']),
             )
             ..addPermissionFromBuilder(
@@ -418,6 +469,11 @@ class WampAppServer {
     _closed = true;
     Object? failure;
     try {
+      await _pushDispatcher?.close();
+    } catch (error) {
+      failure ??= error;
+    }
+    try {
       await _attachmentRetention.close();
     } catch (error) {
       failure ??= error;
@@ -489,6 +545,7 @@ Future<void> _registerAccountHandler(
 Future<void> _registerDeviceHandlers(
   Session session,
   DeviceService devices,
+  PlatformPushService push,
 ) async {
   final options = RegisterOptions(discloseCaller: true);
   await session.registerHandler(WampAppProtocol.deviceEnroll, (
@@ -533,9 +590,51 @@ Future<void> _registerDeviceHandlers(
         throw const FormatException('device_id must be a string.');
       }
       final device = await devices.revoke(username, deviceId);
+      try {
+        await push.deviceRevoked(username, deviceId);
+      } catch (_) {
+        // Active-device checks prevent delivery even if eager cleanup fails.
+      }
       invocation.respondWith(argumentsKeywords: device.toWampKeywords());
     } catch (error) {
       _respondWithDeviceError(invocation, error);
+    }
+  }, options: options);
+}
+
+Future<void> _registerPushHandlers(
+  Session session,
+  PlatformPushService push, {
+  required bool deliveryAvailable,
+}) async {
+  final options = RegisterOptions(discloseCaller: true);
+  await session.registerHandler(WampAppProtocol.pushRegister, (
+    invocation,
+  ) async {
+    try {
+      if (!deliveryAvailable) throw const _PlatformPushUnavailable();
+      final username = _callerUsername(invocation);
+      final request = PlatformPushSubscriptionRequest.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final receipt = await push.register(username, request);
+      invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
+    } catch (error) {
+      _respondWithPushError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.pushUnregister, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final key = PlatformPushSubscriptionKey.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final removed = await push.unregister(username, key);
+      invocation.respondWith(argumentsKeywords: {'removed': removed});
+    } catch (error) {
+      _respondWithPushError(invocation, error);
     }
   }, options: options);
 }
@@ -655,6 +754,7 @@ Future<void> _registerAttachmentHandlers(
 Future<void> _registerMessageHandlers(
   Session session,
   MessageService messages,
+  PlatformPushDispatcher? pushDispatcher,
 ) async {
   final options = RegisterOptions(discloseCaller: true);
   await session.registerHandler(WampAppProtocol.deviceLookup, (
@@ -693,6 +793,7 @@ Future<void> _registerMessageHandlers(
         session,
         receipt.cursor,
         message.participantUsernames,
+        pushDispatcher,
       );
       invocation.respondWith(argumentsKeywords: receipt.toWampKeywords());
     } catch (error) {
@@ -740,6 +841,7 @@ Future<void> _registerMessageHandlers(
         session,
         update.receipt.cursor,
         update.participantUsernames,
+        pushDispatcher,
       );
       invocation.respondWith(
         argumentsKeywords: update.receipt.toWampKeywords(),
@@ -761,6 +863,7 @@ Future<void> _registerMessageHandlers(
         session,
         update.receipt.cursor,
         update.participantUsernames,
+        pushDispatcher,
       );
       invocation.respondWith(
         argumentsKeywords: update.receipt.toWampKeywords(),
@@ -775,6 +878,7 @@ Future<void> _publishMailboxWakeup(
   Session session,
   int cursor,
   Iterable<String> usernames,
+  PlatformPushDispatcher? pushDispatcher,
 ) async {
   final eligibleAuthIds = usernames.toSet().toList(growable: false)..sort();
   try {
@@ -786,6 +890,7 @@ Future<void> _publishMailboxWakeup(
   } catch (_) {
     // Durable cursor synchronization remains authoritative after a lost wakeup.
   }
+  pushDispatcher?.enqueue(cursor, eligibleAuthIds);
 }
 
 String _callerUsername(Invocation invocation) {
@@ -940,4 +1045,42 @@ void _respondWithMessageError(Invocation invocation, Object error) {
 
 class _CallerNotAuthorized implements Exception {
   const _CallerNotAuthorized();
+}
+
+final class _PlatformPushUnavailable implements Exception {
+  const _PlatformPushUnavailable();
+}
+
+void _respondWithPushError(Invocation invocation, Object error) {
+  final (uri, message) = switch (error) {
+    DeviceRevoked() => (
+      WampAppProtocol.errorDeviceRevoked,
+      'That device has been revoked.',
+    ),
+    DeviceNotFound() => (
+      WampAppProtocol.errorDeviceNotFound,
+      'That device was not found.',
+    ),
+    _CallerNotAuthorized() || StateError() => (
+      WampAppProtocol.errorNotAuthorized,
+      'The authenticated account cannot perform this operation.',
+    ),
+    FormatException(:final message) => (
+      WampAppProtocol.errorInvalidPushSubscription,
+      message,
+    ),
+    PushSubscriptionLimitExceeded() => (
+      WampAppProtocol.errorInvalidPushSubscription,
+      'The account push subscription limit has been reached.',
+    ),
+    _PlatformPushUnavailable() => (
+      WampAppProtocol.errorPushSubscriptionUnavailable,
+      'Platform push delivery is not configured on this server.',
+    ),
+    _ => (
+      WampAppProtocol.errorPushSubscriptionUnavailable,
+      'The platform push subscription service is temporarily unavailable.',
+    ),
+  };
+  invocation.respondWith(isError: true, errorUri: uri, arguments: [message]);
 }

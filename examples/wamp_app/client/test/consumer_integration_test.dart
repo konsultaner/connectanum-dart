@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app/src/infrastructure/vault_storage.dart';
+import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
+import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'package:wamp_app_server/wamp_app_server.dart';
 
 void main() {
@@ -59,6 +61,23 @@ void main() {
       );
       expect(controller.safetyNumber, isNotEmpty);
       expect(storage.values.values.single, contains('ciphertext'));
+
+      await expectLater(
+        controller.connection!.registerPlatformPush(
+          PlatformPushSubscriptionRequest(
+            deviceId: controller.localDevice!.enrollment.deviceId,
+            provider: 'test-provider',
+            token: 'unconfigured-provider-token',
+          ),
+        ),
+        throwsA(
+          isA<PlatformPushSubscriptionException>().having(
+            (error) => error.kind,
+            'kind',
+            PlatformPushSubscriptionFailureKind.retryable,
+          ),
+        ),
+      );
 
       final accountDocument = await accountFile.readAsString();
       expect(accountDocument, contains('signing_public_key'));
@@ -307,6 +326,152 @@ void main() {
     },
     timeout: const Timeout(Duration(minutes: 3)),
   );
+
+  test(
+    'caller-bound push registration delivers cursor-only mailbox wakeups',
+    () async {
+      final temporary = await Directory.systemTemp.createTemp(
+        'wamp-app-push-consumer-',
+      );
+      addTearDown(() => temporary.delete(recursive: true));
+      final gateway = _RecordingPushGateway();
+      final server = await WampAppServer.start(
+        WampAppServerConfig(
+          host: '127.0.0.1',
+          port: 0,
+          websocketPath: '/ws',
+          accountStorePath: '${temporary.path}/accounts.json',
+          messageStorePath: '${temporary.path}/messages.json',
+          pushStorePath: '${temporary.path}/push.json',
+          argonIterations: 1,
+          argonMemoryKiB: 8192,
+        ),
+        pushGateway: gateway,
+      );
+      addTearDown(server.close);
+      final alice = _controller(_MemoryVaultStorage(), 'Alice phone');
+      final bob = _controller(_MemoryVaultStorage(), 'Bob phone');
+      addTearDown(alice.dispose);
+      addTearDown(bob.dispose);
+
+      await alice.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'alice',
+        displayName: 'Alice Example',
+        password: 'alice push secret',
+      );
+      await bob.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'bob',
+        displayName: 'Bob Example',
+        password: 'bob push secret',
+      );
+      final aliceDevice = alice.localDevice!.enrollment.deviceId;
+      final bobDevice = bob.localDevice!.enrollment.deviceId;
+      final aliceReceipt = await alice.connection!.registerPlatformPush(
+        PlatformPushSubscriptionRequest(
+          deviceId: aliceDevice,
+          provider: 'test-provider',
+          token: 'alice-opaque-token',
+        ),
+      );
+      await bob.connection!.registerPlatformPush(
+        PlatformPushSubscriptionRequest(
+          deviceId: bobDevice,
+          provider: 'test-provider',
+          token: 'bob-opaque-token',
+        ),
+      );
+      expect(aliceReceipt.deviceId, aliceDevice);
+      expect(
+        await alice.connection!.unregisterPlatformPush(
+          PlatformPushSubscriptionKey(
+            deviceId: aliceDevice,
+            provider: 'test-provider',
+          ),
+        ),
+        isTrue,
+      );
+      await alice.connection!.registerPlatformPush(
+        PlatformPushSubscriptionRequest(
+          deviceId: aliceDevice,
+          provider: 'test-provider',
+          token: 'alice-opaque-token',
+        ),
+      );
+
+      await alice.sendMessage(recipientUsername: 'bob', text: 'push probe');
+      await _waitFor(
+        () =>
+            gateway.deliveries.any(
+              (delivery) => delivery.token == 'alice-opaque-token',
+            ) &&
+            gateway.deliveries.any(
+              (delivery) => delivery.token == 'bob-opaque-token',
+            ),
+      );
+      await _waitFor(
+        () => bob.messages.isNotEmpty && !alice.messageBusy && !bob.messageBusy,
+      );
+
+      expect(
+        gateway.deliveries.every(
+          (delivery) => delivery.provider == 'test-provider',
+        ),
+        isTrue,
+      );
+      expect(
+        gateway.deliveries.every((delivery) => delivery.cursor > 0),
+        isTrue,
+      );
+      var pushDocument = await File('${temporary.path}/push.json')
+          .readAsString();
+      expect(pushDocument, contains('alice-opaque-token'));
+      expect(pushDocument, isNot(contains('push probe')));
+
+      gateway.deliveries.clear();
+      await alice.signOut();
+      await alice.login(
+        serverAddress: server.websocketUri.toString(),
+        username: 'alice',
+        password: 'alice push secret',
+      );
+      await alice.sendMessage(
+        recipientUsername: 'bob',
+        text: 'reconnect push probe',
+      );
+      await _waitFor(
+        () => gateway.deliveries.any(
+          (delivery) => delivery.token == 'alice-opaque-token',
+        ),
+      );
+      await _waitFor(
+        () =>
+            bob.messages.length >= 2 && !alice.messageBusy && !bob.messageBusy,
+      );
+
+      await alice.connection!.revokeDevice(aliceDevice);
+      await expectLater(
+        alice.connection!.registerPlatformPush(
+          PlatformPushSubscriptionRequest(
+            deviceId: aliceDevice,
+            provider: 'test-provider',
+            token: 'replacement-token',
+          ),
+        ),
+        throwsA(
+          isA<PlatformPushSubscriptionException>().having(
+            (error) => error.kind,
+            'kind',
+            PlatformPushSubscriptionFailureKind.rejected,
+          ),
+        ),
+      );
+      pushDocument = await File('${temporary.path}/push.json').readAsString();
+      expect(pushDocument, isNot(contains('alice-opaque-token')));
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
 }
 
 Future<void> _waitFor(bool Function() condition) async {
@@ -363,4 +528,32 @@ final class _TestKeyDeriver implements VaultKeyDeriver {
       sha256.convert(utf8.encode('$password\n$salt')).bytes,
     );
   }
+}
+
+final class _RecordingPushGateway implements PlatformPushGateway {
+  final List<_PushDelivery> deliveries = <_PushDelivery>[];
+
+  @override
+  Future<PlatformPushDeliveryResult> deliver({
+    required String provider,
+    required String token,
+    required int cursor,
+  }) async {
+    deliveries.add(
+      _PushDelivery(provider: provider, token: token, cursor: cursor),
+    );
+    return PlatformPushDeliveryResult.accepted;
+  }
+}
+
+final class _PushDelivery {
+  const _PushDelivery({
+    required this.provider,
+    required this.token,
+    required this.cursor,
+  });
+
+  final String provider;
+  final String token;
+  final int cursor;
 }

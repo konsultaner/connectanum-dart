@@ -15,6 +15,7 @@ class WampAppServerConfig {
     required this.websocketPath,
     required this.accountStorePath,
     required this.messageStorePath,
+    this.pushStorePath,
     this.attachmentStorePath,
     this.attachmentMaxTotalBytes = defaultAttachmentMaxTotalBytes,
     this.attachmentMaxBytesPerSender = defaultAttachmentMaxBytesPerSender,
@@ -29,6 +30,7 @@ class WampAppServerConfig {
   final String websocketPath;
   final String accountStorePath;
   final String messageStorePath;
+  final String? pushStorePath;
   final String? attachmentStorePath;
   final int attachmentMaxTotalBytes;
   final int attachmentMaxBytesPerSender;
@@ -66,6 +68,12 @@ class WampAppServerConfig {
     final messageStore = p.isAbsolute(configuredMessages)
         ? configuredMessages
         : p.normalize(p.join(base, configuredMessages));
+    final configuredPush = document['push_store'] == null
+        ? '$configuredMessages.push.json'
+        : _string(document['push_store'], 'push_store');
+    final pushStore = p.isAbsolute(configuredPush)
+        ? configuredPush
+        : p.normalize(p.join(base, configuredPush));
     final configuredAttachments = document['attachment_store'] == null
         ? '$configuredMessages.attachments'
         : _string(document['attachment_store'], 'attachment_store');
@@ -100,6 +108,7 @@ class WampAppServerConfig {
       websocketPath: websocketPath,
       accountStorePath: accountStore,
       messageStorePath: messageStore,
+      pushStorePath: pushStore,
       attachmentStorePath: attachmentStore,
       attachmentMaxTotalBytes: attachmentMaxTotalBytes,
       attachmentMaxBytesPerSender: attachmentMaxBytesPerSender,

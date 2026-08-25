@@ -5,6 +5,7 @@ listen:
 websocket_path: /ws
 account_store: data/accounts.json
 message_store: data/messages.json
+push_store: data/push-subscriptions.json
 attachment_store: data/attachments
 
 attachment_limits:

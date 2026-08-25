@@ -15,6 +15,8 @@ abstract final class WampAppProtocol {
   static const messageReceipt = 'com.wampapp.message.receipt';
   static const messageConsume = 'com.wampapp.message.consume';
   static const mailboxChanged = 'com.wampapp.mailbox.changed';
+  static const pushRegister = 'com.wampapp.push.register';
+  static const pushUnregister = 'com.wampapp.push.unregister';
   static const attachmentChunkPut = 'com.wampapp.attachment.chunk.put';
   static const attachmentUploadStatus = 'com.wampapp.attachment.upload.status';
   static const attachmentChunkGet = 'com.wampapp.attachment.chunk.get';
@@ -40,6 +42,10 @@ abstract final class WampAppProtocol {
   static const errorMessageConsumed = 'com.wampapp.error.message_consumed';
   static const errorMessageUnavailable =
       'com.wampapp.error.message_unavailable';
+  static const errorInvalidPushSubscription =
+      'com.wampapp.error.invalid_push_subscription';
+  static const errorPushSubscriptionUnavailable =
+      'com.wampapp.error.push_subscription_unavailable';
   static const errorInvalidAttachment = 'com.wampapp.error.invalid_attachment';
   static const errorAttachmentConflict =
       'com.wampapp.error.attachment_conflict';

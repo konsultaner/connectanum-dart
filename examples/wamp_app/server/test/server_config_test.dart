@@ -28,6 +28,10 @@ void main() {
       config.attachmentCleanupInterval,
       WampAppServerConfig.defaultAttachmentCleanupInterval,
     );
+    expect(
+      config.pushStorePath,
+      '${directory.path}/data/messages.json.push.json',
+    );
   });
 
   test('attachment limits load from YAML', () async {
@@ -54,6 +58,19 @@ attachment_limits:
     expect(config.attachmentCleanupInterval, const Duration(minutes: 1));
   });
 
+  test('push subscription store loads from YAML', () async {
+    final directory = await Directory.systemTemp.createTemp('wampapp-config-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/server.yaml');
+    await file.writeAsString(
+      _configYaml(pushStore: 'push_store: secrets/push.json\n'),
+    );
+
+    final config = await WampAppServerConfig.load(file.path);
+
+    expect(config.pushStorePath, '${directory.path}/secrets/push.json');
+  });
+
   test('per-sender attachment limit cannot exceed the global limit', () async {
     final directory = await Directory.systemTemp.createTemp('wampapp-config-');
     addTearDown(() => directory.delete(recursive: true));
@@ -77,7 +94,7 @@ attachment_limits:
   });
 }
 
-String _configYaml({String attachmentLimits = ''}) =>
+String _configYaml({String attachmentLimits = '', String pushStore = ''}) =>
     '''
 listen:
   host: 127.0.0.1
@@ -85,6 +102,7 @@ listen:
 websocket_path: /ws
 account_store: data/accounts.json
 message_store: data/messages.json
+$pushStore
 attachment_store: data/attachments
 $attachmentLimits
 argon2id13:

@@ -6,8 +6,10 @@ Current milestone: continue the standalone WampApp Flutter consumer example
 with milestone 5 user experience. Authenticated public profiles with editable
 display names, status, and bounded avatars, plus on-device global message
 search, received-message read/unread filters, encrypted system/light/dark theme
-preferences, and per-chat notification mute are complete; contacts import and
-platform push notifications remain. Milestone 3
+preferences, per-chat notification mute, and the provider-neutral platform
+push registration/delivery foundation are complete; contacts import, concrete
+APNs/FCM/Web Push adapters, and OS background-notification presentation remain.
+Milestone 3
 durable messaging is complete across
 opaque server mailboxes, reconnect cursors, authenticated push synchronization,
 encrypted one-to-one and immutable group conversations, delivery/read state,
@@ -276,8 +278,33 @@ presented. Theme changes preserve the active recipient and unsent composer
 draft, and the 390-pixel shell remains overflow-free. `bin/test-wamp-app`
 passes with 36 shared, 49 server, 98 native Flutter, and 34 real-Chrome tests
 plus Dart2Wasm and a release-web build; repository-wide `bin/verify` passes.
-Contacts import and platform push delivery remain in milestone 5. Contacts
-import is deferred until account discovery and privacy semantics are defined.
+Exact-head CI run `32840073900` passes WampApp Consumer in 4m06s, Fast Checks
+in 9m17s, Full Verify in 8m43s, and Dart VM Coverage in 12m27s for commit
+`e38596df`. The feature-head cleanliness/log audit and protected-`master`
+policy/workflow/package strict audit pass. Contacts import and platform push
+delivery remain in milestone 5. Contacts import is deferred until account
+discovery and privacy semantics are defined.
+
+The provider-neutral platform push foundation is complete locally. Authenticated
+members register and unregister opaque provider tokens only for an active device
+on their own account through caller-disclosed WAMP procedures. The mode-`0600`
+atomic secret store is bounded, serialized, corruption-checked, and removes
+revoked devices and invalid current tokens without deleting concurrent token
+refreshes. Durable message commits enqueue only a mailbox cursor and account
+set into a bounded, coalescing, timeout-protected best-effort dispatcher; the
+gateway receives only provider, opaque token, and cursor, never usernames,
+conversation metadata, message identifiers, ciphertext, or plaintext. Provider
+failure reporting is stage-only so logs cannot expose registration secrets.
+Client calls classify retryable and rejected responses, and a live native-router
+smoke proves unavailable-provider failure, caller/device binding,
+register/unregister, cursor-only delivery, reconnect persistence, revocation
+cleanup, and rejected reuse of a revoked device. `bin/test-wamp-app` passes with
+40 shared, 64 server, 100 native Flutter, and 34 Chrome tests plus Dart2Wasm and
+a release-web build. Concrete APNs, FCM, and Web Push gateway adapters, Flutter
+platform-token acquisition, OS background handlers, and mute-aware local
+presentation remain; this slice does not claim provider deployment is complete.
+Repository-wide `bin/verify` passes on 2026-08-25; hosted exact-head evidence
+is pending.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

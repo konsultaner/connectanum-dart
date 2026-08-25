@@ -126,6 +126,35 @@ final class ProfileUpdateException implements Exception {
   };
 }
 
+enum PlatformPushSubscriptionFailureKind { retryable, rejected }
+
+final class PlatformPushSubscriptionException implements Exception {
+  const PlatformPushSubscriptionException(this.kind);
+
+  factory PlatformPushSubscriptionException.fromWampError(wamp.Error error) {
+    final kind = switch (error.error) {
+      WampAppProtocol.errorInvalidPushSubscription ||
+      WampAppProtocol.errorDeviceNotFound ||
+      WampAppProtocol.errorDeviceRevoked ||
+      WampAppProtocol.errorNotAuthorized ||
+      wamp.Error.notAuthorized => PlatformPushSubscriptionFailureKind.rejected,
+      WampAppProtocol.errorPushSubscriptionUnavailable ||
+      _ => PlatformPushSubscriptionFailureKind.retryable,
+    };
+    return PlatformPushSubscriptionException(kind);
+  }
+
+  final PlatformPushSubscriptionFailureKind kind;
+
+  @override
+  String toString() => switch (kind) {
+    PlatformPushSubscriptionFailureKind.retryable =>
+      'Platform push subscriptions are temporarily unavailable.',
+    PlatformPushSubscriptionFailureKind.rejected =>
+      'The server rejected this platform push subscription.',
+  };
+}
+
 class AccountConnection {
   AccountConnection({
     required this.endpoint,
@@ -145,6 +174,8 @@ class AccountConnection {
     this.putAttachmentChunkCallback,
     this.attachmentUploadStatusCallback,
     this.getAttachmentChunkCallback,
+    this.registerPlatformPushCallback,
+    this.unregisterPlatformPushCallback,
     required this.mailboxWakeups,
     required this.latestMailboxWakeupCursorCallback,
     required this.latestMailboxWakeupErrorCallback,
@@ -186,6 +217,12 @@ class AccountConnection {
     int chunkIndex,
   )?
   getAttachmentChunkCallback;
+  final Future<PlatformPushSubscriptionReceipt> Function(
+    PlatformPushSubscriptionRequest request,
+  )?
+  registerPlatformPushCallback;
+  final Future<bool> Function(PlatformPushSubscriptionKey key)?
+  unregisterPlatformPushCallback;
   final Stream<MailboxWakeup> mailboxWakeups;
   final int Function() latestMailboxWakeupCursorCallback;
   final Object? Function() latestMailboxWakeupErrorCallback;
@@ -307,6 +344,30 @@ class AccountConnection {
       );
     }
     return callback(messageId, attachmentId, chunkIndex);
+  }
+
+  Future<PlatformPushSubscriptionReceipt> registerPlatformPush(
+    PlatformPushSubscriptionRequest request,
+  ) {
+    _ensureOpen();
+    final callback = registerPlatformPushCallback;
+    if (callback == null) {
+      throw StateError(
+        'Platform push registration is unavailable on this connection.',
+      );
+    }
+    return callback(request);
+  }
+
+  Future<bool> unregisterPlatformPush(PlatformPushSubscriptionKey key) {
+    _ensureOpen();
+    final callback = unregisterPlatformPushCallback;
+    if (callback == null) {
+      throw StateError(
+        'Platform push unregistration is unavailable on this connection.',
+      );
+    }
+    return callback(key);
   }
 
   Future<void> close() async {
@@ -586,6 +647,40 @@ class WampAccountGateway implements AccountGateway {
                 throw AttachmentTransferException.fromWampError(error);
               }
             },
+        registerPlatformPushCallback: (request) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.pushRegister,
+                  argumentsKeywords: request.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            return PlatformPushSubscriptionReceipt.fromWampKeywords(
+              result.argumentsKeywords,
+            );
+          } on wamp.Error catch (error) {
+            throw PlatformPushSubscriptionException.fromWampError(error);
+          }
+        },
+        unregisterPlatformPushCallback: (key) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.pushUnregister,
+                  argumentsKeywords: key.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            final removed = result.argumentsKeywords?['removed'];
+            if (removed is! bool) {
+              throw const FormatException(
+                'The server returned an invalid push unregistration receipt.',
+              );
+            }
+            return removed;
+          } on wamp.Error catch (error) {
+            throw PlatformPushSubscriptionException.fromWampError(error);
+          }
+        },
         mailboxWakeups: wakeups.stream,
         latestMailboxWakeupCursorCallback: () => wakeups.latestCursor,
         latestMailboxWakeupErrorCallback: () => wakeups.latestError,

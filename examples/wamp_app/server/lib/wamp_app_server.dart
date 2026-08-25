@@ -4,6 +4,8 @@ export 'src/attachment_store.dart';
 export 'src/device_service.dart';
 export 'src/mailbox_store.dart';
 export 'src/message_service.dart';
+export 'src/platform_push_service.dart';
+export 'src/push_subscription_store.dart';
 export 'src/registration_service.dart';
 export 'src/server.dart';
 export 'src/server_config.dart';
