@@ -37,6 +37,7 @@ fi
     flutter test --platform chrome \
       test/attachment_chunk_cache_web_test.dart \
       test/attachment_crypto_worker_web_test.dart \
+      test/local_app_preferences_test.dart \
       test/local_message_query_test.dart \
       test/widget_test.dart \
       test/voice_note_recorder_test.dart

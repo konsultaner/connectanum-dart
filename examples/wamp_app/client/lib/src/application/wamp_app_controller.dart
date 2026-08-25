@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
+import '../domain/local_app_preferences.dart';
 import '../domain/local_chat_group.dart';
 import '../domain/local_chat_message.dart';
 import '../domain/outbound_chat_message.dart';
@@ -41,9 +42,12 @@ class WampAppController extends ChangeNotifier {
   Object? _error;
   Object? _messageError;
   Object? _profileError;
+  Object? _preferenceError;
   List<LocalChatMessage> _messages = const [];
   bool _messageBusy = false;
   bool _profileBusy = false;
+  bool _preferenceBusy = false;
+  LocalAppPreferences _preferences = LocalAppPreferences.defaults;
   StreamSubscription<MailboxWakeup>? _mailboxWakeupSubscription;
   int _pendingMailboxWakeupCursor = 0;
   bool _automaticSyncRunning = false;
@@ -63,6 +67,13 @@ class WampAppController extends ChangeNotifier {
       .firstOrNull;
   bool get messageBusy => _messageBusy;
   bool get profileBusy => _profileBusy;
+  bool get preferenceBusy => _preferenceBusy;
+  WampAppThemePreference get themePreference => _preferences.theme;
+  String? get preferenceError => switch (_preferenceError) {
+    FormatException(:final message) => message,
+    _ when _preferenceError != null => 'Could not save local preferences.',
+    _ => null,
+  };
   String? get profileError => switch (_profileError) {
     FormatException(:final message) => message,
     ProfileUpdateException() => _profileError.toString(),
@@ -81,6 +92,71 @@ class WampAppController extends ChangeNotifier {
       'Could not connect. Check the address and credentials.',
     _ => null,
   };
+
+  String? directConversationIdFor(String recipientUsername) {
+    final username = _connection?.username;
+    if (username == null) return null;
+    try {
+      return MessageCipher.directConversationId(username, recipientUsername);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  bool isConversationMuted(String conversationId) =>
+      _preferences.isMuted(conversationId);
+
+  bool shouldPresentNotificationFor(LocalChatMessage message) =>
+      _connection != null &&
+      !message.outgoing &&
+      !_preferences.isMuted(message.conversationId);
+
+  Future<bool> setThemePreference(WampAppThemePreference theme) {
+    if (_preferences.theme == theme) return Future<bool>.value(true);
+    return _savePreferences(_preferences.withTheme(theme));
+  }
+
+  Future<bool> setConversationMuted(String conversationId, bool muted) {
+    if (_preferences.isMuted(conversationId) == muted) {
+      return Future<bool>.value(true);
+    }
+    try {
+      return _savePreferences(
+        _preferences.withConversationMuted(conversationId, muted),
+      );
+    } on FormatException catch (error) {
+      _preferenceError = error;
+      if (!_disposed) notifyListeners();
+      return Future<bool>.value(false);
+    }
+  }
+
+  Future<bool> _savePreferences(LocalAppPreferences preferences) async {
+    final trust = _trustSession;
+    if (_disposed || _preferenceBusy || trust == null) return false;
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(trust, _trustSession);
+    _preferenceBusy = true;
+    _preferenceError = null;
+    notifyListeners();
+    try {
+      await trust.savePreferences(preferences);
+      if (!isCurrent()) return false;
+      _preferences = preferences;
+      return true;
+    } catch (error) {
+      if (isCurrent()) _preferenceError = error;
+      return false;
+    } finally {
+      if (isCurrent()) {
+        _preferenceBusy = false;
+        notifyListeners();
+      }
+    }
+  }
 
   Future<void> registerAndConnect({
     required String serverAddress,
@@ -136,9 +212,12 @@ class WampAppController extends ChangeNotifier {
     _error = null;
     _messageError = null;
     _profileError = null;
+    _preferenceError = null;
     _messages = const [];
     _messageBusy = false;
     _profileBusy = false;
+    _preferenceBusy = false;
+    _preferences = LocalAppPreferences.defaults;
     _status = WampAppStatus.signedOut;
     if (!_disposed) notifyListeners();
     await _closeState(connection, trustSession, wakeupSubscription);
@@ -307,12 +386,15 @@ class WampAppController extends ChangeNotifier {
     final previousWakeupSubscription = _mailboxWakeupSubscription;
     _connection = next;
     _trustSession = nextTrust;
+    _preferences = nextTrust.preferences;
     _localDevice = nextDevice;
     _mailboxWakeupSubscription = nextWakeupSubscription;
     _pendingMailboxWakeupCursor = nextPendingWakeupCursor;
     _automaticSyncRunning = false;
     _messages = List<LocalChatMessage>.unmodifiable(nextMessages);
     _messageError = nextWakeupError;
+    _preferenceError = null;
+    _preferenceBusy = false;
     _status = WampAppStatus.connected;
     notifyListeners();
     _startAutomaticSyncIfNeeded();

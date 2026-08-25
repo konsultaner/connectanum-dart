@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'application/wamp_app_controller.dart';
+import 'domain/local_app_preferences.dart';
 import 'ui/home_page.dart';
 import 'ui/onboarding_page.dart';
 import 'ui/wamp_app_theme.dart';
@@ -33,21 +34,34 @@ class _WampAppState extends State<WampApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'WampApp',
-      debugShowCheckedModeBanner: false,
-      theme: WampAppTheme.light(),
-      home: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final connection = _controller.connection;
-          if (_controller.status == WampAppStatus.connected &&
-              connection != null) {
-            return HomePage(controller: _controller, connection: connection);
-          }
-          return OnboardingPage(controller: _controller);
-        },
-      ),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'WampApp',
+          debugShowCheckedModeBanner: false,
+          theme: WampAppTheme.light(),
+          darkTheme: WampAppTheme.dark(),
+          themeMode: switch (_controller.themePreference) {
+            WampAppThemePreference.system => ThemeMode.system,
+            WampAppThemePreference.light => ThemeMode.light,
+            WampAppThemePreference.dark => ThemeMode.dark,
+          },
+          home: Builder(
+            builder: (context) {
+              final connection = _controller.connection;
+              if (_controller.status == WampAppStatus.connected &&
+                  connection != null) {
+                return HomePage(
+                  controller: _controller,
+                  connection: connection,
+                );
+              }
+              return OnboardingPage(controller: _controller);
+            },
+          ),
+        );
+      },
     );
   }
 }

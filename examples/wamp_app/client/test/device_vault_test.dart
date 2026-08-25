@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pinenacl/x25519.dart';
+import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
@@ -312,6 +313,104 @@ void main() {
     },
   );
 
+  test('preferences remain encrypted and survive vault reopen', () async {
+    final first = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    await first.savePreferences(
+      LocalAppPreferences(
+        theme: WampAppThemePreference.dark,
+        mutedConversationIds: const ['private-conversation-id'],
+      ),
+    );
+    final encoded = storage.values.values.single;
+    expect(encoded, isNot(contains('private-conversation-id')));
+    expect(encoded, isNot(contains('dark')));
+    await first.dispose();
+
+    final reopened = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Ignored replacement name',
+    );
+    addTearDown(reopened.dispose);
+    expect(reopened.preferences.theme, WampAppThemePreference.dark);
+    expect(reopened.preferences.isMuted('private-conversation-id'), isTrue);
+  });
+
+  test('failed preference writes leave live state unchanged', () async {
+    final session = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    addTearDown(session.dispose);
+    storage.writeFailure = StateError('disk full');
+
+    await expectLater(
+      session.savePreferences(
+        LocalAppPreferences(theme: WampAppThemePreference.dark),
+      ),
+      throwsStateError,
+    );
+    expect(session.preferences.theme, WampAppThemePreference.system);
+  });
+
+  test('vaults without preferences migrate to safe defaults', () async {
+    final session = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    await session.dispose();
+    await _rewriteInnerDocument(
+      storage,
+      password: 'correct horse battery',
+      update: (document) => document.remove('preferences'),
+    );
+
+    final reopened = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    addTearDown(reopened.dispose);
+    expect(reopened.preferences.theme, WampAppThemePreference.system);
+    expect(reopened.preferences.mutedConversationIds, isEmpty);
+  });
+
+  test('malformed encrypted preferences fail vault unlock closed', () async {
+    final session = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    await session.dispose();
+    await _rewriteInnerDocument(
+      storage,
+      password: 'correct horse battery',
+      update: (document) => document['preferences'] = 'dark',
+    );
+
+    await expectLater(
+      vault.openOrCreate(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'correct horse battery',
+        deviceName: 'Alice phone',
+      ),
+      throwsA(isA<VaultUnlockException>()),
+    );
+  });
+
   test('rejects oversized or mailbox-ambiguous outbox state', () async {
     final session = await vault.openOrCreate(
       endpoint: endpoint,
@@ -349,6 +448,7 @@ void main() {
 
 final class MemoryVaultStorage implements VaultStorage {
   final Map<String, String> values = {};
+  Object? writeFailure;
 
   @override
   Future<void> delete(String key) async {
@@ -360,6 +460,8 @@ final class MemoryVaultStorage implements VaultStorage {
 
   @override
   Future<void> write(String key, String value) async {
+    final failure = writeFailure;
+    if (failure != null) throw failure;
     values[key] = value;
   }
 }
@@ -379,6 +481,48 @@ final class _TestKeyDeriver implements VaultKeyDeriver {
       sha256.convert(utf8.encode('$password\n$salt')).bytes,
     );
   }
+}
+
+Future<void> _rewriteInnerDocument(
+  MemoryVaultStorage storage, {
+  required String password,
+  required void Function(Map<String, dynamic> document) update,
+}) async {
+  final entry = storage.values.entries.single;
+  final envelope = jsonDecode(entry.value) as Map<String, dynamic>;
+  final salt = envelope['salt'] as String;
+  final key = await const _TestKeyDeriver().derive(
+    password: password,
+    salt: salt,
+    iterations: 2,
+    memoryKiB: 64,
+    timeout: const Duration(seconds: 1),
+  );
+  final ciphertext = _decodeUnpadded(envelope['ciphertext'] as String);
+  final box = SecretBox(key);
+  final plaintext = box.decrypt(EncryptedMessage.fromList(ciphertext));
+  try {
+    final document = jsonDecode(utf8.decode(plaintext)) as Map<String, dynamic>;
+    update(document);
+    final rewritten = Uint8List.fromList(utf8.encode(jsonEncode(document)));
+    try {
+      envelope['ciphertext'] = base64Url
+          .encode(box.encrypt(rewritten).asTypedList)
+          .replaceAll('=', '');
+      storage.values[entry.key] = jsonEncode(envelope);
+    } finally {
+      rewritten.fillRange(0, rewritten.length, 0);
+    }
+  } finally {
+    plaintext.fillRange(0, plaintext.length, 0);
+    key.fillRange(0, key.length, 0);
+  }
+}
+
+Uint8List _decodeUnpadded(String value) {
+  final padding = (4 - value.length % 4) % 4;
+  final suffix = List<String>.filled(padding, '=').join();
+  return base64Url.decode('$value$suffix');
 }
 
 DeviceRecord _record(String username, DeviceEnrollment enrollment) {

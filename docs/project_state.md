@@ -5,8 +5,9 @@ Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example
 with milestone 5 user experience. Authenticated public profiles with editable
 display names, status, and bounded avatars, plus on-device global message
-search and received-message read/unread filters, are complete; contacts import,
-themes, per-chat mute, and platform push notifications remain. Milestone 3
+search, received-message read/unread filters, encrypted system/light/dark theme
+preferences, and per-chat notification mute are complete; contacts import and
+platform push notifications remain. Milestone 3
 durable messaging is complete across
 opaque server mailboxes, reconnect cursors, authenticated push synchronization,
 encrypted one-to-one and immutable group conversations, delivery/read state,
@@ -247,6 +248,36 @@ application build passes, and repository-wide `bin/verify` passes on
 Fast Checks in 9m18s, Full Verify in 11m20s, and Dart VM Coverage in 12m52s for
 commit `a1af7d4d`. The feature-head cleanliness/log audit and protected-`master`
 policy/workflow/package strict audit pass.
+
+On-device global message search and received-message read/unread filters are
+complete. Queries stay ephemeral and local, exclude hidden incoming view-once
+bodies, use bounded case-insensitive AND matching across safe message and
+attachment metadata, and return the newest 200 matches chronologically.
+Outgoing delivery/read receipts never enter received-message filters. The
+compact shell remains overflow-free at 390 pixels, and selecting a result opens
+its direct or group context through the normal durable read/consume path.
+`bin/test-wamp-app` passes with 36 shared, 49 server, 84 native Flutter, and 28
+real-Chrome tests plus Dart2Wasm and a release-web build. A macOS debug build and
+repository-wide `bin/verify` pass. Exact-head CI run `32833791251` passes
+WampApp Consumer in 3m59s, Fast Checks in 10m31s, Full Verify in 11m4s, and
+Dart VM Coverage in 12m55s for commit `985afac1`. The feature-head
+cleanliness/log audit and protected-`master` policy/workflow/package strict
+audit pass.
+
+Account-bound local appearance and notification-presentation preferences are
+complete. System, light, and dark theme selection plus bounded direct/group
+conversation mute state live only inside the encrypted device vault. Existing
+vaults missing the preference document migrate to safe defaults, malformed
+encrypted preference data fails closed, failed writes retain the last durable
+live state, and sign-out or session replacement fences stale completions.
+Muted conversations still receive mailbox wakeups and synchronize durable
+content; mute controls only whether a platform notification should be
+presented. Theme changes preserve the active recipient and unsent composer
+draft, and the 390-pixel shell remains overflow-free. `bin/test-wamp-app`
+passes with 36 shared, 49 server, 98 native Flutter, and 34 real-Chrome tests
+plus Dart2Wasm and a release-web build; repository-wide `bin/verify` passes.
+Contacts import and platform push delivery remain in milestone 5. Contacts
+import is deferred until account discovery and privacy semantics are defined.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/app.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
+import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
@@ -137,6 +138,89 @@ void main() {
     expect(find.text('Bob Example'), findsOneWidget);
     expect(find.byKey(const Key('peer-profile-status')), findsOneWidget);
     expect(find.text('Testing WampApp'), findsOneWidget);
+  });
+
+  testWidgets('switches appearance and mutes direct and group chats', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(
+        initialGroups: [
+          LocalChatGroup(
+            conversationId: 'launch-crew',
+            title: 'Launch crew',
+            memberUsernames: const ['alice', 'bob'],
+            createdBy: 'alice',
+            createdAt: DateTime.utc(2026, 8, 25, 11),
+          ),
+        ],
+      ),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    Future<void> chooseAppearance(WampAppThemePreference preference) async {
+      await tester.tap(find.byKey(const Key('account-theme-menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('appearance-${preference.wireName}')),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.system,
+    );
+    await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
+    await tester.enterText(
+      find.byKey(const Key('message-composer')),
+      'Unsent encrypted draft',
+    );
+    await chooseAppearance(WampAppThemePreference.dark);
+    expect(controller.themePreference, WampAppThemePreference.dark);
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.dark,
+    );
+    expect(find.text('Unsent encrypted draft'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('message-recipient')))
+          .controller
+          ?.text,
+      'bob',
+    );
+    await chooseAppearance(WampAppThemePreference.light);
+    expect(controller.themePreference, WampAppThemePreference.light);
+    await chooseAppearance(WampAppThemePreference.system);
+    expect(controller.themePreference, WampAppThemePreference.system);
+
+    await tester.pumpAndSettle();
+    final directId = controller.directConversationIdFor('bob')!;
+    expect(find.byKey(const Key('conversation-mute')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('conversation-mute')));
+    await tester.pumpAndSettle();
+    expect(controller.isConversationMuted(directId), isTrue);
+
+    await tester.tap(find.text('Launch crew'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('conversation-mute')));
+    await tester.pumpAndSettle();
+    expect(controller.isConversationMuted('launch-crew'), isTrue);
+    expect(controller.isConversationMuted(directId), isTrue);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('searches local history and filters received read state', (

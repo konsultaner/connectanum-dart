@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../application/wamp_app_controller.dart';
-import 'wamp_app_theme.dart';
 
 enum _AccountMode { register, login }
 
@@ -206,10 +205,13 @@ class _AccountCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
+              Text(
                 'SCRAM derives the password key off the UI thread. Plaintext passwords are not stored by the app or server.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Color(0xB317342D)),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -264,16 +266,19 @@ class _Wordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         CircleAvatar(
           radius: 22,
-          backgroundColor: WampAppTheme.pine,
-          child: Icon(Icons.waves_rounded, color: Colors.white),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          child: Icon(
+            Icons.waves_rounded,
+            color: Theme.of(context).colorScheme.onPrimary,
+          ),
         ),
-        SizedBox(width: 12),
-        Text(
+        const SizedBox(width: 12),
+        const Text(
           'WampApp',
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
         ),
@@ -292,16 +297,17 @@ class _TrustChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.62),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest
+            .withValues(alpha: 0.62),
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: const Color(0x30204A40)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 17, color: WampAppTheme.pine),
+            Icon(icon, size: 17, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 7),
             Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
           ],
@@ -316,23 +322,32 @@ class _Atmosphere extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFF9F1E3), Color(0xFFE7F1E8), Color(0xFFF7E6D9)],
+          colors: [
+            colors.surface,
+            colors.primaryContainer.withValues(alpha: 0.72),
+            colors.secondaryContainer.withValues(alpha: 0.62),
+          ],
         ),
       ),
-      child: CustomPaint(painter: _DotPainter()),
+      child: CustomPaint(painter: _DotPainter(colors.outlineVariant)),
     );
   }
 }
 
 class _DotPainter extends CustomPainter {
+  const _DotPainter(this.color);
+
+  final Color color;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0x15204A40);
+    final paint = Paint()..color = color.withValues(alpha: 0.28);
     for (double x = 20; x < size.width; x += 34) {
       for (double y = 20; y < size.height; y += 34) {
         canvas.drawCircle(Offset(x, y), 1.2, paint);
@@ -341,5 +356,6 @@ class _DotPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _DotPainter oldDelegate) =>
+      color != oldDelegate.color;
 }

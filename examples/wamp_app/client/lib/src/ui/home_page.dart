@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import '../application/wamp_app_controller.dart';
+import '../domain/local_app_preferences.dart';
 import '../domain/local_chat_message.dart';
 import '../domain/local_message_query.dart';
 import '../domain/outbound_chat_message.dart';
@@ -15,7 +16,6 @@ import '../infrastructure/voice_note_playback.dart';
 import '../infrastructure/voice_note_recorder.dart';
 import '../infrastructure/wamp_account_gateway.dart';
 import 'expression_picker.dart';
-import 'wamp_app_theme.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -618,6 +618,33 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _setThemePreference(WampAppThemePreference value) async {
+    final saved = await widget.controller.setThemePreference(value);
+    if (!mounted) return;
+    _showMessage(
+      saved
+          ? 'Appearance preference saved on this account.'
+          : widget.controller.preferenceError ??
+                'Could not save the appearance preference.',
+    );
+  }
+
+  Future<void> _setConversationMuted(String conversationId, bool muted) async {
+    final saved = await widget.controller.setConversationMuted(
+      conversationId,
+      muted,
+    );
+    if (!mounted) return;
+    _showMessage(
+      saved
+          ? muted
+                ? 'Chat muted on this account.'
+                : 'Chat unmuted on this account.'
+          : widget.controller.preferenceError ??
+                'Could not save the chat preference.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -631,7 +658,10 @@ class _HomePageState extends State<HomePage> {
               safetyNumber: widget.controller.safetyNumber!,
               compact: !wide,
               profileBusy: widget.controller.profileBusy,
+              preferenceBusy: widget.controller.preferenceBusy,
+              themePreference: widget.controller.themePreference,
               onEditProfile: _editProfile,
+              onThemeChanged: _setThemePreference,
               onSignOut: widget.controller.signOut,
             );
             final conversation = _ConversationPanel(
@@ -651,11 +681,13 @@ class _HomePageState extends State<HomePage> {
               oneTime: _oneTime,
               expiresAfter: _expiresAfter,
               selectedGroupId: _selectedGroupId,
+              onRecipientChanged: () => setState(() {}),
               onConversationChanged: (value) => setState(() {
                 _selectedGroupId = value;
                 if (value != null) _oneTime = false;
               }),
               onCreateGroup: _createGroup,
+              onMuteChanged: _setConversationMuted,
               onOneTimeChanged: (value) => setState(() => _oneTime = value),
               onExpiresAfterChanged: (value) =>
                   setState(() => _expiresAfter = value),
@@ -870,7 +902,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 Text(
                   message,
                   key: const Key('profile-validation-error'),
-                  style: const TextStyle(color: Color(0xFF9E2A2B)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ],
               const SizedBox(height: 10),
@@ -905,7 +937,10 @@ class _AccountPanel extends StatelessWidget {
     required this.safetyNumber,
     required this.compact,
     required this.profileBusy,
+    required this.preferenceBusy,
+    required this.themePreference,
     required this.onEditProfile,
+    required this.onThemeChanged,
     required this.onSignOut,
   });
 
@@ -914,7 +949,10 @@ class _AccountPanel extends StatelessWidget {
   final String safetyNumber;
   final bool compact;
   final bool profileBusy;
+  final bool preferenceBusy;
+  final WampAppThemePreference themePreference;
   final VoidCallback onEditProfile;
+  final ValueChanged<WampAppThemePreference> onThemeChanged;
   final VoidCallback onSignOut;
 
   @override
@@ -927,16 +965,19 @@ class _AccountPanel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.waves_rounded, color: WampAppTheme.pine),
-                SizedBox(width: 9),
-                Text(
+                Icon(
+                  Icons.waves_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 9),
+                const Text(
                   'WampApp',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
-                Spacer(),
-                _OnlineBadge(),
+                const Spacer(),
+                const _OnlineBadge(),
               ],
             ),
             SizedBox(height: compact ? 12 : 24),
@@ -974,6 +1015,32 @@ class _AccountPanel extends StatelessWidget {
                         )
                       : const Icon(Icons.edit_outlined),
                 ),
+                PopupMenuButton<WampAppThemePreference>(
+                  key: const Key('account-theme-menu'),
+                  enabled: !preferenceBusy,
+                  initialValue: themePreference,
+                  tooltip: 'Choose appearance',
+                  onSelected: onThemeChanged,
+                  itemBuilder: (context) => [
+                    for (final preference in WampAppThemePreference.values)
+                      CheckedPopupMenuItem<WampAppThemePreference>(
+                        key: ValueKey('appearance-${preference.wireName}'),
+                        value: preference,
+                        checked: preference == themePreference,
+                        child: Text(switch (preference) {
+                          WampAppThemePreference.system => 'System appearance',
+                          WampAppThemePreference.light => 'Light appearance',
+                          WampAppThemePreference.dark => 'Dark appearance',
+                        }),
+                      ),
+                  ],
+                  icon: preferenceBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.brightness_6_outlined),
+                ),
                 if (compact)
                   IconButton(
                     key: const Key('account-sign-out-compact'),
@@ -996,7 +1063,7 @@ class _AccountPanel extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: WampAppTheme.mint.withValues(alpha: 0.55),
+                  color: Theme.of(context).colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -1064,7 +1131,7 @@ class _ProfileAvatar extends StatelessWidget {
     final bytes = profile.avatarBytes;
     return CircleAvatar(
       radius: radius,
-      backgroundColor: WampAppTheme.mint,
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       child: bytes == null
           ? fallback()
           : ClipOval(
@@ -1116,8 +1183,10 @@ class _ConversationPanel extends StatelessWidget {
     required this.oneTime,
     required this.expiresAfter,
     required this.selectedGroupId,
+    required this.onRecipientChanged,
     required this.onConversationChanged,
     required this.onCreateGroup,
+    required this.onMuteChanged,
     required this.onOneTimeChanged,
     required this.onExpiresAfterChanged,
     required this.onOpenMessage,
@@ -1149,8 +1218,10 @@ class _ConversationPanel extends StatelessWidget {
   final bool oneTime;
   final Duration? expiresAfter;
   final String? selectedGroupId;
+  final VoidCallback onRecipientChanged;
   final ValueChanged<String?> onConversationChanged;
   final Future<void> Function() onCreateGroup;
+  final Future<void> Function(String conversationId, bool muted) onMuteChanged;
   final ValueChanged<bool> onOneTimeChanged;
   final ValueChanged<Duration?> onExpiresAfterChanged;
   final Future<void> Function(LocalChatMessage message) onOpenMessage;
@@ -1176,6 +1247,14 @@ class _ConversationPanel extends StatelessWidget {
         .where((group) => group.conversationId == selectedGroupId)
         .firstOrNull;
     final groupMode = selectedGroupId != null;
+    final directConversationId = groupMode
+        ? null
+        : controller.directConversationIdFor(recipientController.text);
+    final activeConversationId =
+        selectedGroup?.conversationId ?? directConversationId;
+    final conversationMuted =
+        activeConversationId != null &&
+        controller.isConversationMuted(activeConversationId);
     final query = LocalMessageQuery(
       text: searchQuery,
       readFilter: readFilter,
@@ -1191,7 +1270,10 @@ class _ConversationPanel extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.lock_outline, color: WampAppTheme.pine),
+                Icon(
+                  Icons.lock_outline,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
@@ -1199,6 +1281,29 @@ class _ConversationPanel extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
+                if (activeConversationId != null)
+                  IconButton(
+                    key: const Key('conversation-mute'),
+                    tooltip: conversationMuted
+                        ? 'Unmute this chat'
+                        : 'Mute this chat',
+                    onPressed: controller.preferenceBusy
+                        ? null
+                        : () => onMuteChanged(
+                            activeConversationId,
+                            !conversationMuted,
+                          ),
+                    icon: controller.preferenceBusy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            conversationMuted
+                                ? Icons.notifications_off
+                                : Icons.notifications_none,
+                          ),
+                  ),
                 IconButton(
                   tooltip: 'Sync messages',
                   onPressed: controller.messageBusy
@@ -1326,6 +1431,7 @@ class _ConversationPanel extends StatelessWidget {
                         : const Icon(Icons.account_circle_outlined),
                   ),
                 ),
+                onChanged: (_) => onRecipientChanged(),
                 onTapOutside: (_) =>
                     FocusManager.instance.primaryFocus?.unfocus(),
               )
@@ -1403,7 +1509,7 @@ class _ConversationPanel extends StatelessWidget {
                 child: Text(
                   error,
                   key: const Key('message-error'),
-                  style: const TextStyle(color: Color(0xFF9E2A2B)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
             ],
@@ -1522,14 +1628,16 @@ class _ConversationPanel extends StatelessWidget {
                             vertical: 11,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFE9E4),
+                            color: Theme.of(context).colorScheme.errorContainer,
                             borderRadius: BorderRadius.circular(18),
                           ),
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.fiber_manual_record,
-                                color: Color(0xFFB23A2B),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer,
                                 size: 15,
                               ),
                               const SizedBox(width: 8),
@@ -1591,7 +1699,7 @@ class _ConversationPanel extends StatelessWidget {
                               ? Icons.stop_circle_outlined
                               : Icons.mic_none_rounded,
                           color: voiceRecording
-                              ? const Color(0xFFB23A2B)
+                              ? Theme.of(context).colorScheme.error
                               : null,
                         ),
                 ),
@@ -1703,8 +1811,8 @@ class _MessageBubble extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
           decoration: BoxDecoration(
             color: message.outgoing
-                ? WampAppTheme.mint
-                : const Color(0xFFF1EBDD),
+                ? Theme.of(context).colorScheme.primaryContainer
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -1875,7 +1983,8 @@ class _AttachmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.55),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest
+          .withValues(alpha: 0.72),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         key: ValueKey('attachment-open-${attachment.attachmentId}'),
@@ -2006,7 +2115,10 @@ class _VoiceNotePlayer extends StatelessWidget {
               ),
               if (controller.error case final error?) ...[
                 const SizedBox(height: 8),
-                Text(error, style: const TextStyle(color: Color(0xFF9E2A2B))),
+                Text(
+                  error,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ],
             ],
           ),

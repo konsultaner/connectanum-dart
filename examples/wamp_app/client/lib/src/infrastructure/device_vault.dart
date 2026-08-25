@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:pinenacl/x25519.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
+import '../domain/local_app_preferences.dart';
 import '../domain/local_chat_group.dart';
 import '../domain/local_chat_message.dart';
 import '../domain/outbound_chat_message.dart';
@@ -44,12 +45,14 @@ abstract interface class DeviceTrustSession {
   List<LocalChatMessage> get messages;
   List<LocalChatGroup> get groups;
   List<OutboundChatMessage> get outbox;
+  LocalAppPreferences get preferences;
   Future<void> saveMailboxState({
     required int cursor,
     required List<LocalChatMessage> messages,
     List<LocalChatGroup>? groups,
     List<OutboundChatMessage>? outbox,
   });
+  Future<void> savePreferences(LocalAppPreferences preferences);
   Future<void> dispose();
 }
 
@@ -175,6 +178,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         messages: const [],
         groups: const [],
         outbox: const [],
+        preferences: LocalAppPreferences.defaults,
       );
       identity = null;
       try {
@@ -233,6 +237,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
       final mailbox = _readMailbox(document['mailbox']);
       final groups = _readGroups(document['groups']);
       final outbox = _readOutbox(document['outbox'], mailbox.$2);
+      final preferences = LocalAppPreferences.fromJson(document['preferences']);
       final session = _UnlockedDeviceVault(
         storage: storage,
         storageKey: storageKey,
@@ -248,6 +253,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         messages: mailbox.$2,
         groups: groups,
         outbox: outbox,
+        preferences: preferences,
       );
       identity = null;
       return session;
@@ -304,6 +310,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     required List<LocalChatMessage> messages,
     required List<LocalChatGroup> groups,
     required List<OutboundChatMessage> outbox,
+    required this._preferences,
   }) : _encryptionKey = Uint8List.fromList(encryptionKey),
        _verifications = Map<String, _ContactVerification>.of(verifications),
        _messages = List<LocalChatMessage>.of(messages),
@@ -324,6 +331,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   final List<LocalChatMessage> _messages;
   final List<LocalChatGroup> _groups;
   final List<OutboundChatMessage> _outbox;
+  LocalAppPreferences _preferences;
   Future<void> _writeTail = Future<void>.value();
   bool _disposed = false;
   bool _closing = false;
@@ -368,6 +376,12 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   List<OutboundChatMessage> get outbox {
     _ensureActive();
     return List<OutboundChatMessage>.unmodifiable(_outbox);
+  }
+
+  @override
+  LocalAppPreferences get preferences {
+    _ensureActive();
+    return _preferences;
   }
 
   @override
@@ -471,51 +485,63 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     await persist();
   }
 
-  Future<void> persist() {
+  @override
+  Future<void> savePreferences(LocalAppPreferences preferences) {
     _ensureActive();
     return _serializeWrite(() async {
-      final plaintext = Uint8List.fromList(
-        utf8.encode(
-          jsonEncode({
-            'schema': EncryptedDeviceVault._schema,
-            'endpoint': endpointBinding,
-            'username': username,
-            'identity': identity.toJson(),
-            'verifications': _verifications.map(
-              (key, value) => MapEntry(key, value.toJson()),
-            ),
-            'groups': _groups
-                .map((group) => group.toJson())
-                .toList(growable: false),
-            'outbox': _outbox
+      await _writeSnapshot(preferences);
+      _preferences = preferences;
+    });
+  }
+
+  Future<void> persist() {
+    _ensureActive();
+    return _serializeWrite(() => _writeSnapshot(_preferences));
+  }
+
+  Future<void> _writeSnapshot(LocalAppPreferences preferences) async {
+    final plaintext = Uint8List.fromList(
+      utf8.encode(
+        jsonEncode({
+          'schema': EncryptedDeviceVault._schema,
+          'endpoint': endpointBinding,
+          'username': username,
+          'identity': identity.toJson(),
+          'verifications': _verifications.map(
+            (key, value) => MapEntry(key, value.toJson()),
+          ),
+          'groups': _groups
+              .map((group) => group.toJson())
+              .toList(growable: false),
+          'outbox': _outbox
+              .map((message) => message.toJson())
+              .toList(growable: false),
+          'preferences': preferences.toJson(),
+          'mailbox': {
+            'cursor': _mailboxCursor,
+            'messages': _messages
                 .map((message) => message.toJson())
                 .toList(growable: false),
-            'mailbox': {
-              'cursor': _mailboxCursor,
-              'messages': _messages
-                  .map((message) => message.toJson())
-                  .toList(growable: false),
-            },
-          }),
-        ),
-      );
-      final box = SecretBox(_encryptionKey);
-      try {
-        final ciphertext = box.encrypt(plaintext).asTypedList;
-        final envelope = jsonEncode({
-          'schema': EncryptedDeviceVault._schema,
-          'kdf': ScramAuthentication.kdfArgon,
-          'iterations': iterations,
-          'memory_kib': memoryKiB,
-          'salt': salt,
-          'cipher': EncryptedDeviceVault._cipher,
-          'ciphertext': _encode(ciphertext),
-        });
-        await storage.write(storageKey, envelope);
-      } finally {
-        plaintext.fillRange(0, plaintext.length, 0);
-      }
-    });
+          },
+        }),
+      ),
+    );
+    final box = SecretBox(_encryptionKey);
+    try {
+      final ciphertext = box.encrypt(plaintext).asTypedList;
+      final envelope = jsonEncode({
+        'schema': EncryptedDeviceVault._schema,
+        'kdf': ScramAuthentication.kdfArgon,
+        'iterations': iterations,
+        'memory_kib': memoryKiB,
+        'salt': salt,
+        'cipher': EncryptedDeviceVault._cipher,
+        'ciphertext': _encode(ciphertext),
+      });
+      await storage.write(storageKey, envelope);
+    } finally {
+      plaintext.fillRange(0, plaintext.length, 0);
+    }
   }
 
   @override

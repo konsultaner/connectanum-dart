@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
+import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
@@ -80,6 +81,152 @@ void main() {
     expect(controller.status, WampAppStatus.signedOut);
     expect(gateway.closed, isTrue);
     expect(trustStore.session?.disposed, isTrue);
+  });
+
+  test(
+    'account preferences persist while sign out clears live state',
+    () async {
+      final gateway = _RecordingGateway();
+      final trustStore = FakeDeviceTrustStore();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      final directId = controller.directConversationIdFor('bob')!;
+
+      expect(
+        await controller.setThemePreference(WampAppThemePreference.dark),
+        isTrue,
+      );
+      expect(await controller.setConversationMuted(directId, true), isTrue);
+      expect(controller.themePreference, WampAppThemePreference.dark);
+      expect(controller.isConversationMuted(directId), isTrue);
+
+      await controller.signOut();
+      expect(controller.themePreference, WampAppThemePreference.system);
+      expect(controller.isConversationMuted(directId), isFalse);
+
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      expect(controller.themePreference, WampAppThemePreference.dark);
+      expect(controller.isConversationMuted(directId), isTrue);
+    },
+  );
+
+  test('failed and concurrent preference saves fail closed', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final session = trustStore.session!;
+    session.savePreferencesFailure = StateError('storage unavailable');
+
+    expect(
+      await controller.setThemePreference(WampAppThemePreference.dark),
+      isFalse,
+    );
+    expect(controller.themePreference, WampAppThemePreference.system);
+    expect(controller.preferenceError, contains('Could not save'));
+
+    session.savePreferencesFailure = null;
+    final gate = session.savePreferencesGate = Completer<void>();
+    final first = controller.setThemePreference(WampAppThemePreference.dark);
+    await _waitFor(() => controller.preferenceBusy);
+    final second = controller.setThemePreference(WampAppThemePreference.light);
+
+    expect(await second, isFalse);
+    gate.complete();
+    expect(await first, isTrue);
+    expect(controller.themePreference, WampAppThemePreference.dark);
+  });
+
+  test(
+    'sign out fences a late preference result from the old session',
+    () async {
+      final gateway = _RecordingGateway();
+      final trustStore = FakeDeviceTrustStore();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      final gate = trustStore.session!.savePreferencesGate = Completer<void>();
+
+      final update = controller.setThemePreference(WampAppThemePreference.dark);
+      await _waitFor(() => controller.preferenceBusy);
+      await controller.signOut();
+      gate.complete();
+
+      expect(await update, isFalse);
+      expect(controller.themePreference, WampAppThemePreference.system);
+      expect(controller.preferenceBusy, isFalse);
+    },
+  );
+
+  test('mute policy suppresses presentation only, not mailbox sync', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final conversationId = controller.directConversationIdFor('bob')!;
+    final incoming = LocalChatMessage(
+      messageId: 'incoming-message',
+      conversationId: conversationId,
+      peerUsername: 'bob',
+      text: 'hello',
+      sentAt: DateTime.utc(2026, 8, 25, 12),
+      outgoing: false,
+    );
+    final outgoing = LocalChatMessage(
+      messageId: 'outgoing-message',
+      conversationId: conversationId,
+      peerUsername: 'bob',
+      text: 'hello',
+      sentAt: DateTime.utc(2026, 8, 25, 12),
+      outgoing: true,
+    );
+
+    expect(controller.shouldPresentNotificationFor(incoming), isTrue);
+    expect(controller.shouldPresentNotificationFor(outgoing), isFalse);
+    expect(await controller.setConversationMuted(conversationId, true), isTrue);
+    expect(controller.shouldPresentNotificationFor(incoming), isFalse);
+
+    final connection = gateway.connections.single;
+    connection.emitWakeup(1);
+    await _waitFor(
+      () => trustStore.session?.mailboxCursor == 1 && !controller.messageBusy,
+    );
+    expect(connection.syncAfterCursors, [0, 0]);
   });
 
   test('sign out fences a late profile update from the old session', () async {
