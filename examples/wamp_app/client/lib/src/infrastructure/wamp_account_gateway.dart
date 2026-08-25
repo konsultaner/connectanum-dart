@@ -96,12 +96,44 @@ final class AttachmentTransferException implements Exception {
   };
 }
 
+enum ProfileUpdateFailureKind { invalid, conflict, retryable }
+
+final class ProfileUpdateException implements Exception {
+  const ProfileUpdateException(this.kind);
+
+  factory ProfileUpdateException.fromWampError(wamp.Error error) {
+    final kind = switch (error.error) {
+      WampAppProtocol.errorProfileConflict => ProfileUpdateFailureKind.conflict,
+      WampAppProtocol.errorInvalidProfile ||
+      WampAppProtocol.errorNotAuthorized ||
+      wamp.Error.notAuthorized => ProfileUpdateFailureKind.invalid,
+      WampAppProtocol.errorProfileUnavailable ||
+      _ => ProfileUpdateFailureKind.retryable,
+    };
+    return ProfileUpdateException(kind);
+  }
+
+  final ProfileUpdateFailureKind kind;
+
+  @override
+  String toString() => switch (kind) {
+    ProfileUpdateFailureKind.invalid =>
+      'The server rejected this profile update.',
+    ProfileUpdateFailureKind.conflict =>
+      'The profile changed on another device. Review it and try again.',
+    ProfileUpdateFailureKind.retryable =>
+      'Profile updates are temporarily unavailable.',
+  };
+}
+
 class AccountConnection {
   AccountConnection({
     required this.endpoint,
     required this.username,
-    required this.displayName,
+    required AccountProfile initialProfile,
     required this.closeTransport,
+    required this.getProfileCallback,
+    required this.updateProfileCallback,
     required this.enrollDeviceCallback,
     required this.listDevicesCallback,
     required this.lookupDevicesCallback,
@@ -116,12 +148,15 @@ class AccountConnection {
     required this.mailboxWakeups,
     required this.latestMailboxWakeupCursorCallback,
     required this.latestMailboxWakeupErrorCallback,
-  });
+  }) : _profile = initialProfile;
 
   final ServerEndpoint endpoint;
   final String username;
-  final String displayName;
+  AccountProfile _profile;
   final Future<void> Function() closeTransport;
+  final Future<AccountProfile> Function(String username) getProfileCallback;
+  final Future<AccountProfile> Function(AccountProfileUpdate update)
+  updateProfileCallback;
   final Future<DeviceRecord> Function(DeviceEnrollment enrollment)
   enrollDeviceCallback;
   final Future<DeviceDirectory> Function(bool includeRevoked)
@@ -156,12 +191,39 @@ class AccountConnection {
   final Object? Function() latestMailboxWakeupErrorCallback;
   bool _closed = false;
 
+  AccountProfile get profile => _profile;
+  String get displayName => _profile.displayName;
   int get latestMailboxWakeupCursor => latestMailboxWakeupCursorCallback();
   Object? get latestMailboxWakeupError => latestMailboxWakeupErrorCallback();
 
   Future<DeviceRecord> enrollDevice(DeviceEnrollment enrollment) {
     _ensureOpen();
     return enrollDeviceCallback(enrollment);
+  }
+
+  Future<AccountProfile> getProfile(String username) async {
+    _ensureOpen();
+    final normalized = AccountRegistration.normalizeUsername(username);
+    final profile = await getProfileCallback(normalized);
+    if (profile.username != normalized) {
+      throw const FormatException(
+        'The server returned a profile for another account.',
+      );
+    }
+    return profile;
+  }
+
+  Future<AccountProfile> refreshProfile() async {
+    final refreshed = await getProfile(username);
+    _profile = refreshed;
+    return refreshed;
+  }
+
+  Future<AccountProfile> updateProfile(AccountProfileUpdate update) async {
+    _ensureOpen();
+    final updated = await updateProfileCallback(update);
+    _profile = updated;
+    return updated;
   }
 
   Future<DeviceDirectory> listDevices({bool includeRevoked = false}) {
@@ -325,11 +387,63 @@ class WampAccountGateway implements AccountGateway {
             wakeups.addEvent,
           )
           .timeout(connectionTimeout);
-      final displayName = session.authExtra?['display_name'];
+      Future<AccountProfile> getProfile(String username) async {
+        try {
+          final result = await session
+              .callSingle(
+                WampAppProtocol.profileGet,
+                argumentsKeywords: {'username': username},
+              )
+              .timeout(connectionTimeout);
+          return AccountProfile.fromWampKeywords(result.argumentsKeywords);
+        } on wamp.Error catch (error) {
+          if (error.error == WampAppProtocol.errorProfileNotFound) {
+            throw const FormatException('That profile was not found.');
+          }
+          if (error.error == WampAppProtocol.errorInvalidProfile ||
+              error.error == WampAppProtocol.errorNotAuthorized ||
+              error.error == wamp.Error.notAuthorized) {
+            throw const FormatException(
+              'The server rejected this profile lookup.',
+            );
+          }
+          rethrow;
+        }
+      }
+
+      final authenticatedUsername = session.authId ?? normalizedUsername;
+      final profile = await getProfile(authenticatedUsername);
+      if (profile.username != authenticatedUsername) {
+        throw const FormatException(
+          'The server returned a profile for another account.',
+        );
+      }
       return AccountConnection(
         endpoint: endpoint,
-        username: session.authId ?? normalizedUsername,
-        displayName: displayName is String ? displayName : normalizedUsername,
+        username: authenticatedUsername,
+        initialProfile: profile,
+        getProfileCallback: getProfile,
+        updateProfileCallback: (update) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.profileUpdate,
+                  argumentsKeywords: update.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            final updated = AccountProfile.fromWampKeywords(
+              result.argumentsKeywords,
+            );
+            if (updated.username != authenticatedUsername) {
+              throw const FormatException(
+                'The server updated a profile for another account.',
+              );
+            }
+            return updated;
+          } on wamp.Error catch (error) {
+            throw ProfileUpdateException.fromWampError(error);
+          }
+        },
         enrollDeviceCallback: (enrollment) async {
           final result = await session
               .callSingle(

@@ -520,6 +520,71 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _editProfile() async {
+    final update = await showDialog<AccountProfileUpdate>(
+      context: context,
+      builder: (context) =>
+          _EditProfileDialog(profile: widget.connection.profile),
+    );
+    if (update == null || !mounted) return;
+    final saved = await widget.controller.updateProfile(update);
+    if (!mounted) return;
+    _showMessage(
+      saved
+          ? 'Profile updated.'
+          : widget.controller.profileError ?? 'Profile update failed.',
+    );
+  }
+
+  Future<void> _showPeerProfile() async {
+    final username = _recipientController.text.trim();
+    if (username.isEmpty) {
+      _showMessage('Enter a recipient username first.');
+      return;
+    }
+    final profile = await widget.controller.lookupProfile(username);
+    if (!mounted) return;
+    if (profile == null) {
+      _showMessage(
+        widget.controller.profileError ?? 'Could not load that profile.',
+      );
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Public profile'),
+        content: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ProfileAvatar(profile: profile, radius: 46),
+              const SizedBox(height: 14),
+              Text(
+                profile.displayName,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              Text('@${profile.username}'),
+              const SizedBox(height: 12),
+              Text(
+                profile.status.isEmpty ? 'No status set' : profile.status,
+                key: const Key('peer-profile-status'),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -531,6 +596,8 @@ class _HomePageState extends State<HomePage> {
               connection: widget.connection,
               localDevice: widget.controller.localDevice!,
               safetyNumber: widget.controller.safetyNumber!,
+              profileBusy: widget.controller.profileBusy,
+              onEditProfile: _editProfile,
               onSignOut: widget.controller.signOut,
             );
             final conversation = _ConversationPanel(
@@ -538,6 +605,7 @@ class _HomePageState extends State<HomePage> {
               recipientController: _recipientController,
               messageController: _messageController,
               onSend: _send,
+              onViewProfile: _showPeerProfile,
               oneTime: _oneTime,
               expiresAfter: _expiresAfter,
               selectedGroupId: _selectedGroupId,
@@ -587,22 +655,227 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+class _EditProfileDialog extends StatefulWidget {
+  const _EditProfileDialog({required this.profile});
+
+  final AccountProfile profile;
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  late final TextEditingController _displayName;
+  late final TextEditingController _status;
+  late ProfileAvatarAction _avatarAction;
+  Uint8List? _avatarBytes;
+  String? _avatarContentType;
+  String? _validationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayName = TextEditingController(text: widget.profile.displayName);
+    _status = TextEditingController(text: widget.profile.status);
+    _avatarAction = ProfileAvatarAction.keep;
+    _avatarBytes = widget.profile.avatarBytes;
+    _avatarContentType = widget.profile.avatarContentType;
+  }
+
+  @override
+  void dispose() {
+    _displayName.dispose();
+    _status.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAvatar() async {
+    final file = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(
+          label: 'Profile image',
+          extensions: ['jpg', 'jpeg', 'png', 'webp'],
+          mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+        ),
+      ],
+    );
+    if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    if (bytes.length > AccountProfileLimits.maxAvatarBytes) {
+      setState(() {
+        _validationError = 'Profile images must be 256 KiB or smaller.';
+      });
+      return;
+    }
+    final contentType = _profileImageContentType(file.name);
+    if (contentType == null) {
+      setState(() {
+        _validationError = 'Choose a JPEG, PNG, or WebP image.';
+      });
+      return;
+    }
+    try {
+      AccountProfileUpdate(
+        expectedRevision: widget.profile.revision,
+        displayName: widget.profile.displayName,
+        status: widget.profile.status,
+        avatarAction: ProfileAvatarAction.set,
+        avatarBytes: bytes,
+        avatarContentType: contentType,
+      );
+    } on FormatException catch (error) {
+      setState(() => _validationError = error.message);
+      return;
+    }
+    setState(() {
+      _avatarAction = ProfileAvatarAction.set;
+      _avatarBytes = Uint8List.fromList(bytes);
+      _avatarContentType = contentType;
+      _validationError = null;
+    });
+  }
+
+  void _removeAvatar() {
+    setState(() {
+      _avatarAction = ProfileAvatarAction.remove;
+      _avatarBytes = null;
+      _avatarContentType = null;
+      _validationError = null;
+    });
+  }
+
+  void _save() {
+    try {
+      Navigator.pop(
+        context,
+        AccountProfileUpdate(
+          expectedRevision: widget.profile.revision,
+          displayName: _displayName.text.trim(),
+          status: _status.text.trim(),
+          avatarAction: _avatarAction,
+          avatarBytes: _avatarAction == ProfileAvatarAction.set
+              ? _avatarBytes
+              : null,
+          avatarContentType: _avatarAction == ProfileAvatarAction.set
+              ? _avatarContentType
+              : null,
+        ),
+      );
+    } on FormatException catch (error) {
+      setState(() => _validationError = error.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = AccountProfile(
+      username: widget.profile.username,
+      displayName: widget.profile.displayName,
+      status: '',
+      revision: widget.profile.revision,
+      updatedAt: widget.profile.updatedAt,
+      avatarBytes: _avatarBytes,
+      avatarContentType: _avatarContentType,
+    );
+    return AlertDialog(
+      title: const Text('Edit public profile'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ProfileAvatar(profile: preview, radius: 42),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton.icon(
+                    key: const Key('profile-avatar-pick'),
+                    onPressed: _pickAvatar,
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: const Text('Choose image'),
+                  ),
+                  if (_avatarBytes != null)
+                    TextButton.icon(
+                      key: const Key('profile-avatar-remove'),
+                      onPressed: _removeAvatar,
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Remove'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                key: const Key('profile-display-name'),
+                controller: _displayName,
+                maxLength: 80,
+                decoration: const InputDecoration(labelText: 'Display name'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                key: const Key('profile-status'),
+                controller: _status,
+                maxLength: AccountProfileLimits.maxStatusCharacters,
+                decoration: const InputDecoration(
+                  labelText: 'Status',
+                  hintText: 'Available',
+                ),
+              ),
+              if (_validationError case final message?) ...[
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  key: const Key('profile-validation-error'),
+                  style: const TextStyle(color: Color(0xFF9E2A2B)),
+                ),
+              ],
+              const SizedBox(height: 10),
+              const Text(
+                'Your profile is visible to authenticated WampApp members. '
+                'Message contents and device keys are never included.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('profile-save'),
+          onPressed: _save,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 class _AccountPanel extends StatelessWidget {
   const _AccountPanel({
     required this.connection,
     required this.localDevice,
     required this.safetyNumber,
+    required this.profileBusy,
+    required this.onEditProfile,
     required this.onSignOut,
   });
 
   final AccountConnection connection;
   final DeviceRecord localDevice;
   final String safetyNumber;
+  final bool profileBusy;
+  final VoidCallback onEditProfile;
   final VoidCallback onSignOut;
 
   @override
   Widget build(BuildContext context) {
-    final initial = connection.displayName.characters.first.toUpperCase();
+    final profile = connection.profile;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(22),
@@ -625,14 +898,7 @@ class _AccountPanel extends StatelessWidget {
             const SizedBox(height: 24),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: WampAppTheme.mint,
-                  child: Text(
-                    initial,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
+                _ProfileAvatar(profile: profile, radius: 25),
                 const SizedBox(width: 13),
                 Expanded(
                   child: Column(
@@ -643,8 +909,26 @@ class _AccountPanel extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       Text('@${connection.username}'),
+                      if (profile.status.isNotEmpty)
+                        Text(
+                          profile.status,
+                          key: const Key('account-profile-status'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                     ],
                   ),
+                ),
+                IconButton(
+                  key: const Key('account-profile-edit'),
+                  tooltip: 'Edit public profile',
+                  onPressed: profileBusy ? null : onEditProfile,
+                  icon: profileBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.edit_outlined),
                 ),
               ],
             ),
@@ -713,6 +997,42 @@ class _AccountPanel extends StatelessWidget {
   }
 }
 
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({required this.profile, required this.radius});
+
+  final AccountProfile profile;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = profile.displayName.characters.first.toUpperCase();
+    Widget fallback() => Center(
+      child: Text(
+        initial,
+        style: radius >= 40
+            ? Theme.of(context).textTheme.headlineMedium
+            : Theme.of(context).textTheme.titleLarge,
+      ),
+    );
+    final bytes = profile.avatarBytes;
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: WampAppTheme.mint,
+      child: bytes == null
+          ? fallback()
+          : ClipOval(
+              child: Image.memory(
+                bytes,
+                width: radius * 2,
+                height: radius * 2,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => fallback(),
+              ),
+            ),
+    );
+  }
+}
+
 class _OnlineBadge extends StatelessWidget {
   const _OnlineBadge();
 
@@ -738,6 +1058,7 @@ class _ConversationPanel extends StatelessWidget {
     required this.recipientController,
     required this.messageController,
     required this.onSend,
+    required this.onViewProfile,
     required this.oneTime,
     required this.expiresAfter,
     required this.selectedGroupId,
@@ -763,6 +1084,7 @@ class _ConversationPanel extends StatelessWidget {
   final TextEditingController recipientController;
   final TextEditingController messageController;
   final Future<void> Function() onSend;
+  final Future<void> Function() onViewProfile;
   final bool oneTime;
   final Duration? expiresAfter;
   final String? selectedGroupId;
@@ -868,10 +1190,23 @@ class _ConversationPanel extends StatelessWidget {
                 key: const Key('message-recipient'),
                 controller: recipientController,
                 enabled: !controller.messageBusy,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Recipient username',
-                  prefixIcon: Icon(Icons.alternate_email),
+                  prefixIcon: const Icon(Icons.alternate_email),
+                  suffixIcon: IconButton(
+                    key: const Key('recipient-profile-view'),
+                    tooltip: 'View public profile',
+                    onPressed: controller.profileBusy ? null : onViewProfile,
+                    icon: controller.profileBusy
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.account_circle_outlined),
+                  ),
                 ),
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
               )
             else
               Align(
@@ -1573,3 +1908,13 @@ String _durationSuffix(int? durationMilliseconds) =>
     durationMilliseconds == null
     ? ''
     : ' · ${_formatDuration(Duration(milliseconds: durationMilliseconds))}';
+
+String? _profileImageContentType(String name) {
+  final normalized = name.toLowerCase();
+  if (normalized.endsWith('.png')) return 'image/png';
+  if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) {
+    return 'image/jpeg';
+  }
+  if (normalized.endsWith('.webp')) return 'image/webp';
+  return null;
+}

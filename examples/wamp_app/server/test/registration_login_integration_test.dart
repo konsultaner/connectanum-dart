@@ -90,6 +90,14 @@ void main() {
         ),
       ),
     );
+    await registrationSession.callSingle(
+      WampAppProtocol.accountRegister,
+      argumentsKeywords: AccountRegistration(
+        username: 'bob',
+        displayName: 'Bob Example',
+        password: 'another correct horse',
+      ).toWampKeywords(),
+    );
     await registrationSession.close(timeout: Duration.zero);
     await registrationClient.disconnect();
 
@@ -121,6 +129,72 @@ void main() {
     expect(appSession.authId, 'alice');
     expect(appSession.authRole, WampAppProtocol.memberRole);
     expect(appSession.authExtra?['display_name'], 'Alice Example');
+
+    final initialProfile = AccountProfile.fromWampKeywords(
+      (await appSession.callSingle(
+        WampAppProtocol.profileGet,
+      )).argumentsKeywords,
+    );
+    expect(initialProfile.revision, 0);
+    final updatedProfile = AccountProfile.fromWampKeywords(
+      (await appSession.callSingle(
+        WampAppProtocol.profileUpdate,
+        argumentsKeywords: AccountProfileUpdate(
+          expectedRevision: initialProfile.revision,
+          displayName: 'Alice Updated',
+          status: 'Available for testing',
+          avatarAction: ProfileAvatarAction.set,
+          avatarBytes: Uint8List.fromList(const [
+            0x89,
+            0x50,
+            0x4E,
+            0x47,
+            0x0D,
+            0x0A,
+            0x1A,
+            0x0A,
+          ]),
+          avatarContentType: 'image/png',
+        ).toWampKeywords(),
+      )).argumentsKeywords,
+    );
+    expect(updatedProfile.revision, 1);
+    expect(updatedProfile.status, 'Available for testing');
+    await expectLater(
+      appSession.callSingle(
+        WampAppProtocol.profileUpdate,
+        argumentsKeywords: AccountProfileUpdate(
+          expectedRevision: 0,
+          displayName: 'Stale Alice',
+          status: '',
+        ).toWampKeywords(),
+      ),
+      throwsA(
+        isA<Error>().having(
+          (error) => error.error,
+          'error URI',
+          WampAppProtocol.errorProfileConflict,
+        ),
+      ),
+    );
+    await expectLater(
+      appSession.callSingle(
+        WampAppProtocol.profileUpdate,
+        argumentsKeywords: {
+          'expected_revision': 1,
+          'display_name': 'Alice',
+          'status': 'two\nlines',
+          'avatar_action': 'keep',
+        },
+      ),
+      throwsA(
+        isA<Error>().having(
+          (error) => error.error,
+          'error URI',
+          WampAppProtocol.errorInvalidProfile,
+        ),
+      ),
+    );
 
     final enrollment = _signedEnrollment('alice');
     final enrolled = DeviceRecord.fromWampKeywords(
@@ -248,6 +322,35 @@ void main() {
     );
     await appSession.close(timeout: Duration.zero);
     await appClient.disconnect();
+
+    final bobAuthentication = ScramAuthentication(
+      'another correct horse',
+      derivationTimeout: const Duration(seconds: 30),
+    );
+    addTearDown(bobAuthentication.dispose);
+    final bobClient = Client(
+      transport: WebSocketTransport.withCborSerializer(
+        server.websocketUri.toString(),
+      ),
+      realm: WampAppProtocol.appRealm,
+      authId: 'bob',
+      authenticationMethods: [bobAuthentication],
+    );
+    final bobSession = await bobClient
+        .connect(options: _singleAttempt)
+        .first
+        .timeout(const Duration(seconds: 45));
+    final aliceProfileSeenByBob = AccountProfile.fromWampKeywords(
+      (await bobSession.callSingle(
+        WampAppProtocol.profileGet,
+        argumentsKeywords: const {'username': 'alice'},
+      )).argumentsKeywords,
+    );
+    expect(aliceProfileSeenByBob.displayName, 'Alice Updated');
+    expect(aliceProfileSeenByBob.status, 'Available for testing');
+    expect(aliceProfileSeenByBob.revision, 1);
+    await bobSession.close(timeout: Duration.zero);
+    await bobClient.disconnect();
 
     final storedDocument = await accountFile.readAsString();
     expect(storedDocument, isNot(contains('correct horse battery')));

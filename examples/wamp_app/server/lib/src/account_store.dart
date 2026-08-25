@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -16,8 +17,19 @@ class StoredAccount {
     required this.memoryKiB,
     required this.kdf,
     required this.createdAt,
+    this.profileStatus = '',
+    this.profileRevision = 0,
+    DateTime? profileUpdatedAt,
+    Uint8List? profileAvatarBytes,
+    this.profileAvatarContentType,
     Map<String, DeviceRecord> devices = const {},
-  }) : devices = Map<String, DeviceRecord>.unmodifiable(devices);
+  }) : profileUpdatedAt = (profileUpdatedAt ?? createdAt).toUtc(),
+       profileAvatarBytes = profileAvatarBytes == null
+           ? null
+           : Uint8List.fromList(profileAvatarBytes),
+       devices = Map<String, DeviceRecord>.unmodifiable(devices) {
+    profile.validate();
+  }
 
   final String username;
   final String displayName;
@@ -28,7 +40,27 @@ class StoredAccount {
   final int memoryKiB;
   final String kdf;
   final DateTime createdAt;
+  final String profileStatus;
+  final int profileRevision;
+  final DateTime profileUpdatedAt;
+  final Uint8List? profileAvatarBytes;
+  final String? profileAvatarContentType;
   final Map<String, DeviceRecord> devices;
+
+  String? get _encodedProfileAvatar => switch (profileAvatarBytes) {
+    final bytes? => base64.encode(bytes),
+    null => null,
+  };
+
+  AccountProfile get profile => AccountProfile(
+    username: username,
+    displayName: displayName,
+    status: profileStatus,
+    revision: profileRevision,
+    updatedAt: profileUpdatedAt,
+    avatarBytes: profileAvatarBytes,
+    avatarContentType: profileAvatarContentType,
+  );
 
   Map<String, dynamic> toJson() => {
     'username': username,
@@ -40,6 +72,11 @@ class StoredAccount {
     'memory_kib': memoryKiB,
     'kdf': kdf,
     'created_at': createdAt.toUtc().toIso8601String(),
+    'profile_status': profileStatus,
+    'profile_revision': profileRevision,
+    'profile_updated_at': profileUpdatedAt.toIso8601String(),
+    'profile_avatar': ?_encodedProfileAvatar,
+    'profile_avatar_content_type': ?profileAvatarContentType,
     'devices': devices.map(
       (deviceId, device) => MapEntry(deviceId, device.toWampKeywords()),
     ),
@@ -55,7 +92,41 @@ class StoredAccount {
     memoryKiB: memoryKiB,
     kdf: kdf,
     createdAt: createdAt,
+    profileStatus: profileStatus,
+    profileRevision: profileRevision,
+    profileUpdatedAt: profileUpdatedAt,
+    profileAvatarBytes: profileAvatarBytes,
+    profileAvatarContentType: profileAvatarContentType,
     devices: value,
+  );
+
+  StoredAccount withProfile(
+    AccountProfileUpdate update, {
+    required DateTime updatedAt,
+  }) => StoredAccount(
+    username: username,
+    displayName: update.displayName,
+    storedKey: storedKey,
+    serverKey: serverKey,
+    salt: salt,
+    iterations: iterations,
+    memoryKiB: memoryKiB,
+    kdf: kdf,
+    createdAt: createdAt,
+    profileStatus: update.status,
+    profileRevision: profileRevision + 1,
+    profileUpdatedAt: updatedAt,
+    profileAvatarBytes: switch (update.avatarAction) {
+      ProfileAvatarAction.keep => profileAvatarBytes,
+      ProfileAvatarAction.set => update.avatarBytes,
+      ProfileAvatarAction.remove => null,
+    },
+    profileAvatarContentType: switch (update.avatarAction) {
+      ProfileAvatarAction.keep => profileAvatarContentType,
+      ProfileAvatarAction.set => update.avatarContentType,
+      ProfileAvatarAction.remove => null,
+    },
+    devices: devices,
   );
 
   factory StoredAccount.fromJson(Map<String, dynamic> json) {
@@ -70,6 +141,23 @@ class StoredAccount {
       'memory_kib': final int memoryKiB,
       'kdf': final String kdf,
     } when createdAt != null) {
+      final profileStatus = _readOptionalString(
+        json['profile_status'],
+        'profile_status',
+      );
+      final profileRevision = _readOptionalInt(
+        json['profile_revision'],
+        'profile_revision',
+      );
+      final profileUpdatedAt = _readOptionalDateTime(
+        json['profile_updated_at'],
+        'profile_updated_at',
+      );
+      final profileAvatarBytes = _readOptionalAvatar(json['profile_avatar']);
+      final profileAvatarContentType = _readOptionalString(
+        json['profile_avatar_content_type'],
+        'profile_avatar_content_type',
+      );
       final devices = _readDevices(json['devices'], username);
       return StoredAccount(
         username: username,
@@ -81,6 +169,11 @@ class StoredAccount {
         memoryKiB: memoryKiB,
         kdf: kdf,
         createdAt: createdAt.toUtc(),
+        profileStatus: profileStatus ?? '',
+        profileRevision: profileRevision ?? 0,
+        profileUpdatedAt: profileUpdatedAt ?? createdAt,
+        profileAvatarBytes: profileAvatarBytes,
+        profileAvatarContentType: profileAvatarContentType,
         devices: devices,
       );
     }
@@ -108,6 +201,45 @@ class StoredAccount {
       return MapEntry(deviceId, device);
     });
   }
+
+  static String? _readOptionalString(Object? value, String field) {
+    if (value == null || value is String) return value as String?;
+    throw FormatException('$field must be a string.');
+  }
+
+  static int? _readOptionalInt(Object? value, String field) {
+    if (value == null || value is int) return value as int?;
+    throw FormatException('$field must be an integer.');
+  }
+
+  static DateTime? _readOptionalDateTime(Object? value, String field) {
+    if (value == null) return null;
+    if (value is! String) throw FormatException('$field must be a string.');
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) throw FormatException('$field must be a date-time.');
+    return parsed.toUtc();
+  }
+
+  static Uint8List? _readOptionalAvatar(Object? value) {
+    if (value == null) return null;
+    if (value is! String) {
+      throw const FormatException('profile_avatar must be base64 text.');
+    }
+    final maximumEncodedLength =
+        ((AccountProfileLimits.maxAvatarBytes + 2) ~/ 3) * 4;
+    if (value.length > maximumEncodedLength) {
+      throw const FormatException('Stored profile avatar is too large.');
+    }
+    try {
+      final decoded = base64.decode(value);
+      if (decoded.length > AccountProfileLimits.maxAvatarBytes) {
+        throw const FormatException('Stored profile avatar is too large.');
+      }
+      return decoded;
+    } on FormatException {
+      throw const FormatException('Stored profile avatar is invalid.');
+    }
+  }
 }
 
 class AccountAlreadyExists implements Exception {
@@ -117,6 +249,18 @@ class AccountAlreadyExists implements Exception {
 
   @override
   String toString() => 'Account $username already exists.';
+}
+
+class ProfileNotFound implements Exception {
+  const ProfileNotFound(this.username);
+
+  final String username;
+}
+
+class ProfileConflict implements Exception {
+  const ProfileConflict(this.currentRevision);
+
+  final int currentRevision;
 }
 
 class DeviceConflict implements Exception {
@@ -172,6 +316,38 @@ class AccountStore {
         throw AccountAlreadyExists(account.username);
       }
       await _writeDocument({...accounts, account.username: account});
+    });
+  }
+
+  Future<AccountProfile> getProfile(String username) async {
+    final normalized = AccountRegistration.normalizeUsername(username);
+    final account = await find(normalized);
+    if (account == null) throw ProfileNotFound(normalized);
+    return account.profile;
+  }
+
+  Future<AccountProfile> updateProfile(
+    String username,
+    AccountProfileUpdate update, {
+    DateTime? now,
+  }) {
+    update.validate();
+    return _serializeWrite(() async {
+      final accounts = await _readDocument();
+      final normalized = AccountRegistration.normalizeUsername(username);
+      final account = accounts[normalized];
+      if (account == null) throw ProfileNotFound(normalized);
+      if (account.profileRevision != update.expectedRevision ||
+          account.profileRevision >= AccountProfileLimits.maxRevision) {
+        throw ProfileConflict(account.profileRevision);
+      }
+      final observedAt = (now ?? DateTime.now()).toUtc();
+      final updatedAt = observedAt.isBefore(account.profileUpdatedAt)
+          ? account.profileUpdatedAt
+          : observedAt;
+      final updated = account.withProfile(update, updatedAt: updatedAt);
+      await _writeDocument({...accounts, normalized: updated});
+      return updated.profile;
     });
   }
 

@@ -15,6 +15,7 @@ import 'attachment_store.dart';
 import 'device_service.dart';
 import 'mailbox_store.dart';
 import 'message_service.dart';
+import 'profile_service.dart';
 import 'registration_service.dart';
 import 'server_config.dart';
 import 'wamp_app_worker.dart';
@@ -145,6 +146,10 @@ class WampAppServer {
       await _registerDeviceHandlers(
         appServiceSession,
         DeviceService(store: store),
+      );
+      await _registerProfileHandlers(
+        appServiceSession,
+        ProfileService(store: store),
       );
       await _registerAttachmentHandlers(
         appServiceSession,
@@ -282,6 +287,14 @@ class WampAppServer {
                 ..allowOperations(const ['call']),
             )
             ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.profileGet)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.profileUpdate)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.messageSend)
                 ..allowOperations(const ['call']),
             )
@@ -331,6 +344,14 @@ class WampAppServer {
             )
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.deviceLookup)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.profileGet)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.profileUpdate)
                 ..allowOperations(const ['register', 'unregister']),
             )
             ..addPermissionFromBuilder(
@@ -515,6 +536,43 @@ Future<void> _registerDeviceHandlers(
       invocation.respondWith(argumentsKeywords: device.toWampKeywords());
     } catch (error) {
       _respondWithDeviceError(invocation, error);
+    }
+  }, options: options);
+}
+
+Future<void> _registerProfileHandlers(
+  Session session,
+  ProfileService profiles,
+) async {
+  final options = RegisterOptions(discloseCaller: true);
+  await session.registerHandler(WampAppProtocol.profileGet, (invocation) async {
+    try {
+      final caller = _callerUsername(invocation);
+      final requested = invocation.argumentsKeywords?['username'];
+      if (requested != null && requested is! String) {
+        throw const FormatException('username must be a string.');
+      }
+      final username = requested == null
+          ? caller
+          : AccountRegistration.normalizeUsername(requested);
+      final profile = await profiles.get(username);
+      invocation.respondWith(argumentsKeywords: profile.toWampKeywords());
+    } catch (error) {
+      _respondWithProfileError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.profileUpdate, (
+    invocation,
+  ) async {
+    try {
+      final username = _callerUsername(invocation);
+      final update = AccountProfileUpdate.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final profile = await profiles.update(username, update);
+      invocation.respondWith(argumentsKeywords: profile.toWampKeywords());
+    } catch (error) {
+      _respondWithProfileError(invocation, error);
     }
   }, options: options);
 }
@@ -766,6 +824,42 @@ void _respondWithDeviceError(Invocation invocation, Object error) {
     ),
   };
   invocation.respondWith(isError: true, errorUri: uri, arguments: [message]);
+}
+
+void _respondWithProfileError(Invocation invocation, Object error) {
+  final (uri, message, currentRevision) = switch (error) {
+    ProfileNotFound() => (
+      WampAppProtocol.errorProfileNotFound,
+      'That profile was not found.',
+      null,
+    ),
+    ProfileConflict(:final currentRevision) => (
+      WampAppProtocol.errorProfileConflict,
+      'The profile changed on another device.',
+      currentRevision,
+    ),
+    _CallerNotAuthorized() || StateError() => (
+      WampAppProtocol.errorNotAuthorized,
+      'The authenticated account cannot perform this operation.',
+      null,
+    ),
+    FormatException(:final message) => (
+      WampAppProtocol.errorInvalidProfile,
+      message,
+      null,
+    ),
+    _ => (
+      WampAppProtocol.errorProfileUnavailable,
+      'The profile service is temporarily unavailable.',
+      null,
+    ),
+  };
+  invocation.respondWith(
+    isError: true,
+    errorUri: uri,
+    arguments: [message],
+    argumentsKeywords: {'current_revision': ?currentRevision},
+  );
 }
 
 void _respondWithAttachmentError(Invocation invocation, Object error) {

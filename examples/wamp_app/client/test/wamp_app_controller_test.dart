@@ -82,6 +82,66 @@ void main() {
     expect(trustStore.session?.disposed, isTrue);
   });
 
+  test('sign out fences a late profile update from the old session', () async {
+    final gateway = _RecordingGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final gate = Completer<AccountProfile>();
+    gateway.profileUpdateGate = gate;
+
+    final update = controller.updateProfile(
+      AccountProfileUpdate(
+        expectedRevision: 0,
+        displayName: 'Late Alice',
+        status: '',
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await controller.signOut();
+    gate.complete(
+      AccountProfile(
+        username: 'alice',
+        displayName: 'Late Alice',
+        status: '',
+        revision: 1,
+        updatedAt: DateTime.utc(2026, 8, 25),
+      ),
+    );
+
+    expect(await update, isFalse);
+    expect(controller.status, WampAppStatus.signedOut);
+    expect(controller.connection, isNull);
+    expect(controller.profileBusy, isFalse);
+  });
+
+  test('profile lookup rejects a response for another account', () async {
+    final gateway = _RecordingGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.profileLookupOverride = _profileFor('carol');
+
+    final profile = await controller.lookupProfile('bob');
+
+    expect(profile, isNull);
+    expect(controller.profileError, contains('another account'));
+  });
+
   test(
     'replacement stays connected when closing the old transport fails',
     () async {
@@ -869,12 +929,22 @@ void main() {
   });
 }
 
+AccountProfile _profileFor(String username) => AccountProfile(
+  username: AccountRegistration.normalizeUsername(username),
+  displayName: 'Alice Example',
+  status: '',
+  revision: 0,
+  updatedAt: DateTime.utc(2026, 8, 24),
+);
+
 class _RecordingGateway implements AccountGateway {
   AccountRegistration? registered;
   String? loginPassword;
   bool closed = false;
   bool failNextClose = false;
   Object? loginFailure;
+  Completer<AccountProfile>? profileUpdateGate;
+  AccountProfile? profileLookupOverride;
   final List<_GatewayConnection> connections = [];
   final Map<String, List<DeviceRecord>> deviceDirectories = {};
   final List<EncryptedChatMessage> sentMessages = [];
@@ -907,7 +977,22 @@ class _RecordingGateway implements AccountGateway {
     return AccountConnection(
       endpoint: endpoint,
       username: normalizedUsername,
-      displayName: 'Alice Example',
+      initialProfile: _profileFor(normalizedUsername),
+      getProfileCallback: (username) async =>
+          profileLookupOverride ?? _profileFor(username),
+      updateProfileCallback: (update) async {
+        final gate = profileUpdateGate;
+        if (gate != null) return gate.future;
+        return AccountProfile(
+          username: normalizedUsername,
+          displayName: update.displayName,
+          status: update.status,
+          revision: update.expectedRevision + 1,
+          updatedAt: DateTime.utc(2026, 8, 25),
+          avatarBytes: update.avatarBytes,
+          avatarContentType: update.avatarContentType,
+        );
+      },
       enrollDeviceCallback: (enrollment) async {
         final record = activeDeviceRecord(normalizedUsername, enrollment);
         deviceDirectories[normalizedUsername] = [record];
@@ -996,7 +1081,17 @@ final class _OutboxGateway implements AccountGateway {
     return AccountConnection(
       endpoint: endpoint,
       username: normalized,
-      displayName: 'Alice Example',
+      initialProfile: _profileFor(normalized),
+      getProfileCallback: (username) async => _profileFor(username),
+      updateProfileCallback: (update) async => AccountProfile(
+        username: normalized,
+        displayName: update.displayName,
+        status: update.status,
+        revision: update.expectedRevision + 1,
+        updatedAt: DateTime.utc(2026, 8, 25),
+        avatarBytes: update.avatarBytes,
+        avatarContentType: update.avatarContentType,
+      ),
       enrollDeviceCallback: (enrollment) async {
         final device = activeDeviceRecord(normalized, enrollment);
         deviceDirectories[normalized] = [device];

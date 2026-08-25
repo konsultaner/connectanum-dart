@@ -65,4 +65,30 @@ void main() {
       AttachmentTransferFailureKind.retryable,
     );
   });
+
+  test('classifies profile failures without exposing profile payloads', () {
+    ProfileUpdateException classified(String? uri) =>
+        ProfileUpdateException.fromWampError(wamp.Error(48, 1, const {}, uri));
+
+    expect(
+      classified(WampAppProtocol.errorProfileConflict).kind,
+      ProfileUpdateFailureKind.conflict,
+    );
+    expect(
+      classified(WampAppProtocol.errorInvalidProfile).kind,
+      ProfileUpdateFailureKind.invalid,
+    );
+    expect(
+      classified(wamp.Error.notAuthorized).kind,
+      ProfileUpdateFailureKind.invalid,
+    );
+    expect(
+      classified(WampAppProtocol.errorProfileUnavailable).kind,
+      ProfileUpdateFailureKind.retryable,
+    );
+    expect(
+      classified('com.example.unknown').kind,
+      ProfileUpdateFailureKind.retryable,
+    );
+  });
 }

@@ -4,6 +4,8 @@ abstract final class WampAppProtocol {
   static const scramAuthMethod = 'wamp-scram';
 
   static const accountRegister = 'com.wampapp.account.register';
+  static const profileGet = 'com.wampapp.profile.get';
+  static const profileUpdate = 'com.wampapp.profile.update';
   static const deviceEnroll = 'com.wampapp.device.enroll';
   static const deviceList = 'com.wampapp.device.list';
   static const deviceLookup = 'com.wampapp.device.lookup';
@@ -22,6 +24,11 @@ abstract final class WampAppProtocol {
   static const errorUsernameTaken = 'com.wampapp.error.username_taken';
   static const errorRegistrationUnavailable =
       'com.wampapp.error.registration_unavailable';
+  static const errorInvalidProfile = 'com.wampapp.error.invalid_profile';
+  static const errorProfileConflict = 'com.wampapp.error.profile_conflict';
+  static const errorProfileNotFound = 'com.wampapp.error.profile_not_found';
+  static const errorProfileUnavailable =
+      'com.wampapp.error.profile_unavailable';
   static const errorInvalidDevice = 'com.wampapp.error.invalid_device';
   static const errorDeviceConflict = 'com.wampapp.error.device_conflict';
   static const errorDeviceNotFound = 'com.wampapp.error.device_not_found';

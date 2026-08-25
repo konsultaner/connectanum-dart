@@ -3,7 +3,10 @@
 Last updated: 2026-08-25
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example
-with milestone 5 user experience. Milestone 3 durable messaging is complete across
+with milestone 5 user experience. Authenticated public profiles with editable
+display names, status, and bounded avatars are complete; contacts import,
+global search, read/unread filters, themes, per-chat mute, and platform push
+notifications remain. Milestone 3 durable messaging is complete across
 opaque server mailboxes, reconnect cursors, authenticated push synchronization,
 encrypted one-to-one and immutable group conversations, delivery/read state,
 signed atomic one-time consumption, expiry, and bounded durable retry/conflict
@@ -219,9 +222,27 @@ remain reachable at the attachment cap. `bin/test-wamp-app` passes with 31
 shared, 47 server, 72 native Flutter, and 11 real-Chrome tests plus Dart2Wasm
 and release-web builds; all 8 widget tests also pass explicitly in Chrome. A
 macOS debug application build and repository-wide `bin/verify` pass on
-2026-08-25. Hosted exact-head evidence is pending for this revision; exact-head
-CI run `32814900960` remains the latest known green deployment chain for commit
-`23efec9d`, with clean feature-head and protected-`master` audits.
+2026-08-25. Exact-head CI run `32819793865` passed WampApp Consumer, Fast
+Checks, Full Verify, and Dart VM Coverage for commit `bdf2546c`; its
+feature-head cleanliness/log audit found no skipped, pending, warning,
+deprecation, reset, or connection-noise patterns. The protected-`master`
+policy/workflow/package strict audit also passes.
+
+The first milestone 5 slice is complete locally. Every authenticated account
+has a durable public profile with an editable display name, single-line status,
+and optional JPEG, PNG, or WebP avatar bounded to 256 KiB. Profile reads are
+available only to authenticated WampApp members; updates are caller-bound and
+use serialized optimistic revisions so competing devices cannot overwrite one
+another silently. CBOR WAMP calls carry avatar bytes as binary while the local
+JSON account store uses bounded base64 at rest. Existing account documents
+migrate through defaults, malformed or mismatched profile responses fail
+closed, and sign-out or connection replacement fences late client results. The
+Flutter UI edits the local account profile and views a recipient profile with
+an explicit visibility disclosure. `bin/test-wamp-app` passes with 36 shared,
+49 server, 76 native Flutter, and 11 real-Chrome tests plus Dart2Wasm and a
+release-web build. All 9 widget tests pass explicitly in Chrome, a macOS debug
+application build passes, and repository-wide `bin/verify` passes on
+2026-08-25. Hosted exact-head evidence is pending for this revision.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

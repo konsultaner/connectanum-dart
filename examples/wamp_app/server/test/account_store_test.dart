@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -80,19 +81,115 @@ void main() {
     expect(() => store.create(account), throwsA(isA<AccountAlreadyExists>()));
   });
 
-  test('reads schema-one accounts created before device directories', () async {
-    final legacyAccount = _account('alice').toJson()..remove('devices');
-    await store.file.writeAsString(
-      jsonEncode({
-        'schema': 1,
-        'accounts': {'alice': legacyAccount},
-      }),
-      flush: true,
-    );
+  test(
+    'reads schema-one accounts created before profiles and devices',
+    () async {
+      final legacyAccount = _account('alice').toJson()
+        ..remove('devices')
+        ..remove('profile_status')
+        ..remove('profile_revision')
+        ..remove('profile_updated_at');
+      await store.file.writeAsString(
+        jsonEncode({
+          'schema': 1,
+          'accounts': {'alice': legacyAccount},
+        }),
+        flush: true,
+      );
 
-    final account = await store.find('alice');
+      final account = await store.find('alice');
 
-    expect(account?.devices, isEmpty);
+      expect(account?.devices, isEmpty);
+      expect(account?.profile.status, isEmpty);
+      expect(account?.profile.revision, 0);
+      expect(account?.profile.updatedAt, account?.createdAt);
+    },
+  );
+
+  test(
+    'persists bounded profile data and supports explicit avatar removal',
+    () async {
+      await store.create(_account('alice'));
+      final avatar = Uint8List.fromList([
+        0x89,
+        0x50,
+        0x4E,
+        0x47,
+        0x0D,
+        0x0A,
+        0x1A,
+        0x0A,
+      ]);
+
+      final updated = await store.updateProfile(
+        'alice',
+        AccountProfileUpdate(
+          expectedRevision: 0,
+          displayName: 'Alice Example',
+          status: 'Available',
+          avatarAction: ProfileAvatarAction.set,
+          avatarBytes: avatar,
+          avatarContentType: 'image/png',
+        ),
+        now: DateTime.utc(2026, 8, 25, 12),
+      );
+      final reopened = AccountStore(store.file.path);
+      final persisted = await reopened.getProfile('alice');
+
+      expect(updated.revision, 1);
+      expect(persisted.displayName, 'Alice Example');
+      expect(persisted.status, 'Available');
+      expect(persisted.avatarBytes, avatar);
+      expect(persisted.updatedAt, DateTime.utc(2026, 8, 25, 12));
+
+      final removed = await reopened.updateProfile(
+        'alice',
+        AccountProfileUpdate(
+          expectedRevision: 1,
+          displayName: 'Alice Example',
+          status: 'Available',
+          avatarAction: ProfileAvatarAction.remove,
+        ),
+      );
+      expect(removed.revision, 2);
+      expect(removed.avatarBytes, isNull);
+      expect(removed.avatarContentType, isNull);
+    },
+  );
+
+  test('allows exactly one competing update for the same revision', () async {
+    await store.create(_account('alice'));
+
+    final results = await Future.wait<Object>([
+      store
+          .updateProfile(
+            'alice',
+            AccountProfileUpdate(
+              expectedRevision: 0,
+              displayName: 'Alice A',
+              status: '',
+            ),
+          )
+          .then<Object>((value) => value)
+          .catchError((Object error) => error),
+      store
+          .updateProfile(
+            'alice',
+            AccountProfileUpdate(
+              expectedRevision: 0,
+              displayName: 'Alice B',
+              status: '',
+            ),
+          )
+          .then<Object>((value) => value)
+          .catchError((Object error) => error),
+    ]);
+
+    final winner = results.whereType<AccountProfile>().single;
+    expect(results.whereType<ProfileConflict>(), hasLength(1));
+    final persisted = await store.getProfile('alice');
+    expect(persisted.revision, 1);
+    expect(persisted.displayName, winner.displayName);
   });
 
   test(

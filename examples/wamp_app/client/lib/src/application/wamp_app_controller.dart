@@ -40,8 +40,10 @@ class WampAppController extends ChangeNotifier {
   DeviceRecord? _localDevice;
   Object? _error;
   Object? _messageError;
+  Object? _profileError;
   List<LocalChatMessage> _messages = const [];
   bool _messageBusy = false;
+  bool _profileBusy = false;
   StreamSubscription<MailboxWakeup>? _mailboxWakeupSubscription;
   int _pendingMailboxWakeupCursor = 0;
   bool _automaticSyncRunning = false;
@@ -60,6 +62,13 @@ class WampAppController extends ChangeNotifier {
       .where((message) => message.envelope.messageId == messageId)
       .firstOrNull;
   bool get messageBusy => _messageBusy;
+  bool get profileBusy => _profileBusy;
+  String? get profileError => switch (_profileError) {
+    FormatException(:final message) => message,
+    ProfileUpdateException() => _profileError.toString(),
+    _ when _profileError != null => 'The profile operation failed.',
+    _ => null,
+  };
   String? get messageError => switch (_messageError) {
     FormatException(:final message) => message,
     _ when _messageError != null => 'The encrypted message operation failed.',
@@ -126,11 +135,72 @@ class WampAppController extends ChangeNotifier {
     _automaticSyncRunning = false;
     _error = null;
     _messageError = null;
+    _profileError = null;
     _messages = const [];
     _messageBusy = false;
+    _profileBusy = false;
     _status = WampAppStatus.signedOut;
     if (!_disposed) notifyListeners();
     await _closeState(connection, trustSession, wakeupSubscription);
+  }
+
+  Future<bool> updateProfile(AccountProfileUpdate update) async {
+    final connection = _connection;
+    if (_disposed || _profileBusy || connection == null) return false;
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection);
+    _profileBusy = true;
+    _profileError = null;
+    notifyListeners();
+    try {
+      await connection.updateProfile(update);
+      return isCurrent();
+    } catch (error) {
+      if (error case ProfileUpdateException(
+        kind: ProfileUpdateFailureKind.conflict,
+      )) {
+        try {
+          await connection.refreshProfile();
+        } catch (_) {
+          // Keep the original conflict as the actionable UI result.
+        }
+      }
+      if (isCurrent()) _profileError = error;
+      return false;
+    } finally {
+      if (isCurrent()) {
+        _profileBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<AccountProfile?> lookupProfile(String username) async {
+    final connection = _connection;
+    if (_disposed || _profileBusy || connection == null) return null;
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection);
+    _profileBusy = true;
+    _profileError = null;
+    notifyListeners();
+    try {
+      final profile = await connection.getProfile(username);
+      return isCurrent() ? profile : null;
+    } catch (error) {
+      if (isCurrent()) _profileError = error;
+      return null;
+    } finally {
+      if (isCurrent()) {
+        _profileBusy = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> _run(

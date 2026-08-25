@@ -96,6 +96,49 @@ void main() {
     expect(find.byKey(const Key('conversation-create-group')), findsOneWidget);
   });
 
+  testWidgets('edits the public profile and views a recipient profile', (
+    tester,
+  ) async {
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('account-profile-edit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('profile-display-name')),
+      'Alice Updated',
+    );
+    await tester.enterText(
+      find.byKey(const Key('profile-status')),
+      'Shipping safely',
+    );
+    await tester.tap(find.byKey(const Key('profile-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice Updated'), findsOneWidget);
+    expect(find.byKey(const Key('account-profile-status')), findsOneWidget);
+    expect(find.text('Shipping safely'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
+    await tester.tap(find.byKey(const Key('recipient-profile-view')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Public profile'), findsOneWidget);
+    expect(find.text('Bob Example'), findsOneWidget);
+    expect(find.byKey(const Key('peer-profile-status')), findsOneWidget);
+    expect(find.text('Testing WampApp'), findsOneWidget);
+  });
+
   testWidgets('renders encrypted attachment metadata without loading bytes', (
     tester,
   ) async {
@@ -439,10 +482,42 @@ class _FakeGateway implements AccountGateway {
     required String username,
     required String password,
   }) async {
+    var profile = AccountProfile(
+      username: username,
+      displayName: 'Alice Example',
+      status: '',
+      revision: 0,
+      updatedAt: DateTime.utc(2026, 8, 24),
+    );
     return AccountConnection(
       endpoint: endpoint,
       username: username,
-      displayName: 'Alice Example',
+      initialProfile: profile,
+      getProfileCallback: (lookup) async => lookup == username
+          ? profile
+          : AccountProfile(
+              username: AccountRegistration.normalizeUsername(lookup),
+              displayName: 'Bob Example',
+              status: 'Testing WampApp',
+              revision: 2,
+              updatedAt: DateTime.utc(2026, 8, 25),
+            ),
+      updateProfileCallback: (update) async {
+        profile = AccountProfile(
+          username: username,
+          displayName: update.displayName,
+          status: update.status,
+          revision: update.expectedRevision + 1,
+          updatedAt: DateTime.utc(2026, 8, 25),
+          avatarBytes: update.avatarAction == ProfileAvatarAction.set
+              ? update.avatarBytes
+              : null,
+          avatarContentType: update.avatarAction == ProfileAvatarAction.set
+              ? update.avatarContentType
+              : null,
+        );
+        return profile;
+      },
       enrollDeviceCallback: (enrollment) async =>
           activeDeviceRecord(username, enrollment),
       listDevicesCallback: (_) async => DeviceDirectory(const []),
