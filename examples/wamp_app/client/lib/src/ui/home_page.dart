@@ -13,6 +13,7 @@ import '../infrastructure/attachment_cipher.dart';
 import '../infrastructure/voice_note_playback.dart';
 import '../infrastructure/voice_note_recorder.dart';
 import '../infrastructure/wamp_account_gateway.dart';
+import 'expression_picker.dart';
 import 'wamp_app_theme.dart';
 
 class HomePage extends StatefulWidget {
@@ -21,11 +22,13 @@ class HomePage extends StatefulWidget {
     required this.controller,
     required this.connection,
     this.voiceNoteCaptureFactory,
+    this.stickerRenderer,
   });
 
   final WampAppController controller;
   final AccountConnection connection;
   final VoiceNoteCapture Function()? voiceNoteCaptureFactory;
+  final StickerRenderer? stickerRenderer;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -44,6 +47,7 @@ class _HomePageState extends State<HomePage> {
   DateTime? _voiceRecordingStartedAt;
   Duration _voiceRecordingElapsed = Duration.zero;
   bool _voiceControlBusy = false;
+  bool _stickerBusy = false;
 
   VoiceNoteCapture get _recorder => _voiceNoteCapture ??=
       widget.voiceNoteCaptureFactory?.call() ?? VoiceNoteRecorder();
@@ -130,6 +134,81 @@ class _HomePageState extends State<HomePage> {
           : 'The selected files could not be opened.';
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message.toString())));
+    }
+  }
+
+  Future<void> _showExpressionPicker() {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      constraints: const BoxConstraints(maxWidth: 680),
+      builder: (context) => ExpressionPicker(
+        onEmojiSelected: _insertEmoji,
+        onStickerSelected: _stageSticker,
+      ),
+    );
+  }
+
+  void _insertEmoji(String emoji) {
+    final value = _messageController.value;
+    final selection = value.selection;
+    final start = selection.isValid
+        ? selection.start.clamp(0, value.text.length)
+        : value.text.length;
+    final end = selection.isValid
+        ? selection.end.clamp(start, value.text.length)
+        : value.text.length;
+    final text = value.text.replaceRange(start, end, emoji);
+    _messageController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: start + emoji.length),
+    );
+  }
+
+  Future<bool> _stageSticker(StickerDesign design) async {
+    if (_stickerBusy) return false;
+    Uint8List? rendered;
+    if (_attachments.length >=
+        WampAppAttachmentLimits.maxAttachmentsPerMessage) {
+      _showMessage('A message can contain up to 8 attachments.');
+      return false;
+    }
+    setState(() => _stickerBusy = true);
+    try {
+      rendered =
+          await (widget.stickerRenderer ?? const BundledStickerRenderer())
+              .render(design);
+      if (rendered.isEmpty ||
+          rendered.length > WampAppAttachmentLimits.maxAttachmentBytes) {
+        throw const FormatException(
+          'The rendered sticker exceeds the attachment limits.',
+        );
+      }
+      if (!mounted) {
+        rendered.fillRange(0, rendered.length, 0);
+        return false;
+      }
+      final selected = _SelectedAttachment.sticker(rendered, design.id);
+      rendered = null;
+      setState(() {
+        _attachments = List<_SelectedAttachment>.unmodifiable([
+          ..._attachments,
+          selected,
+        ]);
+        _oneTime = false;
+      });
+      return true;
+    } catch (error) {
+      rendered?.fillRange(0, rendered.length, 0);
+      if (!mounted) return false;
+      final message = error is FormatException
+          ? error.message
+          : 'The sticker could not be rendered.';
+      _showMessage(message.toString());
+      return false;
+    } finally {
+      if (mounted) setState(() => _stickerBusy = false);
     }
   }
 
@@ -473,6 +552,7 @@ class _HomePageState extends State<HomePage> {
               onOpenMessage: _openMessage,
               selectedAttachments: _attachments,
               onPickAttachments: _pickAttachments,
+              onPickExpression: _showExpressionPicker,
               onRemoveAttachment: _removeAttachment,
               onOpenAttachment: _openAttachment,
               voiceRecording: _voiceRecording != null,
@@ -480,6 +560,7 @@ class _HomePageState extends State<HomePage> {
               voiceRecordingElapsed: _voiceRecordingElapsed,
               onToggleVoiceRecording: _toggleVoiceRecording,
               onCancelVoiceRecording: _cancelVoiceRecording,
+              stickerBusy: _stickerBusy,
             );
             return Padding(
               padding: const EdgeInsets.all(18),
@@ -667,6 +748,7 @@ class _ConversationPanel extends StatelessWidget {
     required this.onOpenMessage,
     required this.selectedAttachments,
     required this.onPickAttachments,
+    required this.onPickExpression,
     required this.onRemoveAttachment,
     required this.onOpenAttachment,
     required this.voiceRecording,
@@ -674,6 +756,7 @@ class _ConversationPanel extends StatelessWidget {
     required this.voiceRecordingElapsed,
     required this.onToggleVoiceRecording,
     required this.onCancelVoiceRecording,
+    required this.stickerBusy,
   });
 
   final WampAppController controller;
@@ -690,6 +773,7 @@ class _ConversationPanel extends StatelessWidget {
   final Future<void> Function(LocalChatMessage message) onOpenMessage;
   final List<_SelectedAttachment> selectedAttachments;
   final Future<void> Function() onPickAttachments;
+  final Future<void> Function() onPickExpression;
   final ValueChanged<int> onRemoveAttachment;
   final Future<void> Function(
     LocalChatMessage message,
@@ -701,6 +785,7 @@ class _ConversationPanel extends StatelessWidget {
   final Duration voiceRecordingElapsed;
   final Future<void> Function() onToggleVoiceRecording;
   final Future<void> Function() onCancelVoiceRecording;
+  final bool stickerBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -906,34 +991,28 @@ class _ConversationPanel extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             if (selectedAttachments.isNotEmpty) ...[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
+              SizedBox(
+                height: 42,
+                child: ListView.separated(
                   key: const Key('selected-attachments'),
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (
-                      var index = 0;
-                      index < selectedAttachments.length;
-                      index += 1
-                    )
-                      InputChip(
-                        key: ValueKey('selected-attachment-$index'),
-                        avatar: Icon(
-                          _attachmentIcon(selectedAttachments[index].kind),
-                          size: 18,
-                        ),
-                        label: Text(
-                          '${selectedAttachments[index].name} · '
-                          '${_formatBytes(selectedAttachments[index].byteCount)}'
-                          '${_durationSuffix(selectedAttachments[index].durationMilliseconds)}',
-                        ),
-                        onDeleted: controller.messageBusy
-                            ? null
-                            : () => onRemoveAttachment(index),
-                      ),
-                  ],
+                  scrollDirection: Axis.horizontal,
+                  itemCount: selectedAttachments.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) => InputChip(
+                    key: ValueKey('selected-attachment-$index'),
+                    avatar: Icon(
+                      _attachmentIcon(selectedAttachments[index].kind),
+                      size: 18,
+                    ),
+                    label: Text(
+                      '${selectedAttachments[index].name} · '
+                      '${_formatBytes(selectedAttachments[index].byteCount)}'
+                      '${_durationSuffix(selectedAttachments[index].durationMilliseconds)}',
+                    ),
+                    onDeleted: controller.messageBusy
+                        ? null
+                        : () => onRemoveAttachment(index),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -948,6 +1027,21 @@ class _ConversationPanel extends StatelessWidget {
                       ? null
                       : onPickAttachments,
                   icon: const Icon(Icons.attach_file_rounded),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  key: const Key('message-expression'),
+                  tooltip: 'Choose emoji or encrypted sticker',
+                  onPressed:
+                      controller.messageBusy || voiceRecording || stickerBusy
+                      ? null
+                      : onPickExpression,
+                  icon: stickerBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.emoji_emotions_outlined),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -1226,6 +1320,16 @@ final class _SelectedAttachment {
        kind = ChatAttachmentKind.voiceNote,
        _ownedBytes = bytes;
 
+  _SelectedAttachment.sticker(Uint8List bytes, String stickerId)
+    : file = null,
+      name =
+          'sticker-$stickerId-${DateTime.now().toUtc().millisecondsSinceEpoch}.png',
+      byteCount = bytes.length,
+      contentType = 'image/png',
+      kind = ChatAttachmentKind.sticker,
+      durationMilliseconds = null,
+      _ownedBytes = bytes;
+
   final XFile? file;
   final String name;
   final int byteCount;
@@ -1246,7 +1350,7 @@ final class _SelectedAttachment {
           ? file!.openRead
           : () {
               if (!identical(_ownedBytes, ownedBytes)) {
-                throw StateError('The recorded voice note was disposed.');
+                throw StateError('The staged attachment was disposed.');
               }
               return Stream<List<int>>.value(ownedBytes);
             },

@@ -11,6 +11,7 @@ import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app/src/infrastructure/voice_note_recorder.dart';
+import 'package:wamp_app/src/ui/expression_picker.dart';
 import 'package:wamp_app/src/ui/home_page.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
@@ -197,6 +198,154 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('searches emoji and stages an encrypted sticker', (tester) async {
+    final renderer = _FakeStickerRenderer();
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomePage(
+          controller: controller,
+          connection: controller.connection!,
+          stickerRenderer: renderer,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final oneTime = find.byKey(const Key('message-one-time'));
+    await tester.ensureVisible(oneTime);
+    await tester.tap(oneTime);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(oneTime).selected, isTrue);
+
+    final composer = find.byKey(const Key('message-composer'));
+    await tester.enterText(composer, 'See  later');
+    tester.widget<TextField>(composer).controller!.selection =
+        const TextSelection.collapsed(offset: 4);
+
+    final expression = find.byKey(const Key('message-expression'));
+    await tester.ensureVisible(expression);
+    await tester.tap(expression);
+    await tester.pumpAndSettle();
+    expect(find.text('Emoji & stickers'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('expression-search')),
+      'thumbs up',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('emoji-👍')));
+    await tester.pump();
+    expect(tester.widget<TextField>(composer).controller!.text, 'See 👍 later');
+
+    await tester.tap(find.byKey(const Key('expression-sticker-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('sticker-nice')));
+    await tester.pumpAndSettle();
+
+    expect(renderer.renderedDesigns.single.id, 'nice');
+    expect(find.byKey(const Key('selected-attachment-0')), findsOneWidget);
+    expect(find.textContaining('sticker-nice-'), findsOneWidget);
+    expect(tester.widget<FilterChip>(oneTime).selected, isFalse);
+  });
+
+  testWidgets('rejects a sticker beyond the attachment cap', (tester) async {
+    final renderer = _FakeStickerRenderer();
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomePage(
+          controller: controller,
+          connection: controller.connection!,
+          stickerRenderer: renderer,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> stageSticker() async {
+      final expression = find.byKey(const Key('message-expression'));
+      await tester.ensureVisible(expression);
+      await tester.tap(expression);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('expression-sticker-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('sticker-nice')));
+      await tester.pumpAndSettle();
+    }
+
+    for (
+      var index = 0;
+      index < WampAppAttachmentLimits.maxAttachmentsPerMessage;
+      index += 1
+    ) {
+      await stageSticker();
+    }
+    await tester.drag(
+      find.byKey(const Key('selected-attachments')),
+      const Offset(-4000, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('selected-attachment-7')), findsOneWidget);
+    expect(renderer.renderedDesigns, hasLength(8));
+
+    final expression = find.byKey(const Key('message-expression'));
+    await tester.ensureVisible(expression);
+    await tester.tap(expression);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expression-sticker-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('sticker-nice')));
+    await tester.pump();
+
+    expect(renderer.renderedDesigns, hasLength(8));
+    expect(
+      find.text('A message can contain up to 8 attachments.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('expression-close')), findsOneWidget);
+  });
+
+  testWidgets('renders bundled stickers as bounded PNG payloads', (
+    tester,
+  ) async {
+    final bytes = await const BundledStickerRenderer().render(
+      wampAppStickers.first,
+    );
+    addTearDown(() => bytes.fillRange(0, bytes.length, 0));
+
+    expect(bytes.take(8), const [137, 80, 78, 71, 13, 10, 26, 10]);
+    expect(bytes.length, lessThan(WampAppAttachmentLimits.maxAttachmentBytes));
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Image.memory(bytes),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('clears password after a failed attempt', (tester) async {
     final controller = WampAppController(
       gateway: _FailingGateway(),
@@ -339,6 +488,16 @@ final class _FakeVoiceNoteCapture implements VoiceNoteCapture {
   @override
   Future<void> dispose() async {
     disposed = true;
+  }
+}
+
+final class _FakeStickerRenderer implements StickerRenderer {
+  final renderedDesigns = <StickerDesign>[];
+
+  @override
+  Future<Uint8List> render(StickerDesign design) async {
+    renderedDesigns.add(design);
+    return Uint8List.fromList(const [137, 80, 78, 71, 13, 10, 26, 10]);
   }
 }
 

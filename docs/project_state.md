@@ -3,7 +3,7 @@
 Last updated: 2026-08-25
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example
-with milestone 4 rich content. Milestone 3 durable messaging is complete across
+with milestone 5 user experience. Milestone 3 durable messaging is complete across
 opaque server mailboxes, reconnect cursors, authenticated push synchronization,
 encrypted one-to-one and immutable group conversations, delivery/read state,
 signed atomic one-time consumption, expiry, and bounded durable retry/conflict
@@ -13,10 +13,10 @@ replies idempotently, and exposes per-message retry, rejection, conflict, and
 discard state. The milestone 4 attachment foundation now provides bounded
 chunked E2EE, resumable upload/download on the same authenticated WAMP session,
 native-file and IndexedDB ciphertext caches, and file/image/GIF picker,
-preview, and save UX. Bounded cross-platform voice recording and authenticated
-playback now use that same encrypted attachment path; sticker/emoji selection
-remains before milestone 4 is complete. Attachment crypto acceleration is
-complete: new writes use versioned
+preview, and save UX. Bounded cross-platform voice recording, authenticated
+playback, searchable emoji insertion, and locally rendered encrypted stickers
+now use that same encrypted attachment path, completing milestone 4. Attachment
+crypto acceleration is complete: new writes use versioned
 AES-256-GCM chunks through a maintained asynchronous native backend or a
 dedicated Web Worker, while existing XSalsa20-Poly1305 v1 attachments remain
 readable. Server attachment storage is now
@@ -208,11 +208,20 @@ Windows, and web use explicitly wiped in-memory sources; iOS, macOS, and Linux
 release the player before overwriting and deleting an atomically unique managed
 temporary file. Microphone declarations are checked in for Android, iOS, and
 both macOS schemes, and the guide records Linux runtime dependencies.
-`bin/test-wamp-app` passes with 31 shared, 47 server, 68 native Flutter, and 11
-real-Chrome tests plus a Dart2Wasm dry run and release web build. Sticker/emoji
-selection remains before milestone 4 is complete. A macOS debug application
-build and repository-wide `bin/verify` also pass on 2026-08-25; hosted
-exact-head evidence is pending for this revision.
+The rich-content milestone is complete locally. A searchable expression picker
+inserts emoji at the current composer selection and stages bundled stickers as
+valid PNG payloads with `ChatAttachmentKind.sticker`; intermediate raster and
+scanline buffers and staged plaintext are cleared defensively. Sticker renders
+are serialized, bounded by the existing eight-attachment/64 MiB limits, and use
+the same resumable E2EE WAMP attachment flow without a new server API. The
+selected-attachment strip is horizontally bounded so all composer controls
+remain reachable at the attachment cap. `bin/test-wamp-app` passes with 31
+shared, 47 server, 72 native Flutter, and 11 real-Chrome tests plus Dart2Wasm
+and release-web builds; all 8 widget tests also pass explicitly in Chrome. A
+macOS debug application build and repository-wide `bin/verify` pass on
+2026-08-25. Hosted exact-head evidence is pending for this revision; exact-head
+CI run `32814900960` remains the latest known green deployment chain for commit
+`23efec9d`, with clean feature-head and protected-`master` audits.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

@@ -42,6 +42,34 @@ void main() {
     expect(attachment.durationMilliseconds, 1250);
   });
 
+  test('sticker kind stays inside the encrypted descriptor', () async {
+    final cache = MemoryAttachmentChunkCache();
+    addTearDown(cache.dispose);
+    final cipher = AttachmentCipher();
+    addTearDown(cipher.dispose);
+    final plaintext = Uint8List.fromList(const [137, 80, 78, 71, 13, 10]);
+
+    final attachment = (await cipher.encryptSources(
+      scope: 'sticker-scope',
+      senderUsername: 'alice',
+      messageId: 'sticker_message_identifier_31',
+      sources: [
+        AttachmentPlaintextSource(
+          name: 'nice.png',
+          contentType: 'image/png',
+          kind: ChatAttachmentKind.sticker,
+          byteCount: plaintext.length,
+          openRead: () => Stream.value(plaintext),
+        ),
+      ],
+      cache: cache,
+    )).single;
+
+    expect(attachment.kind, ChatAttachmentKind.sticker);
+    expect(attachment.contentType, 'image/png');
+    expect(attachment.durationMilliseconds, isNull);
+  });
+
   const scope = 'cache-scope';
   const messageId = 'message_identifier_1234';
 
