@@ -10,6 +10,8 @@ export 'src/device_service.dart';
 export 'src/fcm_platform_push_gateway.dart';
 export 'src/mailbox_store.dart';
 export 'src/message_service.dart';
+export 'src/mcp_consent_store.dart';
+export 'src/mcp_service.dart';
 export 'src/platform_push_service.dart';
 export 'src/push_subscription_store.dart';
 export 'src/registration_service.dart';

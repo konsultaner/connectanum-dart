@@ -64,12 +64,14 @@ class WampAppController extends ChangeNotifier {
   Object? _error;
   Object? _messageError;
   Object? _profileError;
+  Object? _mcpConsentError;
   Object? _preferenceError;
   Object? _platformPushError;
   Object? _backupError;
   List<LocalChatMessage> _messages = const [];
   bool _messageBusy = false;
   bool _profileBusy = false;
+  bool _mcpConsentBusy = false;
   bool _preferenceBusy = false;
   bool _backupBusy = false;
   LocalAppPreferences _preferences = LocalAppPreferences.defaults;
@@ -93,6 +95,9 @@ class WampAppController extends ChangeNotifier {
       .firstOrNull;
   bool get messageBusy => _messageBusy;
   bool get profileBusy => _profileBusy;
+  bool get mcpConsentBusy => _mcpConsentBusy;
+  WampAppMcpConsent get mcpConsent =>
+      _connection?.mcpConsent ?? WampAppMcpConsent.denied;
   bool get preferenceBusy => _preferenceBusy;
   bool get backupBusy => _backupBusy;
   WampAppThemePreference get themePreference => _preferences.theme;
@@ -116,6 +121,13 @@ class WampAppController extends ChangeNotifier {
     FormatException(:final message) => message,
     ProfileUpdateException() => _profileError.toString(),
     _ when _profileError != null => 'The profile operation failed.',
+    _ => null,
+  };
+  String? get mcpConsentError => switch (_mcpConsentError) {
+    FormatException(:final message) => message,
+    McpConsentException() => _mcpConsentError.toString(),
+    _ when _mcpConsentError != null =>
+      'Could not update MCP public-profile access.',
     _ => null,
   };
   String? get messageError => switch (_messageError) {
@@ -430,12 +442,14 @@ class WampAppController extends ChangeNotifier {
     _error = null;
     _messageError = null;
     _profileError = null;
+    _mcpConsentError = null;
     _preferenceError = null;
     _platformPushError = null;
     _backupError = null;
     _messages = const [];
     _messageBusy = false;
     _profileBusy = false;
+    _mcpConsentBusy = false;
     _preferenceBusy = false;
     _backupBusy = false;
     _preferences = LocalAppPreferences.defaults;
@@ -479,6 +493,46 @@ class WampAppController extends ChangeNotifier {
     }
   }
 
+  Future<bool> setMcpProfileReadAllowed(bool allowed) async {
+    final connection = _connection;
+    if (_disposed || _mcpConsentBusy || connection == null) return false;
+    if (connection.mcpConsent.profileReadAllowed == allowed) return true;
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection);
+    _mcpConsentBusy = true;
+    _mcpConsentError = null;
+    notifyListeners();
+    try {
+      await connection.updateMcpConsent(
+        WampAppMcpConsentUpdate(
+          expectedRevision: connection.mcpConsent.revision,
+          profileReadAllowed: allowed,
+        ),
+      );
+      return isCurrent();
+    } catch (error) {
+      if (error case McpConsentException(
+        kind: McpConsentFailureKind.conflict,
+      )) {
+        try {
+          await connection.refreshMcpConsent();
+        } catch (_) {
+          // Keep the original conflict as the actionable UI result.
+        }
+      }
+      if (isCurrent()) _mcpConsentError = error;
+      return false;
+    } finally {
+      if (isCurrent()) {
+        _mcpConsentBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
   Future<AccountProfile?> lookupProfile(String username) async {
     final connection = _connection;
     if (_disposed || _profileBusy || connection == null) return null;
@@ -513,6 +567,7 @@ class WampAppController extends ChangeNotifier {
     final generation = ++_operationGeneration;
     _error = null;
     _messageError = null;
+    _mcpConsentError = null;
     _status = WampAppStatus.busy;
     notifyListeners();
     AccountConnection? next;
@@ -627,9 +682,11 @@ class WampAppController extends ChangeNotifier {
     _automaticSyncRunning = false;
     _messages = List<LocalChatMessage>.unmodifiable(nextMessages);
     _messageError = nextWakeupError;
+    _mcpConsentError = null;
     _preferenceError = null;
     _platformPushError = null;
     _preferenceBusy = false;
+    _mcpConsentBusy = false;
     _status = WampAppStatus.connected;
     notifyListeners();
     _startAutomaticSyncIfNeeded();

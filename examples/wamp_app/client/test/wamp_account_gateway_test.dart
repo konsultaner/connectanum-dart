@@ -96,6 +96,36 @@ void main() {
     );
   });
 
+  test('classifies MCP consent failures without exposing account data', () {
+    McpConsentException classified(String? uri) =>
+        McpConsentException.fromWampError(wamp.Error(48, 1, const {}, uri));
+
+    expect(
+      classified(WampAppProtocol.errorMcpConsentConflict).kind,
+      McpConsentFailureKind.conflict,
+    );
+    expect(
+      classified(WampAppProtocol.errorInvalidMcpConsent).kind,
+      McpConsentFailureKind.invalid,
+    );
+    expect(
+      classified(wamp.Error.notAuthorized).kind,
+      McpConsentFailureKind.invalid,
+    );
+    expect(
+      classified(WampAppProtocol.errorMcpUnavailable).kind,
+      McpConsentFailureKind.retryable,
+    );
+    expect(
+      classified('com.example.unknown').kind,
+      McpConsentFailureKind.retryable,
+    );
+    expect(
+      classified(null).toString(),
+      'MCP consent is temporarily unavailable.',
+    );
+  });
+
   test('classifies platform push failures without exposing tokens', () {
     PlatformPushSubscriptionException classified(String? uri) =>
         PlatformPushSubscriptionException.fromWampError(

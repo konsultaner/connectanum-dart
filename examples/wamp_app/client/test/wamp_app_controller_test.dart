@@ -576,6 +576,58 @@ void main() {
     expect(controller.profileError, contains('another account'));
   });
 
+  test('MCP profile consent defaults denied and updates by revision', () async {
+    final gateway = _RecordingGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    expect(controller.mcpConsent.profileReadAllowed, isFalse);
+    expect(controller.mcpConsent.revision, 0);
+    expect(await controller.setMcpProfileReadAllowed(true), isTrue);
+    expect(controller.mcpConsent.profileReadAllowed, isTrue);
+    expect(controller.mcpConsent.revision, 1);
+    expect(await controller.setMcpProfileReadAllowed(false), isTrue);
+    expect(controller.mcpConsent.profileReadAllowed, isFalse);
+    expect(controller.mcpConsent.revision, 2);
+    expect(gateway.mcpConsentUpdates, [true, false]);
+    expect(controller.mcpConsentError, isNull);
+  });
+
+  test('MCP consent conflict refreshes the current account state', () async {
+    final gateway = _RecordingGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.mcpConsent = WampAppMcpConsent(
+      profileReadAllowed: true,
+      revision: 3,
+      updatedAt: DateTime.utc(2026, 8, 25),
+    );
+    gateway.nextMcpConsentFailure = const McpConsentException(
+      McpConsentFailureKind.conflict,
+    );
+
+    expect(await controller.setMcpProfileReadAllowed(true), isFalse);
+    expect(controller.mcpConsent.profileReadAllowed, isTrue);
+    expect(controller.mcpConsent.revision, 3);
+    expect(controller.mcpConsentError, contains('another device'));
+  });
+
   test(
     'replacement stays connected when closing the old transport fails',
     () async {
@@ -1382,6 +1434,9 @@ class _RecordingGateway implements AccountGateway {
   Object? loginFailure;
   Completer<AccountProfile>? profileUpdateGate;
   AccountProfile? profileLookupOverride;
+  WampAppMcpConsent mcpConsent = WampAppMcpConsent.denied;
+  Object? nextMcpConsentFailure;
+  final List<bool> mcpConsentUpdates = [];
   final List<_GatewayConnection> connections = [];
   final Map<String, List<DeviceRecord>> deviceDirectories = {};
   final List<EncryptedChatMessage> sentMessages = [];
@@ -1435,8 +1490,25 @@ class _RecordingGateway implements AccountGateway {
       endpoint: endpoint,
       username: normalizedUsername,
       initialProfile: _profileFor(normalizedUsername),
+      initialMcpConsent: mcpConsent,
       getProfileCallback: (username) async =>
           profileLookupOverride ?? _profileFor(username),
+      getMcpConsentCallback: () async => mcpConsent,
+      updateMcpConsentCallback: (update) async {
+        final failure = nextMcpConsentFailure;
+        nextMcpConsentFailure = null;
+        if (failure != null) throw failure;
+        if (update.expectedRevision != mcpConsent.revision) {
+          throw const McpConsentException(McpConsentFailureKind.conflict);
+        }
+        mcpConsentUpdates.add(update.profileReadAllowed);
+        mcpConsent = WampAppMcpConsent(
+          profileReadAllowed: update.profileReadAllowed,
+          revision: update.expectedRevision + 1,
+          updatedAt: DateTime.utc(2026, 8, 25),
+        );
+        return mcpConsent;
+      },
       updateProfileCallback: (update) async {
         final gate = profileUpdateGate;
         if (gate != null) return gate.future;

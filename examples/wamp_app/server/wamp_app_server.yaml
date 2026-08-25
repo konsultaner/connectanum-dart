@@ -10,6 +10,15 @@ attachment_store: data/attachments
 backup_store: data/backups
 call_store: data/calls.json
 
+mcp:
+  # Agent access is separately authenticated and account consent defaults off.
+  # Cleartext grants are permitted only because this example binds loopback.
+  enabled: true
+  path: /mcp
+  auth_path: /mcp/auth
+  consent_store: data/mcp-consent.json
+  allow_insecure_transport: true
+
 webrtc:
   # Host candidates still allow same-network calls. Add production STUN/TURN
   # endpoints here for calls across NAT boundaries.

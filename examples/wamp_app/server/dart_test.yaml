@@ -1,0 +1,2 @@
+# Native router runtimes are process-global, so integration suites must not overlap.
+concurrency: 1

@@ -974,6 +974,15 @@ void main() {
         }).buildNativeConfigJson,
         returnsNormally,
       );
+      expect(
+        _routerWithMcpOptions(const {
+          'include_api_meta_tools': false,
+        }).buildNativeConfigJson,
+        returnsNormally,
+      );
+      _expectInvalidMcpOptions({
+        'includeApiMetaTools': 'false',
+      }, 'MCP includeApiMetaTools must be a boolean');
       _expectInvalidMcpOptions({
         'max_request_bytes': 0,
       }, 'MCP max_request_bytes must be a positive integer');

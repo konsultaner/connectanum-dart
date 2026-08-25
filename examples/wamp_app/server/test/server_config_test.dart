@@ -47,7 +47,85 @@ void main() {
       WampAppServerConfig.defaultBackupMaxTotalBytes,
     );
     expect(config.fcmPush, isNull);
+    expect(config.mcp.enabled, isFalse);
+    expect(
+      config.mcp.consentStorePath,
+      '${directory.path}/data/messages.json.mcp-consent.json',
+    );
   });
+
+  test('MCP endpoint and consent store load from YAML', () async {
+    final directory = await Directory.systemTemp.createTemp('wampapp-config-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/server.yaml');
+    await file.writeAsString(
+      _configYaml(
+        mcp: '''
+mcp:
+  enabled: true
+  path: /agent/mcp
+  auth_path: /agent/auth
+  consent_store: durable/mcp-consent.json
+  allow_insecure_transport: true
+''',
+      ),
+    );
+
+    final config = await WampAppServerConfig.load(file.path);
+
+    expect(config.mcp.enabled, isTrue);
+    expect(config.mcp.path, '/agent/mcp');
+    expect(config.mcp.authPath, '/agent/auth');
+    expect(
+      config.mcp.consentStorePath,
+      '${directory.path}/durable/mcp-consent.json',
+    );
+    expect(config.mcp.allowInsecureTransport, isTrue);
+  });
+
+  test('cleartext MCP authentication fails closed off loopback', () async {
+    final directory = await Directory.systemTemp.createTemp('wampapp-config-');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = File('${directory.path}/server.yaml');
+    await file.writeAsString(
+      _configYaml(
+        host: '0.0.0.0',
+        mcp: '''
+mcp:
+  enabled: true
+  allow_insecure_transport: true
+''',
+      ),
+    );
+
+    await expectLater(
+      WampAppServerConfig.load(file.path),
+      throwsFormatException,
+    );
+  });
+
+  for (final paths in const [
+    '  path: ws\n  auth_path: /mcp/auth\n',
+    '  path: /ws\n  auth_path: /mcp/auth\n',
+    '  path: /mcp\n  auth_path: /mcp\n',
+    '  path: /mcp?unsafe=true\n  auth_path: /mcp/auth\n',
+  ]) {
+    test('malformed or colliding MCP paths fail closed', () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'wampapp-config-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final file = File('${directory.path}/server.yaml');
+      await file.writeAsString(
+        _configYaml(mcp: 'mcp:\n  enabled: true\n$paths'),
+      );
+
+      await expectLater(
+        WampAppServerConfig.load(file.path),
+        throwsFormatException,
+      );
+    });
+  }
 
   test('attachment limits load from YAML', () async {
     final directory = await Directory.systemTemp.createTemp('wampapp-config-');
@@ -231,6 +309,7 @@ attachment_limits:
 }
 
 String _configYaml({
+  String host = '127.0.0.1',
   String attachmentLimits = '',
   String pushStore = '',
   String backupStore = '',
@@ -238,10 +317,11 @@ String _configYaml({
   String platformPush = '',
   String callStore = '',
   String webrtc = '',
+  String mcp = '',
 }) =>
     '''
 listen:
-  host: 127.0.0.1
+  host: $host
   port: 8080
 websocket_path: /ws
 account_store: data/accounts.json
@@ -252,6 +332,7 @@ $backupLimits
 $platformPush
 $callStore
 $webrtc
+$mcp
 attachment_store: data/attachments
 $attachmentLimits
 argon2id13:

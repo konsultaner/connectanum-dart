@@ -1,11 +1,12 @@
 # Project State
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example.
-Milestone 7 encrypted WebRTC voice/video calling is complete locally; milestone
-8 authenticated MCP integration is next. Milestone 6 encrypted local and
-router-hosted backup/recovery is complete locally. Authenticated public profiles with editable
+Milestone 8 authenticated MCP integration is complete locally; milestone 9
+production evidence is next. Milestone 7 encrypted WebRTC voice/video calling
+and milestone 6 encrypted local and router-hosted backup/recovery are complete
+locally. Authenticated public profiles with editable
 display names, status, and bounded avatars, plus on-device global message
 search, received-message read/unread filters, encrypted system/light/dark theme
 preferences, per-chat notification mute, and the provider-neutral platform
@@ -424,6 +425,26 @@ server, 148 native Flutter, and 63 Chrome tests plus Dart2Wasm and a release-web
 build. An Android debug APK and repository-wide `bin/verify` pass. The macOS
 debug build did not reach compilation because Xcode dependency resolution
 stalled without an error; hosted exact-head evidence is pending.
+
+WampApp milestone 8 authenticated MCP integration is complete locally. The
+standalone server hosts Streamable HTTP and direct JSON MCP on the existing
+router listener, with SCRAM-backed HTTP token grants and bounded sessions,
+requests, responses, history, listeners, and calls. Account-scoped consent is
+default-denied, revisioned, persisted atomically in mode-`0600` storage, and
+rechecked for every profile read so revocation is immediate. The only exposed
+application data is the authenticated account's username, display name, status,
+profile revision, update time, and consent revision; chats, messages,
+attachments, backups, devices, calls, keys, and avatars are excluded. The
+Flutter client requires an explicit disclosure dialog before enabling access
+and supports immediate disable. A two-account native-router smoke proves SCRAM
+granting, Streamable and stateless direct JSON use, exact catalog scope,
+default denial, account isolation, dynamic resource reads, consent revocation,
+and access-token revocation. Router MCP routes can now disable built-in API
+meta tools with `include_api_meta_tools: false` for an exact allowlist while
+preserving the existing default. `bin/test-wamp-app` passes with 53 shared, 125
+server, 152 native Flutter, and 64 Chrome tests plus Dart2Wasm and a release-web
+build; repository-wide `bin/verify` passes on 2026-08-26. Hosted exact-head
+evidence is pending.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

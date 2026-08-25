@@ -175,6 +175,43 @@ void main() {
     expect(find.text('Testing WampApp'), findsOneWidget);
   });
 
+  testWidgets('confirms MCP profile sharing and revokes it immediately', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    final consent = find.byKey(const Key('account-mcp-profile-consent'));
+    await tester.tap(consent);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Allow MCP public-profile access?'), findsOneWidget);
+    expect(find.textContaining('Chats, messages, attachments'), findsOneWidget);
+    expect(gateway.mcpProfileReadAllowed, isFalse);
+
+    await tester.tap(find.byKey(const Key('mcp-profile-consent-confirm')));
+    await tester.pumpAndSettle();
+    expect(gateway.mcpProfileReadAllowed, isTrue);
+    expect(gateway.mcpConsentUpdates, [true]);
+
+    await tester.tap(consent);
+    await tester.pumpAndSettle();
+    expect(find.text('Allow MCP public-profile access?'), findsNothing);
+    expect(gateway.mcpProfileReadAllowed, isFalse);
+    expect(gateway.mcpConsentUpdates, [true, false]);
+  });
+
   testWidgets('switches appearance and mutes direct and group chats', (
     tester,
   ) async {
@@ -863,6 +900,9 @@ void main() {
 
 class _FakeGateway implements AccountGateway {
   int sendAttempts = 0;
+  bool mcpProfileReadAllowed = false;
+  int mcpConsentRevision = 0;
+  final List<bool> mcpConsentUpdates = [];
 
   @override
   Future<RegistrationReceipt> register({
@@ -893,6 +933,7 @@ class _FakeGateway implements AccountGateway {
       endpoint: endpoint,
       username: username,
       initialProfile: profile,
+      initialMcpConsent: WampAppMcpConsent.denied,
       getProfileCallback: (lookup) async => lookup == username
           ? profile
           : AccountProfile(
@@ -917,6 +958,24 @@ class _FakeGateway implements AccountGateway {
               : null,
         );
         return profile;
+      },
+      getMcpConsentCallback: () async => WampAppMcpConsent(
+        profileReadAllowed: mcpProfileReadAllowed,
+        revision: mcpConsentRevision,
+        updatedAt: mcpConsentRevision == 0 ? null : DateTime.utc(2026, 8, 25),
+      ),
+      updateMcpConsentCallback: (update) async {
+        if (update.expectedRevision != mcpConsentRevision) {
+          throw const McpConsentException(McpConsentFailureKind.conflict);
+        }
+        mcpProfileReadAllowed = update.profileReadAllowed;
+        mcpConsentRevision += 1;
+        mcpConsentUpdates.add(mcpProfileReadAllowed);
+        return WampAppMcpConsent(
+          profileReadAllowed: mcpProfileReadAllowed,
+          revision: mcpConsentRevision,
+          updatedAt: DateTime.utc(2026, 8, 25),
+        );
       },
       enrollDeviceCallback: (enrollment) async =>
           activeDeviceRecord(username, enrollment),

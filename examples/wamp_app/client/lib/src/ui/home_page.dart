@@ -572,6 +572,41 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _setMcpProfileReadAllowed(bool allowed) async {
+    if (allowed) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Allow MCP public-profile access?'),
+          content: const Text(
+            'An authenticated MCP client will be able to read your username, '
+            'display name, status, and profile revision. Chats, messages, '
+            'attachments, backups, devices, calls, encryption keys, and your '
+            'avatar remain unavailable. You can revoke access immediately.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('mcp-profile-consent-confirm'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Allow'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    final saved = await widget.controller.setMcpProfileReadAllowed(allowed);
+    if (!mounted || saved) return;
+    _showMessage(
+      widget.controller.mcpConsentError ??
+          'Could not update MCP public-profile access.',
+    );
+  }
+
   Future<void> _showPeerProfile() async {
     final username = _recipientController.text.trim();
     if (username.isEmpty) {
@@ -752,10 +787,13 @@ class _HomePageState extends State<HomePage> {
                     safetyNumber: widget.controller.safetyNumber!,
                     compact: !wide,
                     profileBusy: widget.controller.profileBusy,
+                    mcpConsent: widget.controller.mcpConsent,
+                    mcpConsentBusy: widget.controller.mcpConsentBusy,
                     preferenceBusy: widget.controller.preferenceBusy,
                     backupBusy: widget.controller.backupBusy,
                     themePreference: widget.controller.themePreference,
                     onEditProfile: _editProfile,
+                    onMcpProfileReadAllowedChanged: _setMcpProfileReadAllowed,
                     onThemeChanged: _setThemePreference,
                     onBackup: _showBackupMenu,
                     onRemoteBackup: _uploadRemoteBackup,
@@ -1042,10 +1080,13 @@ class _AccountPanel extends StatelessWidget {
     required this.safetyNumber,
     required this.compact,
     required this.profileBusy,
+    required this.mcpConsent,
+    required this.mcpConsentBusy,
     required this.preferenceBusy,
     required this.backupBusy,
     required this.themePreference,
     required this.onEditProfile,
+    required this.onMcpProfileReadAllowedChanged,
     required this.onThemeChanged,
     required this.onBackup,
     required this.onRemoteBackup,
@@ -1057,10 +1098,13 @@ class _AccountPanel extends StatelessWidget {
   final String safetyNumber;
   final bool compact;
   final bool profileBusy;
+  final WampAppMcpConsent mcpConsent;
+  final bool mcpConsentBusy;
   final bool preferenceBusy;
   final bool backupBusy;
   final WampAppThemePreference themePreference;
   final VoidCallback onEditProfile;
+  final ValueChanged<bool> onMcpProfileReadAllowedChanged;
   final ValueChanged<WampAppThemePreference> onThemeChanged;
   final VoidCallback onBackup;
   final VoidCallback onRemoteBackup;
@@ -1183,12 +1227,47 @@ class _AccountPanel extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: compact ? 10 : 16),
-                Text(
-                  compact
-                      ? '${localDevice.enrollment.deviceName} · ${connection.endpoint.websocketUri.authority}'
-                      : connection.endpoint.websocketUri.authority,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        compact
+                            ? '${localDevice.enrollment.deviceName} · ${connection.endpoint.websocketUri.authority}'
+                            : connection.endpoint.websocketUri.authority,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      key: const Key('account-mcp-profile-consent'),
+                      tooltip: mcpConsent.profileReadAllowed
+                          ? 'Disable MCP public-profile access'
+                          : 'Enable MCP public-profile access',
+                      constraints: const BoxConstraints.tightFor(
+                        width: 28,
+                        height: 28,
+                      ),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      onPressed: mcpConsentBusy
+                          ? null
+                          : () => onMcpProfileReadAllowedChanged(
+                              !mcpConsent.profileReadAllowed,
+                            ),
+                      icon: mcpConsentBusy
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              mcpConsent.profileReadAllowed
+                                  ? Icons.smart_toy
+                                  : Icons.smart_toy_outlined,
+                              size: 20,
+                            ),
+                    ),
+                  ],
                 ),
                 if (!compact) ...[
                   const SizedBox(height: 16),

@@ -6,6 +6,9 @@ abstract final class WampAppProtocol {
   static const accountRegister = 'com.wampapp.account.register';
   static const profileGet = 'com.wampapp.profile.get';
   static const profileUpdate = 'com.wampapp.profile.update';
+  static const mcpConsentGet = 'com.wampapp.mcp.consent.get';
+  static const mcpConsentUpdate = 'com.wampapp.mcp.consent.update';
+  static const mcpProfileSummary = 'com.wampapp.mcp.profile.summary';
   static const deviceEnroll = 'com.wampapp.device.enroll';
   static const deviceList = 'com.wampapp.device.list';
   static const deviceLookup = 'com.wampapp.device.lookup';
@@ -44,6 +47,12 @@ abstract final class WampAppProtocol {
   static const errorProfileNotFound = 'com.wampapp.error.profile_not_found';
   static const errorProfileUnavailable =
       'com.wampapp.error.profile_unavailable';
+  static const errorInvalidMcpConsent = 'com.wampapp.error.invalid_mcp_consent';
+  static const errorMcpConsentConflict =
+      'com.wampapp.error.mcp_consent_conflict';
+  static const errorMcpConsentRequired =
+      'com.wampapp.error.mcp_consent_required';
+  static const errorMcpUnavailable = 'com.wampapp.error.mcp_unavailable';
   static const errorInvalidDevice = 'com.wampapp.error.invalid_device';
   static const errorDeviceConflict = 'com.wampapp.error.device_conflict';
   static const errorDeviceNotFound = 'com.wampapp.error.device_not_found';

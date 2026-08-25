@@ -21,6 +21,8 @@ import 'device_service.dart';
 import 'fcm_platform_push_gateway.dart';
 import 'mailbox_store.dart';
 import 'message_service.dart';
+import 'mcp_consent_store.dart';
+import 'mcp_service.dart';
 import 'platform_push_service.dart';
 import 'profile_service.dart';
 import 'push_subscription_store.dart';
@@ -31,6 +33,7 @@ import 'wamp_app_worker.dart';
 class WampAppServer {
   WampAppServer._({
     required this.websocketUri,
+    required this.mcpUri,
     required NativeTransportRuntime runtime,
     required RouterBinding binding,
     required List<Client> serviceClients,
@@ -47,6 +50,7 @@ class WampAppServer {
        _pushGateway = pushGateway;
 
   final Uri websocketUri;
+  final Uri? mcpUri;
   final NativeTransportRuntime _runtime;
   final RouterBinding _binding;
   final List<Client> _serviceClients;
@@ -85,6 +89,11 @@ class WampAppServer {
       config.callStorePath ?? '${config.messageStorePath}.calls.json',
     );
     await callStore.initialize();
+    final mcpConsentStore = McpConsentStore(
+      config.mcp.consentStorePath ??
+          '${config.messageStorePath}.mcp-consent.json',
+    );
+    await mcpConsentStore.initialize();
     final random = Random.secure();
     final serviceTicket = base64Url.encode(
       List<int>.generate(32, (_) => random.nextInt(256)),
@@ -145,6 +154,14 @@ class WampAppServer {
         port: listener.port,
         path: config.websocketPath,
       );
+      final mcpUri = config.mcp.enabled
+          ? Uri(
+              scheme: 'http',
+              host: connectHost,
+              port: listener.port,
+              path: config.mcp.path,
+            )
+          : null;
       final registrationServiceClient = Client(
         transport: WebSocketTransport.withCborSerializer(
           websocketUri.toString(),
@@ -204,6 +221,10 @@ class WampAppServer {
         appServiceSession,
         ProfileService(store: store),
       );
+      await _registerMcpHandlers(
+        appServiceSession,
+        WampAppMcpService(accounts: store, consents: mcpConsentStore),
+      );
       await _registerAttachmentHandlers(
         appServiceSession,
         AttachmentService(store: attachments, mailbox: mailbox),
@@ -240,6 +261,7 @@ class WampAppServer {
       await attachmentRetention.start();
       return WampAppServer._(
         websocketUri: websocketUri,
+        mcpUri: mcpUri,
         runtime: runtime,
         binding: binding,
         serviceClients: serviceClients,
@@ -346,6 +368,7 @@ class WampAppServer {
           WampAppProtocol.scramAuthMethod,
           options: {'authenticator': 'scram-account'},
         )
+        ..addAuthMethod('scram', options: {'authenticator': 'scram-account'})
         ..addRoleFromBuilder(
           RoleSettingsBuilder(WampAppProtocol.memberRole)
             ..addPermissionFromBuilder(
@@ -378,6 +401,18 @@ class WampAppServer {
             )
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.profileUpdate)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mcpConsentGet)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mcpConsentUpdate)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mcpProfileSummary)
                 ..allowOperations(const ['call']),
             )
             ..addPermissionFromBuilder(
@@ -502,6 +537,18 @@ class WampAppServer {
                 ..allowOperations(const ['register', 'unregister']),
             )
             ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mcpConsentGet)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mcpConsentUpdate)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mcpProfileSummary)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.messageSend)
                 ..allowOperations(const ['register', 'unregister']),
             )
@@ -597,19 +644,60 @@ class WampAppServer {
           ),
         ),
     );
-    settings.addListenerFromBuilder(
-      ListenerSettingsBuilder('websocket', '${config.host}:${config.port}')
-        ..setPath(config.websocketPath)
-        ..addProtocol(ListenerProtocol.websocket)
-        ..addAuthMethod('anonymous')
-        ..addAuthMethod('ticket')
-        ..addAuthMethod(WampAppProtocol.scramAuthMethod)
-        ..setWebSocketOptions(
-          const WebSocketListenerSettings(
-            subprotocols: ['wamp.2.cbor', 'wamp.2.json'],
+    if (config.mcp.enabled) {
+      settings.addSessionProfileFromBuilder(
+        SessionProfileSettingsBuilder('wamp-app-mcp-account')
+          ..setRealm(WampAppProtocol.appRealm)
+          ..setAuthMethods(const ['scram']),
+      );
+    }
+    final listener =
+        ListenerSettingsBuilder('websocket', '${config.host}:${config.port}')
+          ..setPath(config.websocketPath)
+          ..addProtocol(ListenerProtocol.websocket)
+          ..addAuthMethod('anonymous')
+          ..addAuthMethod('ticket')
+          ..addAuthMethod(WampAppProtocol.scramAuthMethod)
+          ..setWebSocketOptions(
+            const WebSocketListenerSettings(
+              subprotocols: ['wamp.2.cbor', 'wamp.2.json'],
+            ),
+          );
+    if (config.mcp.enabled) {
+      listener
+        ..addProtocol(ListenerProtocol.http)
+        ..setHttpOptions(
+          HttpListenerSettings(
+            routes: [
+              HttpRouteSettings(
+                match: HttpRouteMatch(path: config.mcp.authPath),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.auth,
+                  realm: WampAppProtocol.appRealm,
+                  sessionProfile: 'wamp-app-mcp-account',
+                  options: {
+                    'allow_insecure_transport':
+                        config.mcp.allowInsecureTransport,
+                    'token_ttl_ms': 15 * 60 * 1000,
+                    'refresh_token_ttl_ms': 8 * 60 * 60 * 1000,
+                    'rotate_refresh_tokens': true,
+                  },
+                ),
+              ),
+              HttpRouteSettings(
+                match: HttpRouteMatch(path: config.mcp.path),
+                action: HttpRouteAction(
+                  type: HttpRouteActionType.mcp,
+                  realm: WampAppProtocol.appRealm,
+                  sessionProfile: 'wamp-app-mcp-account',
+                  options: _mcpRouteOptions(config),
+                ),
+              ),
+            ],
           ),
-        ),
-    );
+        );
+    }
+    settings.addListenerFromBuilder(listener);
     return settings.build();
   }
 
@@ -660,6 +748,119 @@ class WampAppServer {
     }
   }
 }
+
+Map<String, Object?> _mcpRouteOptions(WampAppServerConfig config) => {
+  'name': 'wamp-app',
+  'version': '0.1.0',
+  'title': 'WampApp public profile',
+  'description':
+      'Consent-gated, read-only access to the authenticated account public '
+      'profile.',
+  'instructions':
+      'Use only the authenticated account public profile summary. Never '
+      'request, infer, or claim access to chats, messages, attachments, '
+      'backups, devices, calls, encryption keys, or avatar data.',
+  'allow_insecure_transport': config.mcp.allowInsecureTransport,
+  'include_registered_procedures': false,
+  'include_subscribed_topics': false,
+  'include_standard_meta_api': false,
+  'include_pubsub_tools': false,
+  'max_request_bytes': 64 * 1024,
+  'max_response_bytes': 64 * 1024,
+  'max_sse_history_bytes': 256 * 1024,
+  'max_session_count': 64,
+  'max_request_scoped_listener_count': 64,
+  'call_timeout_ms': 10000,
+  'procedures': [
+    {
+      'procedure': WampAppProtocol.mcpProfileSummary,
+      'tool_name': 'wampapp_profile_summary',
+      'title': 'Read my public profile',
+      'description':
+          'Returns the authenticated account public display name and status '
+          'after that account explicitly enables MCP profile access.',
+      'input_schema': {
+        'type': 'object',
+        'properties': <String, Object?>{},
+        'additionalProperties': false,
+      },
+      'output_schema': {
+        'type': 'object',
+        'properties': {
+          'username': {'type': 'string'},
+          'display_name': {'type': 'string'},
+          'status': {'type': 'string'},
+          'profile_revision': {'type': 'integer'},
+          'profile_updated_at': {'type': 'string', 'format': 'date-time'},
+          'consent_revision': {'type': 'integer'},
+        },
+        'required': [
+          'username',
+          'display_name',
+          'status',
+          'profile_revision',
+          'profile_updated_at',
+          'consent_revision',
+        ],
+        'additionalProperties': false,
+      },
+      'metadata': {
+        'short_description': 'Read the authenticated account public profile.',
+        'domain': 'wampapp',
+        'entity': 'profile',
+        'verbs': ['read'],
+        'tags': ['profile', 'read-only', 'consent'],
+        'read_only_hint': true,
+        'destructive_hint': false,
+        'idempotent_hint': true,
+        'open_world_hint': false,
+      },
+    },
+  ],
+  'resources': [
+    {
+      'uri': 'wampapp://privacy/mcp',
+      'name': 'wampapp-mcp-privacy',
+      'title': 'WampApp MCP privacy boundary',
+      'description': 'The exact data boundary for the WampApp MCP endpoint.',
+      'mime_type': 'text/markdown',
+      'text':
+          '# WampApp MCP privacy boundary\n\n'
+          'This endpoint can read only the authenticated account public '
+          'username, display name, status, and profile revision after explicit '
+          'consent. It cannot access chats, messages, attachments, backups, '
+          'devices, calls, encryption keys, or avatar data. Consent can be '
+          'revoked immediately in WampApp.',
+    },
+    {
+      'uri': 'wampapp://account/profile-summary',
+      'name': 'wampapp-public-profile-summary',
+      'title': 'My WampApp public profile',
+      'description':
+          'The authenticated account consent-gated public profile summary.',
+      'mime_type': 'application/json',
+      'read_procedure': WampAppProtocol.mcpProfileSummary,
+    },
+  ],
+  'prompts': [
+    {
+      'name': 'review-public-profile',
+      'title': 'Review my public profile',
+      'description':
+          'Reviews only the public profile fields explicitly shared through '
+          'WampApp MCP.',
+      'messages': [
+        {
+          'role': 'user',
+          'text':
+              'Read my WampApp public profile summary and describe it '
+              'briefly. Do not request or infer chats, messages, media, '
+              'devices, calls, backups, or encryption data.',
+        },
+      ],
+    },
+  ],
+};
 
 Future<void> _registerAccountHandler(
   Session session,
@@ -831,6 +1032,82 @@ Future<void> _registerProfileHandlers(
       _respondWithProfileError(invocation, error);
     }
   }, options: options);
+}
+
+Future<void> _registerMcpHandlers(
+  Session session,
+  WampAppMcpService mcp,
+) async {
+  final options = RegisterOptions(discloseCaller: true);
+  await session.registerHandler(WampAppProtocol.mcpConsentGet, (
+    invocation,
+  ) async {
+    try {
+      _requireEmptyMcpInvocation(invocation);
+      final username = _callerUsername(invocation);
+      final consent = await mcp.getConsent(username);
+      invocation.respondWith(argumentsKeywords: consent.toWampKeywords());
+    } catch (error) {
+      _respondWithMcpError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.mcpConsentUpdate, (
+    invocation,
+  ) async {
+    try {
+      if (invocation.arguments?.isNotEmpty ?? false) {
+        throw const FormatException(
+          'MCP consent updates accept keyword arguments only.',
+        );
+      }
+      final username = _callerUsername(invocation);
+      final update = WampAppMcpConsentUpdate.fromWampKeywords(
+        invocation.argumentsKeywords,
+      );
+      final consent = await mcp.updateConsent(username, update);
+      invocation.respondWith(argumentsKeywords: consent.toWampKeywords());
+    } catch (error) {
+      _respondWithMcpError(invocation, error);
+    }
+  }, options: options);
+  await session.registerHandler(WampAppProtocol.mcpProfileSummary, (
+    invocation,
+  ) async {
+    try {
+      _requireProfileSummaryInvocation(invocation);
+      final username = _callerUsername(invocation);
+      final profile = await mcp.readProfileSummary(username);
+      invocation.respondWith(argumentsKeywords: profile);
+    } catch (error) {
+      _respondWithMcpError(invocation, error);
+    }
+  }, options: options);
+}
+
+void _requireEmptyMcpInvocation(Invocation invocation) {
+  if ((invocation.arguments?.isNotEmpty ?? false) ||
+      (invocation.argumentsKeywords?.isNotEmpty ?? false)) {
+    throw const FormatException(
+      'This MCP operation does not accept arguments.',
+    );
+  }
+}
+
+void _requireProfileSummaryInvocation(Invocation invocation) {
+  if (invocation.argumentsKeywords?.isNotEmpty ?? false) {
+    throw const FormatException(
+      'The MCP profile summary does not accept keyword arguments.',
+    );
+  }
+  final arguments = invocation.arguments;
+  if (arguments == null || arguments.isEmpty) return;
+  if (arguments.length == 1 &&
+      arguments.single == 'wampapp://account/profile-summary') {
+    return;
+  }
+  throw const FormatException(
+    'The MCP profile summary accepts only its configured resource URI.',
+  );
 }
 
 Future<void> _registerAttachmentHandlers(
@@ -1353,6 +1630,42 @@ void _respondWithProfileError(Invocation invocation, Object error) {
     _ => (
       WampAppProtocol.errorProfileUnavailable,
       'The profile service is temporarily unavailable.',
+      null,
+    ),
+  };
+  invocation.respondWith(
+    isError: true,
+    errorUri: uri,
+    arguments: [message],
+    argumentsKeywords: {'current_revision': ?currentRevision},
+  );
+}
+
+void _respondWithMcpError(Invocation invocation, Object error) {
+  final (uri, message, currentRevision) = switch (error) {
+    McpConsentConflict(:final currentRevision) => (
+      WampAppProtocol.errorMcpConsentConflict,
+      'MCP consent changed on another device.',
+      currentRevision,
+    ),
+    McpConsentRequired() => (
+      WampAppProtocol.errorMcpConsentRequired,
+      'Enable public-profile access in WampApp before using this MCP tool.',
+      null,
+    ),
+    _CallerNotAuthorized() || ProfileNotFound() || StateError() => (
+      WampAppProtocol.errorNotAuthorized,
+      'The authenticated account cannot perform this operation.',
+      null,
+    ),
+    FormatException(:final message) => (
+      WampAppProtocol.errorInvalidMcpConsent,
+      message,
+      null,
+    ),
+    _ => (
+      WampAppProtocol.errorMcpUnavailable,
+      'MCP access is temporarily unavailable.',
       null,
     ),
   };

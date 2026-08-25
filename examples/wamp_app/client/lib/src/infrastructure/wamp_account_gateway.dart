@@ -129,6 +129,36 @@ final class ProfileUpdateException implements Exception {
   };
 }
 
+enum McpConsentFailureKind { invalid, conflict, retryable }
+
+final class McpConsentException implements Exception {
+  const McpConsentException(this.kind);
+
+  factory McpConsentException.fromWampError(wamp.Error error) {
+    final kind = switch (error.error) {
+      WampAppProtocol.errorMcpConsentConflict => McpConsentFailureKind.conflict,
+      WampAppProtocol.errorInvalidMcpConsent ||
+      WampAppProtocol.errorNotAuthorized ||
+      wamp.Error.notAuthorized => McpConsentFailureKind.invalid,
+      WampAppProtocol.errorMcpUnavailable ||
+      _ => McpConsentFailureKind.retryable,
+    };
+    return McpConsentException(kind);
+  }
+
+  final McpConsentFailureKind kind;
+
+  @override
+  String toString() => switch (kind) {
+    McpConsentFailureKind.invalid =>
+      'The server rejected this MCP consent change.',
+    McpConsentFailureKind.conflict =>
+      'MCP consent changed on another device. Review it and try again.',
+    McpConsentFailureKind.retryable =>
+      'MCP consent is temporarily unavailable.',
+  };
+}
+
 enum PlatformPushSubscriptionFailureKind { retryable, rejected }
 
 final class PlatformPushSubscriptionException implements Exception {
@@ -265,9 +295,12 @@ class AccountConnection {
     required this.endpoint,
     required this.username,
     required AccountProfile initialProfile,
+    WampAppMcpConsent? initialMcpConsent,
     required this.closeTransport,
     required this.getProfileCallback,
     required this.updateProfileCallback,
+    this.getMcpConsentCallback,
+    this.updateMcpConsentCallback,
     required this.enrollDeviceCallback,
     required this.listDevicesCallback,
     required this.lookupDevicesCallback,
@@ -300,15 +333,20 @@ class AccountConnection {
     required this.latestMailboxWakeupCursorCallback,
     required this.latestMailboxWakeupErrorCallback,
   }) : _profile = initialProfile,
+       _mcpConsent = initialMcpConsent ?? WampAppMcpConsent.denied,
        callWakeups = callWakeups ?? const Stream<CallWakeup>.empty();
 
   final ServerEndpoint endpoint;
   final String username;
   AccountProfile _profile;
+  WampAppMcpConsent _mcpConsent;
   final Future<void> Function() closeTransport;
   final Future<AccountProfile> Function(String username) getProfileCallback;
   final Future<AccountProfile> Function(AccountProfileUpdate update)
   updateProfileCallback;
+  final Future<WampAppMcpConsent> Function()? getMcpConsentCallback;
+  final Future<WampAppMcpConsent> Function(WampAppMcpConsentUpdate update)?
+  updateMcpConsentCallback;
   final Future<DeviceRecord> Function(DeviceEnrollment enrollment)
   enrollDeviceCallback;
   final Future<DeviceDirectory> Function(bool includeRevoked)
@@ -377,6 +415,7 @@ class AccountConnection {
   bool _closed = false;
 
   AccountProfile get profile => _profile;
+  WampAppMcpConsent get mcpConsent => _mcpConsent;
   String get displayName => _profile.displayName;
   int get latestMailboxWakeupCursor => latestMailboxWakeupCursorCallback();
   Object? get latestMailboxWakeupError => latestMailboxWakeupErrorCallback();
@@ -410,6 +449,30 @@ class AccountConnection {
     _ensureOpen();
     final updated = await updateProfileCallback(update);
     _profile = updated;
+    return updated;
+  }
+
+  Future<WampAppMcpConsent> refreshMcpConsent() async {
+    _ensureOpen();
+    final callback = getMcpConsentCallback;
+    if (callback == null) {
+      throw StateError('MCP consent is unavailable on this connection.');
+    }
+    final refreshed = await callback();
+    _mcpConsent = refreshed;
+    return refreshed;
+  }
+
+  Future<WampAppMcpConsent> updateMcpConsent(
+    WampAppMcpConsentUpdate update,
+  ) async {
+    _ensureOpen();
+    final callback = updateMcpConsentCallback;
+    if (callback == null) {
+      throw StateError('MCP consent is unavailable on this connection.');
+    }
+    final updated = await callback(update);
+    _mcpConsent = updated;
     return updated;
   }
 
@@ -802,11 +865,38 @@ class WampAccountGateway implements AccountGateway {
           'The server returned a profile for another account.',
         );
       }
+      Future<WampAppMcpConsent> getMcpConsent() async {
+        try {
+          final result = await session
+              .callSingle(WampAppProtocol.mcpConsentGet)
+              .timeout(connectionTimeout);
+          return WampAppMcpConsent.fromWampKeywords(result.argumentsKeywords);
+        } on wamp.Error catch (error) {
+          throw McpConsentException.fromWampError(error);
+        }
+      }
+
+      final mcpConsent = await getMcpConsent();
       return AccountConnection(
         endpoint: endpoint,
         username: authenticatedUsername,
         initialProfile: profile,
+        initialMcpConsent: mcpConsent,
         getProfileCallback: getProfile,
+        getMcpConsentCallback: getMcpConsent,
+        updateMcpConsentCallback: (update) async {
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.mcpConsentUpdate,
+                  argumentsKeywords: update.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            return WampAppMcpConsent.fromWampKeywords(result.argumentsKeywords);
+          } on wamp.Error catch (error) {
+            throw McpConsentException.fromWampError(error);
+          }
+        },
         updateProfileCallback: (update) async {
           try {
             final result = await session

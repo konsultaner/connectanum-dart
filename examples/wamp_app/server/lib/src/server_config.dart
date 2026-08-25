@@ -46,6 +46,24 @@ final class TurnRestConfig {
       'sharedSecret: [redacted])';
 }
 
+final class WampAppMcpConfig {
+  const WampAppMcpConfig({
+    this.enabled = false,
+    this.path = '/mcp',
+    this.authPath = '/mcp/auth',
+    this.consentStorePath,
+    this.allowInsecureTransport = false,
+  });
+
+  static const disabled = WampAppMcpConfig();
+
+  final bool enabled;
+  final String path;
+  final String authPath;
+  final String? consentStorePath;
+  final bool allowInsecureTransport;
+}
+
 class WampAppServerConfig {
   static const defaultAttachmentMaxTotalBytes = 10 * 1024 * 1024 * 1024;
   static const defaultAttachmentMaxBytesPerSender = 2 * 1024 * 1024 * 1024;
@@ -54,7 +72,7 @@ class WampAppServerConfig {
   static const defaultBackupMaxTotalBytes =
       BackupStore.defaultMaximumTotalBytes;
 
-  const WampAppServerConfig({
+  WampAppServerConfig({
     required this.host,
     required this.port,
     required this.websocketPath,
@@ -65,6 +83,7 @@ class WampAppServerConfig {
     this.attachmentStorePath,
     this.backupStorePath,
     this.callStorePath,
+    WampAppMcpConfig? mcp,
     this.stunUrls = const [],
     this.turnRest,
     this.backupMaxTotalBytes = defaultBackupMaxTotalBytes,
@@ -74,7 +93,26 @@ class WampAppServerConfig {
     this.attachmentCleanupInterval = defaultAttachmentCleanupInterval,
     required this.argonIterations,
     required this.argonMemoryKiB,
-  });
+  }) : mcp = mcp ?? WampAppMcpConfig.disabled {
+    _validateRoutePath(websocketPath, 'websocketPath');
+    _validateRoutePath(this.mcp.path, 'mcp.path');
+    _validateRoutePath(this.mcp.authPath, 'mcp.authPath');
+    if (this.mcp.enabled &&
+        (this.mcp.path == websocketPath ||
+            this.mcp.authPath == websocketPath ||
+            this.mcp.path == this.mcp.authPath)) {
+      throw const FormatException(
+        'MCP, MCP auth, and WebSocket paths must be distinct.',
+      );
+    }
+    if (this.mcp.enabled &&
+        this.mcp.allowInsecureTransport &&
+        !_isLoopbackHost(host)) {
+      throw const FormatException(
+        'Cleartext MCP authentication is allowed only on loopback.',
+      );
+    }
+  }
 
   final String host;
   final int port;
@@ -86,6 +124,7 @@ class WampAppServerConfig {
   final String? attachmentStorePath;
   final String? backupStorePath;
   final String? callStorePath;
+  final WampAppMcpConfig mcp;
   final List<String> stunUrls;
   final TurnRestConfig? turnRest;
   final int backupMaxTotalBytes;
@@ -125,6 +164,7 @@ class WampAppServerConfig {
     final turnRest = webrtc == null || webrtc['turn_rest'] == null
         ? null
         : _map(webrtc['turn_rest'], 'webrtc.turn_rest');
+    final mcp = document['mcp'] == null ? null : _map(document['mcp'], 'mcp');
     final host = _string(listen['host'], 'listen.host');
     final port = _integer(listen['port'], 'listen.port', min: 0, max: 65535);
     final websocketPath = _string(document['websocket_path'], 'websocket_path');
@@ -181,6 +221,12 @@ class WampAppServerConfig {
     final callStore = p.isAbsolute(configuredCalls)
         ? configuredCalls
         : p.normalize(p.join(base, configuredCalls));
+    final configuredMcpConsentStore = mcp?['consent_store'] == null
+        ? '$configuredMessages.mcp-consent.json'
+        : _string(mcp?['consent_store'], 'mcp.consent_store');
+    final mcpConsentStore = p.isAbsolute(configuredMcpConsentStore)
+        ? configuredMcpConsentStore
+        : p.normalize(p.join(base, configuredMcpConsentStore));
     final stunUrls = _urlList(
       webrtc?['stun_urls'],
       'webrtc.stun_urls',
@@ -253,6 +299,18 @@ class WampAppServerConfig {
       attachmentStorePath: attachmentStore,
       backupStorePath: backupStore,
       callStorePath: callStore,
+      mcp: WampAppMcpConfig(
+        enabled: _boolean(mcp?['enabled'] ?? false, 'mcp.enabled'),
+        path: mcp?['path'] == null ? '/mcp' : _string(mcp?['path'], 'mcp.path'),
+        authPath: mcp?['auth_path'] == null
+            ? '/mcp/auth'
+            : _string(mcp?['auth_path'], 'mcp.auth_path'),
+        consentStorePath: mcpConsentStore,
+        allowInsecureTransport: _boolean(
+          mcp?['allow_insecure_transport'] ?? false,
+          'mcp.allow_insecure_transport',
+        ),
+      ),
       stunUrls: stunUrls,
       turnRest: turnRest == null
           ? null
@@ -332,6 +390,13 @@ class WampAppServerConfig {
     return value;
   }
 
+  static bool _boolean(Object? value, String name) {
+    if (value is! bool) {
+      throw FormatException('$name must be a boolean.');
+    }
+    return value;
+  }
+
   static List<String> _urlList(
     Object? value,
     String name, {
@@ -358,4 +423,25 @@ class WampAppServerConfig {
         .toList(growable: false);
     return List<String>.unmodifiable(urls);
   }
+}
+
+void _validateRoutePath(String value, String name) {
+  final uri = Uri.tryParse(value);
+  if (value.isEmpty ||
+      !value.startsWith('/') ||
+      value.startsWith('//') ||
+      uri == null ||
+      uri.path != value ||
+      uri.hasQuery ||
+      uri.hasFragment) {
+    throw FormatException('$name must be an absolute HTTP path.');
+  }
+}
+
+bool _isLoopbackHost(String host) {
+  final normalized = host.trim().toLowerCase();
+  return normalized == 'localhost' ||
+      normalized == '127.0.0.1' ||
+      normalized == '::1' ||
+      normalized == '[::1]';
 }
