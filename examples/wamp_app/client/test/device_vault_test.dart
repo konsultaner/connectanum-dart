@@ -3,7 +3,10 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wamp_app/src/domain/local_chat_message.dart';
+import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
+import 'package:wamp_app/src/infrastructure/message_cipher.dart';
 import 'package:wamp_app/src/infrastructure/vault_storage.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
@@ -219,6 +222,101 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test(
+    'persists the exact bounded outbox only inside encrypted storage',
+    () async {
+      final first = await vault.openOrCreate(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'correct horse battery',
+        deviceName: 'Alice phone',
+      );
+      final aliceRecord = _record('alice', first.enrollment);
+      final bobRecord = _record('bob', first.enrollment);
+      final encrypted = MessageCipher().encrypt(
+        senderUsername: 'alice',
+        recipientUsername: 'bob',
+        text: 'durable retry plaintext',
+        trust: first,
+        participantDevices: [aliceRecord, bobRecord],
+        now: DateTime.utc(2026, 8, 25, 12),
+      );
+      final pending = OutboundChatMessage(
+        envelope: encrypted,
+        localMessage: LocalChatMessage(
+          messageId: encrypted.messageId,
+          conversationId: encrypted.conversationId,
+          peerUsername: 'bob',
+          text: 'durable retry plaintext',
+          sentAt: encrypted.createdAt,
+          outgoing: true,
+        ),
+        state: OutboundMessageState.retryable,
+        attemptCount: 1,
+        lastAttemptAt: DateTime.utc(2026, 8, 25, 12, 1),
+      );
+
+      await first.saveMailboxState(
+        cursor: 0,
+        messages: const [],
+        outbox: [pending],
+      );
+      final encoded = storage.values.values.single;
+      expect(encoded, isNot(contains('durable retry plaintext')));
+      expect(encoded, isNot(contains(encrypted.messageId)));
+      await first.dispose();
+
+      final reopened = await vault.openOrCreate(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'correct horse battery',
+        deviceName: 'Ignored replacement name',
+      );
+      addTearDown(reopened.dispose);
+      expect(reopened.outbox, hasLength(1));
+      expect(reopened.outbox.single.state, OutboundMessageState.retryable);
+      expect(reopened.outbox.single.envelope.toJson(), encrypted.toJson());
+      expect(
+        reopened.outbox.single.localMessage.text,
+        'durable retry plaintext',
+      );
+    },
+  );
+
+  test('rejects oversized or mailbox-ambiguous outbox state', () async {
+    final session = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    addTearDown(session.dispose);
+    final aliceRecord = _record('alice', session.enrollment);
+    final bobRecord = _record('bob', session.enrollment);
+    final outbox = List<OutboundChatMessage>.generate(
+      OutboundChatMessage.maxEntries + 1,
+      (index) => _pendingMessage(session, aliceRecord, bobRecord, index),
+    );
+
+    await expectLater(
+      session.saveMailboxState(cursor: 0, messages: const [], outbox: outbox),
+      throwsFormatException,
+    );
+    expect(session.outbox, isEmpty);
+
+    final pending = outbox.first;
+    await expectLater(
+      session.saveMailboxState(
+        cursor: 0,
+        messages: [pending.localMessage],
+        outbox: [pending],
+      ),
+      throwsFormatException,
+    );
+    expect(session.messages, isEmpty);
+    expect(session.outbox, isEmpty);
+  });
 }
 
 final class MemoryVaultStorage implements VaultStorage {
@@ -261,5 +359,34 @@ DeviceRecord _record(String username, DeviceEnrollment enrollment) {
     enrollment: enrollment,
     enrolledAt: DateTime.utc(2026, 8, 24, 12),
     lastSeenAt: DateTime.utc(2026, 8, 24, 12),
+  );
+}
+
+OutboundChatMessage _pendingMessage(
+  DeviceTrustSession trust,
+  DeviceRecord alice,
+  DeviceRecord bob,
+  int index,
+) {
+  final encrypted = MessageCipher().encrypt(
+    senderUsername: 'alice',
+    recipientUsername: 'bob',
+    text: 'bounded outbox entry $index',
+    trust: trust,
+    participantDevices: [alice, bob],
+    now: DateTime.utc(2026, 8, 25, 12).add(Duration(seconds: index)),
+  );
+  return OutboundChatMessage(
+    envelope: encrypted,
+    localMessage: LocalChatMessage(
+      messageId: encrypted.messageId,
+      conversationId: encrypted.conversationId,
+      peerUsername: 'bob',
+      text: 'bounded outbox entry $index',
+      sentAt: encrypted.createdAt,
+      outgoing: true,
+    ),
+    state: OutboundMessageState.queued,
+    attemptCount: 0,
   );
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/connectanum.dart' hide Error;
+import 'package:connectanum_client/connectanum.dart' as wamp show Error;
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 abstract interface class AccountGateway {
@@ -14,6 +15,35 @@ abstract interface class AccountGateway {
     required String username,
     required String password,
   });
+}
+
+enum MessageSendFailureKind { retryable, rejected, conflict }
+
+final class MessageSendException implements Exception {
+  const MessageSendException(this.kind);
+
+  factory MessageSendException.fromWampError(wamp.Error error) {
+    final kind = switch (error.error) {
+      WampAppProtocol.errorMessageConflict => MessageSendFailureKind.conflict,
+      WampAppProtocol.errorInvalidMessage ||
+      WampAppProtocol.errorNotAuthorized ||
+      wamp.Error.notAuthorized => MessageSendFailureKind.rejected,
+      WampAppProtocol.errorMessageUnavailable ||
+      _ => MessageSendFailureKind.retryable,
+    };
+    return MessageSendException(kind);
+  }
+
+  final MessageSendFailureKind kind;
+
+  @override
+  String toString() => switch (kind) {
+    MessageSendFailureKind.retryable =>
+      'Message delivery is temporarily unavailable.',
+    MessageSendFailureKind.rejected => 'The server rejected this message.',
+    MessageSendFailureKind.conflict =>
+      'The message identifier conflicts with server state.',
+  };
 }
 
 class AccountConnection {
@@ -234,13 +264,19 @@ class WampAccountGateway implements AccountGateway {
           return DeviceDirectory.fromWampKeywords(result.argumentsKeywords);
         },
         sendMessageCallback: (message) async {
-          final result = await session
-              .callSingle(
-                WampAppProtocol.messageSend,
-                argumentsKeywords: message.toWampKeywords(),
-              )
-              .timeout(connectionTimeout);
-          return MessageSendReceipt.fromWampKeywords(result.argumentsKeywords);
+          try {
+            final result = await session
+                .callSingle(
+                  WampAppProtocol.messageSend,
+                  argumentsKeywords: message.toWampKeywords(),
+                )
+                .timeout(connectionTimeout);
+            return MessageSendReceipt.fromWampKeywords(
+              result.argumentsKeywords,
+            );
+          } on wamp.Error catch (error) {
+            throw MessageSendException.fromWampError(error);
+          }
         },
         syncMessagesCallback: (afterCursor, limit) async {
           final result = await session

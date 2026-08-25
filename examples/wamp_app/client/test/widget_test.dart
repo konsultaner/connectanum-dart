@@ -1,9 +1,13 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/app.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
+import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
@@ -115,9 +119,53 @@ void main() {
     expect(password.controller.text, isEmpty);
     expect(find.byKey(const Key('connection-error')), findsOneWidget);
   });
+
+  testWidgets('retries and discards a persisted outbound message', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    final pending = _retryableOutbox();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(initialOutbox: [pending]),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('persisted retry'), findsOneWidget);
+    expect(find.text('Not sent'), findsOneWidget);
+    final retry = find.byKey(const Key('message-retry-persisted-message'));
+    final discard = find.byKey(const Key('message-discard-persisted-message'));
+    expect(retry, findsOneWidget);
+    expect(discard, findsOneWidget);
+    expect(gateway.sendAttempts, 1);
+
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+
+    expect(gateway.sendAttempts, 2);
+    expect(find.text('Not sent'), findsOneWidget);
+
+    await tester.ensureVisible(discard);
+    await tester.tap(discard);
+    await tester.pumpAndSettle();
+
+    expect(find.text('persisted retry'), findsNothing);
+    expect(find.byKey(const Key('message-history')), findsNothing);
+  });
 }
 
 class _FakeGateway implements AccountGateway {
+  int sendAttempts = 0;
+
   @override
   Future<RegistrationReceipt> register({
     required ServerEndpoint endpoint,
@@ -145,7 +193,10 @@ class _FakeGateway implements AccountGateway {
       listDevicesCallback: (_) async => DeviceDirectory(const []),
       lookupDevicesCallback: (_, _) async => DeviceDirectory(const []),
       revokeDeviceCallback: (_) => throw UnimplementedError(),
-      sendMessageCallback: (_) => throw UnimplementedError(),
+      sendMessageCallback: (_) async {
+        sendAttempts += 1;
+        throw const MessageSendException(MessageSendFailureKind.retryable);
+      },
       syncMessagesCallback: (afterCursor, _) async =>
           MailboxBatch(nextCursor: afterCursor, messages: const []),
       markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
@@ -167,3 +218,52 @@ class _FailingGateway extends _FakeGateway {
     throw StateError('offline');
   }
 }
+
+OutboundChatMessage _retryableOutbox() {
+  final createdAt = DateTime.utc(2026, 8, 25, 12);
+  final senderDeviceId = _token(32, 1);
+  final wrappedKeys = ['alice', 'bob']
+      .map(
+        (username) => WrappedConversationKey(
+          conversationId: 'alice-bob',
+          senderUsername: 'alice',
+          senderDeviceId: senderDeviceId,
+          recipientUsername: username,
+          recipientDeviceId: _token(32, username == 'alice' ? 2 : 3),
+          sealedKey: _token(80, username == 'alice' ? 4 : 5),
+          signature: _token(64, username == 'alice' ? 6 : 7),
+          createdAt: createdAt,
+        ),
+      )
+      .toList(growable: false);
+  final envelope = EncryptedChatMessage(
+    messageId: 'persisted-message',
+    conversationId: 'alice-bob',
+    senderUsername: 'alice',
+    senderDeviceId: senderDeviceId,
+    recipientUsername: 'bob',
+    createdAt: createdAt,
+    encryptedPayload: Uint8List.fromList(
+      List<int>.generate(40, (index) => index + 1),
+    ),
+    wrappedKeys: wrappedKeys,
+  );
+  return OutboundChatMessage(
+    envelope: envelope,
+    localMessage: LocalChatMessage(
+      messageId: envelope.messageId,
+      conversationId: envelope.conversationId,
+      peerUsername: 'bob',
+      text: 'persisted retry',
+      sentAt: envelope.createdAt,
+      outgoing: true,
+    ),
+    state: OutboundMessageState.retryable,
+    attemptCount: 1,
+    lastAttemptAt: DateTime.utc(2026, 8, 25, 12, 1),
+  );
+}
+
+String _token(int length, int seed) => base64Url
+    .encode(List<int>.generate(length, (index) => (seed + index) & 0xff))
+    .replaceAll('=', '');

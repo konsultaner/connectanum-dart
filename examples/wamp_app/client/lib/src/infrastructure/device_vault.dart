@@ -9,6 +9,7 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import '../domain/local_chat_group.dart';
 import '../domain/local_chat_message.dart';
+import '../domain/outbound_chat_message.dart';
 import 'local_device_identity.dart';
 import 'vault_storage.dart';
 
@@ -42,10 +43,12 @@ abstract interface class DeviceTrustSession {
   int get mailboxCursor;
   List<LocalChatMessage> get messages;
   List<LocalChatGroup> get groups;
+  List<OutboundChatMessage> get outbox;
   Future<void> saveMailboxState({
     required int cursor,
     required List<LocalChatMessage> messages,
     List<LocalChatGroup>? groups,
+    List<OutboundChatMessage>? outbox,
   });
   Future<void> dispose();
 }
@@ -171,6 +174,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         mailboxCursor: 0,
         messages: const [],
         groups: const [],
+        outbox: const [],
       );
       identity = null;
       try {
@@ -228,6 +232,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
       final verifications = _readVerifications(document['verifications']);
       final mailbox = _readMailbox(document['mailbox']);
       final groups = _readGroups(document['groups']);
+      final outbox = _readOutbox(document['outbox'], mailbox.$2);
       final session = _UnlockedDeviceVault(
         storage: storage,
         storageKey: storageKey,
@@ -242,6 +247,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         mailboxCursor: mailbox.$1,
         messages: mailbox.$2,
         groups: groups,
+        outbox: outbox,
       );
       identity = null;
       return session;
@@ -297,10 +303,12 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     required this._mailboxCursor,
     required List<LocalChatMessage> messages,
     required List<LocalChatGroup> groups,
+    required List<OutboundChatMessage> outbox,
   }) : _encryptionKey = Uint8List.fromList(encryptionKey),
        _verifications = Map<String, _ContactVerification>.of(verifications),
        _messages = List<LocalChatMessage>.of(messages),
-       _groups = List<LocalChatGroup>.of(groups);
+       _groups = List<LocalChatGroup>.of(groups),
+       _outbox = List<OutboundChatMessage>.of(outbox);
 
   final VaultStorage storage;
   final String storageKey;
@@ -315,6 +323,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   int _mailboxCursor;
   final List<LocalChatMessage> _messages;
   final List<LocalChatGroup> _groups;
+  final List<OutboundChatMessage> _outbox;
   Future<void> _writeTail = Future<void>.value();
   bool _disposed = false;
   bool _closing = false;
@@ -353,6 +362,12 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   List<LocalChatGroup> get groups {
     _ensureActive();
     return List<LocalChatGroup>.unmodifiable(_groups);
+  }
+
+  @override
+  List<OutboundChatMessage> get outbox {
+    _ensureActive();
+    return List<OutboundChatMessage>.unmodifiable(_outbox);
   }
 
   @override
@@ -426,6 +441,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     required int cursor,
     required List<LocalChatMessage> messages,
     List<LocalChatGroup>? groups,
+    List<OutboundChatMessage>? outbox,
   }) async {
     _ensureActive();
     if (cursor < _mailboxCursor || cursor < 0 || messages.length > 5000) {
@@ -435,7 +451,9 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
       message.validate();
     }
     final nextGroups = groups ?? _groups;
+    final nextOutbox = outbox ?? _outbox;
     _validateGroups(nextGroups);
+    _validateOutbox(nextOutbox, messages);
     _mailboxCursor = cursor;
     _messages
       ..clear()
@@ -444,6 +462,11 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
       _groups
         ..clear()
         ..addAll(groups);
+    }
+    if (outbox != null) {
+      _outbox
+        ..clear()
+        ..addAll(outbox);
     }
     await persist();
   }
@@ -463,6 +486,9 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
             ),
             'groups': _groups
                 .map((group) => group.toJson())
+                .toList(growable: false),
+            'outbox': _outbox
+                .map((message) => message.toJson())
                 .toList(growable: false),
             'mailbox': {
               'cursor': _mailboxCursor,
@@ -505,6 +531,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
       _verifications.clear();
       _messages.clear();
       _groups.clear();
+      _outbox.clear();
     }
   }
 
@@ -593,6 +620,44 @@ final class VaultUnlockException implements Exception {
     }
   }
   return (value['cursor'] as int, messages);
+}
+
+List<OutboundChatMessage> _readOutbox(
+  Object? value,
+  List<LocalChatMessage> messages,
+) {
+  if (value == null) return const [];
+  if (value is! List) {
+    throw const FormatException('Encrypted outbox state is invalid.');
+  }
+  final outbox = value
+      .map((raw) {
+        if (raw is! Map) {
+          throw const FormatException('Encrypted outbox entry is invalid.');
+        }
+        return OutboundChatMessage.fromJson(Map<String, dynamic>.from(raw));
+      })
+      .toList(growable: false);
+  _validateOutbox(outbox, messages);
+  return outbox;
+}
+
+void _validateOutbox(
+  List<OutboundChatMessage> outbox,
+  List<LocalChatMessage> messages,
+) {
+  if (outbox.length > OutboundChatMessage.maxEntries) {
+    throw const FormatException('Encrypted outbox state is too large.');
+  }
+  final ids = messages.map((message) => message.messageId).toSet();
+  for (final message in outbox) {
+    message.validate();
+    if (!ids.add(message.envelope.messageId)) {
+      throw const FormatException(
+        'Encrypted mailbox and outbox contain duplicate messages.',
+      );
+    }
+  }
 }
 
 List<LocalChatGroup> _readGroups(Object? value) {

@@ -3,15 +3,14 @@
 Last updated: 2026-08-25
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example
-with the remaining durable-messaging work. The completed account, device-trust,
-and direct-message slices cover real server-address onboarding, anonymous
-account registration, asynchronous Argon2id13 verifier derivation,
-standardized `wamp-scram` authentication, encrypted per-device identity
-storage, authenticated device enrollment/revocation, safety numbers, signed
-conversation-key wrapping, opaque server mailboxes, reconnect cursors, and
-encrypted one-to-one messages with authenticated push-driven synchronization.
-Explicit read state, signed atomic one-time consumption, and immutable encrypted
-group conversations are now complete. Retry/conflict UX remains open.
+with milestone 4 rich content. Milestone 3 durable messaging is complete across
+opaque server mailboxes, reconnect cursors, authenticated push synchronization,
+encrypted one-to-one and immutable group conversations, delivery/read state,
+signed atomic one-time consumption, expiry, and bounded durable retry/conflict
+recovery. The client persists each exact encrypted outbound envelope and its
+optimistic plaintext only inside the encrypted device vault, reconciles lost
+replies idempotently, and exposes per-message retry, rejection, conflict, and
+discard state. Encrypted attachments and resumable transfer UX are next.
 The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
 WampApp lives under `examples/wamp_app` as standalone client, server, and shared
@@ -115,7 +114,25 @@ recipients decrypt and persist the same group, Mallory receives no wakeup or
 mailbox content, and sender read state completes only after both recipients
 read. `bin/test-wamp-app` passes with 23 shared, 29 server, and 26 Flutter tests
 plus a release web build, and repository `bin/verify` passes on 2026-08-25.
-Retry/conflict UX remains in milestone 3; hosted exact-head evidence is pending.
+Commit `84a28a4d` is pushed to GitLab and GitHub. Exact-head CI run
+`32786240083` passed Fast Checks, WampApp Consumer, Full Verify, and Dart VM
+Coverage; feature-branch and protected-`master` deployment audits passed.
+
+Durable retry and conflict recovery completes WampApp milestone 3 locally.
+Before any network call, the Flutter client stores one exact encrypted WAMP
+envelope plus its optimistic local message in the account-bound encrypted
+vault. Unknown outcomes remain retryable with the same message identifier and
+wire bytes; reconnect first reconciles accepted mailbox state, then attempts
+each still-recoverable entry once. Accepted cursors prevent stale optimistic
+records, same-ID/different-envelope replies become terminal conflicts, and
+rejected/conflicting entries require explicit discard. Sign-out and replacement
+generations fence late replies. The outbox is bounded to 100 entries, validates
+mailbox disjointness, and never exposes plaintext in outer storage. Flutter
+message bubbles show sending, syncing, retryable, rejected, and conflict states
+with retry/discard controls. `bin/test-wamp-app` passes with 23 shared, 29
+server, and 40 Flutter tests plus a release web build, and repository
+`bin/verify` passes on 2026-08-25. Milestone 4 encrypted rich content is next;
+hosted exact-head evidence is pending for this revision.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

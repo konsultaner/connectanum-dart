@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
+import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
@@ -10,10 +11,12 @@ final class FakeDeviceTrustStore implements DeviceTrustStore {
   FakeDeviceTrustStore({
     this.initialMessages = const [],
     this.initialGroups = const [],
+    this.initialOutbox = const [],
   });
 
   final List<LocalChatMessage> initialMessages;
   final List<LocalChatGroup> initialGroups;
+  final List<OutboundChatMessage> initialOutbox;
   String? password;
   FakeDeviceTrustSession? session;
   Object? failure;
@@ -28,10 +31,13 @@ final class FakeDeviceTrustStore implements DeviceTrustStore {
     this.password = password;
     final failure = this.failure;
     if (failure != null) throw failure;
+    final previous = session;
     return session = FakeDeviceTrustSession(
       username,
-      initialMessages,
-      initialGroups,
+      previous?.messages ?? initialMessages,
+      previous?.groups ?? initialGroups,
+      previous?.outbox ?? initialOutbox,
+      previous?.mailboxCursor ?? 0,
     );
   }
 }
@@ -41,16 +47,20 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     this.username,
     List<LocalChatMessage> initialMessages,
     List<LocalChatGroup> initialGroups,
+    List<OutboundChatMessage> initialOutbox,
+    this._mailboxCursor,
   ) {
     _messages.addAll(initialMessages);
     _groups.addAll(initialGroups);
+    _outbox.addAll(initialOutbox);
   }
 
   final String username;
   bool disposed = false;
-  int _mailboxCursor = 0;
+  int _mailboxCursor;
   final List<LocalChatMessage> _messages = [];
   final List<LocalChatGroup> _groups = [];
+  final List<OutboundChatMessage> _outbox = [];
 
   @override
   late final DeviceEnrollment enrollment = DeviceEnrollment(
@@ -76,6 +86,9 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
 
   @override
   List<LocalChatGroup> get groups => List.unmodifiable(_groups);
+
+  @override
+  List<OutboundChatMessage> get outbox => List.unmodifiable(_outbox);
 
   @override
   bool isVerified(DeviceRecord contact) => false;
@@ -127,6 +140,7 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     required int cursor,
     required List<LocalChatMessage> messages,
     List<LocalChatGroup>? groups,
+    List<OutboundChatMessage>? outbox,
   }) async {
     _mailboxCursor = cursor;
     _messages
@@ -136,6 +150,11 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
       _groups
         ..clear()
         ..addAll(groups);
+    }
+    if (outbox != null) {
+      _outbox
+        ..clear()
+        ..addAll(outbox);
     }
   }
 

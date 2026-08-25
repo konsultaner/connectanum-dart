@@ -3,6 +3,7 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import '../application/wamp_app_controller.dart';
 import '../domain/local_chat_message.dart';
+import '../domain/outbound_chat_message.dart';
 import '../infrastructure/wamp_account_gateway.dart';
 import 'wamp_app_theme.dart';
 
@@ -37,21 +38,19 @@ class _HomePageState extends State<HomePage> {
   Future<void> _send() async {
     final text = _messageController.text;
     final groupId = _selectedGroupId;
-    if (groupId == null) {
-      await widget.controller.sendMessage(
-        recipientUsername: _recipientController.text,
-        text: text,
-        oneTime: _oneTime,
-        expiresAfter: _expiresAfter,
-      );
-    } else {
-      await widget.controller.sendGroupMessage(
-        groupId: groupId,
-        text: text,
-        expiresAfter: _expiresAfter,
-      );
-    }
-    if (mounted && widget.controller.messageError == null) {
+    final queued = groupId == null
+        ? await widget.controller.sendMessage(
+            recipientUsername: _recipientController.text,
+            text: text,
+            oneTime: _oneTime,
+            expiresAfter: _expiresAfter,
+          )
+        : await widget.controller.sendGroupMessage(
+            groupId: groupId,
+            text: text,
+            expiresAfter: _expiresAfter,
+          );
+    if (mounted && queued) {
       _messageController.clear();
     }
   }
@@ -481,9 +480,26 @@ class _ConversationPanel extends StatelessWidget {
                             visibleMessages[visibleMessages.length - index - 1];
                         return _MessageBubble(
                           message: message,
+                          outbound: controller.outboundMessageFor(
+                            message.messageId,
+                          ),
                           onTap: message.outgoing || controller.messageBusy
                               ? null
                               : () => onOpenMessage(message),
+                          onRetry: controller.messageBusy
+                              ? null
+                              : () async {
+                                  await controller.retryMessage(
+                                    message.messageId,
+                                  );
+                                },
+                          onDiscard: controller.messageBusy
+                              ? null
+                              : () async {
+                                  await controller.discardOutboundMessage(
+                                    message.messageId,
+                                  );
+                                },
                         );
                       },
                     ),
@@ -611,13 +627,51 @@ class _NoMessages extends StatelessWidget {
 }
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, this.onTap});
+  const _MessageBubble({
+    required this.message,
+    this.outbound,
+    this.onTap,
+    this.onRetry,
+    this.onDiscard,
+  });
 
   final LocalChatMessage message;
+  final OutboundChatMessage? outbound;
   final VoidCallback? onTap;
+  final Future<void> Function()? onRetry;
+  final Future<void> Function()? onDiscard;
+
+  String get _statusLabel {
+    final pending = outbound;
+    if (pending != null) {
+      return switch (pending.state) {
+        OutboundMessageState.queued => 'Sending…',
+        OutboundMessageState.accepted => 'Sent · syncing',
+        OutboundMessageState.retryable => 'Not sent',
+        OutboundMessageState.rejected => 'Rejected',
+        OutboundMessageState.conflict => 'Message conflict',
+      };
+    }
+    return message.outgoing
+        ? (message.readAt != null
+              ? (message.oneTime
+                    ? 'Opened'
+                    : message.isGroup
+                    ? 'Read by everyone'
+                    : 'Read')
+              : message.deliveredAt != null
+              ? (message.isGroup ? 'Delivered to everyone' : 'Delivered')
+              : 'Sent')
+        : message.oneTime
+        ? 'View once'
+        : message.readAt != null
+        ? 'Read'
+        : 'Tap to mark read';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pending = outbound;
     return Align(
       alignment: message.outgoing
           ? Alignment.centerRight
@@ -653,26 +707,30 @@ class _MessageBubble extends StatelessWidget {
                     : message.text,
               ),
               const SizedBox(height: 5),
-              Text(
-                message.outgoing
-                    ? (message.readAt != null
-                          ? (message.oneTime
-                                ? 'Opened'
-                                : message.isGroup
-                                ? 'Read by everyone'
-                                : 'Read')
-                          : message.deliveredAt != null
-                          ? (message.isGroup
-                                ? 'Delivered to everyone'
-                                : 'Delivered')
-                          : 'Sent')
-                    : message.oneTime
-                    ? 'View once'
-                    : message.readAt != null
-                    ? 'Read'
-                    : 'Tap to mark read',
-                style: const TextStyle(fontSize: 10),
-              ),
+              Text(_statusLabel, style: const TextStyle(fontSize: 10)),
+              if (pending?.canRetry == true || pending?.canDiscard == true) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    if (pending?.canRetry == true)
+                      TextButton.icon(
+                        key: ValueKey('message-retry-${message.messageId}'),
+                        onPressed: onRetry,
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry'),
+                      ),
+                    if (pending?.canDiscard == true)
+                      TextButton.icon(
+                        key: ValueKey('message-discard-${message.messageId}'),
+                        onPressed: onDiscard,
+                        icon: const Icon(Icons.delete_outline, size: 16),
+                        label: const Text('Discard'),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

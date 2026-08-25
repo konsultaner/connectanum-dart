@@ -5,6 +5,7 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import '../domain/local_chat_group.dart';
 import '../domain/local_chat_message.dart';
+import '../domain/outbound_chat_message.dart';
 import '../infrastructure/device_vault.dart';
 import '../infrastructure/message_cipher.dart';
 import '../infrastructure/wamp_account_gateway.dart';
@@ -46,6 +47,10 @@ class WampAppController extends ChangeNotifier {
   String? get safetyNumber => _trustSession?.safetyNumber;
   List<LocalChatMessage> get messages => _messages;
   List<LocalChatGroup> get groups => _trustSession?.groups ?? const [];
+  OutboundChatMessage? outboundMessageFor(String messageId) => _trustSession
+      ?.outbox
+      .where((message) => message.envelope.messageId == messageId)
+      .firstOrNull;
   bool get messageBusy => _messageBusy;
   String? get messageError => switch (_messageError) {
     FormatException(:final message) => message,
@@ -171,7 +176,34 @@ class WampAppController extends ChangeNotifier {
           'The server returned an invalid local device record.',
         );
       }
+      bool pendingConnectionIsCurrent() =>
+          !_disposed && generation == _operationGeneration;
       nextMessages = await _synchronize(next, nextTrust, nextDevice);
+      var acceptedRecoveredMessage = false;
+      final recoverable = nextTrust.outbox
+          .where(
+            (message) =>
+                message.state == OutboundMessageState.queued ||
+                message.state == OutboundMessageState.retryable,
+          )
+          .map((message) => message.envelope.messageId)
+          .toList(growable: false);
+      for (final messageId in recoverable) {
+        if (!pendingConnectionIsCurrent()) break;
+        acceptedRecoveredMessage =
+            await _attemptOutboxMessage(
+              connection: next,
+              trust: nextTrust,
+              messageId: messageId,
+              isCurrent: pendingConnectionIsCurrent,
+            ) ||
+            acceptedRecoveredMessage;
+      }
+      if (acceptedRecoveredMessage && pendingConnectionIsCurrent()) {
+        nextMessages = await _synchronize(next, nextTrust, nextDevice);
+      } else {
+        nextMessages = _visibleMessages(nextTrust);
+      }
     } catch (error) {
       try {
         await _closeState(next, nextTrust, nextWakeupSubscription);
@@ -213,7 +245,7 @@ class WampAppController extends ChangeNotifier {
     }
   }
 
-  Future<void> sendMessage({
+  Future<bool> sendMessage({
     required String recipientUsername,
     required String text,
     bool oneTime = false,
@@ -227,14 +259,23 @@ class WampAppController extends ChangeNotifier {
         connection == null ||
         trust == null ||
         localDevice == null) {
-      return;
+      return false;
     }
     final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    var enqueued = false;
     var synchronized = false;
     _messageBusy = true;
     _messageError = null;
     notifyListeners();
     try {
+      if (expiresAfter != null && expiresAfter <= Duration.zero) {
+        throw const FormatException('Message expiry must be positive.');
+      }
       final ownDevices = await connection.listDevices();
       final recipientDevices = await connection.lookupDevices(
         recipientUsername,
@@ -246,11 +287,9 @@ class WampAppController extends ChangeNotifier {
         ])
           '${device.username}\n${device.deviceId}': device,
       };
-      if (expiresAfter != null && expiresAfter <= Duration.zero) {
-        throw const FormatException('Message expiry must be positive.');
-      }
+      if (!isCurrent()) return false;
       final now = DateTime.now().toUtc();
-      final message = _messageCipher.encrypt(
+      final envelope = _messageCipher.encrypt(
         senderUsername: connection.username,
         recipientUsername: recipientUsername,
         text: text,
@@ -260,26 +299,50 @@ class WampAppController extends ChangeNotifier {
         expiresAt: expiresAfter == null ? null : now.add(expiresAfter),
         oneTime: oneTime,
       );
-      await connection.sendMessage(message);
-      final updated = await _synchronize(connection, trust, localDevice);
-      if (_disposed ||
-          generation != _operationGeneration ||
-          connection != _connection ||
-          trust != _trustSession) {
-        return;
+      final pending = OutboundChatMessage(
+        envelope: envelope,
+        localMessage: LocalChatMessage(
+          messageId: envelope.messageId,
+          conversationId: envelope.conversationId,
+          peerUsername: envelope.recipientUsername!,
+          text: text,
+          sentAt: envelope.createdAt,
+          outgoing: true,
+          oneTime: envelope.oneTime,
+          expiresAt: envelope.expiresAt,
+        ),
+        state: OutboundMessageState.queued,
+        attemptCount: 0,
+      );
+      await _appendOutboxMessage(trust, pending);
+      enqueued = true;
+      if (!isCurrent()) return true;
+      _messages = List<LocalChatMessage>.unmodifiable(_visibleMessages(trust));
+      notifyListeners();
+
+      final accepted = await _attemptOutboxMessage(
+        connection: connection,
+        trust: trust,
+        messageId: envelope.messageId,
+        isCurrent: isCurrent,
+      );
+      if (!isCurrent()) return true;
+      if (accepted) {
+        final updated = await _synchronize(connection, trust, localDevice);
+        if (!isCurrent()) return true;
+        _messages = List<LocalChatMessage>.unmodifiable(updated);
+        synchronized = true;
+      } else {
+        _messages = List<LocalChatMessage>.unmodifiable(
+          _visibleMessages(trust),
+        );
       }
-      _messages = List<LocalChatMessage>.unmodifiable(updated);
-      synchronized = true;
+      return true;
     } catch (error) {
-      if (!_disposed &&
-          generation == _operationGeneration &&
-          connection == _connection) {
-        _messageError = error;
-      }
+      if (isCurrent()) _messageError = error;
+      return enqueued;
     } finally {
-      if (!_disposed &&
-          generation == _operationGeneration &&
-          connection == _connection) {
+      if (isCurrent()) {
         _messageBusy = false;
         notifyListeners();
         if (synchronized) _startAutomaticSyncIfNeeded();
@@ -361,7 +424,7 @@ class WampAppController extends ChangeNotifier {
     }
   }
 
-  Future<void> sendGroupMessage({
+  Future<bool> sendGroupMessage({
     required String groupId,
     required String text,
     Duration? expiresAfter,
@@ -378,14 +441,23 @@ class WampAppController extends ChangeNotifier {
         trust == null ||
         localDevice == null ||
         group == null) {
-      return;
+      return false;
     }
     final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    var enqueued = false;
     var synchronized = false;
     _messageBusy = true;
     _messageError = null;
     notifyListeners();
     try {
+      if (expiresAfter != null && expiresAfter <= Duration.zero) {
+        throw const FormatException('Message expiry must be positive.');
+      }
       final participants = <String, DeviceRecord>{};
       for (final username in group.memberUsernames) {
         final directory = username == connection.username
@@ -398,17 +470,9 @@ class WampAppController extends ChangeNotifier {
           participants['${device.username}\n${device.deviceId}'] = device;
         }
       }
-      if (expiresAfter != null && expiresAfter <= Duration.zero) {
-        throw const FormatException('Message expiry must be positive.');
-      }
-      if (_disposed ||
-          generation != _operationGeneration ||
-          connection != _connection ||
-          trust != _trustSession) {
-        return;
-      }
+      if (!isCurrent()) return false;
       final now = DateTime.now().toUtc();
-      final message = _messageCipher.encryptGroup(
+      final envelope = _messageCipher.encryptGroup(
         senderUsername: connection.username,
         group: group,
         text: text,
@@ -417,29 +481,148 @@ class WampAppController extends ChangeNotifier {
         now: now,
         expiresAt: expiresAfter == null ? null : now.add(expiresAfter),
       );
-      await connection.sendMessage(message);
-      final updated = await _synchronize(connection, trust, localDevice);
-      if (_disposed ||
-          generation != _operationGeneration ||
-          connection != _connection ||
-          trust != _trustSession) {
-        return;
+      final pending = OutboundChatMessage(
+        envelope: envelope,
+        localMessage: LocalChatMessage(
+          messageId: envelope.messageId,
+          conversationId: envelope.conversationId,
+          peerUsername: envelope.senderUsername,
+          text: text,
+          sentAt: envelope.createdAt,
+          outgoing: true,
+          expiresAt: envelope.expiresAt,
+          groupTitle: group.title,
+          participantUsernames: group.memberUsernames,
+          groupCreatedBy: group.createdBy,
+          groupCreatedAt: group.createdAt,
+        ),
+        state: OutboundMessageState.queued,
+        attemptCount: 0,
+      );
+      await _appendOutboxMessage(trust, pending);
+      enqueued = true;
+      if (!isCurrent()) return true;
+      _messages = List<LocalChatMessage>.unmodifiable(_visibleMessages(trust));
+      notifyListeners();
+
+      final accepted = await _attemptOutboxMessage(
+        connection: connection,
+        trust: trust,
+        messageId: envelope.messageId,
+        isCurrent: isCurrent,
+      );
+      if (!isCurrent()) return true;
+      if (accepted) {
+        final updated = await _synchronize(connection, trust, localDevice);
+        if (!isCurrent()) return true;
+        _messages = List<LocalChatMessage>.unmodifiable(updated);
+        synchronized = true;
+      } else {
+        _messages = List<LocalChatMessage>.unmodifiable(
+          _visibleMessages(trust),
+        );
       }
-      _messages = List<LocalChatMessage>.unmodifiable(updated);
-      synchronized = true;
+      return true;
     } catch (error) {
-      if (!_disposed &&
-          generation == _operationGeneration &&
-          connection == _connection) {
-        _messageError = error;
-      }
+      if (isCurrent()) _messageError = error;
+      return enqueued;
     } finally {
-      if (!_disposed &&
-          generation == _operationGeneration &&
-          connection == _connection) {
+      if (isCurrent()) {
         _messageBusy = false;
         notifyListeners();
         if (synchronized) _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  Future<bool> retryMessage(String messageId) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    final localDevice = _localDevice;
+    final pending = outboundMessageFor(messageId);
+    if (_disposed ||
+        _messageBusy ||
+        connection == null ||
+        trust == null ||
+        localDevice == null ||
+        pending == null ||
+        !pending.canRetry) {
+      return false;
+    }
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    var synchronized = false;
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      final accepted = await _attemptOutboxMessage(
+        connection: connection,
+        trust: trust,
+        messageId: messageId,
+        isCurrent: isCurrent,
+      );
+      if (!isCurrent()) return true;
+      if (accepted) {
+        final updated = await _synchronize(connection, trust, localDevice);
+        if (!isCurrent()) return true;
+        _messages = List<LocalChatMessage>.unmodifiable(updated);
+        synchronized = true;
+      } else {
+        _messages = List<LocalChatMessage>.unmodifiable(
+          _visibleMessages(trust),
+        );
+      }
+      return true;
+    } catch (error) {
+      if (isCurrent()) _messageError = error;
+      return false;
+    } finally {
+      if (isCurrent()) {
+        _messageBusy = false;
+        notifyListeners();
+        if (synchronized) _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  Future<bool> discardOutboundMessage(String messageId) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    final pending = outboundMessageFor(messageId);
+    if (_disposed ||
+        _messageBusy ||
+        connection == null ||
+        trust == null ||
+        pending == null ||
+        !pending.canDiscard) {
+      return false;
+    }
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      await _removeOutboxMessage(trust, messageId);
+      if (!isCurrent()) return true;
+      _messages = List<LocalChatMessage>.unmodifiable(_visibleMessages(trust));
+      return true;
+    } catch (error) {
+      if (isCurrent()) _messageError = error;
+      return false;
+    } finally {
+      if (isCurrent()) {
+        _messageBusy = false;
+        notifyListeners();
       }
     }
   }
@@ -669,6 +852,130 @@ class WampAppController extends ChangeNotifier {
     }
   }
 
+  Future<void> _appendOutboxMessage(
+    DeviceTrustSession trust,
+    OutboundChatMessage message,
+  ) {
+    if (trust.outbox.any(
+      (existing) => existing.envelope.messageId == message.envelope.messageId,
+    )) {
+      throw const FormatException('The outbound message already exists.');
+    }
+    return trust.saveMailboxState(
+      cursor: trust.mailboxCursor,
+      messages: trust.messages,
+      outbox: [...trust.outbox, message],
+    );
+  }
+
+  Future<void> _replaceOutboxMessage(
+    DeviceTrustSession trust,
+    OutboundChatMessage replacement,
+  ) {
+    final index = trust.outbox.indexWhere(
+      (message) => message.envelope.messageId == replacement.envelope.messageId,
+    );
+    if (index < 0) {
+      throw StateError('The outbound message is no longer available.');
+    }
+    final updated = List<OutboundChatMessage>.of(trust.outbox);
+    updated[index] = replacement;
+    return trust.saveMailboxState(
+      cursor: trust.mailboxCursor,
+      messages: trust.messages,
+      outbox: updated,
+    );
+  }
+
+  Future<void> _removeOutboxMessage(
+    DeviceTrustSession trust,
+    String messageId,
+  ) {
+    final updated = trust.outbox
+        .where((message) => message.envelope.messageId != messageId)
+        .toList(growable: false);
+    if (updated.length == trust.outbox.length) {
+      throw StateError('The outbound message is no longer available.');
+    }
+    return trust.saveMailboxState(
+      cursor: trust.mailboxCursor,
+      messages: trust.messages,
+      outbox: updated,
+    );
+  }
+
+  Future<bool> _attemptOutboxMessage({
+    required AccountConnection connection,
+    required DeviceTrustSession trust,
+    required String messageId,
+    required bool Function() isCurrent,
+  }) async {
+    final pending = trust.outbox
+        .where((message) => message.envelope.messageId == messageId)
+        .firstOrNull;
+    if (pending == null ||
+        (pending.state != OutboundMessageState.queued &&
+            pending.state != OutboundMessageState.retryable)) {
+      return false;
+    }
+    if (pending.attemptCount >= OutboundChatMessage.maxAttemptCount) {
+      await _replaceOutboxMessage(
+        trust,
+        pending.withFailure(OutboundMessageState.rejected),
+      );
+      return false;
+    }
+    final attempted = pending.withAttempt(DateTime.now().toUtc());
+    await _replaceOutboxMessage(trust, attempted);
+    if (!isCurrent()) return false;
+
+    MessageSendReceipt receipt;
+    try {
+      receipt = await connection.sendMessage(attempted.envelope);
+    } catch (error) {
+      if (!isCurrent()) return false;
+      await _replaceOutboxMessage(
+        trust,
+        attempted.withFailure(_outboundFailureState(error)),
+      );
+      return false;
+    }
+    if (!isCurrent()) return false;
+    await _replaceOutboxMessage(trust, attempted.withAccepted(receipt));
+    return true;
+  }
+
+  OutboundMessageState _outboundFailureState(Object error) {
+    if (error case MessageSendException(:final kind)) {
+      return switch (kind) {
+        MessageSendFailureKind.retryable => OutboundMessageState.retryable,
+        MessageSendFailureKind.rejected => OutboundMessageState.rejected,
+        MessageSendFailureKind.conflict => OutboundMessageState.conflict,
+      };
+    }
+    return OutboundMessageState.retryable;
+  }
+
+  List<LocalChatMessage> _visibleMessages(DeviceTrustSession trust) {
+    final now = DateTime.now().toUtc();
+    final byId = <String, LocalChatMessage>{
+      for (final message in trust.messages)
+        if (!message.isExpiredAt(now)) message.messageId: message,
+    };
+    for (final pending in trust.outbox) {
+      final message = pending.localMessage;
+      if (!message.isExpiredAt(now)) {
+        byId.putIfAbsent(message.messageId, () => message);
+      }
+    }
+    final visible = byId.values.toList(growable: false)
+      ..sort((left, right) {
+        final sent = left.sentAt.compareTo(right.sentAt);
+        return sent != 0 ? sent : left.messageId.compareTo(right.messageId);
+      });
+    return visible;
+  }
+
   Future<List<LocalChatMessage>> _synchronize(
     AccountConnection connection,
     DeviceTrustSession trust,
@@ -677,6 +984,9 @@ class WampAppController extends ChangeNotifier {
     var cursor = trust.mailboxCursor;
     final byId = <String, LocalChatMessage>{
       for (final message in trust.messages) message.messageId: message,
+    };
+    final outboxById = <String, OutboundChatMessage>{
+      for (final message in trust.outbox) message.envelope.messageId: message,
     };
     final groupsById = <String, LocalChatGroup>{
       for (final group in trust.groups) group.conversationId: group,
@@ -694,9 +1004,20 @@ class WampAppController extends ChangeNotifier {
             encrypted.recipientUsername == connection.username &&
             recipientState?.consumedAt != null) {
           byId.remove(encrypted.messageId);
+          outboxById.remove(encrypted.messageId);
           continue;
         }
-        var local = byId[encrypted.messageId];
+
+        final pending = outboxById[encrypted.messageId];
+        if (pending != null && !pending.matchesEnvelope(encrypted)) {
+          outboxById[encrypted.messageId] = pending.withFailure(
+            OutboundMessageState.conflict,
+          );
+          continue;
+        }
+
+        var local = pending?.localMessage ?? byId[encrypted.messageId];
+        if (pending != null) outboxById.remove(encrypted.messageId);
         if (local == null) {
           final sender = encrypted.senderDeviceId == localDevice.deviceId
               ? localDevice
@@ -755,6 +1076,19 @@ class WampAppController extends ChangeNotifier {
             final sent = left.sentAt.compareTo(right.sentAt);
             return sent != 0 ? sent : left.messageId.compareTo(right.messageId);
           });
+    final remainingOutbox =
+        outboxById.values
+            .where((message) => !message.localMessage.isExpiredAt(now))
+            .where(
+              (message) =>
+                  message.state != OutboundMessageState.accepted ||
+                  message.acceptedCursor! > cursor,
+            )
+            .toList(growable: false)
+          ..sort(
+            (left, right) =>
+                left.envelope.createdAt.compareTo(right.envelope.createdAt),
+          );
     final groups = groupsById.values.toList(growable: false)
       ..sort((left, right) {
         final created = left.createdAt.compareTo(right.createdAt);
@@ -766,8 +1100,9 @@ class WampAppController extends ChangeNotifier {
       cursor: cursor,
       messages: updated,
       groups: groups,
+      outbox: remainingOutbox,
     );
-    return updated;
+    return _visibleMessages(trust);
   }
 
   @override
