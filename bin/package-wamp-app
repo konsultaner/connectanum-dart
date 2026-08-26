@@ -146,6 +146,44 @@ describe_target() {
 EOF
 }
 
+prepare_windows_native_release() {
+  local client_version
+  local install_root
+  local native_lib
+  local native_lib_check
+  local release_tag
+
+  client_version="$(awk '$1 == "connectanum_client:" { print $2; exit }' \
+    "$client_dir/pubspec.yaml")"
+  if [[ ! "$client_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
+    printf 'Windows packaging requires an exact hosted connectanum_client version; found %s.\n' \
+      "${client_version:-none}" >&2
+    exit 1
+  fi
+
+  require_command dart
+  release_tag="${CONNECTANUM_NATIVE_RELEASE_TAG:-v${client_version}}"
+  install_root="$(repo_root)/out/wamp-app-native/${release_tag//[^A-Za-z0-9._-]/_}"
+  native_lib="$(
+    cd "$(repo_root)"
+    dart pub get >/dev/null
+    dart packages/connectanum_client/tool/install_native.dart \
+      --tag "$release_tag" \
+      --out-dir "$install_root"
+  )"
+  native_lib="$(printf '%s\n' "$native_lib" | tail -n 1 | tr -d '\r')"
+  native_lib_check="$native_lib"
+  if command -v cygpath >/dev/null 2>&1; then
+    native_lib_check="$(cygpath -u "$native_lib")"
+  fi
+  if [[ -z "$native_lib" || ! -f "$native_lib_check" ]]; then
+    printf 'Native release prefetch did not produce the expected Windows DLL: %s\n' \
+      "${native_lib:-none}" >&2
+    exit 1
+  fi
+  export CONNECTANUM_NATIVE_LIB="$native_lib"
+}
+
 if [[ "$describe_only" == true ]]; then
   describe_target
   exit 0
@@ -191,6 +229,10 @@ if [[ "$component" == "client" ]]; then
   cd "$client_dir"
   rm -rf build
   flutter pub get
+  if [[ "$target" == "windows" ]]; then
+    prepare_windows_native_release
+    cd "$client_dir"
+  fi
 
   case "$target" in
     web)
@@ -222,7 +264,6 @@ if [[ "$component" == "client" ]]; then
       payload_names+=("WampApp.app")
       ;;
     linux)
-      require_command cargo
       flutter build linux --release
       linux_bundle="$(find build/linux -type d -path '*/release/bundle' -print)"
       if [[ -z "$linux_bundle" || "$linux_bundle" == *$'\n'* ]]; then
@@ -233,7 +274,6 @@ if [[ "$component" == "client" ]]; then
       payload_names+=("wamp-app")
       ;;
     windows)
-      require_command cargo
       flutter build windows --release
       windows_bundle="$(find build/windows -type d -path '*/runner/Release' -print)"
       if [[ -z "$windows_bundle" || "$windows_bundle" == *$'\n'* ]]; then

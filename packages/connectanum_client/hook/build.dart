@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
@@ -441,9 +442,7 @@ Future<void> installReleaseAsset({
 }) async {
   final cacheRoot = Directory(
     '${outputLibFile.parent.path}/prebuilt/'
-    '${_sanitizePathComponent(releaseAsset.repository)}/'
-    '${_sanitizePathComponent(releaseAsset.tag)}/'
-    '${releaseAsset.hostTriple}',
+    '${_releaseCacheKey(releaseAsset)}',
   );
   cacheRoot.createSync(recursive: true);
 
@@ -550,8 +549,14 @@ String currentPlatformLibraryFileName(String libraryBaseName) =>
       ),
     };
 
-String _sanitizePathComponent(String value) =>
-    value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+String _releaseCacheKey(ReleaseAssetSpec releaseAsset) {
+  final identity = [
+    releaseAsset.repository,
+    releaseAsset.tag,
+    releaseAsset.hostTriple,
+  ].join('\n');
+  return sha256.convert(utf8.encode(identity)).toString().substring(0, 32);
+}
 
 String _currentArchitectureLabel() {
   if (Platform.version.contains('arm64') ||

@@ -18,7 +18,14 @@ Linux server CLI bundle. Android release builds no longer use the debug key;
 operator signing is loaded only from ignored `key.properties`, while CI emits
 an unsigned release AAB and a separately debug-signed tester APK. Local web,
 Android, unsigned iOS, unnotarized macOS, and host-native server packages pass;
-hosted Linux/Windows and exact-head artifact evidence remain pending.
+exact-head CI run `32918064687` passes WampApp Consumer, Fast Checks, Full
+Verify, and Dart VM Coverage. Hosted artifact run `32918064688` proves web,
+Android, unsigned iOS, macOS, Linux, and the Linux server bundle, but its first
+Windows attempt failed native asset assembly while the published hook's cache
+suffix measured 101 characters. The client hook and release installer now use
+bounded release-identity cache keys, and Windows packaging prefetches the
+matching published DLL into a short path; focused regressions, `bin/test-fast`,
+and `bin/verify` pass while the corrected hosted matrix rerun remains pending.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete

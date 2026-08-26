@@ -64,6 +64,7 @@ void main() {
     return _withPackageRoot(() async {
       final archiveBytes = 'client-release-archive'.codeUnits;
       final downloaded = <Uri>[];
+      late Directory extractionDirectory;
 
       await testCodeBuildHook(
         mainMethod: (args) => build_hook.runBuildHook(
@@ -83,6 +84,7 @@ void main() {
             }
           },
           archiveExtractor: ({required archive, required destination}) {
+            extractionDirectory = destination;
             expect(archive.readAsBytesSync(), archiveBytes);
             final extractedLib = File(
               '${destination.path}/${_releaseBundleName()}/${_defaultLibraryFileName()}',
@@ -120,6 +122,13 @@ void main() {
               'ct-ffi-v2026.04.22-validation.043206-attest/${_releaseArchiveName()}.sha256',
             ),
           );
+          final cacheSuffix = extractionDirectory.path
+              .split(
+                '${Platform.pathSeparator}prebuilt${Platform.pathSeparator}',
+              )
+              .last;
+          expect(cacheSuffix.length, lessThanOrEqualTo(40));
+          expect(cacheSuffix, isNot(contains('konsultaner_connectanum-dart')));
         },
       );
     });

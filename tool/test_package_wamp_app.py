@@ -204,6 +204,139 @@ class WampAppPackagingTest(unittest.TestCase):
             self.assertTrue(any(line.startswith("artifact_name=") for line in output_lines))
             self.assertTrue(any(line.startswith("archive_path=") for line in output_lines))
 
+    def test_windows_package_prefetches_matching_hosted_native_release(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            checkout = Path(temporary_dir) / "checkout"
+            (checkout / "bin").mkdir(parents=True)
+            client = checkout / "examples/wamp_app/client"
+            client.mkdir(parents=True)
+            installer = checkout / "packages/connectanum_client/tool/install_native.dart"
+            installer.parent.mkdir(parents=True)
+            installer.write_text("// exercised through the fake Dart runner\n", encoding="utf-8")
+            shutil.copy(ROOT / "bin/common.sh", checkout / "bin/common.sh")
+            shutil.copy(PACKAGER, checkout / "bin/package-wamp-app")
+            shutil.copy(ROOT / "LICENSE", checkout / "LICENSE")
+            (client / "pubspec.yaml").write_text(
+                textwrap.dedent(
+                    """\
+                    name: wamp_app
+                    version: 0.1.0+1
+                    dependencies:
+                      connectanum_client: 3.0.0-beta.2
+                    """
+                ),
+                encoding="utf-8",
+            )
+
+            fake_bin = checkout / "fake-bin"
+            fake_bin.mkdir()
+            native_path_log = checkout / "native-path.log"
+            dart_log = checkout / "dart.log"
+            flutter_log = checkout / "flutter.log"
+
+            uname = fake_bin / "uname"
+            uname.write_text(
+                """#!/usr/bin/env bash
+case "${1:-}" in
+  -s) printf 'MINGW64_NT-10.0\n' ;;
+  -m) printf 'x86_64\n' ;;
+  *) exit 97 ;;
+esac
+""",
+                encoding="utf-8",
+            )
+            uname.chmod(0o755)
+
+            cargo = fake_bin / "cargo"
+            cargo.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+            cargo.chmod(0o755)
+
+            dart = fake_bin / "dart"
+            dart.write_text(
+                textwrap.dedent(
+                    f"""\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+                    printf '%s\\n' "$*" >> {dart_log!s}
+                    if [[ "$1" == "pub" && "$2" == "get" ]]; then
+                      exit 0
+                    fi
+                    out_dir=""
+                    while [[ $# -gt 0 ]]; do
+                      if [[ "$1" == "--out-dir" ]]; then
+                        out_dir="$2"
+                        shift 2
+                      else
+                        shift
+                      fi
+                    done
+                    [[ -n "$out_dir" ]]
+                    mkdir -p "$out_dir"
+                    printf 'prebuilt-dll\n' > "$out_dir/ct_ffi.dll"
+                    printf '%s\n' "$out_dir/ct_ffi.dll"
+                    """
+                ),
+                encoding="utf-8",
+            )
+            dart.chmod(0o755)
+
+            flutter = fake_bin / "flutter"
+            flutter.write_text(
+                textwrap.dedent(
+                    f"""\
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+                    printf '%s\\n' "$*" >> {flutter_log!s}
+                    case "$1" in
+                      pub)
+                        [[ "$2" == "get" ]]
+                        ;;
+                      build)
+                        [[ "$2" == "windows" ]]
+                        [[ -f "${{CONNECTANUM_NATIVE_LIB:-}}" ]]
+                        printf '%s\n' "$CONNECTANUM_NATIVE_LIB" > {native_path_log!s}
+                        mkdir -p build/windows/x64/runner/Release
+                        printf 'windows-exe\n' > build/windows/x64/runner/Release/wamp_app.exe
+                        ;;
+                      *)
+                        exit 98
+                        ;;
+                    esac
+                    """
+                ),
+                encoding="utf-8",
+            )
+            flutter.chmod(0o755)
+
+            environment = os.environ.copy()
+            environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
+            output_dir = checkout / "artifacts"
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(checkout / "bin/package-wamp-app"),
+                    "--target",
+                    "windows",
+                    "--out-dir",
+                    str(output_dir),
+                ],
+                cwd=checkout,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                flutter_log.read_text(encoding="utf-8").splitlines(),
+                ["pub get", "build windows --release"],
+            )
+            native_path = Path(native_path_log.read_text(encoding="utf-8").strip())
+            self.assertTrue(native_path.is_file())
+            self.assertIn("wamp-app-native", native_path.parts)
+            self.assertIn("v3.0.0-beta.2", dart_log.read_text(encoding="utf-8"))
+            self.assertTrue(next(output_dir.glob("*.tar.gz")).is_file())
+
     def test_workflow_builds_and_uploads_every_platform_target(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
 

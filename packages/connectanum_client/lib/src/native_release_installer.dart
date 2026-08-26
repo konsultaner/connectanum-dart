@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -83,9 +84,7 @@ Future<void> installReleaseAsset({
 }) async {
   final cacheRoot = Directory(
     '${outputLibFile.parent.path}/prebuilt/'
-    '${_sanitizePathComponent(releaseAsset.repository)}/'
-    '${_sanitizePathComponent(releaseAsset.tag)}/'
-    '${releaseAsset.hostTriple}',
+    '${_releaseCacheKey(releaseAsset)}',
   );
   cacheRoot.createSync(recursive: true);
 
@@ -167,8 +166,14 @@ String _currentArchitectureLabel() {
   return 'x64';
 }
 
-String _sanitizePathComponent(String value) =>
-    value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+String _releaseCacheKey(ReleaseAssetSpec releaseAsset) {
+  final identity = [
+    releaseAsset.repository,
+    releaseAsset.tag,
+    releaseAsset.hostTriple,
+  ].join('\n');
+  return sha256.convert(utf8.encode(identity)).toString().substring(0, 32);
+}
 
 void _verifyDownloadedArchive(File archiveFile, File checksumFile) {
   final checksumLine = checksumFile.readAsStringSync().trim();
