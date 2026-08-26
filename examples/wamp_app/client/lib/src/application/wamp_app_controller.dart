@@ -858,7 +858,9 @@ class WampAppController extends ChangeNotifier {
       if (isCurrent()) {
         _messageBusy = false;
         notifyListeners();
-        if (synchronized) _startAutomaticSyncIfNeeded();
+        if (synchronized || trust.mailboxCursor < _pendingMailboxWakeupCursor) {
+          _startAutomaticSyncIfNeeded();
+        }
       }
     }
   }
@@ -933,6 +935,7 @@ class WampAppController extends ChangeNotifier {
           connection == _connection) {
         _messageBusy = false;
         notifyListeners();
+        _startAutomaticSyncIfNeeded();
       }
     }
   }
@@ -1088,7 +1091,9 @@ class WampAppController extends ChangeNotifier {
       if (isCurrent()) {
         _messageBusy = false;
         notifyListeners();
-        if (synchronized) _startAutomaticSyncIfNeeded();
+        if (synchronized || trust.mailboxCursor < _pendingMailboxWakeupCursor) {
+          _startAutomaticSyncIfNeeded();
+        }
       }
     }
   }
@@ -1143,7 +1148,9 @@ class WampAppController extends ChangeNotifier {
       if (isCurrent()) {
         _messageBusy = false;
         notifyListeners();
-        if (synchronized) _startAutomaticSyncIfNeeded();
+        if (synchronized || trust.mailboxCursor < _pendingMailboxWakeupCursor) {
+          _startAutomaticSyncIfNeeded();
+        }
       }
     }
   }
@@ -1206,6 +1213,7 @@ class WampAppController extends ChangeNotifier {
       if (isCurrent()) {
         _messageBusy = false;
         notifyListeners();
+        _startAutomaticSyncIfNeeded();
       }
     }
   }
@@ -1249,6 +1257,7 @@ class WampAppController extends ChangeNotifier {
       if (isCurrent()) {
         _messageBusy = false;
         notifyListeners();
+        _startAutomaticSyncIfNeeded();
       }
     }
   }
@@ -1299,7 +1308,9 @@ class WampAppController extends ChangeNotifier {
           connection == _connection) {
         _messageBusy = false;
         notifyListeners();
-        if (synchronized) _startAutomaticSyncIfNeeded();
+        if (synchronized || trust.mailboxCursor < _pendingMailboxWakeupCursor) {
+          _startAutomaticSyncIfNeeded();
+        }
       }
     }
   }
@@ -1355,7 +1366,9 @@ class WampAppController extends ChangeNotifier {
           connection == _connection) {
         _messageBusy = false;
         notifyListeners();
-        if (synchronized) _startAutomaticSyncIfNeeded();
+        if (synchronized || trust.mailboxCursor < _pendingMailboxWakeupCursor) {
+          _startAutomaticSyncIfNeeded();
+        }
       }
     }
   }
@@ -1394,7 +1407,9 @@ class WampAppController extends ChangeNotifier {
       if (!_disposed && generation == _operationGeneration) {
         _messageBusy = false;
         notifyListeners();
-        if (synchronized) _startAutomaticSyncIfNeeded();
+        if (synchronized || trust.mailboxCursor < _pendingMailboxWakeupCursor) {
+          _startAutomaticSyncIfNeeded();
+        }
       }
     }
   }

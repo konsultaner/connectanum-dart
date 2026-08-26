@@ -6,7 +6,12 @@ Current milestone: continue the standalone WampApp Flutter consumer example.
 Milestone 9 production hardening is underway. Unified WAMP procedure abuse
 protection now bounds expensive registration plus authenticated control and
 binary-transfer traffic with configurable global, per-account, request-rate,
-concurrency, and tracked-account limits. Milestone 8 authenticated MCP
+concurrency, and tracked-account limits. Six-device real-router conflict stress
+now proves encrypted message, receipt, one-time consumption, profile, MCP
+consent, and remote-backup convergence. It also fixed queued mailbox wakeups
+that could remain stale after a losing foreground operation and preserves
+bounded competing backup uploads until revision compare-and-swap selects one
+winner. Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete
 locally. Authenticated public profiles with editable
@@ -466,8 +471,28 @@ isolation, global exhaustion, concurrency, action failure, eviction, and budget
 independence. A real native-router smoke proves registration, control, and
 transfer enforcement over WAMP. `bin/test-wamp-app` passes with 53 shared, 140
 server, 152 native Flutter, and 64 Chrome tests plus Dart2Wasm and a release-web
-build; repository-wide `bin/verify` passes on 2026-08-26. Hosted exact-head
-evidence is pending.
+build; repository-wide `bin/verify` passes on 2026-08-26. Commit `eb76a189` is
+pushed to GitLab and GitHub. Exact-head CI run `32908718618` passes all four
+required jobs, and the feature-head plus protected-`master` deployment audits
+pass.
+
+Milestone 9 multi-device conflict stress is complete locally. Three live Alice
+devices and three live Bob devices concurrently send 48 unique encrypted
+messages, converge exact mailbox IDs, race one read receipt and one one-time
+consumption, and resolve same-revision profile, MCP-consent, and encrypted
+remote-backup writes with exactly one winner. The stress test exposed two
+production races: a mailbox wakeup received during a failing foreground
+operation was not reconsidered after the busy lock cleared, and starting a
+same-account backup silently invalidated the prior staged upload. Foreground
+operations now re-evaluate queued cursors on success and failure. Backup staging
+retains a bounded set per account, protects sibling temporary files during
+commit cleanup, and leaves revision compare-and-swap to reject every loser as a
+typed conflict. Focused controller and backup suites pass, and
+`bin/test-wamp-app` passes with 53 shared, 142 server, 153 native Flutter, and
+64 Chrome tests plus Dart2Wasm and a release-web build on 2026-08-26. Remaining
+milestone 9 work is threat-model completion, platform smokes and packaging, and
+production benchmark evidence. Repository-wide `bin/verify` also passes; hosted
+exact-head evidence is pending for this revision.
 
 The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
 scope issue: the root Dart-only job traversed the standalone WampApp packages

@@ -41,12 +41,15 @@ final class BackupStore {
   BackupStore(
     String path, {
     this.maximumConcurrentUploads = 64,
+    this.maximumConcurrentUploadsPerAccount = 4,
     this.maximumTotalBytes = defaultMaximumTotalBytes,
     this.uploadTtl = const Duration(minutes: 15),
     DateTime Function()? clock,
   }) : directory = Directory(path),
        _clock = clock ?? DateTime.now {
     if (maximumConcurrentUploads <= 0 ||
+        maximumConcurrentUploadsPerAccount <= 0 ||
+        maximumConcurrentUploadsPerAccount > maximumConcurrentUploads ||
         maximumTotalBytes <= 0 ||
         uploadTtl <= Duration.zero) {
       throw ArgumentError('Backup upload limits are invalid.');
@@ -55,6 +58,7 @@ final class BackupStore {
 
   final Directory directory;
   final int maximumConcurrentUploads;
+  final int maximumConcurrentUploadsPerAccount;
   final int maximumTotalBytes;
   final Duration uploadTtl;
   final DateTime Function() _clock;
@@ -96,11 +100,13 @@ final class BackupStore {
       if (request.expectedRevision != currentRevision) {
         throw BackupConflict(currentRevision);
       }
-      final existing = _uploads.values
-          .where((upload) => upload.username == normalized)
-          .firstOrNull;
-      if (existing != null) await _discardUpload(existing);
       if (_uploads.length >= maximumConcurrentUploads) {
+        throw const BackupQuotaExceeded();
+      }
+      final accountUploads = _uploads.values
+          .where((upload) => upload.username == normalized)
+          .length;
+      if (accountUploads >= maximumConcurrentUploadsPerAccount) {
         throw const BackupQuotaExceeded();
       }
       final stagedBytes = _uploads.values.fold<int>(
@@ -297,8 +303,10 @@ final class BackupStore {
       if (manifest == null) return false;
       final active = _uploads.values
           .where((upload) => upload.username == normalized)
-          .firstOrNull;
-      if (active != null) await _discardUpload(active);
+          .toList(growable: false);
+      for (final upload in active) {
+        await _discardUpload(upload);
+      }
       final manifestFile = _manifestFile(normalized);
       if (await manifestFile.exists()) await manifestFile.delete();
       _committedBytes -= manifest.metadata.byteCount;
@@ -389,7 +397,12 @@ final class BackupStore {
   Future<void> _deleteOrphans(String username, {String? keep}) async {
     final accountDirectory = _accountDirectory(username);
     if (!await accountDirectory.exists()) return;
-    final allowed = {'manifest.json', ?keep};
+    final allowed = {
+      'manifest.json',
+      ?keep,
+      for (final upload in _uploads.values)
+        if (upload.username == username) p.basename(upload.temporary.path),
+    };
     await for (final entity in accountDirectory.list(followLinks: false)) {
       if (!allowed.contains(p.basename(entity.path))) {
         await entity.delete(recursive: true);

@@ -56,6 +56,69 @@ void main() {
   });
 
   test(
+    'competing same-account uploads retain staging and conflict at commit',
+    () async {
+      final payloads = [
+        Uint8List.fromList([1, 2, 3]),
+        Uint8List.fromList([4, 5, 6]),
+        Uint8List.fromList([7, 8, 9]),
+      ];
+      final requests = payloads.map(_request).toList(growable: false);
+      final uploads = await Future.wait([
+        for (final request in requests) store.begin('alice', request),
+      ]);
+      for (var index = 0; index < uploads.length; index += 1) {
+        await store.putChunk(
+          'alice',
+          EncryptedBackupChunk(
+            uploadId: uploads[index].uploadId,
+            chunkIndex: 0,
+            bytes: Uint8List.fromList(payloads[index]),
+          ),
+        );
+      }
+
+      Future<Object> commit(BackupUploadSession upload) async {
+        try {
+          return await store.commit('alice', upload.uploadId);
+        } catch (error) {
+          return error;
+        }
+      }
+
+      final outcomes = await Future.wait(uploads.map(commit));
+      final committed = outcomes.whereType<BackupMetadata>().single;
+      expect(outcomes.whereType<BackupConflict>(), hasLength(2));
+      expect(outcomes.whereType<BackupUploadNotFound>(), isEmpty);
+      expect(
+        (await store.metadata('alice')).toWampKeywords(),
+        committed.toWampKeywords(),
+      );
+    },
+  );
+
+  test(
+    'same-account staged uploads have an independent capacity bound',
+    () async {
+      final limited = BackupStore(
+        '${temporary.path}/limited',
+        maximumConcurrentUploads: 4,
+        maximumConcurrentUploadsPerAccount: 2,
+      );
+      await limited.initialize();
+      final request = _request(Uint8List.fromList([1, 2, 3]));
+
+      await limited.begin('alice', request);
+      await limited.begin('alice', request);
+      await expectLater(
+        limited.begin('alice', request),
+        throwsA(isA<BackupQuotaExceeded>()),
+      );
+      await expectLater(limited.begin('bob', request), completes);
+    },
+  );
+
+  test(
     'upload identifiers are caller-bound and incomplete commits fail closed',
     () async {
       final request = _request(Uint8List.fromList([1, 2, 3]));
