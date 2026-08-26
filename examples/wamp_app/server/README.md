@@ -42,4 +42,18 @@ Invalid provider tokens are retired;
 quota, provider authentication, and transient service failures preserve the
 token for a later mailbox wakeup.
 
+## Package A Native Bundle
+
+From the repository root, build the server executable, native libraries,
+example YAML, manifest, and checksum for the current host:
+
+```bash
+bin/package-wamp-app --target server
+```
+
+The packager uses `dart build cli`, which preserves Connectanum native build
+assets. The generated beta archive is unsigned and host-specific. Review the
+included YAML and provide production TLS, push credentials, TURN secrets, and
+filesystem policy outside the archive before deployment.
+
 See the [parent guide](../README.md) for setup and security boundaries.

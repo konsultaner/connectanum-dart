@@ -1,0 +1,389 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: bin/package-wamp-app --target <target> [--out-dir <dir>]
+       bin/package-wamp-app --describe-target <target>
+
+Build and package one WampApp beta artifact. Supported targets are:
+  web, android, ios, macos, linux, windows, server
+
+Client platform artifacts are smoke/tester outputs, not store releases. The
+generated manifest and README state the signing and installability contract.
+The server target packages a host-native Dart CLI bundle and example YAML.
+EOF
+}
+
+target=""
+describe_only=false
+out_dir="$(repo_root)/out/wamp-app-artifacts"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --target)
+      target="${2:-}"
+      shift 2
+      ;;
+    --describe-target)
+      target="${2:-}"
+      describe_only=true
+      shift 2
+      ;;
+    --out-dir)
+      out_dir="${2:-}"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$target" ]]; then
+  printf 'A WampApp artifact target is required.\n' >&2
+  usage >&2
+  exit 1
+fi
+
+host_os="$(host_os_slug)"
+host_arch="$(host_arch_slug)"
+component=""
+platform=""
+build_mode=""
+signing_policy=""
+installability=""
+required_host=""
+
+case "$target" in
+  web)
+    component="client"
+    platform="web"
+    build_mode="release"
+    signing_policy="not-applicable-static-assets"
+    installability="serve-over-https-or-loopback"
+    ;;
+  android)
+    component="client"
+    platform="android"
+    build_mode="release-and-debug"
+    signing_policy="operator-keystore-or-unsigned-release-plus-debug-test-key"
+    installability="debug-apk-only-unless-release-is-operator-signed"
+    ;;
+  ios)
+    component="client"
+    platform="ios"
+    build_mode="release"
+    signing_policy="unsigned"
+    installability="requires-operator-signing-and-provisioning"
+    required_host="macos"
+    ;;
+  macos)
+    component="client"
+    platform="macos"
+    build_mode="release"
+    signing_policy="local-build-not-notarized"
+    installability="subject-to-gatekeeper-until-operator-signing-and-notarization"
+    required_host="macos"
+    ;;
+  linux)
+    component="client"
+    platform="linux"
+    build_mode="release"
+    signing_policy="unsigned"
+    installability="native-linux-host-with-declared-runtime-libraries"
+    required_host="linux"
+    ;;
+  windows)
+    component="client"
+    platform="windows"
+    build_mode="release"
+    signing_policy="unsigned"
+    installability="native-windows-host-subject-to-smartscreen"
+    required_host="windows"
+    ;;
+  server)
+    component="server"
+    platform="$host_os"
+    build_mode="release"
+    signing_policy="unsigned"
+    installability="native-${host_os}-${host_arch}-host"
+    case "$host_os" in
+      linux|macos|windows) ;;
+      *)
+        printf 'The WampApp server packager does not support host OS %s.\n' "$host_os" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  *)
+    printf 'Unsupported WampApp artifact target: %s\n' "$target" >&2
+    exit 1
+    ;;
+esac
+
+describe_target() {
+  cat <<EOF
+{
+  "target": "${target}",
+  "component": "${component}",
+  "platform": "${platform}",
+  "build_mode": "${build_mode}",
+  "artifact_role": "beta-testing",
+  "store_ready": false,
+  "signing_policy": "${signing_policy}",
+  "installability": "${installability}"
+}
+EOF
+}
+
+if [[ "$describe_only" == true ]]; then
+  describe_target
+  exit 0
+fi
+
+if [[ -n "$required_host" && "$host_os" != "$required_host" ]]; then
+  printf 'WampApp target %s requires a %s host; current host is %s.\n' \
+    "$target" "$required_host" "$host_os" >&2
+  exit 1
+fi
+
+case "$target" in
+  web|android)
+    case "$host_os" in
+      linux|macos|windows) ;;
+      *)
+        printf 'WampApp target %s is unsupported on host OS %s.\n' "$target" "$host_os" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+esac
+
+require_command tar
+cd_repo_root
+mkdir -p "$out_dir"
+out_dir="$(cd "$out_dir" && pwd)"
+
+payload_sources=()
+payload_names=()
+app_version=""
+concrete_signing="$signing_policy"
+
+if [[ "$component" == "client" ]]; then
+  require_command flutter
+  client_dir="$(repo_root)/examples/wamp_app/client"
+  app_version="$(awk '$1 == "version:" { print $2; exit }' "$client_dir/pubspec.yaml")"
+  if [[ -z "$app_version" ]]; then
+    printf 'Unable to resolve the WampApp client version.\n' >&2
+    exit 1
+  fi
+
+  cd "$client_dir"
+  rm -rf build
+  flutter pub get
+
+  case "$target" in
+    web)
+      flutter build web --release
+      payload_sources+=("build/web")
+      payload_names+=("web")
+      ;;
+    android)
+      flutter build appbundle --release
+      flutter build apk --debug
+      payload_sources+=("build/app/outputs/bundle/release/app-release.aab")
+      payload_names+=("wamp-app-release.aab")
+      payload_sources+=("build/app/outputs/flutter-apk/app-debug.apk")
+      payload_names+=("wamp-app-debug.apk")
+      if [[ -f android/key.properties ]]; then
+        concrete_signing="operator-keystore-release-plus-debug-test-key"
+      else
+        concrete_signing="unsigned-release-plus-debug-test-key"
+      fi
+      ;;
+    ios)
+      flutter build ios --release --no-codesign
+      payload_sources+=("build/ios/iphoneos/Runner.app")
+      payload_names+=("WampApp.app")
+      ;;
+    macos)
+      flutter build macos --release
+      payload_sources+=("build/macos/Build/Products/Release/wamp_app.app")
+      payload_names+=("WampApp.app")
+      ;;
+    linux)
+      require_command cargo
+      flutter build linux --release
+      linux_bundle="$(find build/linux -type d -path '*/release/bundle' -print)"
+      if [[ -z "$linux_bundle" || "$linux_bundle" == *$'\n'* ]]; then
+        printf 'Expected exactly one Linux release bundle, found: %s\n' "$linux_bundle" >&2
+        exit 1
+      fi
+      payload_sources+=("$linux_bundle")
+      payload_names+=("wamp-app")
+      ;;
+    windows)
+      require_command cargo
+      flutter build windows --release
+      windows_bundle="$(find build/windows -type d -path '*/runner/Release' -print)"
+      if [[ -z "$windows_bundle" || "$windows_bundle" == *$'\n'* ]]; then
+        printf 'Expected exactly one Windows release bundle, found: %s\n' "$windows_bundle" >&2
+        exit 1
+      fi
+      payload_sources+=("$windows_bundle")
+      payload_names+=("wamp-app")
+      ;;
+  esac
+else
+  require_command dart
+  require_command cargo
+  server_dir="$(repo_root)/examples/wamp_app/server"
+  app_version="$(awk '$1 == "version:" { print $2; exit }' "$server_dir/pubspec.yaml")"
+  if [[ -z "$app_version" ]]; then
+    printf 'Unable to resolve the WampApp server version.\n' >&2
+    exit 1
+  fi
+
+  cd "$server_dir"
+  if command -v git >/dev/null 2>&1 && \
+      git -C "$(repo_root)" rev-parse --is-inside-work-tree >/dev/null 2>&1 && \
+      ! git -C "$(repo_root)" diff --quiet HEAD -- \
+        examples/wamp_app/server/wamp_app_server.yaml; then
+    printf '%s\n' \
+      'Refusing to package a locally modified server YAML; commit a reviewed, credential-free configuration first.' >&2
+    exit 1
+  fi
+  rm -rf build/package-cli
+  dart pub get
+  dart build cli --output build/package-cli --target bin/wamp_app_server.dart
+  payload_sources+=("build/package-cli/bundle")
+  payload_names+=("server")
+  payload_sources+=("wamp_app_server.yaml")
+  payload_names+=("wamp_app_server.yaml")
+fi
+
+for payload_source in "${payload_sources[@]}"; do
+  if [[ ! -e "$payload_source" ]]; then
+    printf 'Expected WampApp build output was not found: %s\n' "$payload_source" >&2
+    exit 1
+  fi
+done
+
+case "$target" in
+  web)
+    artifact_name="wamp-app-client-web"
+    ;;
+  android)
+    artifact_name="wamp-app-client-android-beta"
+    ;;
+  ios)
+    artifact_name="wamp-app-client-ios-arm64"
+    ;;
+  macos|linux|windows)
+    artifact_name="wamp-app-client-${platform}-${host_arch}"
+    ;;
+  server)
+    artifact_name="wamp-app-server-${platform}-${host_arch}"
+    ;;
+esac
+
+archive_path="${out_dir}/${artifact_name}.tar.gz"
+checksum_path="${archive_path}.sha256"
+manifest_path="${out_dir}/${artifact_name}.manifest.json"
+rm -f "$archive_path" "$checksum_path" "$manifest_path"
+
+staging_dir="$(mktemp -d)"
+trap 'rm -rf "$staging_dir"' EXIT
+bundle_dir="${staging_dir}/${artifact_name}"
+mkdir -p "$bundle_dir"
+
+for payload_index in "${!payload_sources[@]}"; do
+  cp -R "${payload_sources[$payload_index]}" \
+    "${bundle_dir}/${payload_names[$payload_index]}"
+done
+cp "$(repo_root)/LICENSE" "$bundle_dir/LICENSE"
+
+commit_sha="unknown"
+git_dirty=false
+if command -v git >/dev/null 2>&1; then
+  commit_sha="$(git -C "$(repo_root)" rev-parse HEAD 2>/dev/null || printf 'unknown')"
+  if [[ "$commit_sha" != "unknown" ]] && \
+      [[ -n "$(git -C "$(repo_root)" status --porcelain --untracked-files=normal)" ]]; then
+    git_dirty=true
+  fi
+fi
+built_at_utc="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+cat > "$bundle_dir/README.md" <<EOF
+# WampApp Beta Artifact
+
+This archive is automated build evidence and a beta-testing artifact. It is not
+a store-ready release.
+
+- Component: ${component}
+- Target: ${target}
+- Platform: ${platform}
+- Host architecture: ${host_arch}
+- Build mode: ${build_mode}
+- Signing: ${concrete_signing}
+- Installability: ${installability}
+- App version: ${app_version}
+- Git commit: ${commit_sha}
+- Git checkout dirty: ${git_dirty}
+
+The Android debug APK is test-key signed and installable for testing. Outputs
+marked unsigned, unnotarized, or locally signed require the normal operator
+signing and distribution steps before production use. The web build must be
+served over HTTPS or loopback. The server bundle includes example YAML that
+must be reviewed before deployment; it contains no credentials.
+
+See manifest.json for machine-readable metadata.
+EOF
+
+cat > "$bundle_dir/manifest.json" <<EOF
+{
+  "schema_version": 1,
+  "artifact": "${artifact_name}",
+  "target": "${target}",
+  "component": "${component}",
+  "platform": "${platform}",
+  "host_arch": "${host_arch}",
+  "build_mode": "${build_mode}",
+  "artifact_role": "beta-testing",
+  "store_ready": false,
+  "signing": "${concrete_signing}",
+  "installability": "${installability}",
+  "app_version": "${app_version}",
+  "git_commit": "${commit_sha}",
+  "git_dirty": ${git_dirty},
+  "built_at_utc": "${built_at_utc}"
+}
+EOF
+
+cp "$bundle_dir/manifest.json" "$manifest_path"
+COPYFILE_DISABLE=1 tar -czf "$archive_path" -C "$staging_dir" "$artifact_name"
+archive_sha256="$(sha256_file "$archive_path")"
+printf '%s  %s\n' "$archive_sha256" "$(basename "$archive_path")" > "$checksum_path"
+
+printf 'Packaged %s\n' "$archive_path"
+printf 'Checksum  %s\n' "$checksum_path"
+printf 'Manifest  %s\n' "$manifest_path"
+
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  {
+    printf 'artifact_name=%s\n' "$artifact_name"
+    printf 'archive_path=%s\n' "$archive_path"
+    printf 'checksum_path=%s\n' "$checksum_path"
+    printf 'manifest_path=%s\n' "$manifest_path"
+  } >> "$GITHUB_OUTPUT"
+fi

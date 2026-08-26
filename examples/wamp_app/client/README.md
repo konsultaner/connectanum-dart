@@ -55,5 +55,14 @@ ID policy after the encrypted local preference write succeeds. Registration,
 token refresh, sign-out, and connection replacement are serialized so policy
 from one account cannot cross into another account's provider binding.
 
+## Android Release Signing
+
+Release builds never use the debug key. Copy `android/key.properties.example`
+to the ignored `android/key.properties`, reference an operator-owned upload
+keystore, and replace every placeholder. A present but incomplete file fails
+closed during Gradle configuration. Without the file, Gradle emits an unsigned
+release bundle while `bin/package-wamp-app --target android` also emits a
+separate debug-key APK for beta installation.
+
 See the [parent guide](../README.md) for setup, current limitations, attachment
 benchmark instructions, and feature status.

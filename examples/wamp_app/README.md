@@ -45,15 +45,24 @@ The implemented slices provide:
   enrollment, serialized token refresh replacement, APNs readiness, web VAPID
   and service-worker support, per-device mute-policy refresh, background OS
   presentation, plus unregister-before-close lifecycle cleanup;
+- encrypted local export/import and revisioned remote backup transfer through
+  the authenticated WAMP session;
+- direct voice and video calls with WebRTC DTLS-SRTP media and encrypted,
+  durable, device-selected WAMP signaling;
+- consent-gated Streamable HTTP and direct JSON MCP profile access with an
+  exact allowlist and no chat, key, backup, or attachment disclosure;
+- bounded anonymous registration, control-operation, and binary-transfer abuse
+  guards, plus six-device live conflict stress;
 - hosted `3.0.0-beta.2` dependencies for both client and server; and
 - end-to-end tests covering registration, device trust, encrypted two-account
   and group delivery, attachment authorization/resume, receipt propagation,
   reconnect deduplication, server-signature verification, and plaintext
   non-persistence.
 
-Contacts import, backups, credential-backed FCM deployment evidence, WebRTC
-calling, and MCP application tools remain planned and are not represented by
-fake data in the current UI.
+Contacts import remains deferred until account-discovery and privacy semantics
+are defined. Credential-backed FCM deployment evidence, final threat-model
+review, and production application benchmark gates remain before a final
+release.
 View-once attachments are rejected until attachment consumption and deletion
 can be made atomic.
 
@@ -100,6 +109,46 @@ characters, and use a password with at least twelve characters. Cleartext
 `ws://` credentials are accepted only for loopback development. Remote
 deployments must expose the endpoint through `wss://`; the included server
 configuration is not yet a production TLS deployment recipe.
+
+## Build Beta Artifacts
+
+The platform packager creates a clean archive, SHA-256 checksum, and
+machine-readable manifest. Every manifest is explicitly marked
+`artifact_role: beta-testing` and `store_ready: false`:
+
+```bash
+bin/package-wamp-app --target web
+bin/package-wamp-app --target android
+bin/package-wamp-app --target ios
+bin/package-wamp-app --target macos
+bin/package-wamp-app --target linux
+bin/package-wamp-app --target windows
+bin/package-wamp-app --target server
+```
+
+Host-specific targets fail before invoking Flutter when run on the wrong host.
+Artifacts are written under `out/wamp-app-artifacts/` by default.
+
+| Target | Beta payload | Production boundary |
+| --- | --- | --- |
+| Web | Release static site | Serve over HTTPS or loopback. |
+| Android | Release AAB plus debug-key APK | The APK is for testers; configure an upload keystore for store signing. |
+| iOS | Release device app | Unsigned; provision and sign before installation. |
+| macOS | Release app | Local build; operator signing and notarization remain required. |
+| Linux | Release bundle | Unsigned; install declared audio/runtime libraries. |
+| Windows | Release bundle | Unsigned; normal code signing avoids SmartScreen friction. |
+| Server | Host-native CLI plus YAML | Review YAML, TLS, secrets, and filesystem permissions before deployment. |
+
+For Android release signing, copy
+`client/android/key.properties.example` to the ignored
+`client/android/key.properties` and point it at an operator-owned upload
+keystore. Missing fields fail during Gradle configuration, and absent signing
+configuration produces an unsigned AAB instead of silently using the debug key.
+CI intentionally supplies no release signing credentials.
+
+The path-filtered `WampApp Artifacts` GitHub workflow builds and uploads all six
+client targets plus a Linux server bundle. Hosted artifacts are retained for 14
+days so beta testers can exercise the current exact commit.
 
 ## Verify
 

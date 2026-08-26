@@ -10,7 +10,7 @@ Future<void> main(List<String> arguments) async {
     ..addFlag('help', abbr: 'h', negatable: false);
   final options = parser.parse(arguments);
   if (options.flag('help')) {
-    stdout.writeln('Usage: dart run wamp_app_server --config <path>');
+    stdout.writeln('Usage: wamp_app_server --config <path>');
     stdout.writeln(parser.usage);
     return;
   }

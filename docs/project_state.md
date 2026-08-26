@@ -11,7 +11,15 @@ now proves encrypted message, receipt, one-time consumption, profile, MCP
 consent, and remote-backup convergence. It also fixed queued mailbox wakeups
 that could remain stale after a losing foreground operation and preserves
 bounded competing backup uploads until revision compare-and-swap selects one
-winner. Milestone 8 authenticated MCP
+winner. Cross-platform beta packaging is now implemented with explicit
+signing/installability manifests, SHA-256 checksums, clean-output builds, and a
+path-filtered GitHub matrix for web, Android, iOS, macOS, Linux, Windows, and a
+Linux server CLI bundle. Android release builds no longer use the debug key;
+operator signing is loaded only from ignored `key.properties`, while CI emits
+an unsigned release AAB and a separately debug-signed tester APK. Local web,
+Android, unsigned iOS, unnotarized macOS, and host-native server packages pass;
+hosted Linux/Windows and exact-head artifact evidence remain pending.
+Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete
 locally. Authenticated public profiles with editable
