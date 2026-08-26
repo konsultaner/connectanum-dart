@@ -2,17 +2,23 @@ import 'package:flutter/material.dart';
 
 import 'application/wamp_app_controller.dart';
 import 'domain/local_app_preferences.dart';
+import 'infrastructure/contact_importer.dart';
 import 'infrastructure/platform_push_token_source.dart';
 import 'ui/home_page.dart';
 import 'ui/onboarding_page.dart';
 import 'ui/wamp_app_theme.dart';
 
 class WampApp extends StatefulWidget {
-  const WampApp({super.key, this.controller, this.platformPushTokenSource})
-    : assert(controller == null || platformPushTokenSource == null);
+  const WampApp({
+    super.key,
+    this.controller,
+    this.platformPushTokenSource,
+    this.contactImporter,
+  }) : assert(controller == null || platformPushTokenSource == null);
 
   final WampAppController? controller;
   final PlatformPushTokenSource? platformPushTokenSource;
+  final ContactImporter? contactImporter;
 
   @override
   State<WampApp> createState() => _WampAppState();
@@ -62,6 +68,7 @@ class _WampAppState extends State<WampApp> {
                 return HomePage(
                   controller: _controller,
                   connection: connection,
+                  contactImporter: widget.contactImporter,
                 );
               }
               return OnboardingPage(controller: _controller);

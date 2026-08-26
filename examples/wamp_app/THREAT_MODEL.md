@@ -5,9 +5,10 @@
 WampApp is a production-oriented example and beta-test application, not a
 security-audited messenger. This threat model covers the checked-in client,
 standalone server, router configuration, local vault, encrypted messaging and
-attachments, backup, push, calling, and MCP integration. Platform signing,
-notarization, store review, operator credentials, TLS termination, monitoring,
-and incident response belong to the deployment that packages the example.
+attachments, local contact aliases, backup, push, calling, and MCP integration.
+Platform signing, notarization, store review, operator credentials, TLS
+termination, monitoring, and incident response belong to the deployment that
+packages the example.
 
 The design treats the router and application server as trusted for account
 authentication, authorization, availability, and device-directory delivery,
@@ -30,6 +31,7 @@ participant device key.
 | WebRTC offer/answer/candidates | Intended devices after decryption | Ciphertext plus routing metadata |
 | Push provider token | Client, server push store, and provider | Visible to server/provider; no chat content |
 | MCP bearer grant | Client and router auth state | Visible to router; bounded and revocable |
+| Local contact alias | Argon2id13-encrypted client vault | Username is verified; imported display name is never sent |
 
 The server necessarily observes account/device identifiers, active device
 records, conversation participants, message and attachment sizes, mailbox
@@ -65,8 +67,12 @@ and push delivery timing. WampApp does not claim traffic-analysis resistance.
   X25519 exchange keys are generated per device and private keys remain in the
   encrypted vault.
 - Safety numbers support out-of-band identity verification. There is no public
-  account discovery or key-transparency service, so contacts import remains
-  intentionally deferred.
+  account discovery or key-transparency service. Contact import is opt-in and
+  local: Android/iOS use the permissionless system picker without requesting
+  properties, while other platforms use an explicit vCard. The parser decodes
+  only `FN`/`N`, native IDs are discarded, selected bytes are wiped, and the
+  user binds the display name to a WampApp username that is verified through
+  the authenticated session before the bounded alias enters the vault.
 
 ### Stored And Transported Content
 
@@ -77,8 +83,9 @@ and push delivery timing. WampApp does not claim traffic-analysis resistance.
 - New attachment chunks use AES-256-GCM with versioned associated data and
   per-chunk derived keys. Legacy XSalsa20-Poly1305 chunks remain readable.
   Ciphertext and plaintext SHA-256 checks detect storage or transfer corruption.
-- Local identity, preferences, mailbox state, and plaintext history are held in
-  an Argon2id13-derived SecretBox vault bound to account and endpoint.
+- Local identity, contact aliases, preferences, mailbox state, and plaintext
+  history are held in an Argon2id13-derived SecretBox vault bound to account
+  and endpoint.
 - Local and remote backup archives are encrypted client-side with a separate
   recovery passphrase. The server stores opaque revisioned bytes.
 - WebRTC media uses DTLS-SRTP. Offers, answers, ICE candidates, and hangups are
@@ -115,6 +122,8 @@ and push delivery timing. WampApp does not claim traffic-analysis resistance.
    while never claiming retroactive deletion from a formerly authorized device.
 6. Missing credentials, partial provider configuration, malformed policy, or
    missing benchmark evidence fails closed.
+7. Contact import must not upload or retain phone numbers, email addresses,
+   postal addresses, native contact IDs, or the selected address-book file.
 
 These invariants are covered by focused unit tests, real native-router consumer
 smokes, six-device conflict stress, real Chrome worker tests, cross-platform
@@ -131,6 +140,10 @@ artifact builds, and the production benchmark gate.
   substitution. Out-of-band safety-number verification is the current
   detection mechanism and must be made mandatory for stronger active-server
   resistance.
+- A saved contact alias is convenience metadata, not proof of identity. The
+  operating-system picker or file chooser observes the selection, and wiping
+  WampApp's selected vCard bytes does not erase the source file outside the
+  application. Safety-number verification remains the identity check.
 - Expiry and one-time semantics coordinate honest clients and server state;
   recipients can still copy plaintext, take screenshots, or retain decrypted
   bytes. Filesystems, flash storage, swap, browser caches, and cloud providers

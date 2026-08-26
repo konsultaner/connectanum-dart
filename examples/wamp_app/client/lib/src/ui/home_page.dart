@@ -13,11 +13,13 @@ import '../domain/local_chat_message.dart';
 import '../domain/local_message_query.dart';
 import '../domain/outbound_chat_message.dart';
 import '../infrastructure/attachment_cipher.dart';
+import '../infrastructure/contact_importer.dart';
 import '../infrastructure/voice_note_playback.dart';
 import '../infrastructure/voice_note_recorder.dart';
 import '../infrastructure/wamp_account_gateway.dart';
 import 'backup_passphrase_dialog.dart';
 import 'call_overlay.dart';
+import 'contact_manager_dialog.dart';
 import 'expression_picker.dart';
 
 class HomePage extends StatefulWidget {
@@ -27,12 +29,14 @@ class HomePage extends StatefulWidget {
     required this.connection,
     this.voiceNoteCaptureFactory,
     this.stickerRenderer,
+    this.contactImporter,
   });
 
   final WampAppController controller;
   final AccountConnection connection;
   final VoiceNoteCapture Function()? voiceNoteCaptureFactory;
   final StickerRenderer? stickerRenderer;
+  final ContactImporter? contactImporter;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -769,6 +773,19 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _manageContacts() async {
+    final username = await showContactManagerDialog(
+      context: context,
+      controller: widget.controller,
+      importer: widget.contactImporter ?? createContactImporter(),
+    );
+    if (!mounted || username == null) return;
+    setState(() {
+      _selectedGroupId = null;
+      _recipientController.text = username;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final calls = widget.controller.calls!;
@@ -791,12 +808,15 @@ class _HomePageState extends State<HomePage> {
                     mcpConsentBusy: widget.controller.mcpConsentBusy,
                     preferenceBusy: widget.controller.preferenceBusy,
                     backupBusy: widget.controller.backupBusy,
+                    contactBusy: widget.controller.contactBusy,
+                    contactCount: widget.controller.contacts.length,
                     themePreference: widget.controller.themePreference,
                     onEditProfile: _editProfile,
                     onMcpProfileReadAllowedChanged: _setMcpProfileReadAllowed,
                     onThemeChanged: _setThemePreference,
                     onBackup: _showBackupMenu,
                     onRemoteBackup: _uploadRemoteBackup,
+                    onManageContacts: _manageContacts,
                     onSignOut: widget.controller.signOut,
                   );
                   final conversation = _ConversationPanel(
@@ -1084,12 +1104,15 @@ class _AccountPanel extends StatelessWidget {
     required this.mcpConsentBusy,
     required this.preferenceBusy,
     required this.backupBusy,
+    required this.contactBusy,
+    required this.contactCount,
     required this.themePreference,
     required this.onEditProfile,
     required this.onMcpProfileReadAllowedChanged,
     required this.onThemeChanged,
     required this.onBackup,
     required this.onRemoteBackup,
+    required this.onManageContacts,
     required this.onSignOut,
   });
 
@@ -1102,12 +1125,15 @@ class _AccountPanel extends StatelessWidget {
   final bool mcpConsentBusy;
   final bool preferenceBusy;
   final bool backupBusy;
+  final bool contactBusy;
+  final int contactCount;
   final WampAppThemePreference themePreference;
   final VoidCallback onEditProfile;
   final ValueChanged<bool> onMcpProfileReadAllowedChanged;
   final ValueChanged<WampAppThemePreference> onThemeChanged;
   final VoidCallback onBackup;
   final VoidCallback onRemoteBackup;
+  final VoidCallback onManageContacts;
   final VoidCallback onSignOut;
 
   @override
@@ -1124,21 +1150,43 @@ class _AccountPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.waves_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 9),
-                    const Text(
-                      'WampApp',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.waves_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 9),
+                          const Flexible(
+                            child: Text(
+                              'WampApp',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Spacer(),
                     if (!compact) const _OnlineBadge(),
                     if (compact) ...[
+                      IconButton(
+                        key: const Key('account-contacts-compact'),
+                        tooltip: 'Manage local contacts',
+                        onPressed: contactBusy ? null : onManageContacts,
+                        icon: contactBusy
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.contacts_outlined),
+                      ),
                       IconButton(
                         key: const Key('account-backup-compact'),
                         tooltip: 'Export encrypted backup',
@@ -1309,6 +1357,17 @@ class _AccountPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    key: const Key('account-contacts'),
+                    onPressed: contactBusy ? null : onManageContacts,
+                    icon: const Icon(Icons.contacts_outlined),
+                    label: Text(
+                      contactCount == 0
+                          ? 'Import contacts'
+                          : 'Contacts · $contactCount',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   OutlinedButton.icon(
                     key: const Key('account-backup'),
                     onPressed: backupBusy ? null : onBackup,
@@ -1682,6 +1741,34 @@ class _ConversationPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
+            if (!groupMode && controller.contacts.isNotEmpty) ...[
+              SizedBox(
+                height: 38,
+                child: ListView.separated(
+                  key: const Key('contact-recipient-shortcuts'),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: controller.contacts.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final contact = controller.contacts[index];
+                    return ActionChip(
+                      key: ValueKey('contact-recipient-${contact.username}'),
+                      avatar: const Icon(Icons.person_outline, size: 18),
+                      label: Text(
+                        '${contact.displayName} · @${contact.username}',
+                      ),
+                      onPressed: controller.messageBusy
+                          ? null
+                          : () {
+                              recipientController.text = contact.username;
+                              onRecipientChanged();
+                            },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             if (!groupMode)
               TextField(
                 key: const Key('message-recipient'),

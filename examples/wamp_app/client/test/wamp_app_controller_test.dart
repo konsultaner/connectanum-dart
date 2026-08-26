@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
+import 'package:wamp_app/src/domain/local_contact_alias.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
@@ -574,6 +575,219 @@ void main() {
 
     expect(profile, isNull);
     expect(controller.profileError, contains('another account'));
+  });
+
+  test('verified local contacts persist across sign out and login', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    expect(
+      await controller.bindContact(
+        username: '  BOB  ',
+        displayName: '  Bob From Phone  ',
+      ),
+      isTrue,
+    );
+    expect(gateway.profileLookups, ['bob']);
+    expect(controller.contacts.single.username, 'bob');
+    expect(controller.contacts.single.displayName, 'Bob From Phone');
+    expect(trustStore.session!.saveContactsCalls, 1);
+
+    await controller.signOut();
+    expect(controller.contacts, isEmpty);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    expect(controller.contacts.single.username, 'bob');
+  });
+
+  test(
+    'contacts replace, rename, and remove without duplicate aliases',
+    () async {
+      final gateway = _RecordingGateway();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: FakeDeviceTrustStore(),
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+
+      expect(
+        await controller.bindContact(username: 'bob', displayName: 'Bob One'),
+        isTrue,
+      );
+      expect(
+        await controller.bindContact(username: 'BOB', displayName: 'Bob Two'),
+        isTrue,
+      );
+      expect(controller.contacts, hasLength(1));
+      expect(controller.contacts.single.displayName, 'Bob Two');
+
+      final importedAt = controller.contacts.single.importedAt;
+      expect(await controller.renameContact('bob', 'Best Bob'), isTrue);
+      expect(controller.contacts.single.displayName, 'Best Bob');
+      expect(controller.contacts.single.importedAt, importedAt);
+      expect(await controller.removeContact('BOB'), isTrue);
+      expect(controller.contacts, isEmpty);
+    },
+  );
+
+  test(
+    'contact binding rejects self and mismatched profile responses',
+    () async {
+      final gateway = _RecordingGateway();
+      final trustStore = FakeDeviceTrustStore();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+
+      expect(
+        await controller.bindContact(username: 'alice', displayName: 'Me'),
+        isFalse,
+      );
+      expect(controller.contactError, contains('own account'));
+      expect(gateway.profileLookups, isEmpty);
+
+      gateway.profileLookupOverride = _profileFor('carol');
+      expect(
+        await controller.bindContact(username: 'bob', displayName: 'Bob'),
+        isFalse,
+      );
+      expect(controller.contacts, isEmpty);
+      expect(trustStore.session!.saveContactsCalls, 0);
+    },
+  );
+
+  test('failed and concurrent contact saves fail closed', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore(
+      initialContacts: [
+        LocalContactAlias(
+          username: 'bob',
+          displayName: 'Existing Bob',
+          importedAt: DateTime.utc(2026, 8, 26),
+        ),
+      ],
+    );
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final session = trustStore.session!;
+    session.saveContactsFailure = StateError('storage unavailable');
+
+    expect(await controller.renameContact('bob', 'Lost Rename'), isFalse);
+    expect(controller.contacts.single.displayName, 'Existing Bob');
+    expect(controller.contactError, contains('failed'));
+
+    session.saveContactsFailure = null;
+    final gate = session.saveContactsGate = Completer<void>();
+    final first = controller.renameContact('bob', 'Saved Rename');
+    await _waitFor(() => controller.contactBusy);
+    final second = controller.removeContact('bob');
+    expect(await second, isFalse);
+    gate.complete();
+    expect(await first, isTrue);
+    expect(controller.contacts.single.displayName, 'Saved Rename');
+  });
+
+  test('sign out fences a late contact save from the old session', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore(
+      initialContacts: [
+        LocalContactAlias(
+          username: 'bob',
+          displayName: 'Bob',
+          importedAt: DateTime.utc(2026, 8, 26),
+        ),
+      ],
+    );
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final gate = trustStore.session!.saveContactsGate = Completer<void>();
+
+    final rename = controller.renameContact('bob', 'Late Bob');
+    await _waitFor(() => controller.contactBusy);
+    final signOut = controller.signOut();
+    gate.complete();
+    await signOut;
+
+    expect(await rename, isFalse);
+    expect(controller.contacts, isEmpty);
+    expect(controller.contactBusy, isFalse);
+  });
+
+  test('replacement login fences a late contact profile lookup', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final oldSession = trustStore.session!;
+    final lookupGate = gateway.profileLookupGate = Completer<AccountProfile>();
+
+    final binding = controller.bindContact(
+      username: 'bob',
+      displayName: 'Late Bob',
+    );
+    await _waitFor(() => controller.contactBusy);
+    gateway.profileLookupGate = null;
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    lookupGate.complete(_profileFor('bob'));
+
+    expect(await binding, isFalse);
+    expect(oldSession.saveContactsCalls, 0);
+    expect(controller.contacts, isEmpty);
+    expect(controller.contactBusy, isFalse);
+    expect(controller.contactError, isNull);
   });
 
   test('MCP profile consent defaults denied and updates by revision', () async {
@@ -1433,7 +1647,9 @@ class _RecordingGateway implements AccountGateway {
   bool failNextClose = false;
   Object? loginFailure;
   Completer<AccountProfile>? profileUpdateGate;
+  Completer<AccountProfile>? profileLookupGate;
   AccountProfile? profileLookupOverride;
+  final List<String> profileLookups = [];
   WampAppMcpConsent mcpConsent = WampAppMcpConsent.denied;
   Object? nextMcpConsentFailure;
   final List<bool> mcpConsentUpdates = [];
@@ -1491,8 +1707,13 @@ class _RecordingGateway implements AccountGateway {
       username: normalizedUsername,
       initialProfile: _profileFor(normalizedUsername),
       initialMcpConsent: mcpConsent,
-      getProfileCallback: (username) async =>
-          profileLookupOverride ?? _profileFor(username),
+      getProfileCallback: (username) async {
+        final normalized = AccountRegistration.normalizeUsername(username);
+        profileLookups.add(normalized);
+        final gate = profileLookupGate;
+        if (gate != null) return gate.future;
+        return profileLookupOverride ?? _profileFor(normalized);
+      },
       getMcpConsentCallback: () async => mcpConsent,
       updateMcpConsentCallback: (update) async {
         final failure = nextMcpConsentFailure;

@@ -6,6 +6,7 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import '../domain/local_app_preferences.dart';
 import '../domain/local_chat_group.dart';
 import '../domain/local_chat_message.dart';
+import '../domain/local_contact_alias.dart';
 import '../domain/outbound_chat_message.dart';
 import '../infrastructure/attachment_chunk_cache.dart';
 import '../infrastructure/attachment_cipher.dart';
@@ -64,13 +65,16 @@ class WampAppController extends ChangeNotifier {
   Object? _error;
   Object? _messageError;
   Object? _profileError;
+  Object? _contactError;
   Object? _mcpConsentError;
   Object? _preferenceError;
   Object? _platformPushError;
   Object? _backupError;
   List<LocalChatMessage> _messages = const [];
+  List<LocalContactAlias> _contacts = const [];
   bool _messageBusy = false;
   bool _profileBusy = false;
+  bool _contactBusy = false;
   bool _mcpConsentBusy = false;
   bool _preferenceBusy = false;
   bool _backupBusy = false;
@@ -89,12 +93,14 @@ class WampAppController extends ChangeNotifier {
   String? get safetyNumber => _trustSession?.safetyNumber;
   List<LocalChatMessage> get messages => _messages;
   List<LocalChatGroup> get groups => _trustSession?.groups ?? const [];
+  List<LocalContactAlias> get contacts => _contacts;
   OutboundChatMessage? outboundMessageFor(String messageId) => _trustSession
       ?.outbox
       .where((message) => message.envelope.messageId == messageId)
       .firstOrNull;
   bool get messageBusy => _messageBusy;
   bool get profileBusy => _profileBusy;
+  bool get contactBusy => _contactBusy;
   bool get mcpConsentBusy => _mcpConsentBusy;
   WampAppMcpConsent get mcpConsent =>
       _connection?.mcpConsent ?? WampAppMcpConsent.denied;
@@ -121,6 +127,11 @@ class WampAppController extends ChangeNotifier {
     FormatException(:final message) => message,
     ProfileUpdateException() => _profileError.toString(),
     _ when _profileError != null => 'The profile operation failed.',
+    _ => null,
+  };
+  String? get contactError => switch (_contactError) {
+    FormatException(:final message) => message,
+    _ when _contactError != null => 'The local contact operation failed.',
     _ => null,
   };
   String? get mcpConsentError => switch (_mcpConsentError) {
@@ -442,13 +453,16 @@ class WampAppController extends ChangeNotifier {
     _error = null;
     _messageError = null;
     _profileError = null;
+    _contactError = null;
     _mcpConsentError = null;
     _preferenceError = null;
     _platformPushError = null;
     _backupError = null;
     _messages = const [];
+    _contacts = const [];
     _messageBusy = false;
     _profileBusy = false;
+    _contactBusy = false;
     _mcpConsentBusy = false;
     _preferenceBusy = false;
     _backupBusy = false;
@@ -558,6 +572,137 @@ class WampAppController extends ChangeNotifier {
     }
   }
 
+  Future<bool> bindContact({
+    required String username,
+    required String displayName,
+  }) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    if (_disposed || _contactBusy || connection == null || trust == null) {
+      return false;
+    }
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    _contactBusy = true;
+    _contactError = null;
+    notifyListeners();
+    try {
+      final contact = LocalContactAlias(
+        username: username,
+        displayName: displayName,
+        importedAt: DateTime.now().toUtc(),
+      );
+      if (contact.username == connection.username) {
+        throw const FormatException('You cannot add your own account.');
+      }
+      final profile = await connection.getProfile(contact.username);
+      if (!isCurrent()) return false;
+      if (profile.username != contact.username) {
+        throw const FormatException(
+          'The server returned a different contact account.',
+        );
+      }
+      final nextContacts =
+          <LocalContactAlias>[
+            ..._contacts.where((saved) => saved.username != contact.username),
+            contact,
+          ]..sort((left, right) {
+            final byName = left.displayName.toLowerCase().compareTo(
+              right.displayName.toLowerCase(),
+            );
+            return byName != 0
+                ? byName
+                : left.username.compareTo(right.username);
+          });
+      await trust.saveContacts(nextContacts);
+      if (!isCurrent()) return false;
+      _contacts = trust.contacts;
+      return true;
+    } catch (error) {
+      if (isCurrent()) _contactError = error;
+      return false;
+    } finally {
+      if (isCurrent()) {
+        _contactBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> renameContact(String username, String displayName) async {
+    final trust = _trustSession;
+    if (_disposed || _contactBusy || trust == null) return false;
+    final normalized = AccountRegistration.normalizeUsername(username);
+    final existing = _contacts
+        .where((contact) => contact.username == normalized)
+        .firstOrNull;
+    if (existing == null) return false;
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(trust, _trustSession);
+    _contactBusy = true;
+    _contactError = null;
+    notifyListeners();
+    try {
+      final updated = existing.withDisplayName(displayName);
+      final nextContacts = _contacts
+          .map((contact) => contact.username == normalized ? updated : contact)
+          .toList(growable: false);
+      await trust.saveContacts(nextContacts);
+      if (!isCurrent()) return false;
+      _contacts = trust.contacts;
+      return true;
+    } catch (error) {
+      if (isCurrent()) _contactError = error;
+      return false;
+    } finally {
+      if (isCurrent()) {
+        _contactBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> removeContact(String username) async {
+    final trust = _trustSession;
+    if (_disposed || _contactBusy || trust == null) return false;
+    final normalized = AccountRegistration.normalizeUsername(username);
+    if (!_contacts.any((contact) => contact.username == normalized)) {
+      return false;
+    }
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(trust, _trustSession);
+    _contactBusy = true;
+    _contactError = null;
+    notifyListeners();
+    try {
+      final nextContacts = _contacts
+          .where((contact) => contact.username != normalized)
+          .toList(growable: false);
+      await trust.saveContacts(nextContacts);
+      if (!isCurrent()) return false;
+      _contacts = trust.contacts;
+      return true;
+    } catch (error) {
+      if (isCurrent()) _contactError = error;
+      return false;
+    } finally {
+      if (isCurrent()) {
+        _contactBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
   Future<void> _run(
     Future<AccountConnection> Function() action, {
     required String password,
@@ -567,6 +712,7 @@ class WampAppController extends ChangeNotifier {
     final generation = ++_operationGeneration;
     _error = null;
     _messageError = null;
+    _contactError = null;
     _mcpConsentError = null;
     _status = WampAppStatus.busy;
     notifyListeners();
@@ -676,6 +822,7 @@ class WampAppController extends ChangeNotifier {
     _trustSession = nextTrust;
     _calls = nextCalls;
     _preferences = nextTrust.preferences;
+    _contacts = nextTrust.contacts;
     _localDevice = nextDevice;
     _mailboxWakeupSubscription = nextWakeupSubscription;
     _pendingMailboxWakeupCursor = nextPendingWakeupCursor;
@@ -683,9 +830,11 @@ class WampAppController extends ChangeNotifier {
     _messages = List<LocalChatMessage>.unmodifiable(nextMessages);
     _messageError = nextWakeupError;
     _mcpConsentError = null;
+    _contactError = null;
     _preferenceError = null;
     _platformPushError = null;
     _preferenceBusy = false;
+    _contactBusy = false;
     _mcpConsentBusy = false;
     _status = WampAppStatus.connected;
     notifyListeners();

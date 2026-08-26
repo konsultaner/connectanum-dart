@@ -10,6 +10,7 @@ import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
+import 'package:wamp_app/src/infrastructure/contact_importer_contract.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app/src/infrastructure/voice_note_recorder.dart';
 import 'package:wamp_app/src/ui/expression_picker.dart';
@@ -173,6 +174,133 @@ void main() {
     expect(find.text('Bob Example'), findsOneWidget);
     expect(find.byKey(const Key('peer-profile-status')), findsOneWidget);
     expect(find.text('Testing WampApp'), findsOneWidget);
+  });
+
+  testWidgets('imports, verifies, selects, renames, and removes a contact', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final gateway = _FakeGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final importer = _FakeContactImporter([
+      ImportedContactCandidate(displayName: 'Bob Address Book'),
+    ]);
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(
+      WampApp(controller: controller, contactImporter: importer),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('account-contacts')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('contact-privacy-boundary')), findsOneWidget);
+    expect(
+      find.textContaining('Phone numbers, email addresses'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('contact-import')));
+    await tester.pumpAndSettle();
+    expect(importer.calls, 1);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('contact-display-name')))
+          .controller!
+          .text,
+      'Bob Address Book',
+    );
+
+    await tester.enterText(find.byKey(const Key('contact-username')), 'Bob');
+    await tester.tap(find.byKey(const Key('contact-save')));
+    await tester.pumpAndSettle();
+
+    expect(gateway.profileLookups, ['bob']);
+    expect(controller.contacts.single.username, 'bob');
+    expect(controller.contacts.single.displayName, 'Bob Address Book');
+    expect(trustStore.session!.saveContactsCalls, 1);
+    final contact = find.byKey(const ValueKey('contact-bob'));
+    await tester.ensureVisible(contact);
+    await tester.tap(contact);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('contact-privacy-boundary')), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('message-recipient')))
+          .controller!
+          .text,
+      'bob',
+    );
+    expect(find.byKey(const ValueKey('contact-recipient-bob')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('account-contacts')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('contact-edit-bob')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('contact-display-name')),
+      'Bob Local',
+    );
+    await tester.tap(find.byKey(const Key('contact-save')));
+    await tester.pumpAndSettle();
+
+    expect(controller.contacts.single.displayName, 'Bob Local');
+    expect(find.text('Bob Local'), findsOneWidget);
+    expect(gateway.profileLookups, ['bob']);
+    expect(trustStore.session!.saveContactsCalls, 2);
+
+    await tester.tap(find.byKey(const ValueKey('contact-remove-bob')));
+    await tester.pumpAndSettle();
+    expect(controller.contacts, isEmpty);
+    expect(find.byKey(const ValueKey('contact-bob')), findsNothing);
+    expect(trustStore.session!.saveContactsCalls, 3);
+    await tester.tap(find.byKey(const Key('contact-close')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('contact-recipient-bob')), findsNothing);
+  });
+
+  testWidgets('contact manager fits the compact authenticated shell', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(
+      WampApp(
+        controller: controller,
+        contactImporter: _FakeContactImporter(const []),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('account-contacts-compact')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('contact-privacy-boundary')), findsOneWidget);
+    expect(find.byKey(const Key('contact-import')), findsOneWidget);
+    expect(find.byKey(const Key('contact-add-manual')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('confirms MCP profile sharing and revokes it immediately', (
@@ -903,6 +1031,7 @@ class _FakeGateway implements AccountGateway {
   bool mcpProfileReadAllowed = false;
   int mcpConsentRevision = 0;
   final List<bool> mcpConsentUpdates = [];
+  final List<String> profileLookups = [];
 
   @override
   Future<RegistrationReceipt> register({
@@ -934,15 +1063,18 @@ class _FakeGateway implements AccountGateway {
       username: username,
       initialProfile: profile,
       initialMcpConsent: WampAppMcpConsent.denied,
-      getProfileCallback: (lookup) async => lookup == username
-          ? profile
-          : AccountProfile(
-              username: AccountRegistration.normalizeUsername(lookup),
-              displayName: 'Bob Example',
-              status: 'Testing WampApp',
-              revision: 2,
-              updatedAt: DateTime.utc(2026, 8, 25),
-            ),
+      getProfileCallback: (lookup) async {
+        profileLookups.add(lookup);
+        return lookup == username
+            ? profile
+            : AccountProfile(
+                username: AccountRegistration.normalizeUsername(lookup),
+                displayName: 'Bob Example',
+                status: 'Testing WampApp',
+                revision: 2,
+                updatedAt: DateTime.utc(2026, 8, 25),
+              );
+      },
       updateProfileCallback: (update) async {
         profile = AccountProfile(
           username: username,
@@ -995,6 +1127,22 @@ class _FakeGateway implements AccountGateway {
       latestMailboxWakeupErrorCallback: () => null,
       closeTransport: () async {},
     );
+  }
+}
+
+final class _FakeContactImporter implements ContactImporter {
+  _FakeContactImporter(this.candidates);
+
+  final List<ImportedContactCandidate> candidates;
+  int calls = 0;
+
+  @override
+  String get actionLabel => 'Choose contact';
+
+  @override
+  Future<List<ImportedContactCandidate>> pickContacts() async {
+    calls += 1;
+    return candidates;
   }
 }
 

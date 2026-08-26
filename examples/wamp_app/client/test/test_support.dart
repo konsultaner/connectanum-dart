@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
+import 'package:wamp_app/src/domain/local_contact_alias.dart';
 import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/device_backup_file.dart';
@@ -15,6 +16,7 @@ final class FakeDeviceTrustStore implements DeviceTrustStore {
     this.initialMessages = const [],
     this.initialGroups = const [],
     this.initialOutbox = const [],
+    this.initialContacts = const [],
     LocalAppPreferences? initialPreferences,
     this.operations,
   }) : initialPreferences = initialPreferences ?? LocalAppPreferences.defaults;
@@ -22,6 +24,7 @@ final class FakeDeviceTrustStore implements DeviceTrustStore {
   final List<LocalChatMessage> initialMessages;
   final List<LocalChatGroup> initialGroups;
   final List<OutboundChatMessage> initialOutbox;
+  final List<LocalContactAlias> initialContacts;
   final LocalAppPreferences initialPreferences;
   final List<String>? operations;
   String? password;
@@ -50,6 +53,7 @@ final class FakeDeviceTrustStore implements DeviceTrustStore {
       previous?.outbox ?? initialOutbox,
       previous?.mailboxCursor ?? 0,
       previous?.preferences ?? initialPreferences,
+      initialContacts: previous?.contacts ?? initialContacts,
     );
   }
 
@@ -77,12 +81,14 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     List<OutboundChatMessage> initialOutbox,
     this._mailboxCursor,
     this._preferences, {
+    List<LocalContactAlias> initialContacts = const [],
     this.sealCallSignalCallback,
     this.openCallSignalCallback,
   }) {
     _messages.addAll(initialMessages);
     _groups.addAll(initialGroups);
     _outbox.addAll(initialOutbox);
+    _contacts.addAll(initialContacts);
   }
 
   final String username;
@@ -91,7 +97,11 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   final List<LocalChatMessage> _messages = [];
   final List<LocalChatGroup> _groups = [];
   final List<OutboundChatMessage> _outbox = [];
+  final List<LocalContactAlias> _contacts = [];
   LocalAppPreferences _preferences;
+  Object? saveContactsFailure;
+  Completer<void>? saveContactsGate;
+  int saveContactsCalls = 0;
   Object? savePreferencesFailure;
   Completer<void>? savePreferencesGate;
   int savePreferencesCalls = 0;
@@ -138,6 +148,9 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
 
   @override
   List<OutboundChatMessage> get outbox => List.unmodifiable(_outbox);
+
+  @override
+  List<LocalContactAlias> get contacts => List.unmodifiable(_contacts);
 
   @override
   LocalAppPreferences get preferences => _preferences;
@@ -258,6 +271,17 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     if (failure != null) throw failure;
     await savePreferencesGate?.future;
     _preferences = preferences;
+  }
+
+  @override
+  Future<void> saveContacts(List<LocalContactAlias> contacts) async {
+    saveContactsCalls += 1;
+    final failure = saveContactsFailure;
+    if (failure != null) throw failure;
+    await saveContactsGate?.future;
+    _contacts
+      ..clear()
+      ..addAll(contacts);
   }
 
   @override

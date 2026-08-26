@@ -10,6 +10,7 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import '../domain/local_app_preferences.dart';
 import '../domain/local_chat_group.dart';
 import '../domain/local_chat_message.dart';
+import '../domain/local_contact_alias.dart';
 import '../domain/outbound_chat_message.dart';
 import 'local_device_identity.dart';
 import 'vault_storage.dart';
@@ -68,6 +69,7 @@ abstract interface class DeviceTrustSession {
   List<LocalChatMessage> get messages;
   List<LocalChatGroup> get groups;
   List<OutboundChatMessage> get outbox;
+  List<LocalContactAlias> get contacts;
   LocalAppPreferences get preferences;
   Future<Uint8List> exportBackup({required String recoveryPassphrase});
   Future<void> saveMailboxState({
@@ -76,6 +78,7 @@ abstract interface class DeviceTrustSession {
     List<LocalChatGroup>? groups,
     List<OutboundChatMessage>? outbox,
   });
+  Future<void> saveContacts(List<LocalContactAlias> contacts);
   Future<void> savePreferences(LocalAppPreferences preferences);
   Future<void> dispose();
 }
@@ -214,6 +217,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         final mailbox = _readMailbox(document['mailbox']);
         final groups = _readGroups(document['groups']);
         final outbox = _readOutbox(document['outbox'], mailbox.$2);
+        final contacts = _readContacts(document['contacts']);
         final preferences = LocalAppPreferences.fromJson(
           document['preferences'],
         );
@@ -238,6 +242,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
           messages: mailbox.$2,
           groups: groups,
           outbox: outbox,
+          contacts: contacts,
           preferences: preferences,
           backupEncoder: _encryptBackup,
         );
@@ -289,6 +294,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         messages: const [],
         groups: const [],
         outbox: const [],
+        contacts: const [],
         preferences: LocalAppPreferences.defaults,
         backupEncoder: _encryptBackup,
       );
@@ -349,6 +355,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
       final mailbox = _readMailbox(document['mailbox']);
       final groups = _readGroups(document['groups']);
       final outbox = _readOutbox(document['outbox'], mailbox.$2);
+      final contacts = _readContacts(document['contacts']);
       final preferences = LocalAppPreferences.fromJson(document['preferences']);
       final session = _UnlockedDeviceVault(
         storage: storage,
@@ -365,6 +372,7 @@ final class EncryptedDeviceVault implements DeviceTrustStore {
         messages: mailbox.$2,
         groups: groups,
         outbox: outbox,
+        contacts: contacts,
         preferences: preferences,
         backupEncoder: _encryptBackup,
       );
@@ -563,13 +571,15 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     required List<LocalChatMessage> messages,
     required List<LocalChatGroup> groups,
     required List<OutboundChatMessage> outbox,
+    required List<LocalContactAlias> contacts,
     required this._preferences,
     required this.backupEncoder,
   }) : _encryptionKey = Uint8List.fromList(encryptionKey),
        _verifications = Map<String, _ContactVerification>.of(verifications),
        _messages = List<LocalChatMessage>.of(messages),
        _groups = List<LocalChatGroup>.of(groups),
-       _outbox = List<OutboundChatMessage>.of(outbox);
+       _outbox = List<OutboundChatMessage>.of(outbox),
+       _contacts = List<LocalContactAlias>.of(contacts);
 
   final VaultStorage storage;
   final String storageKey;
@@ -585,6 +595,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   final List<LocalChatMessage> _messages;
   final List<LocalChatGroup> _groups;
   final List<OutboundChatMessage> _outbox;
+  final List<LocalContactAlias> _contacts;
   LocalAppPreferences _preferences;
   final Future<Uint8List> Function(Uint8List plaintext, String passphrase)
   backupEncoder;
@@ -632,6 +643,12 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   List<OutboundChatMessage> get outbox {
     _ensureActive();
     return List<OutboundChatMessage>.unmodifiable(_outbox);
+  }
+
+  @override
+  List<LocalContactAlias> get contacts {
+    _ensureActive();
+    return List<LocalContactAlias>.unmodifiable(_contacts);
   }
 
   @override
@@ -795,13 +812,28 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     });
   }
 
+  @override
+  Future<void> saveContacts(List<LocalContactAlias> contacts) {
+    _ensureActive();
+    final nextContacts = LocalContactAlias.validateList(contacts);
+    return _serializeWrite(() async {
+      await _writeSnapshot(_preferences, contacts: nextContacts);
+      _contacts
+        ..clear()
+        ..addAll(nextContacts);
+    });
+  }
+
   Future<void> persist() {
     _ensureActive();
     return _serializeWrite(() => _writeSnapshot(_preferences));
   }
 
-  Future<void> _writeSnapshot(LocalAppPreferences preferences) async {
-    final plaintext = _snapshotPlaintext(preferences);
+  Future<void> _writeSnapshot(
+    LocalAppPreferences preferences, {
+    List<LocalContactAlias>? contacts,
+  }) async {
+    final plaintext = _snapshotPlaintext(preferences, contacts: contacts);
     final box = SecretBox(_encryptionKey);
     try {
       final ciphertext = box.encrypt(plaintext).asTypedList;
@@ -824,7 +856,11 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     }
   }
 
-  Uint8List _snapshotPlaintext(LocalAppPreferences preferences) {
+  Uint8List _snapshotPlaintext(
+    LocalAppPreferences preferences, {
+    List<LocalContactAlias>? contacts,
+  }) {
+    final savedContacts = contacts ?? _contacts;
     return Uint8List.fromList(
       utf8.encode(
         jsonEncode({
@@ -842,6 +878,9 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
               .map((message) => message.toJson())
               .toList(growable: false),
           'preferences': preferences.toJson(),
+          'contacts': savedContacts
+              .map((contact) => contact.toJson())
+              .toList(growable: false),
           'mailbox': {
             'cursor': _mailboxCursor,
             'messages': _messages
@@ -867,6 +906,7 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
       _messages.clear();
       _groups.clear();
       _outbox.clear();
+      _contacts.clear();
     }
   }
 
@@ -1037,6 +1077,14 @@ void _validateGroups(List<LocalChatGroup> groups) {
       throw const FormatException('Encrypted group state contains duplicates.');
     }
   }
+}
+
+List<LocalContactAlias> _readContacts(Object? value) {
+  if (value == null) return const [];
+  if (value is! List) {
+    throw const FormatException('Saved contacts are invalid.');
+  }
+  return LocalContactAlias.validateList(value.map(LocalContactAlias.fromJson));
 }
 
 Map<String, _ContactVerification> _readVerifications(Object? value) {

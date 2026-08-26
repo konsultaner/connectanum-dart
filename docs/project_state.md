@@ -3,8 +3,10 @@
 Last updated: 2026-08-26
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example.
-Milestone 9 production hardening is locally complete; exact-head hosted
-production benchmark evidence is pending. Unified WAMP procedure abuse
+Milestone 9 production hardening has exact-head hosted CI, benchmark, and
+seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
+contact import is complete locally and repository-wide verification passes;
+exact-head hosted verification for that slice is pending. Unified WAMP procedure abuse
 protection now bounds expensive registration plus authenticated control and
 binary-transfer traffic with configurable global, per-account, request-rate,
 concurrency, and tracked-account limits. Six-device real-router conflict stress
@@ -69,10 +71,12 @@ attachment iterations. The 2026-08-26 local gate passes all 28 checks with
 2.479 s onboarding p95, 1.358 s reconnect p95, 99 ms delivery p95, 11.753
 messages/s, and 0.107-0.117 Gbit/s attachment throughput. The artifact workflow
 now runs and uploads the same machine-readable gate alongside beta packaging.
-`bin/test-wamp-app` passes with 53 shared, 142 server, 153 native Flutter, and
-64 Chrome tests plus Dart2Wasm and a release-web build. Repository-wide
-`bin/verify` also passes with the benchmark checker included in both canonical
-test paths; exact-head hosted benchmark evidence remains pending.
+`bin/test-wamp-app` passes with 53 shared, 142 server, 176 native Flutter, and
+66 Chrome tests plus Dart2Wasm and a release-web build. Previous exact-head CI
+run `32937150090` passes WampApp Consumer, Fast Checks, Full Verify, and Dart VM
+Coverage; artifact run `32937150111` passes the production benchmark gate and
+all seven beta bundles. Repository-wide `bin/verify` passes for the new contact
+slice; exact-head hosted evidence is pending.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete
@@ -83,7 +87,13 @@ preferences, per-chat notification mute, and the provider-neutral platform
 push registration/delivery foundation are complete. Concrete FCM server
 delivery and client token acquisition/refresh now cover Android, APNs-backed
 Apple platforms, and web, including mute-aware generic OS background
-presentation; contacts import and credential-backed deployment evidence remain.
+presentation. Contact import now uses a permissionless Android/iOS
+single-contact picker or an explicit desktop/web vCard, extracts only display
+names, discards native IDs and selected bytes, requires the user to bind an
+authenticated-server-verified WampApp username, and persists only the bounded
+alias inside the encrypted vault. Phone numbers, email addresses, postal
+addresses, native contact IDs, and source files are never uploaded or retained.
+Only credential-backed deployment evidence remains operator-owned.
 Milestone 3
 durable messaging is complete across
 opaque server mailboxes, reconnect cursors, authenticated push synchronization,

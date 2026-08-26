@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pinenacl/x25519.dart';
 import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
+import 'package:wamp_app/src/domain/local_contact_alias.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app/src/infrastructure/message_cipher.dart';
@@ -415,6 +416,108 @@ void main() {
     expect(session.preferences.theme, WampAppThemePreference.system);
   });
 
+  test('contacts remain encrypted and survive vault reopen', () async {
+    final first = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    final contact = LocalContactAlias(
+      username: 'bob',
+      displayName: 'Bob From Phone',
+      importedAt: DateTime.utc(2026, 8, 26),
+    );
+    await first.saveContacts([contact]);
+    final encoded = storage.values.values.single;
+    expect(encoded, isNot(contains('bob')));
+    expect(encoded, isNot(contains('Bob From Phone')));
+    await first.dispose();
+
+    final reopened = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Ignored replacement name',
+    );
+    addTearDown(reopened.dispose);
+    expect(reopened.contacts.single.toJson(), contact.toJson());
+  });
+
+  test('failed contact writes leave live state unchanged', () async {
+    final session = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    addTearDown(session.dispose);
+    storage.writeFailure = StateError('disk full');
+
+    await expectLater(
+      session.saveContacts([
+        LocalContactAlias(
+          username: 'bob',
+          displayName: 'Bob',
+          importedAt: DateTime.utc(2026, 8, 26),
+        ),
+      ]),
+      throwsStateError,
+    );
+    expect(session.contacts, isEmpty);
+  });
+
+  test('vaults without contacts migrate to an empty list', () async {
+    final session = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    await session.dispose();
+    await _rewriteInnerDocument(
+      storage,
+      password: 'correct horse battery',
+      update: (document) => document.remove('contacts'),
+    );
+
+    final reopened = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    addTearDown(reopened.dispose);
+    expect(reopened.contacts, isEmpty);
+  });
+
+  test('malformed encrypted contacts fail vault unlock closed', () async {
+    final session = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    await session.dispose();
+    await _rewriteInnerDocument(
+      storage,
+      password: 'correct horse battery',
+      update: (document) => document['contacts'] = [
+        {'username': 'bob', 'display_name': 'Bob', 'imported_at': 'not-a-date'},
+      ],
+    );
+
+    await expectLater(
+      vault.openOrCreate(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'correct horse battery',
+        deviceName: 'Alice phone',
+      ),
+      throwsA(isA<VaultUnlockException>()),
+    );
+  });
+
   test('vaults without preferences migrate to safe defaults', () async {
     final session = await vault.openOrCreate(
       endpoint: endpoint,
@@ -514,6 +617,13 @@ void main() {
           mutedConversationIds: const ['private-conversation-id'],
         ),
       );
+      await session.saveContacts([
+        LocalContactAlias(
+          username: 'bob',
+          displayName: 'Bob From Phone',
+          importedAt: DateTime.utc(2026, 8, 26),
+        ),
+      ]);
       final deviceId = session.deviceId;
       final archive = await session.exportBackup(
         recoveryPassphrase: 'correct backup recovery phrase',
@@ -524,6 +634,7 @@ void main() {
       expect(encoded, contains('ciphertext'));
       expect(encoded, isNot(contains('alice')));
       expect(encoded, isNot(contains('private-conversation-id')));
+      expect(encoded, isNot(contains('Bob From Phone')));
       expect(encoded, isNot(contains('signing_seed')));
       final backupEnvelope = jsonDecode(encoded) as Map<String, dynamic>;
       final vaultEnvelope =
@@ -549,6 +660,8 @@ void main() {
       expect(restored.deviceId, deviceId);
       expect(restored.preferences.theme, WampAppThemePreference.dark);
       expect(restored.preferences.isMuted('private-conversation-id'), isTrue);
+      expect(restored.contacts.single.username, 'bob');
+      expect(restored.contacts.single.displayName, 'Bob From Phone');
     },
   );
 

@@ -47,6 +47,10 @@ The implemented slices provide:
   presentation, plus unregister-before-close lifecycle cleanup;
 - encrypted local export/import and revisioned remote backup transfer through
   the authenticated WAMP session;
+- opt-in local contacts that use the permissionless Android/iOS system picker
+  or an explicit desktop/web vCard, retain only a display-name-to-WampApp-
+  username alias in the encrypted vault, and verify that username through the
+  authenticated server before saving;
 - direct voice and video calls with WebRTC DTLS-SRTP media and encrypted,
   durable, device-selected WAMP signaling;
 - consent-gated Streamable HTTP and direct JSON MCP profile access with an
@@ -59,10 +63,13 @@ The implemented slices provide:
   reconnect deduplication, server-signature verification, and plaintext
   non-persistence.
 
-Contacts import remains deferred until account-discovery and privacy semantics
-are defined. Credential-backed FCM deployment evidence requires operator-owned
-secrets and remains before a final release. The reviewed security boundaries
-and residual risks are explicit in [THREAT_MODEL.md](THREAT_MODEL.md).
+Contact import deliberately provides no account discovery: the user selects a
+single native contact or vCard display name and explicitly enters the matching
+WampApp username. Phone numbers, email addresses, postal addresses, native
+contact IDs, and address-book files are never uploaded or retained by WampApp.
+Credential-backed FCM deployment evidence requires operator-owned secrets and
+remains before a final release. The reviewed security boundaries and residual
+risks are explicit in [THREAT_MODEL.md](THREAT_MODEL.md).
 View-once attachments are rejected until attachment consumption and deletion
 can be made atomic.
 
@@ -80,6 +87,10 @@ sudo apt install pulseaudio-utils ffmpeg
 
 Android, iOS, and macOS microphone declarations are included in the client;
 the operating system asks for access only when the microphone button is used.
+Android and iOS contact selection uses the permissionless system contact
+picker without requesting contact properties. macOS, Linux, Windows, and web
+use an explicit `.vcf`/`.vcard` file picker; selected bytes are wiped from
+WampApp memory after only `FN`/`N` display names have been extracted.
 
 Start the server:
 
