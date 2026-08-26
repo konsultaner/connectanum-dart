@@ -26,6 +26,7 @@ void main() {
         );
       }
       final result = {
+        'schema_version': 1,
         'benchmark': 'wamp_app_attachment_transfer',
         'cache': cacheMode,
         'size_mib': sizeMiB,

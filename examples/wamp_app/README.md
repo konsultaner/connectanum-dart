@@ -60,9 +60,9 @@ The implemented slices provide:
   non-persistence.
 
 Contacts import remains deferred until account-discovery and privacy semantics
-are defined. Credential-backed FCM deployment evidence, final threat-model
-review, and production application benchmark gates remain before a final
-release.
+are defined. Credential-backed FCM deployment evidence requires operator-owned
+secrets and remains before a final release. The reviewed security boundaries
+and residual risks are explicit in [THREAT_MODEL.md](THREAT_MODEL.md).
 View-once attachments are rejected until attachment consumption and deletion
 can be made atomic.
 
@@ -161,6 +161,39 @@ cd examples/wamp_app/client && flutter analyze && flutter test
 The three packages are standalone on purpose. The Flutter SDK is not added to
 the root Dart workspace or its package release graph.
 
+## Production Benchmarks
+
+Run the release gate from the repository root:
+
+```bash
+bin/wamp-app-production-validate
+```
+
+It measures full 64 MiB Argon2id13 account onboarding and reconnect, real
+two-account encrypted message acceptance and delivery over WebSocket/CBOR, and
+five 64 MiB attachment encrypt/decrypt iterations against both memory and
+durable native-file caches. The checked-in policy fails closed when a workload
+or metric is missing, duplicated, malformed, non-finite, or outside its budget.
+Logs, host metadata, raw benchmark records, and `summary.json` are written to
+`out/wamp-app-production-benchmarks/`.
+
+The 2026-08-26 local production-gate baseline on a 32-logical-core macOS host
+was:
+
+| Workload | Result | Shared-runner gate |
+| --- | ---: | ---: |
+| Account onboarding p95 | 2.479 s | <= 10 s |
+| SCRAM reconnect p95 | 1.358 s | <= 8 s |
+| Encrypted delivery p95 | 99 ms | <= 1 s |
+| Encrypted direct messages | 11.753 messages/s | >= 2 messages/s |
+| 64 MiB memory-cache encrypt/decrypt | 0.115 / 0.117 Gbit/s | >= 0.025 Gbit/s |
+| 64 MiB durable-disk encrypt/decrypt | 0.113 / 0.107 Gbit/s | >= 0.025 Gbit/s |
+
+The `WampApp Artifacts` workflow runs the same gates on a pinned Flutter Linux
+runner and retains the machine-readable evidence with the beta bundles. These
+budgets are intentionally conservative across shared runners; they are
+regression/deadlock gates, not hardware-independent throughput promises.
+
 ## Attachment Benchmark
 
 Run the opt-in native benchmark from the repository root:
@@ -175,15 +208,14 @@ memory cache and the durable native-file cache. Override
 `WAMP_APP_BENCH_CACHES=memory,disk` when collecting a larger matrix. Each
 machine-readable result includes MiB/s, Gbit/s, average duration, and p95.
 
-The 2026-08-25 baseline on a 32-logical-core macOS host was:
+The 2026-08-26 five-iteration baseline on a 32-logical-core macOS host was:
 
 | Cache | Encrypt Gbit/s | Decrypt Gbit/s | Encrypt p95 | Decrypt p95 |
 | --- | ---: | ---: | ---: | ---: |
-| Memory | 0.159 | 0.139 | 3.405 s | 3.897 s |
-| Durable disk | 0.154 | 0.122 | 3.539 s | 4.534 s |
+| Memory | 0.115 | 0.117 | 4.679 s | 4.597 s |
+| Durable disk | 0.113 | 0.107 | 4.780 s | 5.100 s |
 
-These application-level figures include chunking, XSalsa20-Poly1305, SHA-256,
-cache copies, integrity verification, and disk flushes. They are a baseline,
-not a release gate. The small memory-to-disk delta identifies client crypto,
-hashing, and copies as the next optimization target; native and Web Worker
-acceleration still need production evidence.
+These application-level figures include chunking, AES-256-GCM worker execution,
+SHA-256, cache copies, integrity verification, and disk flushes. The standalone
+command remains useful for exploratory matrices; the production command above
+owns the enforced 64 MiB release gate.

@@ -3,7 +3,8 @@
 Last updated: 2026-08-26
 Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example.
-Milestone 9 production hardening is underway. Unified WAMP procedure abuse
+Milestone 9 production hardening is locally complete; exact-head hosted
+production benchmark evidence is pending. Unified WAMP procedure abuse
 protection now bounds expensive registration plus authenticated control and
 binary-transfer traffic with configurable global, per-account, request-rate,
 concurrency, and tracked-account limits. Six-device real-router conflict stress
@@ -53,10 +54,25 @@ tests, all nine packaging tests, and `bin/verify` pass. Artifact run
 `32930914313` builds all seven bundles, including Windows, but the Windows
 upload action interpreted Git Bash `/d/a/...` outputs as `D:\d\a\...`. Uploads
 now use `${{ github.workspace }}`-anchored paths that are native to every
-runner; corrected hosted upload evidence is pending. The artifact workflow
-tracks installer inputs so packaging fixes trigger evidence automatically.
-Exact-head publish dry run `32930914349` and prior exact-head CI run
-`32928971776` pass.
+runner. Exact-head artifact run `32932207276` passes and uploads all seven
+bundles, including Windows; exact-head CI run `32932207206` passes WampApp
+Consumer, Fast Checks, Full Verify, and Dart VM Coverage with a clean strict
+log audit. The artifact workflow tracks installer inputs so packaging fixes
+trigger evidence automatically. Publish dry run `32930914349` also passes.
+The reviewed WampApp threat model now names its trust boundaries, security
+invariants, deployment controls, and residual risks, including metadata
+visibility, active device-key substitution without key transparency, lack of a
+double ratchet, and best-effort deletion semantics. A fail-closed production
+benchmark gate measures full 3-pass/64 MiB Argon2id13 onboarding and reconnect,
+real two-account encrypted WebSocket/CBOR delivery, and five 64 MiB memory/disk
+attachment iterations. The 2026-08-26 local gate passes all 28 checks with
+2.479 s onboarding p95, 1.358 s reconnect p95, 99 ms delivery p95, 11.753
+messages/s, and 0.107-0.117 Gbit/s attachment throughput. The artifact workflow
+now runs and uploads the same machine-readable gate alongside beta packaging.
+`bin/test-wamp-app` passes with 53 shared, 142 server, 153 native Flutter, and
+64 Chrome tests plus Dart2Wasm and a release-web build. Repository-wide
+`bin/verify` also passes with the benchmark checker included in both canonical
+test paths; exact-head hosted benchmark evidence remains pending.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete

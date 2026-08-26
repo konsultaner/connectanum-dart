@@ -30,7 +30,7 @@ fi
 (
   cd examples/wamp_app/client
   flutter pub get
-  dart format --output=none --set-exit-if-changed lib test
+  dart format --output=none --set-exit-if-changed benchmark lib test
   flutter analyze
   flutter test
   if ensure_chrome_env; then

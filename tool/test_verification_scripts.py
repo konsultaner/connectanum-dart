@@ -243,7 +243,7 @@ class VerificationScriptsTest(unittest.TestCase):
         )
         self.assertEqual(
             wamp_app_script.count(
-                "dart format --output=none --set-exit-if-changed lib test"
+                "dart format --output=none --set-exit-if-changed benchmark lib test"
             ),
             1,
         )

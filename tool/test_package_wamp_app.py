@@ -400,6 +400,9 @@ esac
         self.assertIn("flutter-version: 3.47.1", workflow)
         self.assertIn("fail-fast: false", workflow)
         self.assertIn("bin/package-wamp-app", workflow)
+        self.assertIn("bin/wamp-app-production-validate", workflow)
+        self.assertIn("name: Production benchmark gates", workflow)
+        self.assertIn("wamp-app-production-benchmark-artifacts", workflow)
         for source in (
             "packages/connectanum_client/hook/build.dart",
             "packages/connectanum_client/lib/src/native_release_installer.dart",

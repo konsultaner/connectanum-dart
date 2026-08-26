@@ -7,17 +7,50 @@ on:
     paths:
       - '.github/workflows/wamp-app-artifacts.yml'
       - 'bin/common.sh'
+      - 'bin/check-wamp-app-benchmarks'
       - 'bin/package-wamp-app'
+      - 'bin/wamp-app-production-validate'
       - 'examples/wamp_app/**'
       - 'packages/connectanum_client/hook/build.dart'
       - 'packages/connectanum_client/lib/src/native_release_installer.dart'
       - 'packages/connectanum_client/tool/install_native.dart'
       - 'tool/test_package_wamp_app.py'
+      - 'tool/test_check_wamp_app_benchmarks.py'
 
 permissions:
   contents: read
 
 jobs:
+  production-benchmarks:
+    name: Production benchmark gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Run production benchmark gates
+        run: |
+          bin/wamp-app-production-validate \
+            --out-dir "${GITHUB_WORKSPACE}/out/wamp-app-production-benchmarks"
+
+      - name: Upload production benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wamp-app-production-benchmark-artifacts
+          path: out/wamp-app-production-benchmarks
+          if-no-files-found: error
+          retention-days: 14
+
   package:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}

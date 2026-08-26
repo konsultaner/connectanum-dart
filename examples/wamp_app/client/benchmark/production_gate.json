@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "benchmarks": {
+    "wamp_app_application": {
+      "attributes": {
+        "workload.message_bytes": 24,
+        "workload.transport": "websocket-cbor",
+        "workload.vault_storage": "isolated-memory"
+      },
+      "metrics": {
+        "workload.argon_iterations": {
+          "minimum": 3,
+          "maximum": 3
+        },
+        "workload.argon_memory_kib": {
+          "minimum": 65536,
+          "maximum": 65536
+        },
+        "workload.accounts": {
+          "minimum": 2,
+          "maximum": 2
+        },
+        "workload.messages": {
+          "minimum": 20,
+          "maximum": 20
+        },
+        "onboarding.p95_ms": {
+          "maximum": 10000
+        },
+        "reconnect.p95_ms": {
+          "maximum": 8000
+        },
+        "direct_message.accepted.p95_ms": {
+          "maximum": 500
+        },
+        "direct_message.delivered.p95_ms": {
+          "maximum": 1000
+        },
+        "direct_message.messages_per_second": {
+          "minimum": 2.0
+        }
+      }
+    },
+    "wamp_app_attachment_transfer:memory": {
+      "attributes": {
+        "cache": "memory",
+        "chunk_mib": 1.0
+      },
+      "metrics": {
+        "size_mib": {
+          "minimum": 64,
+          "maximum": 64
+        },
+        "iterations": {
+          "minimum": 5,
+          "maximum": 5
+        },
+        "encrypt.median_gbit_per_second": {
+          "minimum": 0.025
+        },
+        "encrypt.p95_seconds": {
+          "maximum": 20.0
+        },
+        "decrypt.median_gbit_per_second": {
+          "minimum": 0.025
+        },
+        "decrypt.p95_seconds": {
+          "maximum": 20.0
+        }
+      }
+    },
+    "wamp_app_attachment_transfer:disk": {
+      "attributes": {
+        "cache": "disk",
+        "chunk_mib": 1.0
+      },
+      "metrics": {
+        "size_mib": {
+          "minimum": 64,
+          "maximum": 64
+        },
+        "iterations": {
+          "minimum": 5,
+          "maximum": 5
+        },
+        "encrypt.median_gbit_per_second": {
+          "minimum": 0.025
+        },
+        "encrypt.p95_seconds": {
+          "maximum": 20.0
+        },
+        "decrypt.median_gbit_per_second": {
+          "minimum": 0.025
+        },
+        "decrypt.p95_seconds": {
+          "maximum": 20.0
+        }
+      }
+    }
+  }
+}

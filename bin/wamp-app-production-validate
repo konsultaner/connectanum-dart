@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+cd_repo_root
+
+usage() {
+  cat <<'EOF'
+Usage: bin/wamp-app-production-validate [--out-dir <path>] [--policy <path>]
+
+Runs production-parameter WampApp onboarding, reconnect, encrypted messaging,
+and attachment benchmarks, then fails closed against the checked-in gate.
+EOF
+}
+
+out_dir="$(repo_root)/out/wamp-app-production-benchmarks"
+policy="$(repo_root)/examples/wamp_app/client/benchmark/production_gate.json"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --out-dir)
+      [[ $# -ge 2 ]] || { usage >&2; exit 2; }
+      out_dir="$2"
+      shift 2
+      ;;
+    --policy)
+      [[ $# -ge 2 ]] || { usage >&2; exit 2; }
+      policy="$2"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if ! command -v flutter >/dev/null 2>&1; then
+  printf 'Flutter is required to run WampApp production benchmarks.\n' >&2
+  exit 1
+fi
+if [[ ! -f "$policy" ]]; then
+  printf 'WampApp benchmark policy not found: %s\n' "$policy" >&2
+  exit 1
+fi
+
+mkdir -p "$out_dir"
+rm -f \
+  "$out_dir/environment.txt" \
+  "$out_dir/application.log" \
+  "$out_dir/attachments.log" \
+  "$out_dir/summary.json"
+
+{
+  printf 'collected_at_utc=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf 'git_commit=%s\n' "$(git rev-parse HEAD)"
+  printf 'host=%s\n' "$(uname -a)"
+  flutter --version --machine
+  rustc --version 2>/dev/null || true
+} >"$out_dir/environment.txt"
+
+application_status=0
+(
+  cd examples/wamp_app/client
+  flutter pub get
+  WAMP_APP_BENCH_ARGON_ITERATIONS=3 \
+    WAMP_APP_BENCH_ARGON_MEMORY_KIB=65536 \
+    WAMP_APP_BENCH_MESSAGE_COUNT=20 \
+    flutter test benchmark/application_benchmark_test.dart --reporter expanded
+) 2>&1 | tee "$out_dir/application.log" || application_status=$?
+
+attachment_status=0
+(
+  cd examples/wamp_app/client
+  WAMP_APP_BENCH_SIZE_MIB=64 \
+    WAMP_APP_BENCH_ITERATIONS=5 \
+    WAMP_APP_BENCH_CACHES=memory,disk \
+    flutter test benchmark/attachment_transfer_benchmark_test.dart \
+      --reporter expanded
+) 2>&1 | tee "$out_dir/attachments.log" || attachment_status=$?
+
+checker_status=0
+bin/check-wamp-app-benchmarks \
+  --policy "$policy" \
+  --results "$out_dir/application.log" "$out_dir/attachments.log" \
+  --summary "$out_dir/summary.json" || checker_status=$?
+
+if ((application_status != 0 || attachment_status != 0 || checker_status != 0)); then
+  printf 'WampApp production validation failed (application=%d, attachments=%d, gate=%d).\n' \
+    "$application_status" "$attachment_status" "$checker_status" >&2
+  exit 1
+fi
+
+printf 'WampApp production benchmark artifacts: %s\n' "$out_dir"
