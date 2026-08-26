@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+cd_repo_root
+
+if ! command -v flutter >/dev/null 2>&1; then
+  printf 'Flutter is required to verify examples/wamp_app.\n' >&2
+  exit 1
+fi
+
+run_wamp_app_browser_tests() {
+  local attempt
+  local attempt_timeout_seconds
+  local browser_tests
+  local max_attempts
+  local status
+  local test_file
+
+  max_attempts="${CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPTS:-2}"
+  if ! [[ "$max_attempts" =~ ^[1-9][0-9]*$ ]]; then
+    printf 'CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPTS must be a positive integer, got %s.\n' \
+      "$max_attempts" >&2
+    return 2
+  fi
+
+  attempt_timeout_seconds="${CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS:-120}"
+  if ! [[ "$attempt_timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+    printf 'CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS must be a positive integer, got %s.\n' \
+      "$attempt_timeout_seconds" >&2
+    return 2
+  fi
+
+  browser_tests=(
+    test/attachment_chunk_cache_web_test.dart
+    test/attachment_crypto_worker_web_test.dart
+    test/call_controller_test.dart
+    test/call_media_test.dart
+    test/fcm_platform_push_token_source_test.dart
+    test/local_app_preferences_test.dart
+    test/local_message_query_test.dart
+    test/platform_push_registration_test.dart
+    test/widget_test.dart
+    test/voice_note_recorder_test.dart
+  )
+
+  for test_file in "${browser_tests[@]}"; do
+    for attempt in $(seq 1 "$max_attempts"); do
+      local args=(
+        test
+        --platform chrome
+        --timeout=5m
+        "$test_file"
+      )
+
+      if ((attempt < max_attempts)); then
+        args+=(--reporter=expanded)
+      fi
+
+      if run_command_with_timeout \
+        "WampApp browser test $test_file" \
+        "$attempt_timeout_seconds" \
+        flutter "${args[@]}"; then
+        break
+      else
+        status=$?
+      fi
+
+      if ((status != 124 || attempt == max_attempts)); then
+        return "$status"
+      fi
+
+      printf 'WampApp browser test %s stalled on attempt %s/%s; retrying.\n' \
+        "$test_file" "$attempt" "$max_attempts" >&2
+      sleep 2
+    done
+  done
+}
+
+(
+  cd examples/wamp_app/shared
+  dart pub get
+  dart format --output=none --set-exit-if-changed .
+  dart analyze
+  dart test
+)
+
+(
+  cd examples/wamp_app/server
+  dart pub get
+  dart format --output=none --set-exit-if-changed .
+  dart analyze
+  dart test
+)
+
+(
+  cd examples/wamp_app/client
+  flutter pub get
+  dart format --output=none --set-exit-if-changed benchmark lib test
+  flutter analyze
+  flutter test
+  if ensure_chrome_env; then
+    run_wamp_app_browser_tests
+  else
+    printf 'Chrome unavailable; skipping WampApp browser worker tests.\n' >&2
+  fi
+  flutter build web --release
+)

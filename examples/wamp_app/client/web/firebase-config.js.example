@@ -1,0 +1,7 @@
+self.WAMP_APP_FIREBASE_OPTIONS = Object.freeze({
+  apiKey: 'replace-me',
+  appId: 'replace-me',
+  messagingSenderId: 'replace-me',
+  projectId: 'replace-me',
+  authDomain: 'replace-me.firebaseapp.com',
+});

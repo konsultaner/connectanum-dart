@@ -220,7 +220,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 "pub-dev-connectanum-client.yml",
                 "pub-dev-connectanum-mcp.yml",
                 "pub-dev-connectanum-router.yml",
-                "pub-dev-connectanum.yml",
+                "pub-dev-connectanum-compat.yml",
                 "pub-dev-connectanum-auth-server.yml",
                 "pub-dev-connectanum-bench.yml",
             ],
@@ -651,11 +651,16 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         )
 
     def _publish_workflow_path(self, package_name: str) -> Path:
+        workflow_name = (
+            "connectanum-compat"
+            if package_name == "connectanum"
+            else package_name.replace("_", "-")
+        )
         return (
             REPO_ROOT
             / ".github"
             / "workflows"
-            / f"pub-dev-{package_name.replace('_', '-')}.yml"
+            / f"pub-dev-{workflow_name}.yml"
         )
 
     def _pubspec_value(self, pubspec: Path, key: str) -> str:

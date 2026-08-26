@@ -1,0 +1,86 @@
+listen:
+  host: 127.0.0.1
+  port: 8080
+
+websocket_path: /ws
+account_store: data/accounts.json
+message_store: data/messages.json
+push_store: data/push-subscriptions.json
+attachment_store: data/attachments
+backup_store: data/backups
+call_store: data/calls.json
+
+mcp:
+  # Agent access is separately authenticated and account consent defaults off.
+  # Cleartext grants are permitted only because this example binds loopback.
+  enabled: true
+  path: /mcp
+  auth_path: /mcp/auth
+  consent_store: data/mcp-consent.json
+  allow_insecure_transport: true
+
+abuse_protection:
+  # Registration performs Argon2id13, so its anonymous global budget is kept
+  # deliberately small. Control and binary-transfer traffic have independent
+  # budgets so large encrypted transfers cannot starve normal app operations.
+  max_tracked_accounts: 4096
+  registration:
+    max_requests: 20
+    window_seconds: 60
+    max_concurrent: 2
+  control:
+    global:
+      max_requests: 30000
+      window_seconds: 60
+      max_concurrent: 256
+    per_account:
+      max_requests: 2400
+      window_seconds: 60
+      max_concurrent: 16
+  transfer:
+    global:
+      max_requests: 120000
+      window_seconds: 60
+      max_concurrent: 512
+    per_account:
+      max_requests: 12000
+      window_seconds: 60
+      max_concurrent: 32
+
+webrtc:
+  # Host candidates still allow same-network calls. Add production STUN/TURN
+  # endpoints here for calls across NAT boundaries.
+  stun_urls:
+    - stun:stun.l.google.com:19302
+  # Coturn REST credentials are generated per account and expire quickly. The
+  # shared secret is read only from the named environment variable.
+  # turn_rest:
+  #   urls:
+  #     - turns:turn.example.net:5349?transport=tcp
+  #     - turn:turn.example.net:3478?transport=udp
+  #   shared_secret_environment: WAMP_APP_TURN_SHARED_SECRET
+  #   credential_ttl_seconds: 3600
+
+backup_limits:
+  # Committed archives plus in-progress ciphertext across all accounts.
+  max_total_bytes: 10737418240
+
+# Optional Firebase Cloud Messaging delivery. Keep the service-account JSON
+# outside the repository and grant it only the Firebase Messaging permission.
+# platform_push:
+#   fcm:
+#     service_account_file: /run/secrets/firebase-service-account.json
+#     # Defaults to project_id in the service-account JSON when omitted.
+#     project_id: your-firebase-project
+
+attachment_limits:
+  # Ciphertext bytes stored across all accounts and per authenticated sender.
+  max_total_bytes: 10737418240
+  max_bytes_per_sender: 2147483648
+  # Uncommitted uploads expire after 24 hours; cleanup runs every 15 minutes.
+  staging_ttl_seconds: 86400
+  cleanup_interval_seconds: 900
+
+argon2id13:
+  iterations: 3
+  memory_kib: 65536

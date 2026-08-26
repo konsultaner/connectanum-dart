@@ -1,24 +1,631 @@
 # Project State
 
-Last updated: 2026-08-24
-Current branch: `codex/mcp-public-http-auth-discovery`
-Current milestone: publish a synchronized `3.0.0-beta.2` correction whose
-hosted native build hooks work without private source-checkout assumptions. The
-active plan is
-`docs/exec-plans/2026-08-24-3.0.0-beta.2-publish-correction.md`.
+Last updated: 2026-08-26
+Current branch: `codex/wamp-app`
+Current milestone: continue the standalone WampApp Flutter consumer example.
+Milestone 9 production hardening has exact-head hosted CI, benchmark, and
+seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
+contact import is complete with exact-head CI and seven-platform artifact
+evidence. Unified WAMP procedure abuse protection now bounds expensive
+registration plus authenticated control and
+binary-transfer traffic with configurable global, per-account, request-rate,
+concurrency, and tracked-account limits. Six-device real-router conflict stress
+now proves encrypted message, receipt, one-time consumption, profile, MCP
+consent, and remote-backup convergence. It also fixed queued mailbox wakeups
+that could remain stale after a losing foreground operation and preserves
+bounded competing backup uploads until revision compare-and-swap selects one
+winner. Cross-platform beta packaging is now implemented with explicit
+signing/installability manifests, SHA-256 checksums, clean-output builds, and a
+path-filtered GitHub matrix for web, Android, iOS, macOS, Linux, Windows, and a
+Linux server CLI bundle. Android release builds no longer use the debug key;
+operator signing is loaded only from ignored `key.properties`, while CI emits
+an unsigned release AAB and a separately debug-signed tester APK. Local web,
+Android, unsigned iOS, unnotarized macOS, and host-native server packages pass;
+exact-head CI run `32918064687` passes WampApp Consumer, Fast Checks, Full
+Verify, and Dart VM Coverage. Hosted artifact runs `32918064688` and
+`32920748879` prove web, Android, unsigned iOS, macOS, Linux, and the Linux
+server bundle. The first Windows attempt failed native asset assembly while the
+published hook's cache suffix measured 101 characters. Bounded cache keys and
+explicit DLL prefetch reached verified archive extraction on the second attempt,
+which exposed GNU `tar` parsing the native `D:/...` archive operand as a remote
+host. Hook and installer extraction now run from the cache root with relative
+archive and destination operands. Artifact run `32923299213` proves those fixes
+across web, Android, unsigned iOS, macOS, Linux, and the Linux server bundle;
+Windows clears extraction and dependency resolution before failing when native
+assets materialize. Inspection found that the configured-DLL hook branch did
+not create its output parent, unlike the hosted-download and Cargo branches. A
+fail-first missing-parent regression now passes with a directory-safe copy
+helper. Artifact rerun `32925188467` passed web, Android, unsigned iOS, macOS,
+Linux, and the Linux server bundle. Verbose artifact rerun `32926838463` proved
+that Windows was still executing the published `connectanum_client
+3.0.0-beta.2` hook rather than the corrected checkout hook; Flutter passed
+empty hook user-defines and its semi-hermetic hook environment did not preserve
+the packager's DLL environment override, so the published hook repeated the old
+drive-letter GNU `tar` failure. Windows packaging now builds an ignored,
+disposable WampApp copy with checkout overrides for `connectanum_client` and
+`connectanum_core` plus a root hook user-define for the prefetched DLL. The
+checked-in exact-hosted-dependency example remains unchanged and the temporary
+copy is removed after packaging. Artifact run `32928971795` proves that the
+checkout hook and root user-define are active and passes web, Android, unsigned
+iOS, macOS, Linux, and the Linux server bundle. Windows then exposed a second
+drive-letter boundary: the hooks API parsed `D:/.../ct_ffi.dll` as a `d:` URI,
+and the hook called `toFilePath()` on that non-file URI. The hook now preserves
+Windows drive and UNC paths while retaining URI resolution for relative paths.
+Drive-slash, drive-backslash, UNC, and relative-path regressions, all ten hook
+tests, all nine packaging tests, and `bin/verify` pass. Artifact run
+`32930914313` builds all seven bundles, including Windows, but the Windows
+upload action interpreted Git Bash `/d/a/...` outputs as `D:\d\a\...`. Uploads
+now use `${{ github.workspace }}`-anchored paths that are native to every
+runner. Exact-head artifact run `32932207276` passes and uploads all seven
+bundles, including Windows; exact-head CI run `32932207206` passes WampApp
+Consumer, Fast Checks, Full Verify, and Dart VM Coverage with a clean strict
+log audit. The artifact workflow tracks installer inputs so packaging fixes
+trigger evidence automatically. Publish dry run `32930914349` also passes.
+The reviewed WampApp threat model now names its trust boundaries, security
+invariants, deployment controls, and residual risks, including metadata
+visibility, active device-key substitution without key transparency, lack of a
+double ratchet, and best-effort deletion semantics. A fail-closed production
+benchmark gate measures full 3-pass/64 MiB Argon2id13 onboarding and reconnect,
+real two-account encrypted WebSocket/CBOR delivery, and five 64 MiB memory/disk
+attachment iterations. The 2026-08-26 local gate passes all 28 checks with
+2.479 s onboarding p95, 1.358 s reconnect p95, 99 ms delivery p95, 11.753
+messages/s, and 0.107-0.117 Gbit/s attachment throughput. The artifact workflow
+now runs and uploads the same machine-readable gate alongside beta packaging.
+`bin/test-wamp-app` passes with 53 shared, 142 server, 176 native Flutter, and
+66 Chrome tests plus Dart2Wasm and a release-web build. Exact-head CI run
+`32943241834` passes WampApp Consumer, Fast Checks, Full Verify, and Dart VM
+Coverage; artifact run `32943241849` passes the production benchmark gate and
+all seven beta bundles for the contact slice. The protected-branch deployment
+audit then exposed GitHub workflow record `315112445` as deleted even though
+the aggregate `connectanum` pub.dev workflow remained present on `master`.
+The byte-identical tag-only publisher is moving to a fresh workflow path so
+GitHub can register a new active record without changing pub.dev repository,
+tag, OIDC, environment, validation, or package semantics. Repository-wide
+`bin/verify`, exact-head CI run `32947467410`, and package dry-run workflow
+`32947467424` pass for that repair. PR #80 is mergeable but requires review.
+Its first PR-event CI run `32947616016` exposed a hosted Chrome-process stall:
+all 176 native Flutter tests passed and the browser suite completed its FCM
+tests, then the single multi-file `flutter test --platform chrome` process
+stopped producing output until the 20-minute job timeout. The push event had
+passed the byte-identical tree, so the browser gate now runs every selected
+Chrome test file in a fresh process with a 120-second external timeout and one
+timeout-only retry. Exact-head push CI run `32952004741` and PR CI run
+`32952009169` pass WampApp Consumer, Fast Checks, Full Verify, and Dart VM
+Coverage; package dry run `32952008963` and the strict exact-head deployment
+audit also pass. Protected-branch promotion remains review-gated by PR #80.
+Persistent direct and group disappearing-message preferences are now stored in
+the account-bound encrypted vault and applied to every new encrypted envelope.
+The client schedules the nearest expiry without a network wakeup, immediately
+hides expired plaintext, transactionally removes expired history and outbox
+state, retries encrypted-vault write failures without exposing content, and
+fences timers across replacement login, sign-out, and disposal. Sends fail
+closed while a policy write is pending. This work also fixed a deterministic
+calling test and service boundary: the authenticated ICE-signaling timestamp is
+now propagated into durable call-store expiry checks instead of switching to
+wall time. `bin/test-wamp-app` passes with 53 shared, 142 server, 182 native
+Flutter, and 66 isolated Chrome tests plus Dart2Wasm and release web; an
+additional 48-test Chrome controller run and repository-wide `bin/verify` pass.
+Exact-head hosted evidence is pending for this revision.
+Milestone 8 authenticated MCP
+integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
+and milestone 6 encrypted local and router-hosted backup/recovery are complete
+locally. Authenticated public profiles with editable
+display names, status, and bounded avatars, plus on-device global message
+search, received-message read/unread filters, encrypted system/light/dark theme
+preferences, per-chat notification mute, and the provider-neutral platform
+push registration/delivery foundation are complete. Concrete FCM server
+delivery and client token acquisition/refresh now cover Android, APNs-backed
+Apple platforms, and web, including mute-aware generic OS background
+presentation. Contact import now uses a permissionless Android/iOS
+single-contact picker or an explicit desktop/web vCard, extracts only display
+names, discards native IDs and selected bytes, requires the user to bind an
+authenticated-server-verified WampApp username, and persists only the bounded
+alias inside the encrypted vault. Phone numbers, email addresses, postal
+addresses, native contact IDs, and source files are never uploaded or retained.
+Only credential-backed deployment evidence remains operator-owned.
+Milestone 3
+durable messaging is complete across
+opaque server mailboxes, reconnect cursors, authenticated push synchronization,
+encrypted one-to-one and immutable group conversations, delivery/read state,
+signed atomic one-time consumption, expiry, and bounded durable retry/conflict
+recovery. The client persists each exact encrypted outbound envelope and its
+optimistic plaintext only inside the encrypted device vault, reconciles lost
+replies idempotently, and exposes per-message retry, rejection, conflict, and
+discard state. The milestone 4 attachment foundation now provides bounded
+chunked E2EE, resumable upload/download on the same authenticated WAMP session,
+native-file and IndexedDB ciphertext caches, and file/image/GIF picker,
+preview, and save UX. Bounded cross-platform voice recording, authenticated
+playback, searchable emoji insertion, and locally rendered encrypted stickers
+now use that same encrypted attachment path, completing milestone 4. Attachment
+crypto acceleration is complete: new writes use versioned
+AES-256-GCM chunks through a maintained asynchronous native backend or a
+dedicated Web Worker, while existing XSalsa20-Poly1305 v1 attachments remain
+readable. Server attachment storage is now
+bounded by configurable global and per-sender ciphertext quotas, reconciled on
+startup, and pruned by staged TTL without racing mailbox commits.
+The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
-`v3.0.0-beta.1` is a public GitHub prerelease with validated signed native
-assets, and its multi-architecture router image passed the hosted MCP smoke.
-All seven Dart packages were first-published to pub.dev at `3.0.0-beta.1` in
-dependency order. A fresh external consumer then reproduced a release blocker:
-the client build hook searched for the monorepo's
-`native/transport/Cargo.toml` instead of selecting the matching hosted native
-artifact. The corrective client and router hooks now preserve explicit native
-overrides and source-checkout Cargo builds, but isolated packages derive
-`v<package-version>` from their own pubspec and download the signed release
-artifact. Focused hosted-hook regressions pass for both packages; synchronized
-`3.0.0-beta.2` promotion, full verification, artifact publication, package
-publication, and a fresh external executable smoke remain.
+WampApp lives under `examples/wamp_app` as standalone client, server, and shared
+protocol packages. The server and Flutter client resolve the public
+`3.0.0-beta.2` packages instead of local workspace paths. Router worker
+isolates reconstruct the file-backed credential provider before authentication;
+an end-to-end consumer test launches the native router, registers through the
+anonymous realm, reconnects through SCRAM, verifies authenticated role and
+profile metadata, and confirms the account file contains verifier material but
+not the plaintext password. Shared, server, and client analyzers and package
+tests pass locally. A real Flutter web browser smoke completed registration and
+SCRAM login with 64 MiB Argon2id13 derivation, no console errors, and clean
+desktop and 390-pixel layouts. Repository-wide `bin/verify` passes.
+The Flutter client also produces a clean release web build, including the
+Dart2Wasm dry-run and packaged icon fonts.
+
+WampApp milestone 2 is complete locally. Each client creates Ed25519 signing
+and X25519 wrapping keys, encrypts its private device material in an
+account-and-endpoint-bound SecretBox vault derived through the asynchronous
+Argon2id13 platform boundary, enrolls only attested public keys through the
+authenticated application realm, and supports durable revocation and local
+safety-number verification. Conversation keys are sealed per recipient device
+and signed by the sender device. Trust establishment is required before the UI
+reports a connected session, and reconnect/replacement generations cannot apply
+stale results. `bin/verify` and `bin/test-wamp-app` pass on 2026-08-24; the
+focused WampApp command covers 9 shared, 13 server, and 15 Flutter tests plus a
+release web build. Exact-head CI run `32761656169` passed Fast Checks, WampApp
+Consumer, Full Verify, and Dart VM Coverage for milestone commit `0a5c17c2`.
+The strict deployment audit confirms exact checked-out-head coverage, clean job
+topology, and clean hosted logs with no warning, deprecation, skip, reset, or
+connection-noise findings.
+
+The milestone 3 one-to-one messaging foundation is complete locally. Clients
+encrypt each message with an ephemeral XSalsa20-Poly1305 content key, carry the
+ciphertext in a WAMP binary field, and sign a wrapped content key for every
+active participant device from one serialized account-store snapshot. The
+caller-bound server validates every envelope and persists only opaque mailbox
+records with idempotent message identifiers, monotonic reconnect cursors,
+expiry filtering, and durable delivery/read receipt events. The Flutter client
+keeps its cursor and plaintext history inside the encrypted device vault,
+decrypts only locally, and exposes real direct-message compose, history, and
+sync controls. A two-account native-router integration proves send, reconnect,
+deduplication, decryption, delivery acknowledgement, and sender receipt sync
+without plaintext in server storage. One-time messages fail closed until true
+consumption semantics land. `bin/test-wamp-app` and repository `bin/verify`
+pass on 2026-08-24; the focused suites cover 14 shared, 21 server, and 19
+Flutter tests plus a release web build. Commit `33ce907b` is pushed to GitLab
+and GitHub. Exact-head CI run `32767562794` passed Fast Checks, WampApp
+Consumer, Full Verify, and Dart VM Coverage; the strict deployment audit passed
+checked-out-head job cleanliness and hosted-log scanning with no warning,
+deprecation, skip, reset, or connection-noise findings.
+
+Push-driven mailbox synchronization is complete locally. The application
+service publishes cursor-only WAMP events after durable sends and receipt
+updates, with `eligible_authid` restricted to the sender and recipient. Clients
+subscribe before their initial mailbox snapshot, retain wakeups that arrive
+during trust initialization, coalesce concurrent cursors into serialized
+durable RPC synchronization, and fence stale responses across sign-out and
+connection replacement. Malformed wakeups fail closed as synchronization
+errors, notification loss falls back to reconnect/manual cursor sync, and no
+message identifiers, participants, ciphertext, or plaintext enter the event
+payload. A three-account native-router test proves automatic recipient delivery
+and sender receipt updates while an unrelated authenticated account receives no
+wakeup. `bin/test-wamp-app` and repository `bin/verify` pass on 2026-08-24; the
+focused suites cover 16 shared, 21 server, and 23 Flutter tests plus a release
+web build. Commit `1ae4c3ea` is pushed to GitLab and GitHub. Exact-head CI run
+`32773529505` passed Fast Checks, WampApp Consumer, Full Verify, and Dart VM
+Coverage. The feature-branch audit confirms the exact checked-out head, clean
+job topology and logs, visible workflows, and the public router package; the
+separate strict audit confirms the protected `master` release policy.
+
+Explicit read state and atomic one-time consumption are complete locally.
+Normal incoming messages expose a deliberate read action and publish durable
+sender-visible receipt cursors. One-time messages use the same encrypted binary
+WAMP envelope, but reveal only after a message-specific Ed25519 proof from an
+active recipient device is verified and atomically recorded under the mailbox
+lock. The server also requires that the consuming device had an original
+wrapped content key. Same-device retries retain one cursor, competing devices
+fail closed, expired messages cannot create new receipt state, recipient sync
+removes consumed content, and lifecycle fences prevent stale responses from
+crossing sign-out. The Flutter composer exposes view-once and one-hour/day/week
+expiry controls, hides one-time plaintext before consumption, and reports
+Opened to the sender. `bin/test-wamp-app` passes with 19 shared, 26 server, and
+24 Flutter tests plus a release web build, and repository `bin/verify` passes
+on 2026-08-24. Hosted exact-head evidence is pending for this revision.
+
+Atomic encrypted group messaging is complete locally. A versioned group
+envelope stores one ciphertext and one signed content-key wrap for every active
+device of every participant, while the server validates exact device coverage
+from one account snapshot and appends one durable mailbox record. Group titles
+and immutable membership descriptors remain inside authenticated ciphertext;
+only the normalized participant set needed for routing is visible to the
+server. Sparse per-recipient delivery/read state is updated only by that
+recipient, converges under concurrent acknowledgements, and becomes
+sender-visible only as all-recipient aggregates. Participant-scoped wakeups,
+outsider exclusion, encrypted vault persistence, reconnect discovery, metadata
+conflict rejection, group creation/selection UI, expiry, and the deliberate
+rejection of ambiguous group view-once envelopes are covered. A live native
+router smoke proves Alice can send one group ciphertext to Bob and Carol, both
+recipients decrypt and persist the same group, Mallory receives no wakeup or
+mailbox content, and sender read state completes only after both recipients
+read. `bin/test-wamp-app` passes with 23 shared, 29 server, and 26 Flutter tests
+plus a release web build, and repository `bin/verify` passes on 2026-08-25.
+Commit `84a28a4d` is pushed to GitLab and GitHub. Exact-head CI run
+`32786240083` passed Fast Checks, WampApp Consumer, Full Verify, and Dart VM
+Coverage; feature-branch and protected-`master` deployment audits passed.
+
+Durable retry and conflict recovery completes WampApp milestone 3 locally.
+Before any network call, the Flutter client stores one exact encrypted WAMP
+envelope plus its optimistic local message in the account-bound encrypted
+vault. Unknown outcomes remain retryable with the same message identifier and
+wire bytes; reconnect first reconciles accepted mailbox state, then attempts
+each still-recoverable entry once. Accepted cursors prevent stale optimistic
+records, same-ID/different-envelope replies become terminal conflicts, and
+rejected/conflicting entries require explicit discard. Sign-out and replacement
+generations fence late replies. The outbox is bounded to 100 entries, validates
+mailbox disjointness, and never exposes plaintext in outer storage. Flutter
+message bubbles show sending, syncing, retryable, rejected, and conflict states
+with retry/discard controls. `bin/test-wamp-app` passes with 23 shared, 29
+server, and 40 Flutter tests plus a release web build, and repository
+`bin/verify` passes on 2026-08-25. Milestone 4 encrypted rich content is next;
+hosted exact-head evidence is pending for this revision.
+
+The milestone 4 encrypted attachment foundation is complete locally. Clients
+stream selected files into independently authenticated 1 MiB
+XSalsa20-Poly1305 chunks, retain only ciphertext outside the encrypted vault,
+upload every missing chunk before atomically publishing the message envelope,
+and resume exact outbox bytes from server-reported chunk state after lost
+replies or reconnects. The server stores opaque chunks separately from mailbox
+records, rejects incomplete/conflicting envelopes, and authorizes download only
+after an attachment is referenced by a caller-visible mailbox record. Direct
+and group attachment-only messages, ciphertext/plaintext integrity, cache
+restart, cancellation, stale-session fencing, and browser IndexedDB persistence
+have focused regressions. View-once attachments fail closed pending atomic
+consumption/deletion. `bin/test-wamp-app` passes with 28 shared, 36 server, and
+50 Flutter tests plus a release web build; Chrome separately passes the real
+IndexedDB test, and repository `bin/verify` passes on 2026-08-25. Five measured
+64 MiB iterations establish a macOS baseline of
+0.159/0.139 Gbit/s memory-cache encrypt/decrypt and 0.154/0.122 Gbit/s durable
+disk encrypt/decrypt. The cache delta is small, so native and Web Worker crypto
+acceleration remains a production blocker for rich media rather than being
+hidden behind optimistic benchmark claims. Server quota/retention is complete:
+the YAML config sets global and per-sender ciphertext caps, staged TTL, and
+cleanup cadence; manifest v2 timestamps migrate from v1 file times; startup
+rebuilds exact usage and removes orphan bytes; periodic cleanup retains only
+unexpired mailbox references or fresh resumable staging; and one mutation lock
+spans completeness verification plus mailbox append so either commit wins and
+prune retains it, or prune wins and send fails closed. Same-length corruption
+is re-hashed before commit, quota errors have a redacted typed WAMP URI, and
+shutdown waits for active cleanup. `bin/test-wamp-app` passes with 28 shared, 47
+server, and 50 Flutter tests plus a release web build, and repository
+`bin/verify` passes on 2026-08-25. Exact-head
+CI run `32800458584` passed Fast Checks, WampApp Consumer, Full Verify, and Dart
+VM Coverage for attachment commit `304edc8f`. The feature-head cleanliness and
+hosted-log audit passed with no skipped, missing, unexpected, warning,
+deprecation, reset, or connection-noise findings; the separate protected
+`master` strict audit also passed.
+
+Attachment crypto acceleration is complete locally. Descriptor v2 makes
+AES-256-GCM the default for new independently authenticated chunks, binds the
+descriptor and chunk envelope to authenticated data, and preserves byte-exact
+v1 XSalsa20-Poly1305 reads. The web implementation runs Web Crypto only in a
+dedicated Blob Worker with transferable buffers and no synchronous fallback;
+the native implementation uses the maintained `cryptography` and
+`cryptography_flutter` backend, selecting registered OS crypto on Android,
+iOS, and macOS and `BackgroundAesGcm` elsewhere. Cancellation, timeout, worker
+crash, disposal, malformed output, concurrent derivations, stale responses,
+and temporary-buffer clearing fail closed. Native and Chrome tests share an
+exact AES-256-GCM vector, and a 64 MiB Chrome operation proves event-loop
+responsiveness. `bin/test-wamp-app` passes with 30 shared, 47 server, 55 native
+Flutter, and 5 real-Chrome tests plus a release web build; repository
+`bin/verify` passes on 2026-08-25. A five-iteration 64 MiB benchmark of the
+non-plugin native fallback reports 0.121/0.125 Gbit/s memory-cache
+encrypt/decrypt and 0.114/0.105 Gbit/s durable-disk encrypt/decrypt. These are
+conservative fallback results, not unmeasured OS-accelerated mobile claims.
+Voice notes are complete locally. The Flutter client records at most five
+minutes of mono 16 kHz PCM16 audio, creates a strictly validated WAV, keeps its
+duration inside the encrypted descriptor, and transfers it through the existing
+resumable E2EE attachment flow on the authenticated WAMP session. Permission,
+format adjustment, cancellation, timeout, stream failure, disposal, final-block
+drain, concurrent attempt, and stale-attempt paths fail closed. Playback rejects
+malformed or duration-mismatched WAV data before player initialization. Android,
+Windows, and web use explicitly wiped in-memory sources; iOS, macOS, and Linux
+release the player before overwriting and deleting an atomically unique managed
+temporary file. Microphone declarations are checked in for Android, iOS, and
+both macOS schemes, and the guide records Linux runtime dependencies.
+The rich-content milestone is complete locally. A searchable expression picker
+inserts emoji at the current composer selection and stages bundled stickers as
+valid PNG payloads with `ChatAttachmentKind.sticker`; intermediate raster and
+scanline buffers and staged plaintext are cleared defensively. Sticker renders
+are serialized, bounded by the existing eight-attachment/64 MiB limits, and use
+the same resumable E2EE WAMP attachment flow without a new server API. The
+selected-attachment strip is horizontally bounded so all composer controls
+remain reachable at the attachment cap. `bin/test-wamp-app` passes with 31
+shared, 47 server, 72 native Flutter, and 11 real-Chrome tests plus Dart2Wasm
+and release-web builds; all 8 widget tests also pass explicitly in Chrome. A
+macOS debug application build and repository-wide `bin/verify` pass on
+2026-08-25. Exact-head CI run `32819793865` passed WampApp Consumer, Fast
+Checks, Full Verify, and Dart VM Coverage for commit `bdf2546c`; its
+feature-head cleanliness/log audit found no skipped, pending, warning,
+deprecation, reset, or connection-noise patterns. The protected-`master`
+policy/workflow/package strict audit also passes.
+
+The first milestone 5 slice is complete locally. Every authenticated account
+has a durable public profile with an editable display name, single-line status,
+and optional JPEG, PNG, or WebP avatar bounded to 256 KiB. Profile reads are
+available only to authenticated WampApp members; updates are caller-bound and
+use serialized optimistic revisions so competing devices cannot overwrite one
+another silently. CBOR WAMP calls carry avatar bytes as binary while the local
+JSON account store uses bounded base64 at rest. Existing account documents
+migrate through defaults, malformed or mismatched profile responses fail
+closed, and sign-out or connection replacement fences late client results. The
+Flutter UI edits the local account profile and views a recipient profile with
+an explicit visibility disclosure. `bin/test-wamp-app` passes with 36 shared,
+49 server, 76 native Flutter, and 11 real-Chrome tests plus Dart2Wasm and a
+release-web build. All 9 widget tests pass explicitly in Chrome, a macOS debug
+application build passes, and repository-wide `bin/verify` passes on
+2026-08-25. Exact-head CI run `32825869072` passes WampApp Consumer in 3m26s,
+Fast Checks in 9m18s, Full Verify in 11m20s, and Dart VM Coverage in 12m52s for
+commit `a1af7d4d`. The feature-head cleanliness/log audit and protected-`master`
+policy/workflow/package strict audit pass.
+
+On-device global message search and received-message read/unread filters are
+complete. Queries stay ephemeral and local, exclude hidden incoming view-once
+bodies, use bounded case-insensitive AND matching across safe message and
+attachment metadata, and return the newest 200 matches chronologically.
+Outgoing delivery/read receipts never enter received-message filters. The
+compact shell remains overflow-free at 390 pixels, and selecting a result opens
+its direct or group context through the normal durable read/consume path.
+`bin/test-wamp-app` passes with 36 shared, 49 server, 84 native Flutter, and 28
+real-Chrome tests plus Dart2Wasm and a release-web build. A macOS debug build and
+repository-wide `bin/verify` pass. Exact-head CI run `32833791251` passes
+WampApp Consumer in 3m59s, Fast Checks in 10m31s, Full Verify in 11m4s, and
+Dart VM Coverage in 12m55s for commit `985afac1`. The feature-head
+cleanliness/log audit and protected-`master` policy/workflow/package strict
+audit pass.
+
+Account-bound local appearance and notification-presentation preferences are
+complete. System, light, and dark theme selection plus bounded direct/group
+conversation mute state live only inside the encrypted device vault. Existing
+vaults missing the preference document migrate to safe defaults, malformed
+encrypted preference data fails closed, failed writes retain the last durable
+live state, and sign-out or session replacement fences stale completions.
+Muted conversations still receive mailbox wakeups and synchronize durable
+content; mute controls only whether a platform notification should be
+presented. Theme changes preserve the active recipient and unsent composer
+draft, and the 390-pixel shell remains overflow-free. `bin/test-wamp-app`
+passes with 36 shared, 49 server, 98 native Flutter, and 34 real-Chrome tests
+plus Dart2Wasm and a release-web build; repository-wide `bin/verify` passes.
+Exact-head CI run `32840073900` passes WampApp Consumer in 4m06s, Fast Checks
+in 9m17s, Full Verify in 8m43s, and Dart VM Coverage in 12m27s for commit
+`e38596df`. The feature-head cleanliness/log audit and protected-`master`
+policy/workflow/package strict audit pass. Contacts import and platform push
+delivery remain in milestone 5. Contacts import is deferred until account
+discovery and privacy semantics are defined.
+
+The provider-neutral platform push foundation is complete locally. Authenticated
+members register and unregister opaque provider tokens only for an active device
+on their own account through caller-disclosed WAMP procedures. The mode-`0600`
+atomic secret store is bounded, serialized, corruption-checked, and removes
+revoked devices and invalid current tokens without deleting concurrent token
+refreshes. Durable message commits enqueue only a mailbox cursor and account
+set into a bounded, coalescing, timeout-protected best-effort dispatcher; the
+gateway receives only provider, opaque token, and cursor, never usernames,
+conversation metadata, message identifiers, ciphertext, or plaintext. Provider
+failure reporting is stage-only so logs cannot expose registration secrets.
+Client calls classify retryable and rejected responses, and a live native-router
+smoke proves unavailable-provider failure, caller/device binding,
+register/unregister, cursor-only delivery, reconnect persistence, revocation
+cleanup, and rejected reuse of a revoked device. `bin/test-wamp-app` passes with
+40 shared, 64 server, 100 native Flutter, and 34 Chrome tests plus Dart2Wasm and
+a release-web build. Concrete provider delivery and client platform-token
+integration remained at that checkpoint.
+Repository-wide `bin/verify` passes on 2026-08-25. Exact-head CI run
+`32846782748` passes WampApp Consumer in 3m58s, Fast Checks in 9m08s, Full
+Verify in 11m35s, and Dart VM Coverage in 13m04s for commit `dbc44a78`; the
+feature-head cleanliness/log audit and protected-`master`
+policy/workflow/package strict audit also pass.
+
+The first concrete provider path is complete locally through Firebase Cloud
+Messaging HTTP v1. Strict optional `platform_push.fcm` YAML resolves an
+operator-owned service-account file relative to the server configuration and
+starts an OAuth-authenticated client without checked-in credentials. Android,
+APNs-backed Apple devices, and web clients share the single `fcm` registration
+provider. The server sends only the durable mailbox cursor and provider-required
+background headers, with no account, sender, conversation, message, attachment,
+ciphertext, or key metadata. Initialization and request deadlines, bounded
+credential and response bodies, malformed-response isolation, provider-aware
+registration, idempotent owned disposal, and sanitized failure reporting fail
+closed. Only FCM-specific invalid-token details trigger the existing
+compare-remove retirement path; generic request, quota, provider credential,
+and transient service failures preserve the token. The live consumer smoke now
+also proves unsupported-provider rejection and server-owned gateway disposal.
+`bin/test-wamp-app` passes with 40 shared, 82 server, 100 native Flutter, and 34
+Chrome tests plus Dart2Wasm and a release-web build; the focused post-review
+gateway matrix has 14 passing cases, and repository-wide `bin/verify` passes.
+Flutter token acquisition/refresh, OS background handling, mute-aware local
+presentation, and credential-backed FCM deployment evidence remain. Exact-head
+CI run `32852830387` passes WampApp Consumer in 4m13s, Fast Checks in 9m20s,
+Full Verify in 11m48s, and Dart VM Coverage in 10m15s for commit `a0351374`;
+the feature-head cleanliness/log audit and protected-`master`
+policy/workflow/package strict audit also pass.
+
+The Flutter FCM token lifecycle is complete and hosted-verified. Operator-supplied
+compile-time Firebase values configure Android, APNs-backed Apple, and web
+clients without checking in project credentials; absent configuration disables
+the adapter, while partial or invalid configuration fails closed. Firebase
+initialization is lazy and begins only after authenticated device enrollment,
+so first frame and WAMP login do not wait on provider startup. Permission,
+support, APNs readiness, initial token acquisition, refresh, timeout, disposal,
+and stale-result handling are bounded and sanitized. Registration changes are
+serialized, stale in-flight results unregister themselves, and a replaced or
+signed-out WAMP connection unregisters its old provider binding before the
+transport closes. Chat mute does not suppress cursor synchronization. The web
+worker imports the Firebase SDK version matched to the pinned FlutterFire
+packages and relays only a validated cursor to open clients; it does not render
+provider content, preserving the mute/presentation boundary. `bin/test-wamp-app`
+passes with 40 shared, 82 server, 118 native Flutter, and 48 Chrome tests plus
+Dart2Wasm and a release-web build. Native macOS and Android debug builds pass,
+the worker/config JavaScript syntax checks pass, and repository-wide
+`bin/verify` passes on 2026-08-25. OS background-notification presentation and
+credential-backed FCM deployment evidence remain. Commit `372a8f50` is pushed
+to GitLab and GitHub. Exact-head CI run `32865112726` passes WampApp Consumer in
+3m40s, Fast Checks in 9m05s, Full Verify in 10m07s, and Dart VM Coverage in
+13m35s. The feature-head job/log cleanliness and workflow/package visibility
+audit passes, as does the protected-`master` policy/workflow/package strict
+audit.
+
+Mute-aware OS notification presentation is complete locally. Each caller- and
+device-bound secret push registration carries a canonical bounded set of muted
+conversation IDs. Message wakeups evaluate that policy independently per
+device; the sender, muted recipients, delivery/read receipts, and one-time
+consumption updates remain silent, while an unmuted recipient receives generic
+`WampApp` / `New message` presentation. FCM data remains cursor-only and never
+contains an account, sender, conversation, message ID, attachment, ciphertext,
+plaintext, or key. Background and terminated Android, APNs-backed Apple, and
+web clients can use provider-rendered notifications, while foreground clients
+continue encrypted mailbox synchronization. Mute changes, token refresh,
+connection replacement, and sign-out share serialized lifecycle boundaries so
+policy cannot cross account bindings. Legacy registrations migrate to an empty
+mute set, bounded coalescing fails toward fewer notifications, and durable
+cursor sync remains authoritative. `bin/test-wamp-app` passes with 43 shared,
+87 server, 121 native Flutter, and 51 Chrome tests plus Dart2Wasm and a release
+web build; repository-wide `bin/verify` passes on 2026-08-25. Credential-backed
+FCM deployment evidence remains. Commit `006112d0` is pushed to GitLab and
+GitHub. Exact-head CI run `32871399482` passes WampApp Consumer in 4m13s, Fast
+Checks in 8m52s, Full Verify in 11m29s, and Dart VM Coverage in 12m43s,
+including Codecov and artifact uploads. The feature-head job/log cleanliness
+and workflow/package visibility audit passes.
+
+WampApp milestone 6 encrypted backup and recovery is complete locally. The
+client exports a versioned SecretBox device archive through an independent
+Argon2id13 passphrase and restores it before vault open or device enrollment.
+The archive preserves identity, trust, messages, outbox, preferences, groups,
+and encrypted attachment descriptors, while replaceable cached media bytes are
+explicitly excluded. Local file import/export and router-hosted upload,
+download, and delete are available from signed-out and authenticated UI flows.
+The remote path stays on the existing authenticated WAMP session, transfers
+opaque ciphertext in bounded 128 KiB binary chunks under a 12 MiB cap, and uses
+SHA-256 integrity, revision compare-and-swap, expiring staged uploads, atomic
+manifests, mode-`0600` files, and an operator-configurable global quota that
+reserves committed and staged ciphertext and is revalidated on restart.
+Procedures bind ownership to disclosed caller identity; a live native-router
+smoke proves multi-chunk transfer and isolation
+from another authenticated account. Storage is single-writer per configured
+backup directory and does not claim clustered shared-filesystem coordination.
+Wrong passphrases, tampering, stale revisions, incomplete or reordered chunks,
+account crossover, and corrupt committed archives fail closed. The latest
+`bin/test-wamp-app` passes with 45 shared, 100 server, 136 native Flutter, and 53
+Chrome tests plus Dart2Wasm and a release-web build. Repository-wide
+`bin/verify` passes; hosted exact-head evidence is pending.
+
+WampApp milestone 7 encrypted voice/video calling is complete locally. Direct
+calls use WebRTC DTLS-SRTP media while offers, answers, ICE candidates, and
+hangup controls are sealed independently to each active recipient device with
+the existing X25519/Ed25519 identity boundary and carried in WAMP binary fields.
+The caller-bound service persists only ciphertext, applies first-answer-wins
+atomically across recipient devices, publishes account-scoped cursor wakeups,
+and replays bounded durable call state after reconnect. The client buffers ICE
+until the accepted device is known, fences stale media callbacks and WAMP
+responses across calls and sign-out, closes media before connection/trust
+teardown, and terminates calls whose live WebRTC state cannot be restored after
+a fresh process. Short-lived TURN REST credentials are derived from an
+environment-only shared secret; checked-in YAML contains only STUN and TURN
+policy. The responsive Flutter shell exposes incoming, outgoing, connecting,
+active, ended, answered-elsewhere, and failed states plus mute, camera,
+speaker, and hangup controls. `bin/test-wamp-app` passes with 51 shared, 113
+server, 148 native Flutter, and 63 Chrome tests plus Dart2Wasm and a release-web
+build. An Android debug APK and repository-wide `bin/verify` pass. The macOS
+debug build did not reach compilation because Xcode dependency resolution
+stalled without an error; hosted exact-head evidence is pending.
+
+WampApp milestone 8 authenticated MCP integration is complete locally. The
+standalone server hosts Streamable HTTP and direct JSON MCP on the existing
+router listener, with SCRAM-backed HTTP token grants and bounded sessions,
+requests, responses, history, listeners, and calls. Account-scoped consent is
+default-denied, revisioned, persisted atomically in mode-`0600` storage, and
+rechecked for every profile read so revocation is immediate. The only exposed
+application data is the authenticated account's username, display name, status,
+profile revision, update time, and consent revision; chats, messages,
+attachments, backups, devices, calls, keys, and avatars are excluded. The
+Flutter client requires an explicit disclosure dialog before enabling access
+and supports immediate disable. A two-account native-router smoke proves SCRAM
+granting, Streamable and stateless direct JSON use, exact catalog scope,
+default denial, account isolation, dynamic resource reads, consent revocation,
+and access-token revocation. Router MCP routes can now disable built-in API
+meta tools with `include_api_meta_tools: false` for an exact allowlist while
+preserving the existing default. `bin/test-wamp-app` passes with 53 shared, 125
+server, 152 native Flutter, and 64 Chrome tests plus Dart2Wasm and a release-web
+build; repository-wide `bin/verify` passes on 2026-08-26. Commit `a69f647e` is
+pushed to GitLab and GitHub. Exact-head CI run `32904130086` passes WampApp
+Consumer in 4m26s, Fast Checks in 9m02s, Full Verify in 11m09s, and Dart VM
+Coverage in 9m07s. Dart package publish dry-run `32904130107` also passes. The
+feature-head job/log cleanliness, publish-readiness, workflow visibility, and
+router-package audit passes, as does the protected-`master` strict policy
+audit.
+
+WampApp milestone 9 production hardening now includes a unified abuse guard for
+all application procedures. Anonymous registration has a dedicated global
+request and concurrency budget before Argon2id13 derivation, while authenticated
+control and binary-transfer operations use independent global and per-account
+token buckets and concurrency caps. Tracked account state is bounded with idle
+eviction and fails closed when every candidate is active. YAML policy parsing is
+bounded and fail-closed; rate-limit WAMP errors expose only a stable URI, a
+generic message, and `retry_after_ms`. Deterministic tests cover refill, account
+isolation, global exhaustion, concurrency, action failure, eviction, and budget
+independence. A real native-router smoke proves registration, control, and
+transfer enforcement over WAMP. `bin/test-wamp-app` passes with 53 shared, 140
+server, 152 native Flutter, and 64 Chrome tests plus Dart2Wasm and a release-web
+build; repository-wide `bin/verify` passes on 2026-08-26. Commit `eb76a189` is
+pushed to GitLab and GitHub. Exact-head CI run `32908718618` passes all four
+required jobs, and the feature-head plus protected-`master` deployment audits
+pass.
+
+Milestone 9 multi-device conflict stress is complete locally. Three live Alice
+devices and three live Bob devices concurrently send 48 unique encrypted
+messages, converge exact mailbox IDs, race one read receipt and one one-time
+consumption, and resolve same-revision profile, MCP-consent, and encrypted
+remote-backup writes with exactly one winner. The stress test exposed two
+production races: a mailbox wakeup received during a failing foreground
+operation was not reconsidered after the busy lock cleared, and starting a
+same-account backup silently invalidated the prior staged upload. Foreground
+operations now re-evaluate queued cursors on success and failure. Backup staging
+retains a bounded set per account, protects sibling temporary files during
+commit cleanup, and leaves revision compare-and-swap to reject every loser as a
+typed conflict. Focused controller and backup suites pass, and
+`bin/test-wamp-app` passes with 53 shared, 142 server, 153 native Flutter, and
+64 Chrome tests plus Dart2Wasm and a release-web build on 2026-08-26. Remaining
+milestone 9 work is threat-model completion, platform smokes and packaging, and
+production benchmark evidence. Repository-wide `bin/verify` also passes; hosted
+exact-head evidence is pending for this revision.
+
+The first hosted branch CI run `32744891970` exposed a clean-checkout analyzer
+scope issue: the root Dart-only job traversed the standalone WampApp packages
+before Flutter had resolved their dependencies. Root analysis now excludes
+`examples/wamp_app/**`, and the required `WampApp Consumer` job verifies its
+shared, server, and client packages with Flutter 3.47.1 before Full Verify and
+coverage may start. The matching local `bin/test-wamp-app` command passes all
+17 package tests, formatting, analysis, and the release web build. Exact-head
+CI run `32746938142` confirmed both Fast Checks and the new WampApp Consumer
+job, then exposed the equivalent ownership gap in root formatting: unresolved
+Flutter lints caused `dart format .` to rewrite a standalone client test before
+Full Verify could start. Root verification now formats tracked and untracked
+non-ignored workspace Dart files outside the WampApp subtree, while
+`bin/test-wamp-app` owns formatting for all three standalone packages.
+Exact-head CI run `32749847198` passed Fast Checks, WampApp Consumer, Full
+Verify, and Dart VM Coverage, confirming the standalone-package analysis and
+formatting ownership on a clean hosted checkout. The strict deployment auditor
+now treats WampApp Consumer as part of the expected CI topology. Exact-head CI
+run `32753979380` passed all four jobs for audit commit `bece5230`, and the
+strict checked-out-head cleanliness and hosted-log audit passed with no skipped,
+missing, unexpected, warning, deprecation, reset, or connection-noise findings.
+
+`v3.0.0-beta.2` is published as a public GitHub prerelease with validated signed
+native assets and a multi-architecture router image. All seven synchronized
+Dart packages are indexed on pub.dev. A fresh external pub cache resolves the
+complete hosted graph and executes the packaged router help path without a
+source checkout or native override. Exact-head CI, package dry run, WAMP
+profile benchmarks, native artifact dry run, router image dry run, actual tag
+artifact publication, and the router-hosted MCP image smoke are green. The
+strict deployment audit reports only its intentional dry-run policy conflict
+when the requested dry-run tag already exists as the completed GitHub release;
+the underlying workflows and release evidence pass.
 
 The exact-head hosted WAMP run at `fe562ea1` completed every workload and
 reached the artifact gate, confirming the E2EE correctness fix. Every E2EE

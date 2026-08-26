@@ -28,6 +28,10 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
 
         self.assertEqual(matching_result.returncode, 0, matching_result.stdout)
         self.assertIn("Latest CI run covers checked-out head: yes.", matching_result.stdout)
+        self.assertIn(
+            "- WampApp Consumer: completed/success",
+            matching_result.stdout,
+        )
         self.assertIn("Latest CI run is clean", matching_result.stdout)
 
     def test_clean_latest_ci_logs_requires_checked_out_head(self) -> None:
@@ -48,6 +52,21 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         self.assertEqual(matching_result.returncode, 0, matching_result.stdout)
         self.assertIn("Latest CI logs cover checked-out head: yes.", matching_result.stdout)
         self.assertIn("Latest CI log scan is clean", matching_result.stdout)
+
+    def test_clean_latest_ci_rejects_unexpected_job(self) -> None:
+        current_head = self._git("rev-parse", "HEAD")
+
+        result = self._run_audit(
+            current_head,
+            ci_jobs_extra="Unknown Job\\tcompleted\\tsuccess",
+        )
+
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "latest CI run contains unexpected job: Unknown Job",
+            result.stdout,
+        )
+        self.assertIn("Latest CI cleanliness audit failed.", result.stdout)
 
     def test_clean_latest_ci_logs_ignores_action_lifecycle_skip(self) -> None:
         current_head = self._git("rev-parse", "HEAD")
@@ -683,6 +702,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
         branch: str = "add-router",
         github_actions_status: str = "operational",
         ci_log_extra: str = "",
+        ci_jobs_extra: str = "",
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
@@ -810,8 +830,11 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                             print(f"completed\\tsuccess\\t{ci_head}")
                         elif json_fields == "jobs":
                             print("Fast Checks\\tcompleted\\tsuccess")
+                            print("WampApp Consumer\\tcompleted\\tsuccess")
                             print("Dart VM Coverage\\tcompleted\\tsuccess")
                             print("Full Verify\\tcompleted\\tsuccess")
+                            if extra := os.environ.get("FAKE_CI_JOBS_EXTRA"):
+                                print(extra)
                         else:
                             sys.exit(1)
                     elif args[:2] == ["run", "download"]:
@@ -862,6 +885,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
             env["FAKE_WORKFLOW_PATHS"] = workflow_paths
             env["FAKE_GITHUB_ACTIONS_STATUS"] = github_actions_status
             env["FAKE_CI_LOG_EXTRA"] = ci_log_extra
+            env["FAKE_CI_JOBS_EXTRA"] = ci_jobs_extra
             env["PATH"] = f"{temp_dir}{os.pathsep}{env['PATH']}"
 
             return subprocess.run(
@@ -1566,6 +1590,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif json_fields == "jobs":
                             if run_id == "123":
                                 print("Fast Checks\\tcompleted\\tsuccess")
+                                print("WampApp Consumer\\tcompleted\\tsuccess")
                                 print("Dart VM Coverage\\tcompleted\\tsuccess")
                                 print("Full Verify\\tcompleted\\tsuccess")
                             elif run_id == "124":
@@ -1932,6 +1957,7 @@ class AuditGithubDeploymentChainTest(unittest.TestCase):
                         elif json_fields == "jobs":
                             if run_id == "123":
                                 print("Fast Checks\\tcompleted\\tsuccess")
+                                print("WampApp Consumer\\tcompleted\\tsuccess")
                                 print("Dart VM Coverage\\tcompleted\\tsuccess")
                                 print("Full Verify\\tcompleted\\tsuccess")
                             elif run_id == "124":

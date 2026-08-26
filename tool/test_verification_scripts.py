@@ -50,6 +50,8 @@ CONNECTANUM_BENCH_PACKAGE_PUBSPEC = (
 PACKAGE_NATIVE_ARTIFACT = REPO_ROOT / "bin" / "package-native-artifact"
 TEST_ALL = REPO_ROOT / "bin" / "test-all"
 TEST_FAST = REPO_ROOT / "bin" / "test-fast"
+TEST_WAMP_APP = REPO_ROOT / "bin" / "test-wamp-app"
+VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
@@ -62,6 +64,8 @@ class VerificationScriptsTest(unittest.TestCase):
             PACKAGE_NATIVE_ARTIFACT,
             TEST_ALL,
             TEST_FAST,
+            TEST_WAMP_APP,
+            VERIFY,
         ]:
             with self.subTest(script=script_path.relative_to(REPO_ROOT)):
                 result = subprocess.run(
@@ -218,6 +222,43 @@ class VerificationScriptsTest(unittest.TestCase):
                 script = script_path.read_text(encoding="utf-8")
 
                 self.assertIn("dart test packages/connectanum/test", script)
+
+    def test_wamp_app_owns_its_formatting_boundary(self) -> None:
+        verify_script = VERIFY.read_text(encoding="utf-8")
+        wamp_app_script = TEST_WAMP_APP.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "':(exclude)examples/wamp_app/**'",
+            verify_script,
+        )
+        self.assertIn(
+            "git ls-files --cached --others --exclude-standard",
+            verify_script,
+        )
+        self.assertEqual(
+            wamp_app_script.count(
+                "dart format --output=none --set-exit-if-changed ."
+            ),
+            2,
+        )
+        self.assertEqual(
+            wamp_app_script.count(
+                "dart format --output=none --set-exit-if-changed benchmark lib test"
+            ),
+            1,
+        )
+
+    def test_wamp_app_browser_tests_are_serial_and_bounded(self) -> None:
+        script = TEST_WAMP_APP.read_text(encoding="utf-8")
+
+        self.assertIn("CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPTS", script)
+        self.assertIn(
+            "CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS",
+            script,
+        )
+        self.assertIn("run_command_with_timeout", script)
+        self.assertIn('for test_file in "${browser_tests[@]}"', script)
+        self.assertNotIn("--concurrency=1", script)
 
     def test_connectanum_router_wrapper_delegates_help_without_native_build(
         self,

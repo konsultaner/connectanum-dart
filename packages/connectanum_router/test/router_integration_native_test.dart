@@ -1674,6 +1674,42 @@ void main() {
       expect(secondApiResult, isNot(contains('nextCursor')));
     }, skip: skipReason);
 
+    test('can omit MCP API catalog tools for a strict allowlist', () async {
+      final harness = await _RouterHarness.start(
+        connectionId: 9199,
+        nativeLib: nativeLib,
+        settings: _buildRouterSettings(
+          enableHttp3: false,
+          enableMcp: true,
+          mcpOptions: const <String, Object?>{
+            'include_registered_procedures': false,
+            'include_subscribed_topics': false,
+            'include_api_meta_tools': false,
+            'include_standard_meta_api': false,
+            'include_pubsub_tools': false,
+            'procedures': [
+              {'procedure': 'app.allowed', 'tool_name': 'allowed_tool'},
+            ],
+          },
+        ),
+      );
+      addTearDown(harness.dispose);
+
+      final listener = harness.binding.listeners.single;
+      final client = HttpClient();
+      addTearDown(() => client.close(force: true));
+      final tools = await _postJson(client, listener.port, '/mcp', {
+        'jsonrpc': '2.0',
+        'id': 'strict-tools',
+        'method': 'tools/list',
+        'params': {},
+      });
+      expect(tools.statusCode, equals(HttpStatus.ok));
+      final result = tools.json?['result'] as Map<String, Object?>;
+      final toolList = (result['tools'] as List).cast<Map>();
+      expect(toolList.map((tool) => tool['name']), ['allowed_tool']);
+    }, skip: skipReason);
+
     test('guards MCP Streamable HTTP ingress and sessions', () async {
       final harness = await _RouterHarness.start(
         connectionId: 9114,

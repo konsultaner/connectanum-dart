@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
@@ -145,7 +146,10 @@ Future<void> runBuildHook(
     }
 
     if (configuredNativeLib != null) {
-      configuredNativeLib.copySync(outputLibFile.path);
+      copyConfiguredNativeLibrary(
+        source: configuredNativeLib,
+        destination: outputLibFile,
+      );
       output.assets.code.add(
         CodeAsset(
           package: input.packageName,
@@ -254,7 +258,16 @@ String? _pathUserDefine(HookInputUserDefines userDefines, String key) {
   if (raw == null) {
     return null;
   }
-  return userDefines.path(key)?.toFilePath() ?? raw;
+  return resolvePathUserDefine(raw, userDefines.path(key));
+}
+
+String resolvePathUserDefine(String raw, Uri? resolved) {
+  if (RegExp(r'^[A-Za-z]:[\\/]').hasMatch(raw) ||
+      raw.startsWith(r'\\') ||
+      raw.startsWith('//')) {
+    return raw;
+  }
+  return resolved?.toFilePath() ?? raw;
 }
 
 String? _stringUserDefine(HookInputUserDefines userDefines, String key) {
@@ -288,6 +301,14 @@ String? _stringEnvironment(Map<String, String> environment, String key) {
 
 bool _shouldSkipNativeBuild(_BuildHookSettings settings) =>
     settings.skipNativeBuild;
+
+void copyConfiguredNativeLibrary({
+  required File source,
+  required File destination,
+}) {
+  destination.parent.createSync(recursive: true);
+  source.copySync(destination.path);
+}
 
 File? _configuredNativeLibrary(_BuildHookSettings settings) {
   final configuredPath = settings.nativeLibPath;
@@ -441,9 +462,7 @@ Future<void> installReleaseAsset({
 }) async {
   final cacheRoot = Directory(
     '${outputLibFile.parent.path}/prebuilt/'
-    '${_sanitizePathComponent(releaseAsset.repository)}/'
-    '${_sanitizePathComponent(releaseAsset.tag)}/'
-    '${releaseAsset.hostTriple}',
+    '${_releaseCacheKey(releaseAsset)}',
   );
   cacheRoot.createSync(recursive: true);
 
@@ -550,8 +569,14 @@ String currentPlatformLibraryFileName(String libraryBaseName) =>
       ),
     };
 
-String _sanitizePathComponent(String value) =>
-    value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+String _releaseCacheKey(ReleaseAssetSpec releaseAsset) {
+  final identity = [
+    releaseAsset.repository,
+    releaseAsset.tag,
+    releaseAsset.hostTriple,
+  ].join('\n');
+  return sha256.convert(utf8.encode(identity)).toString().substring(0, 32);
+}
 
 String _currentArchitectureLabel() {
   if (Platform.version.contains('arm64') ||
@@ -670,13 +695,41 @@ Future<void> _downloadArtifact({
   }
 }
 
-void _extractArchive({required File archive, required Directory destination}) {
-  final result = Process.runSync('tar', [
-    '-xzf',
-    archive.path,
-    '-C',
-    destination.path,
-  ], runInShell: true);
+({List<String> arguments, String workingDirectory}) tarExtractionInvocation({
+  required File archive,
+  required Directory destination,
+}) {
+  if (archive.parent.absolute.path != destination.parent.absolute.path) {
+    throw ArgumentError(
+      'Archive and extraction destination must share a parent directory.',
+    );
+  }
+
+  final archiveName = archive.uri.pathSegments.lastWhere(
+    (segment) => segment.isNotEmpty,
+  );
+  final destinationName = destination.uri.pathSegments.lastWhere(
+    (segment) => segment.isNotEmpty,
+  );
+  return (
+    arguments: ['-xzf', archiveName, '-C', destinationName],
+    workingDirectory: archive.parent.path,
+  );
+}
+
+void _extractArchive({
+  required File archive,
+  required Directory destination,
+}) {
+  final invocation = tarExtractionInvocation(
+    archive: archive,
+    destination: destination,
+  );
+  final result = Process.runSync(
+    'tar',
+    invocation.arguments,
+    workingDirectory: invocation.workingDirectory,
+  );
   if (result.exitCode != 0) {
     throw BuildError(
       message:

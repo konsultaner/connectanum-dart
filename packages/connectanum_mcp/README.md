@@ -673,6 +673,7 @@ const HttpRouteSettings(
     options: {
       'include_registered_procedures': true,
       'include_subscribed_topics': true,
+      'include_api_meta_tools': true,
       'include_standard_meta_api': true,
       'include_pubsub_tools': true,
       'wamp_api_list_page_size': 50,
@@ -768,6 +769,10 @@ options: {
   ],
 }
 ```
+
+Set `include_api_meta_tools` to `false` when a strict application allowlist
+should omit the otherwise automatic `connectanum.api.list` and
+`connectanum.api.describe` catalog tools.
 
 Configured resources are served by `resources/list` and `resources/read`;
 templates are served by `resources/templates/list`, and templates with a

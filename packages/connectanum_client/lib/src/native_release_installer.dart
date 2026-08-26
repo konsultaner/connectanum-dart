@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -83,9 +84,7 @@ Future<void> installReleaseAsset({
 }) async {
   final cacheRoot = Directory(
     '${outputLibFile.parent.path}/prebuilt/'
-    '${_sanitizePathComponent(releaseAsset.repository)}/'
-    '${_sanitizePathComponent(releaseAsset.tag)}/'
-    '${releaseAsset.hostTriple}',
+    '${_releaseCacheKey(releaseAsset)}',
   );
   cacheRoot.createSync(recursive: true);
 
@@ -167,8 +166,14 @@ String _currentArchitectureLabel() {
   return 'x64';
 }
 
-String _sanitizePathComponent(String value) =>
-    value.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+String _releaseCacheKey(ReleaseAssetSpec releaseAsset) {
+  final identity = [
+    releaseAsset.repository,
+    releaseAsset.tag,
+    releaseAsset.hostTriple,
+  ].join('\n');
+  return sha256.convert(utf8.encode(identity)).toString().substring(0, 32);
+}
 
 void _verifyDownloadedArchive(File archiveFile, File checksumFile) {
   final checksumLine = checksumFile.readAsStringSync().trim();
@@ -217,13 +222,41 @@ Future<void> _downloadArtifact({
   }
 }
 
-void _extractArchive({required File archive, required Directory destination}) {
-  final result = Process.runSync('tar', [
-    '-xzf',
-    archive.path,
-    '-C',
-    destination.path,
-  ], runInShell: true);
+({List<String> arguments, String workingDirectory}) tarExtractionInvocation({
+  required File archive,
+  required Directory destination,
+}) {
+  if (archive.parent.absolute.path != destination.parent.absolute.path) {
+    throw ArgumentError(
+      'Archive and extraction destination must share a parent directory.',
+    );
+  }
+
+  final archiveName = archive.uri.pathSegments.lastWhere(
+    (segment) => segment.isNotEmpty,
+  );
+  final destinationName = destination.uri.pathSegments.lastWhere(
+    (segment) => segment.isNotEmpty,
+  );
+  return (
+    arguments: ['-xzf', archiveName, '-C', destinationName],
+    workingDirectory: archive.parent.path,
+  );
+}
+
+void _extractArchive({
+  required File archive,
+  required Directory destination,
+}) {
+  final invocation = tarExtractionInvocation(
+    archive: archive,
+    destination: destination,
+  );
+  final result = Process.runSync(
+    'tar',
+    invocation.arguments,
+    workingDirectory: invocation.workingDirectory,
+  );
   if (result.exitCode != 0) {
     throw StateError(
       'Failed to extract ${archive.path} (exit ${result.exitCode}).\n'

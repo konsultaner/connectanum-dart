@@ -1,0 +1,133 @@
+name: WampApp Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    paths:
+      - '.github/workflows/wamp-app-artifacts.yml'
+      - 'bin/common.sh'
+      - 'bin/check-wamp-app-benchmarks'
+      - 'bin/package-wamp-app'
+      - 'bin/wamp-app-production-validate'
+      - 'examples/wamp_app/**'
+      - 'packages/connectanum_client/hook/build.dart'
+      - 'packages/connectanum_client/lib/src/native_release_installer.dart'
+      - 'packages/connectanum_client/tool/install_native.dart'
+      - 'tool/test_package_wamp_app.py'
+      - 'tool/test_check_wamp_app_benchmarks.py'
+
+permissions:
+  contents: read
+
+jobs:
+  production-benchmarks:
+    name: Production benchmark gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Run production benchmark gates
+        run: |
+          bin/wamp-app-production-validate \
+            --out-dir "${GITHUB_WORKSPACE}/out/wamp-app-production-benchmarks"
+
+      - name: Upload production benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wamp-app-production-benchmark-artifacts
+          path: out/wamp-app-production-benchmarks
+          if-no-files-found: error
+          retention-days: 14
+
+  package:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - name: Web beta bundle
+            runner: ubuntu-24.04
+            target: web
+          - name: Android beta bundle
+            runner: ubuntu-24.04
+            target: android
+          - name: iOS unsigned beta bundle
+            runner: macos-15
+            target: ios
+          - name: macOS beta bundle
+            runner: macos-15
+            target: macos
+          - name: Linux beta bundle
+            runner: ubuntu-24.04
+            target: linux
+          - name: Windows beta bundle
+            runner: windows-2025
+            target: windows
+          - name: Linux server bundle
+            runner: ubuntu-24.04
+            target: server
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Configure Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Linux desktop build dependencies
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            clang \
+            cmake \
+            libgstreamer-plugins-base1.0-dev \
+            libgstreamer1.0-dev \
+            libgtk-3-dev \
+            liblzma-dev \
+            libpulse-dev \
+            ninja-build \
+            pkg-config
+
+      - name: Package WampApp beta artifact
+        id: package
+        run: bin/package-wamp-app --target "${{ matrix.target }}"
+
+      - name: Upload WampApp beta artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.artifact_name }}
+          path: |
+            ${{ github.workspace }}/out/wamp-app-artifacts/${{ steps.package.outputs.artifact_name }}.tar.gz
+            ${{ github.workspace }}/out/wamp-app-artifacts/${{ steps.package.outputs.artifact_name }}.tar.gz.sha256
+            ${{ github.workspace }}/out/wamp-app-artifacts/${{ steps.package.outputs.artifact_name }}.manifest.json
+          if-no-files-found: error
+          retention-days: 14

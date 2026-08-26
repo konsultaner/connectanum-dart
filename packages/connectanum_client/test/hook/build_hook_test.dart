@@ -11,6 +11,27 @@ import 'package:test/test.dart';
 import '../../hook/build.dart' as build_hook;
 
 void main() {
+  test('configured native library copy creates the hook output directory', () {
+    final tempDir = Directory.systemTemp.createTempSync(
+      'connectanum_client_configured_copy_',
+    );
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+
+    final source = File('${tempDir.path}/${_defaultLibraryFileName()}')
+      ..writeAsStringSync('client-prebuilt');
+    final destination = File(
+      '${tempDir.path}/missing/hook/output/${_hookLibraryFileName()}',
+    );
+
+    expect(destination.parent.existsSync(), isFalse);
+    build_hook.copyConfiguredNativeLibrary(
+      source: source,
+      destination: destination,
+    );
+
+    expect(destination.readAsStringSync(), equals('client-prebuilt'));
+  });
+
   test('build hook reuses CONNECTANUM_NATIVE_LIB user define', () {
     return _withPackageRoot(() async {
       final tempDir = await Directory.systemTemp.createTemp(
@@ -44,6 +65,37 @@ void main() {
     });
   });
 
+  test('path user define preserves Windows drive paths', () {
+    for (final nativeLibraryPath in const [
+      'D:/native/ct_ffi.dll',
+      r'D:\native\ct_ffi.dll',
+      r'\\build-server\native\ct_ffi.dll',
+      '//build-server/native/ct_ffi.dll',
+    ]) {
+      expect(
+        build_hook.resolvePathUserDefine(
+          nativeLibraryPath,
+          Uri.parse('D:/native/ct_ffi.dll'),
+        ),
+        nativeLibraryPath,
+      );
+    }
+  });
+
+  test('path user define resolves relative paths', () {
+    const nativeLibraryPath = 'native/ct_ffi.dll';
+    final resolved = Directory.systemTemp.uri.resolve(nativeLibraryPath);
+
+    expect(
+      build_hook.resolvePathUserDefine(nativeLibraryPath, resolved),
+      resolved.toFilePath(),
+    );
+    expect(
+      build_hook.resolvePathUserDefine(nativeLibraryPath, null),
+      nativeLibraryPath,
+    );
+  });
+
   test('build hook honors CONNECTANUM_SKIP_NATIVE_BUILD user define', () {
     return _withPackageRoot(() async {
       await testCodeBuildHook(
@@ -64,6 +116,7 @@ void main() {
     return _withPackageRoot(() async {
       final archiveBytes = 'client-release-archive'.codeUnits;
       final downloaded = <Uri>[];
+      late Directory extractionDirectory;
 
       await testCodeBuildHook(
         mainMethod: (args) => build_hook.runBuildHook(
@@ -83,6 +136,7 @@ void main() {
             }
           },
           archiveExtractor: ({required archive, required destination}) {
+            extractionDirectory = destination;
             expect(archive.readAsBytesSync(), archiveBytes);
             final extractedLib = File(
               '${destination.path}/${_releaseBundleName()}/${_defaultLibraryFileName()}',
@@ -120,6 +174,13 @@ void main() {
               'ct-ffi-v2026.04.22-validation.043206-attest/${_releaseArchiveName()}.sha256',
             ),
           );
+          final cacheSuffix = extractionDirectory.path
+              .split(
+                '${Platform.pathSeparator}prebuilt${Platform.pathSeparator}',
+              )
+              .last;
+          expect(cacheSuffix.length, lessThanOrEqualTo(40));
+          expect(cacheSuffix, isNot(contains('konsultaner_connectanum-dart')));
         },
       );
     });

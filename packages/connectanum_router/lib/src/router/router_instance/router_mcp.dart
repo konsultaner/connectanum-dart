@@ -5101,6 +5101,10 @@ class _RouterMcpEndpoint {
       publish: _publish,
       subscribe: _subscribe,
       unsubscribe: _unsubscribe,
+      includeApiMetaTools: _boolOptionAny(route.action.options, const [
+        'include_api_meta_tools',
+        'includeApiMetaTools',
+      ], defaultValue: true),
       includePubSubTools: _boolOptionAny(route.action.options, const [
         'include_pubsub_tools',
         'includePubsubTools',
@@ -6155,6 +6159,8 @@ void _validateMcpRouteOptionShapes(Map<String, Object?> options) {
     'includeSubscribedTopics',
     'include_pubsub_tools',
     'includePubsubTools',
+    'include_api_meta_tools',
+    'includeApiMetaTools',
     'include_standard_meta_api',
     'includeStandardMetaApi',
   ]) {

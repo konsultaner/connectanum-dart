@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""Validate machine-readable WampApp benchmark records against a policy."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import os
+import sys
+from pathlib import Path
+from typing import Any
+
+
+PREFIXES = (
+    "WAMP_APP_PRODUCTION_BENCHMARK ",
+    "WAMP_APP_ATTACHMENT_BENCHMARK ",
+)
+
+
+def _arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--policy", required=True, type=Path)
+    parser.add_argument("--results", required=True, type=Path, nargs="+")
+    parser.add_argument("--summary", required=True, type=Path)
+    return parser.parse_args()
+
+
+def _record_key(record: dict[str, Any]) -> str:
+    benchmark = record.get("benchmark")
+    if not isinstance(benchmark, str) or not benchmark:
+        raise ValueError("benchmark record has no non-empty benchmark name")
+    cache = record.get("cache")
+    if cache is None:
+        return benchmark
+    if not isinstance(cache, str) or not cache:
+        raise ValueError(f"{benchmark} has an invalid cache selector")
+    return f"{benchmark}:{cache}"
+
+
+def _read_records(paths: list[Path]) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    records: dict[str, dict[str, Any]] = {}
+    violations: list[str] = []
+    for path in paths:
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeError) as error:
+            violations.append(f"unable to read benchmark results {path.name}: {error}")
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            prefix = next((item for item in PREFIXES if line.startswith(item)), None)
+            if prefix is None:
+                continue
+            try:
+                decoded = json.loads(line[len(prefix) :])
+                if not isinstance(decoded, dict):
+                    raise ValueError("record must be a JSON object")
+                key = _record_key(decoded)
+            except (json.JSONDecodeError, ValueError) as error:
+                violations.append(
+                    f"invalid benchmark record in {path.name}:{line_number}: {error}"
+                )
+                continue
+            if key in records:
+                violations.append(f"duplicate benchmark result: {key}")
+                continue
+            records[key] = decoded
+    return records, violations
+
+
+def _metric(record: dict[str, Any], path: str) -> Any:
+    current: Any = record
+    for component in path.split("."):
+        if not isinstance(current, dict) or component not in current:
+            raise KeyError(path)
+        current = current[component]
+    return current
+
+
+def _finite_number(value: Any) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(float(value))
+    )
+
+
+def _check_policy(
+    policy: Any,
+    records: dict[str, dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    if not isinstance(policy, dict) or policy.get("schema_version") != 1:
+        return [], ["benchmark policy must use schema_version 1"]
+    benchmarks = policy.get("benchmarks")
+    if not isinstance(benchmarks, dict) or not benchmarks:
+        return [], ["benchmark policy must define required benchmarks"]
+
+    checks: list[dict[str, Any]] = []
+    violations: list[str] = []
+    expected_schema_version = policy["schema_version"]
+    for benchmark_key, record in records.items():
+        if record.get("schema_version") != expected_schema_version:
+            violations.append(
+                f"benchmark schema version mismatch: {benchmark_key} must use "
+                f"schema_version {expected_schema_version}"
+            )
+    for benchmark_key, benchmark_policy in benchmarks.items():
+        if not isinstance(benchmark_key, str) or not benchmark_key:
+            violations.append("benchmark policy contains an invalid benchmark key")
+            continue
+        record = records.get(benchmark_key)
+        if record is None:
+            violations.append(f"missing required benchmark result: {benchmark_key}")
+            continue
+        if not isinstance(benchmark_policy, dict):
+            violations.append(f"invalid benchmark policy: {benchmark_key}")
+            continue
+        attributes = benchmark_policy.get("attributes", {})
+        if not isinstance(attributes, dict):
+            violations.append(f"invalid benchmark attributes: {benchmark_key}")
+            continue
+        for attribute_path, expected in attributes.items():
+            if not isinstance(attribute_path, str) or isinstance(
+                expected, (dict, list)
+            ):
+                violations.append(f"invalid attribute policy in {benchmark_key}")
+                continue
+            try:
+                value = _metric(record, attribute_path)
+            except KeyError:
+                violations.append(
+                    f"missing required attribute: {benchmark_key}.{attribute_path}"
+                )
+                continue
+            passed = type(value) is type(expected) and value == expected
+            if not passed:
+                violations.append(
+                    f"{benchmark_key}.{attribute_path}={value!r} does not equal "
+                    f"{expected!r}"
+                )
+            checks.append(
+                {
+                    "benchmark": benchmark_key,
+                    "metric": attribute_path,
+                    "value": value,
+                    "expected": expected,
+                    "passed": passed,
+                }
+            )
+        metrics = benchmark_policy.get("metrics")
+        if not isinstance(metrics, dict) or not metrics:
+            violations.append(f"benchmark policy has no metrics: {benchmark_key}")
+            continue
+        for metric_path, bounds in metrics.items():
+            if not isinstance(metric_path, str) or not isinstance(bounds, dict):
+                violations.append(f"invalid metric policy in {benchmark_key}")
+                continue
+            minimum = bounds.get("minimum")
+            maximum = bounds.get("maximum")
+            if minimum is None and maximum is None:
+                violations.append(
+                    f"metric policy has no bound: {benchmark_key}.{metric_path}"
+                )
+                continue
+            if (minimum is not None and not _finite_number(minimum)) or (
+                maximum is not None and not _finite_number(maximum)
+            ):
+                violations.append(
+                    f"metric policy has a non-finite bound: {benchmark_key}.{metric_path}"
+                )
+                continue
+            try:
+                value = _metric(record, metric_path)
+            except KeyError:
+                violations.append(
+                    f"missing required metric: {benchmark_key}.{metric_path}"
+                )
+                continue
+            if not _finite_number(value):
+                violations.append(
+                    f"metric is not a finite number: {benchmark_key}.{metric_path}"
+                )
+                continue
+            passed = True
+            if minimum is not None and value < minimum:
+                passed = False
+                violations.append(
+                    f"{benchmark_key}.{metric_path}={value} is below minimum {minimum}"
+                )
+            if maximum is not None and value > maximum:
+                passed = False
+                violations.append(
+                    f"{benchmark_key}.{metric_path}={value} exceeds maximum {maximum}"
+                )
+            checks.append(
+                {
+                    "benchmark": benchmark_key,
+                    "metric": metric_path,
+                    "value": value,
+                    "minimum": minimum,
+                    "maximum": maximum,
+                    "passed": passed,
+                }
+            )
+    return checks, violations
+
+
+def _write_summary(path: Path, summary: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+
+
+def main() -> int:
+    arguments = _arguments()
+    violations: list[str] = []
+    try:
+        policy_bytes = arguments.policy.read_bytes()
+        policy = json.loads(policy_bytes)
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        policy_bytes = b""
+        policy = None
+        violations.append(f"unable to load benchmark policy: {error}")
+
+    records, record_violations = _read_records(arguments.results)
+    violations.extend(record_violations)
+    checks, policy_violations = _check_policy(policy, records)
+    violations.extend(policy_violations)
+    summary = {
+        "schema_version": 1,
+        "verdict": "fail" if violations else "pass",
+        "policy_sha256": hashlib.sha256(policy_bytes).hexdigest(),
+        "checks": checks,
+        "violations": violations,
+        "results": [records[key] for key in sorted(records)],
+    }
+    _write_summary(arguments.summary, summary)
+    if violations:
+        for violation in violations:
+            print(f"WampApp benchmark gate: {violation}", file=sys.stderr)
+        return 1
+    print(
+        f"WampApp benchmark gate passed: {len(checks)} metrics across "
+        f"{len(records)} results."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
