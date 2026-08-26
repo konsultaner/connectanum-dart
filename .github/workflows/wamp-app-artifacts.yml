@@ -93,8 +93,8 @@ jobs:
         with:
           name: ${{ steps.package.outputs.artifact_name }}
           path: |
-            ${{ steps.package.outputs.archive_path }}
-            ${{ steps.package.outputs.checksum_path }}
-            ${{ steps.package.outputs.manifest_path }}
+            ${{ github.workspace }}/out/wamp-app-artifacts/${{ steps.package.outputs.artifact_name }}.tar.gz
+            ${{ github.workspace }}/out/wamp-app-artifacts/${{ steps.package.outputs.artifact_name }}.tar.gz.sha256
+            ${{ github.workspace }}/out/wamp-app-artifacts/${{ steps.package.outputs.artifact_name }}.manifest.json
           if-no-files-found: error
           retention-days: 14

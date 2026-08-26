@@ -49,10 +49,14 @@ drive-letter boundary: the hooks API parsed `D:/.../ct_ffi.dll` as a `d:` URI,
 and the hook called `toFilePath()` on that non-file URI. The hook now preserves
 Windows drive and UNC paths while retaining URI resolution for relative paths.
 Drive-slash, drive-backslash, UNC, and relative-path regressions, all ten hook
-tests, all nine packaging tests, and `bin/test-fast` pass; corrected hosted
-Windows evidence is pending. The artifact workflow tracks installer inputs so packaging fixes
-trigger evidence automatically. Exact-head publish dry run `32925188472` and CI
-run `32926838466` pass.
+tests, all nine packaging tests, and `bin/verify` pass. Artifact run
+`32930914313` builds all seven bundles, including Windows, but the Windows
+upload action interpreted Git Bash `/d/a/...` outputs as `D:\d\a\...`. Uploads
+now use `${{ github.workspace }}`-anchored paths that are native to every
+runner; corrected hosted upload evidence is pending. The artifact workflow
+tracks installer inputs so packaging fixes trigger evidence automatically.
+Exact-head publish dry run `32930914349` and prior exact-head CI run
+`32928971776` pass.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete

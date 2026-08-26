@@ -409,6 +409,14 @@ esac
                 self.assertIn(f"- '{source}'", workflow)
         self.assertIn("if-no-files-found: error", workflow)
         self.assertIn("actions/upload-artifact@v7", workflow)
+        self.assertNotIn("steps.package.outputs.archive_path", workflow)
+        for suffix in (".tar.gz", ".tar.gz.sha256", ".manifest.json"):
+            with self.subTest(upload_suffix=suffix):
+                self.assertIn(
+                    "${{ github.workspace }}/out/wamp-app-artifacts/"
+                    "${{ steps.package.outputs.artifact_name }}" + suffix,
+                    workflow,
+                )
 
     def test_server_binary_help_does_not_require_the_dart_runner(self) -> None:
         entrypoint = SERVER_ENTRYPOINT.read_text(encoding="utf-8")
