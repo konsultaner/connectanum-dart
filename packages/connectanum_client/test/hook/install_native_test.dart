@@ -140,6 +140,128 @@ void main() {
     );
   });
 
+  test('tar extraction keeps Windows drive paths out of operands', () {
+    final archive = File(
+      'D:/a/connectanum-dart/cache/ct-ffi-x86_64-pc-windows-msvc.tar.gz',
+    );
+    final destination = Directory('D:/a/connectanum-dart/cache/extract');
+
+    final invocations = [
+      native_installer.tarExtractionInvocation(
+        archive: archive,
+        destination: destination,
+      ),
+      build_hook.tarExtractionInvocation(
+        archive: archive,
+        destination: destination,
+      ),
+    ];
+
+    for (final invocation in invocations) {
+      expect(
+        invocation.arguments,
+        equals([
+          '-xzf',
+          'ct-ffi-x86_64-pc-windows-msvc.tar.gz',
+          '-C',
+          'extract',
+        ]),
+      );
+      expect(invocation.arguments.join(' '), isNot(contains('D:')));
+      expect(invocation.workingDirectory, equals(archive.parent.path));
+    }
+  });
+
+  test('tar extraction keeps Unix absolute paths out of operands', () {
+    final archive = File('/tmp/connectanum/cache/ct-ffi.tar.gz');
+    final destination = Directory('/tmp/connectanum/cache/extract/');
+
+    final invocation = native_installer.tarExtractionInvocation(
+      archive: archive,
+      destination: destination,
+    );
+
+    expect(
+      invocation.arguments,
+      equals(['-xzf', 'ct-ffi.tar.gz', '-C', 'extract']),
+    );
+    expect(invocation.workingDirectory, equals('/tmp/connectanum/cache'));
+  });
+
+  test('tar extraction rejects non-sibling destinations', () {
+    final archive = File('/tmp/connectanum/archive/ct-ffi.tar.gz');
+    final destination = Directory('/tmp/connectanum/output/extract');
+
+    for (final invocationBuilder in [
+      native_installer.tarExtractionInvocation,
+      build_hook.tarExtractionInvocation,
+    ]) {
+      expect(
+        () => invocationBuilder(
+          archive: archive,
+          destination: destination,
+        ),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            'Archive and extraction destination must share a parent directory.',
+          ),
+        ),
+      );
+    }
+  });
+
+  test('release installer extracts inside paths containing spaces', () async {
+    final tempDir = await Directory.systemTemp.createTemp(
+      'connectanum native extraction ',
+    );
+    addTearDown(() => tempDir.delete(recursive: true));
+    final releaseAsset = native_installer.ReleaseAssetSpec(
+      repository: 'konsultaner/connectanum-dart',
+      tag: 'v3.0.0-beta.2',
+      hostTriple: build_hook.currentHostTriple(),
+    );
+    final sourceRoot = Directory('${tempDir.path}/source bundle')
+      ..createSync(recursive: true);
+    final bundledLibrary = File(
+      '${sourceRoot.path}/${releaseAsset.bundleName}/'
+      '${_defaultLibraryFileName()}',
+    );
+    bundledLibrary.parent.createSync(recursive: true);
+    bundledLibrary.writeAsStringSync('verified native archive');
+    final sourceArchive = File(
+      '${tempDir.path}/${releaseAsset.archiveName}',
+    );
+    final createResult = Process.runSync('tar', [
+      '-czf',
+      sourceArchive.path,
+      '-C',
+      sourceRoot.path,
+      releaseAsset.bundleName,
+    ]);
+    expect(createResult.exitCode, isZero, reason: '${createResult.stderr}');
+    final sourceChecksum = File('${sourceArchive.path}.sha256')
+      ..writeAsStringSync(
+        '${sha256.convert(sourceArchive.readAsBytesSync())}  '
+        '${releaseAsset.archiveName}',
+      );
+
+    final installed = await native_installer.installHostedNativeLibrary(
+      tag: releaseAsset.tag,
+      installRoot: Directory('${tempDir.path}/installed native'),
+      artifactDownloader: ({required source, required destination}) async {
+        destination.parent.createSync(recursive: true);
+        final sourceFile = source.path.endsWith('.sha256')
+            ? sourceChecksum
+            : sourceArchive;
+        sourceFile.copySync(destination.path);
+      },
+    );
+
+    expect(installed.readAsStringSync(), equals('verified native archive'));
+  });
+
   test('release installer maps every hosted native artifact target', () {
     expect(
       native_installer.hostTripleForPlatform(

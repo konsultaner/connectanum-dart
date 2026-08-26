@@ -19,13 +19,16 @@ operator signing is loaded only from ignored `key.properties`, while CI emits
 an unsigned release AAB and a separately debug-signed tester APK. Local web,
 Android, unsigned iOS, unnotarized macOS, and host-native server packages pass;
 exact-head CI run `32918064687` passes WampApp Consumer, Fast Checks, Full
-Verify, and Dart VM Coverage. Hosted artifact run `32918064688` proves web,
-Android, unsigned iOS, macOS, Linux, and the Linux server bundle, but its first
-Windows attempt failed native asset assembly while the published hook's cache
-suffix measured 101 characters. The client hook and release installer now use
-bounded release-identity cache keys, and Windows packaging prefetches the
-matching published DLL into a short path; focused regressions, `bin/test-fast`,
-and `bin/verify` pass while the corrected hosted matrix rerun remains pending.
+Verify, and Dart VM Coverage. Hosted artifact runs `32918064688` and
+`32920748879` prove web, Android, unsigned iOS, macOS, Linux, and the Linux
+server bundle. The first Windows attempt failed native asset assembly while the
+published hook's cache suffix measured 101 characters. Bounded cache keys and
+explicit DLL prefetch reached verified archive extraction on the second attempt,
+which exposed GNU `tar` parsing the native `D:/...` archive operand as a remote
+host. Hook and installer extraction now run from the cache root with relative
+archive and destination operands; focused regressions pass while the corrected
+hosted matrix rerun remains pending. Exact-head CI run `32920748888` is fully
+green across WampApp Consumer, Fast Checks, Full Verify, and Dart VM Coverage.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete

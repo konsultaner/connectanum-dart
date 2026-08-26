@@ -222,13 +222,41 @@ Future<void> _downloadArtifact({
   }
 }
 
-void _extractArchive({required File archive, required Directory destination}) {
-  final result = Process.runSync('tar', [
-    '-xzf',
-    archive.path,
-    '-C',
-    destination.path,
-  ], runInShell: true);
+({List<String> arguments, String workingDirectory}) tarExtractionInvocation({
+  required File archive,
+  required Directory destination,
+}) {
+  if (archive.parent.absolute.path != destination.parent.absolute.path) {
+    throw ArgumentError(
+      'Archive and extraction destination must share a parent directory.',
+    );
+  }
+
+  final archiveName = archive.uri.pathSegments.lastWhere(
+    (segment) => segment.isNotEmpty,
+  );
+  final destinationName = destination.uri.pathSegments.lastWhere(
+    (segment) => segment.isNotEmpty,
+  );
+  return (
+    arguments: ['-xzf', archiveName, '-C', destinationName],
+    workingDirectory: archive.parent.path,
+  );
+}
+
+void _extractArchive({
+  required File archive,
+  required Directory destination,
+}) {
+  final invocation = tarExtractionInvocation(
+    archive: archive,
+    destination: destination,
+  );
+  final result = Process.runSync(
+    'tar',
+    invocation.arguments,
+    workingDirectory: invocation.workingDirectory,
+  );
   if (result.exitCode != 0) {
     throw StateError(
       'Failed to extract ${archive.path} (exit ${result.exitCode}).\n'
