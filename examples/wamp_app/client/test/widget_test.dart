@@ -83,12 +83,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<FilterChip>(oneTime).selected, isTrue);
 
+    await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
+    await tester.pumpAndSettle();
     final expiry = find.byKey(const Key('message-expiry'));
     await tester.tap(expiry);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete after 1 day'));
     await tester.pumpAndSettle();
     expect(find.text('Delete after 1 day'), findsOneWidget);
+    final directId = controller.directConversationIdFor('bob')!;
+    expect(
+      controller.disappearingMessagesFor(directId),
+      const Duration(days: 1),
+    );
 
     await tester.tap(find.text('Launch crew'));
     await tester.pumpAndSettle();
@@ -96,6 +103,20 @@ void main() {
     expect(find.text('@alice  @bob'), findsOneWidget);
     expect(tester.widget<FilterChip>(oneTime).onSelected, isNull);
     expect(find.byKey(const Key('conversation-create-group')), findsOneWidget);
+    expect(find.text('Keep chat messages'), findsOneWidget);
+
+    await tester.tap(expiry);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete after 7 days'));
+    await tester.pumpAndSettle();
+    expect(
+      controller.disappearingMessagesFor('launch-crew'),
+      const Duration(days: 7),
+    );
+
+    await tester.tap(find.byKey(const Key('conversation-direct')));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete after 1 day'), findsOneWidget);
   });
 
   testWidgets('direct call actions fail closed with a recoverable result', (

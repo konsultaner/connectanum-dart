@@ -113,7 +113,10 @@ void main() {
     expect(accepted.update.call.acceptedDeviceId, bobPhone);
     expect(retry.duplicate, isTrue);
     await expectLater(
-      store.accept(tabletAnswer),
+      store.accept(
+        tabletAnswer,
+        now: startedAt.add(const Duration(seconds: 3)),
+      ),
       throwsA(isA<CallAlreadyAnswered>()),
     );
 
@@ -152,8 +155,20 @@ void main() {
       recipientDeviceId: bobPhone,
       createdAt: startedAt.add(const Duration(seconds: 3)),
     );
-    expect((await store.signal(candidate)).duplicate, isFalse);
-    expect((await store.signal(candidate)).duplicate, isTrue);
+    expect(
+      (await store.signal(
+        candidate,
+        now: startedAt.add(const Duration(seconds: 3)),
+      )).duplicate,
+      isFalse,
+    );
+    expect(
+      (await store.signal(
+        candidate,
+        now: startedAt.add(const Duration(seconds: 3)),
+      )).duplicate,
+      isTrue,
+    );
 
     final siblingCandidate = _signal(
       callSeed: 10,
@@ -165,7 +180,13 @@ void main() {
       recipientDeviceId: aliceDevice,
       createdAt: startedAt.add(const Duration(seconds: 3)),
     );
-    await expectLater(store.signal(siblingCandidate), throwsFormatException);
+    await expectLater(
+      store.signal(
+        siblingCandidate,
+        now: startedAt.add(const Duration(seconds: 3)),
+      ),
+      throwsFormatException,
+    );
 
     final hangup = _signal(
       callSeed: 10,

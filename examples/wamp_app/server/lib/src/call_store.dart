@@ -183,39 +183,40 @@ final class CallStore {
     return CallAppendResult(update: update, duplicate: false);
   });
 
-  Future<CallAppendResult> signal(EncryptedCallSignal signal) =>
-      _serializeWrite(() async {
-        signal.validate();
-        if (signal.kind != CallSignalKind.iceCandidate) {
-          throw const FormatException('Only ICE candidates use call.signal.');
-        }
-        final document = await _readDocument();
-        final expired = _expire(document, DateTime.now().toUtc());
-        final duplicate = _findSignal(document, signal);
-        if (duplicate != null) {
-          if (expired) await _writeDocument(document);
-          return CallAppendResult(update: duplicate, duplicate: true);
-        }
-        final call = document.calls[signal.callId];
-        if (call == null) throw CallNotFound(signal.callId);
-        if (call.isTerminal) throw CallAlreadyEnded(signal.callId);
-        if (call.state != CallState.active ||
-            !_matchesSelectedParticipants(call, signal)) {
-          throw const FormatException(
-            'ICE candidate participants are invalid.',
-          );
-        }
-        final signalCount = document.events
-            .where((update) => update.call.callId == call.callId)
-            .fold<int>(0, (count, update) => count + update.signals.length);
-        if (signalCount >= WampAppCallLimits.maximumSignalsPerCall ||
-            document.events.length >= maximumEvents) {
-          throw const CallLimitExceeded();
-        }
-        final update = _append(document, call, [signal]);
-        await _writeDocument(document);
-        return CallAppendResult(update: update, duplicate: false);
-      });
+  Future<CallAppendResult> signal(
+    EncryptedCallSignal signal, {
+    DateTime? now,
+  }) => _serializeWrite(() async {
+    signal.validate();
+    if (signal.kind != CallSignalKind.iceCandidate) {
+      throw const FormatException('Only ICE candidates use call.signal.');
+    }
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    final document = await _readDocument();
+    final expired = _expire(document, timestamp);
+    final duplicate = _findSignal(document, signal);
+    if (duplicate != null) {
+      if (expired) await _writeDocument(document);
+      return CallAppendResult(update: duplicate, duplicate: true);
+    }
+    final call = document.calls[signal.callId];
+    if (call == null) throw CallNotFound(signal.callId);
+    if (call.isTerminal) throw CallAlreadyEnded(signal.callId);
+    if (call.state != CallState.active ||
+        !_matchesSelectedParticipants(call, signal)) {
+      throw const FormatException('ICE candidate participants are invalid.');
+    }
+    final signalCount = document.events
+        .where((update) => update.call.callId == call.callId)
+        .fold<int>(0, (count, update) => count + update.signals.length);
+    if (signalCount >= WampAppCallLimits.maximumSignalsPerCall ||
+        document.events.length >= maximumEvents) {
+      throw const CallLimitExceeded();
+    }
+    final update = _append(document, call, [signal]);
+    await _writeDocument(document);
+    return CallAppendResult(update: update, duplicate: false);
+  });
 
   Future<CallAppendResult> end(EncryptedCallSignal signal, {DateTime? now}) =>
       _serializeWrite(() async {

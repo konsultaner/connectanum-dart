@@ -47,7 +47,6 @@ class _HomePageState extends State<HomePage> {
   final _messageController = TextEditingController();
   final _searchController = TextEditingController();
   bool _oneTime = false;
-  Duration? _expiresAfter;
   String? _selectedGroupId;
   String _searchQuery = '';
   LocalMessageReadFilter _readFilter = LocalMessageReadFilter.all;
@@ -82,6 +81,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _send() async {
     final text = _messageController.text;
     final groupId = _selectedGroupId;
+    final conversationId =
+        groupId ??
+        widget.controller.directConversationIdFor(_recipientController.text);
+    final expiresAfter = conversationId == null
+        ? null
+        : widget.controller.disappearingMessagesFor(conversationId);
     final attachmentSources = _attachments
         .map((attachment) => attachment.source)
         .toList(growable: false);
@@ -90,13 +95,13 @@ class _HomePageState extends State<HomePage> {
             recipientUsername: _recipientController.text,
             text: text,
             oneTime: _oneTime,
-            expiresAfter: _expiresAfter,
+            expiresAfter: expiresAfter,
             attachmentSources: attachmentSources,
           )
         : await widget.controller.sendGroupMessage(
             groupId: groupId,
             text: text,
-            expiresAfter: _expiresAfter,
+            expiresAfter: expiresAfter,
             attachmentSources: attachmentSources,
           );
     if (mounted && queued) {
@@ -687,6 +692,25 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _setConversationDisappearingMessages(
+    String conversationId,
+    Duration? duration,
+  ) async {
+    final saved = await widget.controller.setConversationDisappearingMessages(
+      conversationId,
+      duration,
+    );
+    if (!mounted) return;
+    _showMessage(
+      saved
+          ? duration == null
+                ? 'Disappearing messages disabled for this chat.'
+                : 'New messages in this chat will ${_ConversationPanel._expiryLabel(duration).toLowerCase()}.'
+          : widget.controller.preferenceError ??
+                'Could not save the chat preference.',
+    );
+  }
+
   Future<void> _exportBackup() async {
     final recoveryPassphrase = await showBackupPassphraseDialog(
       context,
@@ -837,7 +861,19 @@ class _HomePageState extends State<HomePage> {
                     onStartVoiceCall: () => _startCall(CallMediaKind.voice),
                     onStartVideoCall: () => _startCall(CallMediaKind.video),
                     oneTime: _oneTime,
-                    expiresAfter: _expiresAfter,
+                    expiresAfter: _selectedGroupId == null
+                        ? switch (widget.controller.directConversationIdFor(
+                            _recipientController.text,
+                          )) {
+                            final conversationId? =>
+                              widget.controller.disappearingMessagesFor(
+                                conversationId,
+                              ),
+                            null => null,
+                          }
+                        : widget.controller.disappearingMessagesFor(
+                            _selectedGroupId!,
+                          ),
                     selectedGroupId: _selectedGroupId,
                     onRecipientChanged: () => setState(() {}),
                     onConversationChanged: (value) => setState(() {
@@ -848,8 +884,7 @@ class _HomePageState extends State<HomePage> {
                     onMuteChanged: _setConversationMuted,
                     onOneTimeChanged: (value) =>
                         setState(() => _oneTime = value),
-                    onExpiresAfterChanged: (value) =>
-                        setState(() => _expiresAfter = value),
+                    onExpiresAfterChanged: _setConversationDisappearingMessages,
                     onOpenMessage: _openMessage,
                     selectedAttachments: _attachments,
                     onPickAttachments: _pickAttachments,
@@ -1532,7 +1567,8 @@ class _ConversationPanel extends StatelessWidget {
   final Future<void> Function() onCreateGroup;
   final Future<void> Function(String conversationId, bool muted) onMuteChanged;
   final ValueChanged<bool> onOneTimeChanged;
-  final ValueChanged<Duration?> onExpiresAfterChanged;
+  final Future<void> Function(String conversationId, Duration? duration)
+  onExpiresAfterChanged;
   final Future<void> Function(LocalChatMessage message) onOpenMessage;
   final List<_SelectedAttachment> selectedAttachments;
   final Future<void> Function() onPickAttachments;
@@ -1902,15 +1938,21 @@ class _ConversationPanel extends StatelessWidget {
                   const SizedBox(width: 12),
                   PopupMenuButton<Duration>(
                     key: const Key('message-expiry'),
-                    enabled: !controller.messageBusy,
+                    enabled:
+                        activeConversationId != null &&
+                        !controller.messageBusy &&
+                        !controller.preferenceBusy,
                     initialValue: expiresAfter ?? Duration.zero,
-                    onSelected: (value) => onExpiresAfterChanged(
-                      value == Duration.zero ? null : value,
-                    ),
+                    onSelected: activeConversationId == null
+                        ? null
+                        : (value) => onExpiresAfterChanged(
+                            activeConversationId,
+                            value == Duration.zero ? null : value,
+                          ),
                     itemBuilder: (context) => const [
                       PopupMenuItem(
                         value: Duration.zero,
-                        child: Text('Keep messages'),
+                        child: Text('Keep chat messages'),
                       ),
                       PopupMenuItem(
                         value: Duration(hours: 1),
@@ -2076,7 +2118,10 @@ class _ConversationPanel extends StatelessWidget {
                 IconButton.filled(
                   key: const Key('message-send'),
                   tooltip: 'Send encrypted message',
-                  onPressed: controller.messageBusy || voiceRecording
+                  onPressed:
+                      controller.messageBusy ||
+                          controller.preferenceBusy ||
+                          voiceRecording
                       ? null
                       : onSend,
                   icon: controller.messageBusy
@@ -2095,7 +2140,7 @@ class _ConversationPanel extends StatelessWidget {
   }
 
   static String _expiryLabel(Duration? value) => switch (value) {
-    null => 'Keep messages',
+    null => 'Keep chat messages',
     const Duration(hours: 1) => 'Delete after 1 hour',
     const Duration(days: 1) => 'Delete after 1 day',
     const Duration(days: 7) => 'Delete after 7 days',

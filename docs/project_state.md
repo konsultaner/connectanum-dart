@@ -89,10 +89,23 @@ tests, then the single multi-file `flutter test --platform chrome` process
 stopped producing output until the 20-minute job timeout. The push event had
 passed the byte-identical tree, so the browser gate now runs every selected
 Chrome test file in a fresh process with a 120-second external timeout and one
-timeout-only retry. A clean local `bin/test-wamp-app` run passes all 53 shared,
-142 server, 176 native Flutter, and 66 Chrome tests plus Dart2Wasm and release
-web with this isolation; exact-head hosted rerun and protected-branch promotion
-remain pending.
+timeout-only retry. Exact-head push CI run `32952004741` and PR CI run
+`32952009169` pass WampApp Consumer, Fast Checks, Full Verify, and Dart VM
+Coverage; package dry run `32952008963` and the strict exact-head deployment
+audit also pass. Protected-branch promotion remains review-gated by PR #80.
+Persistent direct and group disappearing-message preferences are now stored in
+the account-bound encrypted vault and applied to every new encrypted envelope.
+The client schedules the nearest expiry without a network wakeup, immediately
+hides expired plaintext, transactionally removes expired history and outbox
+state, retries encrypted-vault write failures without exposing content, and
+fences timers across replacement login, sign-out, and disposal. Sends fail
+closed while a policy write is pending. This work also fixed a deterministic
+calling test and service boundary: the authenticated ICE-signaling timestamp is
+now propagated into durable call-store expiry checks instead of switching to
+wall time. `bin/test-wamp-app` passes with 53 shared, 142 server, 182 native
+Flutter, and 66 isolated Chrome tests plus Dart2Wasm and release web; an
+additional 48-test Chrome controller run and repository-wide `bin/verify` pass.
+Exact-head hosted evidence is pending for this revision.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete

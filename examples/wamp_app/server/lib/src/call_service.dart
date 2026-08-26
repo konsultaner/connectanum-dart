@@ -68,7 +68,7 @@ final class CallService {
     DateTime? now,
   }) async {
     await _verifyAuthenticatedSignal(callerUsername, signal, now: now);
-    return store.signal(signal);
+    return store.signal(signal, now: now);
   }
 
   Future<CallAppendResult> end(

@@ -21,8 +21,10 @@ The implemented slices provide:
 - a permission-restricted opaque mailbox with idempotent message IDs,
   monotonic reconnect cursors, expiry filtering, and durable delivery receipts;
 - encrypted local message history and cursor persistence across reconnects;
-- direct and immutable group conversations with read, expiry, one-time, and
-  bounded durable retry/conflict recovery;
+- direct and immutable group conversations with read, one-time, and bounded
+  durable retry/conflict recovery;
+- persistent per-chat disappearing-message policies for new encrypted
+  envelopes, with proactive local-history and encrypted-vault pruning;
 - encrypted file, image, and GIF attachments carried as bounded binary WAMP
   chunks on the existing authenticated session;
 - upload-before-message publication, idempotent chunk retry, server-reported

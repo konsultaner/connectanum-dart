@@ -64,6 +64,7 @@ class WampAppController extends ChangeNotifier {
   CallController? _calls;
   Object? _error;
   Object? _messageError;
+  Object? _messageExpiryError;
   Object? _profileError;
   Object? _contactError;
   Object? _mcpConsentError;
@@ -71,6 +72,7 @@ class WampAppController extends ChangeNotifier {
   Object? _platformPushError;
   Object? _backupError;
   List<LocalChatMessage> _messages = const [];
+  Timer? _messageExpiryTimer;
   List<LocalContactAlias> _contacts = const [];
   bool _messageBusy = false;
   bool _profileBusy = false;
@@ -187,6 +189,30 @@ class WampAppController extends ChangeNotifier {
     try {
       return _savePreferences(
         _preferences.withConversationMuted(conversationId, muted),
+      );
+    } on FormatException catch (error) {
+      _preferenceError = error;
+      if (!_disposed) notifyListeners();
+      return Future<bool>.value(false);
+    }
+  }
+
+  Duration? disappearingMessagesFor(String conversationId) =>
+      _preferences.disappearingMessagesFor(conversationId);
+
+  Future<bool> setConversationDisappearingMessages(
+    String conversationId,
+    Duration? duration,
+  ) {
+    if (_preferences.disappearingMessagesFor(conversationId) == duration) {
+      return Future<bool>.value(true);
+    }
+    try {
+      return _savePreferences(
+        _preferences.withConversationDisappearingMessages(
+          conversationId,
+          duration,
+        ),
       );
     } on FormatException catch (error) {
       _preferenceError = error;
@@ -439,6 +465,8 @@ class WampAppController extends ChangeNotifier {
   Future<void> signOut() async {
     if (_backupBusy) return;
     _operationGeneration += 1;
+    _messageExpiryTimer?.cancel();
+    _messageExpiryTimer = null;
     final connection = _connection;
     final trustSession = _trustSession;
     final wakeupSubscription = _mailboxWakeupSubscription;
@@ -452,6 +480,7 @@ class WampAppController extends ChangeNotifier {
     _automaticSyncRunning = false;
     _error = null;
     _messageError = null;
+    _messageExpiryError = null;
     _profileError = null;
     _contactError = null;
     _mcpConsentError = null;
@@ -827,8 +856,9 @@ class WampAppController extends ChangeNotifier {
     _mailboxWakeupSubscription = nextWakeupSubscription;
     _pendingMailboxWakeupCursor = nextPendingWakeupCursor;
     _automaticSyncRunning = false;
-    _messages = List<LocalChatMessage>.unmodifiable(nextMessages);
+    _replaceMessages(nextMessages);
     _messageError = nextWakeupError;
+    _messageExpiryError = null;
     _mcpConsentError = null;
     _contactError = null;
     _preferenceError = null;
@@ -869,6 +899,7 @@ class WampAppController extends ChangeNotifier {
     final localDevice = _localDevice;
     if (_disposed ||
         _messageBusy ||
+        _preferenceBusy ||
         connection == null ||
         trust == null ||
         localDevice == null) {
@@ -887,7 +918,14 @@ class WampAppController extends ChangeNotifier {
     _messageError = null;
     notifyListeners();
     try {
-      if (expiresAfter != null && expiresAfter <= Duration.zero) {
+      final conversationId = directConversationIdFor(recipientUsername);
+      final effectiveExpiresAfter =
+          expiresAfter ??
+          (conversationId == null
+              ? null
+              : _preferences.disappearingMessagesFor(conversationId));
+      if (effectiveExpiresAfter != null &&
+          effectiveExpiresAfter <= Duration.zero) {
         throw const FormatException('Message expiry must be positive.');
       }
       if (oneTime && attachmentSources.isNotEmpty) {
@@ -942,7 +980,9 @@ class WampAppController extends ChangeNotifier {
         trust: trust,
         participantDevices: participants.values.toList(growable: false),
         now: now,
-        expiresAt: expiresAfter == null ? null : now.add(expiresAfter),
+        expiresAt: effectiveExpiresAfter == null
+            ? null
+            : now.add(effectiveExpiresAfter),
         oneTime: oneTime,
         messageId: messageId,
         attachments: attachments,
@@ -966,7 +1006,7 @@ class WampAppController extends ChangeNotifier {
       await _appendOutboxMessage(trust, pending);
       enqueued = true;
       if (!isCurrent()) return true;
-      _messages = List<LocalChatMessage>.unmodifiable(_visibleMessages(trust));
+      _replaceMessages(_visibleMessages(trust));
       notifyListeners();
 
       final accepted = await _attemptOutboxMessage(
@@ -979,12 +1019,10 @@ class WampAppController extends ChangeNotifier {
       if (accepted) {
         final updated = await _synchronize(connection, trust, localDevice);
         if (!isCurrent()) return true;
-        _messages = List<LocalChatMessage>.unmodifiable(updated);
+        _replaceMessages(updated);
         synchronized = true;
       } else {
-        _messages = List<LocalChatMessage>.unmodifiable(
-          _visibleMessages(trust),
-        );
+        _replaceMessages(_visibleMessages(trust));
       }
       return true;
     } catch (error) {
@@ -1103,6 +1141,7 @@ class WampAppController extends ChangeNotifier {
         .firstOrNull;
     if (_disposed ||
         _messageBusy ||
+        _preferenceBusy ||
         connection == null ||
         trust == null ||
         localDevice == null ||
@@ -1122,7 +1161,10 @@ class WampAppController extends ChangeNotifier {
     _messageError = null;
     notifyListeners();
     try {
-      if (expiresAfter != null && expiresAfter <= Duration.zero) {
+      final effectiveExpiresAfter =
+          expiresAfter ?? _preferences.disappearingMessagesFor(groupId);
+      if (effectiveExpiresAfter != null &&
+          effectiveExpiresAfter <= Duration.zero) {
         throw const FormatException('Message expiry must be positive.');
       }
       final participants = <String, DeviceRecord>{};
@@ -1173,7 +1215,9 @@ class WampAppController extends ChangeNotifier {
         trust: trust,
         participantDevices: participants.values.toList(growable: false),
         now: now,
-        expiresAt: expiresAfter == null ? null : now.add(expiresAfter),
+        expiresAt: effectiveExpiresAfter == null
+            ? null
+            : now.add(effectiveExpiresAfter),
         messageId: messageId,
         attachments: attachments,
       );
@@ -1199,7 +1243,7 @@ class WampAppController extends ChangeNotifier {
       await _appendOutboxMessage(trust, pending);
       enqueued = true;
       if (!isCurrent()) return true;
-      _messages = List<LocalChatMessage>.unmodifiable(_visibleMessages(trust));
+      _replaceMessages(_visibleMessages(trust));
       notifyListeners();
 
       final accepted = await _attemptOutboxMessage(
@@ -1212,12 +1256,10 @@ class WampAppController extends ChangeNotifier {
       if (accepted) {
         final updated = await _synchronize(connection, trust, localDevice);
         if (!isCurrent()) return true;
-        _messages = List<LocalChatMessage>.unmodifiable(updated);
+        _replaceMessages(updated);
         synchronized = true;
       } else {
-        _messages = List<LocalChatMessage>.unmodifiable(
-          _visibleMessages(trust),
-        );
+        _replaceMessages(_visibleMessages(trust));
       }
       return true;
     } catch (error) {
@@ -1282,12 +1324,10 @@ class WampAppController extends ChangeNotifier {
       if (accepted) {
         final updated = await _synchronize(connection, trust, localDevice);
         if (!isCurrent()) return true;
-        _messages = List<LocalChatMessage>.unmodifiable(updated);
+        _replaceMessages(updated);
         synchronized = true;
       } else {
-        _messages = List<LocalChatMessage>.unmodifiable(
-          _visibleMessages(trust),
-        );
+        _replaceMessages(_visibleMessages(trust));
       }
       return true;
     } catch (error) {
@@ -1397,7 +1437,7 @@ class WampAppController extends ChangeNotifier {
         );
       }
       if (!isCurrent()) return true;
-      _messages = List<LocalChatMessage>.unmodifiable(_visibleMessages(trust));
+      _replaceMessages(_visibleMessages(trust));
       return true;
     } catch (error) {
       if (isCurrent()) _messageError = error;
@@ -1443,7 +1483,7 @@ class WampAppController extends ChangeNotifier {
           trust != _trustSession) {
         return;
       }
-      _messages = List<LocalChatMessage>.unmodifiable(updated);
+      _replaceMessages(updated);
       synchronized = true;
     } catch (error) {
       if (!_disposed &&
@@ -1499,7 +1539,7 @@ class WampAppController extends ChangeNotifier {
           trust != _trustSession) {
         return null;
       }
-      _messages = List<LocalChatMessage>.unmodifiable(updated);
+      _replaceMessages(updated);
       synchronized = true;
       return message.text;
     } catch (error) {
@@ -1546,7 +1586,7 @@ class WampAppController extends ChangeNotifier {
           trust != _trustSession) {
         return;
       }
-      _messages = List<LocalChatMessage>.unmodifiable(updated);
+      _replaceMessages(updated);
       synchronized = true;
     } catch (error) {
       if (!_disposed && generation == _operationGeneration) {
@@ -1624,7 +1664,7 @@ class WampAppController extends ChangeNotifier {
             !identical(trust, _trustSession)) {
           return;
         }
-        _messages = List<LocalChatMessage>.unmodifiable(updated);
+        _replaceMessages(updated);
         if (trust.mailboxCursor < targetCursor) {
           throw const FormatException(
             'Mailbox synchronization did not reach its wakeup cursor.',
@@ -1831,6 +1871,113 @@ class WampAppController extends ChangeNotifier {
     return OutboundMessageState.retryable;
   }
 
+  void _replaceMessages(Iterable<LocalChatMessage> messages) {
+    _messages = List<LocalChatMessage>.unmodifiable(messages);
+    _scheduleMessageExpiry();
+  }
+
+  void _scheduleMessageExpiry() {
+    _messageExpiryTimer?.cancel();
+    _messageExpiryTimer = null;
+    if (_disposed || _trustSession == null) return;
+    DateTime? nextExpiry;
+    for (final message in _messages) {
+      final expiresAt = message.expiresAt;
+      if (expiresAt != null &&
+          (nextExpiry == null || expiresAt.isBefore(nextExpiry))) {
+        nextExpiry = expiresAt;
+      }
+    }
+    if (nextExpiry == null) return;
+    final now = DateTime.now().toUtc();
+    final remaining = nextExpiry.difference(now);
+    final delay = remaining.isNegative || remaining == Duration.zero
+        ? Duration.zero
+        : remaining + const Duration(milliseconds: 1);
+    _messageExpiryTimer = Timer(
+      delay,
+      () => unawaited(_pruneExpiredMessages()),
+    );
+  }
+
+  void _retryMessageExpiryPrune([
+    Duration delay = const Duration(milliseconds: 100),
+  ]) {
+    _messageExpiryTimer?.cancel();
+    if (_disposed || _trustSession == null) {
+      _messageExpiryTimer = null;
+      return;
+    }
+    _messageExpiryTimer = Timer(
+      delay,
+      () => unawaited(_pruneExpiredMessages()),
+    );
+  }
+
+  Future<void> _pruneExpiredMessages() async {
+    _messageExpiryTimer = null;
+    final connection = _connection;
+    final trust = _trustSession;
+    if (_disposed || connection == null || trust == null) return;
+    if (_messageBusy) {
+      _retryMessageExpiryPrune();
+      return;
+    }
+
+    final now = DateTime.now().toUtc();
+    final retainedMessages = trust.messages
+        .where((message) => !message.isExpiredAt(now))
+        .toList(growable: false);
+    final retainedOutbox = trust.outbox
+        .where((message) => !message.localMessage.isExpiredAt(now))
+        .toList(growable: false);
+    if (retainedMessages.length == trust.messages.length &&
+        retainedOutbox.length == trust.outbox.length) {
+      _clearMessageExpiryError();
+      _replaceMessages(_visibleMessages(trust));
+      return;
+    }
+
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    _messageBusy = true;
+    _replaceMessages(_visibleMessages(trust));
+    notifyListeners();
+    try {
+      await trust.saveMailboxState(
+        cursor: trust.mailboxCursor,
+        messages: retainedMessages,
+        outbox: retainedOutbox,
+      );
+      if (!isCurrent()) return;
+      _clearMessageExpiryError();
+      _replaceMessages(_visibleMessages(trust));
+    } catch (error) {
+      if (isCurrent()) {
+        _messageError = error;
+        _messageExpiryError = error;
+        _retryMessageExpiryPrune(const Duration(seconds: 1));
+      }
+    } finally {
+      if (isCurrent()) {
+        _messageBusy = false;
+        notifyListeners();
+        _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  void _clearMessageExpiryError() {
+    if (identical(_messageError, _messageExpiryError)) {
+      _messageError = null;
+    }
+    _messageExpiryError = null;
+  }
+
   List<LocalChatMessage> _visibleMessages(DeviceTrustSession trust) {
     final now = DateTime.now().toUtc();
     final byId = <String, LocalChatMessage>{
@@ -1984,6 +2131,8 @@ class WampAppController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _operationGeneration += 1;
+    _messageExpiryTimer?.cancel();
+    _messageExpiryTimer = null;
     final connection = _connection;
     final trustSession = _trustSession;
     final wakeupSubscription = _mailboxWakeupSubscription;

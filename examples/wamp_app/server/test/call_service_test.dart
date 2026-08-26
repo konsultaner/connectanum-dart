@@ -68,13 +68,27 @@ void main() {
     );
     expect(accepted.update.call.acceptedDeviceId, bobPhone.deviceId);
 
+    final candidate = alice.signal(
+      recipient: bobPhone,
+      callSeed: 10,
+      signalSeed: 31,
+      kind: CallSignalKind.iceCandidate,
+      createdAt: now.add(const Duration(seconds: 3)),
+    );
+    final signaled = await service.signal(
+      'alice',
+      candidate,
+      now: now.add(const Duration(seconds: 3)),
+    );
+    expect(signaled.update.signals.single.signalId, candidate.signalId);
+
     final replay = await service.sync(
       'bob',
       bobPhone.deviceId,
       afterCursor: 0,
-      now: now.add(const Duration(seconds: 2)),
+      now: now.add(const Duration(seconds: 3)),
     );
-    expect(replay.updates, hasLength(2));
+    expect(replay.updates, hasLength(3));
   });
 
   test('rejects partial offer coverage and account spoofing', () async {

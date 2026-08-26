@@ -105,6 +105,8 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   Object? savePreferencesFailure;
   Completer<void>? savePreferencesGate;
   int savePreferencesCalls = 0;
+  Object? saveMailboxStateFailure;
+  int saveMailboxStateCalls = 0;
   Object? exportBackupFailure;
   int exportBackupCalls = 0;
   final EncryptedCallSignal Function({
@@ -248,6 +250,9 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     List<LocalChatGroup>? groups,
     List<OutboundChatMessage>? outbox,
   }) async {
+    saveMailboxStateCalls += 1;
+    final failure = saveMailboxStateFailure;
+    if (failure != null) throw failure;
     _mailboxCursor = cursor;
     _messages
       ..clear()

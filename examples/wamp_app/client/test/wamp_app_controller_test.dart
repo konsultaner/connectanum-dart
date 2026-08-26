@@ -393,12 +393,24 @@ void main() {
         isTrue,
       );
       expect(await controller.setConversationMuted(directId, true), isTrue);
+      expect(
+        await controller.setConversationDisappearingMessages(
+          directId,
+          const Duration(days: 1),
+        ),
+        isTrue,
+      );
       expect(controller.themePreference, WampAppThemePreference.dark);
       expect(controller.isConversationMuted(directId), isTrue);
+      expect(
+        controller.disappearingMessagesFor(directId),
+        const Duration(days: 1),
+      );
 
       await controller.signOut();
       expect(controller.themePreference, WampAppThemePreference.system);
       expect(controller.isConversationMuted(directId), isFalse);
+      expect(controller.disappearingMessagesFor(directId), isNull);
 
       await controller.login(
         serverAddress: 'ws://localhost:8080',
@@ -407,6 +419,10 @@ void main() {
       );
       expect(controller.themePreference, WampAppThemePreference.dark);
       expect(controller.isConversationMuted(directId), isTrue);
+      expect(
+        controller.disappearingMessagesFor(directId),
+        const Duration(days: 1),
+      );
     },
   );
 
@@ -432,6 +448,15 @@ void main() {
     );
     expect(controller.themePreference, WampAppThemePreference.system);
     expect(controller.preferenceError, contains('Could not save'));
+    final directId = controller.directConversationIdFor('bob')!;
+    expect(
+      await controller.setConversationDisappearingMessages(
+        directId,
+        const Duration(hours: 1),
+      ),
+      isFalse,
+    );
+    expect(controller.disappearingMessagesFor(directId), isNull);
 
     session.savePreferencesFailure = null;
     final gate = session.savePreferencesGate = Completer<void>();
@@ -443,6 +468,39 @@ void main() {
     gate.complete();
     expect(await first, isTrue);
     expect(controller.themePreference, WampAppThemePreference.dark);
+
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', session.enrollment),
+    ];
+    final expiryGate = session.savePreferencesGate = Completer<void>();
+    final expirySave = controller.setConversationDisappearingMessages(
+      directId,
+      const Duration(hours: 1),
+    );
+    await _waitFor(() => controller.preferenceBusy);
+    expect(
+      await controller.sendMessage(
+        recipientUsername: 'bob',
+        text: 'must wait for the chat policy',
+      ),
+      isFalse,
+    );
+    expect(gateway.sentMessages, isEmpty);
+    expiryGate.complete();
+    expect(await expirySave, isTrue);
+    expect(
+      await controller.sendMessage(
+        recipientUsername: 'bob',
+        text: 'uses the committed chat policy',
+      ),
+      isTrue,
+    );
+    expect(
+      gateway.sentMessages.single.expiresAt!.difference(
+        gateway.sentMessages.single.createdAt,
+      ),
+      const Duration(hours: 1),
+    );
   });
 
   test(
@@ -1075,6 +1133,134 @@ void main() {
     expect(controller.messageError, isNull);
   });
 
+  test(
+    'direct chat policy applies expiry to each new encrypted envelope',
+    () async {
+      final gateway = _RecordingGateway();
+      final trustStore = FakeDeviceTrustStore();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      gateway.deviceDirectories['bob'] = [
+        activeDeviceRecord('bob', trustStore.session!.enrollment),
+      ];
+      final conversationId = controller.directConversationIdFor('bob')!;
+      expect(
+        await controller.setConversationDisappearingMessages(
+          conversationId,
+          const Duration(hours: 1),
+        ),
+        isTrue,
+      );
+
+      expect(
+        await controller.sendMessage(
+          recipientUsername: 'bob',
+          text: 'expires with the chat',
+        ),
+        isTrue,
+      );
+
+      final envelope = gateway.sentMessages.single;
+      expect(
+        envelope.expiresAt!.difference(envelope.createdAt),
+        const Duration(hours: 1),
+      );
+    },
+  );
+
+  test(
+    'expiry removes open-chat and encrypted-vault state without a wakeup',
+    () async {
+      final gateway = _OutboxGateway();
+      final trustStore = FakeDeviceTrustStore();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      gateway.deviceDirectories['bob'] = [
+        activeDeviceRecord('bob', trustStore.session!.enrollment),
+      ];
+
+      expect(
+        await controller.sendMessage(
+          recipientUsername: 'bob',
+          text: 'short-lived local content',
+          expiresAfter: const Duration(milliseconds: 500),
+        ),
+        isTrue,
+      );
+      expect(controller.messages, hasLength(1));
+      expect(trustStore.session!.messages, hasLength(1));
+
+      await _waitFor(
+        () =>
+            controller.messages.isEmpty && trustStore.session!.messages.isEmpty,
+      );
+      expect(controller.messageError, isNull);
+    },
+  );
+
+  test('expiry persistence failure hides content and retries closed', () async {
+    final gateway = _OutboxGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', trustStore.session!.enrollment),
+    ];
+
+    expect(
+      await controller.sendMessage(
+        recipientUsername: 'bob',
+        text: 'retry expiry persistence',
+        expiresAfter: const Duration(milliseconds: 500),
+      ),
+      isTrue,
+    );
+    final session = trustStore.session!;
+    final baselineSaveCalls = session.saveMailboxStateCalls;
+    session.saveMailboxStateFailure = StateError('vault unavailable');
+
+    await _waitFor(
+      () =>
+          controller.messages.isEmpty &&
+          session.saveMailboxStateCalls > baselineSaveCalls &&
+          controller.messageError != null,
+    );
+    expect(session.messages, hasLength(1));
+    expect(controller.messageError, isNotNull);
+    expect('${controller.messageError}', isNot(contains('vault unavailable')));
+
+    session.saveMailboxStateFailure = null;
+    await _waitFor(
+      () => session.messages.isEmpty && controller.messageError == null,
+    );
+    expect(controller.messages, isEmpty);
+    expect(controller.messageError, isNull);
+  });
+
   test('lost reply retries one exact envelope and reconciles once', () async {
     final gateway = _OutboxGateway()..acceptThenTimeout = true;
     final trustStore = FakeDeviceTrustStore();
@@ -1557,6 +1743,13 @@ void main() {
     expect(group!.title, 'Launch crew');
     expect(group.memberUsernames, ['alice', 'bob', 'carol']);
     expect(controller.groups.single.hasSameDefinition(group), isTrue);
+    expect(
+      await controller.setConversationDisappearingMessages(
+        group.conversationId,
+        const Duration(days: 7),
+      ),
+      isTrue,
+    );
 
     await controller.sendGroupMessage(
       groupId: group.conversationId,
@@ -1571,6 +1764,12 @@ void main() {
       'carol',
     ]);
     expect(gateway.sentMessages.single.wrappedKeys, hasLength(3));
+    expect(
+      gateway.sentMessages.single.expiresAt!.difference(
+        gateway.sentMessages.single.createdAt,
+      ),
+      const Duration(days: 7),
+    );
     expect(controller.messageError, isNull);
   });
 
