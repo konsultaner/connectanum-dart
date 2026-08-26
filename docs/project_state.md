@@ -33,12 +33,20 @@ assets materialize. Inspection found that the configured-DLL hook branch did
 not create its output parent, unlike the hosted-download and Cargo branches. A
 fail-first missing-parent regression now passes with a directory-safe copy
 helper. Artifact rerun `32925188467` passed web, Android, unsigned iOS, macOS,
-Linux, and the Linux server bundle, while Windows still reports only Flutter's
-generic native-assets failure. Windows packaging now enables verbose Flutter
-output, with a focused command-contract regression, so the next hosted run can
-expose the underlying hook error. The artifact workflow tracks installer inputs
-so packaging fixes trigger evidence automatically. Exact-head publish dry run
-`32925188472` and CI run `32925188510` pass.
+Linux, and the Linux server bundle. Verbose artifact rerun `32926838463` proved
+that Windows was still executing the published `connectanum_client
+3.0.0-beta.2` hook rather than the corrected checkout hook; Flutter passed
+empty hook user-defines and its semi-hermetic hook environment did not preserve
+the packager's DLL environment override, so the published hook repeated the old
+drive-letter GNU `tar` failure. Windows packaging now builds an ignored,
+disposable WampApp copy with checkout overrides for `connectanum_client` and
+`connectanum_core` plus a root hook user-define for the prefetched DLL. The
+checked-in exact-hosted-dependency example remains unchanged and the temporary
+copy is removed after packaging. A fail-first staging regression, all nine
+packaging tests, and `bin/test-fast` pass; corrected hosted Windows evidence is
+pending. The artifact workflow tracks installer inputs so packaging fixes
+trigger evidence automatically. Exact-head publish dry run `32925188472` and CI
+run `32926838466` pass.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete

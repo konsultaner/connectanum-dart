@@ -21,6 +21,20 @@ EOF
 target=""
 describe_only=false
 out_dir="$(repo_root)/out/wamp-app-artifacts"
+cleanup_paths=()
+windows_native_lib=""
+
+cleanup() {
+  local path
+  if (( ${#cleanup_paths[@]} == 0 )); then
+    return
+  fi
+  for path in "${cleanup_paths[@]}"; do
+    rm -rf "$path"
+  done
+}
+
+trap cleanup EXIT
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -146,6 +160,20 @@ describe_target() {
 EOF
 }
 
+dart_path() {
+  local path="$1"
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -m "$path"
+  else
+    printf '%s\n' "$path"
+  fi
+}
+
+yaml_single_quote() {
+  local value="$1"
+  printf "'%s'" "$(printf '%s' "$value" | sed "s/'/''/g")"
+}
+
 prepare_windows_native_release() {
   local client_version
   local install_root
@@ -181,7 +209,50 @@ prepare_windows_native_release() {
       "${native_lib:-none}" >&2
     exit 1
   fi
+  windows_native_lib="$native_lib_check"
   export CONNECTANUM_NATIVE_LIB="$native_lib"
+}
+
+prepare_windows_checkout_build() {
+  local client_package_path
+  local core_package_path
+  local native_lib_path
+  local source_dir
+  local windows_build_root
+
+  if [[ -z "$windows_native_lib" ]]; then
+    printf 'Windows packaging requires a prefetched native library.\n' >&2
+    exit 1
+  fi
+
+  source_dir="$(repo_root)/examples/wamp_app"
+  windows_build_root="$(repo_root)/out/wamp-app-build/windows"
+  rm -rf "$windows_build_root"
+  mkdir -p "$windows_build_root"
+  cleanup_paths+=("$windows_build_root")
+  cp -R "$source_dir" "$windows_build_root/wamp_app"
+
+  client_dir="$windows_build_root/wamp_app/client"
+  rm -rf \
+    "$client_dir/.dart_tool" \
+    "$client_dir/build" \
+    "$client_dir/windows/flutter/ephemeral"
+
+  client_package_path="$(dart_path "$(repo_root)/packages/connectanum_client")"
+  core_package_path="$(dart_path "$(repo_root)/packages/connectanum_core")"
+  native_lib_path="$(dart_path "$windows_native_lib")"
+  cat >>"$client_dir/pubspec.yaml" <<EOF
+
+hooks:
+  user_defines:
+    connectanum_client:
+      CONNECTANUM_NATIVE_LIB: $(yaml_single_quote "$native_lib_path")
+dependency_overrides:
+  connectanum_client:
+    path: $(yaml_single_quote "$client_package_path")
+  connectanum_core:
+    path: $(yaml_single_quote "$core_package_path")
+EOF
 }
 
 if [[ "$describe_only" == true ]]; then
@@ -226,13 +297,14 @@ if [[ "$component" == "client" ]]; then
     exit 1
   fi
 
+  if [[ "$target" == "windows" ]]; then
+    prepare_windows_native_release
+    prepare_windows_checkout_build
+  fi
+
   cd "$client_dir"
   rm -rf build
   flutter pub get
-  if [[ "$target" == "windows" ]]; then
-    prepare_windows_native_release
-    cd "$client_dir"
-  fi
 
   case "$target" in
     web)
@@ -343,7 +415,7 @@ manifest_path="${out_dir}/${artifact_name}.manifest.json"
 rm -f "$archive_path" "$checksum_path" "$manifest_path"
 
 staging_dir="$(mktemp -d)"
-trap 'rm -rf "$staging_dir"' EXIT
+cleanup_paths+=("$staging_dir")
 bundle_dir="${staging_dir}/${artifact_name}"
 mkdir -p "$bundle_dir"
 

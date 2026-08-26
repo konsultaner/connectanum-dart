@@ -233,6 +233,8 @@ class WampAppPackagingTest(unittest.TestCase):
             native_path_log = checkout / "native-path.log"
             dart_log = checkout / "dart.log"
             flutter_log = checkout / "flutter.log"
+            staged_pubspec_log = checkout / "staged-pubspec.yaml"
+            source_pubspec = (client / "pubspec.yaml").read_text(encoding="utf-8")
 
             uname = fake_bin / "uname"
             uname.write_text(
@@ -293,6 +295,13 @@ esac
                         ;;
                       build)
                         [[ "$2" == "windows" ]]
+                        if [[ "$PWD" != */out/wamp-app-build/windows/wamp_app/client ]]; then
+                          exit 97
+                        fi
+                        cp pubspec.yaml {staged_pubspec_log!s}
+                        if [[ "${{FAIL_WINDOWS_BUILD:-}}" == "1" ]]; then
+                          exit 96
+                        fi
                         [[ -f "${{CONNECTANUM_NATIVE_LIB:-}}" ]]
                         printf '%s\n' "$CONNECTANUM_NATIVE_LIB" > {native_path_log!s}
                         mkdir -p build/windows/x64/runner/Release
@@ -311,6 +320,34 @@ esac
             environment = os.environ.copy()
             environment["PATH"] = f"{fake_bin}:{environment['PATH']}"
             output_dir = checkout / "artifacts"
+
+            failing_environment = environment.copy()
+            failing_environment["FAIL_WINDOWS_BUILD"] = "1"
+            failed_result = subprocess.run(
+                [
+                    "bash",
+                    str(checkout / "bin/package-wamp-app"),
+                    "--target",
+                    "windows",
+                    "--out-dir",
+                    str(output_dir),
+                ],
+                cwd=checkout,
+                env=failing_environment,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(failed_result.returncode, 96, failed_result.stderr)
+            self.assertEqual(
+                (client / "pubspec.yaml").read_text(encoding="utf-8"), source_pubspec
+            )
+            self.assertFalse((checkout / "out/wamp-app-build/windows").exists())
+            self.assertEqual(
+                flutter_log.read_text(encoding="utf-8").splitlines(),
+                ["pub get", "build windows --release --verbose"],
+            )
+            flutter_log.unlink()
+
             result = subprocess.run(
                 [
                     "bash",
@@ -330,6 +367,23 @@ esac
             self.assertEqual(
                 flutter_log.read_text(encoding="utf-8").splitlines(),
                 ["pub get", "build windows --release --verbose"],
+            )
+            staged_pubspec = staged_pubspec_log.read_text(encoding="utf-8")
+            self.assertIn("hooks:\n  user_defines:\n    connectanum_client:\n", staged_pubspec)
+            self.assertIn("CONNECTANUM_NATIVE_LIB:", staged_pubspec)
+            self.assertIn("dependency_overrides:", staged_pubspec)
+            self.assertIn(
+                (checkout / "packages/connectanum_client").as_posix(), staged_pubspec
+            )
+            self.assertIn(
+                (checkout / "packages/connectanum_core").as_posix(), staged_pubspec
+            )
+            self.assertEqual(
+                (client / "pubspec.yaml").read_text(encoding="utf-8"), source_pubspec
+            )
+            self.assertFalse(
+                (checkout / "out/wamp-app-build/windows").exists(),
+                "the disposable Windows build copy should be removed",
             )
             native_path = Path(native_path_log.read_text(encoding="utf-8").strip())
             self.assertTrue(native_path.is_file())
