@@ -42,9 +42,15 @@ drive-letter GNU `tar` failure. Windows packaging now builds an ignored,
 disposable WampApp copy with checkout overrides for `connectanum_client` and
 `connectanum_core` plus a root hook user-define for the prefetched DLL. The
 checked-in exact-hosted-dependency example remains unchanged and the temporary
-copy is removed after packaging. A fail-first staging regression, all nine
-packaging tests, and `bin/test-fast` pass; corrected hosted Windows evidence is
-pending. The artifact workflow tracks installer inputs so packaging fixes
+copy is removed after packaging. Artifact run `32928971795` proves that the
+checkout hook and root user-define are active and passes web, Android, unsigned
+iOS, macOS, Linux, and the Linux server bundle. Windows then exposed a second
+drive-letter boundary: the hooks API parsed `D:/.../ct_ffi.dll` as a `d:` URI,
+and the hook called `toFilePath()` on that non-file URI. The hook now preserves
+Windows drive and UNC paths while retaining URI resolution for relative paths.
+Drive-slash, drive-backslash, UNC, and relative-path regressions, all ten hook
+tests, all nine packaging tests, and `bin/test-fast` pass; corrected hosted
+Windows evidence is pending. The artifact workflow tracks installer inputs so packaging fixes
 trigger evidence automatically. Exact-head publish dry run `32925188472` and CI
 run `32926838466` pass.
 Milestone 8 authenticated MCP

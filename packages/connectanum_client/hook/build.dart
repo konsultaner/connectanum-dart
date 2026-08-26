@@ -258,7 +258,16 @@ String? _pathUserDefine(HookInputUserDefines userDefines, String key) {
   if (raw == null) {
     return null;
   }
-  return userDefines.path(key)?.toFilePath() ?? raw;
+  return resolvePathUserDefine(raw, userDefines.path(key));
+}
+
+String resolvePathUserDefine(String raw, Uri? resolved) {
+  if (RegExp(r'^[A-Za-z]:[\\/]').hasMatch(raw) ||
+      raw.startsWith(r'\\') ||
+      raw.startsWith('//')) {
+    return raw;
+  }
+  return resolved?.toFilePath() ?? raw;
 }
 
 String? _stringUserDefine(HookInputUserDefines userDefines, String key) {

@@ -65,6 +65,37 @@ void main() {
     });
   });
 
+  test('path user define preserves Windows drive paths', () {
+    for (final nativeLibraryPath in const [
+      'D:/native/ct_ffi.dll',
+      r'D:\native\ct_ffi.dll',
+      r'\\build-server\native\ct_ffi.dll',
+      '//build-server/native/ct_ffi.dll',
+    ]) {
+      expect(
+        build_hook.resolvePathUserDefine(
+          nativeLibraryPath,
+          Uri.parse('D:/native/ct_ffi.dll'),
+        ),
+        nativeLibraryPath,
+      );
+    }
+  });
+
+  test('path user define resolves relative paths', () {
+    const nativeLibraryPath = 'native/ct_ffi.dll';
+    final resolved = Directory.systemTemp.uri.resolve(nativeLibraryPath);
+
+    expect(
+      build_hook.resolvePathUserDefine(nativeLibraryPath, resolved),
+      resolved.toFilePath(),
+    );
+    expect(
+      build_hook.resolvePathUserDefine(nativeLibraryPath, null),
+      nativeLibraryPath,
+    );
+  });
+
   test('build hook honors CONNECTANUM_SKIP_NATIVE_BUILD user define', () {
     return _withPackageRoot(() async {
       await testCodeBuildHook(
