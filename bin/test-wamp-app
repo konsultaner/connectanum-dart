@@ -101,6 +101,9 @@ run_wamp_app_browser_tests() {
   dart format --output=none --set-exit-if-changed benchmark lib test
   flutter analyze
   flutter test
+  flutter test test/widget_test.dart \
+    --plain-name 'registers and opens the authenticated shell' \
+    --dart-define=WAMP_APP_SERVER_ADDRESS=ws://localhost:18080/ws
   if ensure_chrome_env; then
     run_wamp_app_browser_tests
   else

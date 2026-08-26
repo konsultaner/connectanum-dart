@@ -52,6 +52,16 @@ void main() {
       find.text('Your conversations.\nYour keys. Your server.'),
       findsOneWidget,
     );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('server-address')))
+          .controller!
+          .text,
+      const String.fromEnvironment(
+        'WAMP_APP_SERVER_ADDRESS',
+        defaultValue: 'ws://localhost:8080/ws',
+      ),
+    );
     await tester.enterText(find.byKey(const Key('username')), 'alice');
     await tester.enterText(
       find.byKey(const Key('display-name')),

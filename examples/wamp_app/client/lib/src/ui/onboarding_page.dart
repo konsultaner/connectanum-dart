@@ -5,6 +5,11 @@ import 'backup_passphrase_dialog.dart';
 
 enum _AccountMode { register, login }
 
+const _defaultServerAddress = String.fromEnvironment(
+  'WAMP_APP_SERVER_ADDRESS',
+  defaultValue: 'ws://localhost:8080/ws',
+);
+
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key, required this.controller});
 
@@ -15,7 +20,7 @@ class OnboardingPage extends StatefulWidget {
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  final _server = TextEditingController(text: 'ws://localhost:8080/ws');
+  final _server = TextEditingController(text: _defaultServerAddress);
   final _username = TextEditingController();
   final _displayName = TextEditingController();
   final _password = TextEditingController();
