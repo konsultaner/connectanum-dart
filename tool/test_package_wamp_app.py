@@ -329,7 +329,7 @@ esac
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(
                 flutter_log.read_text(encoding="utf-8").splitlines(),
-                ["pub get", "build windows --release"],
+                ["pub get", "build windows --release --verbose"],
             )
             native_path = Path(native_path_log.read_text(encoding="utf-8").strip())
             self.assertTrue(native_path.is_file())

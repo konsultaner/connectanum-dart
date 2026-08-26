@@ -32,10 +32,13 @@ Windows clears extraction and dependency resolution before failing when native
 assets materialize. Inspection found that the configured-DLL hook branch did
 not create its output parent, unlike the hosted-download and Cargo branches. A
 fail-first missing-parent regression now passes with a directory-safe copy
-helper while the corrected hosted matrix rerun remains pending. The artifact
-workflow tracks installer inputs so packaging fixes trigger evidence
-automatically. Exact-head CI run `32920748888` is fully green across WampApp
-Consumer, Fast Checks, Full Verify, and Dart VM Coverage.
+helper. Artifact rerun `32925188467` passed web, Android, unsigned iOS, macOS,
+Linux, and the Linux server bundle, while Windows still reports only Flutter's
+generic native-assets failure. Windows packaging now enables verbose Flutter
+output, with a focused command-contract regression, so the next hosted run can
+expose the underlying hook error. The artifact workflow tracks installer inputs
+so packaging fixes trigger evidence automatically. Exact-head publish dry run
+`32925188472` and CI run `32925188510` pass.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete

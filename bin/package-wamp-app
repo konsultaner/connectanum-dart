@@ -274,7 +274,7 @@ if [[ "$component" == "client" ]]; then
       payload_names+=("wamp-app")
       ;;
     windows)
-      flutter build windows --release
+      flutter build windows --release --verbose
       windows_bundle="$(find build/windows -type d -path '*/runner/Release' -print)"
       if [[ -z "$windows_bundle" || "$windows_bundle" == *$'\n'* ]]; then
         printf 'Expected exactly one Windows release bundle, found: %s\n' "$windows_bundle" >&2
