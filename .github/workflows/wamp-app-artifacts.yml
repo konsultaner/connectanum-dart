@@ -9,6 +9,9 @@ on:
       - 'bin/common.sh'
       - 'bin/package-wamp-app'
       - 'examples/wamp_app/**'
+      - 'packages/connectanum_client/hook/build.dart'
+      - 'packages/connectanum_client/lib/src/native_release_installer.dart'
+      - 'packages/connectanum_client/tool/install_native.dart'
       - 'tool/test_package_wamp_app.py'
 
 permissions:

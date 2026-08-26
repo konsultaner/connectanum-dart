@@ -346,6 +346,13 @@ esac
         self.assertIn("flutter-version: 3.47.1", workflow)
         self.assertIn("fail-fast: false", workflow)
         self.assertIn("bin/package-wamp-app", workflow)
+        for source in (
+            "packages/connectanum_client/hook/build.dart",
+            "packages/connectanum_client/lib/src/native_release_installer.dart",
+            "packages/connectanum_client/tool/install_native.dart",
+        ):
+            with self.subTest(trigger=source):
+                self.assertIn(f"- '{source}'", workflow)
         self.assertIn("if-no-files-found: error", workflow)
         self.assertIn("actions/upload-artifact@v7", workflow)
 
