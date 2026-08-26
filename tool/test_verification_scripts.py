@@ -248,6 +248,18 @@ class VerificationScriptsTest(unittest.TestCase):
             1,
         )
 
+    def test_wamp_app_browser_tests_are_serial_and_bounded(self) -> None:
+        script = TEST_WAMP_APP.read_text(encoding="utf-8")
+
+        self.assertIn("CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPTS", script)
+        self.assertIn(
+            "CONNECTANUM_WAMP_APP_BROWSER_TEST_ATTEMPT_TIMEOUT_SECONDS",
+            script,
+        )
+        self.assertIn("run_command_with_timeout", script)
+        self.assertIn('for test_file in "${browser_tests[@]}"', script)
+        self.assertNotIn("--concurrency=1", script)
+
     def test_connectanum_router_wrapper_delegates_help_without_native_build(
         self,
     ) -> None:

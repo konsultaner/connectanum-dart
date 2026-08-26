@@ -5,9 +5,9 @@ Current branch: `codex/wamp-app`
 Current milestone: continue the standalone WampApp Flutter consumer example.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
-contact import is complete locally and repository-wide verification passes;
-exact-head hosted verification for that slice is pending. Unified WAMP procedure abuse
-protection now bounds expensive registration plus authenticated control and
+contact import is complete with exact-head CI and seven-platform artifact
+evidence. Unified WAMP procedure abuse protection now bounds expensive
+registration plus authenticated control and
 binary-transfer traffic with configurable global, per-account, request-rate,
 concurrency, and tracked-account limits. Six-device real-router conflict stress
 now proves encrypted message, receipt, one-time consumption, profile, MCP
@@ -81,8 +81,18 @@ the aggregate `connectanum` pub.dev workflow remained present on `master`.
 The byte-identical tag-only publisher is moving to a fresh workflow path so
 GitHub can register a new active record without changing pub.dev repository,
 tag, OIDC, environment, validation, or package semantics. Repository-wide
-`bin/verify` passes for that repair; exact-head hosted verification and
-protected-branch promotion remain pending.
+`bin/verify`, exact-head CI run `32947467410`, and package dry-run workflow
+`32947467424` pass for that repair. PR #80 is mergeable but requires review.
+Its first PR-event CI run `32947616016` exposed a hosted Chrome-process stall:
+all 176 native Flutter tests passed and the browser suite completed its FCM
+tests, then the single multi-file `flutter test --platform chrome` process
+stopped producing output until the 20-minute job timeout. The push event had
+passed the byte-identical tree, so the browser gate now runs every selected
+Chrome test file in a fresh process with a 120-second external timeout and one
+timeout-only retry. A clean local `bin/test-wamp-app` run passes all 53 shared,
+142 server, 176 native Flutter, and 66 Chrome tests plus Dart2Wasm and release
+web with this isolation; exact-head hosted rerun and protected-branch promotion
+remain pending.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete
