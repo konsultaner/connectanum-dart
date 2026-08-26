@@ -72,11 +72,17 @@ attachment iterations. The 2026-08-26 local gate passes all 28 checks with
 messages/s, and 0.107-0.117 Gbit/s attachment throughput. The artifact workflow
 now runs and uploads the same machine-readable gate alongside beta packaging.
 `bin/test-wamp-app` passes with 53 shared, 142 server, 176 native Flutter, and
-66 Chrome tests plus Dart2Wasm and a release-web build. Previous exact-head CI
-run `32937150090` passes WampApp Consumer, Fast Checks, Full Verify, and Dart VM
-Coverage; artifact run `32937150111` passes the production benchmark gate and
-all seven beta bundles. Repository-wide `bin/verify` passes for the new contact
-slice; exact-head hosted evidence is pending.
+66 Chrome tests plus Dart2Wasm and a release-web build. Exact-head CI run
+`32943241834` passes WampApp Consumer, Fast Checks, Full Verify, and Dart VM
+Coverage; artifact run `32943241849` passes the production benchmark gate and
+all seven beta bundles for the contact slice. The protected-branch deployment
+audit then exposed GitHub workflow record `315112445` as deleted even though
+the aggregate `connectanum` pub.dev workflow remained present on `master`.
+The byte-identical tag-only publisher is moving to a fresh workflow path so
+GitHub can register a new active record without changing pub.dev repository,
+tag, OIDC, environment, validation, or package semantics. Repository-wide
+`bin/verify` passes for that repair; exact-head hosted verification and
+protected-branch promotion remain pending.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete
