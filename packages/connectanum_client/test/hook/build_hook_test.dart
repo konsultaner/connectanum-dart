@@ -11,6 +11,27 @@ import 'package:test/test.dart';
 import '../../hook/build.dart' as build_hook;
 
 void main() {
+  test('configured native library copy creates the hook output directory', () {
+    final tempDir = Directory.systemTemp.createTempSync(
+      'connectanum_client_configured_copy_',
+    );
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+
+    final source = File('${tempDir.path}/${_defaultLibraryFileName()}')
+      ..writeAsStringSync('client-prebuilt');
+    final destination = File(
+      '${tempDir.path}/missing/hook/output/${_hookLibraryFileName()}',
+    );
+
+    expect(destination.parent.existsSync(), isFalse);
+    build_hook.copyConfiguredNativeLibrary(
+      source: source,
+      destination: destination,
+    );
+
+    expect(destination.readAsStringSync(), equals('client-prebuilt'));
+  });
+
   test('build hook reuses CONNECTANUM_NATIVE_LIB user define', () {
     return _withPackageRoot(() async {
       final tempDir = await Directory.systemTemp.createTemp(

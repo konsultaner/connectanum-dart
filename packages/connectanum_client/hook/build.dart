@@ -146,7 +146,10 @@ Future<void> runBuildHook(
     }
 
     if (configuredNativeLib != null) {
-      configuredNativeLib.copySync(outputLibFile.path);
+      copyConfiguredNativeLibrary(
+        source: configuredNativeLib,
+        destination: outputLibFile,
+      );
       output.assets.code.add(
         CodeAsset(
           package: input.packageName,
@@ -289,6 +292,14 @@ String? _stringEnvironment(Map<String, String> environment, String key) {
 
 bool _shouldSkipNativeBuild(_BuildHookSettings settings) =>
     settings.skipNativeBuild;
+
+void copyConfiguredNativeLibrary({
+  required File source,
+  required File destination,
+}) {
+  destination.parent.createSync(recursive: true);
+  source.copySync(destination.path);
+}
 
 File? _configuredNativeLibrary(_BuildHookSettings settings) {
   final configuredPath = settings.nativeLibPath;

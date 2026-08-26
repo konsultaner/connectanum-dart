@@ -26,11 +26,16 @@ published hook's cache suffix measured 101 characters. Bounded cache keys and
 explicit DLL prefetch reached verified archive extraction on the second attempt,
 which exposed GNU `tar` parsing the native `D:/...` archive operand as a remote
 host. Hook and installer extraction now run from the cache root with relative
-archive and destination operands; focused regressions pass while the corrected
-hosted matrix rerun remains pending. The artifact workflow now tracks these
-installer inputs so packaging fixes trigger evidence automatically. Exact-head
-CI run `32920748888` is fully green across WampApp Consumer, Fast Checks, Full
-Verify, and Dart VM Coverage.
+archive and destination operands. Artifact run `32923299213` proves those fixes
+across web, Android, unsigned iOS, macOS, Linux, and the Linux server bundle;
+Windows clears extraction and dependency resolution before failing when native
+assets materialize. Inspection found that the configured-DLL hook branch did
+not create its output parent, unlike the hosted-download and Cargo branches. A
+fail-first missing-parent regression now passes with a directory-safe copy
+helper while the corrected hosted matrix rerun remains pending. The artifact
+workflow tracks installer inputs so packaging fixes trigger evidence
+automatically. Exact-head CI run `32920748888` is fully green across WampApp
+Consumer, Fast Checks, Full Verify, and Dart VM Coverage.
 Milestone 8 authenticated MCP
 integration is complete locally. Milestone 7 encrypted WebRTC voice/video calling
 and milestone 6 encrypted local and router-hosted backup/recovery are complete
