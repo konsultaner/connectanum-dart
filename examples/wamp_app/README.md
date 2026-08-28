@@ -111,6 +111,21 @@ the router when Ctrl+C is pressed. Router output and auto-boot diagnostics are
 retained in that state directory. The emulators and installed apps remain open
 for UI inspection.
 
+Run the same lab as a deterministic native acceptance test with:
+
+```bash
+bin/run-wamp-app-lab --smoke
+```
+
+Smoke mode drives the real Android and iOS Flutter UIs concurrently. Each
+client registers a unique account through 64 MiB Argon2id SCRAM, waits for the
+other device directory, sends one encrypted direct message, receives and
+decrypts the peer message through mailbox pub/sub, and renders both bubbles.
+The launcher also rejects the run if either plaintext token appears in the
+router message store. Run-scoped router state and platform logs remain under
+`.dart_tool/wamp_app_smoke` for inspection; the router and Android reverse
+tunnel are removed when the run finishes.
+
 Start the server:
 
 ```bash

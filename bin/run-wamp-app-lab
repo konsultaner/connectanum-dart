@@ -16,7 +16,8 @@ Options:
   --android-emulator <id>  Boot this Android AVD when no Android emulator runs.
   --ios-device <id>        Use an already-running iOS simulator.
   --port <port>            Router port (default: 18080).
-  --state-dir <path>       Persistent lab state (default: .dart_tool/wamp_app_lab).
+  --state-dir <path>       Override the run state and evidence directory.
+  --smoke                  Register both clients and verify encrypted chat.
   --dry-run                Print the resolved plan without changing the machine.
   -h, --help               Show this help.
 EOF
@@ -146,6 +147,25 @@ PY
   return 1
 }
 
+stop_process() {
+  local pid="$1"
+  local attempt
+
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    for attempt in 1 2 3 4 5; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        break
+      fi
+      sleep 1
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+  fi
+  wait "$pid" 2>/dev/null || true
+}
+
 write_lab_config() {
   local destination="$1"
   local port="$2"
@@ -173,6 +193,7 @@ android_emulator=""
 dry_run=false
 ios_device=""
 port=18080
+smoke=false
 state_dir=""
 
 while (($# > 0)); do
@@ -202,6 +223,10 @@ while (($# > 0)); do
       state_dir="$2"
       shift 2
       ;;
+    --smoke)
+      smoke=true
+      shift
+      ;;
     --dry-run)
       dry_run=true
       shift
@@ -225,8 +250,17 @@ cd_repo_root
 require_command flutter
 require_command python3
 
+smoke_run_id="run-id"
+if [[ "$smoke" == true && "$dry_run" == false ]]; then
+  smoke_run_id="$(date -u +%Y%m%d%H%M%S)-$$"
+fi
+
 if [[ -z "$state_dir" ]]; then
-  state_dir="$(repo_root)/.dart_tool/wamp_app_lab"
+  if [[ "$smoke" == true ]]; then
+    state_dir="$(repo_root)/.dart_tool/wamp_app_smoke/$smoke_run_id"
+  else
+    state_dir="$(repo_root)/.dart_tool/wamp_app_lab"
+  fi
 elif [[ "$state_dir" != /* ]]; then
   state_dir="$(repo_root)/$state_dir"
 fi
@@ -253,9 +287,20 @@ config_path="$state_dir/wamp_app_server.yaml"
 server_log="$state_dir/server.log"
 android_emulator_log="$state_dir/android-emulator.log"
 ios_emulator_log="$state_dir/ios-emulator.log"
+android_smoke_log="$state_dir/android-smoke.log"
+ios_smoke_log="$state_dir/ios-smoke.log"
+
+android_smoke_username="android-$smoke_run_id"
+ios_smoke_username="ios-$smoke_run_id"
+android_smoke_message="from-android-$smoke_run_id"
+ios_smoke_message="from-ios-$smoke_run_id"
 
 if [[ "$dry_run" == true ]]; then
-  printf 'WampApp two-device lab dry run\n'
+  if [[ "$smoke" == true ]]; then
+    printf 'WampApp Two-device UI smoke dry run\n'
+  else
+    printf 'WampApp two-device lab dry run\n'
+  fi
   printf '  endpoint: %s\n' "$endpoint"
   printf '  state: %s\n' "$state_dir"
   if [[ -n "$resolved_android" ]]; then
@@ -270,12 +315,30 @@ if [[ "$dry_run" == true ]]; then
   fi
   printf 'Router command:\n'
   shell_join dart run wamp_app_server --config "$config_path"
-  if [[ -n "$resolved_android" ]]; then
+  if [[ "$smoke" == true && -n "$resolved_android" ]]; then
+    printf 'Android smoke command:\n'
+    shell_join flutter test -d "$resolved_android" --no-pub --timeout 6m \
+      --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
+      --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_OUTBOUND=$android_smoke_message" \
+      --dart-define="WAMP_APP_SMOKE_INBOUND=$ios_smoke_message" \
+      integration_test/two_device_smoke_test.dart
+  elif [[ -n "$resolved_android" ]]; then
     printf 'Android client command:\n'
     shell_join flutter run -d "$resolved_android" --no-resident \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint"
   fi
-  if [[ -n "$resolved_ios" ]]; then
+  if [[ "$smoke" == true && -n "$resolved_ios" ]]; then
+    printf 'iOS smoke command:\n'
+    shell_join flutter test -d "$resolved_ios" --no-pub --timeout 6m \
+      --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
+      --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_OUTBOUND=$ios_smoke_message" \
+      --dart-define="WAMP_APP_SMOKE_INBOUND=$android_smoke_message" \
+      integration_test/two_device_smoke_test.dart
+  elif [[ -n "$resolved_ios" ]]; then
     printf 'iOS client command:\n'
     shell_join flutter run -d "$resolved_ios" --no-resident \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint"
@@ -313,16 +376,23 @@ if [[ -z "$resolved_ios" ]]; then
 fi
 
 android_reverse_installed=false
+android_smoke_pid=""
+ios_smoke_pid=""
 server_pid=""
 cleanup() {
   local status=$?
   trap - EXIT INT TERM
+  if [[ -n "$android_smoke_pid" ]]; then
+    stop_process "$android_smoke_pid"
+  fi
+  if [[ -n "$ios_smoke_pid" ]]; then
+    stop_process "$ios_smoke_pid"
+  fi
   if [[ "$android_reverse_installed" == true ]]; then
     adb -s "$resolved_android" reverse --remove "tcp:$port" >/dev/null 2>&1 || true
   fi
-  if [[ -n "$server_pid" ]] && kill -0 "$server_pid" 2>/dev/null; then
-    kill "$server_pid" 2>/dev/null || true
-    wait "$server_pid" 2>/dev/null || true
+  if [[ -n "$server_pid" ]]; then
+    stop_process "$server_pid"
   fi
   exit "$status"
 }
@@ -355,6 +425,68 @@ fi
 
 adb -s "$resolved_android" reverse "tcp:$port" "tcp:$port"
 android_reverse_installed=true
+
+if [[ "$smoke" == true ]]; then
+  printf 'Running Android and iOS registration/message smoke concurrently...\n'
+  (
+    cd "$(repo_root)/examples/wamp_app/client"
+    exec flutter test -d "$resolved_android" --no-pub --timeout 6m \
+      --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
+      --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_OUTBOUND=$android_smoke_message" \
+      --dart-define="WAMP_APP_SMOKE_INBOUND=$ios_smoke_message" \
+      integration_test/two_device_smoke_test.dart
+  ) >"$android_smoke_log" 2>&1 &
+  android_smoke_pid=$!
+  (
+    cd "$(repo_root)/examples/wamp_app/client"
+    exec flutter test -d "$resolved_ios" --no-pub --timeout 6m \
+      --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
+      --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_OUTBOUND=$ios_smoke_message" \
+      --dart-define="WAMP_APP_SMOKE_INBOUND=$android_smoke_message" \
+      integration_test/two_device_smoke_test.dart
+  ) >"$ios_smoke_log" 2>&1 &
+  ios_smoke_pid=$!
+
+  set +e
+  wait "$android_smoke_pid"
+  android_smoke_status=$?
+  android_smoke_pid=""
+  wait "$ios_smoke_pid"
+  ios_smoke_status=$?
+  ios_smoke_pid=""
+  set -e
+
+  if ((android_smoke_status != 0 || ios_smoke_status != 0)); then
+    printf 'Android smoke log:\n' >&2
+    tail -n 80 "$android_smoke_log" >&2 || true
+    printf 'iOS smoke log:\n' >&2
+    tail -n 80 "$ios_smoke_log" >&2 || true
+    fail "two-device UI smoke failed (Android $android_smoke_status, iOS $ios_smoke_status)."
+  fi
+
+  message_store="$state_dir/data/messages.json"
+  [[ -f "$message_store" ]] || fail 'the smoke router did not persist its message store.'
+  if grep -Fq -- "$android_smoke_message" "$message_store" || \
+     grep -Fq -- "$ios_smoke_message" "$message_store"; then
+    fail 'the smoke router persisted plaintext message content.'
+  fi
+
+  cat <<EOF
+
+WampApp two-device UI smoke passed.
+  Router:  $endpoint
+  Android: $resolved_android ($android_smoke_username)
+  iOS:     $resolved_ios ($ios_smoke_username)
+  State:   $state_dir
+  Logs:    $android_smoke_log
+           $ios_smoke_log
+EOF
+  exit 0
+fi
 
 printf 'Installing Android client on %s...\n' "$resolved_android"
 (
