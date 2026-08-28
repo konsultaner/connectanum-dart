@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-08-28
+Last updated: 2026-08-29
 Current branch: `codex/wamp-app-native-rich-smoke`
 Current milestone: prove standalone WampApp encrypted direct and group chat,
 including rich content, privacy-sensitive consumption, and WebRTC voice/video calls,
@@ -37,7 +37,18 @@ tests, 30 focused call/widget tests, Flutter analysis, `bin/test-fast`, and the
 real Android plus iOS voice/video smoke pass locally. Native acceptance also
 fixed stale-keyboard expression-sheet placement and compact identity/title
 wrapping that could collapse message history to two pixels. Repository-wide
-`bin/verify` also passes; exact-head hosted evidence remains next.
+`bin/verify` also passes. The same smoke now continues through public-profile
+updates and cross-device reads, encrypted local theme/mute/disappearing-message
+preferences, encrypted contact aliases, explicit MCP profile consent on both
+accounts, one initiator-owned encrypted remote backup, global local-history
+search, authenticated read receipts, and read/unread filters. Stable
+message-ID bubble keys keep native search/filter evidence independent of
+editable-field text. The launcher verifies both persisted consent records, the
+single committed ciphertext backup, and absence of every chat, media, call,
+contact, synchronization, and recovery-phrase smoke token from router storage.
+Nine launcher tests, 39 focused Flutter tests, Flutter analysis, the complete
+Android API 36.1 plus iOS 26.4 smoke, and repository-wide `bin/verify` pass;
+exact-head hosted evidence remains next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

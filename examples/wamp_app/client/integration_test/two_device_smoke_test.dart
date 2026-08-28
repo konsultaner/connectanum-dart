@@ -33,13 +33,35 @@ const _videoCallReadyOutbound = String.fromEnvironment(
 const _videoCallReadyInbound = String.fromEnvironment(
   'WAMP_APP_SMOKE_VIDEO_READY_INBOUND',
 );
+const _profileDisplayName = String.fromEnvironment(
+  'WAMP_APP_SMOKE_PROFILE_DISPLAY_NAME',
+);
+const _profileStatus = String.fromEnvironment('WAMP_APP_SMOKE_PROFILE_STATUS');
+const _peerProfileDisplayName = String.fromEnvironment(
+  'WAMP_APP_SMOKE_PEER_PROFILE_DISPLAY_NAME',
+);
+const _peerProfileStatus = String.fromEnvironment(
+  'WAMP_APP_SMOKE_PEER_PROFILE_STATUS',
+);
+const _contactDisplayName = String.fromEnvironment(
+  'WAMP_APP_SMOKE_CONTACT_DISPLAY_NAME',
+);
+const _controlsReadyOutbound = String.fromEnvironment(
+  'WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND',
+);
+const _controlsReadyInbound = String.fromEnvironment(
+  'WAMP_APP_SMOKE_CONTROLS_READY_INBOUND',
+);
+const _backupPassphrase = String.fromEnvironment(
+  'WAMP_APP_SMOKE_BACKUP_PASSPHRASE',
+);
 const _password = 'wamp-app-native-smoke-password';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'exchanges encrypted chat and completes WebRTC voice and video calls',
+    'exchanges encrypted chat, account controls, backup, and WebRTC calls',
     (tester) async {
       _validateConfiguration();
       final controller = WampAppController(deviceName: '$_username device');
@@ -166,9 +188,371 @@ void main() {
         readyOutbound: _videoCallReadyOutbound,
         readyInbound: _videoCallReadyInbound,
       );
+      await _exerciseAccountPrivacyControls(tester, controller);
     },
-    timeout: const Timeout(Duration(minutes: 15)),
+    timeout: const Timeout(Duration(minutes: 21)),
   );
+}
+
+Future<void> _exerciseAccountPrivacyControls(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  await _selectDirectConversation(tester);
+  await _updatePublicProfile(tester, controller);
+  await _setLocalConversationPreferences(tester, controller);
+  await _saveLocalContactAlias(tester, controller);
+  await _enableMcpProfileConsent(tester, controller);
+  if (_role == 'initiator') {
+    await _uploadRemoteBackup(tester, controller);
+  }
+
+  final sent = await controller.sendMessage(
+    recipientUsername: _peerUsername,
+    text: _controlsReadyOutbound,
+  );
+  if (!sent) {
+    fail(
+      'Could not send the account-controls marker '
+      '(${controller.messageError ?? 'message channel unavailable'}).',
+    );
+  }
+  final outbound = controller.messages.singleWhere(
+    (message) => message.outgoing && message.text == _controlsReadyOutbound,
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        controller.outboundMessageFor(outbound.messageId) == null &&
+        controller.messages.any(
+          (message) =>
+              !message.outgoing && message.text == _controlsReadyInbound,
+        ),
+    label: 'peer account-controls marker',
+    timeout: const Duration(minutes: 2),
+  );
+
+  await _viewPeerProfile(tester);
+  await _exerciseSearchAndReadFilters(tester, controller);
+}
+
+Future<void> _updatePublicProfile(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  final edit = find.byKey(const Key('account-profile-edit'));
+  await _tapWhenReady(tester, edit, label: 'public-profile editor');
+  await _pumpUntil(
+    tester,
+    () => find.byKey(const Key('profile-save')).evaluate().isNotEmpty,
+    label: 'public-profile dialog',
+  );
+  await tester.enterText(
+    find.byKey(const Key('profile-display-name')),
+    _profileDisplayName,
+  );
+  await tester.enterText(
+    find.byKey(const Key('profile-status')),
+    _profileStatus,
+  );
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('profile-save')),
+    label: 'public-profile save',
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        find.byKey(const Key('profile-save')).evaluate().isEmpty &&
+        !controller.profileBusy &&
+        controller.connection?.profile.displayName == _profileDisplayName &&
+        controller.connection?.profile.status == _profileStatus,
+    label: 'persisted public profile',
+  );
+  expect(controller.profileError, isNull);
+}
+
+Future<void> _setLocalConversationPreferences(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  final theme = find.byKey(const Key('account-theme-menu'));
+  await _tapWhenReady(tester, theme, label: 'appearance menu');
+  final dark = find.byKey(const ValueKey('appearance-dark'));
+  await _tapWhenReady(tester, dark, label: 'dark appearance');
+  await _pumpUntil(
+    tester,
+    () =>
+        !controller.preferenceBusy &&
+        controller.themePreference.wireName == 'dark' &&
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode ==
+            ThemeMode.dark,
+    label: 'local dark appearance',
+  );
+
+  final conversationId = controller.directConversationIdFor(_peerUsername);
+  if (conversationId == null) {
+    fail('The direct conversation was unavailable for local preferences.');
+  }
+  final mute = find.byKey(const Key('conversation-mute'));
+  await _tapWhenReady(tester, mute, label: 'conversation mute');
+  await _pumpUntil(
+    tester,
+    () =>
+        !controller.preferenceBusy &&
+        controller.isConversationMuted(conversationId),
+    label: 'persisted local mute preference',
+  );
+
+  final expiry = find.byKey(const Key('message-expiry'));
+  await _tapWhenReady(tester, expiry, label: 'disappearing-message menu');
+  await _tapWhenReady(
+    tester,
+    find.text('Delete after 1 hour'),
+    label: 'one-hour disappearing-message policy',
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        !controller.preferenceBusy &&
+        controller.disappearingMessagesFor(conversationId) ==
+            const Duration(hours: 1),
+    label: 'persisted disappearing-message policy',
+  );
+  expect(controller.preferenceError, isNull);
+}
+
+Future<void> _saveLocalContactAlias(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  final compact = find.byKey(const Key('account-contacts-compact'));
+  final contacts = compact.evaluate().isNotEmpty
+      ? compact
+      : find.byKey(const Key('account-contacts'));
+  await _tapWhenReady(tester, contacts, label: 'local contact manager');
+  await _pumpUntil(
+    tester,
+    () => find.byKey(const Key('contact-save')).evaluate().isNotEmpty,
+    label: 'local contact dialog',
+  );
+  await tester.tap(find.byKey(const Key('contact-add-manual')));
+  await tester.enterText(
+    find.byKey(const Key('contact-display-name')),
+    _contactDisplayName,
+  );
+  await tester.enterText(
+    find.byKey(const Key('contact-username')),
+    _peerUsername,
+  );
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('contact-save')),
+    label: 'verified local contact save',
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        !controller.contactBusy &&
+        controller.contacts.any(
+          (contact) =>
+              contact.username == _peerUsername &&
+              contact.displayName == _contactDisplayName,
+        ),
+    label: 'encrypted local contact alias',
+  );
+  expect(controller.contactError, isNull);
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('contact-close')),
+    label: 'contact dialog close',
+  );
+}
+
+Future<void> _enableMcpProfileConsent(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('account-mcp-profile-consent')),
+    label: 'MCP profile consent',
+  );
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('mcp-profile-consent-confirm')),
+    label: 'MCP profile consent confirmation',
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        !controller.mcpConsentBusy && controller.mcpConsent.profileReadAllowed,
+    label: 'persisted MCP profile consent',
+  );
+  expect(controller.mcpConsentError, isNull);
+}
+
+Future<void> _uploadRemoteBackup(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  final compact = find.byKey(const Key('account-backup-compact'));
+  if (compact.evaluate().isNotEmpty) {
+    await _tapWhenReady(tester, compact, label: 'backup options');
+    await _tapWhenReady(
+      tester,
+      find.byKey(const Key('backup-action-remote')),
+      label: 'remote encrypted backup action',
+    );
+  } else {
+    await _tapWhenReady(
+      tester,
+      find.byKey(const Key('account-backup-remote')),
+      label: 'remote encrypted backup action',
+    );
+  }
+  await _pumpUntil(
+    tester,
+    () => find
+        .byKey(const Key('backup-recovery-confirmation'))
+        .evaluate()
+        .isNotEmpty,
+    label: 'backup recovery phrase dialog',
+  );
+  await tester.enterText(
+    find.byKey(const Key('backup-recovery-passphrase')),
+    _backupPassphrase,
+  );
+  await tester.enterText(
+    find.byKey(const Key('backup-recovery-confirmation')),
+    _backupPassphrase,
+  );
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('backup-passphrase-submit')),
+    label: 'encrypted backup creation',
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        !controller.backupBusy &&
+        find
+            .text('Encrypted backup stored on this server.')
+            .evaluate()
+            .isNotEmpty,
+    label: 'remote encrypted backup upload',
+    timeout: const Duration(minutes: 2),
+  );
+  expect(controller.backupError, isNull);
+}
+
+Future<void> _viewPeerProfile(WidgetTester tester) async {
+  await _selectDirectConversation(tester);
+  final recipient = find.byKey(const Key('message-recipient'));
+  await tester.enterText(recipient, _peerUsername);
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('recipient-profile-view')),
+    label: 'peer public profile',
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        find.text(_peerProfileDisplayName).evaluate().isNotEmpty &&
+        find.text(_peerProfileStatus).evaluate().isNotEmpty &&
+        find.byKey(const Key('peer-profile-status')).evaluate().isNotEmpty,
+    label: 'peer public-profile propagation',
+  );
+  await _tapWhenReady(tester, find.text('Close'), label: 'peer profile close');
+}
+
+Future<void> _exerciseSearchAndReadFilters(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  final inbound = controller.messages.singleWhere(
+    (message) => !message.outgoing && message.text == _controlsReadyInbound,
+  );
+  final inboundBubble = find.byKey(
+    ValueKey('message-bubble-${inbound.messageId}'),
+  );
+  expect(inbound.readAt, isNull);
+  final search = find.byKey(const Key('message-global-search'));
+  await _tapWhenReady(tester, search, label: 'global message search');
+  await tester.enterText(search, _controlsReadyInbound);
+  await _pumpUntil(
+    tester,
+    () =>
+        find.text(_controlsReadyInbound).evaluate().isNotEmpty &&
+        inboundBubble.evaluate().length == 1,
+    label: 'global search result',
+  );
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await controller.markMessageRead(inbound.messageId);
+  await _pumpUntil(
+    tester,
+    () => controller.messages.any(
+      (message) =>
+          message.messageId == inbound.messageId && message.readAt != null,
+    ),
+    label: 'authenticated read receipt from search result',
+  );
+  await tester.enterText(search, '');
+  await tester.pump(const Duration(milliseconds: 400));
+
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('message-filter-read')),
+    label: 'read-message filter',
+  );
+  await _pumpUntil(
+    tester,
+    () => inboundBubble.evaluate().length == 1,
+    label: 'read-filter result',
+  );
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('message-filter-unread')),
+    label: 'unread-message filter',
+  );
+  await _pumpUntil(
+    tester,
+    () => inboundBubble.evaluate().isEmpty,
+    label: 'read message excluded from unread filter',
+  );
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('message-filter-all')),
+    label: 'all-message filter reset',
+  );
+  expect(controller.messageError, isNull);
+}
+
+Future<void> _tapWhenReady(
+  WidgetTester tester,
+  Finder finder, {
+  required String label,
+}) async {
+  final deadline = DateTime.now().add(const Duration(minutes: 1));
+  while (DateTime.now().isBefore(deadline)) {
+    await tester.pump(const Duration(milliseconds: 100));
+    if (finder.evaluate().length != 1) continue;
+    await tester.ensureVisible(finder);
+    await tester.pump();
+    if (finder.hitTestable().evaluate().length != 1) continue;
+    await tester.tap(finder);
+    return;
+  }
+  fail('Timed out waiting for $label.');
 }
 
 Future<void> _exerciseWebRtcCall(
@@ -806,6 +1190,14 @@ void _validateConfiguration() {
     'WAMP_APP_SMOKE_CALL_READY_INBOUND': _voiceCallReadyInbound,
     'WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND': _videoCallReadyOutbound,
     'WAMP_APP_SMOKE_VIDEO_READY_INBOUND': _videoCallReadyInbound,
+    'WAMP_APP_SMOKE_PROFILE_DISPLAY_NAME': _profileDisplayName,
+    'WAMP_APP_SMOKE_PROFILE_STATUS': _profileStatus,
+    'WAMP_APP_SMOKE_PEER_PROFILE_DISPLAY_NAME': _peerProfileDisplayName,
+    'WAMP_APP_SMOKE_PEER_PROFILE_STATUS': _peerProfileStatus,
+    'WAMP_APP_SMOKE_CONTACT_DISPLAY_NAME': _contactDisplayName,
+    'WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND': _controlsReadyOutbound,
+    'WAMP_APP_SMOKE_CONTROLS_READY_INBOUND': _controlsReadyInbound,
+    'WAMP_APP_SMOKE_BACKUP_PASSPHRASE': _backupPassphrase,
   };
   for (final entry in values.entries) {
     if (entry.value.trim().isEmpty) {
@@ -825,10 +1217,15 @@ void _validateConfiguration() {
     _voiceCallReadyInbound,
     _videoCallReadyOutbound,
     _videoCallReadyInbound,
+    _controlsReadyOutbound,
+    _controlsReadyInbound,
   ];
   if (_username == _peerUsername ||
       messageTokens.toSet().length != messageTokens.length) {
     fail('The two smoke clients must use distinct identities and messages.');
+  }
+  if (_backupPassphrase.length < 16) {
+    fail('WAMP_APP_SMOKE_BACKUP_PASSPHRASE must be at least 16 characters.');
   }
 }
 

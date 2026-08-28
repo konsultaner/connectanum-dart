@@ -17,7 +17,7 @@ Options:
   --ios-device <id>        Use an already-running iOS simulator.
   --port <port>            Router port (default: 18080).
   --state-dir <path>       Override the run state and evidence directory.
-  --smoke                  Verify encrypted chat plus a native WebRTC voice call.
+  --smoke                  Verify encrypted chat, account controls, backup, and native WebRTC calls.
   --dry-run                Print the resolved plan without changing the machine.
   -h, --help               Show this help.
 EOF
@@ -190,7 +190,7 @@ wait_for_flutter_test_body() {
   local deadline=$((SECONDS + 180))
 
   while ((SECONDS < deadline)); do
-    if grep -Fq 'exchanges encrypted chat and completes WebRTC voice and video calls' \
+    if grep -Fq 'exchanges encrypted chat, account controls, backup, and WebRTC calls' \
       "$log_file" 2>/dev/null; then
       return 0
     fi
@@ -285,6 +285,47 @@ for path in root.rglob("*"):
         if marker in payload:
             print(f"plaintext WebRTC signaling found in {path}", file=sys.stderr)
             raise SystemExit(1)
+PY
+}
+
+assert_account_controls_persisted() {
+  local data_dir="$1"
+  local backup_username="$2"
+  local first_username="$3"
+  local second_username="$4"
+
+  python3 - "$data_dir" "$backup_username" "$first_username" "$second_username" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+backup_username = sys.argv[2]
+usernames = sys.argv[3:]
+
+consent_document = json.loads((root / "mcp-consent.json").read_text(encoding="utf-8"))
+consents = consent_document.get("consents")
+if not isinstance(consents, dict):
+    raise SystemExit("MCP consent evidence is malformed")
+for username in usernames:
+    consent = consents.get(username)
+    if not isinstance(consent, dict) or consent.get("profile_read_allowed") is not True:
+        raise SystemExit(f"MCP profile consent is not enabled for {username}")
+    if not isinstance(consent.get("revision"), int) or consent["revision"] <= 0:
+        raise SystemExit(f"MCP profile consent revision is invalid for {username}")
+
+manifests = list((root / "backups").rglob("manifest.json"))
+if len(manifests) != 1:
+    raise SystemExit(f"expected one committed encrypted backup, found {len(manifests)}")
+manifest = json.loads(manifests[0].read_text(encoding="utf-8"))
+if manifest.get("username") != backup_username:
+    raise SystemExit("the encrypted backup belongs to an unexpected account")
+archive_name = manifest.get("archive_name")
+if not isinstance(archive_name, str):
+    raise SystemExit("the encrypted backup manifest has no archive name")
+archive = manifests[0].parent / archive_name
+if not archive.is_file() or archive.stat().st_size <= 0:
+    raise SystemExit("the encrypted backup archive is missing or empty")
 PY
 }
 
@@ -404,6 +445,16 @@ android_smoke_call_ready="voice-ready-android-$smoke_run_id"
 ios_smoke_call_ready="voice-ready-ios-$smoke_run_id"
 android_smoke_video_ready="video-ready-android-$smoke_run_id"
 ios_smoke_video_ready="video-ready-ios-$smoke_run_id"
+android_smoke_profile_display_name="Android profile $smoke_run_id"
+ios_smoke_profile_display_name="iOS profile $smoke_run_id"
+android_smoke_profile_status="profile-status-android-$smoke_run_id"
+ios_smoke_profile_status="profile-status-ios-$smoke_run_id"
+android_smoke_contact_display_name="Local iOS contact $smoke_run_id"
+ios_smoke_contact_display_name="Local Android contact $smoke_run_id"
+android_smoke_controls_ready="controls-ready-android-$smoke_run_id"
+ios_smoke_controls_ready="controls-ready-ios-$smoke_run_id"
+android_smoke_backup_passphrase="backup-passphrase-android-$smoke_run_id"
+ios_smoke_backup_passphrase="backup-passphrase-ios-$smoke_run_id"
 
 if [[ "$dry_run" == true ]]; then
   if [[ "$smoke" == true ]]; then
@@ -432,7 +483,7 @@ if [[ "$dry_run" == true ]]; then
       dev.connectanum.wamp_app android.permission.RECORD_AUDIO
     shell_join adb -s "$resolved_android" shell pm grant \
       dev.connectanum.wamp_app android.permission.CAMERA
-    shell_join flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 16m \
+    shell_join flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 22m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
@@ -447,6 +498,14 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$ios_smoke_call_ready" \
       --dart-define="WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=$android_smoke_video_ready" \
       --dart-define="WAMP_APP_SMOKE_VIDEO_READY_INBOUND=$ios_smoke_video_ready" \
+      --dart-define="WAMP_APP_SMOKE_PROFILE_DISPLAY_NAME=$android_smoke_profile_display_name" \
+      --dart-define="WAMP_APP_SMOKE_PROFILE_STATUS=$android_smoke_profile_status" \
+      --dart-define="WAMP_APP_SMOKE_PEER_PROFILE_DISPLAY_NAME=$ios_smoke_profile_display_name" \
+      --dart-define="WAMP_APP_SMOKE_PEER_PROFILE_STATUS=$ios_smoke_profile_status" \
+      --dart-define="WAMP_APP_SMOKE_CONTACT_DISPLAY_NAME=$android_smoke_contact_display_name" \
+      --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$android_smoke_controls_ready" \
+      --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$ios_smoke_controls_ready" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$android_smoke_backup_passphrase" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_android" ]]; then
     printf 'Android client command:\n'
@@ -460,7 +519,7 @@ if [[ "$dry_run" == true ]]; then
       dev.connectanum.wampApp
     shell_join xcrun simctl privacy "$resolved_ios" grant camera \
       dev.connectanum.wampApp
-    shell_join flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 16m \
+    shell_join flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 22m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
@@ -475,6 +534,14 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$android_smoke_call_ready" \
       --dart-define="WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=$ios_smoke_video_ready" \
       --dart-define="WAMP_APP_SMOKE_VIDEO_READY_INBOUND=$android_smoke_video_ready" \
+      --dart-define="WAMP_APP_SMOKE_PROFILE_DISPLAY_NAME=$ios_smoke_profile_display_name" \
+      --dart-define="WAMP_APP_SMOKE_PROFILE_STATUS=$ios_smoke_profile_status" \
+      --dart-define="WAMP_APP_SMOKE_PEER_PROFILE_DISPLAY_NAME=$android_smoke_profile_display_name" \
+      --dart-define="WAMP_APP_SMOKE_PEER_PROFILE_STATUS=$android_smoke_profile_status" \
+      --dart-define="WAMP_APP_SMOKE_CONTACT_DISPLAY_NAME=$ios_smoke_contact_display_name" \
+      --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$ios_smoke_controls_ready" \
+      --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$android_smoke_controls_ready" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$ios_smoke_backup_passphrase" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_ios" ]]; then
     printf 'iOS client command:\n'
@@ -604,10 +671,10 @@ adb -s "$resolved_android" reverse "tcp:$port" "tcp:$port"
 android_reverse_installed=true
 
 if [[ "$smoke" == true ]]; then
-  printf 'Running Android and iOS encrypted chat/voice/video-call smoke concurrently...\n'
+  printf 'Running Android and iOS encrypted chat/account-controls/backup/voice/video smoke concurrently...\n'
   (
     cd "$ios_smoke_workspace/client"
-    exec flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 16m \
+    exec flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 22m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
@@ -622,6 +689,14 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$android_smoke_call_ready" \
       --dart-define="WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=$ios_smoke_video_ready" \
       --dart-define="WAMP_APP_SMOKE_VIDEO_READY_INBOUND=$android_smoke_video_ready" \
+      --dart-define="WAMP_APP_SMOKE_PROFILE_DISPLAY_NAME=$ios_smoke_profile_display_name" \
+      --dart-define="WAMP_APP_SMOKE_PROFILE_STATUS=$ios_smoke_profile_status" \
+      --dart-define="WAMP_APP_SMOKE_PEER_PROFILE_DISPLAY_NAME=$android_smoke_profile_display_name" \
+      --dart-define="WAMP_APP_SMOKE_PEER_PROFILE_STATUS=$android_smoke_profile_status" \
+      --dart-define="WAMP_APP_SMOKE_CONTACT_DISPLAY_NAME=$ios_smoke_contact_display_name" \
+      --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$ios_smoke_controls_ready" \
+      --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$android_smoke_controls_ready" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$ios_smoke_backup_passphrase" \
       integration_test/two_device_smoke_test.dart
   ) >"$ios_smoke_log" 2>&1 &
   ios_smoke_pid=$!
@@ -634,7 +709,7 @@ if [[ "$smoke" == true ]]; then
 
   (
     cd "$android_smoke_workspace/client"
-    exec flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 16m \
+    exec flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 22m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
@@ -649,6 +724,14 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$ios_smoke_call_ready" \
       --dart-define="WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=$android_smoke_video_ready" \
       --dart-define="WAMP_APP_SMOKE_VIDEO_READY_INBOUND=$ios_smoke_video_ready" \
+      --dart-define="WAMP_APP_SMOKE_PROFILE_DISPLAY_NAME=$android_smoke_profile_display_name" \
+      --dart-define="WAMP_APP_SMOKE_PROFILE_STATUS=$android_smoke_profile_status" \
+      --dart-define="WAMP_APP_SMOKE_PEER_PROFILE_DISPLAY_NAME=$ios_smoke_profile_display_name" \
+      --dart-define="WAMP_APP_SMOKE_PEER_PROFILE_STATUS=$ios_smoke_profile_status" \
+      --dart-define="WAMP_APP_SMOKE_CONTACT_DISPLAY_NAME=$android_smoke_contact_display_name" \
+      --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$android_smoke_controls_ready" \
+      --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$ios_smoke_controls_ready" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$android_smoke_backup_passphrase" \
       integration_test/two_device_smoke_test.dart
   ) >"$android_smoke_log" 2>&1 &
   android_smoke_pid=$!
@@ -685,14 +768,28 @@ if [[ "$smoke" == true ]]; then
     "$android_smoke_call_ready" \
     "$ios_smoke_call_ready" \
     "$android_smoke_video_ready" \
-    "$ios_smoke_video_ready"
+    "$ios_smoke_video_ready" \
+    "$android_smoke_contact_display_name" \
+    "$ios_smoke_contact_display_name" \
+    "$android_smoke_controls_ready" \
+    "$ios_smoke_controls_ready" \
+    "$android_smoke_backup_passphrase" \
+    "$ios_smoke_backup_passphrase"
   then
     fail 'the smoke router persisted plaintext chat, media, or call signaling.'
+  fi
+  if ! assert_account_controls_persisted \
+    "$state_dir/data" \
+    "$android_smoke_username" \
+    "$android_smoke_username" \
+    "$ios_smoke_username"
+  then
+    fail 'the smoke router did not persist encrypted backup and MCP consent evidence.'
   fi
 
   cat <<EOF
 
-WampApp two-device encrypted chat and WebRTC voice/video-call UI smoke passed.
+WampApp two-device encrypted chat, account controls, backup, and WebRTC UI smoke passed.
   Router:  $endpoint
   Android: $resolved_android ($android_smoke_username)
   iOS:     $resolved_ios ($ios_smoke_username)

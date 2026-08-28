@@ -2286,6 +2286,7 @@ class _MessageBubble extends StatelessWidget {
           ? Alignment.centerRight
           : Alignment.centerLeft,
       child: InkWell(
+        key: ValueKey('message-bubble-${message.messageId}'),
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
