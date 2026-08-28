@@ -2293,6 +2293,9 @@ class _MessageBubble extends StatelessWidget {
                   message.oneTime && !message.outgoing
                       ? 'Tap to view once'
                       : message.text,
+                  key: message.oneTime && !message.outgoing
+                      ? ValueKey('message-view-once-${message.messageId}')
+                      : null,
                 ),
               ],
               for (final attachment in message.attachments) ...[

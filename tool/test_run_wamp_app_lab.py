@@ -128,6 +128,13 @@ class RunWampAppLabTests(unittest.TestCase):
             "WAMP_APP_SMOKE_GROUP_INBOUND=group-from-android-run-id",
             result.stdout,
         )
+        self.assertEqual(
+            result.stdout.count(
+                "WAMP_APP_SMOKE_VIEW_ONCE=view-once-from-android-run-id"
+            ),
+            2,
+        )
+        self.assertEqual(result.stdout.count("--timeout 8m"), 2)
         self.assertNotIn("--no-resident", result.stdout)
 
     def test_dry_run_rejects_physical_devices(self):

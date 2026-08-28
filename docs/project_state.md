@@ -3,7 +3,8 @@
 Last updated: 2026-08-28
 Current branch: `codex/wamp-app-native-rich-smoke`
 Current milestone: prove standalone WampApp encrypted direct and group chat,
-including rich content, through concurrent native platform UIs. PR #83 is
+including rich content and privacy-sensitive consumption, through concurrent
+native platform UIs. PR #83 is
 merged to `master` as `d9c53bf9` on both maintained remotes. Exact-head GitHub
 CI run `33180625653` and WampApp artifact run `33180625646` pass; the artifact
 run includes the production benchmark gate and all seven beta bundles, and the
@@ -13,8 +14,11 @@ clients through registration, 3-pass/64 MiB Argon2id SCRAM, reciprocal device
 discovery and direct chat, then creates and discovers a two-member encrypted
 group. Android sends group text plus the bundled PNG sticker, iOS downloads,
 decrypts, and renders its preview before replying in the same group, and Android
-decrypts and renders that reply. A recursive router-data guard rejects every
-direct/group smoke token, the group title, and raw PNG bytes. This richer
+decrypts and renders that reply. Android then sends an encrypted view-once
+message in the original direct conversation; iOS proves its plaintext is not
+rendered before opening, reveals it through the real UI, removes it after consumption,
+and Android observes the open receipt. A recursive router-data guard rejects
+every direct/group/view-once smoke token, the group title, and raw PNG bytes. This richer
 acceptance exposed and fixed a dialog-controller dismissal race, compact sticker
 composer overflow, and an asynchronous send race that could discard a newly
 typed draft or newly staged attachment. Nine launcher tests, all 21 WampApp
@@ -24,8 +28,8 @@ smoke pass locally. The first repository-wide `bin/verify` attempt exposed an
 intermittent WebSocket I/O test upgrade failure; replacing its fixed port and
 hostname-resolved listeners with ephemeral IPv4 loopback listeners and closing
 all four first-case client transports explicitly survives 50 fresh-process
-repetitions. The clean repository-wide `bin/verify` rerun passes; exact-head
-hosted evidence remains next.
+repetitions. Repository-wide `bin/verify` and the real view-once Android/iOS
+smoke pass for the follow-up; exact-head hosted evidence remains next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

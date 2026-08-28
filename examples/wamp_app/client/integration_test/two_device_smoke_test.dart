@@ -19,13 +19,14 @@ const _groupOutboundText = String.fromEnvironment(
 const _groupInboundText = String.fromEnvironment(
   'WAMP_APP_SMOKE_GROUP_INBOUND',
 );
+const _oneTimeText = String.fromEnvironment('WAMP_APP_SMOKE_VIEW_ONCE');
 const _password = 'wamp-app-native-smoke-password';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'exchanges encrypted direct, group, and sticker messages with the peer',
+    'exchanges encrypted direct, group, sticker, and view-once messages',
     (tester) async {
       _validateConfiguration();
       final controller = WampAppController(deviceName: '$_username device');
@@ -137,8 +138,9 @@ void main() {
       );
 
       await _exerciseEncryptedGroupSticker(tester, controller);
+      await _exerciseViewOnceMessage(tester, controller);
     },
-    timeout: const Timeout(Duration(minutes: 5)),
+    timeout: const Timeout(Duration(minutes: 7)),
   );
 }
 
@@ -394,6 +396,159 @@ Future<void> _receiveStickerAndReply(
   expect(controller.messageError, isNull);
 }
 
+Future<void> _exerciseViewOnceMessage(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  await _selectDirectConversation(tester);
+  if (_role == 'initiator') {
+    await _sendViewOnceMessage(tester, controller);
+    return;
+  }
+  await _receiveViewOnceMessage(tester, controller);
+}
+
+Future<void> _selectDirectConversation(WidgetTester tester) async {
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump();
+  final direct = find.byKey(const Key('conversation-direct'));
+  await tester.ensureVisible(direct);
+  await tester.tap(direct);
+  await _pumpUntil(
+    tester,
+    () =>
+        direct.evaluate().length == 1 &&
+        tester.widget<ChoiceChip>(direct).selected &&
+        find.byKey(const Key('message-recipient')).evaluate().isNotEmpty,
+    label: 'selected direct conversation',
+  );
+  final recipient = find.byKey(const Key('message-recipient'));
+  await tester.ensureVisible(recipient);
+  await tester.enterText(recipient, _peerUsername);
+  FocusManager.instance.primaryFocus?.unfocus();
+  await _pumpUntil(
+    tester,
+    () => find.byKey(const Key('message-one-time')).evaluate().isNotEmpty,
+    label: 'restored direct-message controls',
+  );
+}
+
+Future<void> _sendViewOnceMessage(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  final oneTime = find.byKey(const Key('message-one-time'));
+  await tester.ensureVisible(oneTime);
+  await tester.tap(oneTime);
+  await _pumpUntil(
+    tester,
+    () =>
+        oneTime.evaluate().length == 1 &&
+        tester.widget<FilterChip>(oneTime).selected,
+    label: 'enabled view-once mode',
+  );
+
+  final composer = find.byKey(const Key('message-composer'));
+  await _enterMessageWhenReady(
+    tester,
+    composer,
+    _oneTimeText,
+    label: 'view-once composer',
+  );
+  final send = find.byKey(const Key('message-send'));
+  await _tapSendAndWait(
+    tester,
+    controller,
+    send,
+    () => controller.messages.any(_matchesOutboundViewOnce),
+    label: 'encrypted view-once send',
+  );
+  final outbound = controller.messages.singleWhere(_matchesOutboundViewOnce);
+  await _pumpUntil(
+    tester,
+    () =>
+        controller.outboundMessageFor(outbound.messageId) == null &&
+        controller.messageError == null,
+    label: 'router acceptance of view-once message',
+    timeout: const Duration(minutes: 2),
+  );
+  await _pumpUntil(
+    tester,
+    () => controller.messages.any(
+      (message) =>
+          message.messageId == outbound.messageId && message.readAt != null,
+    ),
+    label: 'view-once open receipt',
+    timeout: const Duration(minutes: 2),
+  );
+  expect(controller.messageError, isNull);
+}
+
+Future<void> _receiveViewOnceMessage(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  LocalChatMessage? received;
+  await _pumpUntil(
+    tester,
+    () {
+      for (final message in controller.messages) {
+        if (!message.outgoing &&
+            !message.isGroup &&
+            message.peerUsername == _peerUsername &&
+            message.oneTime &&
+            message.text == _oneTimeText) {
+          received = message;
+          return true;
+        }
+      }
+      return false;
+    },
+    label: 'decrypted inbound view-once message',
+    timeout: const Duration(minutes: 2),
+  );
+  final viewOnce = received!;
+  expect(find.text(_oneTimeText), findsNothing);
+
+  final reveal = find.byKey(
+    ValueKey('message-view-once-${viewOnce.messageId}'),
+  );
+  await _pumpUntil(
+    tester,
+    () => reveal.evaluate().isNotEmpty,
+    label: 'hidden view-once message',
+  );
+  await tester.ensureVisible(reveal);
+  await tester.tap(reveal);
+  final content = find.byKey(const Key('one-time-message-content'));
+  await _pumpUntil(
+    tester,
+    () => content.evaluate().isNotEmpty,
+    label: 'revealed view-once dialog',
+    timeout: const Duration(minutes: 2),
+  );
+  expect(find.text(_oneTimeText), findsOneWidget);
+  await tester.tap(find.widgetWithText(TextButton, 'Close'));
+  await _pumpUntil(
+    tester,
+    () =>
+        content.evaluate().isEmpty &&
+        !controller.messages.any(
+          (message) => message.messageId == viewOnce.messageId,
+        ),
+    label: 'consumed view-once removal',
+  );
+  expect(find.text(_oneTimeText), findsNothing);
+  expect(controller.messageError, isNull);
+}
+
+bool _matchesOutboundViewOnce(LocalChatMessage message) =>
+    message.outgoing &&
+    !message.isGroup &&
+    message.peerUsername == _peerUsername &&
+    message.oneTime &&
+    message.text == _oneTimeText;
+
 bool _matchesGroupMessage(
   LocalChatMessage message, {
   required bool outgoing,
@@ -442,6 +597,7 @@ void _validateConfiguration() {
     'WAMP_APP_SMOKE_GROUP_TITLE': _groupTitle,
     'WAMP_APP_SMOKE_GROUP_OUTBOUND': _groupOutboundText,
     'WAMP_APP_SMOKE_GROUP_INBOUND': _groupInboundText,
+    'WAMP_APP_SMOKE_VIEW_ONCE': _oneTimeText,
   };
   for (final entry in values.entries) {
     if (entry.value.trim().isEmpty) {
@@ -456,6 +612,7 @@ void _validateConfiguration() {
     _inboundText,
     _groupOutboundText,
     _groupInboundText,
+    _oneTimeText,
   ];
   if (_username == _peerUsername ||
       messageTokens.toSet().length != messageTokens.length) {
