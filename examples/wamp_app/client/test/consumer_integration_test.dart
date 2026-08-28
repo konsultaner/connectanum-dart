@@ -255,6 +255,32 @@ void main() {
             .text,
         groupPlaintext,
       );
+      const groupReplyPlaintext = 'A discovered group member can reply.';
+      expect(
+        await bob.sendGroupMessage(
+          groupId: group.conversationId,
+          text: groupReplyPlaintext,
+        ),
+        isTrue,
+        reason: '${bob.messageError}',
+      );
+      expect(bob.messageError, isNull);
+      final groupReply = bob.messages.singleWhere(
+        (message) =>
+            message.conversationId == group.conversationId &&
+            message.text == groupReplyPlaintext,
+      );
+      await _waitFor(
+        () =>
+            alice.messages.any(
+              (message) => message.messageId == groupReply.messageId,
+            ) &&
+            carol.messages.any(
+              (message) => message.messageId == groupReply.messageId,
+            ) &&
+            !alice.messageBusy &&
+            !carol.messageBusy,
+      );
       await _waitFor(
         () =>
             alice.messages
@@ -293,11 +319,12 @@ void main() {
       expect(mailboxDocument, isNot(contains(plaintext)));
       expect(mailboxDocument, isNot(contains(oneTimePlaintext)));
       expect(mailboxDocument, isNot(contains(groupPlaintext)));
+      expect(mailboxDocument, isNot(contains(groupReplyPlaintext)));
       expect(mailboxDocument, isNot(contains('Launch crew')));
       expect(mailboxDocument, contains('encrypted_payload'));
       expect(mailboxDocument, contains('consumed_by_device_id'));
 
-      await _waitFor(() => !bob.messageBusy && bob.messages.length == 2);
+      await _waitFor(() => !bob.messageBusy && bob.messages.length == 3);
       await bob.signOut();
       bob.dispose();
       bob = _controller(bobStorage, 'Bob phone');
@@ -311,7 +338,7 @@ void main() {
         WampAppStatus.connected,
         reason: '${bob.errorMessage} / ${bob.messageError}',
       );
-      expect(bob.messages, hasLength(2));
+      expect(bob.messages, hasLength(3));
       expect(
         bob.messages.any((message) => message.messageId == durableMessageId),
         isTrue,

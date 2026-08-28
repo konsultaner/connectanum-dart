@@ -106,6 +106,28 @@ class RunWampAppLabTests(unittest.TestCase):
         self.assertIn("WAMP_APP_SMOKE_INBOUND=from-ios-run-id", result.stdout)
         self.assertIn("WAMP_APP_SMOKE_OUTBOUND=from-ios-run-id", result.stdout)
         self.assertIn("WAMP_APP_SMOKE_INBOUND=from-android-run-id", result.stdout)
+        self.assertIn("WAMP_APP_SMOKE_ROLE=initiator", result.stdout)
+        self.assertIn("WAMP_APP_SMOKE_ROLE=responder", result.stdout)
+        self.assertEqual(
+            result.stdout.count("WAMP_APP_SMOKE_GROUP_TITLE=native-group-run-id"),
+            2,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_GROUP_OUTBOUND=group-from-android-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_GROUP_INBOUND=group-from-ios-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_GROUP_OUTBOUND=group-from-ios-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_GROUP_INBOUND=group-from-android-run-id",
+            result.stdout,
+        )
         self.assertNotIn("--no-resident", result.stdout)
 
     def test_dry_run_rejects_physical_devices(self):

@@ -17,7 +17,7 @@ Options:
   --ios-device <id>        Use an already-running iOS simulator.
   --port <port>            Router port (default: 18080).
   --state-dir <path>       Override the run state and evidence directory.
-  --smoke                  Register both clients and verify encrypted chat.
+  --smoke                  Verify encrypted direct, group, and sticker chat.
   --dry-run                Print the resolved plan without changing the machine.
   -h, --help               Show this help.
 EOF
@@ -188,6 +188,31 @@ Path(sys.argv[2]).write_text(updated, encoding="utf-8")
 PY
 }
 
+assert_router_data_encrypted() {
+  local data_dir="$1"
+  shift
+
+  python3 - "$data_dir" "$@" <<'PY'
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1])
+tokens = [value.encode("utf-8") for value in sys.argv[2:] if value]
+png_signature = b"\x89PNG\r\n\x1a\n"
+for path in root.rglob("*"):
+    if not path.is_file():
+        continue
+    payload = path.read_bytes()
+    for token in tokens:
+        if token in payload:
+            print(f"plaintext smoke token found in {path}", file=sys.stderr)
+            raise SystemExit(1)
+    if png_signature in payload:
+        print(f"raw PNG bytes found in {path}", file=sys.stderr)
+        raise SystemExit(1)
+PY
+}
+
 android_device=""
 android_emulator=""
 dry_run=false
@@ -294,6 +319,9 @@ android_smoke_username="android-$smoke_run_id"
 ios_smoke_username="ios-$smoke_run_id"
 android_smoke_message="from-android-$smoke_run_id"
 ios_smoke_message="from-ios-$smoke_run_id"
+smoke_group_title="native-group-$smoke_run_id"
+android_smoke_group_message="group-from-android-$smoke_run_id"
+ios_smoke_group_message="group-from-ios-$smoke_run_id"
 
 if [[ "$dry_run" == true ]]; then
   if [[ "$smoke" == true ]]; then
@@ -323,6 +351,10 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_OUTBOUND=$android_smoke_message" \
       --dart-define="WAMP_APP_SMOKE_INBOUND=$ios_smoke_message" \
+      --dart-define=WAMP_APP_SMOKE_ROLE=initiator \
+      --dart-define="WAMP_APP_SMOKE_GROUP_TITLE=$smoke_group_title" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_OUTBOUND=$android_smoke_group_message" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_INBOUND=$ios_smoke_group_message" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_android" ]]; then
     printf 'Android client command:\n'
@@ -337,6 +369,10 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_OUTBOUND=$ios_smoke_message" \
       --dart-define="WAMP_APP_SMOKE_INBOUND=$android_smoke_message" \
+      --dart-define=WAMP_APP_SMOKE_ROLE=responder \
+      --dart-define="WAMP_APP_SMOKE_GROUP_TITLE=$smoke_group_title" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_OUTBOUND=$ios_smoke_group_message" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_INBOUND=$android_smoke_group_message" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_ios" ]]; then
     printf 'iOS client command:\n'
@@ -427,7 +463,7 @@ adb -s "$resolved_android" reverse "tcp:$port" "tcp:$port"
 android_reverse_installed=true
 
 if [[ "$smoke" == true ]]; then
-  printf 'Running Android and iOS registration/message smoke concurrently...\n'
+  printf 'Running Android and iOS direct/group/sticker smoke concurrently...\n'
   (
     cd "$(repo_root)/examples/wamp_app/client"
     exec flutter test -d "$resolved_android" --no-pub --timeout 6m \
@@ -436,6 +472,10 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_OUTBOUND=$android_smoke_message" \
       --dart-define="WAMP_APP_SMOKE_INBOUND=$ios_smoke_message" \
+      --dart-define=WAMP_APP_SMOKE_ROLE=initiator \
+      --dart-define="WAMP_APP_SMOKE_GROUP_TITLE=$smoke_group_title" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_OUTBOUND=$android_smoke_group_message" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_INBOUND=$ios_smoke_group_message" \
       integration_test/two_device_smoke_test.dart
   ) >"$android_smoke_log" 2>&1 &
   android_smoke_pid=$!
@@ -447,6 +487,10 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_OUTBOUND=$ios_smoke_message" \
       --dart-define="WAMP_APP_SMOKE_INBOUND=$android_smoke_message" \
+      --dart-define=WAMP_APP_SMOKE_ROLE=responder \
+      --dart-define="WAMP_APP_SMOKE_GROUP_TITLE=$smoke_group_title" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_OUTBOUND=$ios_smoke_group_message" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_INBOUND=$android_smoke_group_message" \
       integration_test/two_device_smoke_test.dart
   ) >"$ios_smoke_log" 2>&1 &
   ios_smoke_pid=$!
@@ -470,14 +514,20 @@ if [[ "$smoke" == true ]]; then
 
   message_store="$state_dir/data/messages.json"
   [[ -f "$message_store" ]] || fail 'the smoke router did not persist its message store.'
-  if grep -Fq -- "$android_smoke_message" "$message_store" || \
-     grep -Fq -- "$ios_smoke_message" "$message_store"; then
-    fail 'the smoke router persisted plaintext message content.'
+  if ! assert_router_data_encrypted \
+    "$state_dir/data" \
+    "$android_smoke_message" \
+    "$ios_smoke_message" \
+    "$smoke_group_title" \
+    "$android_smoke_group_message" \
+    "$ios_smoke_group_message"
+  then
+    fail 'the smoke router persisted plaintext chat or sticker content.'
   fi
 
   cat <<EOF
 
-WampApp two-device UI smoke passed.
+WampApp two-device direct/group/sticker UI smoke passed.
   Router:  $endpoint
   Android: $resolved_android ($android_smoke_username)
   iOS:     $resolved_ios ($ios_smoke_username)

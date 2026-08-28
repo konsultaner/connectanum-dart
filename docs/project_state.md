@@ -1,26 +1,31 @@
 # Project State
 
 Last updated: 2026-08-28
-Current branch: `codex/wamp-app-native-ui-smoke`
-Current milestone: prove standalone WampApp registration and encrypted chat
-through concurrent native platform UIs. PR #82 is merged to `master` as
-`48783adf` on both maintained remotes. Exact-head GitHub CI run `33171843544`
-and WampApp artifact run `33171843583` pass; the artifact run includes the
-production benchmark gate and all seven beta bundles, and the strict deployment
-audit passes.
-`bin/run-wamp-app-lab` retains its interactive Android+iOS mode and now adds a
-deterministic `--smoke` mode. Fresh Android API 35 and iOS 26.4 clients register
-unique accounts through the real keyed UI and 3-pass/64 MiB Argon2id SCRAM,
-discover the peer device, send reciprocal direct messages through the UI,
-receive them through mailbox pub/sub, decrypt them locally, and render both
-bubbles. The launcher rejects plaintext tokens in the router message store and
-uses bounded process termination so failed runs cannot leave the router or
-Android reverse tunnel behind. This acceptance exposed and fixed a real mobile
-keyboard overflow: the compact authenticated shell now collapses secondary
-account and conversation controls while preserving recipient, history, errors,
-attachments, and composer. Nine launcher tests, all 18 WampApp widget tests,
-Flutter analysis, the two-device native smoke, and repository-wide `bin/verify`
-pass locally; exact-head hosted evidence remains next.
+Current branch: `codex/wamp-app-native-rich-smoke`
+Current milestone: prove standalone WampApp encrypted direct and group chat,
+including rich content, through concurrent native platform UIs. PR #83 is
+merged to `master` as `d9c53bf9` on both maintained remotes. Exact-head GitHub
+CI run `33180625653` and WampApp artifact run `33180625646` pass; the artifact
+run includes the production benchmark gate and all seven beta bundles, and the
+strict deployment audit passes.
+`bin/run-wamp-app-lab --smoke` now drives fresh Android API 35 and iOS 26.4
+clients through registration, 3-pass/64 MiB Argon2id SCRAM, reciprocal device
+discovery and direct chat, then creates and discovers a two-member encrypted
+group. Android sends group text plus the bundled PNG sticker, iOS downloads,
+decrypts, and renders its preview before replying in the same group, and Android
+decrypts and renders that reply. A recursive router-data guard rejects every
+direct/group smoke token, the group title, and raw PNG bytes. This richer
+acceptance exposed and fixed a dialog-controller dismissal race, compact sticker
+composer overflow, and an asynchronous send race that could discard a newly
+typed draft or newly staged attachment. Nine launcher tests, all 21 WampApp
+widget tests, the discovered-member group integration regression, Flutter
+analysis, `bin/test-fast`, `bin/test-wamp-app`, and the real two-device native
+smoke pass locally. The first repository-wide `bin/verify` attempt exposed an
+intermittent WebSocket I/O test upgrade failure; replacing its fixed port and
+hostname-resolved listeners with ephemeral IPv4 loopback listeners and closing
+all four first-case client transports explicitly survives 50 fresh-process
+repetitions. The clean repository-wide `bin/verify` rerun passes; exact-head
+hosted evidence remains next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

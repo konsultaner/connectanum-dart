@@ -80,6 +80,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _send() async {
     final text = _messageController.text;
+    final sentAttachments = _attachments;
     final groupId = _selectedGroupId;
     final conversationId =
         groupId ??
@@ -87,7 +88,7 @@ class _HomePageState extends State<HomePage> {
     final expiresAfter = conversationId == null
         ? null
         : widget.controller.disappearingMessagesFor(conversationId);
-    final attachmentSources = _attachments
+    final attachmentSources = sentAttachments
         .map((attachment) => attachment.source)
         .toList(growable: false);
     final queued = groupId == null
@@ -105,10 +106,15 @@ class _HomePageState extends State<HomePage> {
             attachmentSources: attachmentSources,
           );
     if (mounted && queued) {
-      final sentAttachments = _attachments;
       setState(() {
-        _messageController.clear();
-        _attachments = const [];
+        if (_messageController.text == text) {
+          _messageController.clear();
+        }
+        _attachments = List<_SelectedAttachment>.unmodifiable(
+          _attachments.where(
+            (attachment) => !sentAttachments.contains(attachment),
+          ),
+        );
       });
       for (final attachment in sentAttachments) {
         attachment.dispose();
@@ -458,49 +464,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _createGroup() async {
-    final title = TextEditingController();
-    final members = TextEditingController();
     final details = await showDialog<(String, List<String>)>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New encrypted group'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              key: const Key('group-title'),
-              controller: title,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Group name'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const Key('group-members'),
-              controller: members,
-              decoration: const InputDecoration(
-                labelText: 'Member usernames',
-                helperText: 'Separate usernames with commas',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('group-create'),
-            onPressed: () =>
-                Navigator.of(context)
-                    .pop((title.text, members.text.split(','))),
-            child: const Text('Create group'),
-          ),
-        ],
-      ),
+      builder: (context) => const _CreateGroupDialog(),
     );
-    title.dispose();
-    members.dispose();
     if (!mounted || details == null) return;
     final group = await widget.controller.createGroup(
       title: details.$1,
@@ -927,6 +894,65 @@ class _HomePageState extends State<HomePage> {
           if (calls.hasCall) CallOverlay(controller: calls),
         ],
       ),
+    );
+  }
+}
+
+class _CreateGroupDialog extends StatefulWidget {
+  const _CreateGroupDialog();
+
+  @override
+  State<_CreateGroupDialog> createState() => _CreateGroupDialogState();
+}
+
+class _CreateGroupDialogState extends State<_CreateGroupDialog> {
+  final _title = TextEditingController();
+  final _members = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _members.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New encrypted group'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            key: const Key('group-title'),
+            controller: _title,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Group name'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('group-members'),
+            controller: _members,
+            decoration: const InputDecoration(
+              labelText: 'Member usernames',
+              helperText: 'Separate usernames with commas',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('group-create'),
+          onPressed: () =>
+              Navigator.of(context)
+                  .pop((_title.text, _members.text.split(','))),
+          child: const Text('Create group'),
+        ),
+      ],
     );
   }
 }
@@ -1619,18 +1645,15 @@ class _ConversationPanel extends StatelessWidget {
     final globalSearch = query.isGlobalSearch;
     final visibleMessages = query.select(controller.messages);
     final compact = MediaQuery.sizeOf(context).width < 760;
+    final compactComposition =
+        compact && (selectedAttachments.isNotEmpty || voiceRecording);
+    final chromeHidden = keyboardVisible || compactComposition;
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(
-          keyboardVisible
-              ? 8
-              : compact
-              ? 14
-              : 22,
-        ),
+        padding: EdgeInsets.all(compact || chromeHidden ? 8 : 22),
         child: Column(
           children: [
-            if (!keyboardVisible) ...[
+            if (!chromeHidden) ...[
               Row(
                 children: [
                   Icon(
@@ -1792,7 +1815,7 @@ class _ConversationPanel extends StatelessWidget {
               ),
               const SizedBox(height: 14),
             ],
-            if (!keyboardVisible &&
+            if (!chromeHidden &&
                 !groupMode &&
                 controller.contacts.isNotEmpty) ...[
               SizedBox(
@@ -1859,7 +1882,7 @@ class _ConversationPanel extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-            SizedBox(height: keyboardVisible ? 6 : 14),
+            SizedBox(height: chromeHidden ? 6 : 14),
             Expanded(
               child: visibleMessages.isEmpty
                   ? _NoMessages(
@@ -1935,7 +1958,7 @@ class _ConversationPanel extends StatelessWidget {
                 ),
               ),
             ],
-            if (!keyboardVisible) ...[
+            if (!chromeHidden) ...[
               const SizedBox(height: 14),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,

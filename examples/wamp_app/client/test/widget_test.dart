@@ -129,6 +129,85 @@ void main() {
     expect(find.text('Delete after 1 day'), findsOneWidget);
   });
 
+  testWidgets('group dialog owns controllers through its dismissal animation', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('conversation-create-group')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('group-title')), 'Launch crew');
+    await tester.enterText(find.byKey(const Key('group-members')), 'bob');
+    await tester.tap(find.byKey(const Key('group-create')));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('preserves a new draft while the previous send completes', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final enrollment = trustStore.session!.enrollment;
+    gateway.deviceDirectories['alice'] = [
+      activeDeviceRecord('alice', enrollment),
+    ];
+    gateway.deviceDirectories['bob'] = [activeDeviceRecord('bob', enrollment)];
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
+    final composer = find.byKey(const Key('message-composer'));
+    await tester.enterText(composer, 'first draft');
+    final composerController = tester.widget<TextField>(composer).controller!;
+    var replacedDraft = false;
+    void replaceDraftOnIdle() {
+      if (replacedDraft ||
+          gateway.sendAttempts == 0 ||
+          controller.messageBusy) {
+        return;
+      }
+      replacedDraft = true;
+      composerController.text = 'next draft';
+    }
+
+    controller.addListener(replaceDraftOnIdle);
+    addTearDown(() => controller.removeListener(replaceDraftOnIdle));
+    await tester.tap(find.byKey(const Key('message-send')));
+    await tester.pumpAndSettle();
+
+    expect(replacedDraft, isTrue);
+    expect(composerController.text, 'next draft');
+    expect(gateway.sendAttempts, 1);
+  });
+
   testWidgets('direct call actions fail closed with a recoverable result', (
     tester,
   ) async {
@@ -832,6 +911,48 @@ void main() {
     expect(tester.widget<FilterChip>(oneTime).selected, isFalse);
   });
 
+  testWidgets('keeps a staged sticker usable on a compact phone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomePage(
+          controller: controller,
+          connection: controller.connection!,
+          stickerRenderer: _FakeStickerRenderer(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('message-expression')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expression-sticker-tab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('sticker-nice')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('selected-attachment-0')), findsOneWidget);
+    expect(find.byKey(const Key('message-global-search')), findsNothing);
+    expect(find.byKey(const Key('message-send')).hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('rejects a sticker beyond the attachment cap', (tester) async {
     final renderer = _FakeStickerRenderer();
     final controller = WampAppController(
@@ -1094,6 +1215,7 @@ void main() {
 
 class _FakeGateway implements AccountGateway {
   int sendAttempts = 0;
+  final Map<String, List<DeviceRecord>> deviceDirectories = {};
   bool mcpProfileReadAllowed = false;
   int mcpConsentRevision = 0;
   final List<bool> mcpConsentUpdates = [];
@@ -1177,8 +1299,10 @@ class _FakeGateway implements AccountGateway {
       },
       enrollDeviceCallback: (enrollment) async =>
           activeDeviceRecord(username, enrollment),
-      listDevicesCallback: (_) async => DeviceDirectory(const []),
-      lookupDevicesCallback: (_, _) async => DeviceDirectory(const []),
+      listDevicesCallback: (_) async =>
+          DeviceDirectory(deviceDirectories[username] ?? const []),
+      lookupDevicesCallback: (lookup, _) async =>
+          DeviceDirectory(deviceDirectories[lookup] ?? const []),
       revokeDeviceCallback: (_) => throw UnimplementedError(),
       sendMessageCallback: (_) async {
         sendAttempts += 1;
