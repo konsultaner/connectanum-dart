@@ -201,6 +201,11 @@ class RunWampAppLabTests(unittest.TestCase):
                 },
             ]
             commands = {
+                "uname": (
+                    "#!/usr/bin/env bash\n"
+                    "[[ \"$1\" == -s ]] && printf '%s\\n' Darwin && exit 0\n"
+                    "exit 99\n"
+                ),
                 "flutter": (
                     "#!/usr/bin/env bash\n"
                     "if [[ \"$1\" == devices && \"$2\" == --machine ]]; then\n"
