@@ -1,9 +1,11 @@
 import json
 import os
 import pathlib
+import socket
 import stat
 import subprocess
 import tempfile
+import time
 import unittest
 
 
@@ -77,6 +79,35 @@ class RunWampAppLabTests(unittest.TestCase):
         self.assertIn("--no-resident", result.stdout)
         self.assertEqual(result.stdout.count("WAMP_APP_SERVER_ADDRESS="), 2)
 
+    def test_smoke_dry_run_plans_bidirectional_native_ui_test(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            state = pathlib.Path(temporary_directory) / "does-not-exist"
+            result = self.run_script(
+                "--dry-run",
+                "--smoke",
+                "--port",
+                "18082",
+                "--state-dir",
+                str(state),
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(state.exists())
+        self.assertIn("Two-device UI smoke", result.stdout)
+        self.assertEqual(
+            result.stdout.count("integration_test/two_device_smoke_test.dart"),
+            2,
+        )
+        self.assertIn("WAMP_APP_SMOKE_USERNAME=android-run-id", result.stdout)
+        self.assertIn("WAMP_APP_SMOKE_PEER=ios-run-id", result.stdout)
+        self.assertIn("WAMP_APP_SMOKE_USERNAME=ios-run-id", result.stdout)
+        self.assertIn("WAMP_APP_SMOKE_PEER=android-run-id", result.stdout)
+        self.assertIn("WAMP_APP_SMOKE_OUTBOUND=from-android-run-id", result.stdout)
+        self.assertIn("WAMP_APP_SMOKE_INBOUND=from-ios-run-id", result.stdout)
+        self.assertIn("WAMP_APP_SMOKE_OUTBOUND=from-ios-run-id", result.stdout)
+        self.assertIn("WAMP_APP_SMOKE_INBOUND=from-android-run-id", result.stdout)
+        self.assertNotIn("--no-resident", result.stdout)
+
     def test_dry_run_rejects_physical_devices(self):
         result = self.run_script(
             "--dry-run",
@@ -143,6 +174,107 @@ class RunWampAppLabTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertIn("mutually exclusive", result.stderr)
+
+    def test_smoke_failure_forces_router_exit_and_removes_reverse(self):
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary = pathlib.Path(temporary_directory)
+            state = temporary / "state"
+            adb_log = temporary / "adb.log"
+            devices = [
+                {
+                    "name": "Android Emulator",
+                    "id": "emulator-5554",
+                    "isSupported": True,
+                    "targetPlatform": "android-arm64",
+                    "emulator": True,
+                },
+                {
+                    "name": "iPhone Simulator",
+                    "id": "ios-simulator",
+                    "isSupported": True,
+                    "targetPlatform": "ios",
+                    "emulator": True,
+                },
+            ]
+            commands = {
+                "flutter": (
+                    "#!/usr/bin/env bash\n"
+                    "if [[ \"$1\" == devices && \"$2\" == --machine ]]; then\n"
+                    f"  printf '%s\\n' '{json.dumps(devices)}'\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "if [[ \"$1\" == pub && \"$2\" == get ]]; then exit 0; fi\n"
+                    "if [[ \"$1\" == test ]]; then\n"
+                    "  [[ \" $* \" == *\" -d emulator-5554 \"* ]] && exit 7\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "exit 99\n"
+                ),
+                "dart": (
+                    "#!/usr/bin/env bash\n"
+                    "if [[ \"$1\" == pub && \"$2\" == get ]]; then exit 0; fi\n"
+                    "if [[ \"$1\" == run && \"$2\" == wamp_app_server ]]; then\n"
+                    "  config=\"$4\"\n"
+                    "  port=$(awk '/^  port:/ {print $2; exit}' \"$config\")\n"
+                    "  exec python3 - \"$port\" <<'PY'\n"
+                    "import signal\n"
+                    "import socket\n"
+                    "import sys\n"
+                    "import time\n"
+                    "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+                    "with socket.socket() as listener:\n"
+                    "    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n"
+                    "    listener.bind(('127.0.0.1', int(sys.argv[1])))\n"
+                    "    listener.listen()\n"
+                    "    while True:\n"
+                    "        time.sleep(1)\n"
+                    "PY\n"
+                    "fi\n"
+                    "exit 99\n"
+                ),
+                "adb": (
+                    "#!/usr/bin/env bash\n"
+                    "printf '%s\\n' \"$*\" >>\"$WAMP_APP_TEST_ADB_LOG\"\n"
+                ),
+            }
+            for name, source in commands.items():
+                command = temporary / name
+                command.write_text(source, encoding="utf-8")
+                command.chmod(command.stat().st_mode | stat.S_IXUSR)
+
+            environment = os.environ.copy()
+            environment["PATH"] = f"{temporary}:{environment['PATH']}"
+            environment["WAMP_APP_TEST_ADB_LOG"] = str(adb_log)
+            started = time.monotonic()
+            result = subprocess.run(
+                [
+                    str(SCRIPT),
+                    "--smoke",
+                    "--port",
+                    str(port),
+                    "--state-dir",
+                    str(state),
+                ],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=20,
+            )
+
+            self.assertLess(time.monotonic() - started, 15)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("two-device UI smoke failed", result.stderr)
+            adb_calls = adb_log.read_text(encoding="utf-8")
+            self.assertIn("reverse tcp:", adb_calls)
+            self.assertIn("reverse --remove tcp:", adb_calls)
+            with socket.socket() as released:
+                released.bind(("127.0.0.1", port))
 
 
 if __name__ == "__main__":

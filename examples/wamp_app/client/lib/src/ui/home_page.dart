@@ -813,6 +813,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final calls = widget.controller.calls!;
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return AnimatedBuilder(
       animation: calls,
       builder: (context, _) => Stack(
@@ -846,6 +847,7 @@ class _HomePageState extends State<HomePage> {
                   final conversation = _ConversationPanel(
                     controller: widget.controller,
                     calls: calls,
+                    keyboardVisible: keyboardVisible,
                     recipientController: _recipientController,
                     messageController: _messageController,
                     searchController: _searchController,
@@ -899,7 +901,7 @@ class _HomePageState extends State<HomePage> {
                     stickerBusy: _stickerBusy,
                   );
                   return Padding(
-                    padding: const EdgeInsets.all(18),
+                    padding: EdgeInsets.all(keyboardVisible ? 8 : 18),
                     child: wide
                         ? Row(
                             children: [
@@ -910,8 +912,10 @@ class _HomePageState extends State<HomePage> {
                           )
                         : Column(
                             children: [
-                              account,
-                              const SizedBox(height: 18),
+                              if (!keyboardVisible) ...[
+                                account,
+                                const SizedBox(height: 18),
+                              ],
                               Expanded(child: conversation),
                             ],
                           ),
@@ -1508,6 +1512,7 @@ class _ConversationPanel extends StatelessWidget {
   const _ConversationPanel({
     required this.controller,
     required this.calls,
+    required this.keyboardVisible,
     required this.recipientController,
     required this.messageController,
     required this.searchController,
@@ -1546,6 +1551,7 @@ class _ConversationPanel extends StatelessWidget {
 
   final WampAppController controller;
   final CallController calls;
+  final bool keyboardVisible;
   final TextEditingController recipientController;
   final TextEditingController messageController;
   final TextEditingController searchController;
@@ -1615,169 +1621,180 @@ class _ConversationPanel extends StatelessWidget {
     final compact = MediaQuery.sizeOf(context).width < 760;
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(compact ? 14 : 22),
+        padding: EdgeInsets.all(
+          keyboardVisible
+              ? 8
+              : compact
+              ? 14
+              : 22,
+        ),
         child: Column(
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.lock_outline,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    selectedGroup?.title ?? 'Encrypted messages',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                IconButton(
-                  key: const Key('conversation-voice-call'),
-                  tooltip: groupMode
-                      ? 'Group calls are not available yet'
-                      : 'Start encrypted voice call',
-                  onPressed: canStartCall ? onStartVoiceCall : null,
-                  icon: const Icon(Icons.call_outlined),
-                ),
-                IconButton(
-                  key: const Key('conversation-video-call'),
-                  tooltip: groupMode
-                      ? 'Group calls are not available yet'
-                      : 'Start encrypted video call',
-                  onPressed: canStartCall ? onStartVideoCall : null,
-                  icon: const Icon(Icons.videocam_outlined),
-                ),
-                if (activeConversationId != null)
-                  IconButton(
-                    key: const Key('conversation-mute'),
-                    tooltip: conversationMuted
-                        ? 'Unmute this chat'
-                        : 'Mute this chat',
-                    onPressed: controller.preferenceBusy
-                        ? null
-                        : () => onMuteChanged(
-                            activeConversationId,
-                            !conversationMuted,
-                          ),
-                    icon: controller.preferenceBusy
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            conversationMuted
-                                ? Icons.notifications_off
-                                : Icons.notifications_none,
-                          ),
-                  ),
-                IconButton(
-                  tooltip: 'Sync messages',
-                  onPressed: controller.messageBusy
-                      ? null
-                      : controller.refreshMessages,
-                  icon: const Icon(Icons.sync),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const Key('message-global-search'),
-              controller: searchController,
-              maxLength: LocalMessageQuery.maxQueryLength,
-              maxLengthEnforcement: MaxLengthEnforcement.enforced,
-              buildCounter: (
-                _, {
-                required currentLength,
-                required isFocused,
-                maxLength,
-              }) => null,
-              decoration: InputDecoration(
-                labelText: globalSearch
-                    ? 'Local search · ${visibleMessages.length} result${visibleMessages.length == 1 ? '' : 's'}'
-                    : 'Search local messages · stays on this device',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        key: const Key('message-search-clear'),
-                        tooltip: 'Clear message search',
-                        onPressed: onClearSearch,
-                        icon: const Icon(Icons.close),
-                      ),
-              ),
-              onChanged: onSearchChanged,
-              onTapOutside: (_) =>
-                  FocusManager.instance.primaryFocus?.unfocus(),
-            ),
-            const SizedBox(height: 10),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
+            if (!keyboardVisible) ...[
+              Row(
                 children: [
-                  ChoiceChip(
-                    key: const Key('conversation-direct'),
-                    selected: !groupMode,
-                    onSelected: controller.messageBusy
-                        ? null
-                        : (_) => onConversationChanged(null),
-                    avatar: const Icon(Icons.person_outline, size: 18),
-                    label: const Text('Direct'),
+                  Icon(
+                    Icons.lock_outline,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                  for (final group in controller.groups) ...[
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      key: ValueKey(
-                        'conversation-group-${group.conversationId}',
-                      ),
-                      selected: selectedGroupId == group.conversationId,
-                      onSelected: controller.messageBusy
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      selectedGroup?.title ?? 'Encrypted messages',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('conversation-voice-call'),
+                    tooltip: groupMode
+                        ? 'Group calls are not available yet'
+                        : 'Start encrypted voice call',
+                    onPressed: canStartCall ? onStartVoiceCall : null,
+                    icon: const Icon(Icons.call_outlined),
+                  ),
+                  IconButton(
+                    key: const Key('conversation-video-call'),
+                    tooltip: groupMode
+                        ? 'Group calls are not available yet'
+                        : 'Start encrypted video call',
+                    onPressed: canStartCall ? onStartVideoCall : null,
+                    icon: const Icon(Icons.videocam_outlined),
+                  ),
+                  if (activeConversationId != null)
+                    IconButton(
+                      key: const Key('conversation-mute'),
+                      tooltip: conversationMuted
+                          ? 'Unmute this chat'
+                          : 'Mute this chat',
+                      onPressed: controller.preferenceBusy
                           ? null
-                          : (_) => onConversationChanged(group.conversationId),
-                      avatar: const Icon(Icons.group_outlined, size: 18),
-                      label: Text(group.title),
+                          : () => onMuteChanged(
+                              activeConversationId,
+                              !conversationMuted,
+                            ),
+                      icon: controller.preferenceBusy
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              conversationMuted
+                                  ? Icons.notifications_off
+                                  : Icons.notifications_none,
+                            ),
                     ),
-                  ],
-                  const SizedBox(width: 8),
-                  ActionChip(
-                    key: const Key('conversation-create-group'),
-                    onPressed: controller.messageBusy ? null : onCreateGroup,
-                    avatar: const Icon(Icons.add, size: 18),
-                    label: const Text('New group'),
-                  ),
-                  const SizedBox(width: 16),
-                  FilterChip(
-                    key: const Key('message-filter-all'),
-                    selected: readFilter == LocalMessageReadFilter.all,
-                    onSelected: (_) =>
-                        onReadFilterChanged(LocalMessageReadFilter.all),
-                    label: const Text('All'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilterChip(
-                    key: const Key('message-filter-unread'),
-                    selected: readFilter == LocalMessageReadFilter.unread,
-                    onSelected: (_) =>
-                        onReadFilterChanged(LocalMessageReadFilter.unread),
-                    avatar: const Icon(
-                      Icons.mark_chat_unread_outlined,
-                      size: 18,
-                    ),
-                    label: const Text('Unread received'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilterChip(
-                    key: const Key('message-filter-read'),
-                    selected: readFilter == LocalMessageReadFilter.read,
-                    onSelected: (_) =>
-                        onReadFilterChanged(LocalMessageReadFilter.read),
-                    avatar: const Icon(Icons.done_all, size: 18),
-                    label: const Text('Read received'),
+                  IconButton(
+                    tooltip: 'Sync messages',
+                    onPressed: controller.messageBusy
+                        ? null
+                        : controller.refreshMessages,
+                    icon: const Icon(Icons.sync),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 14),
-            if (!groupMode && controller.contacts.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('message-global-search'),
+                controller: searchController,
+                maxLength: LocalMessageQuery.maxQueryLength,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                buildCounter: (
+                  _, {
+                  required currentLength,
+                  required isFocused,
+                  maxLength,
+                }) => null,
+                decoration: InputDecoration(
+                  labelText: globalSearch
+                      ? 'Local search · ${visibleMessages.length} result${visibleMessages.length == 1 ? '' : 's'}'
+                      : 'Search local messages · stays on this device',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          key: const Key('message-search-clear'),
+                          tooltip: 'Clear message search',
+                          onPressed: onClearSearch,
+                          icon: const Icon(Icons.close),
+                        ),
+                ),
+                onChanged: onSearchChanged,
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    ChoiceChip(
+                      key: const Key('conversation-direct'),
+                      selected: !groupMode,
+                      onSelected: controller.messageBusy
+                          ? null
+                          : (_) => onConversationChanged(null),
+                      avatar: const Icon(Icons.person_outline, size: 18),
+                      label: const Text('Direct'),
+                    ),
+                    for (final group in controller.groups) ...[
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        key: ValueKey(
+                          'conversation-group-${group.conversationId}',
+                        ),
+                        selected: selectedGroupId == group.conversationId,
+                        onSelected: controller.messageBusy
+                            ? null
+                            : (_) =>
+                                  onConversationChanged(group.conversationId),
+                        avatar: const Icon(Icons.group_outlined, size: 18),
+                        label: Text(group.title),
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    ActionChip(
+                      key: const Key('conversation-create-group'),
+                      onPressed: controller.messageBusy ? null : onCreateGroup,
+                      avatar: const Icon(Icons.add, size: 18),
+                      label: const Text('New group'),
+                    ),
+                    const SizedBox(width: 16),
+                    FilterChip(
+                      key: const Key('message-filter-all'),
+                      selected: readFilter == LocalMessageReadFilter.all,
+                      onSelected: (_) =>
+                          onReadFilterChanged(LocalMessageReadFilter.all),
+                      label: const Text('All'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      key: const Key('message-filter-unread'),
+                      selected: readFilter == LocalMessageReadFilter.unread,
+                      onSelected: (_) =>
+                          onReadFilterChanged(LocalMessageReadFilter.unread),
+                      avatar: const Icon(
+                        Icons.mark_chat_unread_outlined,
+                        size: 18,
+                      ),
+                      label: const Text('Unread received'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      key: const Key('message-filter-read'),
+                      selected: readFilter == LocalMessageReadFilter.read,
+                      onSelected: (_) =>
+                          onReadFilterChanged(LocalMessageReadFilter.read),
+                      avatar: const Icon(Icons.done_all, size: 18),
+                      label: const Text('Read received'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (!keyboardVisible &&
+                !groupMode &&
+                controller.contacts.isNotEmpty) ...[
               SizedBox(
                 height: 38,
                 child: ListView.separated(
@@ -1842,7 +1859,7 @@ class _ConversationPanel extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-            const SizedBox(height: 14),
+            SizedBox(height: keyboardVisible ? 6 : 14),
             Expanded(
               child: visibleMessages.isEmpty
                   ? _NoMessages(
@@ -1918,64 +1935,70 @@ class _ConversationPanel extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 14),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  FilterChip(
-                    key: const Key('message-one-time'),
-                    selected: !groupMode && oneTime,
-                    onSelected:
-                        controller.messageBusy ||
-                            groupMode ||
-                            selectedAttachments.isNotEmpty
-                        ? null
-                        : onOneTimeChanged,
-                    avatar: const Icon(Icons.visibility_off_outlined, size: 18),
-                    label: const Text('View once'),
-                  ),
-                  const SizedBox(width: 12),
-                  PopupMenuButton<Duration>(
-                    key: const Key('message-expiry'),
-                    enabled:
-                        activeConversationId != null &&
-                        !controller.messageBusy &&
-                        !controller.preferenceBusy,
-                    initialValue: expiresAfter ?? Duration.zero,
-                    onSelected: activeConversationId == null
-                        ? null
-                        : (value) => onExpiresAfterChanged(
-                            activeConversationId,
-                            value == Duration.zero ? null : value,
-                          ),
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: Duration.zero,
-                        child: Text('Keep chat messages'),
+            if (!keyboardVisible) ...[
+              const SizedBox(height: 14),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    FilterChip(
+                      key: const Key('message-one-time'),
+                      selected: !groupMode && oneTime,
+                      onSelected:
+                          controller.messageBusy ||
+                              groupMode ||
+                              selectedAttachments.isNotEmpty
+                          ? null
+                          : onOneTimeChanged,
+                      avatar: const Icon(
+                        Icons.visibility_off_outlined,
+                        size: 18,
                       ),
-                      PopupMenuItem(
-                        value: Duration(hours: 1),
-                        child: Text('Delete after 1 hour'),
-                      ),
-                      PopupMenuItem(
-                        value: Duration(days: 1),
-                        child: Text('Delete after 1 day'),
-                      ),
-                      PopupMenuItem(
-                        value: Duration(days: 7),
-                        child: Text('Delete after 7 days'),
-                      ),
-                    ],
-                    child: Chip(
-                      avatar: const Icon(Icons.timer_outlined, size: 18),
-                      label: Text(_expiryLabel(expiresAfter)),
+                      label: const Text('View once'),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    PopupMenuButton<Duration>(
+                      key: const Key('message-expiry'),
+                      enabled:
+                          activeConversationId != null &&
+                          !controller.messageBusy &&
+                          !controller.preferenceBusy,
+                      initialValue: expiresAfter ?? Duration.zero,
+                      onSelected: activeConversationId == null
+                          ? null
+                          : (value) => onExpiresAfterChanged(
+                              activeConversationId,
+                              value == Duration.zero ? null : value,
+                            ),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: Duration.zero,
+                          child: Text('Keep chat messages'),
+                        ),
+                        PopupMenuItem(
+                          value: Duration(hours: 1),
+                          child: Text('Delete after 1 hour'),
+                        ),
+                        PopupMenuItem(
+                          value: Duration(days: 1),
+                          child: Text('Delete after 1 day'),
+                        ),
+                        PopupMenuItem(
+                          value: Duration(days: 7),
+                          child: Text('Delete after 7 days'),
+                        ),
+                      ],
+                      child: Chip(
+                        avatar: const Icon(Icons.timer_outlined, size: 18),
+                        label: Text(_expiryLabel(expiresAfter)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
+            ] else
+              const SizedBox(height: 4),
             if (selectedAttachments.isNotEmpty) ...[
               SizedBox(
                 height: 42,

@@ -334,6 +334,41 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('keeps direct-message controls usable above a compact keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 500);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(const Key('message-recipient')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('message-composer')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('message-send')).hitTestable(), findsOneWidget);
+  });
+
   testWidgets('confirms MCP profile sharing and revokes it immediately', (
     tester,
   ) async {

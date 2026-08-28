@@ -1,26 +1,26 @@
 # Project State
 
 Last updated: 2026-08-28
-Current branch: `codex/wamp-app-two-device-lab`
-Current milestone: make standalone WampApp two-device native acceptance
-repeatable. PR #81 is merged to `master` as `ea36a398` on both maintained
-remotes. Exact-head GitHub CI run `33164645535`, WampApp artifact run
-`33164645503`, and native-artifact dry run `33162601850` pass; the artifact run
-includes the production benchmark gate and all seven beta bundles, and the
-strict deployment audit passes.
-`bin/run-wamp-app-lab` now provides one supported macOS command for an isolated
-loopback router plus Android and iOS clients. It selects only emulators,
-detaches any emulator it boots, gives the router an isolated persistent state
-directory, installs a temporary Android `adb reverse`, builds both clients with
-the same editable `ws://localhost:18080/ws` endpoint, and remains attached to
-the router. A non-mutating dry run and seven fail-first command-contract tests
-cover realistic Flutter platform identifiers, physical-device rejection,
-empty-device boot planning, path resolution, selector validation, and port
-validation. Live acceptance on Android API 35 and iOS 26.4 proves both apps
-render the registration flow, the router listens, the reverse tunnel is active,
-and Ctrl+C removes the router and tunnel while both emulators and installed apps
-remain running. Repository-wide `bin/verify` passes for this branch; hosted
-evidence remains next.
+Current branch: `codex/wamp-app-native-ui-smoke`
+Current milestone: prove standalone WampApp registration and encrypted chat
+through concurrent native platform UIs. PR #82 is merged to `master` as
+`48783adf` on both maintained remotes. Exact-head GitHub CI run `33171843544`
+and WampApp artifact run `33171843583` pass; the artifact run includes the
+production benchmark gate and all seven beta bundles, and the strict deployment
+audit passes.
+`bin/run-wamp-app-lab` retains its interactive Android+iOS mode and now adds a
+deterministic `--smoke` mode. Fresh Android API 35 and iOS 26.4 clients register
+unique accounts through the real keyed UI and 3-pass/64 MiB Argon2id SCRAM,
+discover the peer device, send reciprocal direct messages through the UI,
+receive them through mailbox pub/sub, decrypt them locally, and render both
+bubbles. The launcher rejects plaintext tokens in the router message store and
+uses bounded process termination so failed runs cannot leave the router or
+Android reverse tunnel behind. This acceptance exposed and fixed a real mobile
+keyboard overflow: the compact authenticated shell now collapses secondary
+account and conversation controls while preserving recipient, history, errors,
+attachments, and composer. Nine launcher tests, all 18 WampApp widget tests,
+Flutter analysis, the two-device native smoke, and repository-wide `bin/verify`
+pass locally; exact-head hosted evidence remains next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact
