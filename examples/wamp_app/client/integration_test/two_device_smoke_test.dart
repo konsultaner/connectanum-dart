@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:wamp_app/src/app.dart';
+import 'package:wamp_app/src/application/call_controller.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -20,127 +21,263 @@ const _groupInboundText = String.fromEnvironment(
   'WAMP_APP_SMOKE_GROUP_INBOUND',
 );
 const _oneTimeText = String.fromEnvironment('WAMP_APP_SMOKE_VIEW_ONCE');
+const _callReadyOutbound = String.fromEnvironment(
+  'WAMP_APP_SMOKE_CALL_READY_OUTBOUND',
+);
+const _callReadyInbound = String.fromEnvironment(
+  'WAMP_APP_SMOKE_CALL_READY_INBOUND',
+);
 const _password = 'wamp-app-native-smoke-password';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets(
-    'exchanges encrypted direct, group, sticker, and view-once messages',
-    (tester) async {
-      _validateConfiguration();
-      final controller = WampAppController(deviceName: '$_username device');
-      addTearDown(controller.dispose);
+  testWidgets('exchanges encrypted chat and completes a WebRTC voice call', (
+    tester,
+  ) async {
+    _validateConfiguration();
+    final controller = WampAppController(deviceName: '$_username device');
+    addTearDown(controller.dispose);
 
-      await tester.pumpWidget(WampApp(controller: controller));
-      await _pumpUntil(
-        tester,
-        () => find.byKey(const Key('submit-account')).evaluate().isNotEmpty,
-        label: 'onboarding form',
-      );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await _pumpUntil(
+      tester,
+      () => find.byKey(const Key('submit-account')).evaluate().isNotEmpty,
+      label: 'onboarding form',
+    );
 
-      await tester.enterText(
-        find.byKey(const Key('server-address')),
-        _serverAddress,
-      );
-      await tester.enterText(find.byKey(const Key('username')), _username);
-      await tester.enterText(
-        find.byKey(const Key('display-name')),
-        'Native smoke $_username',
-      );
-      await tester.enterText(find.byKey(const Key('password')), _password);
-      final submit = find.byKey(const Key('submit-account'));
-      await tester.ensureVisible(submit);
-      await tester.tap(submit);
+    await tester.enterText(
+      find.byKey(const Key('server-address')),
+      _serverAddress,
+    );
+    await tester.enterText(find.byKey(const Key('username')), _username);
+    await tester.enterText(
+      find.byKey(const Key('display-name')),
+      'Native smoke $_username',
+    );
+    await tester.enterText(find.byKey(const Key('password')), _password);
+    final submit = find.byKey(const Key('submit-account'));
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
 
-      await _pumpUntil(
-        tester,
-        () =>
-            controller.status == WampAppStatus.connected &&
-            controller.connection?.username == _username &&
-            find.byKey(const Key('message-recipient')).evaluate().isNotEmpty,
-        label: 'authenticated conversation shell',
-        timeout: const Duration(minutes: 2),
-      );
-      await _waitForPeerDevice(tester, controller);
+    await _pumpUntil(
+      tester,
+      () =>
+          controller.status == WampAppStatus.connected &&
+          controller.connection?.username == _username &&
+          find.byKey(const Key('message-recipient')).evaluate().isNotEmpty,
+      label: 'authenticated conversation shell',
+      timeout: const Duration(minutes: 2),
+    );
+    await _waitForPeerDevice(tester, controller);
 
-      final recipient = find.byKey(const Key('message-recipient'));
-      final composer = find.byKey(const Key('message-composer'));
-      await tester.ensureVisible(recipient);
-      await tester.enterText(recipient, _peerUsername);
-      await tester.pump();
-      await _enterMessageWhenReady(
-        tester,
-        composer,
-        _outboundText,
-        label: 'direct-message composer',
-      );
-      final send = find.byKey(const Key('message-send'));
-      await tester.ensureVisible(send);
-      await _tapSendAndWaitOutbound(tester, controller, send);
-      final outbound = controller.messages.singleWhere(
+    final recipient = find.byKey(const Key('message-recipient'));
+    final composer = find.byKey(const Key('message-composer'));
+    await tester.ensureVisible(recipient);
+    await tester.enterText(recipient, _peerUsername);
+    await tester.pump();
+    await _enterMessageWhenReady(
+      tester,
+      composer,
+      _outboundText,
+      label: 'direct-message composer',
+    );
+    final send = find.byKey(const Key('message-send'));
+    await tester.ensureVisible(send);
+    await _tapSendAndWaitOutbound(tester, controller, send);
+    final outbound = controller.messages.singleWhere(
+      (message) =>
+          message.outgoing &&
+          message.peerUsername == _peerUsername &&
+          message.text == _outboundText,
+    );
+    await _pumpUntil(
+      tester,
+      () =>
+          controller.outboundMessageFor(outbound.messageId) == null &&
+          controller.messageError == null,
+      label: 'router acceptance of outbound message',
+    );
+
+    await _pumpUntil(
+      tester,
+      () => controller.messages.any(
         (message) =>
-            message.outgoing &&
+            !message.outgoing &&
             message.peerUsername == _peerUsername &&
-            message.text == _outboundText,
-      );
-      await _pumpUntil(
-        tester,
-        () =>
-            controller.outboundMessageFor(outbound.messageId) == null &&
-            controller.messageError == null,
-        label: 'router acceptance of outbound message',
-      );
+            message.text == _inboundText,
+      ),
+      label: 'mailbox wakeup and decrypted inbound message',
+      timeout: const Duration(minutes: 2),
+    );
 
-      await _pumpUntil(
-        tester,
-        () => controller.messages.any(
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _pumpUntil(
+      tester,
+      () =>
+          find.text(_outboundText).evaluate().isNotEmpty ||
+          find.text(_inboundText).evaluate().isNotEmpty,
+      label: 'rendered message history',
+    );
+    final outboundRendered = find.text(_outboundText).evaluate().isNotEmpty;
+    final inboundRendered = find.text(_inboundText).evaluate().isNotEmpty;
+    if (!outboundRendered || !inboundRendered) {
+      final history = find.byKey(const Key('message-history'));
+      final scrollable = find.descendant(
+        of: history,
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text(outboundRendered ? _inboundText : _outboundText),
+        100,
+        scrollable: scrollable,
+        maxScrolls: 20,
+      );
+    }
+    expect(controller.messageError, isNull);
+    expect(
+      outboundRendered || find.text(_outboundText).evaluate().isNotEmpty,
+      isTrue,
+    );
+    expect(
+      inboundRendered || find.text(_inboundText).evaluate().isNotEmpty,
+      isTrue,
+    );
+
+    await _exerciseEncryptedGroupSticker(tester, controller);
+    await _exerciseViewOnceMessage(tester, controller);
+    await _exerciseEncryptedVoiceCall(tester, controller);
+  }, timeout: const Timeout(Duration(minutes: 10)));
+}
+
+Future<void> _exerciseEncryptedVoiceCall(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  await _selectDirectConversation(tester);
+  final calls = controller.calls;
+  expect(calls, isNotNull);
+  expect(calls!.phase, CallUiPhase.idle);
+
+  if (_role == 'initiator') {
+    final start = find.byKey(const Key('conversation-voice-call'));
+    await tester.ensureVisible(start);
+    await tester.tap(start);
+    await _pumpUntil(
+      tester,
+      () =>
+          calls.phase == CallUiPhase.outgoingRinging ||
+          calls.phase == CallUiPhase.connecting ||
+          calls.phase == CallUiPhase.active,
+      label: 'outgoing encrypted voice call',
+      timeout: const Duration(minutes: 2),
+    );
+    expect(find.byKey(const ValueKey('active-call')), findsOneWidget);
+  } else {
+    await _pumpUntil(
+      tester,
+      () =>
+          calls.phase == CallUiPhase.incomingRinging &&
+          find.byKey(const ValueKey('incoming-call')).evaluate().isNotEmpty,
+      label: 'incoming encrypted voice call',
+      timeout: const Duration(minutes: 2),
+    );
+    final accept = find.byKey(const Key('call-accept'));
+    await tester.ensureVisible(accept);
+    await tester.tap(accept);
+  }
+
+  await _pumpUntil(
+    tester,
+    () =>
+        calls.phase == CallUiPhase.active &&
+        calls.call?.state == CallState.active &&
+        calls.call?.media == CallMediaKind.voice &&
+        calls.mediaSession != null &&
+        calls.peerUsername == _peerUsername &&
+        find.byKey(const ValueKey('active-call')).evaluate().isNotEmpty,
+    label: 'active WebRTC voice media with $_peerUsername',
+    timeout: const Duration(minutes: 2),
+  );
+  expect(calls.errorMessage, isNull);
+
+  await _pumpUntil(
+    tester,
+    () => !controller.messageBusy,
+    label: 'idle encrypted message channel during the active call',
+  );
+  final markerSent = await controller.sendMessage(
+    recipientUsername: _peerUsername,
+    text: _callReadyOutbound,
+  );
+  if (!markerSent) {
+    fail(
+      'Could not enqueue the active-call marker: '
+      '${controller.messageError ?? 'message channel unavailable'}.',
+    );
+  }
+  final outboundReady = controller.messages.singleWhere(
+    (message) =>
+        message.outgoing &&
+        !message.isGroup &&
+        message.peerUsername == _peerUsername &&
+        message.text == _callReadyOutbound,
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        controller.outboundMessageFor(outboundReady.messageId) == null &&
+        controller.messages.any(
           (message) =>
               !message.outgoing &&
+              !message.isGroup &&
               message.peerUsername == _peerUsername &&
-              message.text == _inboundText,
+              message.text == _callReadyInbound,
         ),
-        label: 'mailbox wakeup and decrypted inbound message',
-        timeout: const Duration(minutes: 2),
-      );
+    label: 'both devices active in the same voice call',
+    timeout: const Duration(minutes: 2),
+  );
 
-      FocusManager.instance.primaryFocus?.unfocus();
-      await _pumpUntil(
-        tester,
-        () =>
-            find.text(_outboundText).evaluate().isNotEmpty ||
-            find.text(_inboundText).evaluate().isNotEmpty,
-        label: 'rendered message history',
-      );
-      final outboundRendered = find.text(_outboundText).evaluate().isNotEmpty;
-      final inboundRendered = find.text(_inboundText).evaluate().isNotEmpty;
-      if (!outboundRendered || !inboundRendered) {
-        final history = find.byKey(const Key('message-history'));
-        final scrollable = find.descendant(
-          of: history,
-          matching: find.byType(Scrollable),
-        );
-        await tester.scrollUntilVisible(
-          find.text(outboundRendered ? _inboundText : _outboundText),
-          100,
-          scrollable: scrollable,
-          maxScrolls: 20,
-        );
-      }
-      expect(controller.messageError, isNull);
-      expect(
-        outboundRendered || find.text(_outboundText).evaluate().isNotEmpty,
-        isTrue,
-      );
-      expect(
-        inboundRendered || find.text(_inboundText).evaluate().isNotEmpty,
-        isTrue,
-      );
+  if (_role == 'initiator') {
+    final mute = find.byKey(const Key('call-mute'));
+    await tester.ensureVisible(mute);
+    await tester.tap(mute);
+    await _pumpUntil(
+      tester,
+      () => calls.mediaSession?.muted ?? false,
+      label: 'muted native voice track',
+    );
+    await tester.tap(mute);
+    await _pumpUntil(
+      tester,
+      () => !(calls.mediaSession?.muted ?? true),
+      label: 'unmuted native voice track',
+    );
+    final end = find.byKey(const Key('call-end'));
+    await tester.ensureVisible(end);
+    await tester.tap(end);
+  }
 
-      await _exerciseEncryptedGroupSticker(tester, controller);
-      await _exerciseViewOnceMessage(tester, controller);
-    },
-    timeout: const Timeout(Duration(minutes: 7)),
+  await _pumpUntil(
+    tester,
+    () =>
+        calls.phase == CallUiPhase.ended &&
+        calls.mediaSession == null &&
+        find.byKey(const ValueKey('call-result')).evaluate().isNotEmpty,
+    label: _role == 'initiator'
+        ? 'local voice-call teardown'
+        : 'remote voice-call teardown',
+    timeout: const Duration(minutes: 2),
+  );
+  expect(calls.errorMessage, isNull);
+  await tester.pump(const Duration(milliseconds: 350));
+  final dismiss = find.byKey(const Key('call-dismiss'));
+  await tester.ensureVisible(dismiss);
+  await tester.tap(dismiss);
+  await _pumpUntil(
+    tester,
+    () => calls.phase == CallUiPhase.idle && !calls.hasCall,
+    label: 'dismissed completed voice call',
   );
 }
 
@@ -598,6 +735,8 @@ void _validateConfiguration() {
     'WAMP_APP_SMOKE_GROUP_OUTBOUND': _groupOutboundText,
     'WAMP_APP_SMOKE_GROUP_INBOUND': _groupInboundText,
     'WAMP_APP_SMOKE_VIEW_ONCE': _oneTimeText,
+    'WAMP_APP_SMOKE_CALL_READY_OUTBOUND': _callReadyOutbound,
+    'WAMP_APP_SMOKE_CALL_READY_INBOUND': _callReadyInbound,
   };
   for (final entry in values.entries) {
     if (entry.value.trim().isEmpty) {
@@ -613,6 +752,8 @@ void _validateConfiguration() {
     _groupOutboundText,
     _groupInboundText,
     _oneTimeText,
+    _callReadyOutbound,
+    _callReadyInbound,
   ];
   if (_username == _peerUsername ||
       messageTokens.toSet().length != messageTokens.length) {

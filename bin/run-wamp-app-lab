@@ -17,7 +17,7 @@ Options:
   --ios-device <id>        Use an already-running iOS simulator.
   --port <port>            Router port (default: 18080).
   --state-dir <path>       Override the run state and evidence directory.
-  --smoke                  Verify encrypted direct, group, sticker, and view-once chat.
+  --smoke                  Verify encrypted chat plus a native WebRTC voice call.
   --dry-run                Print the resolved plan without changing the machine.
   -h, --help               Show this help.
 EOF
@@ -108,6 +108,43 @@ wait_for_emulator() {
   return 1
 }
 
+grant_android_call_permissions() {
+  local device_id="$1"
+  local package_id="$2"
+  local deadline=$((SECONDS + 120))
+
+  while ((SECONDS < deadline)); do
+    if adb -s "$device_id" shell pm path "$package_id" >/dev/null 2>&1; then
+      adb -s "$device_id" shell pm grant \
+        "$package_id" android.permission.RECORD_AUDIO
+      adb -s "$device_id" shell pm grant \
+        "$package_id" android.permission.CAMERA
+      return 0
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
+grant_ios_call_permissions() {
+  local device_id="$1"
+  local bundle_id="$2"
+  local deadline=$((SECONDS + 120))
+
+  while ((SECONDS < deadline)); do
+    if xcrun simctl get_app_container \
+      "$device_id" "$bundle_id" app >/dev/null 2>&1; then
+      xcrun simctl privacy "$device_id" grant microphone "$bundle_id"
+      xcrun simctl privacy "$device_id" grant camera "$bundle_id"
+      return 0
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
 port_is_available() {
   python3 - "$1" <<'PY'
 import socket
@@ -145,6 +182,35 @@ PY
   done
 
   return 1
+}
+
+wait_for_flutter_test_body() {
+  local log_file="$1"
+  local test_pid="$2"
+  local deadline=$((SECONDS + 180))
+
+  while ((SECONDS < deadline)); do
+    if grep -Fq 'exchanges encrypted chat and completes a WebRTC voice call' \
+      "$log_file" 2>/dev/null; then
+      return 0
+    fi
+    if ! kill -0 "$test_pid" 2>/dev/null; then
+      return 1
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
+prepare_smoke_workspace() {
+  local destination="$1"
+
+  mkdir -p "$destination"
+  rsync -a --delete \
+    --exclude '.dart_tool/' \
+    --exclude 'build/' \
+    "$(repo_root)/examples/wamp_app/" "$destination/"
 }
 
 stop_process() {
@@ -199,6 +265,11 @@ import sys
 root = Path(sys.argv[1])
 tokens = [value.encode("utf-8") for value in sys.argv[2:] if value]
 png_signature = b"\x89PNG\r\n\x1a\n"
+call_signaling_markers = (
+    b"\r\nm=audio ",
+    b"\na=ice-ufrag:",
+    b"candidate:",
+)
 for path in root.rglob("*"):
     if not path.is_file():
         continue
@@ -210,6 +281,10 @@ for path in root.rglob("*"):
     if png_signature in payload:
         print(f"raw PNG bytes found in {path}", file=sys.stderr)
         raise SystemExit(1)
+    for marker in call_signaling_markers:
+        if marker in payload:
+            print(f"plaintext WebRTC signaling found in {path}", file=sys.stderr)
+            raise SystemExit(1)
 PY
 }
 
@@ -314,6 +389,8 @@ android_emulator_log="$state_dir/android-emulator.log"
 ios_emulator_log="$state_dir/ios-emulator.log"
 android_smoke_log="$state_dir/android-smoke.log"
 ios_smoke_log="$state_dir/ios-smoke.log"
+android_smoke_workspace="$state_dir/android-workspace"
+ios_smoke_workspace="$state_dir/ios-workspace"
 
 android_smoke_username="android-$smoke_run_id"
 ios_smoke_username="ios-$smoke_run_id"
@@ -323,6 +400,8 @@ smoke_group_title="native-group-$smoke_run_id"
 android_smoke_group_message="group-from-android-$smoke_run_id"
 ios_smoke_group_message="group-from-ios-$smoke_run_id"
 smoke_view_once_message="view-once-from-android-$smoke_run_id"
+android_smoke_call_ready="voice-ready-android-$smoke_run_id"
+ios_smoke_call_ready="voice-ready-ios-$smoke_run_id"
 
 if [[ "$dry_run" == true ]]; then
   if [[ "$smoke" == true ]]; then
@@ -346,7 +425,12 @@ if [[ "$dry_run" == true ]]; then
   shell_join dart run wamp_app_server --config "$config_path"
   if [[ "$smoke" == true && -n "$resolved_android" ]]; then
     printf 'Android smoke command:\n'
-    shell_join flutter test -d "$resolved_android" --no-pub --timeout 8m \
+    printf 'Android call permission commands (after app install):\n'
+    shell_join adb -s "$resolved_android" shell pm grant \
+      dev.connectanum.wamp_app android.permission.RECORD_AUDIO
+    shell_join adb -s "$resolved_android" shell pm grant \
+      dev.connectanum.wamp_app android.permission.CAMERA
+    shell_join flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 11m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
@@ -357,6 +441,8 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_GROUP_OUTBOUND=$android_smoke_group_message" \
       --dart-define="WAMP_APP_SMOKE_GROUP_INBOUND=$ios_smoke_group_message" \
       --dart-define="WAMP_APP_SMOKE_VIEW_ONCE=$smoke_view_once_message" \
+      --dart-define="WAMP_APP_SMOKE_CALL_READY_OUTBOUND=$android_smoke_call_ready" \
+      --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$ios_smoke_call_ready" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_android" ]]; then
     printf 'Android client command:\n'
@@ -365,7 +451,12 @@ if [[ "$dry_run" == true ]]; then
   fi
   if [[ "$smoke" == true && -n "$resolved_ios" ]]; then
     printf 'iOS smoke command:\n'
-    shell_join flutter test -d "$resolved_ios" --no-pub --timeout 8m \
+    printf 'iOS call permission commands (after app install):\n'
+    shell_join xcrun simctl privacy "$resolved_ios" grant microphone \
+      dev.connectanum.wampApp
+    shell_join xcrun simctl privacy "$resolved_ios" grant camera \
+      dev.connectanum.wampApp
+    shell_join flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 11m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
@@ -376,6 +467,8 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_GROUP_OUTBOUND=$ios_smoke_group_message" \
       --dart-define="WAMP_APP_SMOKE_GROUP_INBOUND=$android_smoke_group_message" \
       --dart-define="WAMP_APP_SMOKE_VIEW_ONCE=$smoke_view_once_message" \
+      --dart-define="WAMP_APP_SMOKE_CALL_READY_OUTBOUND=$ios_smoke_call_ready" \
+      --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$android_smoke_call_ready" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_ios" ]]; then
     printf 'iOS client command:\n'
@@ -387,6 +480,10 @@ fi
 
 require_command dart
 require_command adb
+require_command xcrun
+if [[ "$smoke" == true ]]; then
+  require_command rsync
+fi
 [[ "$(uname -s)" == Darwin ]] || fail 'the Android + iOS lab requires macOS.'
 port_is_available "$port" || fail "127.0.0.1:$port is already in use."
 
@@ -444,10 +541,45 @@ printf 'Resolving standalone WampApp packages...\n'
   cd "$(repo_root)/examples/wamp_app/server"
   dart pub get
 )
-(
-  cd "$(repo_root)/examples/wamp_app/client"
-  flutter pub get
-)
+if [[ "$smoke" == true ]]; then
+  printf 'Preparing isolated Android and iOS Flutter test workspaces...\n'
+  prepare_smoke_workspace "$android_smoke_workspace"
+  prepare_smoke_workspace "$ios_smoke_workspace"
+  (
+    cd "$android_smoke_workspace/client"
+    flutter pub get
+  )
+  (
+    cd "$ios_smoke_workspace/client"
+    flutter pub get
+  )
+  printf 'Preinstalling the Android smoke app and granting call permissions...\n'
+  (
+    cd "$android_smoke_workspace/client"
+    flutter build apk --debug --no-pub
+  )
+  android_smoke_apk="$android_smoke_workspace/client/build/app/outputs/flutter-apk/app-debug.apk"
+  [[ -f "$android_smoke_apk" ]] || fail 'Android smoke APK was not built.'
+  adb -s "$resolved_android" install -r "$android_smoke_apk"
+  grant_android_call_permissions \
+    "$resolved_android" dev.connectanum.wamp_app || \
+    fail 'Android call permissions could not be granted.'
+  printf 'Preinstalling the iOS smoke app and granting call permissions...\n'
+  (
+    cd "$ios_smoke_workspace/client"
+    flutter build ios --simulator --debug --no-pub
+  )
+  ios_smoke_app="$ios_smoke_workspace/client/build/ios/iphonesimulator/Runner.app"
+  [[ -d "$ios_smoke_app" ]] || fail 'iOS smoke app bundle was not built.'
+  xcrun simctl install "$resolved_ios" "$ios_smoke_app"
+  grant_ios_call_permissions "$resolved_ios" dev.connectanum.wampApp || \
+    fail 'iOS call permissions could not be granted.'
+else
+  (
+    cd "$(repo_root)/examples/wamp_app/client"
+    flutter pub get
+  )
+fi
 
 printf 'Starting isolated router at %s...\n' "$endpoint"
 (
@@ -466,26 +598,10 @@ adb -s "$resolved_android" reverse "tcp:$port" "tcp:$port"
 android_reverse_installed=true
 
 if [[ "$smoke" == true ]]; then
-  printf 'Running Android and iOS direct/group/sticker/view-once smoke concurrently...\n'
+  printf 'Running Android and iOS encrypted chat/voice-call smoke concurrently...\n'
   (
-    cd "$(repo_root)/examples/wamp_app/client"
-    exec flutter test -d "$resolved_android" --no-pub --timeout 8m \
-      --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
-      --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
-      --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
-      --dart-define="WAMP_APP_SMOKE_OUTBOUND=$android_smoke_message" \
-      --dart-define="WAMP_APP_SMOKE_INBOUND=$ios_smoke_message" \
-      --dart-define=WAMP_APP_SMOKE_ROLE=initiator \
-      --dart-define="WAMP_APP_SMOKE_GROUP_TITLE=$smoke_group_title" \
-      --dart-define="WAMP_APP_SMOKE_GROUP_OUTBOUND=$android_smoke_group_message" \
-      --dart-define="WAMP_APP_SMOKE_GROUP_INBOUND=$ios_smoke_group_message" \
-      --dart-define="WAMP_APP_SMOKE_VIEW_ONCE=$smoke_view_once_message" \
-      integration_test/two_device_smoke_test.dart
-  ) >"$android_smoke_log" 2>&1 &
-  android_smoke_pid=$!
-  (
-    cd "$(repo_root)/examples/wamp_app/client"
-    exec flutter test -d "$resolved_ios" --no-pub --timeout 8m \
+    cd "$ios_smoke_workspace/client"
+    exec flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 11m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
@@ -496,9 +612,36 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_GROUP_OUTBOUND=$ios_smoke_group_message" \
       --dart-define="WAMP_APP_SMOKE_GROUP_INBOUND=$android_smoke_group_message" \
       --dart-define="WAMP_APP_SMOKE_VIEW_ONCE=$smoke_view_once_message" \
+      --dart-define="WAMP_APP_SMOKE_CALL_READY_OUTBOUND=$ios_smoke_call_ready" \
+      --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$android_smoke_call_ready" \
       integration_test/two_device_smoke_test.dart
   ) >"$ios_smoke_log" 2>&1 &
   ios_smoke_pid=$!
+
+  if ! wait_for_flutter_test_body "$ios_smoke_log" "$ios_smoke_pid"; then
+    printf 'iOS smoke did not reach the test body. Last log lines:\n' >&2
+    tail -n 80 "$ios_smoke_log" >&2 || true
+    fail 'iOS smoke failed during Flutter startup.'
+  fi
+
+  (
+    cd "$android_smoke_workspace/client"
+    exec flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 11m \
+      --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
+      --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
+      --dart-define="WAMP_APP_SMOKE_OUTBOUND=$android_smoke_message" \
+      --dart-define="WAMP_APP_SMOKE_INBOUND=$ios_smoke_message" \
+      --dart-define=WAMP_APP_SMOKE_ROLE=initiator \
+      --dart-define="WAMP_APP_SMOKE_GROUP_TITLE=$smoke_group_title" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_OUTBOUND=$android_smoke_group_message" \
+      --dart-define="WAMP_APP_SMOKE_GROUP_INBOUND=$ios_smoke_group_message" \
+      --dart-define="WAMP_APP_SMOKE_VIEW_ONCE=$smoke_view_once_message" \
+      --dart-define="WAMP_APP_SMOKE_CALL_READY_OUTBOUND=$android_smoke_call_ready" \
+      --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$ios_smoke_call_ready" \
+      integration_test/two_device_smoke_test.dart
+  ) >"$android_smoke_log" 2>&1 &
+  android_smoke_pid=$!
 
   set +e
   wait "$android_smoke_pid"
@@ -519,6 +662,8 @@ if [[ "$smoke" == true ]]; then
 
   message_store="$state_dir/data/messages.json"
   [[ -f "$message_store" ]] || fail 'the smoke router did not persist its message store.'
+  call_store="$state_dir/data/calls.json"
+  [[ -f "$call_store" ]] || fail 'the smoke router did not persist its call store.'
   if ! assert_router_data_encrypted \
     "$state_dir/data" \
     "$android_smoke_message" \
@@ -526,14 +671,16 @@ if [[ "$smoke" == true ]]; then
     "$smoke_group_title" \
     "$android_smoke_group_message" \
     "$ios_smoke_group_message" \
-    "$smoke_view_once_message"
+    "$smoke_view_once_message" \
+    "$android_smoke_call_ready" \
+    "$ios_smoke_call_ready"
   then
-    fail 'the smoke router persisted plaintext chat, sticker, or view-once content.'
+    fail 'the smoke router persisted plaintext chat, media, or call signaling.'
   fi
 
   cat <<EOF
 
-WampApp two-device direct/group/sticker/view-once UI smoke passed.
+WampApp two-device encrypted chat and WebRTC voice-call UI smoke passed.
   Router:  $endpoint
   Android: $resolved_android ($android_smoke_username)
   iOS:     $resolved_ios ($ios_smoke_username)

@@ -134,7 +134,27 @@ class RunWampAppLabTests(unittest.TestCase):
             ),
             2,
         )
-        self.assertEqual(result.stdout.count("--timeout 8m"), 2)
+        self.assertIn(
+            "WAMP_APP_SMOKE_CALL_READY_OUTBOUND=voice-ready-android-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_CALL_READY_INBOUND=voice-ready-ios-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_CALL_READY_OUTBOUND=voice-ready-ios-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_CALL_READY_INBOUND=voice-ready-android-run-id",
+            result.stdout,
+        )
+        self.assertEqual(result.stdout.count("android.permission.RECORD_AUDIO"), 1)
+        self.assertEqual(result.stdout.count("android.permission.CAMERA"), 1)
+        self.assertIn("simctl privacy ios-simulator grant microphone", result.stdout)
+        self.assertIn("simctl privacy ios-simulator grant camera", result.stdout)
+        self.assertEqual(result.stdout.count("--timeout 11m"), 2)
         self.assertNotIn("--no-resident", result.stdout)
 
     def test_dry_run_rejects_physical_devices(self):
@@ -242,7 +262,17 @@ class RunWampAppLabTests(unittest.TestCase):
                     "  exit 0\n"
                     "fi\n"
                     "if [[ \"$1\" == pub && \"$2\" == get ]]; then exit 0; fi\n"
+                    "if [[ \"$1\" == build && \"$2\" == apk ]]; then\n"
+                    "  mkdir -p build/app/outputs/flutter-apk\n"
+                    "  : >build/app/outputs/flutter-apk/app-debug.apk\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "if [[ \"$1\" == build && \"$2\" == ios ]]; then\n"
+                    "  mkdir -p build/ios/iphonesimulator/Runner.app\n"
+                    "  exit 0\n"
+                    "fi\n"
                     "if [[ \"$1\" == test ]]; then\n"
+                    "  printf '%s\\n' '00:00 +0: exchanges encrypted chat and completes a WebRTC voice call'\n"
                     "  [[ \" $* \" == *\" -d emulator-5554 \"* ]] && exit 7\n"
                     "  exit 0\n"
                     "fi\n"
@@ -273,6 +303,19 @@ class RunWampAppLabTests(unittest.TestCase):
                 "adb": (
                     "#!/usr/bin/env bash\n"
                     "printf '%s\\n' \"$*\" >>\"$WAMP_APP_TEST_ADB_LOG\"\n"
+                ),
+                "xcrun": (
+                    "#!/usr/bin/env bash\n"
+                    "if [[ \"$1\" == simctl && \"$2\" == get_app_container ]]; then\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "if [[ \"$1\" == simctl && \"$2\" == privacy ]]; then\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "if [[ \"$1\" == simctl && \"$2\" == install ]]; then\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "exit 99\n"
                 ),
             }
             for name, source in commands.items():

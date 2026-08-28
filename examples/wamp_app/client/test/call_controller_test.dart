@@ -61,6 +61,7 @@ void main() {
       ),
     );
     expect(harness.sentSignals, isEmpty);
+    media.stateOnApplyAnswer = CallMediaConnectionState.connected;
 
     final answer = harness.remoteSignal(
       callId: controller.call!.callId,
@@ -87,9 +88,7 @@ void main() {
 
     expect(media.appliedAnswers.single.sdp, contains('answer'));
     expect(harness.sentSignals.single.kind, CallSignalKind.iceCandidate);
-    expect(controller.phase, CallUiPhase.connecting);
-    media.emitState(CallMediaConnectionState.connected);
-    await _waitFor(() => controller.phase == CallUiPhase.active);
+    expect(controller.phase, CallUiPhase.active);
   });
 
   test('first answer on another callee device disposes local media', () async {
@@ -510,6 +509,7 @@ final class _FakeCallMediaSession implements CallMediaSession {
   bool _muted = false;
   bool _cameraEnabled = true;
   bool _speakerEnabled = false;
+  CallMediaConnectionState? stateOnApplyAnswer;
 
   @override
   Stream<CallIceCandidate> get localCandidates => _candidates.stream;
@@ -545,6 +545,8 @@ final class _FakeCallMediaSession implements CallMediaSession {
   @override
   Future<void> applyAnswer(CallSessionDescription answer) async {
     appliedAnswers.add(answer);
+    final state = stateOnApplyAnswer;
+    if (state != null) emitState(state);
   }
 
   @override
