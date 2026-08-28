@@ -15,6 +15,17 @@ Cloud Messaging token acquisition starts only after authenticated device
 enrollment, follows token refreshes, and unregisters before sign-out or session
 replacement.
 
+## Configure The Server Address
+
+The onboarding form defaults to `ws://localhost:8080/ws` and remains editable.
+Local emulator, integration, and packaged test builds can select another
+initial value without changing source:
+
+```bash
+flutter run -d <device-id> \
+  --dart-define=WAMP_APP_SERVER_ADDRESS=ws://localhost:18080/ws
+```
+
 ## Configure FCM
 
 FCM is disabled when no Firebase compile-time values are present. Supply the

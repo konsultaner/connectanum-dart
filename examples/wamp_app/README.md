@@ -117,6 +117,17 @@ flutter pub get
 flutter run -d chrome
 ```
 
+When another local service owns port `8080`, start the client with the server
+address selected at build time:
+
+```bash
+flutter run -d <device-id> \
+  --dart-define=WAMP_APP_SERVER_ADDRESS=ws://localhost:18080/ws
+```
+
+The onboarding field remains editable, so one build can still connect to a
+different local or remote endpoint at runtime.
+
 Keep the default local endpoint, create a username with at least three valid
 characters, and use a password with at least twelve characters. Cleartext
 `ws://` credentials are accepted only for loopback development. Remote

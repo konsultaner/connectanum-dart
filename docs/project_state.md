@@ -1,8 +1,22 @@
 # Project State
 
 Last updated: 2026-08-26
-Current branch: `codex/wamp-app`
+Current branch: `codex/wamp-app-local-endpoint`
 Current milestone: continue the standalone WampApp Flutter consumer example.
+PR #80 is merged to `master` as `85fef3a4` on both maintained remotes.
+Exact-head GitHub CI run `32978290002`, package dry run `32978290044`, WAMP
+profile benchmark run `32978289970`, and WampApp artifact run `32978290182`
+pass; the artifact run includes the production benchmark gate and all seven
+beta bundles. Native-artifact dry run `32980789298` also passes at the merged
+head, while the matching router-image dry run is still in progress.
+WampApp emulator builds can now select their initial onboarding endpoint with
+the compile-time `WAMP_APP_SERVER_ADDRESS` value while keeping the field
+editable and preserving `ws://localhost:8080/ws` as the normal default. A live
+headless router plus Android and iOS clients render the registration flow at
+`ws://localhost:18080/ws`. Both default and overridden widget checks, static
+analysis, and all 177 client tests that do not start a competing router pass;
+canonical router-owning verification remains deferred while that manual
+environment intentionally owns the native-runtime lock.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact
