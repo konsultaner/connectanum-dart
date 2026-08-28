@@ -94,6 +94,23 @@ picker without requesting contact properties. macOS, Linux, Windows, and web
 use an explicit `.vcf`/`.vcard` file picker; selected bytes are wiped from
 WampApp memory after only `FN`/`N` display names have been extracted.
 
+On macOS, the supported two-device lab starts an isolated loopback router,
+boots an Android emulator when needed, reuses or boots an iOS simulator,
+installs the client on both, and keeps the router attached to the terminal:
+
+```bash
+bin/run-wamp-app-lab
+```
+
+Use `bin/run-wamp-app-lab --dry-run` to inspect device selection and commands
+without changing the machine. Lab account, mailbox, attachment, backup, call,
+push, and MCP-consent state persists under `.dart_tool/wamp_app_lab`; it never
+uses the example server's normal `data` directory. Android reaches the same
+`localhost` endpoint through a temporary `adb reverse`, which is removed with
+the router when Ctrl+C is pressed. Router output and auto-boot diagnostics are
+retained in that state directory. The emulators and installed apps remain open
+for UI inspection.
+
 Start the server:
 
 ```bash
