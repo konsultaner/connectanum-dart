@@ -150,11 +150,27 @@ class RunWampAppLabTests(unittest.TestCase):
             "WAMP_APP_SMOKE_CALL_READY_INBOUND=voice-ready-android-run-id",
             result.stdout,
         )
+        self.assertIn(
+            "WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=video-ready-android-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_VIDEO_READY_INBOUND=video-ready-ios-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=video-ready-ios-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_VIDEO_READY_INBOUND=video-ready-android-run-id",
+            result.stdout,
+        )
         self.assertEqual(result.stdout.count("android.permission.RECORD_AUDIO"), 1)
         self.assertEqual(result.stdout.count("android.permission.CAMERA"), 1)
         self.assertIn("simctl privacy ios-simulator grant microphone", result.stdout)
         self.assertIn("simctl privacy ios-simulator grant camera", result.stdout)
-        self.assertEqual(result.stdout.count("--timeout 11m"), 2)
+        self.assertEqual(result.stdout.count("--timeout 16m"), 2)
         self.assertNotIn("--no-resident", result.stdout)
 
     def test_dry_run_rejects_physical_devices(self):
@@ -272,7 +288,7 @@ class RunWampAppLabTests(unittest.TestCase):
                     "  exit 0\n"
                     "fi\n"
                     "if [[ \"$1\" == test ]]; then\n"
-                    "  printf '%s\\n' '00:00 +0: exchanges encrypted chat and completes a WebRTC voice call'\n"
+                    "  printf '%s\\n' '00:00 +0: exchanges encrypted chat and completes WebRTC voice and video calls'\n"
                     "  [[ \" $* \" == *\" -d emulator-5554 \"* ]] && exit 7\n"
                     "  exit 0\n"
                     "fi\n"

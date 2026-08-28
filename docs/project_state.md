@@ -3,7 +3,7 @@
 Last updated: 2026-08-28
 Current branch: `codex/wamp-app-native-rich-smoke`
 Current milestone: prove standalone WampApp encrypted direct and group chat,
-including rich content, privacy-sensitive consumption, and WebRTC voice calls,
+including rich content, privacy-sensitive consumption, and WebRTC voice/video calls,
 through concurrent native platform UIs. PR #83 is
 merged to `master` as `d9c53bf9` on both maintained remotes. Exact-head GitHub
 CI run `33180625653` and WampApp artifact run `33180625646` pass; the artifact
@@ -20,7 +20,10 @@ rendered before opening, reveals it through the real UI, removes it after consum
 and Android observes the open receipt. Android then starts a real WebRTC voice
 call, iOS accepts it, both clients prove active native media bound to the right
 peer, synchronize authenticated E2EE-readiness markers, exercise mute/unmute,
-and converge through hangup, native-media disposal, result UI, and dismissal. A
+and converge through hangup, native-media disposal, result UI, and dismissal.
+The pair then repeats that lifecycle for video, proves local rendering, toggles
+the camera off and on, and requires both the media session and renderer to be
+released at teardown. A
 recursive router-data guard rejects every direct/group/view-once smoke token,
 the group title, raw PNG bytes, and plaintext SDP/ICE signaling. This richer
 acceptance exposed and fixed a dialog-controller dismissal race, compact
@@ -30,9 +33,11 @@ lose a synchronous native WebRTC connected callback while applying the answer.
 The launcher now preinstalls both apps, grants camera and microphone permissions
 before tests start, and uses isolated Android/iOS workspaces so concurrent
 Flutter tooling cannot contend over startup or build artifacts. Nine launcher
-tests, 30 focused call/widget tests, Flutter analysis, `bin/test-fast`, the real
-Android API 35 plus iOS 26.4 smoke, and repository-wide `bin/verify` pass
-locally. Exact-head hosted evidence remains next.
+tests, 30 focused call/widget tests, Flutter analysis, `bin/test-fast`, and the
+real Android plus iOS voice/video smoke pass locally. Native acceptance also
+fixed stale-keyboard expression-sheet placement and compact identity/title
+wrapping that could collapse message history to two pixels. Repository-wide
+`bin/verify` also passes; exact-head hosted evidence remains next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

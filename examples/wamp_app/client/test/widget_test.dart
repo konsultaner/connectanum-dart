@@ -488,17 +488,34 @@ void main() {
   testWidgets('switches appearance and mutes direct and group chats', (
     tester,
   ) async {
+    const groupTitle = 'Native group acceptance title that stays compact';
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final controller = WampAppController(
       gateway: _FakeGateway(),
       trustStore: FakeDeviceTrustStore(
+        initialMessages: [
+          LocalChatMessage(
+            messageId: 'compact-group-message',
+            conversationId: 'launch-crew',
+            peerUsername: 'bob',
+            text: 'Compact history remains usable',
+            sentAt: DateTime.utc(2026, 8, 25, 11, 1),
+            outgoing: false,
+            groupTitle: groupTitle,
+            participantUsernames: const ['alice', 'bob'],
+            groupCreatedBy: 'alice',
+            groupCreatedAt: DateTime.utc(2026, 8, 25, 11),
+          ),
+        ],
         initialGroups: [
           LocalChatGroup(
             conversationId: 'launch-crew',
-            title: 'Launch crew',
+            title: groupTitle,
             memberUsernames: const ['alice', 'bob'],
             createdBy: 'alice',
             createdAt: DateTime.utc(2026, 8, 25, 11),
@@ -559,8 +576,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.isConversationMuted(directId), isTrue);
 
-    await tester.tap(find.text('Launch crew'));
+    final groupChip = find.byKey(
+      const ValueKey('conversation-group-launch-crew'),
+    );
+    await tester.ensureVisible(groupChip);
+    final visibleGroupChip = tester
+        .getRect(groupChip)
+        .intersect(Offset.zero & tester.view.physicalSize);
+    await tester.tapAt(visibleGroupChip.center);
     await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byKey(const Key('message-history'))).height,
+      greaterThanOrEqualTo(24),
+    );
     await tester.tap(find.byKey(const Key('conversation-mute')));
     await tester.pumpAndSettle();
     expect(controller.isConversationMuted('launch-crew'), isTrue);
@@ -911,13 +939,15 @@ void main() {
     expect(tester.widget<FilterChip>(oneTime).selected, isFalse);
   });
 
-  testWidgets('keeps a staged sticker usable on a compact phone', (
+  testWidgets('keeps a staged sticker usable above a compact keyboard', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 400);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
     final controller = WampAppController(
       gateway: _FakeGateway(),
       trustStore: FakeDeviceTrustStore(),
@@ -940,11 +970,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('message-expression')));
+    final expression = find.byKey(const Key('message-expression'));
+    await tester.ensureVisible(expression);
+    await tester.tap(expression);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('expression-sticker-tab')));
+    final stickerTab = find.byKey(const Key('expression-sticker-tab'));
+    expect(stickerTab.hitTestable(), findsOneWidget);
+    await tester.tap(stickerTab);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('sticker-nice')));
+    final sticker = find.byKey(const ValueKey('sticker-nice'));
+    expect(sticker.hitTestable(), findsOneWidget);
+    await tester.tap(sticker);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('selected-attachment-0')), findsOneWidget);

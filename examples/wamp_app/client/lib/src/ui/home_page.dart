@@ -162,8 +162,16 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _showExpressionPicker() {
-    return showModalBottomSheet<void>(
+  Future<void> _showExpressionPicker() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    for (var attempt = 0; attempt < 20; attempt += 1) {
+      if (!mounted || MediaQuery.viewInsetsOf(context).bottom == 0) break;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -1285,9 +1293,15 @@ class _AccountPanel extends StatelessWidget {
                         children: [
                           Text(
                             connection.displayName,
+                            maxLines: compact ? 1 : 2,
+                            overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          Text('@${connection.username}'),
+                          Text(
+                            '@${connection.username}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           if (profile.status.isNotEmpty)
                             Text(
                               profile.status,
@@ -1664,6 +1678,8 @@ class _ConversationPanel extends StatelessWidget {
                   Expanded(
                     child: Text(
                       selectedGroup?.title ?? 'Encrypted messages',
+                      maxLines: compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -1715,7 +1731,7 @@ class _ConversationPanel extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: compact ? 4 : 12),
               TextField(
                 key: const Key('message-global-search'),
                 controller: searchController,
@@ -1745,7 +1761,7 @@ class _ConversationPanel extends StatelessWidget {
                 onTapOutside: (_) =>
                     FocusManager.instance.primaryFocus?.unfocus(),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: compact ? 4 : 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -1813,7 +1829,7 @@ class _ConversationPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: compact ? 6 : 14),
             ],
             if (!chromeHidden &&
                 !groupMode &&
@@ -1843,7 +1859,7 @@ class _ConversationPanel extends StatelessWidget {
                   },
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: compact ? 4 : 10),
             ],
             if (!groupMode)
               TextField(
@@ -1882,7 +1898,13 @@ class _ConversationPanel extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-            SizedBox(height: chromeHidden ? 6 : 14),
+            SizedBox(
+              height: chromeHidden
+                  ? 4
+                  : compact
+                  ? 6
+                  : 14,
+            ),
             Expanded(
               child: visibleMessages.isEmpty
                   ? _NoMessages(
@@ -1959,7 +1981,7 @@ class _ConversationPanel extends StatelessWidget {
               ),
             ],
             if (!chromeHidden) ...[
-              const SizedBox(height: 14),
+              SizedBox(height: compact ? 6 : 14),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -2019,7 +2041,7 @@ class _ConversationPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: compact ? 4 : 8),
             ] else
               const SizedBox(height: 4),
             if (selectedAttachments.isNotEmpty) ...[

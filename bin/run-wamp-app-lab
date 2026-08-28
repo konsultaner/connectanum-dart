@@ -190,7 +190,7 @@ wait_for_flutter_test_body() {
   local deadline=$((SECONDS + 180))
 
   while ((SECONDS < deadline)); do
-    if grep -Fq 'exchanges encrypted chat and completes a WebRTC voice call' \
+    if grep -Fq 'exchanges encrypted chat and completes WebRTC voice and video calls' \
       "$log_file" 2>/dev/null; then
       return 0
     fi
@@ -402,6 +402,8 @@ ios_smoke_group_message="group-from-ios-$smoke_run_id"
 smoke_view_once_message="view-once-from-android-$smoke_run_id"
 android_smoke_call_ready="voice-ready-android-$smoke_run_id"
 ios_smoke_call_ready="voice-ready-ios-$smoke_run_id"
+android_smoke_video_ready="video-ready-android-$smoke_run_id"
+ios_smoke_video_ready="video-ready-ios-$smoke_run_id"
 
 if [[ "$dry_run" == true ]]; then
   if [[ "$smoke" == true ]]; then
@@ -430,7 +432,7 @@ if [[ "$dry_run" == true ]]; then
       dev.connectanum.wamp_app android.permission.RECORD_AUDIO
     shell_join adb -s "$resolved_android" shell pm grant \
       dev.connectanum.wamp_app android.permission.CAMERA
-    shell_join flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 11m \
+    shell_join flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 16m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
@@ -443,6 +445,8 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_VIEW_ONCE=$smoke_view_once_message" \
       --dart-define="WAMP_APP_SMOKE_CALL_READY_OUTBOUND=$android_smoke_call_ready" \
       --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$ios_smoke_call_ready" \
+      --dart-define="WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=$android_smoke_video_ready" \
+      --dart-define="WAMP_APP_SMOKE_VIDEO_READY_INBOUND=$ios_smoke_video_ready" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_android" ]]; then
     printf 'Android client command:\n'
@@ -456,7 +460,7 @@ if [[ "$dry_run" == true ]]; then
       dev.connectanum.wampApp
     shell_join xcrun simctl privacy "$resolved_ios" grant camera \
       dev.connectanum.wampApp
-    shell_join flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 11m \
+    shell_join flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 16m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
@@ -469,6 +473,8 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_VIEW_ONCE=$smoke_view_once_message" \
       --dart-define="WAMP_APP_SMOKE_CALL_READY_OUTBOUND=$ios_smoke_call_ready" \
       --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$android_smoke_call_ready" \
+      --dart-define="WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=$ios_smoke_video_ready" \
+      --dart-define="WAMP_APP_SMOKE_VIDEO_READY_INBOUND=$android_smoke_video_ready" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_ios" ]]; then
     printf 'iOS client command:\n'
@@ -598,10 +604,10 @@ adb -s "$resolved_android" reverse "tcp:$port" "tcp:$port"
 android_reverse_installed=true
 
 if [[ "$smoke" == true ]]; then
-  printf 'Running Android and iOS encrypted chat/voice-call smoke concurrently...\n'
+  printf 'Running Android and iOS encrypted chat/voice/video-call smoke concurrently...\n'
   (
     cd "$ios_smoke_workspace/client"
-    exec flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 11m \
+    exec flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 16m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
@@ -614,6 +620,8 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_VIEW_ONCE=$smoke_view_once_message" \
       --dart-define="WAMP_APP_SMOKE_CALL_READY_OUTBOUND=$ios_smoke_call_ready" \
       --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$android_smoke_call_ready" \
+      --dart-define="WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=$ios_smoke_video_ready" \
+      --dart-define="WAMP_APP_SMOKE_VIDEO_READY_INBOUND=$android_smoke_video_ready" \
       integration_test/two_device_smoke_test.dart
   ) >"$ios_smoke_log" 2>&1 &
   ios_smoke_pid=$!
@@ -626,7 +634,7 @@ if [[ "$smoke" == true ]]; then
 
   (
     cd "$android_smoke_workspace/client"
-    exec flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 11m \
+    exec flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 16m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
@@ -639,6 +647,8 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_VIEW_ONCE=$smoke_view_once_message" \
       --dart-define="WAMP_APP_SMOKE_CALL_READY_OUTBOUND=$android_smoke_call_ready" \
       --dart-define="WAMP_APP_SMOKE_CALL_READY_INBOUND=$ios_smoke_call_ready" \
+      --dart-define="WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND=$android_smoke_video_ready" \
+      --dart-define="WAMP_APP_SMOKE_VIDEO_READY_INBOUND=$ios_smoke_video_ready" \
       integration_test/two_device_smoke_test.dart
   ) >"$android_smoke_log" 2>&1 &
   android_smoke_pid=$!
@@ -673,14 +683,16 @@ if [[ "$smoke" == true ]]; then
     "$ios_smoke_group_message" \
     "$smoke_view_once_message" \
     "$android_smoke_call_ready" \
-    "$ios_smoke_call_ready"
+    "$ios_smoke_call_ready" \
+    "$android_smoke_video_ready" \
+    "$ios_smoke_video_ready"
   then
     fail 'the smoke router persisted plaintext chat, media, or call signaling.'
   fi
 
   cat <<EOF
 
-WampApp two-device encrypted chat and WebRTC voice-call UI smoke passed.
+WampApp two-device encrypted chat and WebRTC voice/video-call UI smoke passed.
   Router:  $endpoint
   Android: $resolved_android ($android_smoke_username)
   iOS:     $resolved_ios ($ios_smoke_username)
