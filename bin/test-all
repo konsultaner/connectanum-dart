@@ -165,6 +165,7 @@ build_native_ffi_test_release
 
 python3 tool/test_package_native_artifact.py
 python3 tool/test_package_wamp_app.py
+python3 tool/test_run_wamp_app_lab.py
 python3 tool/test_check_wamp_app_benchmarks.py
 python3 tool/test_verification_scripts.py
 python3 tool/check_public_artifact_references.py

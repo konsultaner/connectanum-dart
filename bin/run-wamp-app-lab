@@ -1,0 +1,386 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(dirname "$0")/common.sh"
+
+usage() {
+  cat <<'EOF'
+Usage: bin/run-wamp-app-lab [options]
+
+Starts one isolated loopback WampApp router and installs the Flutter client on
+one Android emulator and one iOS simulator.
+
+Options:
+  --android-device <id>    Use an already-running Android emulator.
+  --android-emulator <id>  Boot this Android AVD when no Android emulator runs.
+  --ios-device <id>        Use an already-running iOS simulator.
+  --port <port>            Router port (default: 18080).
+  --state-dir <path>       Persistent lab state (default: .dart_tool/wamp_app_lab).
+  --dry-run                Print the resolved plan without changing the machine.
+  -h, --help               Show this help.
+EOF
+}
+
+fail() {
+  printf 'WampApp lab: %s\n' "$1" >&2
+  exit "${2:-1}"
+}
+
+shell_join() {
+  local argument
+  printf '  '
+  for argument in "$@"; do
+    printf '%q ' "$argument"
+  done
+  printf '\n'
+}
+
+devices_json() {
+  flutter devices --machine
+}
+
+find_emulator_device() {
+  local requested_id="$1"
+  local target_platform="$2"
+
+  devices_json | python3 -c '
+import json
+import sys
+
+target_platform = sys.argv[1]
+requested_id = sys.argv[2]
+devices = json.load(sys.stdin)
+for device in devices:
+    platform = device.get("targetPlatform", "")
+    if platform != target_platform and not platform.startswith(f"{target_platform}-"):
+        continue
+    if requested_id and device.get("id") != requested_id:
+        continue
+    if not device.get("isSupported") or not device.get("emulator"):
+        continue
+    print(device["id"])
+    break
+' "$target_platform" "$requested_id"
+}
+
+find_android_avd() {
+  flutter emulators | awk -F ' *• *' '$4 == "android" {gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1; exit}'
+}
+
+launch_emulator_detached() {
+  local emulator_id="$1"
+  local log_path="$2"
+
+  python3 - "$emulator_id" "$log_path" <<'PY'
+import subprocess
+import sys
+
+with open(sys.argv[2], "ab", buffering=0) as log:
+    subprocess.Popen(
+        ["flutter", "emulators", "--launch", sys.argv[1]],
+        stdin=subprocess.DEVNULL,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+        close_fds=True,
+    )
+PY
+}
+
+wait_for_emulator() {
+  local requested_id="$1"
+  local target_platform="$2"
+  local timeout_seconds="$3"
+  local deadline=$((SECONDS + timeout_seconds))
+  local device_id
+
+  while ((SECONDS < deadline)); do
+    device_id="$(find_emulator_device "$requested_id" "$target_platform")"
+    if [[ -n "$device_id" ]]; then
+      printf '%s\n' "$device_id"
+      return 0
+    fi
+    sleep 2
+  done
+
+  return 1
+}
+
+port_is_available() {
+  python3 - "$1" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+    listener.bind(("127.0.0.1", port))
+PY
+}
+
+wait_for_router() {
+  local port="$1"
+  local server_pid="$2"
+  local deadline=$((SECONDS + 180))
+
+  while ((SECONDS < deadline)); do
+    if ! kill -0 "$server_pid" 2>/dev/null; then
+      return 1
+    fi
+    if python3 - "$port" <<'PY'
+import socket
+import sys
+
+try:
+    with socket.create_connection(("127.0.0.1", int(sys.argv[1])), timeout=0.5):
+        pass
+except OSError:
+    raise SystemExit(1)
+PY
+    then
+      return 0
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
+write_lab_config() {
+  local destination="$1"
+  local port="$2"
+  local source_config="$3"
+
+  python3 - "$source_config" "$destination" "$port" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+updated, count = re.subn(
+    r"(?m)^(listen:\n  host: 127\.0\.0\.1\n  port:) [0-9]+$",
+    rf"\g<1> {sys.argv[3]}",
+    source,
+)
+if count != 1:
+    raise SystemExit("expected one loopback listen block in WampApp config")
+Path(sys.argv[2]).write_text(updated, encoding="utf-8")
+PY
+}
+
+android_device=""
+android_emulator=""
+dry_run=false
+ios_device=""
+port=18080
+state_dir=""
+
+while (($# > 0)); do
+  case "$1" in
+    --android-device)
+      (($# >= 2)) || fail '--android-device requires a value.' 2
+      android_device="$2"
+      shift 2
+      ;;
+    --android-emulator)
+      (($# >= 2)) || fail '--android-emulator requires a value.' 2
+      android_emulator="$2"
+      shift 2
+      ;;
+    --ios-device)
+      (($# >= 2)) || fail '--ios-device requires a value.' 2
+      ios_device="$2"
+      shift 2
+      ;;
+    --port)
+      (($# >= 2)) || fail '--port requires a value.' 2
+      port="$2"
+      shift 2
+      ;;
+    --state-dir)
+      (($# >= 2)) || fail '--state-dir requires a value.' 2
+      state_dir="$2"
+      shift 2
+      ;;
+    --dry-run)
+      dry_run=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "unknown option: $1" 2
+      ;;
+  esac
+done
+
+[[ "$port" =~ ^[0-9]+$ ]] || fail "port must be an integer, got $port." 2
+((port >= 1024 && port <= 65535)) || fail "port must be between 1024 and 65535, got $port." 2
+[[ -z "$android_device" || -z "$android_emulator" ]] || \
+  fail '--android-device and --android-emulator are mutually exclusive.' 2
+
+cd_repo_root
+require_command flutter
+require_command python3
+
+if [[ -z "$state_dir" ]]; then
+  state_dir="$(repo_root)/.dart_tool/wamp_app_lab"
+elif [[ "$state_dir" != /* ]]; then
+  state_dir="$(repo_root)/$state_dir"
+fi
+
+resolved_android="$(find_emulator_device "$android_device" android)"
+if [[ -n "$android_device" && -z "$resolved_android" ]]; then
+  fail "Android device $android_device is not a running supported emulator."
+fi
+
+if [[ -z "$resolved_android" ]]; then
+  if [[ -z "$android_emulator" ]]; then
+    android_emulator="$(find_android_avd)"
+  fi
+  [[ -n "$android_emulator" ]] || fail 'no Android emulator or AVD is available.'
+fi
+
+resolved_ios="$(find_emulator_device "$ios_device" ios)"
+if [[ -n "$ios_device" && -z "$resolved_ios" ]]; then
+  fail "iOS device $ios_device is not a running supported simulator."
+fi
+
+endpoint="ws://localhost:$port/ws"
+config_path="$state_dir/wamp_app_server.yaml"
+server_log="$state_dir/server.log"
+android_emulator_log="$state_dir/android-emulator.log"
+ios_emulator_log="$state_dir/ios-emulator.log"
+
+if [[ "$dry_run" == true ]]; then
+  printf 'WampApp two-device lab dry run\n'
+  printf '  endpoint: %s\n' "$endpoint"
+  printf '  state: %s\n' "$state_dir"
+  if [[ -n "$resolved_android" ]]; then
+    printf '  Android emulator: %s\n' "$resolved_android"
+  else
+    printf '  Android AVD to boot: %s\n' "$android_emulator"
+  fi
+  if [[ -n "$resolved_ios" ]]; then
+    printf '  iOS simulator: %s\n' "$resolved_ios"
+  else
+    printf '  iOS simulator: boot the default simulator\n'
+  fi
+  printf 'Router command:\n'
+  shell_join dart run wamp_app_server --config "$config_path"
+  if [[ -n "$resolved_android" ]]; then
+    printf 'Android client command:\n'
+    shell_join flutter run -d "$resolved_android" --no-resident \
+      --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint"
+  fi
+  if [[ -n "$resolved_ios" ]]; then
+    printf 'iOS client command:\n'
+    shell_join flutter run -d "$resolved_ios" --no-resident \
+      --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint"
+  fi
+  exit 0
+fi
+
+require_command dart
+require_command adb
+[[ "$(uname -s)" == Darwin ]] || fail 'the Android + iOS lab requires macOS.'
+port_is_available "$port" || fail "127.0.0.1:$port is already in use."
+
+mkdir -p "$state_dir"
+write_lab_config \
+  "$config_path" \
+  "$port" \
+  "$(repo_root)/examples/wamp_app/server/wamp_app_server.yaml"
+
+if [[ -z "$resolved_android" ]]; then
+  printf 'Booting Android AVD %s...\n' "$android_emulator"
+  launch_emulator_detached "$android_emulator" "$android_emulator_log"
+  if ! resolved_android="$(wait_for_emulator '' android 240)"; then
+    tail -n 40 "$android_emulator_log" >&2 || true
+    fail "Android AVD $android_emulator did not become ready."
+  fi
+fi
+
+if [[ -z "$resolved_ios" ]]; then
+  printf 'Booting the default iOS simulator...\n'
+  launch_emulator_detached apple_ios_simulator "$ios_emulator_log"
+  if ! resolved_ios="$(wait_for_emulator '' ios 180)"; then
+    tail -n 40 "$ios_emulator_log" >&2 || true
+    fail 'the iOS simulator did not become ready.'
+  fi
+fi
+
+android_reverse_installed=false
+server_pid=""
+cleanup() {
+  local status=$?
+  trap - EXIT INT TERM
+  if [[ "$android_reverse_installed" == true ]]; then
+    adb -s "$resolved_android" reverse --remove "tcp:$port" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$server_pid" ]] && kill -0 "$server_pid" 2>/dev/null; then
+    kill "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+printf 'Resolving standalone WampApp packages...\n'
+(
+  cd "$(repo_root)/examples/wamp_app/server"
+  dart pub get
+)
+(
+  cd "$(repo_root)/examples/wamp_app/client"
+  flutter pub get
+)
+
+printf 'Starting isolated router at %s...\n' "$endpoint"
+(
+  cd "$(repo_root)/examples/wamp_app/server"
+  exec dart run wamp_app_server --config "$config_path"
+) >"$server_log" 2>&1 &
+server_pid=$!
+
+if ! wait_for_router "$port" "$server_pid"; then
+  printf 'WampApp router failed to become ready. Last log lines:\n' >&2
+  tail -n 40 "$server_log" >&2 || true
+  exit 1
+fi
+
+adb -s "$resolved_android" reverse "tcp:$port" "tcp:$port"
+android_reverse_installed=true
+
+printf 'Installing Android client on %s...\n' "$resolved_android"
+(
+  cd "$(repo_root)/examples/wamp_app/client"
+  flutter run -d "$resolved_android" --no-resident --no-pub \
+    --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint"
+)
+
+printf 'Installing iOS client on %s...\n' "$resolved_ios"
+(
+  cd "$(repo_root)/examples/wamp_app/client"
+  flutter run -d "$resolved_ios" --no-resident --no-pub \
+    --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint"
+)
+
+cat <<EOF
+
+WampApp lab is ready.
+  Router:  $endpoint
+  Android: $resolved_android
+  iOS:     $resolved_ios
+  State:   $state_dir
+  Log:     $server_log
+
+Register one account in each app, then use the usernames to start a direct or
+group chat. Press Ctrl+C here to stop the router; installed apps remain open.
+EOF
+
+wait "$server_pid"

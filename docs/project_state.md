@@ -1,22 +1,26 @@
 # Project State
 
-Last updated: 2026-08-26
-Current branch: `codex/wamp-app-local-endpoint`
-Current milestone: continue the standalone WampApp Flutter consumer example.
-PR #80 is merged to `master` as `85fef3a4` on both maintained remotes.
-Exact-head GitHub CI run `32978290002`, package dry run `32978290044`, WAMP
-profile benchmark run `32978289970`, and WampApp artifact run `32978290182`
-pass; the artifact run includes the production benchmark gate and all seven
-beta bundles. Native-artifact dry run `32980789298` also passes at the merged
-head, while the matching router-image dry run is still in progress.
-WampApp emulator builds can now select their initial onboarding endpoint with
-the compile-time `WAMP_APP_SERVER_ADDRESS` value while keeping the field
-editable and preserving `ws://localhost:8080/ws` as the normal default. A live
-headless router plus Android and iOS clients render the registration flow at
-`ws://localhost:18080/ws`. Both default and overridden widget checks, static
-analysis, and all 177 client tests that do not start a competing router pass;
-canonical router-owning verification remains deferred while that manual
-environment intentionally owns the native-runtime lock.
+Last updated: 2026-08-28
+Current branch: `codex/wamp-app-two-device-lab`
+Current milestone: make standalone WampApp two-device native acceptance
+repeatable. PR #81 is merged to `master` as `ea36a398` on both maintained
+remotes. Exact-head GitHub CI run `33164645535`, WampApp artifact run
+`33164645503`, and native-artifact dry run `33162601850` pass; the artifact run
+includes the production benchmark gate and all seven beta bundles, and the
+strict deployment audit passes.
+`bin/run-wamp-app-lab` now provides one supported macOS command for an isolated
+loopback router plus Android and iOS clients. It selects only emulators,
+detaches any emulator it boots, gives the router an isolated persistent state
+directory, installs a temporary Android `adb reverse`, builds both clients with
+the same editable `ws://localhost:18080/ws` endpoint, and remains attached to
+the router. A non-mutating dry run and seven fail-first command-contract tests
+cover realistic Flutter platform identifiers, physical-device rejection,
+empty-device boot planning, path resolution, selector validation, and port
+validation. Live acceptance on Android API 35 and iOS 26.4 proves both apps
+render the registration flow, the router listens, the reverse tunnel is active,
+and Ctrl+C removes the router and tunnel while both emulators and installed apps
+remain running. Repository-wide `bin/verify` passes for this branch; hosted
+evidence remains next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact
