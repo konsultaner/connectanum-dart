@@ -973,8 +973,9 @@ void main() {
     final expression = find.byKey(const Key('message-expression'));
     await tester.ensureVisible(expression);
     await tester.tap(expression);
-    await tester.pumpAndSettle();
     final stickerTab = find.byKey(const Key('expression-sticker-tab'));
+    await _pumpUntilFound(tester, stickerTab);
+    await tester.pumpAndSettle();
     expect(stickerTab.hitTestable(), findsOneWidget);
     await tester.tap(stickerTab);
     await tester.pumpAndSettle();
@@ -1247,6 +1248,19 @@ void main() {
     expect(find.text('persisted retry'), findsNothing);
     expect(find.byKey(const Key('message-history')), findsNothing);
   });
+}
+
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 2),
+}) async {
+  const step = Duration(milliseconds: 50);
+  var elapsed = Duration.zero;
+  while (finder.evaluate().isEmpty && elapsed < timeout) {
+    await tester.pump(step);
+    elapsed += step;
+  }
 }
 
 class _FakeGateway implements AccountGateway {
