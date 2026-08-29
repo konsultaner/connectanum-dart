@@ -678,6 +678,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _setConversationAppearance(
+    String conversationId,
+    WampAppConversationAppearance appearance,
+  ) async {
+    final saved = await widget.controller.setConversationAppearance(
+      conversationId,
+      appearance,
+    );
+    if (!mounted) return;
+    _showMessage(
+      saved
+          ? '${_ConversationPanel._appearanceLabel(appearance)} chat appearance saved on this account.'
+          : widget.controller.preferenceError ??
+                'Could not save the chat appearance.',
+    );
+  }
+
   Future<void> _setConversationDisappearingMessages(
     String conversationId,
     Duration? duration,
@@ -870,6 +887,7 @@ class _HomePageState extends State<HomePage> {
                     }),
                     onCreateGroup: _createGroup,
                     onMuteChanged: _setConversationMuted,
+                    onAppearanceChanged: _setConversationAppearance,
                     onOneTimeChanged: (value) =>
                         setState(() => _oneTime = value),
                     onExpiresAfterChanged: _setConversationDisappearingMessages,
@@ -1602,6 +1620,7 @@ class _ConversationPanel extends StatelessWidget {
     required this.onConversationChanged,
     required this.onCreateGroup,
     required this.onMuteChanged,
+    required this.onAppearanceChanged,
     required this.onOneTimeChanged,
     required this.onExpiresAfterChanged,
     required this.onOpenMessage,
@@ -1641,6 +1660,11 @@ class _ConversationPanel extends StatelessWidget {
   final ValueChanged<String?> onConversationChanged;
   final Future<void> Function() onCreateGroup;
   final Future<void> Function(String conversationId, bool muted) onMuteChanged;
+  final Future<void> Function(
+    String conversationId,
+    WampAppConversationAppearance appearance,
+  )
+  onAppearanceChanged;
   final ValueChanged<bool> onOneTimeChanged;
   final Future<void> Function(String conversationId, Duration? duration)
   onExpiresAfterChanged;
@@ -1675,6 +1699,9 @@ class _ConversationPanel extends StatelessWidget {
     final conversationMuted =
         activeConversationId != null &&
         controller.isConversationMuted(activeConversationId);
+    final conversationAppearance = activeConversationId == null
+        ? WampAppConversationAppearance.standard
+        : controller.conversationAppearanceFor(activeConversationId);
     final canStartCall =
         !groupMode &&
         recipientController.text.trim().isNotEmpty &&
@@ -1751,6 +1778,35 @@ class _ConversationPanel extends StatelessWidget {
                                   : Icons.notifications_none,
                             ),
                     ),
+                  PopupMenuButton<WampAppConversationAppearance>(
+                    key: const Key('conversation-appearance-menu'),
+                    enabled:
+                        activeConversationId != null &&
+                        !controller.preferenceBusy,
+                    tooltip:
+                        'Chat appearance: ${_appearanceLabel(conversationAppearance)}',
+                    onSelected: activeConversationId == null
+                        ? null
+                        : (appearance) => unawaited(
+                            onAppearanceChanged(
+                              activeConversationId,
+                              appearance,
+                            ),
+                          ),
+                    itemBuilder: (context) => [
+                      for (final appearance
+                          in WampAppConversationAppearance.values)
+                        CheckedPopupMenuItem<WampAppConversationAppearance>(
+                          key: ValueKey(
+                            'conversation-appearance-${appearance.wireName}',
+                          ),
+                          value: appearance,
+                          checked: conversationAppearance == appearance,
+                          child: Text(_appearanceLabel(appearance)),
+                        ),
+                    ],
+                    icon: const Icon(Icons.palette_outlined),
+                  ),
                   IconButton(
                     tooltip: 'Sync messages',
                     onPressed: controller.messageBusy
@@ -1955,6 +2011,9 @@ class _ConversationPanel extends StatelessWidget {
                             visibleMessages[visibleMessages.length - index - 1];
                         return _MessageBubble(
                           message: message,
+                          appearance: controller.conversationAppearanceFor(
+                            message.conversationId,
+                          ),
                           outbound: controller.outboundMessageFor(
                             message.messageId,
                           ),
@@ -2243,6 +2302,13 @@ class _ConversationPanel extends StatelessWidget {
     const Duration(days: 7) => 'Delete after 7 days',
     _ => 'Auto-delete enabled',
   };
+
+  static String _appearanceLabel(WampAppConversationAppearance appearance) =>
+      switch (appearance) {
+        WampAppConversationAppearance.standard => 'Standard',
+        WampAppConversationAppearance.ocean => 'Ocean',
+        WampAppConversationAppearance.sunset => 'Sunset',
+      };
 }
 
 class _NoMessages extends StatelessWidget {
@@ -2261,9 +2327,91 @@ class _NoMessages extends StatelessWidget {
   }
 }
 
+final class _ConversationAppearancePalette {
+  const _ConversationAppearancePalette({
+    required this.outgoingBackground,
+    required this.incomingBackground,
+    required this.outgoingForeground,
+    required this.incomingForeground,
+    required this.radius,
+    required this.tailRadius,
+  });
+
+  final Color outgoingBackground;
+  final Color incomingBackground;
+  final Color outgoingForeground;
+  final Color incomingForeground;
+  final double radius;
+  final double tailRadius;
+
+  Color background(bool outgoing) =>
+      outgoing ? outgoingBackground : incomingBackground;
+
+  Color foreground(bool outgoing) =>
+      outgoing ? outgoingForeground : incomingForeground;
+
+  BorderRadius borderRadius(bool outgoing) => BorderRadius.only(
+    topLeft: Radius.circular(radius),
+    topRight: Radius.circular(radius),
+    bottomLeft: Radius.circular(outgoing ? radius : tailRadius),
+    bottomRight: Radius.circular(outgoing ? tailRadius : radius),
+  );
+
+  static _ConversationAppearancePalette resolve(
+    BuildContext context,
+    WampAppConversationAppearance appearance,
+  ) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    return switch (appearance) {
+      WampAppConversationAppearance.standard => _ConversationAppearancePalette(
+        outgoingBackground: theme.colorScheme.primaryContainer,
+        incomingBackground: theme.colorScheme.surfaceContainerHighest,
+        outgoingForeground: theme.colorScheme.onPrimaryContainer,
+        incomingForeground: theme.colorScheme.onSurface,
+        radius: 16,
+        tailRadius: 16,
+      ),
+      WampAppConversationAppearance.ocean => _ConversationAppearancePalette(
+        outgoingBackground: dark
+            ? const Color(0xFF145766)
+            : const Color(0xFFB7E5EA),
+        incomingBackground: dark
+            ? const Color(0xFF243E48)
+            : const Color(0xFFD5EEF2),
+        outgoingForeground: dark
+            ? const Color(0xFFD6F7FA)
+            : const Color(0xFF08363E),
+        incomingForeground: dark
+            ? const Color(0xFFE1F1F4)
+            : const Color(0xFF17343B),
+        radius: 22,
+        tailRadius: 6,
+      ),
+      WampAppConversationAppearance.sunset => _ConversationAppearancePalette(
+        outgoingBackground: dark
+            ? const Color(0xFF74451F)
+            : const Color(0xFFFFD29B),
+        incomingBackground: dark
+            ? const Color(0xFF51372A)
+            : const Color(0xFFFFE7CC),
+        outgoingForeground: dark
+            ? const Color(0xFFFFE9D2)
+            : const Color(0xFF4C2A06),
+        incomingForeground: dark
+            ? const Color(0xFFFDECE4)
+            : const Color(0xFF452C16),
+        radius: 12,
+        tailRadius: 3,
+      ),
+    };
+  }
+}
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
+    required this.appearance,
     this.outbound,
     this.onTap,
     this.onRetry,
@@ -2272,6 +2420,7 @@ class _MessageBubble extends StatelessWidget {
   });
 
   final LocalChatMessage message;
+  final WampAppConversationAppearance appearance;
   final OutboundChatMessage? outbound;
   final VoidCallback? onTap;
   final Future<void> Function()? onRetry;
@@ -2310,6 +2459,8 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pending = outbound;
+    final palette = _ConversationAppearancePalette.resolve(context, appearance);
+    final borderRadius = palette.borderRadius(message.outgoing);
     return Align(
       alignment: message.outgoing
           ? Alignment.centerRight
@@ -2317,74 +2468,77 @@ class _MessageBubble extends StatelessWidget {
       child: InkWell(
         key: ValueKey('message-bubble-${message.messageId}'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: borderRadius,
         child: Container(
+          key: ValueKey('message-surface-${message.messageId}'),
           constraints: const BoxConstraints(maxWidth: 520),
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
           decoration: BoxDecoration(
-            color: message.outgoing
-                ? Theme.of(context).colorScheme.primaryContainer
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+            color: palette.background(message.outgoing),
+            borderRadius: borderRadius,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                message.isGroup
-                    ? '${message.groupTitle} · @${message.peerUsername}'
-                    : '@${message.peerUsername}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (message.text.isNotEmpty || message.oneTime) ...[
-                const SizedBox(height: 4),
+          child: DefaultTextStyle.merge(
+            style: TextStyle(color: palette.foreground(message.outgoing)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  message.oneTime && !message.outgoing
-                      ? 'Tap to view once'
-                      : message.text,
-                  key: message.oneTime && !message.outgoing
-                      ? ValueKey('message-view-once-${message.messageId}')
-                      : null,
+                  message.isGroup
+                      ? '${message.groupTitle} · @${message.peerUsername}'
+                      : '@${message.peerUsername}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
+                if (message.text.isNotEmpty || message.oneTime) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    message.oneTime && !message.outgoing
+                        ? 'Tap to view once'
+                        : message.text,
+                    key: message.oneTime && !message.outgoing
+                        ? ValueKey('message-view-once-${message.messageId}')
+                        : null,
+                  ),
+                ],
+                for (final attachment in message.attachments) ...[
+                  const SizedBox(height: 7),
+                  _AttachmentCard(
+                    attachment: attachment,
+                    onOpen: onOpenAttachment == null
+                        ? null
+                        : () => onOpenAttachment!(attachment),
+                  ),
+                ],
+                const SizedBox(height: 5),
+                Text(_statusLabel, style: const TextStyle(fontSize: 10)),
+                if (pending?.canRetry == true ||
+                    pending?.canDiscard == true) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      if (pending?.canRetry == true)
+                        TextButton.icon(
+                          key: ValueKey('message-retry-${message.messageId}'),
+                          onPressed: onRetry,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Retry'),
+                        ),
+                      if (pending?.canDiscard == true)
+                        TextButton.icon(
+                          key: ValueKey('message-discard-${message.messageId}'),
+                          onPressed: onDiscard,
+                          icon: const Icon(Icons.delete_outline, size: 16),
+                          label: const Text('Discard'),
+                        ),
+                    ],
+                  ),
+                ],
               ],
-              for (final attachment in message.attachments) ...[
-                const SizedBox(height: 7),
-                _AttachmentCard(
-                  attachment: attachment,
-                  onOpen: onOpenAttachment == null
-                      ? null
-                      : () => onOpenAttachment!(attachment),
-                ),
-              ],
-              const SizedBox(height: 5),
-              Text(_statusLabel, style: const TextStyle(fontSize: 10)),
-              if (pending?.canRetry == true || pending?.canDiscard == true) ...[
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: [
-                    if (pending?.canRetry == true)
-                      TextButton.icon(
-                        key: ValueKey('message-retry-${message.messageId}'),
-                        onPressed: onRetry,
-                        icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('Retry'),
-                      ),
-                    if (pending?.canDiscard == true)
-                      TextButton.icon(
-                        key: ValueKey('message-discard-${message.messageId}'),
-                        onPressed: onDiscard,
-                        icon: const Icon(Icons.delete_outline, size: 16),
-                        label: const Text('Discard'),
-                      ),
-                  ],
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),

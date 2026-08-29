@@ -11,6 +11,7 @@ import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/contact_importer_contract.dart';
+import 'package:wamp_app/src/infrastructure/message_cipher.dart';
 import 'package:wamp_app/src/infrastructure/profile_avatar_picker.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app/src/infrastructure/voice_note_recorder.dart';
@@ -575,6 +576,14 @@ void main() {
       trustStore: FakeDeviceTrustStore(
         initialMessages: [
           LocalChatMessage(
+            messageId: 'compact-direct-message',
+            conversationId: MessageCipher.directConversationId('alice', 'bob'),
+            peerUsername: 'bob',
+            text: 'Direct history keeps its own appearance',
+            sentAt: DateTime.utc(2026, 8, 25, 11, 2),
+            outgoing: false,
+          ),
+          LocalChatMessage(
             messageId: 'compact-group-message',
             conversationId: 'launch-crew',
             peerUsername: 'bob',
@@ -616,6 +625,24 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> chooseChatAppearance(
+      WampAppConversationAppearance appearance,
+    ) async {
+      await tester.tap(find.byKey(const Key('conversation-appearance-menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('conversation-appearance-${appearance.wireName}')),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Color bubbleColor(String messageId) {
+      final container = tester.widget<Container>(
+        find.byKey(ValueKey('message-surface-$messageId')),
+      );
+      return (container.decoration! as BoxDecoration).color!;
+    }
+
     expect(
       tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
       ThemeMode.system,
@@ -646,6 +673,13 @@ void main() {
 
     await tester.pumpAndSettle();
     final directId = controller.directConversationIdFor('bob')!;
+    final standardDirectColor = bubbleColor('compact-direct-message');
+    await chooseChatAppearance(WampAppConversationAppearance.ocean);
+    expect(
+      controller.conversationAppearanceFor(directId),
+      WampAppConversationAppearance.ocean,
+    );
+    expect(bubbleColor('compact-direct-message'), isNot(standardDirectColor));
     expect(find.byKey(const Key('conversation-mute')), findsOneWidget);
     await tester.tap(find.byKey(const Key('conversation-mute')));
     await tester.pumpAndSettle();
@@ -660,6 +694,17 @@ void main() {
         .intersect(Offset.zero & tester.view.physicalSize);
     await tester.tapAt(visibleGroupChip.center);
     await tester.pumpAndSettle();
+    final standardGroupColor = bubbleColor('compact-group-message');
+    await chooseChatAppearance(WampAppConversationAppearance.sunset);
+    expect(
+      controller.conversationAppearanceFor('launch-crew'),
+      WampAppConversationAppearance.sunset,
+    );
+    expect(
+      controller.conversationAppearanceFor(directId),
+      WampAppConversationAppearance.ocean,
+    );
+    expect(bubbleColor('compact-group-message'), isNot(standardGroupColor));
     expect(
       tester.getSize(find.byKey(const Key('message-history'))).height,
       greaterThanOrEqualTo(24),

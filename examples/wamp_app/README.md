@@ -35,6 +35,9 @@ The implemented slices provide:
   encrypted message and device vault;
 - a responsive Flutter onboarding, composer, history, sync, attachment picker,
   preview, and platform save flow;
+- account-wide system/light/dark themes plus local-only Standard, Ocean, and
+  Sunset bubble designs selected independently per chat, stored in the
+  encrypted vault, and recovered by encrypted local or remote backups;
 - five-minute encrypted voice notes recorded as mono 16 kHz PCM16 WAV, with
   private duration metadata, bounded memory, explicit cancellation, and
   authenticated playback on the existing WAMP attachment path;

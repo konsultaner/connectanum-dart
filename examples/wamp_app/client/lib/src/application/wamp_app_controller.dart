@@ -173,6 +173,10 @@ class WampAppController extends ChangeNotifier {
   bool isConversationMuted(String conversationId) =>
       _preferences.isMuted(conversationId);
 
+  WampAppConversationAppearance conversationAppearanceFor(
+    String conversationId,
+  ) => _preferences.conversationAppearanceFor(conversationId);
+
   bool shouldPresentNotificationFor(LocalChatMessage message) =>
       _connection != null &&
       !message.outgoing &&
@@ -190,6 +194,24 @@ class WampAppController extends ChangeNotifier {
     try {
       return _savePreferences(
         _preferences.withConversationMuted(conversationId, muted),
+      );
+    } on FormatException catch (error) {
+      _preferenceError = error;
+      if (!_disposed) notifyListeners();
+      return Future<bool>.value(false);
+    }
+  }
+
+  Future<bool> setConversationAppearance(
+    String conversationId,
+    WampAppConversationAppearance appearance,
+  ) {
+    if (_preferences.conversationAppearanceFor(conversationId) == appearance) {
+      return Future<bool>.value(true);
+    }
+    try {
+      return _savePreferences(
+        _preferences.withConversationAppearance(conversationId, appearance),
       );
     } on FormatException catch (error) {
       _preferenceError = error;

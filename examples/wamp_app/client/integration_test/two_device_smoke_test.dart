@@ -7,6 +7,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:wamp_app/src/app.dart';
 import 'package:wamp_app/src/application/call_controller.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
+import 'package:wamp_app/src/domain/local_app_preferences.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
 import 'package:wamp_app/src/infrastructure/contact_importer.dart';
@@ -532,6 +533,21 @@ Future<void> _setLocalConversationPreferences(
   if (conversationId == null) {
     fail('The direct conversation was unavailable for local preferences.');
   }
+  final appearance = find.byKey(const Key('conversation-appearance-menu'));
+  await _tapWhenReady(tester, appearance, label: 'chat appearance menu');
+  await _tapWhenReady(
+    tester,
+    find.byKey(const ValueKey('conversation-appearance-ocean')),
+    label: 'ocean chat appearance',
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        !controller.preferenceBusy &&
+        controller.conversationAppearanceFor(conversationId) ==
+            WampAppConversationAppearance.ocean,
+    label: 'persisted chat appearance',
+  );
   final mute = find.byKey(const Key('conversation-mute'));
   await _tapWhenReady(tester, mute, label: 'conversation mute');
   await _pumpUntil(
@@ -930,6 +946,8 @@ Future<void> _expectDestructiveBackupRecovery(
           controller.localDevice?.deviceId == originalDeviceId &&
           controller.themePreference.wireName == 'dark' &&
           conversationId != null &&
+          controller.conversationAppearanceFor(conversationId) ==
+              WampAppConversationAppearance.ocean &&
           controller.isConversationMuted(conversationId) &&
           controller.disappearingMessagesFor(conversationId) ==
               const Duration(hours: 1) &&

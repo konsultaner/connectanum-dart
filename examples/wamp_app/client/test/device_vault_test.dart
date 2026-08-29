@@ -379,11 +379,15 @@ void main() {
       LocalAppPreferences(
         theme: WampAppThemePreference.dark,
         mutedConversationIds: const ['private-conversation-id'],
+        conversationAppearances: const {
+          'private-conversation-id': WampAppConversationAppearance.ocean,
+        },
       ),
     );
     final encoded = storage.values.values.single;
     expect(encoded, isNot(contains('private-conversation-id')));
     expect(encoded, isNot(contains('dark')));
+    expect(encoded, isNot(contains('ocean')));
     await first.dispose();
 
     final reopened = await vault.openOrCreate(
@@ -395,6 +399,10 @@ void main() {
     addTearDown(reopened.dispose);
     expect(reopened.preferences.theme, WampAppThemePreference.dark);
     expect(reopened.preferences.isMuted('private-conversation-id'), isTrue);
+    expect(
+      reopened.preferences.conversationAppearanceFor('private-conversation-id'),
+      WampAppConversationAppearance.ocean,
+    );
   });
 
   test('failed preference writes leave live state unchanged', () async {

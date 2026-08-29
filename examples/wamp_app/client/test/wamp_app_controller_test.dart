@@ -424,6 +424,13 @@ void main() {
       );
       expect(await controller.setConversationMuted(directId, true), isTrue);
       expect(
+        await controller.setConversationAppearance(
+          directId,
+          WampAppConversationAppearance.ocean,
+        ),
+        isTrue,
+      );
+      expect(
         await controller.setConversationDisappearingMessages(
           directId,
           const Duration(days: 1),
@@ -433,6 +440,10 @@ void main() {
       expect(controller.themePreference, WampAppThemePreference.dark);
       expect(controller.isConversationMuted(directId), isTrue);
       expect(
+        controller.conversationAppearanceFor(directId),
+        WampAppConversationAppearance.ocean,
+      );
+      expect(
         controller.disappearingMessagesFor(directId),
         const Duration(days: 1),
       );
@@ -440,6 +451,10 @@ void main() {
       await controller.signOut();
       expect(controller.themePreference, WampAppThemePreference.system);
       expect(controller.isConversationMuted(directId), isFalse);
+      expect(
+        controller.conversationAppearanceFor(directId),
+        WampAppConversationAppearance.standard,
+      );
       expect(controller.disappearingMessagesFor(directId), isNull);
 
       await controller.login(
@@ -449,6 +464,10 @@ void main() {
       );
       expect(controller.themePreference, WampAppThemePreference.dark);
       expect(controller.isConversationMuted(directId), isTrue);
+      expect(
+        controller.conversationAppearanceFor(directId),
+        WampAppConversationAppearance.ocean,
+      );
       expect(
         controller.disappearingMessagesFor(directId),
         const Duration(days: 1),
@@ -487,6 +506,17 @@ void main() {
       isFalse,
     );
     expect(controller.disappearingMessagesFor(directId), isNull);
+    expect(
+      await controller.setConversationAppearance(
+        directId,
+        WampAppConversationAppearance.ocean,
+      ),
+      isFalse,
+    );
+    expect(
+      controller.conversationAppearanceFor(directId),
+      WampAppConversationAppearance.standard,
+    );
 
     session.savePreferencesFailure = null;
     final gate = session.savePreferencesGate = Completer<void>();

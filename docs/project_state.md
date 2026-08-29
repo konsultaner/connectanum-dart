@@ -124,7 +124,24 @@ Android and iOS relaunch, failed launch, rapid crash, router death, port
 release, and reverse cleanup. A real Android API 35 plus iOS 26.4 lab proved
 both client processes were replaced while the router PID remained stable and
 the WebSocket endpoint still returned `101 Switching Protocols`; `bin/test-fast`
-and repository-wide `bin/verify` pass.
+and repository-wide `bin/verify` pass. Exact-head package dry run
+`33236799210`, PR CI run `33236799221`, and push CI run `33236797692` pass;
+the comprehensive feature-head audit and protected-`master` strict audit also
+pass.
+Per-conversation chat design is now implemented locally. Direct and group
+conversations independently select Standard, Ocean, or Sunset message-bubble
+presets without changing account-wide system/light/dark mode. Only non-default
+overrides are retained in a canonical, bounded 500-entry map inside the
+encrypted device vault; malformed identifiers or values fail closed, and the
+same encrypted local/cloud backup payload restores the selection. Global-search
+results resolve the design from each result's conversation rather than the
+currently selected chat. Ten preference tests, 49 controller tests, 22 vault
+tests, 22 widget tests, the full 198-test Flutter client suite,
+`bin/test-wamp-app` including Chrome and the release web build, local-model
+review, and repository-wide `bin/verify` pass. The paired native recovery smoke
+now requires the preset after destructive local/cloud restore; exact device
+execution and hosted evidence are next, without interrupting the active tester
+lab.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact
