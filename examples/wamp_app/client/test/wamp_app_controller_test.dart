@@ -962,6 +962,60 @@ void main() {
   });
 
   test(
+    'MCP access discovery resolves server paths on the WAMP origin',
+    () async {
+      final gateway = _RecordingGateway();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: FakeDeviceTrustStore(),
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'wss://chat.example:9443/ws',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+
+      final access = await controller.loadMcpAccessConfiguration();
+
+      expect(access, isNotNull);
+      expect(
+        access!.mcpUriFor(controller.connection!.endpoint),
+        Uri.parse('https://chat.example:9443/mcp'),
+      );
+      expect(gateway.mcpAccessRequests, 1);
+      expect(controller.mcpAccessBusy, isFalse);
+      expect(controller.mcpAccessError, isNull);
+    },
+  );
+
+  test('late MCP access discovery cannot cross a signed-out session', () async {
+    final gateway = _RecordingGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final gate = gateway.mcpAccessGate =
+        Completer<WampAppMcpAccessConfiguration>();
+
+    final pending = controller.loadMcpAccessConfiguration();
+    await _waitFor(() => controller.mcpAccessBusy);
+    await controller.signOut();
+    gate.complete(gateway.mcpAccessConfiguration);
+
+    expect(await pending, isNull);
+    expect(controller.mcpAccessBusy, isFalse);
+    expect(controller.mcpAccessError, isNull);
+    expect(controller.status, WampAppStatus.signedOut);
+  });
+
+  test(
     'replacement stays connected when closing the old transport fails',
     () async {
       final gateway = _RecordingGateway();
@@ -2091,6 +2145,14 @@ class _RecordingGateway implements AccountGateway {
   AccountProfile? profileLookupOverride;
   final List<String> profileLookups = [];
   WampAppMcpConsent mcpConsent = WampAppMcpConsent.denied;
+  WampAppMcpAccessConfiguration mcpAccessConfiguration =
+      WampAppMcpAccessConfiguration.standard(
+        mcpPath: '/mcp',
+        authPath: '/mcp/auth',
+      );
+  Completer<WampAppMcpAccessConfiguration>? mcpAccessGate;
+  Object? mcpAccessFailure;
+  int mcpAccessRequests = 0;
   Object? nextMcpConsentFailure;
   final List<bool> mcpConsentUpdates = [];
   final List<_GatewayConnection> connections = [];
@@ -2147,6 +2209,12 @@ class _RecordingGateway implements AccountGateway {
       username: normalizedUsername,
       initialProfile: _profileFor(normalizedUsername),
       initialMcpConsent: mcpConsent,
+      getMcpAccessConfigurationCallback: () async {
+        mcpAccessRequests += 1;
+        final failure = mcpAccessFailure;
+        if (failure != null) throw failure;
+        return mcpAccessGate?.future ?? mcpAccessConfiguration;
+      },
       getProfileCallback: (username) async {
         final normalized = AccountRegistration.normalizeUsername(username);
         profileLookups.add(normalized);

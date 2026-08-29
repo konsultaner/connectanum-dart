@@ -173,6 +173,27 @@ characters, and use a password with at least twelve characters. Cleartext
 deployments must expose the endpoint through `wss://`; the included server
 configuration is not yet a production TLS deployment recipe.
 
+## Connect an MCP Client
+
+Sign in to WampApp, open the account menu, and select **Connect an AI
+service**. The app discovers the MCP and authentication routes from the
+authenticated WAMP session, derives their HTTP or HTTPS origin from the server
+address, and shows copyable endpoints. With the default local configuration
+they are `http://localhost:8080/mcp` and
+`http://localhost:8080/mcp/auth`.
+
+Configure an MCP client for Streamable HTTP or direct JSON at the displayed
+MCP endpoint. Obtain its access grant from the displayed authentication
+endpoint using the same WampApp username and password with WAMP-SCRAM. WampApp
+does not display, return, or copy the password, access token, or refresh token.
+
+Profile access is disabled by default. The user must enable it in the same
+panel before MCP tools can read the exact public-profile allowlist. Revocation
+takes effect immediately. Chats, messages, attachments, backups, devices,
+calls, encryption keys, and avatars are never included in the MCP profile
+surface. Use `wss://` so the derived endpoints use HTTPS outside loopback
+development.
+
 ## Build Beta Artifacts
 
 The platform packager creates a clean archive, SHA-256 checksum, and

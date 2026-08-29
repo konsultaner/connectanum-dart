@@ -177,6 +177,17 @@ server copy is gone, and cannot be fetched after close, while the interactive
 tester lab remains undisturbed. `bin/test-wamp-app` passes with 53 shared, 144
 server, and 201 Flutter tests, real Chrome IndexedDB and 64 MiB worker checks,
 and a release web build; repository-wide `bin/verify` also passes.
+Authenticated MCP access discovery is now implemented locally. An
+account-authenticated WAMP procedure exposes only server-configured relative
+MCP and authentication paths plus fixed capability metadata. The client
+strictly validates that boundary, derives HTTP(S) URLs from its connected
+WAMP origin, and presents a usable account panel with copyable endpoints,
+default-denied public-profile consent, immediate revocation, and explicit
+credential/content exclusions. Focused shared, server, real-router gateway,
+controller, compact-widget, and analysis checks pass. `bin/test-wamp-app`
+passes with 56 shared and 144 server tests, the complete native and isolated
+Chrome client suites, Dart2Wasm, and a release web build. Repository-wide
+`bin/verify` also passes; exact-head hosted evidence is next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

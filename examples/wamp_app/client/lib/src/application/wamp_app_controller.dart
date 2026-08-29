@@ -91,6 +91,7 @@ class WampAppController extends ChangeNotifier {
   Object? _messageExpiryError;
   Object? _profileError;
   Object? _contactError;
+  Object? _mcpAccessError;
   Object? _mcpConsentError;
   Object? _preferenceError;
   Object? _platformPushError;
@@ -101,6 +102,7 @@ class WampAppController extends ChangeNotifier {
   bool _messageBusy = false;
   bool _profileBusy = false;
   bool _contactBusy = false;
+  bool _mcpAccessBusy = false;
   bool _mcpConsentBusy = false;
   bool _preferenceBusy = false;
   bool _backupBusy = false;
@@ -129,6 +131,7 @@ class WampAppController extends ChangeNotifier {
   bool get messageBusy => _messageBusy;
   bool get profileBusy => _profileBusy;
   bool get contactBusy => _contactBusy;
+  bool get mcpAccessBusy => _mcpAccessBusy;
   bool get mcpConsentBusy => _mcpConsentBusy;
   WampAppMcpConsent get mcpConsent =>
       _connection?.mcpConsent ?? WampAppMcpConsent.denied;
@@ -160,6 +163,14 @@ class WampAppController extends ChangeNotifier {
   String? get contactError => switch (_contactError) {
     FormatException(:final message) => message,
     _ when _contactError != null => 'The local contact operation failed.',
+    _ => null,
+  };
+  String? get mcpAccessError => switch (_mcpAccessError) {
+    FormatException(:final message) => message,
+    McpAccessException() => _mcpAccessError.toString(),
+    StateError() => 'MCP access discovery is unavailable.',
+    _ when _mcpAccessError != null =>
+      'Could not load MCP connection information.',
     _ => null,
   };
   String? get mcpConsentError => switch (_mcpConsentError) {
@@ -553,6 +564,7 @@ class WampAppController extends ChangeNotifier {
     _messageExpiryError = null;
     _profileError = null;
     _contactError = null;
+    _mcpAccessError = null;
     _mcpConsentError = null;
     _preferenceError = null;
     _platformPushError = null;
@@ -562,6 +574,7 @@ class WampAppController extends ChangeNotifier {
     _messageBusy = false;
     _profileBusy = false;
     _contactBusy = false;
+    _mcpAccessBusy = false;
     _mcpConsentBusy = false;
     _preferenceBusy = false;
     _backupBusy = false;
@@ -611,6 +624,31 @@ class WampAppController extends ChangeNotifier {
     } finally {
       if (isCurrent()) {
         _profileBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<WampAppMcpAccessConfiguration?> loadMcpAccessConfiguration() async {
+    final connection = _connection;
+    if (_disposed || _mcpAccessBusy || connection == null) return null;
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection);
+    _mcpAccessBusy = true;
+    _mcpAccessError = null;
+    notifyListeners();
+    try {
+      final configuration = await connection.getMcpAccessConfiguration();
+      return isCurrent() ? configuration : null;
+    } catch (error) {
+      if (isCurrent()) _mcpAccessError = error;
+      return null;
+    } finally {
+      if (isCurrent()) {
+        _mcpAccessBusy = false;
         notifyListeners();
       }
     }
@@ -822,6 +860,7 @@ class WampAppController extends ChangeNotifier {
     _error = null;
     _messageError = null;
     _contactError = null;
+    _mcpAccessError = null;
     _mcpConsentError = null;
     _status = WampAppStatus.busy;
     notifyListeners();
@@ -939,12 +978,14 @@ class WampAppController extends ChangeNotifier {
     _replaceMessages(nextMessages);
     _messageError = nextWakeupError;
     _messageExpiryError = null;
+    _mcpAccessError = null;
     _mcpConsentError = null;
     _contactError = null;
     _preferenceError = null;
     _platformPushError = null;
     _preferenceBusy = false;
     _contactBusy = false;
+    _mcpAccessBusy = false;
     _mcpConsentBusy = false;
     _status = WampAppStatus.connected;
     notifyListeners();

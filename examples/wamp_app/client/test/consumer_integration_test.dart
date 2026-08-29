@@ -533,6 +533,65 @@ void main() {
   );
 
   test(
+    'authenticated app session discovers configured MCP access routes',
+    () async {
+      final temporary = await Directory.systemTemp.createTemp(
+        'wamp-app-mcp-discovery-consumer-',
+      );
+      addTearDown(() => temporary.delete(recursive: true));
+      final server = await WampAppServer.start(
+        WampAppServerConfig(
+          host: '127.0.0.1',
+          port: 0,
+          websocketPath: '/ws',
+          accountStorePath: '${temporary.path}/accounts.json',
+          messageStorePath: '${temporary.path}/messages.json',
+          mcp: WampAppMcpConfig(
+            enabled: true,
+            path: '/ai/mcp',
+            authPath: '/ai/mcp/auth',
+            consentStorePath: '${temporary.path}/mcp-consent.json',
+            allowInsecureTransport: true,
+          ),
+          argonIterations: 1,
+          argonMemoryKiB: 8192,
+        ),
+      );
+      addTearDown(server.close);
+      final endpoint = ServerEndpoint.parse(server.websocketUri.toString());
+      const gateway = WampAccountGateway(
+        connectionTimeout: Duration(seconds: 15),
+        derivationTimeout: Duration(seconds: 30),
+      );
+      await gateway.register(
+        endpoint: endpoint,
+        registration: AccountRegistration(
+          username: 'alice',
+          displayName: 'Alice',
+          password: 'alice mcp discovery secret',
+        ),
+      );
+      final connection = await gateway.login(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'alice mcp discovery secret',
+      );
+      addTearDown(connection.close);
+
+      final access = await connection.getMcpAccessConfiguration();
+
+      expect(access.mcpUriFor(endpoint), server.mcpUri);
+      expect(access.authUriFor(endpoint).path, '/ai/mcp/auth');
+      expect(access.profileFields, WampAppMcpAccessContract.profileFields);
+      expect(
+        access.toWampKeywords().values,
+        isNot(contains('alice mcp discovery secret')),
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test(
     'typed WAMP calling signals stay encrypted and replay after reconnect',
     () async {
       final temporary = await Directory.systemTemp.createTemp(

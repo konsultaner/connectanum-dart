@@ -159,6 +159,33 @@ final class McpConsentException implements Exception {
   };
 }
 
+enum McpAccessFailureKind { rejected, unavailable }
+
+final class McpAccessException implements Exception {
+  const McpAccessException(this.kind);
+
+  factory McpAccessException.fromWampError(wamp.Error error) {
+    final kind = switch (error.error) {
+      WampAppProtocol.errorInvalidMcpAccess ||
+      WampAppProtocol.errorNotAuthorized ||
+      wamp.Error.notAuthorized => McpAccessFailureKind.rejected,
+      WampAppProtocol.errorMcpUnavailable ||
+      _ => McpAccessFailureKind.unavailable,
+    };
+    return McpAccessException(kind);
+  }
+
+  final McpAccessFailureKind kind;
+
+  @override
+  String toString() => switch (kind) {
+    McpAccessFailureKind.rejected =>
+      'The server rejected MCP access discovery.',
+    McpAccessFailureKind.unavailable =>
+      'This server does not expose a usable WampApp MCP endpoint.',
+  };
+}
+
 enum PlatformPushSubscriptionFailureKind { retryable, rejected }
 
 final class PlatformPushSubscriptionException implements Exception {
@@ -299,6 +326,7 @@ class AccountConnection {
     required this.closeTransport,
     required this.getProfileCallback,
     required this.updateProfileCallback,
+    this.getMcpAccessConfigurationCallback,
     this.getMcpConsentCallback,
     this.updateMcpConsentCallback,
     required this.enrollDeviceCallback,
@@ -344,6 +372,8 @@ class AccountConnection {
   final Future<AccountProfile> Function(String username) getProfileCallback;
   final Future<AccountProfile> Function(AccountProfileUpdate update)
   updateProfileCallback;
+  final Future<WampAppMcpAccessConfiguration> Function()?
+  getMcpAccessConfigurationCallback;
   final Future<WampAppMcpConsent> Function()? getMcpConsentCallback;
   final Future<WampAppMcpConsent> Function(WampAppMcpConsentUpdate update)?
   updateMcpConsentCallback;
@@ -450,6 +480,17 @@ class AccountConnection {
     final updated = await updateProfileCallback(update);
     _profile = updated;
     return updated;
+  }
+
+  Future<WampAppMcpAccessConfiguration> getMcpAccessConfiguration() {
+    _ensureOpen();
+    final callback = getMcpAccessConfigurationCallback;
+    if (callback == null) {
+      throw StateError(
+        'MCP access discovery is unavailable on this connection.',
+      );
+    }
+    return callback();
   }
 
   Future<WampAppMcpConsent> refreshMcpConsent() async {
@@ -883,6 +924,18 @@ class WampAccountGateway implements AccountGateway {
         initialProfile: profile,
         initialMcpConsent: mcpConsent,
         getProfileCallback: getProfile,
+        getMcpAccessConfigurationCallback: () async {
+          try {
+            final result = await session
+                .callSingle(WampAppProtocol.mcpAccessGet)
+                .timeout(connectionTimeout);
+            return WampAppMcpAccessConfiguration.fromWampKeywords(
+              result.argumentsKeywords,
+            );
+          } on wamp.Error catch (error) {
+            throw McpAccessException.fromWampError(error);
+          }
+        },
         getMcpConsentCallback: getMcpConsent,
         updateMcpConsentCallback: (update) async {
           try {

@@ -22,6 +22,8 @@ void main() {
         backupStorePath: '${directory.path}/backups',
         mcp: WampAppMcpConfig(
           enabled: true,
+          path: '/agent/mcp',
+          authPath: '/agent/mcp/auth',
           consentStorePath: '${directory.path}/mcp-consent.json',
           allowInsecureTransport: true,
         ),
@@ -45,6 +47,36 @@ void main() {
     );
     addTearDown(alice.close);
     addTearDown(bob.close);
+
+    final access = WampAppMcpAccessConfiguration.fromWampKeywords(
+      (await alice.session.callSingle(
+        WampAppProtocol.mcpAccessGet,
+      )).argumentsKeywords,
+    );
+    expect(access.mcpPath, '/agent/mcp');
+    expect(access.authPath, '/agent/mcp/auth');
+    expect(
+      access.mcpUriFor(ServerEndpoint.parse(server.websocketUri.toString())),
+      endpoint,
+    );
+    expect(access.profileFields, WampAppMcpAccessContract.profileFields);
+    expect(
+      access.toWampKeywords().keys,
+      isNot(contains(anyOf('password', 'access_token', 'refresh_token'))),
+    );
+    await expectLater(
+      alice.session.callSingle(
+        WampAppProtocol.mcpAccessGet,
+        argumentsKeywords: const {'include_secrets': true},
+      ),
+      throwsA(
+        isA<wamp.Error>().having(
+          (error) => error.error,
+          'error URI',
+          WampAppProtocol.errorInvalidMcpAccess,
+        ),
+      ),
+    );
 
     final unauthenticated = McpStreamableHttpClient.stateless(
       endpoint,

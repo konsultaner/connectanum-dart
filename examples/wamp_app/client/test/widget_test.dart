@@ -543,9 +543,13 @@ void main() {
     expect(find.byKey(const Key('message-send')).hitTestable(), findsOneWidget);
   });
 
-  testWidgets('confirms MCP profile sharing and revokes it immediately', (
+  testWidgets('discovers MCP endpoints, confirms sharing, and revokes it', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final gateway = _FakeGateway();
     final controller = WampAppController(
       gateway: gateway,
@@ -564,8 +568,24 @@ void main() {
     await tester.tap(consent);
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('mcp-access-dialog')), findsOneWidget);
+    expect(find.text('https://localhost/mcp'), findsOneWidget);
+    expect(find.text('https://localhost/mcp/auth'), findsOneWidget);
+    expect(find.text('Realm: ${WampAppProtocol.appRealm}'), findsOneWidget);
+    expect(
+      find.textContaining('Streamable HTTP and direct JSON'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('mcp-access-data-boundary')), findsOneWidget);
+    expect(find.text('correct horse battery'), findsNothing);
+    final profileSwitch = find.byKey(const Key('mcp-access-profile-switch'));
+    await tester.ensureVisible(profileSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(profileSwitch);
+    await tester.pumpAndSettle();
+
     expect(find.text('Allow MCP public-profile access?'), findsOneWidget);
-    expect(find.textContaining('Chats, messages, attachments'), findsOneWidget);
+    expect(find.textContaining('Chats, messages, attachments'), findsWidgets);
     expect(gateway.mcpProfileReadAllowed, isFalse);
 
     await tester.tap(find.byKey(const Key('mcp-profile-consent-confirm')));
@@ -573,7 +593,9 @@ void main() {
     expect(gateway.mcpProfileReadAllowed, isTrue);
     expect(gateway.mcpConsentUpdates, [true]);
 
-    await tester.tap(consent);
+    await tester.ensureVisible(profileSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(profileSwitch);
     await tester.pumpAndSettle();
     expect(find.text('Allow MCP public-profile access?'), findsNothing);
     expect(gateway.mcpProfileReadAllowed, isFalse);
@@ -1443,6 +1465,11 @@ class _FakeGateway implements AccountGateway {
       username: username,
       initialProfile: profile,
       initialMcpConsent: WampAppMcpConsent.denied,
+      getMcpAccessConfigurationCallback: () async =>
+          WampAppMcpAccessConfiguration.standard(
+            mcpPath: '/mcp',
+            authPath: '/mcp/auth',
+          ),
       getProfileCallback: (lookup) async {
         profileLookups.add(lookup);
         return lookup == username

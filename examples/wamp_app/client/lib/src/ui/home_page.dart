@@ -648,6 +648,124 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _showMcpAccess() async {
+    final configuration = await widget.controller.loadMcpAccessConfiguration();
+    if (!mounted) return;
+    if (configuration == null) {
+      _showMessage(
+        widget.controller.mcpAccessError ??
+            'Could not load MCP connection information.',
+      );
+      return;
+    }
+    final endpoint = configuration.mcpUriFor(widget.connection.endpoint);
+    final authEndpoint = configuration.authUriFor(widget.connection.endpoint);
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AnimatedBuilder(
+        animation: widget.controller,
+        builder: (context, _) => AlertDialog(
+          key: const Key('mcp-access-dialog'),
+          scrollable: true,
+          title: const Row(
+            children: [
+              Icon(Icons.smart_toy_outlined),
+              SizedBox(width: 10),
+              Expanded(child: Text('Connect an AI service')),
+            ],
+          ),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Use the endpoint below with an MCP client that supports '
+                  'Streamable HTTP or direct JSON. The client authenticates '
+                  'as this WampApp account using a WAMP-SCRAM access grant.',
+                ),
+                const SizedBox(height: 16),
+                _McpEndpointField(
+                  label: 'MCP endpoint',
+                  keyName: 'mcp-access-endpoint',
+                  uri: endpoint,
+                  onCopy: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: endpoint.toString()),
+                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(content: Text('MCP endpoint copied.')),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                _McpEndpointField(
+                  label: 'Authentication endpoint',
+                  keyName: 'mcp-auth-endpoint',
+                  uri: authEndpoint,
+                  onCopy: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: authEndpoint.toString()),
+                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(content: Text('Auth endpoint copied.')),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 14),
+                Text('Account: @${widget.connection.username}'),
+                const Text('Realm: ${WampAppProtocol.appRealm}'),
+                const Text('Authentication: WAMP-SCRAM access grant'),
+                const SizedBox(height: 14),
+                const Text(
+                  'Catalogs: tools, resources, and prompts · Transports: '
+                  'Streamable HTTP and direct JSON',
+                ),
+                const SizedBox(height: 14),
+                SwitchListTile.adaptive(
+                  key: const Key('mcp-access-profile-switch'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Allow public-profile access'),
+                  subtitle: Text(
+                    widget.controller.mcpConsent.profileReadAllowed
+                        ? 'Enabled. Revocation takes effect immediately.'
+                        : 'Disabled by default.',
+                  ),
+                  value: widget.controller.mcpConsent.profileReadAllowed,
+                  onChanged: widget.controller.mcpConsentBusy
+                      ? null
+                      : _setMcpProfileReadAllowed,
+                ),
+                Text(
+                  'Visible fields: ${configuration.profileFields.join(', ')}.',
+                  key: const Key('mcp-access-profile-fields'),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Chats, messages, attachments, backups, devices, calls, '
+                  'encryption keys, and avatars remain unavailable. WampApp '
+                  'never displays or copies your password, access token, or '
+                  'refresh token.',
+                  key: Key('mcp-access-data-boundary'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showPeerProfile() async {
     final username = _recipientController.text.trim();
     if (username.isEmpty) {
@@ -883,6 +1001,7 @@ class _HomePageState extends State<HomePage> {
                     compact: !wide,
                     profileBusy: widget.controller.profileBusy,
                     mcpConsent: widget.controller.mcpConsent,
+                    mcpAccessBusy: widget.controller.mcpAccessBusy,
                     mcpConsentBusy: widget.controller.mcpConsentBusy,
                     preferenceBusy: widget.controller.preferenceBusy,
                     backupBusy: widget.controller.backupBusy,
@@ -890,7 +1009,7 @@ class _HomePageState extends State<HomePage> {
                     contactCount: widget.controller.contacts.length,
                     themePreference: widget.controller.themePreference,
                     onEditProfile: _editProfile,
-                    onMcpProfileReadAllowedChanged: _setMcpProfileReadAllowed,
+                    onOpenMcpAccess: _showMcpAccess,
                     onThemeChanged: _setThemePreference,
                     onBackup: _showBackupMenu,
                     onRemoteBackup: _uploadRemoteBackup,
@@ -1255,6 +1374,55 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   }
 }
 
+class _McpEndpointField extends StatelessWidget {
+  const _McpEndpointField({
+    required this.label,
+    required this.keyName,
+    required this.uri,
+    required this.onCopy,
+  });
+
+  final String label;
+  final String keyName;
+  final Uri uri;
+  final Future<void> Function() onCopy;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 4),
+                SelectableText(
+                  uri.toString(),
+                  key: ValueKey(keyName),
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            key: ValueKey('$keyName-copy'),
+            tooltip: 'Copy $label',
+            onPressed: onCopy,
+            icon: const Icon(Icons.copy_outlined),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _AccountPanel extends StatelessWidget {
   const _AccountPanel({
     required this.connection,
@@ -1263,6 +1431,7 @@ class _AccountPanel extends StatelessWidget {
     required this.compact,
     required this.profileBusy,
     required this.mcpConsent,
+    required this.mcpAccessBusy,
     required this.mcpConsentBusy,
     required this.preferenceBusy,
     required this.backupBusy,
@@ -1270,7 +1439,7 @@ class _AccountPanel extends StatelessWidget {
     required this.contactCount,
     required this.themePreference,
     required this.onEditProfile,
-    required this.onMcpProfileReadAllowedChanged,
+    required this.onOpenMcpAccess,
     required this.onThemeChanged,
     required this.onBackup,
     required this.onRemoteBackup,
@@ -1284,6 +1453,7 @@ class _AccountPanel extends StatelessWidget {
   final bool compact;
   final bool profileBusy;
   final WampAppMcpConsent mcpConsent;
+  final bool mcpAccessBusy;
   final bool mcpConsentBusy;
   final bool preferenceBusy;
   final bool backupBusy;
@@ -1291,7 +1461,7 @@ class _AccountPanel extends StatelessWidget {
   final int contactCount;
   final WampAppThemePreference themePreference;
   final VoidCallback onEditProfile;
-  final ValueChanged<bool> onMcpProfileReadAllowedChanged;
+  final VoidCallback onOpenMcpAccess;
   final ValueChanged<WampAppThemePreference> onThemeChanged;
   final VoidCallback onBackup;
   final VoidCallback onRemoteBackup;
@@ -1461,21 +1631,17 @@ class _AccountPanel extends StatelessWidget {
                     const SizedBox(width: 6),
                     IconButton(
                       key: const Key('account-mcp-profile-consent'),
-                      tooltip: mcpConsent.profileReadAllowed
-                          ? 'Disable MCP public-profile access'
-                          : 'Enable MCP public-profile access',
+                      tooltip: 'MCP access settings',
                       constraints: const BoxConstraints.tightFor(
                         width: 28,
                         height: 28,
                       ),
                       padding: EdgeInsets.zero,
                       visualDensity: VisualDensity.compact,
-                      onPressed: mcpConsentBusy
+                      onPressed: mcpAccessBusy || mcpConsentBusy
                           ? null
-                          : () => onMcpProfileReadAllowedChanged(
-                              !mcpConsent.profileReadAllowed,
-                            ),
-                      icon: mcpConsentBusy
+                          : onOpenMcpAccess,
+                      icon: mcpAccessBusy || mcpConsentBusy
                           ? const SizedBox.square(
                               dimension: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),

@@ -232,7 +232,16 @@ class WampAppServer {
       );
       await _registerMcpHandlers(
         appServiceSession,
-        WampAppMcpService(accounts: store, consents: mcpConsentStore),
+        WampAppMcpService(
+          accounts: store,
+          consents: mcpConsentStore,
+          accessConfiguration: config.mcp.enabled
+              ? WampAppMcpAccessConfiguration.standard(
+                  mcpPath: config.mcp.path,
+                  authPath: config.mcp.authPath,
+                )
+              : null,
+        ),
         abuseGuard,
       );
       await _registerAttachmentHandlers(
@@ -418,6 +427,10 @@ class WampAppServer {
                 ..allowOperations(const ['call']),
             )
             ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mcpAccessGet)
+                ..allowOperations(const ['call']),
+            )
+            ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.mcpConsentGet)
                 ..allowOperations(const ['call']),
             )
@@ -548,6 +561,10 @@ class WampAppServer {
             )
             ..addPermissionFromBuilder(
               PermissionSettingsBuilder(WampAppProtocol.profileUpdate)
+                ..allowOperations(const ['register', 'unregister']),
+            )
+            ..addPermissionFromBuilder(
+              PermissionSettingsBuilder(WampAppProtocol.mcpAccessGet)
                 ..allowOperations(const ['register', 'unregister']),
             )
             ..addPermissionFromBuilder(
@@ -1133,6 +1150,27 @@ Future<void> _registerMcpHandlers(
   WampAppMcpService mcp,
   WampAppAbuseGuard abuseGuard,
 ) async {
+  await _registerAuthenticatedHandler(
+    session,
+    abuseGuard,
+    WampAppOperationClass.control,
+    WampAppProtocol.mcpAccessGet,
+    (invocation) async {
+      try {
+        if ((invocation.arguments?.isNotEmpty ?? false) ||
+            (invocation.argumentsKeywords?.isNotEmpty ?? false)) {
+          throw const McpAccessRequestInvalid();
+        }
+        final username = _callerUsername(invocation);
+        final configuration = await mcp.getAccessConfiguration(username);
+        invocation.respondWith(
+          argumentsKeywords: configuration.toWampKeywords(),
+        );
+      } catch (error) {
+        _respondWithMcpError(invocation, error);
+      }
+    },
+  );
   await _registerAuthenticatedHandler(
     session,
     abuseGuard,
@@ -1851,6 +1889,16 @@ void _respondWithMcpError(Invocation invocation, Object error) {
     McpConsentRequired() => (
       WampAppProtocol.errorMcpConsentRequired,
       'Enable public-profile access in WampApp before using this MCP tool.',
+      null,
+    ),
+    McpEndpointUnavailable() => (
+      WampAppProtocol.errorMcpUnavailable,
+      'This server does not expose a WampApp MCP endpoint.',
+      null,
+    ),
+    McpAccessRequestInvalid() => (
+      WampAppProtocol.errorInvalidMcpAccess,
+      'MCP access discovery does not accept arguments.',
       null,
     ),
     _CallerNotAuthorized() || ProfileNotFound() || StateError() => (
