@@ -17,7 +17,7 @@ Options:
   --ios-device <id>        Use an already-running iOS simulator.
   --port <port>            Router port (default: 18080).
   --state-dir <path>       Override the run state and evidence directory.
-  --smoke                  Verify encrypted chat/rich media, account controls, backup, and native WebRTC calls.
+  --smoke                  Verify peer trust, encrypted chat/media, account controls, backup, and WebRTC calls.
   --dry-run                Print the resolved plan without changing the machine.
   -h, --help               Show this help.
 EOF
@@ -190,7 +190,7 @@ wait_for_flutter_test_body() {
   local deadline=$((SECONDS + 180))
 
   while ((SECONDS < deadline)); do
-    if grep -Fq 'exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls' \
+    if grep -Fq 'verifies peer identities and exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls' \
       "$log_file" 2>/dev/null; then
       return 0
     fi
@@ -646,6 +646,10 @@ if [[ "$dry_run" == true ]]; then
   else
     printf '  iOS simulator: boot the default simulator\n'
   fi
+  if [[ "$smoke" == false && -n "$resolved_ios" ]]; then
+    printf 'iOS Simulator window command:\n'
+    shell_join open -a Simulator --args -CurrentDeviceUDID "$resolved_ios"
+  fi
   printf 'Router command:\n'
   shell_join dart run wamp_app_server --config "$config_path"
   if [[ "$smoke" == true && -n "$resolved_android" ]]; then
@@ -736,6 +740,8 @@ require_command adb
 require_command xcrun
 if [[ "$smoke" == true ]]; then
   require_command rsync
+else
+  require_command open
 fi
 [[ "$(uname -s)" == Darwin ]] || fail 'the Android + iOS lab requires macOS.'
 port_is_available "$port" || fail "127.0.0.1:$port is already in use."
@@ -852,7 +858,7 @@ adb -s "$resolved_android" reverse "tcp:$port" "tcp:$port"
 android_reverse_installed=true
 
 if [[ "$smoke" == true ]]; then
-  printf 'Running Android and iOS encrypted chat/rich-media/account-controls/backup-recovery/voice/video smoke concurrently...\n'
+  printf 'Running Android and iOS peer-verification/encrypted-chat/rich-media/account-controls/backup-recovery/voice/video smoke concurrently...\n'
   (
     cd "$ios_smoke_workspace/client"
     exec flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 25m \
@@ -982,7 +988,7 @@ if [[ "$smoke" == true ]]; then
 
   cat <<EOF
 
-WampApp two-device encrypted chat, rich media, account controls, destructive backup recovery, and WebRTC UI smoke passed.
+WampApp two-device peer verification, encrypted chat, rich media, account controls, destructive backup recovery, and WebRTC UI smoke passed.
   Router:  $endpoint
   Android: $resolved_android ($android_smoke_username)
   iOS:     $resolved_ios ($ios_smoke_username)
@@ -992,6 +998,9 @@ WampApp two-device encrypted chat, rich media, account controls, destructive bac
 EOF
   exit 0
 fi
+
+printf 'Showing iOS simulator %s...\n' "$resolved_ios"
+open -a Simulator --args -CurrentDeviceUDID "$resolved_ios"
 
 printf 'Installing Android client on %s...\n' "$resolved_android"
 (

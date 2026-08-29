@@ -17,8 +17,21 @@ contact presents a new or changed active device. The compact Flutter dialog
 requires out-of-band number comparison and states the remaining trust-on-first-
 use/key-transparency limitation. Focused regressions, a real router-backed
 second-device test, all 212 Flutter client tests, and Flutter analysis pass;
-`bin/test-wamp-app` and repository-wide `bin/verify` also pass; exact-head
-hosted verification is pending for this revision.
+`bin/test-wamp-app` and repository-wide `bin/verify` also pass. Commit
+`f95d7e24` is on both maintained remotes. Exact-head push CI `33254106778`, PR
+CI `33254108332`, package dry run `33254108326`, WampApp artifact run
+`33254106781`, Codecov project/patch checks, feature-head CI/log audit, and the
+protected-`master` strict policy/workflow/package audit all pass. PR #84 awaits
+the required code-owner review.
+The paired native smoke now opens each peer's identity dialog, compares the
+router-backed per-device safety number, and records explicit verification before
+the first encrypted send. A disposable Android API 36.1 plus iOS 26.4 run passes
+that flow and the full chat, rich-media, account-control, destructive-recovery,
+and WebRTC sequence. The run also exposed and fixed a stale MCP-consent driver
+that skipped the current access dialog. Interactive lab startup now brings the
+selected iOS Simulator to the foreground while `--smoke` remains headless.
+Thirteen launcher tests, focused Flutter analysis/tests, and `bin/test-wamp-app`
+pass for this follow-up; repository-wide `bin/verify` also passes.
 `bin/run-wamp-app-lab --smoke` now drives fresh Android API 35 and iOS 26.4
 clients through registration, 3-pass/64 MiB Argon2id SCRAM, reciprocal device
 discovery and direct chat, then creates and discovers a two-member encrypted

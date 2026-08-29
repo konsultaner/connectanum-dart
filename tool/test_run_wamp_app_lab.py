@@ -168,6 +168,11 @@ class RunWampAppLabTests(unittest.TestCase):
                     "fi\n"
                     "exit 99\n"
                 ),
+                "open": (
+                    "#!/usr/bin/env bash\n"
+                    "printf 'open %s\\n' \"$*\" >>\"$WAMP_APP_TEST_XCRUN_LOG\"\n"
+                    "exit 0\n"
+                ),
             }
             for name, source in commands.items():
                 command = temporary / name
@@ -233,6 +238,10 @@ class RunWampAppLabTests(unittest.TestCase):
         self.assertIn("endpoint: ws://localhost:18081/ws", result.stdout)
         self.assertIn("Android emulator: emulator-5554", result.stdout)
         self.assertIn("iOS simulator: ios-simulator", result.stdout)
+        self.assertIn(
+            "open -a Simulator --args -CurrentDeviceUDID ios-simulator",
+            result.stdout,
+        )
         self.assertIn("--no-resident", result.stdout)
         self.assertEqual(result.stdout.count("WAMP_APP_SERVER_ADDRESS="), 2)
 
@@ -483,6 +492,10 @@ class RunWampAppLabTests(unittest.TestCase):
             "simctl launch ios-simulator dev.connectanum.wampApp",
             xcrun_calls,
         )
+        self.assertIn(
+            "open -a Simulator --args -CurrentDeviceUDID ios-simulator",
+            xcrun_calls,
+        )
         self.assertIn(f"reverse --remove tcp:{port}", adb_calls)
         with socket.socket() as released:
             released.bind(("127.0.0.1", port))
@@ -583,7 +596,7 @@ class RunWampAppLabTests(unittest.TestCase):
                     "  exit 0\n"
                     "fi\n"
                     "if [[ \"$1\" == test ]]; then\n"
-                    "  printf '%s\\n' '00:00 +0: exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls'\n"
+                    "  printf '%s\\n' '00:00 +0: verifies peer identities and exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls'\n"
                     "  [[ \" $* \" == *\" -d emulator-5554 \"* ]] && exit 7\n"
                     "  exit 0\n"
                     "fi\n"

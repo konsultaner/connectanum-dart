@@ -213,7 +213,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls',
+    'verifies peer identities and exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls',
     (tester) async {
       _validateConfiguration();
       final vaultStorage = _TrackedVaultStorage();
@@ -277,6 +277,7 @@ void main() {
       await tester.ensureVisible(recipient);
       await tester.enterText(recipient, _peerUsername);
       await tester.pump();
+      await _verifyPeerSafetyNumber(tester, controller);
       await _enterMessageWhenReady(
         tester,
         composer,
@@ -373,6 +374,74 @@ void main() {
       );
     },
     timeout: const Timeout(Duration(minutes: 24)),
+  );
+}
+
+Future<void> _verifyPeerSafetyNumber(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  final initial = await controller.inspectPeerTrust(_peerUsername);
+  if (initial == null) {
+    fail('The account session changed before peer verification.');
+  }
+  expect(initial.status, PeerTrustStatus.unverified);
+  expect(initial.devices, hasLength(1));
+  final peerDevice = initial.devices.single;
+  expect(peerDevice.verified, isFalse);
+  expect(peerDevice.safetyNumber.trim(), isNotEmpty);
+
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 200));
+  final identityButton = find.byKey(const Key('recipient-identity-view'));
+  await tester.ensureVisible(identityButton);
+  await tester.tap(identityButton);
+
+  final safetyNumber = find.byKey(
+    ValueKey('peer-trust-number-${peerDevice.device.deviceId}'),
+  );
+  await _pumpUntil(
+    tester,
+    () => safetyNumber.evaluate().isNotEmpty,
+    label: 'peer safety number',
+  );
+  expect(find.text(peerDevice.safetyNumber), findsOneWidget);
+  expect(find.byKey(const Key('peer-trust-error')), findsNothing);
+
+  final verifyButton = find.byKey(
+    ValueKey('peer-trust-verify-${peerDevice.device.deviceId}'),
+  );
+  await tester.ensureVisible(verifyButton);
+  await tester.tap(verifyButton);
+  await _pumpUntil(
+    tester,
+    () => find.byKey(const Key('peer-trust-confirm')).evaluate().isNotEmpty,
+    label: 'peer safety-number confirmation',
+  );
+  await tester.tap(find.byKey(const Key('peer-trust-confirm')));
+
+  await _pumpUntil(
+    tester,
+    () => find.text('Every active device is verified.').evaluate().isNotEmpty,
+    label: 'verified peer identity',
+  );
+  expect(find.byKey(const Key('peer-trust-error')), findsNothing);
+  final verified = await controller.inspectPeerTrust(_peerUsername);
+  if (verified == null) {
+    fail('The account session changed after peer verification.');
+  }
+  expect(verified.status, PeerTrustStatus.verified);
+  expect(verified.devices, hasLength(1));
+  expect(verified.devices.single.verified, isTrue);
+  expect(verified.devices.single.safetyNumber, peerDevice.safetyNumber);
+
+  final closeButton = find.widgetWithText(TextButton, 'Close');
+  await tester.ensureVisible(closeButton);
+  await tester.tap(closeButton);
+  await _pumpUntil(
+    tester,
+    () => find.byKey(const Key('peer-trust-dialog')).evaluate().isEmpty,
+    label: 'closed peer-identity dialog',
   );
 }
 
@@ -644,6 +713,17 @@ Future<void> _enableMcpProfileConsent(
     find.byKey(const Key('account-mcp-profile-consent')),
     label: 'MCP profile consent',
   );
+  final accessDialog = find.byKey(const Key('mcp-access-dialog'));
+  await _pumpUntil(
+    tester,
+    () => accessDialog.evaluate().isNotEmpty,
+    label: 'MCP access dialog',
+  );
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('mcp-access-profile-switch')),
+    label: 'MCP public-profile access switch',
+  );
   await _tapWhenReady(
     tester,
     find.byKey(const Key('mcp-profile-consent-confirm')),
@@ -656,6 +736,19 @@ Future<void> _enableMcpProfileConsent(
     label: 'persisted MCP profile consent',
   );
   expect(controller.mcpConsentError, isNull);
+  await _tapWhenReady(
+    tester,
+    find.descendant(
+      of: accessDialog,
+      matching: find.widgetWithText(TextButton, 'Close'),
+    ),
+    label: 'MCP access dialog close',
+  );
+  await _pumpUntil(
+    tester,
+    () => accessDialog.evaluate().isEmpty,
+    label: 'closed MCP access dialog',
+  );
 }
 
 Future<void> _exportLocalBackup(
