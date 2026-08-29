@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,7 +9,9 @@ import 'package:wamp_app/src/application/call_controller.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
+import 'package:wamp_app/src/infrastructure/contact_importer.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
+import 'package:wamp_app/src/infrastructure/profile_avatar_picker.dart';
 import 'package:wamp_app/src/infrastructure/vault_storage.dart';
 import 'package:wamp_app/src/ui/expression_picker.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -57,6 +60,35 @@ final class _TrackedVaultStorage implements VaultStorage {
   }
 }
 
+final class _SmokeContactImporter implements ContactImporter {
+  _SmokeContactImporter(this.displayName);
+
+  final String displayName;
+  int calls = 0;
+
+  @override
+  String get actionLabel => 'Choose smoke contact';
+
+  @override
+  Future<List<ImportedContactCandidate>> pickContacts() async {
+    calls += 1;
+    return [ImportedContactCandidate(displayName: displayName)];
+  }
+}
+
+final class _SmokeProfileAvatarPicker implements ProfileAvatarPicker {
+  _SmokeProfileAvatarPicker(this.bytes);
+
+  final Uint8List bytes;
+  int calls = 0;
+
+  @override
+  Future<ProfileAvatarSelection?> pickAvatar() async {
+    calls += 1;
+    return ProfileAvatarSelection(name: 'native-avatar.png', bytes: bytes);
+  }
+}
+
 const _serverAddress = String.fromEnvironment('WAMP_APP_SERVER_ADDRESS');
 const _username = String.fromEnvironment('WAMP_APP_SMOKE_USERNAME');
 const _peerUsername = String.fromEnvironment('WAMP_APP_SMOKE_PEER');
@@ -76,6 +108,11 @@ const _voiceCallReadyOutbound = String.fromEnvironment(
 );
 const _voiceCallReadyInbound = String.fromEnvironment(
   'WAMP_APP_SMOKE_CALL_READY_INBOUND',
+);
+
+Uint8List _nativeProfileAvatarBytes() => base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC'
+  'AAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
 );
 const _videoCallReadyOutbound = String.fromEnvironment(
   'WAMP_APP_SMOKE_VIDEO_READY_OUTBOUND',
@@ -124,13 +161,27 @@ void main() {
     (tester) async {
       _validateConfiguration();
       final vaultStorage = _TrackedVaultStorage();
+      final avatarBytes = _nativeProfileAvatarBytes();
+      addTearDown(() => avatarBytes.fillRange(0, avatarBytes.length, 0));
+      expect(
+        avatarBytes.length,
+        lessThanOrEqualTo(AccountProfileLimits.maxAvatarBytes),
+      );
+      final avatarPicker = _SmokeProfileAvatarPicker(avatarBytes);
+      final contactImporter = _SmokeContactImporter(_contactDisplayName);
       final controller = WampAppController(
         trustStore: EncryptedDeviceVault(storage: vaultStorage),
         deviceName: '$_username device',
       );
       addTearDown(controller.dispose);
 
-      await tester.pumpWidget(WampApp(controller: controller));
+      await tester.pumpWidget(
+        WampApp(
+          controller: controller,
+          contactImporter: contactImporter,
+          profileAvatarPicker: avatarPicker,
+        ),
+      );
       await _pumpUntil(
         tester,
         () => find.byKey(const Key('submit-account')).evaluate().isNotEmpty,
@@ -252,7 +303,14 @@ void main() {
         readyOutbound: _videoCallReadyOutbound,
         readyInbound: _videoCallReadyInbound,
       );
-      await _exerciseAccountPrivacyControls(tester, controller, vaultStorage);
+      await _exerciseAccountPrivacyControls(
+        tester,
+        controller,
+        vaultStorage,
+        avatarBytes,
+        avatarPicker,
+        contactImporter,
+      );
     },
     timeout: const Timeout(Duration(minutes: 24)),
   );
@@ -262,11 +320,14 @@ Future<void> _exerciseAccountPrivacyControls(
   WidgetTester tester,
   WampAppController controller,
   _TrackedVaultStorage vaultStorage,
+  Uint8List avatarBytes,
+  _SmokeProfileAvatarPicker avatarPicker,
+  _SmokeContactImporter contactImporter,
 ) async {
   await _selectDirectConversation(tester);
-  await _updatePublicProfile(tester, controller);
+  await _updatePublicProfile(tester, controller, avatarBytes, avatarPicker);
   await _setLocalConversationPreferences(tester, controller);
-  await _saveLocalContactAlias(tester, controller);
+  await _saveLocalContactAlias(tester, controller, contactImporter);
   await _enableMcpProfileConsent(tester, controller);
   if (_role == 'initiator') {
     await _uploadRemoteBackup(tester, controller);
@@ -304,6 +365,7 @@ Future<void> _exerciseAccountPrivacyControls(
       tester,
       controller,
       vaultStorage,
+      avatarBytes,
     );
   }
   await _exchangeBackupRecoveryMarkers(tester, controller);
@@ -312,6 +374,8 @@ Future<void> _exerciseAccountPrivacyControls(
 Future<void> _updatePublicProfile(
   WidgetTester tester,
   WampAppController controller,
+  Uint8List avatarBytes,
+  _SmokeProfileAvatarPicker avatarPicker,
 ) async {
   final edit = find.byKey(const Key('account-profile-edit'));
   await _tapWhenReady(tester, edit, label: 'public-profile editor');
@@ -320,6 +384,23 @@ Future<void> _updatePublicProfile(
     () => find.byKey(const Key('profile-save')).evaluate().isNotEmpty,
     label: 'public-profile dialog',
   );
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('profile-avatar-pick')),
+    label: 'public-profile avatar picker',
+  );
+  await _pumpUntil(
+    tester,
+    () => find
+        .descendant(
+          of: find.byKey(const Key('profile-avatar-preview')),
+          matching: find.byType(Image),
+        )
+        .evaluate()
+        .isNotEmpty,
+    label: 'public-profile avatar preview',
+  );
+  expect(avatarPicker.calls, 1);
   await tester.enterText(
     find.byKey(const Key('profile-display-name')),
     _profileDisplayName,
@@ -341,10 +422,23 @@ Future<void> _updatePublicProfile(
         find.byKey(const Key('profile-save')).evaluate().isEmpty &&
         !controller.profileBusy &&
         controller.connection?.profile.displayName == _profileDisplayName &&
-        controller.connection?.profile.status == _profileStatus,
+        controller.connection?.profile.status == _profileStatus &&
+        controller.connection?.profile.avatarContentType == 'image/png' &&
+        controller.connection?.profile.avatarBytes != null,
     label: 'persisted public profile',
   );
   expect(controller.profileError, isNull);
+  expect(
+    controller.connection?.profile.avatarBytes,
+    orderedEquals(avatarBytes),
+  );
+  expect(
+    find.descendant(
+      of: find.byKey(const Key('account-profile-avatar')),
+      matching: find.byType(Image),
+    ),
+    findsOneWidget,
+  );
 }
 
 Future<void> _setLocalConversationPreferences(
@@ -400,6 +494,7 @@ Future<void> _setLocalConversationPreferences(
 Future<void> _saveLocalContactAlias(
   WidgetTester tester,
   WampAppController controller,
+  _SmokeContactImporter contactImporter,
 ) async {
   final compact = find.byKey(const Key('account-contacts-compact'));
   final contacts = compact.evaluate().isNotEmpty
@@ -411,11 +506,19 @@ Future<void> _saveLocalContactAlias(
     () => find.byKey(const Key('contact-save')).evaluate().isNotEmpty,
     label: 'local contact dialog',
   );
-  await tester.tap(find.byKey(const Key('contact-add-manual')));
-  await tester.enterText(
-    find.byKey(const Key('contact-display-name')),
-    _contactDisplayName,
+  expect(find.byKey(const Key('contact-privacy-boundary')), findsOneWidget);
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('contact-import')),
+    label: 'opt-in contact import',
   );
+  await _pumpUntil(tester, () {
+    final field = find.byKey(const Key('contact-display-name'));
+    if (field.evaluate().isEmpty) return false;
+    return tester.widget<TextField>(field).controller?.text ==
+        _contactDisplayName;
+  }, label: 'imported contact display name');
+  expect(contactImporter.calls, 1);
   await tester.enterText(
     find.byKey(const Key('contact-username')),
     _peerUsername,
@@ -529,6 +632,7 @@ Future<void> _restoreRemoteBackupAfterLocalVaultDeletion(
   WidgetTester tester,
   WampAppController controller,
   _TrackedVaultStorage vaultStorage,
+  Uint8List avatarBytes,
 ) async {
   final originalDeviceId = controller.localDevice?.deviceId;
   if (originalDeviceId == null) {
@@ -589,6 +693,8 @@ Future<void> _restoreRemoteBackupAfterLocalVaultDeletion(
       final conversationId = controller.directConversationIdFor(_peerUsername);
       return controller.status == WampAppStatus.connected &&
           controller.connection?.username == _username &&
+          controller.connection?.profile.avatarContentType == 'image/png' &&
+          controller.connection?.profile.avatarBytes != null &&
           controller.localDevice?.deviceId == originalDeviceId &&
           controller.themePreference.wireName == 'dark' &&
           conversationId != null &&
@@ -631,6 +737,17 @@ Future<void> _restoreRemoteBackupAfterLocalVaultDeletion(
   );
   expect(controller.backupError, isNull);
   expect(controller.messageError, isNull);
+  expect(
+    controller.connection?.profile.avatarBytes,
+    orderedEquals(avatarBytes),
+  );
+  expect(
+    find.descendant(
+      of: find.byKey(const Key('account-profile-avatar')),
+      matching: find.byType(Image),
+    ),
+    findsOneWidget,
+  );
   expect(
     tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
     ThemeMode.dark,
@@ -702,7 +819,14 @@ Future<void> _viewPeerProfile(WidgetTester tester) async {
     () =>
         find.text(_peerProfileDisplayName).evaluate().isNotEmpty &&
         find.text(_peerProfileStatus).evaluate().isNotEmpty &&
-        find.byKey(const Key('peer-profile-status')).evaluate().isNotEmpty,
+        find.byKey(const Key('peer-profile-status')).evaluate().isNotEmpty &&
+        find
+            .descendant(
+              of: find.byKey(const Key('peer-profile-avatar')),
+              matching: find.byType(Image),
+            )
+            .evaluate()
+            .isNotEmpty,
     label: 'peer public-profile propagation',
   );
   await _tapWhenReady(tester, find.text('Close'), label: 'peer profile close');

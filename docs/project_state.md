@@ -81,6 +81,22 @@ callers share that cleanup. Launcher syntax and all nine launcher tests,
 focused Flutter analysis and vault/controller tests, the exact Android API 35
 plus iOS 26.4 destructive-recovery smoke, and repository-wide `bin/verify`
 pass; exact-head hosted evidence is next.
+Native acceptance now also drives bounded public-profile avatar selection and
+opt-in contact import through the real Flutter dialogs. Production profile
+selection uses an injectable `file_selector` boundary that preserves
+cancellation, rejects empty or over-256-KiB inputs before persistence, owns the
+selected bytes, and maps selector/read failures to redacted UI errors. The
+paired smoke injects deterministic platform-boundary results while exercising
+the production dialog/controller/router path: both clients render their chosen
+PNG, persist it in the account profile, observe the peer avatar, import a
+display name before binding the authenticated peer username, and preserve the
+initiator avatar byte-for-byte through destructive encrypted cloud recovery.
+The first native run correctly rejected a generated 262,488-byte sticker as an
+avatar because the protocol limit is 262,144 bytes; the harness now uses a
+compact valid PNG and asserts the limit before opening the dialog. Six picker
+boundary tests plus 22 focused widget tests, Flutter analysis, the complete
+Android API 36.1 plus iOS 26.4 paired smoke, and repository-wide `bin/verify`
+pass. Exact-head hosted evidence is next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

@@ -14,6 +14,7 @@ import '../domain/local_message_query.dart';
 import '../domain/outbound_chat_message.dart';
 import '../infrastructure/attachment_cipher.dart';
 import '../infrastructure/contact_importer.dart';
+import '../infrastructure/profile_avatar_picker.dart';
 import '../infrastructure/voice_note_playback.dart';
 import '../infrastructure/voice_note_recorder.dart';
 import '../infrastructure/wamp_account_gateway.dart';
@@ -30,6 +31,7 @@ class HomePage extends StatefulWidget {
     this.voiceNoteCaptureFactory,
     this.stickerRenderer,
     this.contactImporter,
+    this.profileAvatarPicker,
   });
 
   final WampAppController controller;
@@ -37,6 +39,7 @@ class HomePage extends StatefulWidget {
   final VoiceNoteCapture Function()? voiceNoteCaptureFactory;
   final StickerRenderer? stickerRenderer;
   final ContactImporter? contactImporter;
+  final ProfileAvatarPicker? profileAvatarPicker;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -543,8 +546,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _editProfile() async {
     final update = await showDialog<AccountProfileUpdate>(
       context: context,
-      builder: (context) =>
-          _EditProfileDialog(profile: widget.connection.profile),
+      builder: (context) => _EditProfileDialog(
+        profile: widget.connection.profile,
+        avatarPicker:
+            widget.profileAvatarPicker ??
+            const FileSelectorProfileAvatarPicker(),
+      ),
     );
     if (update == null || !mounted) return;
     final saved = await widget.controller.updateProfile(update);
@@ -614,7 +621,11 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _ProfileAvatar(profile: profile, radius: 46),
+              _ProfileAvatar(
+                key: const Key('peer-profile-avatar'),
+                profile: profile,
+                radius: 46,
+              ),
               const SizedBox(height: 14),
               Text(
                 profile.displayName,
@@ -966,9 +977,10 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
 }
 
 class _EditProfileDialog extends StatefulWidget {
-  const _EditProfileDialog({required this.profile});
+  const _EditProfileDialog({required this.profile, required this.avatarPicker});
 
   final AccountProfile profile;
+  final ProfileAvatarPicker avatarPicker;
 
   @override
   State<_EditProfileDialog> createState() => _EditProfileDialogState();
@@ -1000,25 +1012,30 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   }
 
   Future<void> _pickAvatar() async {
-    final file = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(
-          label: 'Profile image',
-          extensions: ['jpg', 'jpeg', 'png', 'webp'],
-          mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-        ),
-      ],
-    );
-    if (file == null || !mounted) return;
-    final bytes = await file.readAsBytes();
-    if (!mounted) return;
+    ProfileAvatarSelection? selection;
+    try {
+      selection = await widget.avatarPicker.pickAvatar();
+    } on ProfileAvatarPickerException catch (error) {
+      if (mounted) setState(() => _validationError = error.message);
+      return;
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _validationError =
+              'The selected profile image could not be read.',
+        );
+      }
+      return;
+    }
+    if (selection == null || !mounted) return;
+    final bytes = selection.bytes;
     if (bytes.length > AccountProfileLimits.maxAvatarBytes) {
       setState(() {
         _validationError = 'Profile images must be 256 KiB or smaller.';
       });
       return;
     }
-    final contentType = _profileImageContentType(file.name);
+    final contentType = _profileImageContentType(selection.name);
     if (contentType == null) {
       setState(() {
         _validationError = 'Choose a JPEG, PNG, or WebP image.';
@@ -1096,7 +1113,11 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _ProfileAvatar(profile: preview, radius: 42),
+              _ProfileAvatar(
+                key: const Key('profile-avatar-preview'),
+                profile: preview,
+                radius: 42,
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -1285,7 +1306,11 @@ class _AccountPanel extends StatelessWidget {
                 SizedBox(height: compact ? 12 : 24),
                 Row(
                   children: [
-                    _ProfileAvatar(profile: profile, radius: 25),
+                    _ProfileAvatar(
+                      key: const Key('account-profile-avatar'),
+                      profile: profile,
+                      radius: 25,
+                    ),
                     const SizedBox(width: 13),
                     Expanded(
                       child: Column(
@@ -1494,7 +1519,11 @@ class _AccountPanel extends StatelessWidget {
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.profile, required this.radius});
+  const _ProfileAvatar({
+    super.key,
+    required this.profile,
+    required this.radius,
+  });
 
   final AccountProfile profile;
   final double radius;

@@ -11,6 +11,7 @@ import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/contact_importer_contract.dart';
+import 'package:wamp_app/src/infrastructure/profile_avatar_picker.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app/src/infrastructure/voice_note_recorder.dart';
 import 'package:wamp_app/src/ui/expression_picker.dart';
@@ -246,8 +247,12 @@ void main() {
   testWidgets('edits the public profile and views a recipient profile', (
     tester,
   ) async {
+    final avatarBytes = _testAvatarBytes();
+    final avatarPicker = _FakeProfileAvatarPicker(
+      selection: ProfileAvatarSelection(name: 'avatar.png', bytes: avatarBytes),
+    );
     final controller = WampAppController(
-      gateway: _FakeGateway(),
+      gateway: _FakeGateway(peerAvatarBytes: avatarBytes),
       trustStore: FakeDeviceTrustStore(),
     );
     addTearDown(controller.dispose);
@@ -256,11 +261,23 @@ void main() {
       username: 'alice',
       password: 'correct horse battery',
     );
-    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpWidget(
+      WampApp(controller: controller, profileAvatarPicker: avatarPicker),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('account-profile-edit')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-avatar-pick')));
+    await tester.pumpAndSettle();
+    expect(avatarPicker.calls, 1);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('profile-avatar-preview')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
     await tester.enterText(
       find.byKey(const Key('profile-display-name')),
       'Alice Updated',
@@ -275,6 +292,17 @@ void main() {
     expect(find.text('Alice Updated'), findsOneWidget);
     expect(find.byKey(const Key('account-profile-status')), findsOneWidget);
     expect(find.text('Shipping safely'), findsOneWidget);
+    expect(
+      controller.connection?.profile.avatarBytes,
+      orderedEquals(avatarBytes),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('account-profile-avatar')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
 
     await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
     await tester.tap(find.byKey(const Key('recipient-profile-view')));
@@ -284,6 +312,53 @@ void main() {
     expect(find.text('Bob Example'), findsOneWidget);
     expect(find.byKey(const Key('peer-profile-status')), findsOneWidget);
     expect(find.text('Testing WampApp'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('peer-profile-avatar')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('keeps profile picker failures inside the editor', (
+    tester,
+  ) async {
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(
+      WampApp(
+        controller: controller,
+        profileAvatarPicker: _FakeProfileAvatarPicker(
+          error: const ProfileAvatarPickerException(
+            'The selected profile image could not be read.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('account-profile-edit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-avatar-pick')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('profile-validation-error')), findsOneWidget);
+    expect(
+      find.text('The selected profile image could not be read.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('profile-save')), findsOneWidget);
+    expect(controller.connection?.profile.avatarBytes, isNull);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('imports, verifies, selects, renames, and removes a contact', (
@@ -1264,6 +1339,9 @@ Future<void> _pumpUntilFound(
 }
 
 class _FakeGateway implements AccountGateway {
+  _FakeGateway({this.peerAvatarBytes});
+
+  final Uint8List? peerAvatarBytes;
   int sendAttempts = 0;
   final Map<String, List<DeviceRecord>> deviceDirectories = {};
   bool mcpProfileReadAllowed = false;
@@ -1311,6 +1389,8 @@ class _FakeGateway implements AccountGateway {
                 status: 'Testing WampApp',
                 revision: 2,
                 updatedAt: DateTime.utc(2026, 8, 25),
+                avatarBytes: peerAvatarBytes,
+                avatarContentType: peerAvatarBytes == null ? null : 'image/png',
               );
       },
       updateProfileCallback: (update) async {
@@ -1385,6 +1465,26 @@ final class _FakeContactImporter implements ContactImporter {
     return candidates;
   }
 }
+
+final class _FakeProfileAvatarPicker implements ProfileAvatarPicker {
+  _FakeProfileAvatarPicker({this.selection, this.error});
+
+  final ProfileAvatarSelection? selection;
+  final Object? error;
+  int calls = 0;
+
+  @override
+  Future<ProfileAvatarSelection?> pickAvatar() async {
+    calls += 1;
+    if (error case final error?) throw error;
+    return selection;
+  }
+}
+
+Uint8List _testAvatarBytes() => base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC'
+  'AAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+);
 
 class _FailingGateway extends _FakeGateway {
   @override
