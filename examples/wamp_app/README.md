@@ -15,6 +15,9 @@ The implemented slices provide:
 - a file-backed account store containing only SCRAM verifier material;
 - encrypted, account-and-endpoint-bound local device identity storage;
 - signed Ed25519/X25519 device enrollment, revocation, and safety numbers;
+- explicit per-device safety-number review persisted in the encrypted vault;
+  after the first verification, direct and group sends fail closed whenever
+  the active directory contains a new or changed unverified device;
 - direct-message keys wrapped independently for every active participant
   device;
 - XSalsa20-Poly1305 message payloads carried as WAMP CBOR binary fields;

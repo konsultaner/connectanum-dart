@@ -160,6 +160,7 @@ void main() {
     );
     final bobRecord = _record('bob', bob.enrollment);
 
+    expect(alice.hasVerifiedContact('bob'), isFalse);
     expect(alice.isVerified(bobRecord), isFalse);
     await alice.markVerified(bobRecord);
     await alice.dispose();
@@ -172,7 +173,58 @@ void main() {
       deviceName: 'Alice phone',
     );
     addTearDown(reopened.dispose);
+    expect(reopened.hasVerifiedContact(' BOB '), isTrue);
     expect(reopened.isVerified(bobRecord), isTrue);
+    expect(
+      reopened.isVerified(
+        _record(
+          'bob',
+          DeviceEnrollment(
+            deviceId: _token(32, 41),
+            deviceName: 'Bob replacement phone',
+            signingPublicKey: _token(32, 42),
+            exchangePublicKey: _token(32, 43),
+            attestation: _token(64, 44),
+            createdAt: DateTime.utc(2026, 8, 25),
+          ),
+        ),
+      ),
+      isFalse,
+    );
+  });
+
+  test('failed safety verification persistence rolls back trust', () async {
+    final alice = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    final bob = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'bob',
+      password: 'another correct horse',
+      deviceName: 'Bob phone',
+    );
+    final bobRecord = _record('bob', bob.enrollment);
+    storage.writeFailure = StateError('disk full');
+
+    await expectLater(alice.markVerified(bobRecord), throwsStateError);
+    expect(alice.hasVerifiedContact('bob'), isFalse);
+    expect(alice.isVerified(bobRecord), isFalse);
+
+    storage.writeFailure = null;
+    await alice.dispose();
+    await bob.dispose();
+    final reopened = await vault.openOrCreate(
+      endpoint: endpoint,
+      username: 'alice',
+      password: 'correct horse battery',
+      deviceName: 'Alice phone',
+    );
+    addTearDown(reopened.dispose);
+    expect(reopened.hasVerifiedContact('bob'), isFalse);
+    expect(reopened.isVerified(bobRecord), isFalse);
   });
 
   test('conversation keys are recipient-sealed and sender-signed', () async {

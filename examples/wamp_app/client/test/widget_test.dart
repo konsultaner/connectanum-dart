@@ -381,6 +381,62 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('verifies peer devices and warns on identity replacement', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(100, 'Bob phone')),
+    ];
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
+
+    await tester.tap(find.byKey(const Key('recipient-identity-view')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peer-trust-dialog')), findsOneWidget);
+    expect(find.text('Bob phone'), findsOneWidget);
+    expect(find.textContaining('Not verified yet'), findsOneWidget);
+    await tester.tap(find.text('Verify device'));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm safety number'), findsOneWidget);
+    expect(
+      find.text(
+        'Only continue after comparing this number with your contact through '
+        'another trusted channel.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('peer-trust-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Every active device is verified.'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(110, 'Bob new phone')),
+    ];
+
+    await tester.tap(find.byKey(const Key('recipient-identity-view')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bob new phone'), findsOneWidget);
+    expect(find.textContaining('Encryption identity changed'), findsOneWidget);
+    expect(find.textContaining('Sending is blocked'), findsOneWidget);
+  });
+
   testWidgets('imports, verifies, selects, renames, and removes a contact', (
     tester,
   ) async {
@@ -1709,3 +1765,14 @@ OutboundChatMessage _retryableOutbox() {
 String _token(int length, int seed) => base64Url
     .encode(List<int>.generate(length, (index) => (seed + index) & 0xff))
     .replaceAll('=', '');
+
+DeviceEnrollment _deviceEnrollment(int seed, String deviceName) {
+  return DeviceEnrollment(
+    deviceId: _token(32, seed),
+    deviceName: deviceName,
+    signingPublicKey: _token(32, seed + 1),
+    exchangePublicKey: _token(32, seed + 2),
+    attestation: _token(64, seed + 3),
+    createdAt: DateTime.utc(2026, 8, 24, 12),
+  );
+}

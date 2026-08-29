@@ -94,6 +94,85 @@ void main() {
   );
 
   test(
+    'verified peer continuity blocks a newly enrolled device until review',
+    () async {
+      final temporary = await Directory.systemTemp.createTemp(
+        'wamp-app-peer-trust-',
+      );
+      addTearDown(() => temporary.delete(recursive: true));
+      final server = await WampAppServer.start(
+        WampAppServerConfig(
+          host: '127.0.0.1',
+          port: 0,
+          websocketPath: '/ws',
+          accountStorePath: '${temporary.path}/accounts.json',
+          messageStorePath: '${temporary.path}/messages.json',
+          argonIterations: 1,
+          argonMemoryKiB: 8192,
+        ),
+      );
+      addTearDown(server.close);
+      final alice = _controller(_MemoryVaultStorage(), 'Alice phone');
+      final bobPhone = _controller(_MemoryVaultStorage(), 'Bob phone');
+      final bobTablet = _controller(_MemoryVaultStorage(), 'Bob tablet');
+      addTearDown(alice.dispose);
+      addTearDown(bobPhone.dispose);
+      addTearDown(bobTablet.dispose);
+
+      await alice.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'alice',
+        displayName: 'Alice Example',
+        password: 'alice secret phrase',
+      );
+      await bobPhone.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'bob',
+        displayName: 'Bob Example',
+        password: 'bob secret phrase',
+      );
+      final initial = await alice.inspectPeerTrust('bob');
+      expect(initial!.devices, hasLength(1));
+      expect(initial.status, PeerTrustStatus.unverified);
+      await alice.verifyPeerDevice(initial.devices.single);
+
+      await bobTablet.login(
+        serverAddress: server.websocketUri.toString(),
+        username: 'bob',
+        password: 'bob secret phrase',
+      );
+      final changed = await alice.inspectPeerTrust('bob');
+      expect(changed!.devices, hasLength(2));
+      expect(changed.status, PeerTrustStatus.changed);
+      expect(changed.devices.where((device) => device.verified), hasLength(1));
+      expect(
+        await alice.sendMessage(
+          recipientUsername: 'bob',
+          text: 'blocked before re-verification',
+        ),
+        isFalse,
+      );
+      expect(alice.messages, isEmpty);
+      expect(alice.messageError, contains('Encryption identity changed'));
+
+      final refreshed = await alice.verifyPeerDevice(
+        changed.devices.singleWhere((device) => !device.verified),
+      );
+      expect(refreshed!.status, PeerTrustStatus.verified);
+      expect(
+        await alice.sendMessage(
+          recipientUsername: 'bob',
+          text: 'sent after every active device is verified',
+        ),
+        isTrue,
+      );
+      expect(alice.messageError, isNull);
+      expect(alice.messages.single.text, contains('sent after'));
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test(
     'participants receive durable wakeups while unrelated users are excluded',
     () async {
       final temporary = await Directory.systemTemp.createTemp(

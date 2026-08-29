@@ -819,6 +819,19 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _showPeerTrust() async {
+    final username = _recipientController.text.trim();
+    if (username.isEmpty) {
+      _showMessage('Enter a recipient username first.');
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) =>
+          _PeerTrustDialog(controller: widget.controller, username: username),
+    );
+  }
+
   Future<void> _setThemePreference(WampAppThemePreference value) async {
     final saved = await widget.controller.setThemePreference(value);
     if (!mounted) return;
@@ -1032,6 +1045,7 @@ class _HomePageState extends State<HomePage> {
                     onSearchResultSelected: _selectSearchResult,
                     onSend: _send,
                     onViewProfile: _showPeerProfile,
+                    onVerifyIdentity: _showPeerTrust,
                     onStartVoiceCall: () => _startCall(CallMediaKind.voice),
                     onStartVideoCall: () => _startCall(CallMediaKind.video),
                     oneTime: _oneTime,
@@ -1811,6 +1825,306 @@ class _OnlineBadge extends StatelessWidget {
   }
 }
 
+class _PeerTrustDialog extends StatefulWidget {
+  const _PeerTrustDialog({required this.controller, required this.username});
+
+  final WampAppController controller;
+  final String username;
+
+  @override
+  State<_PeerTrustDialog> createState() => _PeerTrustDialogState();
+}
+
+class _PeerTrustDialogState extends State<_PeerTrustDialog> {
+  PeerTrustSummary? _summary;
+  Object? _error;
+  bool _loading = true;
+  String? _verifyingDeviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final summary = await widget.controller.inspectPeerTrust(widget.username);
+      if (!mounted) return;
+      setState(() {
+        _summary = summary;
+        _error = summary == null
+            ? StateError('The account session changed.')
+            : null;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _verify(PeerDeviceTrust device) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm safety number'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(device.device.enrollment.deviceName),
+            const SizedBox(height: 8),
+            SelectableText(
+              device.safetyNumber,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Only continue after comparing this number with your contact '
+              'through another trusted channel.',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('peer-trust-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Numbers match'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+    setState(() {
+      _verifyingDeviceId = device.device.deviceId;
+      _error = null;
+    });
+    try {
+      final summary = await widget.controller.verifyPeerDevice(device);
+      if (!mounted) return;
+      setState(() {
+        _summary = summary;
+        _error = summary == null
+            ? StateError('The account session changed.')
+            : null;
+        _verifyingDeviceId = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _verifyingDeviceId = null;
+      });
+    }
+  }
+
+  String get _errorMessage => switch (_error) {
+    FormatException(:final message) => message,
+    _ => 'Could not load or verify this encryption identity.',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = _summary;
+    return AlertDialog(
+      key: const Key('peer-trust-dialog'),
+      title: Text(
+        summary == null
+            ? 'Encryption identity'
+            : 'Encryption identity · @${summary.username}',
+      ),
+      content: SizedBox(
+        width: 440,
+        child: _loading
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            : SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (summary != null) ...[
+                      _PeerTrustStatusBanner(summary: summary),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Compare each active device safety number through '
+                        'another trusted channel. Verification detects later '
+                        'identity changes but does not replace that first '
+                        'comparison.',
+                      ),
+                      const SizedBox(height: 16),
+                      for (final device in summary.devices) ...[
+                        DecoratedBox(
+                          key: ValueKey(
+                            'peer-trust-device-${device.device.deviceId}',
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        device.device.enrollment.deviceName,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall,
+                                      ),
+                                    ),
+                                    if (device.verified)
+                                      const Chip(
+                                        avatar: Icon(Icons.verified, size: 18),
+                                        label: Text('Verified'),
+                                      ),
+                                  ],
+                                ),
+                                SelectableText(
+                                  device.safetyNumber,
+                                  key: ValueKey(
+                                    'peer-trust-number-${device.device.deviceId}',
+                                  ),
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: FilledButton.tonalIcon(
+                                    key: ValueKey(
+                                      'peer-trust-verify-${device.device.deviceId}',
+                                    ),
+                                    onPressed:
+                                        device.verified ||
+                                            _verifyingDeviceId != null
+                                        ? null
+                                        : () => _verify(device),
+                                    icon:
+                                        _verifyingDeviceId ==
+                                            device.device.deviceId
+                                        ? const SizedBox.square(
+                                            dimension: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.fact_check_outlined),
+                                    label: Text(
+                                      device.verified
+                                          ? 'Verified'
+                                          : 'Verify device',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                    if (_error != null) ...[
+                      Text(
+                        _errorMessage,
+                        key: const Key('peer-trust-error'),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _verifyingDeviceId == null ? _load : null,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PeerTrustStatusBanner extends StatelessWidget {
+  const _PeerTrustStatusBanner({required this.summary});
+
+  final PeerTrustSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color, text) = switch (summary.status) {
+      PeerTrustStatus.unverified => (
+        Icons.shield_outlined,
+        Theme.of(context).colorScheme.secondary,
+        'Not verified yet. Messages can be sent, but compare every active '
+            'device before relying on this identity.',
+      ),
+      PeerTrustStatus.verified => (
+        Icons.verified_user,
+        const Color(0xFF197A52),
+        'Every active device is verified.',
+      ),
+      PeerTrustStatus.changed => (
+        Icons.gpp_bad_outlined,
+        Theme.of(context).colorScheme.error,
+        'Encryption identity changed. Sending is blocked until every active '
+            'device is reviewed and verified.',
+      ),
+    };
+    return DecoratedBox(
+      key: const Key('peer-trust-status'),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ConversationPanel extends StatelessWidget {
   const _ConversationPanel({
     required this.controller,
@@ -1827,6 +2141,7 @@ class _ConversationPanel extends StatelessWidget {
     required this.onSearchResultSelected,
     required this.onSend,
     required this.onViewProfile,
+    required this.onVerifyIdentity,
     required this.onStartVoiceCall,
     required this.onStartVideoCall,
     required this.oneTime,
@@ -1867,6 +2182,7 @@ class _ConversationPanel extends StatelessWidget {
   final Future<void> Function(LocalChatMessage message) onSearchResultSelected;
   final Future<void> Function() onSend;
   final Future<void> Function() onViewProfile;
+  final Future<void> Function() onVerifyIdentity;
   final VoidCallback onStartVoiceCall;
   final VoidCallback onStartVideoCall;
   final bool oneTime;
@@ -2170,16 +2486,31 @@ class _ConversationPanel extends StatelessWidget {
                 decoration: InputDecoration(
                   labelText: 'Recipient username',
                   prefixIcon: const Icon(Icons.alternate_email),
-                  suffixIcon: IconButton(
-                    key: const Key('recipient-profile-view'),
-                    tooltip: 'View public profile',
-                    onPressed: controller.profileBusy ? null : onViewProfile,
-                    icon: controller.profileBusy
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.account_circle_outlined),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        key: const Key('recipient-identity-view'),
+                        tooltip: 'Verify encryption identity',
+                        onPressed: onVerifyIdentity,
+                        icon: const Icon(Icons.verified_user_outlined),
+                      ),
+                      IconButton(
+                        key: const Key('recipient-profile-view'),
+                        tooltip: 'View public profile',
+                        onPressed: controller.profileBusy
+                            ? null
+                            : onViewProfile,
+                        icon: controller.profileBusy
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.account_circle_outlined),
+                      ),
+                    ],
                   ),
                 ),
                 onChanged: (_) => onRecipientChanged(),

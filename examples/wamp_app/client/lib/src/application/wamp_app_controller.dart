@@ -23,6 +23,41 @@ import 'call_controller.dart';
 
 enum WampAppStatus { signedOut, busy, connected, failed }
 
+enum PeerTrustStatus { unverified, verified, changed }
+
+final class PeerDeviceTrust {
+  const PeerDeviceTrust({
+    required this.device,
+    required this.safetyNumber,
+    required this.verified,
+  });
+
+  final DeviceRecord device;
+  final String safetyNumber;
+  final bool verified;
+}
+
+final class PeerTrustSummary {
+  PeerTrustSummary({
+    required this.username,
+    required Iterable<PeerDeviceTrust> devices,
+    required this.previouslyVerified,
+  }) : devices = List<PeerDeviceTrust>.unmodifiable(devices);
+
+  final String username;
+  final List<PeerDeviceTrust> devices;
+  final bool previouslyVerified;
+
+  PeerTrustStatus get status {
+    if (devices.isNotEmpty && devices.every((device) => device.verified)) {
+      return PeerTrustStatus.verified;
+    }
+    return previouslyVerified
+        ? PeerTrustStatus.changed
+        : PeerTrustStatus.unverified;
+  }
+}
+
 final class OpenedOneTimeMessage {
   OpenedOneTimeMessage._({
     required this.messageId,
@@ -1053,6 +1088,17 @@ class WampAppController extends ChangeNotifier {
       final recipientDevices = await connection.lookupDevices(
         recipientUsername,
       );
+      if (recipientDevices.devices.isEmpty) {
+        final username = AccountRegistration.normalizeUsername(
+          recipientUsername,
+        );
+        throw FormatException('@$username has no active device.');
+      }
+      _ensurePeerTrustAllowsSending(
+        trust,
+        recipientUsername,
+        recipientDevices.devices,
+      );
       final participants = <String, DeviceRecord>{
         for (final device in [
           ...ownDevices.devices,
@@ -1291,6 +1337,9 @@ class WampAppController extends ChangeNotifier {
         if (directory.devices.isEmpty) {
           throw FormatException('@$username has no active device.');
         }
+        if (username != connection.username) {
+          _ensurePeerTrustAllowsSending(trust, username, directory.devices);
+        }
         for (final device in directory.devices) {
           participants['${device.username}\n${device.deviceId}'] = device;
         }
@@ -1403,6 +1452,92 @@ class WampAppController extends ChangeNotifier {
         }
       }
     }
+  }
+
+  Future<PeerTrustSummary?> inspectPeerTrust(String username) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    if (_disposed || connection == null || trust == null) return null;
+    final normalized = AccountRegistration.normalizeUsername(username);
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    final directory = normalized == connection.username
+        ? await connection.listDevices()
+        : await connection.lookupDevices(normalized);
+    if (!isCurrent()) return null;
+    if (directory.devices.isEmpty) {
+      throw FormatException('@$normalized has no active device.');
+    }
+    return _peerTrustSummary(trust, normalized, directory.devices);
+  }
+
+  Future<PeerTrustSummary?> verifyPeerDevice(PeerDeviceTrust expected) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    if (_disposed || connection == null || trust == null) return null;
+    final username = AccountRegistration.normalizeUsername(
+      expected.device.username,
+    );
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    final directory = username == connection.username
+        ? await connection.listDevices()
+        : await connection.lookupDevices(username);
+    if (!isCurrent()) return null;
+    final current = directory.devices
+        .where((device) => device.deviceId == expected.device.deviceId)
+        .firstOrNull;
+    if (current == null ||
+        trust.safetyNumberFor(current) != expected.safetyNumber) {
+      throw const FormatException(
+        'That device identity changed before verification completed.',
+      );
+    }
+    await trust.markVerified(current);
+    if (!isCurrent()) return null;
+    return _peerTrustSummary(trust, username, directory.devices);
+  }
+
+  PeerTrustSummary _peerTrustSummary(
+    DeviceTrustSession trust,
+    String username,
+    Iterable<DeviceRecord> devices,
+  ) {
+    return PeerTrustSummary(
+      username: username,
+      devices: devices.map(
+        (device) => PeerDeviceTrust(
+          device: device,
+          safetyNumber: trust.safetyNumberFor(device),
+          verified: trust.isVerified(device),
+        ),
+      ),
+      previouslyVerified: trust.hasVerifiedContact(username),
+    );
+  }
+
+  void _ensurePeerTrustAllowsSending(
+    DeviceTrustSession trust,
+    String username,
+    Iterable<DeviceRecord> devices,
+  ) {
+    final normalized = AccountRegistration.normalizeUsername(username);
+    if (!trust.hasVerifiedContact(normalized) ||
+        devices.every(trust.isVerified)) {
+      return;
+    }
+    throw FormatException(
+      'Encryption identity changed for @$normalized. Review and verify every '
+      'active device before sending.',
+    );
   }
 
   Future<bool> retryMessage(String messageId) async {

@@ -44,6 +44,118 @@ void main() {
     expect(controller.localDevice?.deviceId, trustStore.session?.deviceId);
   });
 
+  test('inspects and verifies every active peer device explicitly', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(20, 'Bob phone')),
+    ];
+
+    final initial = await controller.inspectPeerTrust(' Bob ');
+
+    expect(initial, isNotNull);
+    expect(initial!.username, 'bob');
+    expect(initial.status, PeerTrustStatus.unverified);
+    expect(initial.previouslyVerified, isFalse);
+    expect(initial.devices.single.verified, isFalse);
+    expect(initial.devices.single.safetyNumber, isNotEmpty);
+
+    final verified = await controller.verifyPeerDevice(initial.devices.single);
+
+    expect(verified, isNotNull);
+    expect(verified!.status, PeerTrustStatus.verified);
+    expect(verified.previouslyVerified, isTrue);
+    expect(verified.devices.single.verified, isTrue);
+  });
+
+  test(
+    'verified peer replacement blocks direct sends before encryption',
+    () async {
+      final gateway = _RecordingGateway();
+      final trustStore = FakeDeviceTrustStore();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      gateway.deviceDirectories['bob'] = [
+        activeDeviceRecord('bob', _deviceEnrollment(30, 'Bob old phone')),
+      ];
+      final initial = await controller.inspectPeerTrust('bob');
+      await controller.verifyPeerDevice(initial!.devices.single);
+      gateway.deviceDirectories['bob'] = [
+        activeDeviceRecord('bob', _deviceEnrollment(40, 'Bob new phone')),
+      ];
+
+      final changed = await controller.inspectPeerTrust('bob');
+      expect(changed!.status, PeerTrustStatus.changed);
+      expect(
+        await controller.sendMessage(
+          recipientUsername: 'bob',
+          text: 'must not reach an unreviewed replacement',
+        ),
+        isFalse,
+      );
+
+      expect(gateway.sentMessages, isEmpty);
+      expect(controller.messages, isEmpty);
+      expect(
+        controller.messageError,
+        'Encryption identity changed for @bob. Review and verify every active '
+        'device before sending.',
+      );
+    },
+  );
+
+  test('stale peer verification cannot approve a replacement device', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(50, 'Bob old phone')),
+    ];
+    final stale = await controller.inspectPeerTrust('bob');
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(60, 'Bob new phone')),
+    ];
+
+    await expectLater(
+      controller.verifyPeerDevice(stale!.devices.single),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          'That device identity changed before verification completed.',
+        ),
+      ),
+    );
+    expect(trustStore.session!.hasVerifiedContact('bob'), isFalse);
+  });
+
   test(
     'remote cleartext endpoints fail before credentials reach a gateway',
     () async {
@@ -2067,6 +2179,48 @@ void main() {
     expect(controller.messageError, isNull);
   });
 
+  test('verified member replacement blocks an atomic group send', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(70, 'Bob old phone')),
+    ];
+    gateway.deviceDirectories['carol'] = [
+      activeDeviceRecord('carol', _deviceEnrollment(80, 'Carol phone')),
+    ];
+    final group = await controller.createGroup(
+      title: 'Verified group',
+      memberUsernames: const ['bob', 'carol'],
+    );
+    final bobTrust = await controller.inspectPeerTrust('bob');
+    await controller.verifyPeerDevice(bobTrust!.devices.single);
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(90, 'Bob new phone')),
+    ];
+
+    expect(
+      await controller.sendGroupMessage(
+        groupId: group!.conversationId,
+        text: 'must not partially send',
+      ),
+      isFalse,
+    );
+
+    expect(gateway.sentMessages, isEmpty);
+    expect(controller.messages, isEmpty);
+    expect(controller.messageError, contains('@bob'));
+  });
+
   test('uploads group attachments before the atomic group envelope', () async {
     final gateway = _OutboxGateway();
     final trustStore = FakeDeviceTrustStore();
@@ -2129,6 +2283,23 @@ AccountProfile _profileFor(String username) => AccountProfile(
   revision: 0,
   updatedAt: DateTime.utc(2026, 8, 24),
 );
+
+DeviceEnrollment _deviceEnrollment(int seed, String deviceName) {
+  String token(int bytes, int offset) => base64Url
+      .encode(
+        List<int>.generate(bytes, (index) => (seed + offset + index) & 0xff),
+      )
+      .replaceAll('=', '');
+
+  return DeviceEnrollment(
+    deviceId: token(32, 1),
+    deviceName: deviceName,
+    signingPublicKey: token(32, 2),
+    exchangePublicKey: token(32, 3),
+    attestation: token(64, 4),
+    createdAt: DateTime.utc(2026, 8, 24, 12),
+  );
+}
 
 class _RecordingGateway implements AccountGateway {
   _RecordingGateway({List<String>? operations})

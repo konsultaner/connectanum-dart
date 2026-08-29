@@ -9,6 +9,16 @@ merged to `master` as `d9c53bf9` on both maintained remotes. Exact-head GitHub
 CI run `33180625653` and WampApp artifact run `33180625646` pass; the artifact
 run includes the production benchmark gate and all seven beta bundles, and the
 strict deployment audit passes.
+The current working revision adds explicit per-device safety-number review and
+post-verification key continuity. Verification state is transactionally
+persisted in the encrypted vault, stale device snapshots cannot be approved,
+and direct or group sends stop before encryption whenever a previously verified
+contact presents a new or changed active device. The compact Flutter dialog
+requires out-of-band number comparison and states the remaining trust-on-first-
+use/key-transparency limitation. Focused regressions, a real router-backed
+second-device test, all 212 Flutter client tests, and Flutter analysis pass;
+`bin/test-wamp-app` and repository-wide `bin/verify` also pass; exact-head
+hosted verification is pending for this revision.
 `bin/run-wamp-app-lab --smoke` now drives fresh Android API 35 and iOS 26.4
 clients through registration, 3-pass/64 MiB Argon2id SCRAM, reciprocal device
 discovery and direct chat, then creates and discovers a two-member encrypted

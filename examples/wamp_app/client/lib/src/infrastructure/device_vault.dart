@@ -41,6 +41,7 @@ abstract interface class DeviceTrustSession {
   String get deviceId;
   String get safetyNumber;
   String safetyNumberFor(DeviceRecord contact);
+  bool hasVerifiedContact(String username);
   bool isVerified(DeviceRecord contact);
   Future<void> markVerified(DeviceRecord contact);
   WrappedConversationKey wrapConversationKey({
@@ -677,6 +678,13 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
   }
 
   @override
+  bool hasVerifiedContact(String username) {
+    _ensureActive();
+    final normalized = AccountRegistration.normalizeUsername(username);
+    return _verifications.keys.any((key) => key.startsWith('$normalized:'));
+  }
+
+  @override
   bool isVerified(DeviceRecord contact) {
     _ensureActive();
     if (contact.isRevoked) return false;
@@ -690,11 +698,26 @@ final class _UnlockedDeviceVault implements DeviceTrustSession {
     if (contact.isRevoked) {
       throw const FormatException('Cannot verify a revoked device.');
     }
-    _verifications[_verificationKey(contact)] = _ContactVerification(
+    final key = _verificationKey(contact);
+    final verification = _ContactVerification(
       safetyNumber: safetyNumberFor(contact),
       verifiedAt: DateTime.now().toUtc(),
     );
-    await persist();
+    await _serializeWrite(() async {
+      _ensureActive();
+      final previous = _verifications[key];
+      _verifications[key] = verification;
+      try {
+        await _writeSnapshot(_preferences);
+      } catch (_) {
+        if (previous == null) {
+          _verifications.remove(key);
+        } else {
+          _verifications[key] = previous;
+        }
+        rethrow;
+      }
+    });
   }
 
   @override
