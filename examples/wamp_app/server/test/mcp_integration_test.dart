@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectanum_client/connectanum.dart' as wamp;
@@ -198,6 +199,52 @@ void main() {
     );
     expect(bobDenied['isError'], isTrue);
 
+    final bobEnabled = WampAppMcpConsent.fromWampKeywords(
+      (await bob.session.callSingle(
+        WampAppProtocol.mcpConsentUpdate,
+        argumentsKeywords: WampAppMcpConsentUpdate(
+          expectedRevision: 0,
+          profileReadAllowed: true,
+        ).toWampKeywords(),
+      )).argumentsKeywords,
+    );
+    expect(bobEnabled.profileReadAllowed, isTrue);
+
+    final externalAcceptance = await _runExternalAcceptance(
+      endpoint: endpoint,
+      accounts: const [
+        {
+          'username': 'alice',
+          'password': 'correct horse battery',
+          'display_name': 'Alice Example',
+          'status': '',
+        },
+        {
+          'username': 'bob',
+          'password': 'another correct horse',
+          'display_name': 'Bob Example',
+          'status': '',
+        },
+      ],
+    );
+    expect(externalAcceptance.exitCode, 0, reason: externalAcceptance.stderr);
+    expect(externalAcceptance.stderr, isEmpty);
+    expect(jsonDecode(externalAcceptance.stdout as String), {
+      'status': 'ok',
+      'accounts': 2,
+      'streamable_http': true,
+      'direct_json': true,
+      'access_grants_revoked': true,
+    });
+    for (final secret in const [
+      'correct horse battery',
+      'another correct horse',
+      'Alice Example',
+      'Bob Example',
+    ]) {
+      expect(externalAcceptance.stdout, isNot(contains(secret)));
+    }
+
     final revoked = WampAppMcpConsent.fromWampKeywords(
       (await alice.session.callSingle(
         WampAppProtocol.mcpConsentUpdate,
@@ -245,6 +292,66 @@ void main() {
       ),
     );
   }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('MCP acceptance input failures are bounded and redacted', () async {
+    final result = await _runExternalAcceptance(
+      rawInput: jsonEncode({
+        'endpoint': 'http://not-loopback.example/mcp',
+        'accounts': const [
+          {
+            'username': 'alice',
+            'password': 'must-never-appear-in-output',
+            'display_name': 'Alice Example',
+            'status': 'Available',
+          },
+        ],
+      }),
+    );
+
+    expect(result.exitCode, 1);
+    expect(result.stdout, isEmpty);
+    expect(
+      result.stderr,
+      'WampApp MCP acceptance failed at endpoint validation.\n',
+    );
+    expect(result.stderr, isNot(contains('must-never-appear-in-output')));
+    expect(result.stderr, isNot(contains('not-loopback.example')));
+
+    final oversized = await _runExternalAcceptance(
+      rawInput: 'must-not-be-echoed-${'x' * (64 * 1024)}',
+    );
+    expect(oversized.exitCode, 1);
+    expect(oversized.stdout, isEmpty);
+    expect(
+      oversized.stderr,
+      'WampApp MCP acceptance failed at bounded input validation.\n',
+    );
+    expect(oversized.stderr, isNot(contains('must-not-be-echoed')));
+  });
+}
+
+Future<ProcessResult> _runExternalAcceptance({
+  Uri? endpoint,
+  List<Map<String, String>>? accounts,
+  String? rawInput,
+}) async {
+  final process = await Process.start(Platform.resolvedExecutable, const [
+    'tool/mcp_profile_acceptance.dart',
+  ], workingDirectory: Directory.current.path);
+  final stdoutFuture = utf8.decoder.bind(process.stdout).join();
+  final stderrFuture = utf8.decoder.bind(process.stderr).join();
+  process.stdin.write(
+    rawInput ??
+        jsonEncode({'endpoint': endpoint.toString(), 'accounts': accounts}),
+  );
+  await process.stdin.close();
+  final exitCode = await process.exitCode.timeout(const Duration(minutes: 2));
+  return ProcessResult(
+    process.pid,
+    exitCode,
+    await stdoutFuture,
+    await stderrFuture,
+  );
 }
 
 void _expectAliceSummary(Map<String, Object?> result) {

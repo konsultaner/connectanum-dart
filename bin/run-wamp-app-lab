@@ -17,7 +17,7 @@ Options:
   --ios-device <id>        Use an already-running iOS simulator.
   --port <port>            Router port (default: 18080).
   --state-dir <path>       Override the run state and evidence directory.
-  --smoke                  Verify peer trust, encrypted chat/media, account controls, backup, and WebRTC calls.
+  --smoke                  Verify peer trust, encrypted chat/media, account controls, backup, MCP, and WebRTC calls.
   --dry-run                Print the resolved plan without changing the machine.
   -h, --help               Show this help.
 EOF
@@ -544,6 +544,65 @@ if not archive.is_file() or archive.stat().st_size <= 0:
 PY
 }
 
+run_mcp_profile_acceptance() {
+  local mcp_endpoint="$1"
+  local password="$2"
+  local first_username="$3"
+  local first_display_name="$4"
+  local first_status="$5"
+  local second_username="$6"
+  local second_display_name="$7"
+  local second_status="$8"
+
+  if ! (
+    cd "$(repo_root)/examples/wamp_app/server"
+    printf '%s' "$password" |
+      python3 -c '
+import json
+import sys
+
+password = sys.stdin.read()
+(
+    endpoint,
+    first_username,
+    first_display_name,
+    first_status,
+    second_username,
+    second_display_name,
+    second_status,
+) = sys.argv[1:]
+value = {
+    "endpoint": endpoint,
+    "accounts": [
+        {
+            "username": first_username,
+            "password": password,
+            "display_name": first_display_name,
+            "status": first_status,
+        },
+        {
+            "username": second_username,
+            "password": password,
+            "display_name": second_display_name,
+            "status": second_status,
+        },
+    ],
+}
+json.dump(value, sys.stdout, separators=(",", ":"))
+password = ""
+' "$mcp_endpoint" \
+        "$first_username" \
+        "$first_display_name" \
+        "$first_status" \
+        "$second_username" \
+        "$second_display_name" \
+        "$second_status" |
+      dart run tool/mcp_profile_acceptance.dart
+  ); then
+    return 1
+  fi
+}
+
 android_device=""
 android_emulator=""
 dry_run=false
@@ -677,6 +736,7 @@ android_smoke_backup_restored="backup-restored-android-$smoke_run_id"
 ios_smoke_backup_restored="backup-restored-ios-$smoke_run_id"
 smoke_rich_media="rich-media-from-android-$smoke_run_id"
 smoke_rich_media_ack="rich-media-opened-ios-$smoke_run_id"
+smoke_password="wamp-app-native-smoke-password"
 
 if [[ "$dry_run" == true ]]; then
   if [[ "$smoke" == true ]]; then
@@ -777,6 +837,10 @@ if [[ "$dry_run" == true ]]; then
     printf 'iOS client command:\n'
     shell_join flutter run -d "$resolved_ios" --no-resident \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint"
+  fi
+  if [[ "$smoke" == true ]]; then
+    printf 'External MCP acceptance command (bounded credentials on stdin after both clients pass):\n'
+    shell_join dart run tool/mcp_profile_acceptance.dart
   fi
   if [[ "$smoke" == false && -n "$resolved_android" && -n "$resolved_ios" ]]; then
     printf 'Interactive display commands (after both clients launch):\n'
@@ -1005,6 +1069,20 @@ if [[ "$smoke" == true ]]; then
     fail "two-device UI smoke failed (Android $android_smoke_status, iOS $ios_smoke_status)."
   fi
 
+  printf 'Running independent authenticated MCP client against UI-granted consent...\n'
+  if ! run_mcp_profile_acceptance \
+    "http://localhost:$port/mcp" \
+    "$smoke_password" \
+    "$android_smoke_username" \
+    "$android_smoke_profile_display_name" \
+    "$android_smoke_profile_status" \
+    "$ios_smoke_username" \
+    "$ios_smoke_profile_display_name" \
+    "$ios_smoke_profile_status"
+  then
+    fail 'the independent MCP client could not use the UI-granted profile access.'
+  fi
+
   message_store="$state_dir/data/messages.json"
   [[ -f "$message_store" ]] || fail 'the smoke router did not persist its message store.'
   call_store="$state_dir/data/calls.json"
@@ -1030,7 +1108,8 @@ if [[ "$smoke" == true ]]; then
     "$android_smoke_backup_restored" \
     "$ios_smoke_backup_restored" \
     "$smoke_rich_media" \
-    "$smoke_rich_media_ack"
+    "$smoke_rich_media_ack" \
+    "$smoke_password"
   then
     fail 'the smoke router persisted plaintext chat, media, or call signaling.'
   fi
@@ -1045,7 +1124,7 @@ if [[ "$smoke" == true ]]; then
 
   cat <<EOF
 
-WampApp two-device peer verification, encrypted chat, rich media, account controls, destructive backup recovery, and WebRTC UI smoke passed.
+WampApp two-device peer verification, encrypted chat, rich media, account controls, destructive backup recovery, external MCP, and WebRTC UI smoke passed.
   Router:  $endpoint
   Android: $resolved_android ($android_smoke_username)
   iOS:     $resolved_ios ($ios_smoke_username)

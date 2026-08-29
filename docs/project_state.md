@@ -32,6 +32,21 @@ that skipped the current access dialog. Interactive lab startup now brings the
 selected iOS Simulator to the foreground while `--smoke` remains headless.
 Thirteen launcher tests, focused Flutter analysis/tests, and `bin/test-wamp-app`
 pass for this follow-up; repository-wide `bin/verify` also passes.
+The paired native acceptance now consumes the profile consent granted by both
+real client UIs from a separate MCP process. The bounded probe discovers the
+Bearer challenge, authenticates each account with WAMP-SCRAM, requires the
+exact tools/resources/prompts catalog, reads the exact consented public-profile
+fields through stateful Streamable HTTP and direct JSON, checks both resources
+and the prompt, and proves access-token rejection plus refresh-token cleanup.
+Synthetic credentials travel only through bounded stdin pipes and never through
+command arguments, child-process environments, or emitted diagnostics;
+malformed, oversized, and non-loopback cleartext requests fail with stage-only
+output. A
+disposable Android API 36.1 plus iOS 26.4 run passes the complete peer-trust,
+encrypted-chat, rich-media, account-control, destructive-recovery, WebRTC, and
+external-MCP sequence while the interactive tester lab remains undisturbed.
+The two-account real-router MCP regressions, all 14 launcher lifecycle tests,
+`bin/test-wamp-app`, and repository-wide `bin/verify` pass.
 The first manual tester session exposed that a healthy headless router and two
 running clients could still appear incomplete when the Android AVD had no
 window or Simulator remained behind another application. Interactive startup

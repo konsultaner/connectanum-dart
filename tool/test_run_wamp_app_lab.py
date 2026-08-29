@@ -421,6 +421,12 @@ class RunWampAppLabTests(unittest.TestCase):
         self.assertIn("simctl privacy ios-simulator grant microphone", result.stdout)
         self.assertIn("simctl privacy ios-simulator grant camera", result.stdout)
         self.assertEqual(result.stdout.count("--timeout 25m"), 2)
+        self.assertIn(
+            "External MCP acceptance command (bounded credentials on stdin",
+            result.stdout,
+        )
+        self.assertIn("dart run tool/mcp_profile_acceptance.dart", result.stdout)
+        self.assertNotIn("wamp-app-native-smoke-password", result.stdout)
         self.assertNotIn("--no-resident", result.stdout)
 
     def test_dry_run_rejects_physical_devices(self):
@@ -603,7 +609,7 @@ class RunWampAppLabTests(unittest.TestCase):
         with socket.socket() as released:
             released.bind(("127.0.0.1", port))
 
-    def test_smoke_failure_forces_router_exit_and_removes_reverse(self):
+    def test_smoke_mcp_failure_forces_router_exit_and_removes_reverse(self):
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1", 0))
             port = reservation.getsockname()[1]
@@ -654,7 +660,6 @@ class RunWampAppLabTests(unittest.TestCase):
                     "fi\n"
                     "if [[ \"$1\" == test ]]; then\n"
                     "  printf '%s\\n' '00:00 +0: verifies peer identities and exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls'\n"
-                    "  [[ \" $* \" == *\" -d emulator-5554 \"* ]] && exit 7\n"
                     "  exit 0\n"
                     "fi\n"
                     "exit 99\n"
@@ -679,6 +684,10 @@ class RunWampAppLabTests(unittest.TestCase):
                     "    while True:\n"
                     "        time.sleep(1)\n"
                     "PY\n"
+                    "fi\n"
+                    "if [[ \"$1\" == run && \"$2\" == tool/mcp_profile_acceptance.dart ]]; then\n"
+                    "  cat >/dev/null\n"
+                    "  exit 7\n"
                     "fi\n"
                     "exit 99\n"
                 ),
@@ -745,7 +754,16 @@ class RunWampAppLabTests(unittest.TestCase):
 
             self.assertLess(time.monotonic() - started, 15)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("two-device UI smoke failed", result.stderr)
+            self.assertIn(
+                "independent MCP client could not use the UI-granted profile access",
+                result.stderr,
+            )
+            self.assertIn(
+                "Running independent authenticated MCP client",
+                result.stdout,
+            )
+            self.assertNotIn("wamp-app-native-smoke-password", result.stdout)
+            self.assertNotIn("wamp-app-native-smoke-password", result.stderr)
             adb_calls = adb_log.read_text(encoding="utf-8")
             self.assertIn("reverse tcp:", adb_calls)
             self.assertIn("reverse --remove tcp:", adb_calls)
