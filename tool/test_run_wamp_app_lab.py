@@ -206,6 +206,18 @@ class RunWampAppLabTests(unittest.TestCase):
             "WAMP_APP_SMOKE_BACKUP_PASSPHRASE=backup-passphrase-ios-run-id",
             result.stdout,
         )
+        self.assertEqual(
+            result.stdout.count(
+                "WAMP_APP_SMOKE_RICH_MEDIA=rich-media-from-android-run-id"
+            ),
+            2,
+        )
+        self.assertEqual(
+            result.stdout.count(
+                "WAMP_APP_SMOKE_RICH_MEDIA_ACK=rich-media-opened-ios-run-id"
+            ),
+            2,
+        )
         self.assertEqual(result.stdout.count("android.permission.RECORD_AUDIO"), 1)
         self.assertEqual(result.stdout.count("android.permission.CAMERA"), 1)
         self.assertIn("simctl privacy ios-simulator grant microphone", result.stdout)
@@ -289,6 +301,7 @@ class RunWampAppLabTests(unittest.TestCase):
             temporary = pathlib.Path(temporary_directory)
             state = temporary / "state"
             adb_log = temporary / "adb.log"
+            runtime_tmp_log = temporary / "runtime-tmp.log"
             devices = [
                 {
                     "name": "Android Emulator",
@@ -328,7 +341,7 @@ class RunWampAppLabTests(unittest.TestCase):
                     "  exit 0\n"
                     "fi\n"
                     "if [[ \"$1\" == test ]]; then\n"
-                    "  printf '%s\\n' '00:00 +0: exchanges encrypted chat, account controls, backup, and WebRTC calls'\n"
+                    "  printf '%s\\n' '00:00 +0: exchanges encrypted chat, rich media, controls, backup, and WebRTC calls'\n"
                     "  [[ \" $* \" == *\" -d emulator-5554 \"* ]] && exit 7\n"
                     "  exit 0\n"
                     "fi\n"
@@ -338,6 +351,7 @@ class RunWampAppLabTests(unittest.TestCase):
                     "#!/usr/bin/env bash\n"
                     "if [[ \"$1\" == pub && \"$2\" == get ]]; then exit 0; fi\n"
                     "if [[ \"$1\" == run && \"$2\" == wamp_app_server ]]; then\n"
+                    "  printf '%s\\n' \"$TMPDIR\" >\"$WAMP_APP_TEST_TMPDIR_LOG\"\n"
                     "  config=\"$4\"\n"
                     "  port=$(awk '/^  port:/ {print $2; exit}' \"$config\")\n"
                     "  exec python3 - \"$port\" <<'PY'\n"
@@ -382,6 +396,7 @@ class RunWampAppLabTests(unittest.TestCase):
             environment = os.environ.copy()
             environment["PATH"] = f"{temporary}:{environment['PATH']}"
             environment["WAMP_APP_TEST_ADB_LOG"] = str(adb_log)
+            environment["WAMP_APP_TEST_TMPDIR_LOG"] = str(runtime_tmp_log)
             started = time.monotonic()
             result = subprocess.run(
                 [
@@ -406,6 +421,10 @@ class RunWampAppLabTests(unittest.TestCase):
             adb_calls = adb_log.read_text(encoding="utf-8")
             self.assertIn("reverse tcp:", adb_calls)
             self.assertIn("reverse --remove tcp:", adb_calls)
+            self.assertEqual(
+                runtime_tmp_log.read_text(encoding="utf-8").strip(),
+                str(state / "runtime-tmp"),
+            )
             with socket.socket() as released:
                 released.bind(("127.0.0.1", port))
 

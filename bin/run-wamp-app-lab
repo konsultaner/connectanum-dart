@@ -17,7 +17,7 @@ Options:
   --ios-device <id>        Use an already-running iOS simulator.
   --port <port>            Router port (default: 18080).
   --state-dir <path>       Override the run state and evidence directory.
-  --smoke                  Verify encrypted chat, account controls, backup, and native WebRTC calls.
+  --smoke                  Verify encrypted chat/rich media, account controls, backup, and native WebRTC calls.
   --dry-run                Print the resolved plan without changing the machine.
   -h, --help               Show this help.
 EOF
@@ -190,7 +190,7 @@ wait_for_flutter_test_body() {
   local deadline=$((SECONDS + 180))
 
   while ((SECONDS < deadline)); do
-    if grep -Fq 'exchanges encrypted chat, account controls, backup, and WebRTC calls' \
+    if grep -Fq 'exchanges encrypted chat, rich media, controls, backup, and WebRTC calls' \
       "$log_file" 2>/dev/null; then
       return 0
     fi
@@ -264,7 +264,11 @@ import sys
 
 root = Path(sys.argv[1])
 tokens = [value.encode("utf-8") for value in sys.argv[2:] if value]
-png_signature = b"\x89PNG\r\n\x1a\n"
+media_signatures = (
+    ("PNG", b"\x89PNG\r\n\x1a\n"),
+    ("GIF87a", b"GIF87a"),
+    ("GIF89a", b"GIF89a"),
+)
 call_signaling_markers = (
     b"\r\nm=audio ",
     b"\na=ice-ufrag:",
@@ -278,9 +282,16 @@ for path in root.rglob("*"):
         if token in payload:
             print(f"plaintext smoke token found in {path}", file=sys.stderr)
             raise SystemExit(1)
-    if png_signature in payload:
-        print(f"raw PNG bytes found in {path}", file=sys.stderr)
-        raise SystemExit(1)
+    for label, signature in media_signatures:
+        if signature in payload:
+            print(f"raw {label} bytes found in {path}", file=sys.stderr)
+            raise SystemExit(1)
+    riff = payload.find(b"RIFF")
+    while riff >= 0:
+        if payload[riff + 8:riff + 12] == b"WAVE":
+            print(f"raw WAVE bytes found in {path}", file=sys.stderr)
+            raise SystemExit(1)
+        riff = payload.find(b"RIFF", riff + 1)
     for marker in call_signaling_markers:
         if marker in payload:
             print(f"plaintext WebRTC signaling found in {path}", file=sys.stderr)
@@ -426,6 +437,7 @@ fi
 endpoint="ws://localhost:$port/ws"
 config_path="$state_dir/wamp_app_server.yaml"
 server_log="$state_dir/server.log"
+runtime_tmp_dir="$state_dir/runtime-tmp"
 android_emulator_log="$state_dir/android-emulator.log"
 ios_emulator_log="$state_dir/ios-emulator.log"
 android_smoke_log="$state_dir/android-smoke.log"
@@ -455,6 +467,8 @@ android_smoke_controls_ready="controls-ready-android-$smoke_run_id"
 ios_smoke_controls_ready="controls-ready-ios-$smoke_run_id"
 android_smoke_backup_passphrase="backup-passphrase-android-$smoke_run_id"
 ios_smoke_backup_passphrase="backup-passphrase-ios-$smoke_run_id"
+smoke_rich_media="rich-media-from-android-$smoke_run_id"
+smoke_rich_media_ack="rich-media-opened-ios-$smoke_run_id"
 
 if [[ "$dry_run" == true ]]; then
   if [[ "$smoke" == true ]]; then
@@ -506,6 +520,8 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$android_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$ios_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$android_smoke_backup_passphrase" \
+      --dart-define="WAMP_APP_SMOKE_RICH_MEDIA=$smoke_rich_media" \
+      --dart-define="WAMP_APP_SMOKE_RICH_MEDIA_ACK=$smoke_rich_media_ack" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_android" ]]; then
     printf 'Android client command:\n'
@@ -542,6 +558,8 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$ios_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$android_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$ios_smoke_backup_passphrase" \
+      --dart-define="WAMP_APP_SMOKE_RICH_MEDIA=$smoke_rich_media" \
+      --dart-define="WAMP_APP_SMOKE_RICH_MEDIA_ACK=$smoke_rich_media_ack" \
       integration_test/two_device_smoke_test.dart
   elif [[ -n "$resolved_ios" ]]; then
     printf 'iOS client command:\n'
@@ -560,7 +578,7 @@ fi
 [[ "$(uname -s)" == Darwin ]] || fail 'the Android + iOS lab requires macOS.'
 port_is_available "$port" || fail "127.0.0.1:$port is already in use."
 
-mkdir -p "$state_dir"
+mkdir -p "$state_dir" "$runtime_tmp_dir"
 write_lab_config \
   "$config_path" \
   "$port" \
@@ -657,6 +675,7 @@ fi
 printf 'Starting isolated router at %s...\n' "$endpoint"
 (
   cd "$(repo_root)/examples/wamp_app/server"
+  export TMPDIR="$runtime_tmp_dir"
   exec dart run wamp_app_server --config "$config_path"
 ) >"$server_log" 2>&1 &
 server_pid=$!
@@ -671,7 +690,7 @@ adb -s "$resolved_android" reverse "tcp:$port" "tcp:$port"
 android_reverse_installed=true
 
 if [[ "$smoke" == true ]]; then
-  printf 'Running Android and iOS encrypted chat/account-controls/backup/voice/video smoke concurrently...\n'
+  printf 'Running Android and iOS encrypted chat/rich-media/account-controls/backup/voice/video smoke concurrently...\n'
   (
     cd "$ios_smoke_workspace/client"
     exec flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 22m \
@@ -697,6 +716,8 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$ios_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$android_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$ios_smoke_backup_passphrase" \
+      --dart-define="WAMP_APP_SMOKE_RICH_MEDIA=$smoke_rich_media" \
+      --dart-define="WAMP_APP_SMOKE_RICH_MEDIA_ACK=$smoke_rich_media_ack" \
       integration_test/two_device_smoke_test.dart
   ) >"$ios_smoke_log" 2>&1 &
   ios_smoke_pid=$!
@@ -732,6 +753,8 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$android_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$ios_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$android_smoke_backup_passphrase" \
+      --dart-define="WAMP_APP_SMOKE_RICH_MEDIA=$smoke_rich_media" \
+      --dart-define="WAMP_APP_SMOKE_RICH_MEDIA_ACK=$smoke_rich_media_ack" \
       integration_test/two_device_smoke_test.dart
   ) >"$android_smoke_log" 2>&1 &
   android_smoke_pid=$!
@@ -774,7 +797,9 @@ if [[ "$smoke" == true ]]; then
     "$android_smoke_controls_ready" \
     "$ios_smoke_controls_ready" \
     "$android_smoke_backup_passphrase" \
-    "$ios_smoke_backup_passphrase"
+    "$ios_smoke_backup_passphrase" \
+    "$smoke_rich_media" \
+    "$smoke_rich_media_ack"
   then
     fail 'the smoke router persisted plaintext chat, media, or call signaling.'
   fi
@@ -789,7 +814,7 @@ if [[ "$smoke" == true ]]; then
 
   cat <<EOF
 
-WampApp two-device encrypted chat, account controls, backup, and WebRTC UI smoke passed.
+WampApp two-device encrypted chat, rich media, account controls, backup, and WebRTC UI smoke passed.
   Router:  $endpoint
   Android: $resolved_android ($android_smoke_username)
   iOS:     $resolved_ios ($ios_smoke_username)

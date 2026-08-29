@@ -48,7 +48,18 @@ single committed ciphertext backup, and absence of every chat, media, call,
 contact, synchronization, and recovery-phrase smoke token from router storage.
 Nine launcher tests, 39 focused Flutter tests, Flutter analysis, the complete
 Android API 36.1 plus iOS 26.4 smoke, and repository-wide `bin/verify` pass;
-exact-head hosted evidence remains next.
+exact-head hosted evidence remains next. Native acceptance now also transfers
+an encrypted generated PNG, a two-frame animated GIF, a valid two-second PCM16
+voice note, and emoji through the existing WAMP session. iOS authenticates and
+decodes both images, starts and pauses real voice-note playback, and returns an
+authenticated acknowledgement that Android observes. The recursive router-data
+guard rejects PNG, GIF, RIFF/WAVE signatures and all rich-media or
+acknowledgement tokens. The launcher gives each router a state-local temporary
+runtime namespace, so disposable smoke routers no longer contend with an
+interactive lab router's native-runtime lock. Nine launcher tests, focused
+fixture/attachment/playback tests, Flutter analysis, the complete Android API
+35 plus iOS 26.4 native smoke, and repository-wide `bin/verify` pass for this
+expansion; exact-head hosted evidence remains next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

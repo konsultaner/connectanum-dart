@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -5,7 +7,11 @@ import 'package:wamp_app/src/app.dart';
 import 'package:wamp_app/src/application/call_controller.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
+import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
+import 'package:wamp_app/src/ui/expression_picker.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
+
+import 'support/rich_media_fixtures.dart';
 
 const _serverAddress = String.fromEnvironment('WAMP_APP_SERVER_ADDRESS');
 const _username = String.fromEnvironment('WAMP_APP_SMOKE_USERNAME');
@@ -55,13 +61,16 @@ const _controlsReadyInbound = String.fromEnvironment(
 const _backupPassphrase = String.fromEnvironment(
   'WAMP_APP_SMOKE_BACKUP_PASSPHRASE',
 );
+const _richMediaToken = String.fromEnvironment('WAMP_APP_SMOKE_RICH_MEDIA');
+const _richMediaText = '$_richMediaToken 🚀';
+const _richMediaAck = String.fromEnvironment('WAMP_APP_SMOKE_RICH_MEDIA_ACK');
 const _password = 'wamp-app-native-smoke-password';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'exchanges encrypted chat, account controls, backup, and WebRTC calls',
+    'exchanges encrypted chat, rich media, controls, backup, and WebRTC calls',
     (tester) async {
       _validateConfiguration();
       final controller = WampAppController(deviceName: '$_username device');
@@ -173,6 +182,7 @@ void main() {
       );
 
       await _exerciseEncryptedGroupSticker(tester, controller);
+      await _exerciseEncryptedRichMedia(tester, controller);
       await _exerciseViewOnceMessage(tester, controller);
       await _exerciseWebRtcCall(
         tester,
@@ -906,30 +916,7 @@ Future<void> _receiveStickerAndReply(
   );
 
   final attachment = groupMessage.attachments.single;
-  final attachmentCard = find.byKey(
-    ValueKey('attachment-open-${attachment.attachmentId}'),
-  );
-  await _pumpUntil(
-    tester,
-    () => attachmentCard.evaluate().isNotEmpty,
-    label: 'rendered encrypted sticker attachment card',
-  );
-  await Scrollable.ensureVisible(
-    attachmentCard.evaluate().single,
-    alignment: 0.5,
-  );
-  await tester.pump();
-  final attachmentRect = tester.getRect(attachmentCard);
-  final historyRect = tester.getRect(find.byKey(const Key('message-history')));
-  final visibleAttachmentRect = attachmentRect.intersect(historyRect);
-  expect(
-    visibleAttachmentRect.height,
-    greaterThanOrEqualTo(24),
-    reason:
-        'The encrypted sticker attachment must have a usable tap target in '
-        'history (attachment: $attachmentRect, history: $historyRect).',
-  );
-  await tester.tapAt(visibleAttachmentRect.center);
+  await _tapEncryptedAttachmentCard(tester, attachment, label: 'sticker');
   final preview = find.byKey(
     ValueKey('attachment-preview-${attachment.attachmentId}'),
   );
@@ -982,6 +969,283 @@ Future<void> _receiveStickerAndReply(
     timeout: const Duration(minutes: 2),
   );
   expect(controller.messageError, isNull);
+}
+
+Future<void> _exerciseEncryptedRichMedia(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  await _selectDirectConversation(tester);
+  if (_role == 'initiator') {
+    await _sendEncryptedRichMedia(tester, controller);
+    return;
+  }
+  await _receiveEncryptedRichMedia(tester, controller);
+}
+
+Future<void> _sendEncryptedRichMedia(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  final imageBytes = await const BundledStickerRenderer().render(
+    wampAppStickers.first,
+  );
+  final gifBytes = nativeAnimatedGifBytes();
+  final voiceBytes = nativeVoiceNoteBytes();
+  var sourcesOpen = true;
+  AttachmentPlaintextSource source({
+    required String name,
+    required String contentType,
+    required ChatAttachmentKind kind,
+    required Uint8List bytes,
+    int? durationMilliseconds,
+  }) => AttachmentPlaintextSource(
+    name: name,
+    contentType: contentType,
+    kind: kind,
+    byteCount: bytes.length,
+    durationMilliseconds: durationMilliseconds,
+    openRead: () {
+      if (!sourcesOpen) {
+        throw StateError('The native rich-media source was already released.');
+      }
+      return Stream<List<int>>.value(bytes);
+    },
+  );
+
+  bool sent;
+  try {
+    sent = await controller.sendMessage(
+      recipientUsername: _peerUsername,
+      text: _richMediaText,
+      attachmentSources: [
+        source(
+          name: 'native-photo.png',
+          contentType: 'image/png',
+          kind: ChatAttachmentKind.image,
+          bytes: imageBytes,
+        ),
+        source(
+          name: 'native-animation.gif',
+          contentType: 'image/gif',
+          kind: ChatAttachmentKind.gif,
+          bytes: gifBytes,
+        ),
+        source(
+          name: 'native-voice-note.wav',
+          contentType: 'audio/wav',
+          kind: ChatAttachmentKind.voiceNote,
+          bytes: voiceBytes,
+          durationMilliseconds: nativeVoiceNoteDurationMilliseconds,
+        ),
+      ],
+    );
+  } finally {
+    sourcesOpen = false;
+    imageBytes.fillRange(0, imageBytes.length, 0);
+    gifBytes.fillRange(0, gifBytes.length, 0);
+    voiceBytes.fillRange(0, voiceBytes.length, 0);
+  }
+  if (!sent) {
+    fail(
+      'Could not send native rich media '
+      '(${controller.messageError ?? 'message channel unavailable'}).',
+    );
+  }
+
+  final outbound = controller.messages.singleWhere(
+    (message) =>
+        message.outgoing &&
+        message.peerUsername == _peerUsername &&
+        message.text == _richMediaText,
+  );
+  expect(outbound.attachments.map((attachment) => attachment.kind).toSet(), {
+    ChatAttachmentKind.image,
+    ChatAttachmentKind.gif,
+    ChatAttachmentKind.voiceNote,
+  });
+  await _pumpUntil(
+    tester,
+    () =>
+        controller.outboundMessageFor(outbound.messageId) == null &&
+        controller.messageError == null,
+    label: 'router acceptance of encrypted image, GIF, and voice note',
+    timeout: const Duration(minutes: 2),
+  );
+  await _pumpUntil(
+    tester,
+    () => controller.messages.any(
+      (message) => !message.outgoing && message.text == _richMediaAck,
+    ),
+    label: 'peer rich-media decryption and playback acknowledgement',
+    timeout: const Duration(minutes: 3),
+  );
+}
+
+Future<void> _receiveEncryptedRichMedia(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  LocalChatMessage? received;
+  await _pumpUntil(
+    tester,
+    () {
+      for (final message in controller.messages) {
+        final kinds = message.attachments
+            .map((attachment) => attachment.kind)
+            .toSet();
+        if (!message.outgoing &&
+            message.peerUsername == _peerUsername &&
+            message.text == _richMediaText &&
+            kinds.containsAll({
+              ChatAttachmentKind.image,
+              ChatAttachmentKind.gif,
+              ChatAttachmentKind.voiceNote,
+            })) {
+          received = message;
+          return true;
+        }
+      }
+      return false;
+    },
+    label: 'decrypted inbound image, GIF, and voice note',
+    timeout: const Duration(minutes: 3),
+  );
+  final message = received!;
+  expect(message.attachments, hasLength(3));
+  await _openRichMediaPreview(
+    tester,
+    message.attachments.singleWhere(
+      (attachment) => attachment.kind == ChatAttachmentKind.image,
+    ),
+    label: 'image',
+  );
+  await _openRichMediaPreview(
+    tester,
+    message.attachments.singleWhere(
+      (attachment) => attachment.kind == ChatAttachmentKind.gif,
+    ),
+    label: 'animated GIF',
+  );
+  await _playRichMediaVoiceNote(
+    tester,
+    message.attachments.singleWhere(
+      (attachment) => attachment.kind == ChatAttachmentKind.voiceNote,
+    ),
+  );
+
+  final sent = await controller.sendMessage(
+    recipientUsername: _peerUsername,
+    text: _richMediaAck,
+  );
+  if (!sent) {
+    fail(
+      'Could not acknowledge native rich media '
+      '(${controller.messageError ?? 'message channel unavailable'}).',
+    );
+  }
+  final acknowledgement = controller.messages.singleWhere(
+    (message) => message.outgoing && message.text == _richMediaAck,
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        controller.outboundMessageFor(acknowledgement.messageId) == null &&
+        controller.messageError == null,
+    label: 'router acceptance of rich-media acknowledgement',
+  );
+}
+
+Future<void> _tapEncryptedAttachmentCard(
+  WidgetTester tester,
+  EncryptedAttachmentDescriptor attachment, {
+  required String label,
+}) async {
+  final card = find.byKey(
+    ValueKey('attachment-open-${attachment.attachmentId}'),
+  );
+  await _pumpUntil(
+    tester,
+    () => card.evaluate().isNotEmpty,
+    label: 'rendered encrypted $label attachment card',
+  );
+  await Scrollable.ensureVisible(card.evaluate().single, alignment: 0.5);
+  await tester.pump();
+  final cardRect = tester.getRect(card);
+  final historyRect = tester.getRect(find.byKey(const Key('message-history')));
+  final visibleCardRect = cardRect.intersect(historyRect);
+  expect(
+    visibleCardRect.height,
+    greaterThanOrEqualTo(24),
+    reason:
+        'The encrypted $label attachment must have a usable tap target in '
+        'history (attachment: $cardRect, history: $historyRect).',
+  );
+  await tester.tapAt(visibleCardRect.center);
+}
+
+Future<void> _openRichMediaPreview(
+  WidgetTester tester,
+  EncryptedAttachmentDescriptor attachment, {
+  required String label,
+}) async {
+  await _tapEncryptedAttachmentCard(tester, attachment, label: label);
+  final preview = find.byKey(
+    ValueKey('attachment-preview-${attachment.attachmentId}'),
+  );
+  await _pumpUntil(
+    tester,
+    () => preview.evaluate().isNotEmpty,
+    label: 'downloaded, authenticated, and decoded $label',
+    timeout: const Duration(minutes: 2),
+  );
+  await tester.pump(const Duration(milliseconds: 400));
+  expect(tester.takeException(), isNull);
+  await tester.tap(find.widgetWithText(FilledButton, 'Close'));
+  await _pumpUntil(
+    tester,
+    () => preview.evaluate().isEmpty,
+    label: 'closed $label preview',
+  );
+}
+
+Future<void> _playRichMediaVoiceNote(
+  WidgetTester tester,
+  EncryptedAttachmentDescriptor attachment,
+) async {
+  await _tapEncryptedAttachmentCard(tester, attachment, label: 'voice-note');
+  final play = find.byKey(ValueKey('voice-play-${attachment.attachmentId}'));
+  await _pumpUntil(
+    tester,
+    () => play.evaluate().isNotEmpty,
+    label: 'downloaded and authenticated voice-note player',
+    timeout: const Duration(minutes: 2),
+  );
+  await tester.tap(play);
+  await _pumpUntil(
+    tester,
+    () => find
+        .descendant(of: play, matching: find.byIcon(Icons.pause_rounded))
+        .evaluate()
+        .isNotEmpty,
+    label: 'native voice-note playback',
+  );
+  expect(tester.takeException(), isNull);
+  await tester.tap(play);
+  await _pumpUntil(
+    tester,
+    () => find
+        .descendant(of: play, matching: find.byIcon(Icons.play_arrow_rounded))
+        .evaluate()
+        .isNotEmpty,
+    label: 'paused native voice-note playback',
+  );
+  await tester.tap(find.widgetWithText(FilledButton, 'Close'));
+  await _pumpUntil(
+    tester,
+    () => play.evaluate().isEmpty,
+    label: 'closed voice-note player',
+  );
 }
 
 Future<void> _exerciseViewOnceMessage(
@@ -1098,6 +1362,14 @@ Future<void> _receiveViewOnceMessage(
   final viewOnce = received!;
   expect(find.text(_oneTimeText), findsNothing);
 
+  final historyScrollable = find.descendant(
+    of: find.byKey(const Key('message-history')),
+    matching: find.byType(Scrollable),
+  );
+  final historyState = tester.state<ScrollableState>(historyScrollable);
+  historyState.position.jumpTo(historyState.position.minScrollExtent);
+  await tester.pump();
+
   final reveal = find.byKey(
     ValueKey('message-view-once-${viewOnce.messageId}'),
   );
@@ -1198,6 +1470,8 @@ void _validateConfiguration() {
     'WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND': _controlsReadyOutbound,
     'WAMP_APP_SMOKE_CONTROLS_READY_INBOUND': _controlsReadyInbound,
     'WAMP_APP_SMOKE_BACKUP_PASSPHRASE': _backupPassphrase,
+    'WAMP_APP_SMOKE_RICH_MEDIA': _richMediaToken,
+    'WAMP_APP_SMOKE_RICH_MEDIA_ACK': _richMediaAck,
   };
   for (final entry in values.entries) {
     if (entry.value.trim().isEmpty) {
@@ -1219,6 +1493,8 @@ void _validateConfiguration() {
     _videoCallReadyInbound,
     _controlsReadyOutbound,
     _controlsReadyInbound,
+    _richMediaText,
+    _richMediaAck,
   ];
   if (_username == _peerUsername ||
       messageTokens.toSet().length != messageTokens.length) {
