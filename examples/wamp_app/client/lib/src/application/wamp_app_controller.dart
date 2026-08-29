@@ -85,6 +85,7 @@ class WampAppController extends ChangeNotifier {
   int _pendingMailboxWakeupCursor = 0;
   bool _automaticSyncRunning = false;
   int _operationGeneration = 0;
+  Future<void>? _signOutOperation;
   bool _disposed = false;
 
   WampAppStatus get status => _status;
@@ -463,6 +464,23 @@ class WampAppController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final activeOperation = _signOutOperation;
+    if (activeOperation != null) {
+      await activeOperation;
+      return;
+    }
+    final operation = _performSignOut();
+    _signOutOperation = operation;
+    try {
+      await operation;
+    } finally {
+      if (identical(_signOutOperation, operation)) {
+        _signOutOperation = null;
+      }
+    }
+  }
+
+  Future<void> _performSignOut() async {
     if (_backupBusy) return;
     _operationGeneration += 1;
     _messageExpiryTimer?.cancel();

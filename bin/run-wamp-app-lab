@@ -190,7 +190,7 @@ wait_for_flutter_test_body() {
   local deadline=$((SECONDS + 180))
 
   while ((SECONDS < deadline)); do
-    if grep -Fq 'exchanges encrypted chat, rich media, controls, backup, and WebRTC calls' \
+    if grep -Fq 'exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls' \
       "$log_file" 2>/dev/null; then
       return 0
     fi
@@ -467,6 +467,8 @@ android_smoke_controls_ready="controls-ready-android-$smoke_run_id"
 ios_smoke_controls_ready="controls-ready-ios-$smoke_run_id"
 android_smoke_backup_passphrase="backup-passphrase-android-$smoke_run_id"
 ios_smoke_backup_passphrase="backup-passphrase-ios-$smoke_run_id"
+android_smoke_backup_restored="backup-restored-android-$smoke_run_id"
+ios_smoke_backup_restored="backup-restored-ios-$smoke_run_id"
 smoke_rich_media="rich-media-from-android-$smoke_run_id"
 smoke_rich_media_ack="rich-media-opened-ios-$smoke_run_id"
 
@@ -497,7 +499,7 @@ if [[ "$dry_run" == true ]]; then
       dev.connectanum.wamp_app android.permission.RECORD_AUDIO
     shell_join adb -s "$resolved_android" shell pm grant \
       dev.connectanum.wamp_app android.permission.CAMERA
-    shell_join flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 22m \
+    shell_join flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 25m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
@@ -520,6 +522,8 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$android_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$ios_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$android_smoke_backup_passphrase" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_RESTORED_OUTBOUND=$android_smoke_backup_restored" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_RESTORED_INBOUND=$ios_smoke_backup_restored" \
       --dart-define="WAMP_APP_SMOKE_RICH_MEDIA=$smoke_rich_media" \
       --dart-define="WAMP_APP_SMOKE_RICH_MEDIA_ACK=$smoke_rich_media_ack" \
       integration_test/two_device_smoke_test.dart
@@ -535,7 +539,7 @@ if [[ "$dry_run" == true ]]; then
       dev.connectanum.wampApp
     shell_join xcrun simctl privacy "$resolved_ios" grant camera \
       dev.connectanum.wampApp
-    shell_join flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 22m \
+    shell_join flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 25m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
@@ -558,6 +562,8 @@ if [[ "$dry_run" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$ios_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$android_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$ios_smoke_backup_passphrase" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_RESTORED_OUTBOUND=$ios_smoke_backup_restored" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_RESTORED_INBOUND=$android_smoke_backup_restored" \
       --dart-define="WAMP_APP_SMOKE_RICH_MEDIA=$smoke_rich_media" \
       --dart-define="WAMP_APP_SMOKE_RICH_MEDIA_ACK=$smoke_rich_media_ack" \
       integration_test/two_device_smoke_test.dart
@@ -690,10 +696,10 @@ adb -s "$resolved_android" reverse "tcp:$port" "tcp:$port"
 android_reverse_installed=true
 
 if [[ "$smoke" == true ]]; then
-  printf 'Running Android and iOS encrypted chat/rich-media/account-controls/backup/voice/video smoke concurrently...\n'
+  printf 'Running Android and iOS encrypted chat/rich-media/account-controls/backup-recovery/voice/video smoke concurrently...\n'
   (
     cd "$ios_smoke_workspace/client"
-    exec flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 22m \
+    exec flutter test -d "$resolved_ios" --no-pub --no-uninstall --timeout 25m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$ios_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$android_smoke_username" \
@@ -716,6 +722,8 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$ios_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$android_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$ios_smoke_backup_passphrase" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_RESTORED_OUTBOUND=$ios_smoke_backup_restored" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_RESTORED_INBOUND=$android_smoke_backup_restored" \
       --dart-define="WAMP_APP_SMOKE_RICH_MEDIA=$smoke_rich_media" \
       --dart-define="WAMP_APP_SMOKE_RICH_MEDIA_ACK=$smoke_rich_media_ack" \
       integration_test/two_device_smoke_test.dart
@@ -730,7 +738,7 @@ if [[ "$smoke" == true ]]; then
 
   (
     cd "$android_smoke_workspace/client"
-    exec flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 22m \
+    exec flutter test -d "$resolved_android" --no-pub --no-uninstall --timeout 25m \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint" \
       --dart-define="WAMP_APP_SMOKE_USERNAME=$android_smoke_username" \
       --dart-define="WAMP_APP_SMOKE_PEER=$ios_smoke_username" \
@@ -753,6 +761,8 @@ if [[ "$smoke" == true ]]; then
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND=$android_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_CONTROLS_READY_INBOUND=$ios_smoke_controls_ready" \
       --dart-define="WAMP_APP_SMOKE_BACKUP_PASSPHRASE=$android_smoke_backup_passphrase" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_RESTORED_OUTBOUND=$android_smoke_backup_restored" \
+      --dart-define="WAMP_APP_SMOKE_BACKUP_RESTORED_INBOUND=$ios_smoke_backup_restored" \
       --dart-define="WAMP_APP_SMOKE_RICH_MEDIA=$smoke_rich_media" \
       --dart-define="WAMP_APP_SMOKE_RICH_MEDIA_ACK=$smoke_rich_media_ack" \
       integration_test/two_device_smoke_test.dart
@@ -798,6 +808,8 @@ if [[ "$smoke" == true ]]; then
     "$ios_smoke_controls_ready" \
     "$android_smoke_backup_passphrase" \
     "$ios_smoke_backup_passphrase" \
+    "$android_smoke_backup_restored" \
+    "$ios_smoke_backup_restored" \
     "$smoke_rich_media" \
     "$smoke_rich_media_ack"
   then
@@ -814,7 +826,7 @@ if [[ "$smoke" == true ]]; then
 
   cat <<EOF
 
-WampApp two-device encrypted chat, rich media, account controls, backup, and WebRTC UI smoke passed.
+WampApp two-device encrypted chat, rich media, account controls, destructive backup recovery, and WebRTC UI smoke passed.
   Router:  $endpoint
   Android: $resolved_android ($android_smoke_username)
   iOS:     $resolved_ios ($ios_smoke_username)

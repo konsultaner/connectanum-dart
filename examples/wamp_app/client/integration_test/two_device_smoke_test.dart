@@ -8,10 +8,54 @@ import 'package:wamp_app/src/application/call_controller.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
+import 'package:wamp_app/src/infrastructure/device_vault.dart';
+import 'package:wamp_app/src/infrastructure/vault_storage.dart';
 import 'package:wamp_app/src/ui/expression_picker.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'support/rich_media_fixtures.dart';
+
+final class _TrackedVaultStorage implements VaultStorage {
+  _TrackedVaultStorage({VaultStorage? delegate})
+    : _delegate = delegate ?? SharedPreferencesVaultStorage();
+
+  final VaultStorage _delegate;
+  final Set<String> _trackedKeys = <String>{};
+
+  int get trackedKeyCount => _trackedKeys.length;
+
+  @override
+  Future<String?> read(String key) {
+    _trackedKeys.add(key);
+    return _delegate.read(key);
+  }
+
+  @override
+  Future<void> write(String key, String value) {
+    _trackedKeys.add(key);
+    return _delegate.write(key, value);
+  }
+
+  @override
+  Future<void> delete(String key) {
+    _trackedKeys.add(key);
+    return _delegate.delete(key);
+  }
+
+  Future<void> deleteTrackedAndVerify() async {
+    if (_trackedKeys.isEmpty) {
+      throw StateError('No encrypted local vault keys were tracked.');
+    }
+    for (final key in _trackedKeys) {
+      if (await _delegate.read(key) != null) {
+        await _delegate.delete(key);
+      }
+      if (await _delegate.read(key) != null) {
+        throw StateError('Encrypted local vault deletion failed.');
+      }
+    }
+  }
+}
 
 const _serverAddress = String.fromEnvironment('WAMP_APP_SERVER_ADDRESS');
 const _username = String.fromEnvironment('WAMP_APP_SMOKE_USERNAME');
@@ -61,6 +105,12 @@ const _controlsReadyInbound = String.fromEnvironment(
 const _backupPassphrase = String.fromEnvironment(
   'WAMP_APP_SMOKE_BACKUP_PASSPHRASE',
 );
+const _backupRestoredOutbound = String.fromEnvironment(
+  'WAMP_APP_SMOKE_BACKUP_RESTORED_OUTBOUND',
+);
+const _backupRestoredInbound = String.fromEnvironment(
+  'WAMP_APP_SMOKE_BACKUP_RESTORED_INBOUND',
+);
 const _richMediaToken = String.fromEnvironment('WAMP_APP_SMOKE_RICH_MEDIA');
 const _richMediaText = '$_richMediaToken 🚀';
 const _richMediaAck = String.fromEnvironment('WAMP_APP_SMOKE_RICH_MEDIA_ACK');
@@ -70,10 +120,14 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'exchanges encrypted chat, rich media, controls, backup, and WebRTC calls',
+    'exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls',
     (tester) async {
       _validateConfiguration();
-      final controller = WampAppController(deviceName: '$_username device');
+      final vaultStorage = _TrackedVaultStorage();
+      final controller = WampAppController(
+        trustStore: EncryptedDeviceVault(storage: vaultStorage),
+        deviceName: '$_username device',
+      );
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(WampApp(controller: controller));
@@ -198,15 +252,16 @@ void main() {
         readyOutbound: _videoCallReadyOutbound,
         readyInbound: _videoCallReadyInbound,
       );
-      await _exerciseAccountPrivacyControls(tester, controller);
+      await _exerciseAccountPrivacyControls(tester, controller, vaultStorage);
     },
-    timeout: const Timeout(Duration(minutes: 21)),
+    timeout: const Timeout(Duration(minutes: 24)),
   );
 }
 
 Future<void> _exerciseAccountPrivacyControls(
   WidgetTester tester,
   WampAppController controller,
+  _TrackedVaultStorage vaultStorage,
 ) async {
   await _selectDirectConversation(tester);
   await _updatePublicProfile(tester, controller);
@@ -244,6 +299,14 @@ Future<void> _exerciseAccountPrivacyControls(
 
   await _viewPeerProfile(tester);
   await _exerciseSearchAndReadFilters(tester, controller);
+  if (_role == 'initiator') {
+    await _restoreRemoteBackupAfterLocalVaultDeletion(
+      tester,
+      controller,
+      vaultStorage,
+    );
+  }
+  await _exchangeBackupRecoveryMarkers(tester, controller);
 }
 
 Future<void> _updatePublicProfile(
@@ -460,6 +523,167 @@ Future<void> _uploadRemoteBackup(
     timeout: const Duration(minutes: 2),
   );
   expect(controller.backupError, isNull);
+}
+
+Future<void> _restoreRemoteBackupAfterLocalVaultDeletion(
+  WidgetTester tester,
+  WampAppController controller,
+  _TrackedVaultStorage vaultStorage,
+) async {
+  final originalDeviceId = controller.localDevice?.deviceId;
+  if (originalDeviceId == null) {
+    fail('The encrypted backup source device was unavailable.');
+  }
+  expect(vaultStorage.trackedKeyCount, greaterThan(0));
+
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('account-sign-out-compact')),
+    label: 'backup recovery sign out',
+  );
+  await _pumpUntil(
+    tester,
+    () => find.byKey(const Key('submit-account')).evaluate().isNotEmpty,
+    label: 'signed-out backup recovery form',
+  );
+  await controller.signOut();
+  await vaultStorage.deleteTrackedAndVerify();
+
+  await _tapWhenReady(tester, find.text('Sign in'), label: 'sign-in mode');
+  await tester.enterText(
+    find.byKey(const Key('server-address')),
+    _serverAddress,
+  );
+  await tester.enterText(find.byKey(const Key('username')), _username);
+  await tester.enterText(find.byKey(const Key('password')), _password);
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('restore-remote-backup')),
+    label: 'remote backup restore action',
+  );
+  await _pumpUntil(
+    tester,
+    () => find
+        .byKey(const Key('backup-recovery-passphrase'))
+        .evaluate()
+        .isNotEmpty,
+    label: 'remote backup recovery phrase dialog',
+  );
+  await tester.enterText(
+    find.byKey(const Key('backup-recovery-passphrase')),
+    _backupPassphrase,
+  );
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('backup-passphrase-submit')),
+    label: 'remote backup recovery',
+  );
+
+  await _pumpUntil(
+    tester,
+    () {
+      final conversationId = controller.directConversationIdFor(_peerUsername);
+      return controller.status == WampAppStatus.connected &&
+          controller.connection?.username == _username &&
+          controller.localDevice?.deviceId == originalDeviceId &&
+          controller.themePreference.wireName == 'dark' &&
+          conversationId != null &&
+          controller.isConversationMuted(conversationId) &&
+          controller.disappearingMessagesFor(conversationId) ==
+              const Duration(hours: 1) &&
+          controller.contacts.any(
+            (contact) =>
+                contact.username == _peerUsername &&
+                contact.displayName == _contactDisplayName,
+          ) &&
+          controller.groups.any((group) => group.title == _groupTitle) &&
+          controller.messages.any(
+            (message) =>
+                message.peerUsername == _peerUsername &&
+                message.text == _outboundText,
+          ) &&
+          controller.messages.any(
+            (message) =>
+                message.peerUsername == _peerUsername &&
+                message.text == _inboundText,
+          ) &&
+          controller.messages.any(
+            (message) => _matchesGroupMessage(
+              message,
+              outgoing: true,
+              text: _groupOutboundText,
+            ),
+          ) &&
+          controller.messages.any(
+            (message) => _matchesGroupMessage(
+              message,
+              outgoing: false,
+              text: _groupInboundText,
+            ),
+          );
+    },
+    label: 'destructive encrypted cloud-backup recovery',
+    timeout: const Duration(minutes: 3),
+  );
+  expect(controller.backupError, isNull);
+  expect(controller.messageError, isNull);
+  expect(
+    tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+    ThemeMode.dark,
+  );
+}
+
+Future<void> _exchangeBackupRecoveryMarkers(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  if (_role == 'responder') {
+    await _pumpUntil(
+      tester,
+      () => controller.messages.any(
+        (message) =>
+            !message.outgoing && message.text == _backupRestoredInbound,
+      ),
+      label: 'peer destructive backup recovery marker',
+      timeout: const Duration(minutes: 3),
+    );
+  }
+
+  final sent = await controller.sendMessage(
+    recipientUsername: _peerUsername,
+    text: _backupRestoredOutbound,
+  );
+  if (!sent) {
+    fail(
+      'Could not send the backup-recovery marker '
+      '(${controller.messageError ?? 'message channel unavailable'}).',
+    );
+  }
+  final outbound = controller.messages.singleWhere(
+    (message) => message.outgoing && message.text == _backupRestoredOutbound,
+  );
+  await _pumpUntil(
+    tester,
+    () => controller.outboundMessageFor(outbound.messageId) == null,
+    label: 'router acceptance of backup-recovery marker',
+  );
+
+  if (_role == 'initiator') {
+    await _pumpUntil(
+      tester,
+      () => controller.messages.any(
+        (message) =>
+            !message.outgoing && message.text == _backupRestoredInbound,
+      ),
+      label: 'post-recovery encrypted peer acknowledgement',
+      timeout: const Duration(minutes: 2),
+    );
+  }
+  expect(controller.messageError, isNull);
 }
 
 Future<void> _viewPeerProfile(WidgetTester tester) async {
@@ -1470,6 +1694,8 @@ void _validateConfiguration() {
     'WAMP_APP_SMOKE_CONTROLS_READY_OUTBOUND': _controlsReadyOutbound,
     'WAMP_APP_SMOKE_CONTROLS_READY_INBOUND': _controlsReadyInbound,
     'WAMP_APP_SMOKE_BACKUP_PASSPHRASE': _backupPassphrase,
+    'WAMP_APP_SMOKE_BACKUP_RESTORED_OUTBOUND': _backupRestoredOutbound,
+    'WAMP_APP_SMOKE_BACKUP_RESTORED_INBOUND': _backupRestoredInbound,
     'WAMP_APP_SMOKE_RICH_MEDIA': _richMediaToken,
     'WAMP_APP_SMOKE_RICH_MEDIA_ACK': _richMediaAck,
   };
@@ -1493,6 +1719,8 @@ void _validateConfiguration() {
     _videoCallReadyInbound,
     _controlsReadyOutbound,
     _controlsReadyInbound,
+    _backupRestoredOutbound,
+    _backupRestoredInbound,
     _richMediaText,
     _richMediaAck,
   ];

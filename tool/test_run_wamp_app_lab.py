@@ -206,6 +206,22 @@ class RunWampAppLabTests(unittest.TestCase):
             "WAMP_APP_SMOKE_BACKUP_PASSPHRASE=backup-passphrase-ios-run-id",
             result.stdout,
         )
+        self.assertIn(
+            "WAMP_APP_SMOKE_BACKUP_RESTORED_OUTBOUND=backup-restored-android-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_BACKUP_RESTORED_INBOUND=backup-restored-ios-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_BACKUP_RESTORED_OUTBOUND=backup-restored-ios-run-id",
+            result.stdout,
+        )
+        self.assertIn(
+            "WAMP_APP_SMOKE_BACKUP_RESTORED_INBOUND=backup-restored-android-run-id",
+            result.stdout,
+        )
         self.assertEqual(
             result.stdout.count(
                 "WAMP_APP_SMOKE_RICH_MEDIA=rich-media-from-android-run-id"
@@ -222,7 +238,7 @@ class RunWampAppLabTests(unittest.TestCase):
         self.assertEqual(result.stdout.count("android.permission.CAMERA"), 1)
         self.assertIn("simctl privacy ios-simulator grant microphone", result.stdout)
         self.assertIn("simctl privacy ios-simulator grant camera", result.stdout)
-        self.assertEqual(result.stdout.count("--timeout 22m"), 2)
+        self.assertEqual(result.stdout.count("--timeout 25m"), 2)
         self.assertNotIn("--no-resident", result.stdout)
 
     def test_dry_run_rejects_physical_devices(self):
@@ -341,7 +357,7 @@ class RunWampAppLabTests(unittest.TestCase):
                     "  exit 0\n"
                     "fi\n"
                     "if [[ \"$1\" == test ]]; then\n"
-                    "  printf '%s\\n' '00:00 +0: exchanges encrypted chat, rich media, controls, backup, and WebRTC calls'\n"
+                    "  printf '%s\\n' '00:00 +0: exchanges encrypted chat, rich media, controls, backup recovery, and WebRTC calls'\n"
                     "  [[ \" $* \" == *\" -d emulator-5554 \"* ]] && exit 7\n"
                     "  exit 0\n"
                     "fi\n"

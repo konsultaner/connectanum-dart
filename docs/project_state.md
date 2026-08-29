@@ -59,7 +59,28 @@ runtime namespace, so disposable smoke routers no longer contend with an
 interactive lab router's native-runtime lock. Nine launcher tests, focused
 fixture/attachment/playback tests, Flutter analysis, the complete Android API
 35 plus iOS 26.4 native smoke, and repository-wide `bin/verify` pass for this
-expansion; exact-head hosted evidence remains next.
+expansion. Exact-head push CI run `33226004196`, PR CI run `33226006235`,
+package dry run `33226006245`, and WampApp artifact run `33226004193` pass;
+the artifact run includes the production benchmark gate and all seven beta
+bundles. The comprehensive feature-head audit and protected-`master` strict
+audit also pass.
+Native acceptance now proves destructive encrypted cloud-backup recovery rather
+than upload alone. After the initiator uploads its recovery-phrase-encrypted
+archive, the smoke records its device identity, signs out through the real UI,
+deletes and verifies deletion of every tracked local vault ciphertext, and
+restores from the router through the signed-out onboarding UI. Recovery must
+recreate the identical device identity plus the encrypted contact alias, dark
+theme, direct-chat mute, one-hour disappearing-message policy, direct history,
+and group history. A reciprocal encrypted marker exchange then proves the
+restored session can still send and receive. The launcher treats both markers
+as forbidden plaintext and extends the native smoke budget for the second
+64 MiB Argon2 derivation. Sign-out operations are now joinable, so a caller can
+wait for the exact UI-started connection and trust-session cleanup before
+deleting local vault state; a gated transport regression proves concurrent
+callers share that cleanup. Launcher syntax and all nine launcher tests,
+focused Flutter analysis and vault/controller tests, the exact Android API 35
+plus iOS 26.4 destructive-recovery smoke, and repository-wide `bin/verify`
+pass; exact-head hosted evidence is next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

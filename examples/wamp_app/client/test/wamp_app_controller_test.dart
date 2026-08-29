@@ -86,6 +86,36 @@ void main() {
     expect(trustStore.session?.disposed, isTrue);
   });
 
+  test('concurrent sign out calls join the same cleanup', () async {
+    final gateway = _RecordingGateway()..closeGate = Completer<void>();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    final first = controller.signOut();
+    await _waitFor(() => gateway.operations.contains('transport-close'));
+    var secondCompleted = false;
+    final second = controller.signOut().then((_) => secondCompleted = true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    expect(secondCompleted, isFalse);
+    expect(
+      gateway.operations.where((entry) => entry == 'transport-close'),
+      hasLength(1),
+    );
+
+    gateway.closeGate!.complete();
+    await Future.wait([first, second]);
+    expect(secondCompleted, isTrue);
+  });
+
   test(
     'local backup export saves an encrypted snapshot and clears busy state',
     () async {
@@ -1844,6 +1874,7 @@ class _RecordingGateway implements AccountGateway {
   String? loginPassword;
   bool closed = false;
   bool failNextClose = false;
+  Completer<void>? closeGate;
   Object? loginFailure;
   Completer<AccountProfile>? profileUpdateGate;
   Completer<AccountProfile>? profileLookupGate;
@@ -2045,6 +2076,7 @@ class _RecordingGateway implements AccountGateway {
       latestMailboxWakeupErrorCallback: () => null,
       closeTransport: () async {
         operations.add('transport-close');
+        await closeGate?.future;
         closed = true;
         if (failNextClose) {
           failNextClose = false;
