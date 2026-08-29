@@ -112,6 +112,12 @@ installs the client on both, and keeps the router attached to the terminal:
 bin/run-wamp-app-lab
 ```
 
+After both clients launch, the lab brings the selected Simulator forward. When
+`scrcpy` is installed, it also opens a managed Android mirror so a headless AVD
+and the iOS client remain directly testable; otherwise use the Android emulator
+window. The mirror closes with the lab, while both emulators and installed apps
+remain available.
+
 Use `bin/run-wamp-app-lab --dry-run` to inspect device selection and commands
 without changing the machine. Lab account, mailbox, attachment, backup, call,
 push, and MCP-consent state persists under `.dart_tool/wamp_app_lab`; it never

@@ -275,6 +275,56 @@ launch_ios_app() {
     wait_for_ios_app "$device_id" "$bundle_id" 5
 }
 
+start_android_mirror() {
+  local device_id="$1"
+  local log_path="$2"
+
+  if ! command -v scrcpy >/dev/null 2>&1; then
+    printf 'scrcpy is unavailable; use the Android emulator window.\n'
+    return 0
+  fi
+
+  printf 'Mirroring Android emulator %s with scrcpy...\n' "$device_id"
+  scrcpy \
+    --serial "$device_id" \
+    --window-title 'WampApp Android' \
+    --stay-awake \
+    --no-audio \
+    --window-x 20 \
+    --window-y 40 \
+    --window-width 540 \
+    --window-height 900 >>"$log_path" 2>&1 &
+  android_mirror_pid=$!
+
+  sleep 1
+  if ! kill -0 "$android_mirror_pid" 2>/dev/null; then
+    wait "$android_mirror_pid" 2>/dev/null || true
+    android_mirror_pid=""
+    printf 'scrcpy could not mirror %s. See %s; the lab remains usable through the emulator window.\n' \
+      "$device_id" "$log_path" >&2
+  fi
+}
+
+show_ios_simulator() {
+  local device_id="$1"
+  local log_path="$2"
+
+  printf 'Showing iOS simulator %s...\n' "$device_id"
+  if ! open -a Simulator --args -CurrentDeviceUDID "$device_id" \
+    >>"$log_path" 2>&1
+  then
+    printf 'Simulator could not be shown for %s. See %s.\n' \
+      "$device_id" "$log_path" >&2
+    return 0
+  fi
+  if command -v osascript >/dev/null 2>&1 && \
+    ! osascript -e 'tell application "Simulator" to activate' \
+      >>"$log_path" 2>&1
+  then
+    printf 'Simulator is running but could not be brought forward automatically.\n' >&2
+  fi
+}
+
 supervise_interactive_lab() {
   local router_pid="$1"
   local android_device_id="$2"
@@ -646,10 +696,6 @@ if [[ "$dry_run" == true ]]; then
   else
     printf '  iOS simulator: boot the default simulator\n'
   fi
-  if [[ "$smoke" == false && -n "$resolved_ios" ]]; then
-    printf 'iOS Simulator window command:\n'
-    shell_join open -a Simulator --args -CurrentDeviceUDID "$resolved_ios"
-  fi
   printf 'Router command:\n'
   shell_join dart run wamp_app_server --config "$config_path"
   if [[ "$smoke" == true && -n "$resolved_android" ]]; then
@@ -732,6 +778,13 @@ if [[ "$dry_run" == true ]]; then
     shell_join flutter run -d "$resolved_ios" --no-resident \
       --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint"
   fi
+  if [[ "$smoke" == false && -n "$resolved_android" && -n "$resolved_ios" ]]; then
+    printf 'Interactive display commands (after both clients launch):\n'
+    printf '  scrcpy mirrors %s when the command is installed.\n' \
+      "$resolved_android"
+    shell_join open -a Simulator --args -CurrentDeviceUDID "$resolved_ios"
+    shell_join osascript -e 'tell application "Simulator" to activate'
+  fi
   exit 0
 fi
 
@@ -773,6 +826,7 @@ fi
 android_reverse_installed=false
 android_smoke_pid=""
 ios_smoke_pid=""
+android_mirror_pid=""
 server_pid=""
 cleanup() {
   local status=$?
@@ -782,6 +836,9 @@ cleanup() {
   fi
   if [[ -n "$ios_smoke_pid" ]]; then
     stop_process "$ios_smoke_pid"
+  fi
+  if [[ -n "$android_mirror_pid" ]]; then
+    stop_process "$android_mirror_pid"
   fi
   if [[ "$android_reverse_installed" == true ]]; then
     adb -s "$resolved_android" reverse --remove "tcp:$port" >/dev/null 2>&1 || true
@@ -999,9 +1056,6 @@ EOF
   exit 0
 fi
 
-printf 'Showing iOS simulator %s...\n' "$resolved_ios"
-open -a Simulator --args -CurrentDeviceUDID "$resolved_ios"
-
 printf 'Installing Android client on %s...\n' "$resolved_android"
 (
   cd "$(repo_root)/examples/wamp_app/client"
@@ -1016,6 +1070,9 @@ printf 'Installing iOS client on %s...\n' "$resolved_ios"
     --dart-define="WAMP_APP_SERVER_ADDRESS=$endpoint"
 )
 
+start_android_mirror "$resolved_android" "$android_client_log"
+show_ios_simulator "$resolved_ios" "$ios_client_log"
+
 cat <<EOF
 
 WampApp lab is ready.
@@ -1024,6 +1081,7 @@ WampApp lab is ready.
   iOS:     $resolved_ios
   State:   $state_dir
   Log:     $server_log
+  Android mirror log: $android_client_log
 
 Register one account in each app, then use the usernames to start a direct or
 group chat. The lab relaunches either client if it exits. Press Ctrl+C here to

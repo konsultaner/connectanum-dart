@@ -32,6 +32,15 @@ that skipped the current access dialog. Interactive lab startup now brings the
 selected iOS Simulator to the foreground while `--smoke` remains headless.
 Thirteen launcher tests, focused Flutter analysis/tests, and `bin/test-wamp-app`
 pass for this follow-up; repository-wide `bin/verify` also passes.
+The first manual tester session exposed that a healthy headless router and two
+running clients could still appear incomplete when the Android AVD had no
+window or Simulator remained behind another application. Interactive startup
+now waits until both clients launch, opens a managed scrcpy mirror when the
+optional command is installed, and brings the selected Simulator forward.
+Mirror failure is non-fatal and logged, cleanup stops only the mirror owned by
+the current lab, and smoke mode remains strictly headless. Fourteen
+process-level launcher tests, shell/Python syntax checks, dry-run ordering, and
+repository-wide `bin/verify` pass.
 `bin/run-wamp-app-lab --smoke` now drives fresh Android API 35 and iOS 26.4
 clients through registration, 3-pass/64 MiB Argon2id SCRAM, reciprocal device
 discovery and direct chat, then creates and discovers a two-member encrypted

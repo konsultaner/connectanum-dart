@@ -66,6 +66,7 @@ class RunWampAppLabTests(unittest.TestCase):
         android_launch_succeeds: bool,
         android_stays_running: bool = True,
         ios_launch_succeeds: bool = True,
+        scrcpy_launch_succeeds: bool = True,
         router_lifetime_seconds: int,
     ) -> tuple[subprocess.CompletedProcess[str], str, str, int, float]:
         with socket.socket() as reservation:
@@ -173,6 +174,18 @@ class RunWampAppLabTests(unittest.TestCase):
                     "printf 'open %s\\n' \"$*\" >>\"$WAMP_APP_TEST_XCRUN_LOG\"\n"
                     "exit 0\n"
                 ),
+                "osascript": (
+                    "#!/usr/bin/env bash\n"
+                    "printf 'osascript %s\\n' \"$*\" >>\"$WAMP_APP_TEST_XCRUN_LOG\"\n"
+                    "exit 0\n"
+                ),
+                "scrcpy": (
+                    "#!/usr/bin/env bash\n"
+                    "printf 'scrcpy %s\\n' \"$*\" >>\"$WAMP_APP_TEST_XCRUN_LOG\"\n"
+                    "[[ \"$WAMP_APP_TEST_SCRCPY_LAUNCH_SUCCEEDS\" == true ]] || exit 1\n"
+                    "trap 'printf %s\\n scrcpy-stopped >>\"$WAMP_APP_TEST_XCRUN_LOG\"; exit 0' TERM INT\n"
+                    "while :; do sleep 1; done\n"
+                ),
             }
             for name, source in commands.items():
                 command = temporary / name
@@ -193,6 +206,9 @@ class RunWampAppLabTests(unittest.TestCase):
             environment["WAMP_APP_TEST_IOS_RUNNING"] = str(ios_running)
             environment["WAMP_APP_TEST_IOS_LAUNCH_SUCCEEDS"] = str(
                 ios_launch_succeeds
+            ).lower()
+            environment["WAMP_APP_TEST_SCRCPY_LAUNCH_SUCCEEDS"] = str(
+                scrcpy_launch_succeeds
             ).lower()
             environment["WAMP_APP_TEST_ROUTER_LIFETIME"] = str(
                 router_lifetime_seconds
@@ -496,6 +512,29 @@ class RunWampAppLabTests(unittest.TestCase):
             "open -a Simulator --args -CurrentDeviceUDID ios-simulator",
             xcrun_calls,
         )
+        self.assertIn(
+            'osascript -e tell application "Simulator" to activate',
+            xcrun_calls,
+        )
+        self.assertIn(
+            "scrcpy --serial emulator-5554 --window-title WampApp Android "
+            "--stay-awake --no-audio --window-x 20 --window-y 40 "
+            "--window-width 540 --window-height 900",
+            xcrun_calls,
+        )
+        self.assertIn("scrcpy-stopped", xcrun_calls)
+        self.assertLess(
+            result.stdout.index("Installing iOS client"),
+            result.stdout.index("Mirroring Android emulator"),
+        )
+        self.assertLess(
+            result.stdout.index("Mirroring Android emulator"),
+            result.stdout.index("Showing iOS simulator"),
+        )
+        self.assertLess(
+            result.stdout.index("Showing iOS simulator"),
+            result.stdout.index("WampApp lab is ready"),
+        )
         self.assertIn(f"reverse --remove tcp:{port}", adb_calls)
         with socket.socket() as released:
             released.bind(("127.0.0.1", port))
@@ -511,6 +550,23 @@ class RunWampAppLabTests(unittest.TestCase):
         self.assertEqual(result.stdout.count("Android WampApp exited; relaunching"), 3)
         self.assertIn("could not be kept running", result.stderr)
         self.assertIn("interactive router or client supervision failed", result.stderr)
+        self.assertIn(f"reverse --remove tcp:{port}", adb_calls)
+        with socket.socket() as released:
+            released.bind(("127.0.0.1", port))
+
+    def test_interactive_lab_survives_failed_optional_android_mirror(self):
+        result, adb_calls, xcrun_calls, port, elapsed = self.run_supervised_script(
+            android_launch_succeeds=True,
+            scrcpy_launch_succeeds=False,
+            router_lifetime_seconds=4,
+        )
+
+        self.assertLess(elapsed, 10)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("scrcpy could not mirror emulator-5554", result.stderr)
+        self.assertIn("Showing iOS simulator ios-simulator", result.stdout)
+        self.assertIn("open -a Simulator", xcrun_calls)
+        self.assertNotIn("scrcpy-stopped", xcrun_calls)
         self.assertIn(f"reverse --remove tcp:{port}", adb_calls)
         with socket.socket() as released:
             released.bind(("127.0.0.1", port))
@@ -556,6 +612,7 @@ class RunWampAppLabTests(unittest.TestCase):
             temporary = pathlib.Path(temporary_directory)
             state = temporary / "state"
             adb_log = temporary / "adb.log"
+            desktop_log = temporary / "desktop.log"
             runtime_tmp_log = temporary / "runtime-tmp.log"
             devices = [
                 {
@@ -642,6 +699,21 @@ class RunWampAppLabTests(unittest.TestCase):
                     "fi\n"
                     "exit 99\n"
                 ),
+                "open": (
+                    "#!/usr/bin/env bash\n"
+                    "printf 'open %s\\n' \"$*\" >>\"$WAMP_APP_TEST_DESKTOP_LOG\"\n"
+                    "exit 98\n"
+                ),
+                "osascript": (
+                    "#!/usr/bin/env bash\n"
+                    "printf 'osascript %s\\n' \"$*\" >>\"$WAMP_APP_TEST_DESKTOP_LOG\"\n"
+                    "exit 98\n"
+                ),
+                "scrcpy": (
+                    "#!/usr/bin/env bash\n"
+                    "printf 'scrcpy %s\\n' \"$*\" >>\"$WAMP_APP_TEST_DESKTOP_LOG\"\n"
+                    "exit 98\n"
+                ),
             }
             for name, source in commands.items():
                 command = temporary / name
@@ -651,6 +723,7 @@ class RunWampAppLabTests(unittest.TestCase):
             environment = os.environ.copy()
             environment["PATH"] = f"{temporary}:{environment['PATH']}"
             environment["WAMP_APP_TEST_ADB_LOG"] = str(adb_log)
+            environment["WAMP_APP_TEST_DESKTOP_LOG"] = str(desktop_log)
             environment["WAMP_APP_TEST_TMPDIR_LOG"] = str(runtime_tmp_log)
             started = time.monotonic()
             result = subprocess.run(
@@ -676,6 +749,12 @@ class RunWampAppLabTests(unittest.TestCase):
             adb_calls = adb_log.read_text(encoding="utf-8")
             self.assertIn("reverse tcp:", adb_calls)
             self.assertIn("reverse --remove tcp:", adb_calls)
+            self.assertFalse(
+                desktop_log.exists(),
+                desktop_log.read_text(encoding="utf-8")
+                if desktop_log.exists()
+                else "",
+            )
             self.assertEqual(
                 runtime_tmp_log.read_text(encoding="utf-8").strip(),
                 str(state / "runtime-tmp"),
