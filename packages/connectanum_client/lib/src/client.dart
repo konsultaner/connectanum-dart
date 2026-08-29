@@ -127,8 +127,13 @@ class Client {
   ///
   /// After calling the method, this instance of Client can no longer be used.
   Future<void> disconnect() async {
+    if (_state == _ClientState.done) return;
     _logger.fine('Disconnecting');
     _changeState(_ClientState.done);
+    final transportWasOpen = transport.isOpen;
+    if (!transportWasOpen) {
+      await transport.close();
+    }
     await _connectStreamSubscription?.cancel();
     if (!_connectStreamController.isClosed) {
       await _connectStreamController.close();
@@ -136,7 +141,7 @@ class Client {
     if (!_controller.isClosed) {
       await _controller.close();
     }
-    if (transport.isOpen) {
+    if (transportWasOpen) {
       await transport.close();
     }
   }
@@ -195,6 +200,10 @@ class Client {
     final connectionAttempt = ++_connectionAttempt;
     _logger.info('Connecting, attempts remaining: ${options.reconnectCount}');
     await transport.open(pingInterval: options.pingInterval);
+    if (_state == _ClientState.done ||
+        connectionAttempt != _connectionAttempt) {
+      return;
+    }
 
     /// Transport failed opening / initializing
     if (!transport.isOpen || transport.onConnectionLost == null) {

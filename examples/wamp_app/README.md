@@ -15,6 +15,9 @@ The implemented slices provide:
 - a file-backed account store containing only SCRAM verifier material;
 - encrypted, account-and-endpoint-bound local device identity storage;
 - signed Ed25519/X25519 device enrollment, revocation, and safety numbers;
+- explicit per-device safety-number review persisted in the encrypted vault;
+  after the first verification, direct and group sends fail closed whenever
+  the active directory contains a new or changed unverified device;
 - direct-message keys wrapped independently for every active participant
   device;
 - XSalsa20-Poly1305 message payloads carried as WAMP CBOR binary fields;
@@ -35,6 +38,9 @@ The implemented slices provide:
   encrypted message and device vault;
 - a responsive Flutter onboarding, composer, history, sync, attachment picker,
   preview, and platform save flow;
+- account-wide system/light/dark themes plus local-only Standard, Ocean, and
+  Sunset bubble designs selected independently per chat, stored in the
+  encrypted vault, and recovered by encrypted local or remote backups;
 - five-minute encrypted voice notes recorded as mono 16 kHz PCM16 WAV, with
   private duration metadata, bounded memory, explicit cancellation, and
   authenticated playback on the existing WAMP attachment path;
@@ -72,8 +78,12 @@ contact IDs, and address-book files are never uploaded or retained by WampApp.
 Credential-backed FCM deployment evidence requires operator-owned secrets and
 remains before a final release. The reviewed security boundaries and residual
 risks are explicit in [THREAT_MODEL.md](THREAT_MODEL.md).
-View-once attachments are rejected until attachment consumption and deletion
-can be made atomic.
+View-once direct messages support encrypted attachments. An official client
+authenticates and caches the ciphertext before a first-device-wins consume;
+the server deletes every attachment chunk before acknowledging success, and
+the client permits only cache-backed ephemeral reveal before invalidating that
+cache on close. This limits ordinary replay across supported clients but is not
+DRM against a modified or compromised recipient device.
 
 ## Run Locally
 
@@ -101,6 +111,12 @@ installs the client on both, and keeps the router attached to the terminal:
 ```bash
 bin/run-wamp-app-lab
 ```
+
+After both clients launch, the lab brings the selected Simulator forward. When
+`scrcpy` is installed, it also opens a managed Android mirror so a headless AVD
+and the iOS client remain directly testable; otherwise use the Android emulator
+window. The mirror closes with the lab, while both emulators and installed apps
+remain available.
 
 Use `bin/run-wamp-app-lab --dry-run` to inspect device selection and commands
 without changing the machine. Lab account, mailbox, attachment, backup, call,
@@ -165,6 +181,27 @@ characters, and use a password with at least twelve characters. Cleartext
 `ws://` credentials are accepted only for loopback development. Remote
 deployments must expose the endpoint through `wss://`; the included server
 configuration is not yet a production TLS deployment recipe.
+
+## Connect an MCP Client
+
+Sign in to WampApp, open the account menu, and select **Connect an AI
+service**. The app discovers the MCP and authentication routes from the
+authenticated WAMP session, derives their HTTP or HTTPS origin from the server
+address, and shows copyable endpoints. With the default local configuration
+they are `http://localhost:8080/mcp` and
+`http://localhost:8080/mcp/auth`.
+
+Configure an MCP client for Streamable HTTP or direct JSON at the displayed
+MCP endpoint. Obtain its access grant from the displayed authentication
+endpoint using the same WampApp username and password with WAMP-SCRAM. WampApp
+does not display, return, or copy the password, access token, or refresh token.
+
+Profile access is disabled by default. The user must enable it in the same
+panel before MCP tools can read the exact public-profile allowlist. Revocation
+takes effect immediately. Chats, messages, attachments, backups, devices,
+calls, encryption keys, and avatars are never included in the MCP profile
+surface. Use `wss://` so the derived endpoints use HTTPS outside loopback
+development.
 
 ## Build Beta Artifacts
 

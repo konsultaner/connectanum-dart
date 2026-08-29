@@ -1,26 +1,248 @@
 # Project State
 
-Last updated: 2026-08-28
-Current branch: `codex/wamp-app-native-ui-smoke`
-Current milestone: prove standalone WampApp registration and encrypted chat
-through concurrent native platform UIs. PR #82 is merged to `master` as
-`48783adf` on both maintained remotes. Exact-head GitHub CI run `33171843544`
-and WampApp artifact run `33171843583` pass; the artifact run includes the
-production benchmark gate and all seven beta bundles, and the strict deployment
-audit passes.
-`bin/run-wamp-app-lab` retains its interactive Android+iOS mode and now adds a
-deterministic `--smoke` mode. Fresh Android API 35 and iOS 26.4 clients register
-unique accounts through the real keyed UI and 3-pass/64 MiB Argon2id SCRAM,
-discover the peer device, send reciprocal direct messages through the UI,
-receive them through mailbox pub/sub, decrypt them locally, and render both
-bubbles. The launcher rejects plaintext tokens in the router message store and
-uses bounded process termination so failed runs cannot leave the router or
-Android reverse tunnel behind. This acceptance exposed and fixed a real mobile
-keyboard overflow: the compact authenticated shell now collapses secondary
-account and conversation controls while preserving recipient, history, errors,
-attachments, and composer. Nine launcher tests, all 18 WampApp widget tests,
-Flutter analysis, the two-device native smoke, and repository-wide `bin/verify`
-pass locally; exact-head hosted evidence remains next.
+Last updated: 2026-08-29
+Current branch: `codex/3.0.0-beta.3-prep`
+Current milestone: prepare the synchronized `3.0.0-beta.3` Dart package and
+Rust crate graph for the client WebSocket lifecycle correction discovered by
+WampApp. All seven publishable Dart packages, all three Rust crates, runtime
+identity constants, release-tag tests, changelogs, and release metadata move
+together. WampApp intentionally remains pinned to the published beta.2 graph
+until beta.3 native assets and packages are uploaded. Repository-wide
+`bin/verify`, the 20 release-planner tests, isolated client/router native-hook
+tests, and the Chrome/Dart2Wasm WebSocket suite pass locally. The strict package
+archive gate reached beta.3 successfully and must be rerun from the clean
+release commit to remove pub's expected dirty-tree warning. The interactive
+router plus Android and iPad clients remain live under the launcher supervisor.
+PR #84 still awaits the required code-owner review before this stacked release
+preparation can enter protected `master`.
+Onboarding now probes the configured router with a bounded anonymous WAMP
+handshake and presents debounced checking, ready, unreachable, and retry states
+without weakening registration validation. Stale and post-disposal probe
+results are fenced, the paired native driver waits for proven readiness, and a
+real embedded-router regression covers the default path. The probe exposed a
+client lifecycle defect where canceling a pending Dart WebSocket upgrade could
+leave I/O alive. Source now interrupts pending opens, rejects late sockets, and
+preserves established reconnect behavior on VM and web; a real stalled-upgrade
+regression proves bounded disconnect. Repository-wide `bin/verify`, the full
+11-test transport/reconnect suite, package analysis, and `bin/test-wamp-app`
+including Chrome workers and the release web build pass. The interactive
+Android/iPad tester lab and its router remain running. The standalone app still
+intentionally consumes exact published packages, so the lifecycle correction
+requires the next synchronized beta publication and dependency update before
+published app artifacts consume it; router-readiness UI itself remains
+compatible with the current beta.
+The paired native smoke now opens each peer's identity dialog, compares the
+router-backed per-device safety number, and records explicit verification before
+the first encrypted send. A disposable Android API 36.1 plus iOS 26.4 run passes
+that flow and the full chat, rich-media, account-control, destructive-recovery,
+and WebRTC sequence. The run also exposed and fixed a stale MCP-consent driver
+that skipped the current access dialog. Interactive lab startup now brings the
+selected iOS Simulator to the foreground while `--smoke` remains headless.
+Thirteen launcher tests, focused Flutter analysis/tests, and `bin/test-wamp-app`
+pass for this follow-up; repository-wide `bin/verify` also passes.
+The paired native acceptance now consumes the profile consent granted by both
+real client UIs from a separate MCP process. The bounded probe discovers the
+Bearer challenge, authenticates each account with WAMP-SCRAM, requires the
+exact tools/resources/prompts catalog, reads the exact consented public-profile
+fields through stateful Streamable HTTP and direct JSON, checks both resources
+and the prompt, and proves access-token rejection plus refresh-token cleanup.
+Synthetic credentials travel only through bounded stdin pipes and never through
+command arguments, child-process environments, or emitted diagnostics;
+malformed, oversized, and non-loopback cleartext requests fail with stage-only
+output. A
+disposable Android API 36.1 plus iOS 26.4 run passes the complete peer-trust,
+encrypted-chat, rich-media, account-control, destructive-recovery, WebRTC, and
+external-MCP sequence while the interactive tester lab remains undisturbed.
+The two-account real-router MCP regressions, all 14 launcher lifecycle tests,
+`bin/test-wamp-app`, and repository-wide `bin/verify` pass.
+The first manual tester session exposed that a healthy headless router and two
+running clients could still appear incomplete when the Android AVD had no
+window or Simulator remained behind another application. Interactive startup
+now waits until both clients launch, opens a managed scrcpy mirror when the
+optional command is installed, and brings the selected Simulator forward.
+Mirror failure is non-fatal and logged, cleanup stops only the mirror owned by
+the current lab, and smoke mode remains strictly headless. Fourteen
+process-level launcher tests, shell/Python syntax checks, dry-run ordering, and
+repository-wide `bin/verify` pass.
+`bin/run-wamp-app-lab --smoke` now drives fresh Android API 35 and iOS 26.4
+clients through registration, 3-pass/64 MiB Argon2id SCRAM, reciprocal device
+discovery and direct chat, then creates and discovers a two-member encrypted
+group. Android sends group text plus the bundled PNG sticker, iOS downloads,
+decrypts, and renders its preview before replying in the same group, and Android
+decrypts and renders that reply. Android then sends an encrypted view-once
+message in the original direct conversation; iOS proves its plaintext is not
+rendered before opening, reveals it through the real UI, removes it after consumption,
+and Android observes the open receipt. Android then starts a real WebRTC voice
+call, iOS accepts it, both clients prove active native media bound to the right
+peer, synchronize authenticated E2EE-readiness markers, exercise mute/unmute,
+and converge through hangup, native-media disposal, result UI, and dismissal.
+The pair then repeats that lifecycle for video, proves local rendering, toggles
+the camera off and on, and requires both the media session and renderer to be
+released at teardown. A
+recursive router-data guard rejects every direct/group/view-once smoke token,
+the group title, raw PNG bytes, and plaintext SDP/ICE signaling. This richer
+acceptance exposed and fixed a dialog-controller dismissal race, compact
+sticker-composer overflow, an asynchronous send race that could discard a newly
+typed draft or staged attachment, and an outgoing-call state race that could
+lose a synchronous native WebRTC connected callback while applying the answer.
+The launcher now preinstalls both apps, grants camera and microphone permissions
+before tests start, and uses isolated Android/iOS workspaces so concurrent
+Flutter tooling cannot contend over startup or build artifacts. Nine launcher
+tests, 30 focused call/widget tests, Flutter analysis, `bin/test-fast`, and the
+real Android plus iOS voice/video smoke pass locally. Native acceptance also
+fixed stale-keyboard expression-sheet placement and compact identity/title
+wrapping that could collapse message history to two pixels. Repository-wide
+`bin/verify` also passes. The same smoke now continues through public-profile
+updates and cross-device reads, encrypted local theme/mute/disappearing-message
+preferences, encrypted contact aliases, explicit MCP profile consent on both
+accounts, one initiator-owned encrypted remote backup, global local-history
+search, authenticated read receipts, and read/unread filters. Stable
+message-ID bubble keys keep native search/filter evidence independent of
+editable-field text. The launcher verifies both persisted consent records, the
+single committed ciphertext backup, and absence of every chat, media, call,
+contact, synchronization, and recovery-phrase smoke token from router storage.
+Nine launcher tests, 39 focused Flutter tests, Flutter analysis, the complete
+Android API 36.1 plus iOS 26.4 smoke, and repository-wide `bin/verify` pass;
+exact-head hosted evidence remains next. Native acceptance now also transfers
+an encrypted generated PNG, a two-frame animated GIF, a valid two-second PCM16
+voice note, and emoji through the existing WAMP session. iOS authenticates and
+decodes both images, starts and pauses real voice-note playback, and returns an
+authenticated acknowledgement that Android observes. The recursive router-data
+guard rejects PNG, GIF, RIFF/WAVE signatures and all rich-media or
+acknowledgement tokens. The launcher gives each router a state-local temporary
+runtime namespace, so disposable smoke routers no longer contend with an
+interactive lab router's native-runtime lock. Nine launcher tests, focused
+fixture/attachment/playback tests, Flutter analysis, the complete Android API
+35 plus iOS 26.4 native smoke, and repository-wide `bin/verify` pass for this
+expansion. Exact-head push CI run `33226004196`, PR CI run `33226006235`,
+package dry run `33226006245`, and WampApp artifact run `33226004193` pass;
+the artifact run includes the production benchmark gate and all seven beta
+bundles. The comprehensive feature-head audit and protected-`master` strict
+audit also pass.
+Native acceptance now proves destructive encrypted cloud-backup recovery rather
+than upload alone. After the initiator uploads its recovery-phrase-encrypted
+archive, the smoke records its device identity, signs out through the real UI,
+deletes and verifies deletion of every tracked local vault ciphertext, and
+restores from the router through the signed-out onboarding UI. Recovery must
+recreate the identical device identity plus the encrypted contact alias, dark
+theme, direct-chat mute, one-hour disappearing-message policy, direct history,
+and group history. A reciprocal encrypted marker exchange then proves the
+restored session can still send and receive. The launcher treats both markers
+as forbidden plaintext and extends the native smoke budget for the second
+64 MiB Argon2 derivation. Sign-out operations are now joinable, so a caller can
+wait for the exact UI-started connection and trust-session cleanup before
+deleting local vault state; a gated transport regression proves concurrent
+callers share that cleanup. Launcher syntax and all nine launcher tests,
+focused Flutter analysis and vault/controller tests, the exact Android API 35
+plus iOS 26.4 destructive-recovery smoke, and repository-wide `bin/verify`
+pass; exact-head hosted evidence is next.
+Native acceptance now also drives bounded public-profile avatar selection and
+opt-in contact import through the real Flutter dialogs. Production profile
+selection uses an injectable `file_selector` boundary that preserves
+cancellation, rejects empty or over-256-KiB inputs before persistence, owns the
+selected bytes, and maps selector/read failures to redacted UI errors. The
+paired smoke injects deterministic platform-boundary results while exercising
+the production dialog/controller/router path: both clients render their chosen
+PNG, persist it in the account profile, observe the peer avatar, import a
+display name before binding the authenticated peer username, and preserve the
+initiator avatar byte-for-byte through destructive encrypted cloud recovery.
+The first native run correctly rejected a generated 262,488-byte sticker as an
+avatar because the protocol limit is 262,144 bytes; the harness now uses a
+compact valid PNG and asserts the limit before opening the dialog. Six picker
+boundary tests plus 22 focused widget tests, Flutter analysis, the complete
+Android API 36.1 plus iOS 26.4 paired smoke, and repository-wide `bin/verify`
+pass. Exact-head hosted evidence is next.
+Native acceptance now also proves destructive encrypted local-file backup
+recovery while the peer completes destructive cloud recovery in the same
+paired run. The responder exports through the real Flutter backup dialog into
+an ownership-safe test file boundary, requires a bounded non-empty
+`.wampbackup`, and rejects raw UTF-8 plus base64 forms of every protected chat,
+group, contact, synchronization, password, and recovery-phrase token. It then
+signs out, deletes and verifies every tracked local vault ciphertext, restores
+through the signed-out local-backup UI, and must recover the same device
+identity, profile avatar, encrypted preferences, contact alias, direct history,
+and group history. The file gateway returns a defensive archive copy for
+import, so the smoke also proves the controller can wipe its working bytes
+without deleting the user-owned archive. The complete Android API 36.1 plus iOS
+26.4 paired smoke, focused Flutter analysis, local-model review, and
+repository-wide `bin/verify` pass. Exact-head package dry run `33234293755`, PR
+CI run `33234293811`, push CI run `33234291717`, and WampApp artifact run
+`33234291729` pass; the artifact run includes the production benchmark gate and
+all seven beta bundles. The comprehensive feature-head audit and
+protected-`master` strict audit also pass.
+Interactive tester-lab readiness now includes bounded client supervision.
+`bin/run-wamp-app-lab` polls both no-resident native clients, relaunches either
+one after an exit, rejects unavailable devices and rapid crash loops after
+three attempts, detects unexpected router exit, and retains router and Android
+reverse-tunnel cleanup on failure. Thirteen process-level launcher tests cover
+Android and iOS relaunch, failed launch, rapid crash, router death, port
+release, and reverse cleanup. A real Android API 35 plus iOS 26.4 lab proved
+both client processes were replaced while the router PID remained stable and
+the WebSocket endpoint still returned `101 Switching Protocols`; `bin/test-fast`
+and repository-wide `bin/verify` pass. Exact-head package dry run
+`33236799210`, PR CI run `33236799221`, and push CI run `33236797692` pass;
+the comprehensive feature-head audit and protected-`master` strict audit also
+pass.
+Per-conversation chat design is now implemented locally. Direct and group
+conversations independently select Standard, Ocean, or Sunset message-bubble
+presets without changing account-wide system/light/dark mode. Only non-default
+overrides are retained in a canonical, bounded 500-entry map inside the
+encrypted device vault; malformed identifiers or values fail closed, and the
+same encrypted local/cloud backup payload restores the selection. Global-search
+results resolve the design from each result's conversation rather than the
+currently selected chat. Ten preference tests, 49 controller tests, 22 vault
+tests, 22 widget tests, the full 198-test Flutter client suite,
+`bin/test-wamp-app` including Chrome and the release web build, local-model
+review, and repository-wide `bin/verify` pass. The paired native recovery smoke
+now requires the preset after destructive local/cloud restore. Exact-head
+package dry run `33240068792`, PR CI `33240068807`, push CI `33240067540`, and
+WampApp artifact run `33240067539` pass, including all seven bundles and the
+production benchmark gate; the comprehensive feature-head audit and
+protected-`master` strict audit also pass. Exact native device recovery now
+passes on a disposable Android API 36.1 emulator and iOS 26.4 simulator while
+the interactive Android/iOS tester lab and its router remain running and
+undisturbed. The paired smoke proves Standard/Ocean/Sunset selection survives
+both destructive cloud and local-file recovery alongside the existing encrypted
+identity, profile, preference, contact, direct-history, and group-history
+assertions.
+The pre-change `bin/test-fast` for that acceptance run exposed legacy fixed
+ports in the client transport I/O-event tests. Every local WebSocket and
+RawSocket listener in that suite now binds IPv4 loopback on an ephemeral port,
+clients use the listener's resolved address and port, and teardown explicitly
+disconnects clients and closes upgraded sockets and servers. The complete
+11-test file passes while all former ports are occupied and in three concurrent
+processes under the same collision pressure; the post-change `bin/test-fast`
+and repository-wide `bin/verify` also pass end to end. Implementation commit
+`066a6d42` is on both maintained remotes. Exact-head push CI `33243602817`, PR
+CI `33243604898`, push package dry run `33243602835`, PR package dry run
+`33243604871`, and WAMP Profile Benchmarks `33244524715` pass; the benchmark
+run uploaded the canonical profile artifact. The comprehensive feature-head
+audit and protected-`master` strict audit also pass.
+Encrypted view-once direct messages now support attachments without exposing
+plaintext before durable consumption. The client prefetches and authenticates
+all ciphertext, the server atomically commits the first-device-wins consume
+before deleting every message attachment and acknowledging success, and the
+winner decrypts only from its ephemeral cache. Closing, signing out, disposing,
+or losing the consume race invalidates that cache; startup and periodic
+retention immediately retry deletion after a transient filesystem failure.
+Protocol, retention, service, cache, controller, multi-device, and widget
+regressions pass. A disposable Android API 36 plus iOS 26.4 paired smoke proves
+an encrypted sticker stays hidden before reveal, renders from cache after the
+server copy is gone, and cannot be fetched after close, while the interactive
+tester lab remains undisturbed. `bin/test-wamp-app` passes with 53 shared, 144
+server, and 201 Flutter tests, real Chrome IndexedDB and 64 MiB worker checks,
+and a release web build; repository-wide `bin/verify` also passes.
+Authenticated MCP access discovery is now implemented locally. An
+account-authenticated WAMP procedure exposes only server-configured relative
+MCP and authentication paths plus fixed capability metadata. The client
+strictly validates that boundary, derives HTTP(S) URLs from its connected
+WAMP origin, and presents a usable account panel with copyable endpoints,
+default-denied public-profile consent, immediate revocation, and explicit
+credential/content exclusions. Focused shared, server, real-router gateway,
+controller, compact-widget, and analysis checks pass. `bin/test-wamp-app`
+passes with 56 shared and 144 server tests, the complete native and isolated
+Chrome client suites, Dart2Wasm, and a release web build. Repository-wide
+`bin/verify` also passes; exact-head hosted evidence is next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact
@@ -294,8 +516,11 @@ records, rejects incomplete/conflicting envelopes, and authorizes download only
 after an attachment is referenced by a caller-visible mailbox record. Direct
 and group attachment-only messages, ciphertext/plaintext integrity, cache
 restart, cancellation, stale-session fencing, and browser IndexedDB persistence
-have focused regressions. View-once attachments fail closed pending atomic
-consumption/deletion. `bin/test-wamp-app` passes with 28 shared, 36 server, and
+have focused regressions. The original attachment increment failed closed for
+view-once messages; current head closes that limitation with authenticated
+ciphertext prefetch, atomic first-device consumption, server-side deletion
+before success, cache-only ephemeral reveal, and immediate retention recovery
+after transient deletion failures. `bin/test-wamp-app` passes with 28 shared, 36 server, and
 50 Flutter tests plus a release web build; Chrome separately passes the real
 IndexedDB test, and repository `bin/verify` passes on 2026-08-25. Five measured
 64 MiB iterations establish a macOS baseline of

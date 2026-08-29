@@ -580,6 +580,12 @@ class _ExpressionPickerState extends State<ExpressionPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final keyboardInset = mediaQuery.viewInsets.bottom;
+    final availableHeight = (mediaQuery.size.height - keyboardInset).clamp(
+      360.0,
+      620.0,
+    );
     final emojis = wampAppEmojis
         .where((choice) => choice.matches(_query))
         .toList(growable: false);
@@ -590,73 +596,71 @@ class _ExpressionPickerState extends State<ExpressionPicker> {
       length: 2,
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height.clamp(360, 620) * 0.82,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              18,
-              14,
-              18,
-              10 + MediaQuery.viewInsetsOf(context).bottom,
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Emoji & stickers',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    IconButton(
-                      key: const Key('expression-close'),
-                      tooltip: 'Close emoji and stickers',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                TextField(
-                  key: const Key('expression-search'),
-                  onChanged: (value) => setState(() => _query = value),
-                  decoration: const InputDecoration(
-                    hintText: 'Search expressions',
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const TabBar(
-                  tabs: [
-                    Tab(
-                      key: Key('expression-emoji-tab'),
-                      icon: Icon(Icons.emoji_emotions_outlined),
-                      text: 'Emoji',
-                    ),
-                    Tab(
-                      key: Key('expression-sticker-tab'),
-                      icon: Icon(Icons.auto_awesome_outlined),
-                      text: 'Stickers',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: TabBarView(
+        child: Padding(
+          padding: EdgeInsets.only(bottom: keyboardInset),
+          child: SizedBox(
+            height: availableHeight * 0.82,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+              child: Column(
+                children: [
+                  Row(
                     children: [
-                      _EmojiGrid(
-                        choices: emojis,
-                        onSelected: widget.onEmojiSelected,
+                      Expanded(
+                        child: Text(
+                          'Emoji & stickers',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                       ),
-                      _StickerGrid(
-                        designs: stickers,
-                        busyStickerId: _busyStickerId,
-                        onSelected: _selectSticker,
+                      IconButton(
+                        key: const Key('expression-close'),
+                        tooltip: 'Close emoji and stickers',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  TextField(
+                    key: const Key('expression-search'),
+                    onChanged: (value) => setState(() => _query = value),
+                    decoration: const InputDecoration(
+                      hintText: 'Search expressions',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const TabBar(
+                    tabs: [
+                      Tab(
+                        key: Key('expression-emoji-tab'),
+                        icon: Icon(Icons.emoji_emotions_outlined),
+                        text: 'Emoji',
+                      ),
+                      Tab(
+                        key: Key('expression-sticker-tab'),
+                        icon: Icon(Icons.auto_awesome_outlined),
+                        text: 'Stickers',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _EmojiGrid(
+                          choices: emojis,
+                          onSelected: widget.onEmojiSelected,
+                        ),
+                        _StickerGrid(
+                          designs: stickers,
+                          busyStickerId: _busyStickerId,
+                          onSelected: _selectSticker,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

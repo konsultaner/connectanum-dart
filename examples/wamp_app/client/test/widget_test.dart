@@ -11,6 +11,8 @@ import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/contact_importer_contract.dart';
+import 'package:wamp_app/src/infrastructure/message_cipher.dart';
+import 'package:wamp_app/src/infrastructure/profile_avatar_picker.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app/src/infrastructure/voice_note_recorder.dart';
 import 'package:wamp_app/src/ui/expression_picker.dart';
@@ -20,7 +22,117 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'test_support.dart';
 
 void main() {
+  testWidgets('probes the default router endpoint on onboarding', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('server-probe-reachable')), findsOneWidget);
+    expect(gateway.probedEndpoints, hasLength(1));
+    expect(
+      gateway.probedEndpoints.single.websocketUri.toString(),
+      const String.fromEnvironment(
+        'WAMP_APP_SERVER_ADDRESS',
+        defaultValue: 'ws://localhost:8080/ws',
+      ),
+    );
+  });
+
+  testWidgets('debounces probes and ignores stale endpoint failures', (
+    tester,
+  ) async {
+    final firstProbe = Completer<void>();
+    final secondProbe = Completer<void>();
+    var probeCount = 0;
+    final gateway = _FakeGateway(
+      probeCallback: (_) =>
+          probeCount++ == 0 ? firstProbe.future : secondProbe.future,
+    );
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pump();
+    expect(gateway.probedEndpoints, hasLength(1));
+
+    await tester.enterText(
+      find.byKey(const Key('server-address')),
+      'wss://router.example/ws',
+    );
+    await tester.pump(const Duration(milliseconds: 349));
+    expect(gateway.probedEndpoints, hasLength(1));
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(gateway.probedEndpoints, hasLength(2));
+
+    secondProbe.complete();
+    await tester.pump();
+    expect(find.byKey(const Key('server-probe-reachable')), findsOneWidget);
+
+    firstProbe.completeError(StateError('stale failure'));
+    await tester.pump();
+    expect(find.byKey(const Key('server-probe-reachable')), findsOneWidget);
+    expect(find.byKey(const Key('server-probe-unreachable')), findsNothing);
+  });
+
+  testWidgets('failed router probe can retry without disabling submit', (
+    tester,
+  ) async {
+    var failProbe = true;
+    final gateway = _FakeGateway(
+      probeCallback: (_) async {
+        if (failProbe) throw StateError('offline');
+      },
+    );
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('server-probe-unreachable')), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('submit-account')))
+          .onPressed,
+      isNotNull,
+    );
+
+    failProbe = false;
+    final retry = find.byKey(const Key('server-probe-retry'));
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('server-probe-reachable')), findsOneWidget);
+    expect(gateway.probedEndpoints, hasLength(2));
+  });
+
+  testWidgets('late router probe failure is ignored after disposal', (
+    tester,
+  ) async {
+    final probe = Completer<void>();
+    final gateway = _FakeGateway(probeCallback: (_) => probe.future);
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pump();
+    expect(gateway.probedEndpoints, hasLength(1));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    probe.completeError(StateError('late failure'));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('registers and opens the authenticated shell', (tester) async {
+    final oneTimeAttachmentId = _token(16, 39);
     final oneTimeMessage = LocalChatMessage(
       messageId: 'one-time-message',
       conversationId: 'alice-bob',
@@ -29,6 +141,19 @@ void main() {
       sentAt: DateTime.utc(2026, 8, 24, 12),
       outgoing: false,
       oneTime: true,
+      attachments: [
+        EncryptedAttachmentDescriptor(
+          attachmentId: oneTimeAttachmentId,
+          kind: ChatAttachmentKind.image,
+          name: 'hidden-view-once.png',
+          contentType: 'image/png',
+          plaintextBytes: 128,
+          chunkBytes: WampAppAttachmentLimits.defaultChunkBytes,
+          chunkCount: 1,
+          plaintextSha256: List<String>.filled(64, '0').join(),
+          key: Uint8List(32),
+        ),
+      ],
     );
     final controller = WampAppController(
       gateway: _FakeGateway(),
@@ -84,6 +209,11 @@ void main() {
     expect(find.text('Encrypted device vault'), findsOneWidget);
     expect(find.text('Test device'), findsOneWidget);
     expect(find.text('hidden until consumed'), findsNothing);
+    expect(find.text('hidden-view-once.png'), findsNothing);
+    expect(
+      find.byKey(ValueKey('attachment-open-$oneTimeAttachmentId')),
+      findsNothing,
+    );
     expect(find.text('Tap to view once'), findsOneWidget);
     expect(find.byKey(const Key('message-attach')), findsOneWidget);
 
@@ -129,6 +259,85 @@ void main() {
     expect(find.text('Delete after 1 day'), findsOneWidget);
   });
 
+  testWidgets('group dialog owns controllers through its dismissal animation', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('conversation-create-group')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('group-title')), 'Launch crew');
+    await tester.enterText(find.byKey(const Key('group-members')), 'bob');
+    await tester.tap(find.byKey(const Key('group-create')));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('preserves a new draft while the previous send completes', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final enrollment = trustStore.session!.enrollment;
+    gateway.deviceDirectories['alice'] = [
+      activeDeviceRecord('alice', enrollment),
+    ];
+    gateway.deviceDirectories['bob'] = [activeDeviceRecord('bob', enrollment)];
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
+    final composer = find.byKey(const Key('message-composer'));
+    await tester.enterText(composer, 'first draft');
+    final composerController = tester.widget<TextField>(composer).controller!;
+    var replacedDraft = false;
+    void replaceDraftOnIdle() {
+      if (replacedDraft ||
+          gateway.sendAttempts == 0 ||
+          controller.messageBusy) {
+        return;
+      }
+      replacedDraft = true;
+      composerController.text = 'next draft';
+    }
+
+    controller.addListener(replaceDraftOnIdle);
+    addTearDown(() => controller.removeListener(replaceDraftOnIdle));
+    await tester.tap(find.byKey(const Key('message-send')));
+    await tester.pumpAndSettle();
+
+    expect(replacedDraft, isTrue);
+    expect(composerController.text, 'next draft');
+    expect(gateway.sendAttempts, 1);
+  });
+
   testWidgets('direct call actions fail closed with a recoverable result', (
     tester,
   ) async {
@@ -167,8 +376,12 @@ void main() {
   testWidgets('edits the public profile and views a recipient profile', (
     tester,
   ) async {
+    final avatarBytes = _testAvatarBytes();
+    final avatarPicker = _FakeProfileAvatarPicker(
+      selection: ProfileAvatarSelection(name: 'avatar.png', bytes: avatarBytes),
+    );
     final controller = WampAppController(
-      gateway: _FakeGateway(),
+      gateway: _FakeGateway(peerAvatarBytes: avatarBytes),
       trustStore: FakeDeviceTrustStore(),
     );
     addTearDown(controller.dispose);
@@ -177,11 +390,23 @@ void main() {
       username: 'alice',
       password: 'correct horse battery',
     );
-    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpWidget(
+      WampApp(controller: controller, profileAvatarPicker: avatarPicker),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('account-profile-edit')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-avatar-pick')));
+    await tester.pumpAndSettle();
+    expect(avatarPicker.calls, 1);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('profile-avatar-preview')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
     await tester.enterText(
       find.byKey(const Key('profile-display-name')),
       'Alice Updated',
@@ -196,6 +421,17 @@ void main() {
     expect(find.text('Alice Updated'), findsOneWidget);
     expect(find.byKey(const Key('account-profile-status')), findsOneWidget);
     expect(find.text('Shipping safely'), findsOneWidget);
+    expect(
+      controller.connection?.profile.avatarBytes,
+      orderedEquals(avatarBytes),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('account-profile-avatar')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
 
     await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
     await tester.tap(find.byKey(const Key('recipient-profile-view')));
@@ -205,6 +441,109 @@ void main() {
     expect(find.text('Bob Example'), findsOneWidget);
     expect(find.byKey(const Key('peer-profile-status')), findsOneWidget);
     expect(find.text('Testing WampApp'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('peer-profile-avatar')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('keeps profile picker failures inside the editor', (
+    tester,
+  ) async {
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(
+      WampApp(
+        controller: controller,
+        profileAvatarPicker: _FakeProfileAvatarPicker(
+          error: const ProfileAvatarPickerException(
+            'The selected profile image could not be read.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('account-profile-edit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-avatar-pick')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('profile-validation-error')), findsOneWidget);
+    expect(
+      find.text('The selected profile image could not be read.'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('profile-save')), findsOneWidget);
+    expect(controller.connection?.profile.avatarBytes, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('verifies peer devices and warns on identity replacement', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(100, 'Bob phone')),
+    ];
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
+
+    await tester.tap(find.byKey(const Key('recipient-identity-view')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peer-trust-dialog')), findsOneWidget);
+    expect(find.text('Bob phone'), findsOneWidget);
+    expect(find.textContaining('Not verified yet'), findsOneWidget);
+    await tester.tap(find.text('Verify device'));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm safety number'), findsOneWidget);
+    expect(
+      find.text(
+        'Only continue after comparing this number with your contact through '
+        'another trusted channel.',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('peer-trust-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Every active device is verified.'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(110, 'Bob new phone')),
+    ];
+
+    await tester.tap(find.byKey(const Key('recipient-identity-view')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bob new phone'), findsOneWidget);
+    expect(find.textContaining('Encryption identity changed'), findsOneWidget);
+    expect(find.textContaining('Sending is blocked'), findsOneWidget);
   });
 
   testWidgets('imports, verifies, selects, renames, and removes a contact', (
@@ -369,9 +708,13 @@ void main() {
     expect(find.byKey(const Key('message-send')).hitTestable(), findsOneWidget);
   });
 
-  testWidgets('confirms MCP profile sharing and revokes it immediately', (
+  testWidgets('discovers MCP endpoints, confirms sharing, and revokes it', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final gateway = _FakeGateway();
     final controller = WampAppController(
       gateway: gateway,
@@ -390,8 +733,24 @@ void main() {
     await tester.tap(consent);
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('mcp-access-dialog')), findsOneWidget);
+    expect(find.text('https://localhost/mcp'), findsOneWidget);
+    expect(find.text('https://localhost/mcp/auth'), findsOneWidget);
+    expect(find.text('Realm: ${WampAppProtocol.appRealm}'), findsOneWidget);
+    expect(
+      find.textContaining('Streamable HTTP and direct JSON'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('mcp-access-data-boundary')), findsOneWidget);
+    expect(find.text('correct horse battery'), findsNothing);
+    final profileSwitch = find.byKey(const Key('mcp-access-profile-switch'));
+    await tester.ensureVisible(profileSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(profileSwitch);
+    await tester.pumpAndSettle();
+
     expect(find.text('Allow MCP public-profile access?'), findsOneWidget);
-    expect(find.textContaining('Chats, messages, attachments'), findsOneWidget);
+    expect(find.textContaining('Chats, messages, attachments'), findsWidgets);
     expect(gateway.mcpProfileReadAllowed, isFalse);
 
     await tester.tap(find.byKey(const Key('mcp-profile-consent-confirm')));
@@ -399,7 +758,9 @@ void main() {
     expect(gateway.mcpProfileReadAllowed, isTrue);
     expect(gateway.mcpConsentUpdates, [true]);
 
-    await tester.tap(consent);
+    await tester.ensureVisible(profileSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(profileSwitch);
     await tester.pumpAndSettle();
     expect(find.text('Allow MCP public-profile access?'), findsNothing);
     expect(gateway.mcpProfileReadAllowed, isFalse);
@@ -409,17 +770,42 @@ void main() {
   testWidgets('switches appearance and mutes direct and group chats', (
     tester,
   ) async {
+    const groupTitle = 'Native group acceptance title that stays compact';
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final controller = WampAppController(
       gateway: _FakeGateway(),
       trustStore: FakeDeviceTrustStore(
+        initialMessages: [
+          LocalChatMessage(
+            messageId: 'compact-direct-message',
+            conversationId: MessageCipher.directConversationId('alice', 'bob'),
+            peerUsername: 'bob',
+            text: 'Direct history keeps its own appearance',
+            sentAt: DateTime.utc(2026, 8, 25, 11, 2),
+            outgoing: false,
+          ),
+          LocalChatMessage(
+            messageId: 'compact-group-message',
+            conversationId: 'launch-crew',
+            peerUsername: 'bob',
+            text: 'Compact history remains usable',
+            sentAt: DateTime.utc(2026, 8, 25, 11, 1),
+            outgoing: false,
+            groupTitle: groupTitle,
+            participantUsernames: const ['alice', 'bob'],
+            groupCreatedBy: 'alice',
+            groupCreatedAt: DateTime.utc(2026, 8, 25, 11),
+          ),
+        ],
         initialGroups: [
           LocalChatGroup(
             conversationId: 'launch-crew',
-            title: 'Launch crew',
+            title: groupTitle,
             memberUsernames: const ['alice', 'bob'],
             createdBy: 'alice',
             createdAt: DateTime.utc(2026, 8, 25, 11),
@@ -443,6 +829,24 @@ void main() {
         find.byKey(ValueKey('appearance-${preference.wireName}')),
       );
       await tester.pumpAndSettle();
+    }
+
+    Future<void> chooseChatAppearance(
+      WampAppConversationAppearance appearance,
+    ) async {
+      await tester.tap(find.byKey(const Key('conversation-appearance-menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('conversation-appearance-${appearance.wireName}')),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Color bubbleColor(String messageId) {
+      final container = tester.widget<Container>(
+        find.byKey(ValueKey('message-surface-$messageId')),
+      );
+      return (container.decoration! as BoxDecoration).color!;
     }
 
     expect(
@@ -475,13 +879,42 @@ void main() {
 
     await tester.pumpAndSettle();
     final directId = controller.directConversationIdFor('bob')!;
+    final standardDirectColor = bubbleColor('compact-direct-message');
+    await chooseChatAppearance(WampAppConversationAppearance.ocean);
+    expect(
+      controller.conversationAppearanceFor(directId),
+      WampAppConversationAppearance.ocean,
+    );
+    expect(bubbleColor('compact-direct-message'), isNot(standardDirectColor));
     expect(find.byKey(const Key('conversation-mute')), findsOneWidget);
     await tester.tap(find.byKey(const Key('conversation-mute')));
     await tester.pumpAndSettle();
     expect(controller.isConversationMuted(directId), isTrue);
 
-    await tester.tap(find.text('Launch crew'));
+    final groupChip = find.byKey(
+      const ValueKey('conversation-group-launch-crew'),
+    );
+    await tester.ensureVisible(groupChip);
+    final visibleGroupChip = tester
+        .getRect(groupChip)
+        .intersect(Offset.zero & tester.view.physicalSize);
+    await tester.tapAt(visibleGroupChip.center);
     await tester.pumpAndSettle();
+    final standardGroupColor = bubbleColor('compact-group-message');
+    await chooseChatAppearance(WampAppConversationAppearance.sunset);
+    expect(
+      controller.conversationAppearanceFor('launch-crew'),
+      WampAppConversationAppearance.sunset,
+    );
+    expect(
+      controller.conversationAppearanceFor(directId),
+      WampAppConversationAppearance.ocean,
+    );
+    expect(bubbleColor('compact-group-message'), isNot(standardGroupColor));
+    expect(
+      tester.getSize(find.byKey(const Key('message-history'))).height,
+      greaterThanOrEqualTo(24),
+    );
     await tester.tap(find.byKey(const Key('conversation-mute')));
     await tester.pumpAndSettle();
     expect(controller.isConversationMuted('launch-crew'), isTrue);
@@ -829,7 +1262,58 @@ void main() {
     expect(renderer.renderedDesigns.single.id, 'nice');
     expect(find.byKey(const Key('selected-attachment-0')), findsOneWidget);
     expect(find.textContaining('sticker-nice-'), findsOneWidget);
-    expect(tester.widget<FilterChip>(oneTime).selected, isFalse);
+    expect(tester.widget<FilterChip>(oneTime).selected, isTrue);
+  });
+
+  testWidgets('keeps a staged sticker usable above a compact keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 400);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomePage(
+          controller: controller,
+          connection: controller.connection!,
+          stickerRenderer: _FakeStickerRenderer(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final expression = find.byKey(const Key('message-expression'));
+    await tester.ensureVisible(expression);
+    await tester.tap(expression);
+    final stickerTab = find.byKey(const Key('expression-sticker-tab'));
+    await _pumpUntilFound(tester, stickerTab);
+    await tester.pumpAndSettle();
+    expect(stickerTab.hitTestable(), findsOneWidget);
+    await tester.tap(stickerTab);
+    await tester.pumpAndSettle();
+    final sticker = find.byKey(const ValueKey('sticker-nice'));
+    expect(sticker.hitTestable(), findsOneWidget);
+    await tester.tap(sticker);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('selected-attachment-0')), findsOneWidget);
+    expect(find.byKey(const Key('message-global-search')), findsNothing);
+    expect(find.byKey(const Key('message-send')).hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('rejects a sticker beyond the attachment cap', (tester) async {
@@ -1092,12 +1576,37 @@ void main() {
   });
 }
 
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  Duration timeout = const Duration(seconds: 2),
+}) async {
+  const step = Duration(milliseconds: 50);
+  var elapsed = Duration.zero;
+  while (finder.evaluate().isEmpty && elapsed < timeout) {
+    await tester.pump(step);
+    elapsed += step;
+  }
+}
+
 class _FakeGateway implements AccountGateway {
+  _FakeGateway({this.peerAvatarBytes, this.probeCallback});
+
+  final Uint8List? peerAvatarBytes;
+  Future<void> Function(ServerEndpoint endpoint)? probeCallback;
+  final List<ServerEndpoint> probedEndpoints = [];
   int sendAttempts = 0;
+  final Map<String, List<DeviceRecord>> deviceDirectories = {};
   bool mcpProfileReadAllowed = false;
   int mcpConsentRevision = 0;
   final List<bool> mcpConsentUpdates = [];
   final List<String> profileLookups = [];
+
+  @override
+  Future<void> probe({required ServerEndpoint endpoint}) async {
+    probedEndpoints.add(endpoint);
+    await probeCallback?.call(endpoint);
+  }
 
   @override
   Future<RegistrationReceipt> register({
@@ -1129,6 +1638,11 @@ class _FakeGateway implements AccountGateway {
       username: username,
       initialProfile: profile,
       initialMcpConsent: WampAppMcpConsent.denied,
+      getMcpAccessConfigurationCallback: () async =>
+          WampAppMcpAccessConfiguration.standard(
+            mcpPath: '/mcp',
+            authPath: '/mcp/auth',
+          ),
       getProfileCallback: (lookup) async {
         profileLookups.add(lookup);
         return lookup == username
@@ -1139,6 +1653,8 @@ class _FakeGateway implements AccountGateway {
                 status: 'Testing WampApp',
                 revision: 2,
                 updatedAt: DateTime.utc(2026, 8, 25),
+                avatarBytes: peerAvatarBytes,
+                avatarContentType: peerAvatarBytes == null ? null : 'image/png',
               );
       },
       updateProfileCallback: (update) async {
@@ -1177,8 +1693,10 @@ class _FakeGateway implements AccountGateway {
       },
       enrollDeviceCallback: (enrollment) async =>
           activeDeviceRecord(username, enrollment),
-      listDevicesCallback: (_) async => DeviceDirectory(const []),
-      lookupDevicesCallback: (_, _) async => DeviceDirectory(const []),
+      listDevicesCallback: (_) async =>
+          DeviceDirectory(deviceDirectories[username] ?? const []),
+      lookupDevicesCallback: (lookup, _) async =>
+          DeviceDirectory(deviceDirectories[lookup] ?? const []),
       revokeDeviceCallback: (_) => throw UnimplementedError(),
       sendMessageCallback: (_) async {
         sendAttempts += 1;
@@ -1211,6 +1729,26 @@ final class _FakeContactImporter implements ContactImporter {
     return candidates;
   }
 }
+
+final class _FakeProfileAvatarPicker implements ProfileAvatarPicker {
+  _FakeProfileAvatarPicker({this.selection, this.error});
+
+  final ProfileAvatarSelection? selection;
+  final Object? error;
+  int calls = 0;
+
+  @override
+  Future<ProfileAvatarSelection?> pickAvatar() async {
+    calls += 1;
+    if (error case final error?) throw error;
+    return selection;
+  }
+}
+
+Uint8List _testAvatarBytes() => base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC'
+  'AAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+);
 
 class _FailingGateway extends _FakeGateway {
   @override
@@ -1344,3 +1882,14 @@ OutboundChatMessage _retryableOutbox() {
 String _token(int length, int seed) => base64Url
     .encode(List<int>.generate(length, (index) => (seed + index) & 0xff))
     .replaceAll('=', '');
+
+DeviceEnrollment _deviceEnrollment(int seed, String deviceName) {
+  return DeviceEnrollment(
+    deviceId: _token(32, seed),
+    deviceName: deviceName,
+    signingPublicKey: _token(32, seed + 1),
+    exchangePublicKey: _token(32, seed + 2),
+    attestation: _token(64, seed + 3),
+    createdAt: DateTime.utc(2026, 8, 24, 12),
+  );
+}

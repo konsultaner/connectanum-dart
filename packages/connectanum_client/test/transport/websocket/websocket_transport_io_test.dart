@@ -13,6 +13,7 @@ import 'package:connectanum_core/src/message/hello.dart';
 import 'package:connectanum_core/src/message/message_types.dart';
 import 'package:connectanum_core/src/message/result.dart';
 import 'package:connectanum_core/src/message/welcome.dart';
+import 'package:connectanum_client/connectanum.dart' show Client;
 import 'package:connectanum_client/src/transport/websocket/websocket_transport_io.dart';
 import 'package:connectanum_client/src/transport/websocket/websocket_transport_serialization.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
@@ -20,10 +21,46 @@ import 'package:test/test.dart';
 
 void main() {
   group('WebSocket protocol with io communication', () {
+    test('client disconnect cancels a pending websocket upgrade', () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final accepted = Completer<Socket>();
+      final peerClosed = Completer<void>();
+      Socket? acceptedSocket;
+      final subscription = server.listen((socket) {
+        acceptedSocket = socket;
+        socket.listen(
+          (_) {},
+          onError: (_) {
+            if (!peerClosed.isCompleted) peerClosed.complete();
+          },
+          onDone: () {
+            if (!peerClosed.isCompleted) peerClosed.complete();
+          },
+        );
+        accepted.complete(socket);
+      });
+      addTearDown(() async {
+        acceptedSocket?.destroy();
+        await subscription.cancel();
+        await server.close();
+      });
+      final transport = WebSocketTransport.withCborSerializer(
+        'ws://127.0.0.1:${server.port}/wamp',
+      );
+      final client = Client(transport: transport, realm: 'probe.realm');
+      final sessions = client.connect().listen((_) {});
+      addTearDown(sessions.cancel);
+      await accepted.future.timeout(const Duration(seconds: 1));
+
+      await client.disconnect().timeout(const Duration(seconds: 1));
+
+      await peerClosed.future.timeout(const Duration(seconds: 1));
+    });
+
     test(
       'Opening a server connection and simple send receive scenario using a serializer',
       () async {
-        var server = await HttpServer.bind('localhost', 9911);
+        var server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
         addTearDown(() => server.close(force: true));
         server.listen((HttpRequest req) async {
           if (req.uri.path == '/wamp') {
@@ -71,21 +108,25 @@ void main() {
         });
 
         var transportJSON = WebSocketTransport.withJsonSerializer(
-          'ws://localhost:9911/wamp',
+          'ws://127.0.0.1:${server.port}/wamp',
         );
+        addTearDown(transportJSON.close);
 
         var transportMsgpack = WebSocketTransport.withMsgpackSerializer(
-          'ws://localhost:9911/wamp',
+          'ws://127.0.0.1:${server.port}/wamp',
         );
+        addTearDown(transportMsgpack.close);
 
         var transportCbor = WebSocketTransport.withCborSerializer(
-          'ws://localhost:9911/wamp',
+          'ws://127.0.0.1:${server.port}/wamp',
         );
+        addTearDown(transportCbor.close);
 
         var transportWithHeaders = WebSocketTransport.withJsonSerializer(
-          'ws://localhost:9911/wamp',
+          'ws://127.0.0.1:${server.port}/wamp',
           {'X_Custom_Header': 'custom_value'},
         );
+        addTearDown(transportWithHeaders.close);
 
         await transportJSON.open();
         transportJSON.send(Hello('my.realm', Details.forHello()));
@@ -110,7 +151,7 @@ void main() {
     );
 
     test('closes connection when inbound WAMP frame is malformed', () async {
-      final server = await HttpServer.bind('localhost', 0);
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close(force: true));
       server.listen((HttpRequest req) async {
         if (req.uri.path == '/wamp') {
@@ -125,7 +166,7 @@ void main() {
       });
 
       final transport = WebSocketTransport.withJsonSerializer(
-        'ws://localhost:${server.port}/wamp',
+        'ws://127.0.0.1:${server.port}/wamp',
       );
       addTearDown(transport.close);
 
@@ -152,7 +193,10 @@ void main() {
         final binary = Uint8List.fromList(
           List<int>.generate(2048, (index) => index & 0xff),
         );
-        final server = await HttpServer.bind('localhost', 0);
+        final server = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
         addTearDown(() => server.close(force: true));
         server.listen((HttpRequest request) async {
           final socket = await WebSocketTransformer.upgrade(request);
@@ -177,7 +221,7 @@ void main() {
         });
 
         final transport = WebSocketTransport.withJsonSerializer(
-          'ws://localhost:${server.port}/wamp',
+          'ws://127.0.0.1:${server.port}/wamp',
         );
         addTearDown(transport.close);
         await transport.open();
@@ -196,7 +240,7 @@ void main() {
 
     test('sends lazy JSON payload fragments as one text message', () async {
       final received = Completer<Object>();
-      final server = await HttpServer.bind('localhost', 0);
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close(force: true));
       server.listen((HttpRequest request) async {
         final socket = await WebSocketTransformer.upgrade(request);
@@ -208,7 +252,7 @@ void main() {
       });
 
       final transport = WebSocketTransport.withJsonSerializer(
-        'ws://localhost:${server.port}/wamp',
+        'ws://127.0.0.1:${server.port}/wamp',
       );
       addTearDown(transport.close);
       await transport.open();
@@ -235,7 +279,7 @@ void main() {
 
     test('sends MessagePack fragments as one binary message', () async {
       final received = Completer<Object>();
-      final server = await HttpServer.bind('localhost', 0);
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close(force: true));
       server.listen((HttpRequest request) async {
         final socket = await WebSocketTransformer.upgrade(request);
@@ -247,7 +291,7 @@ void main() {
       });
 
       final transport = WebSocketTransport.withMsgpackSerializer(
-        'ws://localhost:${server.port}/wamp',
+        'ws://127.0.0.1:${server.port}/wamp',
       );
       addTearDown(transport.close);
       await transport.open();

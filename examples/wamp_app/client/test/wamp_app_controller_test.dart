@@ -12,6 +12,7 @@ import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
+import 'package:wamp_app/src/infrastructure/message_cipher.dart';
 import 'package:wamp_app/src/infrastructure/platform_push_token_source.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -19,6 +20,26 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'test_support.dart';
 
 void main() {
+  test('server probe validates the endpoint before delegating', () async {
+    final gateway = _RecordingGateway();
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await controller.probeServer(serverAddress: 'ws://localhost:8080');
+
+    expect(gateway.probedEndpoints, hasLength(1));
+    expect(
+      gateway.probedEndpoints.single.websocketUri.toString(),
+      'ws://localhost:8080/ws',
+    );
+
+    await expectLater(
+      controller.probeServer(serverAddress: 'ws://router.example/ws'),
+      throwsA(isA<FormatException>()),
+    );
+    expect(gateway.probedEndpoints, hasLength(1));
+  });
+
   test('registration normalizes identity and connects with the same challenge secret', () async {
     final gateway = _RecordingGateway();
     final trustStore = FakeDeviceTrustStore();
@@ -41,6 +62,118 @@ void main() {
     expect(gateway.loginPassword, 'correct horse battery');
     expect(trustStore.password, 'correct horse battery');
     expect(controller.localDevice?.deviceId, trustStore.session?.deviceId);
+  });
+
+  test('inspects and verifies every active peer device explicitly', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(20, 'Bob phone')),
+    ];
+
+    final initial = await controller.inspectPeerTrust(' Bob ');
+
+    expect(initial, isNotNull);
+    expect(initial!.username, 'bob');
+    expect(initial.status, PeerTrustStatus.unverified);
+    expect(initial.previouslyVerified, isFalse);
+    expect(initial.devices.single.verified, isFalse);
+    expect(initial.devices.single.safetyNumber, isNotEmpty);
+
+    final verified = await controller.verifyPeerDevice(initial.devices.single);
+
+    expect(verified, isNotNull);
+    expect(verified!.status, PeerTrustStatus.verified);
+    expect(verified.previouslyVerified, isTrue);
+    expect(verified.devices.single.verified, isTrue);
+  });
+
+  test(
+    'verified peer replacement blocks direct sends before encryption',
+    () async {
+      final gateway = _RecordingGateway();
+      final trustStore = FakeDeviceTrustStore();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: trustStore,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      gateway.deviceDirectories['bob'] = [
+        activeDeviceRecord('bob', _deviceEnrollment(30, 'Bob old phone')),
+      ];
+      final initial = await controller.inspectPeerTrust('bob');
+      await controller.verifyPeerDevice(initial!.devices.single);
+      gateway.deviceDirectories['bob'] = [
+        activeDeviceRecord('bob', _deviceEnrollment(40, 'Bob new phone')),
+      ];
+
+      final changed = await controller.inspectPeerTrust('bob');
+      expect(changed!.status, PeerTrustStatus.changed);
+      expect(
+        await controller.sendMessage(
+          recipientUsername: 'bob',
+          text: 'must not reach an unreviewed replacement',
+        ),
+        isFalse,
+      );
+
+      expect(gateway.sentMessages, isEmpty);
+      expect(controller.messages, isEmpty);
+      expect(
+        controller.messageError,
+        'Encryption identity changed for @bob. Review and verify every active '
+        'device before sending.',
+      );
+    },
+  );
+
+  test('stale peer verification cannot approve a replacement device', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(50, 'Bob old phone')),
+    ];
+    final stale = await controller.inspectPeerTrust('bob');
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(60, 'Bob new phone')),
+    ];
+
+    await expectLater(
+      controller.verifyPeerDevice(stale!.devices.single),
+      throwsA(
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          'That device identity changed before verification completed.',
+        ),
+      ),
+    );
+    expect(trustStore.session!.hasVerifiedContact('bob'), isFalse);
   });
 
   test(
@@ -84,6 +217,36 @@ void main() {
     expect(controller.status, WampAppStatus.signedOut);
     expect(gateway.closed, isTrue);
     expect(trustStore.session?.disposed, isTrue);
+  });
+
+  test('concurrent sign out calls join the same cleanup', () async {
+    final gateway = _RecordingGateway()..closeGate = Completer<void>();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+
+    final first = controller.signOut();
+    await _waitFor(() => gateway.operations.contains('transport-close'));
+    var secondCompleted = false;
+    final second = controller.signOut().then((_) => secondCompleted = true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    expect(secondCompleted, isFalse);
+    expect(
+      gateway.operations.where((entry) => entry == 'transport-close'),
+      hasLength(1),
+    );
+
+    gateway.closeGate!.complete();
+    await Future.wait([first, second]);
+    expect(secondCompleted, isTrue);
   });
 
   test(
@@ -394,6 +557,13 @@ void main() {
       );
       expect(await controller.setConversationMuted(directId, true), isTrue);
       expect(
+        await controller.setConversationAppearance(
+          directId,
+          WampAppConversationAppearance.ocean,
+        ),
+        isTrue,
+      );
+      expect(
         await controller.setConversationDisappearingMessages(
           directId,
           const Duration(days: 1),
@@ -403,6 +573,10 @@ void main() {
       expect(controller.themePreference, WampAppThemePreference.dark);
       expect(controller.isConversationMuted(directId), isTrue);
       expect(
+        controller.conversationAppearanceFor(directId),
+        WampAppConversationAppearance.ocean,
+      );
+      expect(
         controller.disappearingMessagesFor(directId),
         const Duration(days: 1),
       );
@@ -410,6 +584,10 @@ void main() {
       await controller.signOut();
       expect(controller.themePreference, WampAppThemePreference.system);
       expect(controller.isConversationMuted(directId), isFalse);
+      expect(
+        controller.conversationAppearanceFor(directId),
+        WampAppConversationAppearance.standard,
+      );
       expect(controller.disappearingMessagesFor(directId), isNull);
 
       await controller.login(
@@ -419,6 +597,10 @@ void main() {
       );
       expect(controller.themePreference, WampAppThemePreference.dark);
       expect(controller.isConversationMuted(directId), isTrue);
+      expect(
+        controller.conversationAppearanceFor(directId),
+        WampAppConversationAppearance.ocean,
+      );
       expect(
         controller.disappearingMessagesFor(directId),
         const Duration(days: 1),
@@ -457,6 +639,17 @@ void main() {
       isFalse,
     );
     expect(controller.disappearingMessagesFor(directId), isNull);
+    expect(
+      await controller.setConversationAppearance(
+        directId,
+        WampAppConversationAppearance.ocean,
+      ),
+      isFalse,
+    );
+    expect(
+      controller.conversationAppearanceFor(directId),
+      WampAppConversationAppearance.standard,
+    );
 
     session.savePreferencesFailure = null;
     final gate = session.savePreferencesGate = Completer<void>();
@@ -898,6 +1091,60 @@ void main() {
     expect(controller.mcpConsent.profileReadAllowed, isTrue);
     expect(controller.mcpConsent.revision, 3);
     expect(controller.mcpConsentError, contains('another device'));
+  });
+
+  test(
+    'MCP access discovery resolves server paths on the WAMP origin',
+    () async {
+      final gateway = _RecordingGateway();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: FakeDeviceTrustStore(),
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'wss://chat.example:9443/ws',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+
+      final access = await controller.loadMcpAccessConfiguration();
+
+      expect(access, isNotNull);
+      expect(
+        access!.mcpUriFor(controller.connection!.endpoint),
+        Uri.parse('https://chat.example:9443/mcp'),
+      );
+      expect(gateway.mcpAccessRequests, 1);
+      expect(controller.mcpAccessBusy, isFalse);
+      expect(controller.mcpAccessError, isNull);
+    },
+  );
+
+  test('late MCP access discovery cannot cross a signed-out session', () async {
+    final gateway = _RecordingGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final gate = gateway.mcpAccessGate =
+        Completer<WampAppMcpAccessConfiguration>();
+
+    final pending = controller.loadMcpAccessConfiguration();
+    await _waitFor(() => controller.mcpAccessBusy);
+    await controller.signOut();
+    gate.complete(gateway.mcpAccessConfiguration);
+
+    expect(await pending, isNull);
+    expect(controller.mcpAccessBusy, isFalse);
+    expect(controller.mcpAccessError, isNull);
+    expect(controller.status, WampAppStatus.signedOut);
   });
 
   test(
@@ -1508,6 +1755,185 @@ void main() {
     },
   );
 
+  test(
+    'view-once attachments prefetch before consume and close invalidates cache',
+    () async {
+      const messageId = 'view-once-attachment-message';
+      final plaintext = Uint8List.fromList(
+        List<int>.generate(65537, (index) => (index * 23) % 251),
+      );
+      final producerCache = MemoryAttachmentChunkCache();
+      final consumerCache = MemoryAttachmentChunkCache();
+      final attachmentCipher = AttachmentCipher();
+      addTearDown(producerCache.dispose);
+      addTearDown(consumerCache.dispose);
+      addTearDown(attachmentCipher.dispose);
+      final descriptor = (await attachmentCipher.encryptSources(
+        scope: 'producer',
+        senderUsername: 'alice',
+        messageId: messageId,
+        sources: [
+          AttachmentPlaintextSource(
+            name: 'view-once.bin',
+            contentType: 'application/octet-stream',
+            kind: ChatAttachmentKind.file,
+            byteCount: plaintext.length,
+            openRead: () => Stream.value(plaintext),
+          ),
+        ],
+        cache: producerCache,
+      )).single;
+      final gateway = _OutboxGateway();
+      for (var index = 0; index < descriptor.chunkCount; index += 1) {
+        final chunk = (await producerCache.get(
+          scope: 'producer',
+          senderUsername: 'alice',
+          messageId: messageId,
+          attachmentId: descriptor.attachmentId,
+          chunkIndex: index,
+          chunkCount: descriptor.chunkCount,
+        ))!;
+        gateway.attachmentChunks[gateway._attachmentKey(
+              messageId,
+              descriptor.attachmentId,
+              index,
+            )] =
+            chunk;
+      }
+      final aliceTrust = FakeDeviceTrustSession(
+        'alice',
+        const [],
+        const [],
+        const [],
+        0,
+        LocalAppPreferences.defaults,
+      );
+      final envelope = MessageCipher().encrypt(
+        senderUsername: 'alice',
+        recipientUsername: 'bob',
+        text: 'Open this attachment once.',
+        trust: aliceTrust,
+        participantDevices: [
+          activeDeviceRecord('alice', aliceTrust.enrollment),
+          activeDeviceRecord('bob', aliceTrust.enrollment),
+        ],
+        now: DateTime.utc(2026, 8, 25, 12),
+        oneTime: true,
+        messageId: messageId,
+        attachments: [descriptor],
+      );
+      gateway.store(envelope, deliveredTo: 'bob');
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: FakeDeviceTrustStore(
+          initialMessages: [
+            LocalChatMessage(
+              messageId: messageId,
+              conversationId: envelope.conversationId,
+              peerUsername: 'alice',
+              text: 'Open this attachment once.',
+              sentAt: envelope.createdAt,
+              outgoing: false,
+              oneTime: true,
+              attachments: [descriptor],
+            ),
+          ],
+        ),
+        attachmentCache: consumerCache,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'bob',
+        password: 'correct horse battery',
+      );
+
+      final opened = await controller.consumeOneTimeMessage(messageId);
+
+      expect(opened?.text, 'Open this attachment once.');
+      expect(opened?.attachments, [descriptor]);
+      expect(gateway.consumeAttempts, hasLength(1));
+      expect(gateway.attachmentChunks, isEmpty);
+      expect(
+        gateway.attachmentGetAttempts,
+        List<int>.generate(descriptor.chunkCount, (index) => index),
+      );
+      expect(controller.messages, isEmpty);
+      final bytes = await controller.loadOpenedOneTimeAttachment(
+        message: opened!,
+        attachmentId: descriptor.attachmentId,
+      );
+      expect(bytes, plaintext);
+      bytes!.fillRange(0, bytes.length, 0);
+      expect(gateway.attachmentGetAttempts, hasLength(descriptor.chunkCount));
+
+      await controller.closeOpenedOneTimeMessage(opened);
+
+      expect(opened.attachments, isEmpty);
+      expect(
+        await controller.loadOpenedOneTimeAttachment(
+          message: opened,
+          attachmentId: descriptor.attachmentId,
+        ),
+        isNull,
+      );
+      expect(
+        await consumerCache.get(
+          scope: attachmentCacheScope(controller.connection!.endpoint, 'bob'),
+          senderUsername: 'alice',
+          messageId: messageId,
+          attachmentId: descriptor.attachmentId,
+          chunkIndex: 0,
+          chunkCount: descriptor.chunkCount,
+        ),
+        isNull,
+      );
+    },
+  );
+
+  test('view-once attachment prefetch failure does not consume', () async {
+    const messageId = 'incomplete-view-once-attachment';
+    final descriptor = EncryptedAttachmentDescriptor(
+      attachmentId: 'incomplete-view-once-attachment-id',
+      name: 'missing.bin',
+      contentType: 'application/octet-stream',
+      kind: ChatAttachmentKind.file,
+      plaintextBytes: 1,
+      plaintextSha256: sha256.convert(const [1]).toString(),
+      chunkBytes: 1,
+      chunkCount: 1,
+      key: Uint8List(32),
+    );
+    final gateway = _OutboxGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(
+        initialMessages: [
+          LocalChatMessage(
+            messageId: messageId,
+            conversationId: 'alice-bob',
+            peerUsername: 'alice',
+            text: '',
+            sentAt: DateTime.utc(2026, 8, 25, 12),
+            outgoing: false,
+            oneTime: true,
+            attachments: [descriptor],
+          ),
+        ],
+      ),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'bob',
+      password: 'correct horse battery',
+    );
+
+    expect(await controller.consumeOneTimeMessage(messageId), isNull);
+    expect(gateway.consumeAttempts, isEmpty);
+    expect(controller.messages.single.messageId, messageId);
+  });
+
   test('message conflicts are terminal until explicitly discarded', () async {
     final gateway = _OutboxGateway()
       ..nextFailureKind = MessageSendFailureKind.conflict;
@@ -1773,6 +2199,48 @@ void main() {
     expect(controller.messageError, isNull);
   });
 
+  test('verified member replacement blocks an atomic group send', () async {
+    final gateway = _RecordingGateway();
+    final trustStore = FakeDeviceTrustStore();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(70, 'Bob old phone')),
+    ];
+    gateway.deviceDirectories['carol'] = [
+      activeDeviceRecord('carol', _deviceEnrollment(80, 'Carol phone')),
+    ];
+    final group = await controller.createGroup(
+      title: 'Verified group',
+      memberUsernames: const ['bob', 'carol'],
+    );
+    final bobTrust = await controller.inspectPeerTrust('bob');
+    await controller.verifyPeerDevice(bobTrust!.devices.single);
+    gateway.deviceDirectories['bob'] = [
+      activeDeviceRecord('bob', _deviceEnrollment(90, 'Bob new phone')),
+    ];
+
+    expect(
+      await controller.sendGroupMessage(
+        groupId: group!.conversationId,
+        text: 'must not partially send',
+      ),
+      isFalse,
+    );
+
+    expect(gateway.sentMessages, isEmpty);
+    expect(controller.messages, isEmpty);
+    expect(controller.messageError, contains('@bob'));
+  });
+
   test('uploads group attachments before the atomic group envelope', () async {
     final gateway = _OutboxGateway();
     final trustStore = FakeDeviceTrustStore();
@@ -1836,6 +2304,23 @@ AccountProfile _profileFor(String username) => AccountProfile(
   updatedAt: DateTime.utc(2026, 8, 24),
 );
 
+DeviceEnrollment _deviceEnrollment(int seed, String deviceName) {
+  String token(int bytes, int offset) => base64Url
+      .encode(
+        List<int>.generate(bytes, (index) => (seed + offset + index) & 0xff),
+      )
+      .replaceAll('=', '');
+
+  return DeviceEnrollment(
+    deviceId: token(32, 1),
+    deviceName: deviceName,
+    signingPublicKey: token(32, 2),
+    exchangePublicKey: token(32, 3),
+    attestation: token(64, 4),
+    createdAt: DateTime.utc(2026, 8, 24, 12),
+  );
+}
+
 class _RecordingGateway implements AccountGateway {
   _RecordingGateway({List<String>? operations})
     : operations = operations ?? <String>[];
@@ -1844,12 +2329,21 @@ class _RecordingGateway implements AccountGateway {
   String? loginPassword;
   bool closed = false;
   bool failNextClose = false;
+  Completer<void>? closeGate;
   Object? loginFailure;
   Completer<AccountProfile>? profileUpdateGate;
   Completer<AccountProfile>? profileLookupGate;
   AccountProfile? profileLookupOverride;
   final List<String> profileLookups = [];
   WampAppMcpConsent mcpConsent = WampAppMcpConsent.denied;
+  WampAppMcpAccessConfiguration mcpAccessConfiguration =
+      WampAppMcpAccessConfiguration.standard(
+        mcpPath: '/mcp',
+        authPath: '/mcp/auth',
+      );
+  Completer<WampAppMcpAccessConfiguration>? mcpAccessGate;
+  Object? mcpAccessFailure;
+  int mcpAccessRequests = 0;
   Object? nextMcpConsentFailure;
   final List<bool> mcpConsentUpdates = [];
   final List<_GatewayConnection> connections = [];
@@ -1862,6 +2356,7 @@ class _RecordingGateway implements AccountGateway {
   final List<Uint8List> backupChunks = [];
   BackupMetadata? remoteMetadata;
   Uint8List? remoteBackup;
+  final List<ServerEndpoint> probedEndpoints = [];
 
   void seedRemoteBackup(Uint8List archive) {
     remoteBackup = Uint8List.fromList(archive);
@@ -1874,6 +2369,11 @@ class _RecordingGateway implements AccountGateway {
       sha256: sha256.convert(archive).toString(),
       updatedAt: DateTime.utc(2026, 8, 25),
     );
+  }
+
+  @override
+  Future<void> probe({required ServerEndpoint endpoint}) async {
+    probedEndpoints.add(endpoint);
   }
 
   @override
@@ -1906,6 +2406,12 @@ class _RecordingGateway implements AccountGateway {
       username: normalizedUsername,
       initialProfile: _profileFor(normalizedUsername),
       initialMcpConsent: mcpConsent,
+      getMcpAccessConfigurationCallback: () async {
+        mcpAccessRequests += 1;
+        final failure = mcpAccessFailure;
+        if (failure != null) throw failure;
+        return mcpAccessGate?.future ?? mcpAccessConfiguration;
+      },
       getProfileCallback: (username) async {
         final normalized = AccountRegistration.normalizeUsername(username);
         profileLookups.add(normalized);
@@ -2045,6 +2551,7 @@ class _RecordingGateway implements AccountGateway {
       latestMailboxWakeupErrorCallback: () => null,
       closeTransport: () async {
         operations.add('transport-close');
+        await closeGate?.future;
         closed = true;
         if (failNextClose) {
           failNextClose = false;
@@ -2118,19 +2625,30 @@ final class _OutboxGateway implements AccountGateway {
   final Map<String, EncryptedAttachmentChunk> attachmentChunks = {};
   final List<int> attachmentPutAttempts = [];
   final List<int> attachmentGetAttempts = [];
+  final List<OneTimeMessageConsumption> consumeAttempts = [];
   final List<String> operations = [];
   int? failAfterStoredChunkIndex;
+
+  @override
+  Future<void> probe({required ServerEndpoint endpoint}) async {}
 
   Completer<MessageSendReceipt> blockNextSend() =>
       _sendGate = Completer<MessageSendReceipt>();
 
-  void store(EncryptedChatMessage message) {
+  void store(EncryptedChatMessage message, {String? deliveredTo}) {
     _cursor += 1;
     _mailbox.add(
       MailboxMessage(
         cursor: _cursor,
         message: message,
         acceptedAt: DateTime.utc(2026, 8, 25, 12, _cursor),
+        recipientStates: deliveredTo == null
+            ? const {}
+            : {
+                deliveredTo: MailboxRecipientState(
+                  deliveredAt: DateTime.utc(2026, 8, 25, 12, _cursor),
+                ),
+              },
       ),
     );
   }
@@ -2188,7 +2706,7 @@ final class _OutboxGateway implements AccountGateway {
         return MailboxBatch(nextCursor: _cursor, messages: messages);
       },
       markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
-      consumeOneTimeCallback: (_) => throw UnimplementedError(),
+      consumeOneTimeCallback: _consumeOneTime,
       mailboxWakeups: const Stream<MailboxWakeup>.empty(),
       latestMailboxWakeupCursorCallback: () => 0,
       latestMailboxWakeupErrorCallback: () => null,
@@ -2321,6 +2839,58 @@ final class _OutboxGateway implements AccountGateway {
       );
     }
     return chunk;
+  }
+
+  Future<MessageReceipt> _consumeOneTime(
+    OneTimeMessageConsumption consumption,
+  ) async {
+    consumeAttempts.add(consumption);
+    final existing = _mailbox.reversed
+        .where((stored) => stored.message.messageId == consumption.messageId)
+        .firstOrNull;
+    if (existing == null) throw StateError('Message was not found.');
+    final recipient = existing.message.recipientUsername!;
+    final current = existing.recipientStateFor(recipient);
+    if (current?.consumedAt != null) {
+      if (current?.consumedByDeviceId != consumption.deviceId) {
+        throw StateError('Message was consumed by another device.');
+      }
+      return MessageReceipt(
+        messageId: consumption.messageId,
+        cursor: existing.cursor,
+        deliveredAt: current?.deliveredAt,
+        readAt: current?.readAt,
+        consumedAt: current?.consumedAt,
+      );
+    }
+    final consumedAt = DateTime.utc(2026, 8, 25, 12, 30);
+    final states = Map<String, MailboxRecipientState>.of(
+      existing.recipientStates,
+    );
+    states[recipient] = MailboxRecipientState(
+      deliveredAt: current?.deliveredAt ?? consumedAt,
+      readAt: consumedAt,
+      consumedAt: consumedAt,
+      consumedByDeviceId: consumption.deviceId,
+    );
+    _cursor += 1;
+    final updated = MailboxMessage(
+      cursor: _cursor,
+      message: existing.message,
+      acceptedAt: existing.acceptedAt,
+      recipientStates: states,
+    );
+    _mailbox.add(updated);
+    attachmentChunks.removeWhere(
+      (key, _) => key.startsWith('${consumption.messageId}\n'),
+    );
+    return MessageReceipt(
+      messageId: consumption.messageId,
+      cursor: updated.cursor,
+      deliveredAt: consumedAt,
+      readAt: consumedAt,
+      consumedAt: consumedAt,
+    );
   }
 
   String _attachmentKey(

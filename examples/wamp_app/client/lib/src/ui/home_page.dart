@@ -14,6 +14,7 @@ import '../domain/local_message_query.dart';
 import '../domain/outbound_chat_message.dart';
 import '../infrastructure/attachment_cipher.dart';
 import '../infrastructure/contact_importer.dart';
+import '../infrastructure/profile_avatar_picker.dart';
 import '../infrastructure/voice_note_playback.dart';
 import '../infrastructure/voice_note_recorder.dart';
 import '../infrastructure/wamp_account_gateway.dart';
@@ -30,6 +31,7 @@ class HomePage extends StatefulWidget {
     this.voiceNoteCaptureFactory,
     this.stickerRenderer,
     this.contactImporter,
+    this.profileAvatarPicker,
   });
 
   final WampAppController controller;
@@ -37,6 +39,7 @@ class HomePage extends StatefulWidget {
   final VoiceNoteCapture Function()? voiceNoteCaptureFactory;
   final StickerRenderer? stickerRenderer;
   final ContactImporter? contactImporter;
+  final ProfileAvatarPicker? profileAvatarPicker;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -80,6 +83,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _send() async {
     final text = _messageController.text;
+    final sentAttachments = _attachments;
     final groupId = _selectedGroupId;
     final conversationId =
         groupId ??
@@ -87,7 +91,7 @@ class _HomePageState extends State<HomePage> {
     final expiresAfter = conversationId == null
         ? null
         : widget.controller.disappearingMessagesFor(conversationId);
-    final attachmentSources = _attachments
+    final attachmentSources = sentAttachments
         .map((attachment) => attachment.source)
         .toList(growable: false);
     final queued = groupId == null
@@ -105,10 +109,15 @@ class _HomePageState extends State<HomePage> {
             attachmentSources: attachmentSources,
           );
     if (mounted && queued) {
-      final sentAttachments = _attachments;
       setState(() {
-        _messageController.clear();
-        _attachments = const [];
+        if (_messageController.text == text) {
+          _messageController.clear();
+        }
+        _attachments = List<_SelectedAttachment>.unmodifiable(
+          _attachments.where(
+            (attachment) => !sentAttachments.contains(attachment),
+          ),
+        );
       });
       for (final attachment in sentAttachments) {
         attachment.dispose();
@@ -144,7 +153,6 @@ class _HomePageState extends State<HomePage> {
           ..._attachments,
           ...selected,
         ]);
-        _oneTime = false;
       });
     } catch (error) {
       if (!mounted) return;
@@ -156,8 +164,16 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _showExpressionPicker() {
-    return showModalBottomSheet<void>(
+  Future<void> _showExpressionPicker() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+    for (var attempt = 0; attempt < 20; attempt += 1) {
+      if (!mounted || MediaQuery.viewInsetsOf(context).bottom == 0) break;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -215,7 +231,6 @@ class _HomePageState extends State<HomePage> {
           ..._attachments,
           selected,
         ]);
-        _oneTime = false;
       });
       return true;
     } catch (error) {
@@ -341,7 +356,6 @@ class _HomePageState extends State<HomePage> {
         ..._attachments,
         attachment,
       ]);
-      _oneTime = false;
     });
   }
 
@@ -382,6 +396,14 @@ class _HomePageState extends State<HomePage> {
       attachmentId: attachment.attachmentId,
     );
     if (bytes == null) return;
+    await _showAttachmentBytes(attachment, bytes, allowSaveCopy: true);
+  }
+
+  Future<void> _showAttachmentBytes(
+    EncryptedAttachmentDescriptor attachment,
+    Uint8List bytes, {
+    required bool allowSaveCopy,
+  }) async {
     if (!mounted) {
       bytes.fillRange(0, bytes.length, 0);
       return;
@@ -425,21 +447,22 @@ class _HomePageState extends State<HomePage> {
                   ),
           ),
           actions: [
-            TextButton.icon(
-              onPressed: () async {
-                final location = await getSaveLocation(
-                  suggestedName: attachment.name,
-                );
-                if (location == null) return;
-                await XFile.fromData(
-                  bytes,
-                  name: attachment.name,
-                  mimeType: attachment.contentType,
-                ).saveTo(location.path);
-              },
-              icon: const Icon(Icons.download_outlined),
-              label: const Text('Save copy'),
-            ),
+            if (allowSaveCopy)
+              TextButton.icon(
+                onPressed: () async {
+                  final location = await getSaveLocation(
+                    suggestedName: attachment.name,
+                  );
+                  if (location == null) return;
+                  await XFile.fromData(
+                    bytes,
+                    name: attachment.name,
+                    mimeType: attachment.contentType,
+                  ).saveTo(location.path);
+                },
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Save copy'),
+              ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Close'),
@@ -458,49 +481,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _createGroup() async {
-    final title = TextEditingController();
-    final members = TextEditingController();
     final details = await showDialog<(String, List<String>)>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New encrypted group'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              key: const Key('group-title'),
-              controller: title,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Group name'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const Key('group-members'),
-              controller: members,
-              decoration: const InputDecoration(
-                labelText: 'Member usernames',
-                helperText: 'Separate usernames with commas',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('group-create'),
-            onPressed: () =>
-                Navigator.of(context)
-                    .pop((title.text, members.text.split(','))),
-            child: const Text('Create group'),
-          ),
-        ],
-      ),
+      builder: (context) => const _CreateGroupDialog(),
     );
-    title.dispose();
-    members.dispose();
     if (!mounted || details == null) return;
     final group = await widget.controller.createGroup(
       title: details.$1,
@@ -520,23 +504,67 @@ class _HomePageState extends State<HomePage> {
       await widget.controller.markMessageRead(message.messageId);
       return;
     }
-    final text = await widget.controller.consumeOneTimeMessage(
+    final opened = await widget.controller.consumeOneTimeMessage(
       message.messageId,
     );
-    if (!mounted || text == null) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('View-once message'),
-        content: Text(text, key: const Key('one-time-message-content')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+    if (opened == null) return;
+    if (!mounted) {
+      await widget.controller.closeOpenedOneTimeMessage(opened);
+      return;
+    }
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('View-once message'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 560),
+            child: SingleChildScrollView(
+              child: Column(
+                key: const Key('one-time-message-content'),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (opened.text.isNotEmpty) Text(opened.text),
+                  for (final attachment in opened.attachments) ...[
+                    if (opened.text.isNotEmpty) const SizedBox(height: 10),
+                    _AttachmentCard(
+                      attachment: attachment,
+                      onOpen: () async {
+                        final bytes = await widget.controller
+                            .loadOpenedOneTimeAttachment(
+                              message: opened,
+                              attachmentId: attachment.attachmentId,
+                            );
+                        if (bytes == null) {
+                          _showMessage(
+                            'The view-once attachment could not be opened.',
+                          );
+                          return;
+                        }
+                        await _showAttachmentBytes(
+                          attachment,
+                          bytes,
+                          allowSaveCopy: false,
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
-    );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      await widget.controller.closeOpenedOneTimeMessage(opened);
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -568,8 +596,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _editProfile() async {
     final update = await showDialog<AccountProfileUpdate>(
       context: context,
-      builder: (context) =>
-          _EditProfileDialog(profile: widget.connection.profile),
+      builder: (context) => _EditProfileDialog(
+        profile: widget.connection.profile,
+        avatarPicker:
+            widget.profileAvatarPicker ??
+            const FileSelectorProfileAvatarPicker(),
+      ),
     );
     if (update == null || !mounted) return;
     final saved = await widget.controller.updateProfile(update);
@@ -616,6 +648,124 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _showMcpAccess() async {
+    final configuration = await widget.controller.loadMcpAccessConfiguration();
+    if (!mounted) return;
+    if (configuration == null) {
+      _showMessage(
+        widget.controller.mcpAccessError ??
+            'Could not load MCP connection information.',
+      );
+      return;
+    }
+    final endpoint = configuration.mcpUriFor(widget.connection.endpoint);
+    final authEndpoint = configuration.authUriFor(widget.connection.endpoint);
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AnimatedBuilder(
+        animation: widget.controller,
+        builder: (context, _) => AlertDialog(
+          key: const Key('mcp-access-dialog'),
+          scrollable: true,
+          title: const Row(
+            children: [
+              Icon(Icons.smart_toy_outlined),
+              SizedBox(width: 10),
+              Expanded(child: Text('Connect an AI service')),
+            ],
+          ),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Use the endpoint below with an MCP client that supports '
+                  'Streamable HTTP or direct JSON. The client authenticates '
+                  'as this WampApp account using a WAMP-SCRAM access grant.',
+                ),
+                const SizedBox(height: 16),
+                _McpEndpointField(
+                  label: 'MCP endpoint',
+                  keyName: 'mcp-access-endpoint',
+                  uri: endpoint,
+                  onCopy: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: endpoint.toString()),
+                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(content: Text('MCP endpoint copied.')),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                _McpEndpointField(
+                  label: 'Authentication endpoint',
+                  keyName: 'mcp-auth-endpoint',
+                  uri: authEndpoint,
+                  onCopy: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: authEndpoint.toString()),
+                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(content: Text('Auth endpoint copied.')),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(height: 14),
+                Text('Account: @${widget.connection.username}'),
+                const Text('Realm: ${WampAppProtocol.appRealm}'),
+                const Text('Authentication: WAMP-SCRAM access grant'),
+                const SizedBox(height: 14),
+                const Text(
+                  'Catalogs: tools, resources, and prompts · Transports: '
+                  'Streamable HTTP and direct JSON',
+                ),
+                const SizedBox(height: 14),
+                SwitchListTile.adaptive(
+                  key: const Key('mcp-access-profile-switch'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Allow public-profile access'),
+                  subtitle: Text(
+                    widget.controller.mcpConsent.profileReadAllowed
+                        ? 'Enabled. Revocation takes effect immediately.'
+                        : 'Disabled by default.',
+                  ),
+                  value: widget.controller.mcpConsent.profileReadAllowed,
+                  onChanged: widget.controller.mcpConsentBusy
+                      ? null
+                      : _setMcpProfileReadAllowed,
+                ),
+                Text(
+                  'Visible fields: ${configuration.profileFields.join(', ')}.',
+                  key: const Key('mcp-access-profile-fields'),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Chats, messages, attachments, backups, devices, calls, '
+                  'encryption keys, and avatars remain unavailable. WampApp '
+                  'never displays or copies your password, access token, or '
+                  'refresh token.',
+                  key: Key('mcp-access-data-boundary'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showPeerProfile() async {
     final username = _recipientController.text.trim();
     if (username.isEmpty) {
@@ -639,7 +789,11 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _ProfileAvatar(profile: profile, radius: 46),
+              _ProfileAvatar(
+                key: const Key('peer-profile-avatar'),
+                profile: profile,
+                radius: 46,
+              ),
               const SizedBox(height: 14),
               Text(
                 profile.displayName,
@@ -662,6 +816,19 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showPeerTrust() async {
+    final username = _recipientController.text.trim();
+    if (username.isEmpty) {
+      _showMessage('Enter a recipient username first.');
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) =>
+          _PeerTrustDialog(controller: widget.controller, username: username),
     );
   }
 
@@ -689,6 +856,23 @@ class _HomePageState extends State<HomePage> {
                 : 'Chat unmuted on this account.'
           : widget.controller.preferenceError ??
                 'Could not save the chat preference.',
+    );
+  }
+
+  Future<void> _setConversationAppearance(
+    String conversationId,
+    WampAppConversationAppearance appearance,
+  ) async {
+    final saved = await widget.controller.setConversationAppearance(
+      conversationId,
+      appearance,
+    );
+    if (!mounted) return;
+    _showMessage(
+      saved
+          ? '${_ConversationPanel._appearanceLabel(appearance)} chat appearance saved on this account.'
+          : widget.controller.preferenceError ??
+                'Could not save the chat appearance.',
     );
   }
 
@@ -830,6 +1014,7 @@ class _HomePageState extends State<HomePage> {
                     compact: !wide,
                     profileBusy: widget.controller.profileBusy,
                     mcpConsent: widget.controller.mcpConsent,
+                    mcpAccessBusy: widget.controller.mcpAccessBusy,
                     mcpConsentBusy: widget.controller.mcpConsentBusy,
                     preferenceBusy: widget.controller.preferenceBusy,
                     backupBusy: widget.controller.backupBusy,
@@ -837,7 +1022,7 @@ class _HomePageState extends State<HomePage> {
                     contactCount: widget.controller.contacts.length,
                     themePreference: widget.controller.themePreference,
                     onEditProfile: _editProfile,
-                    onMcpProfileReadAllowedChanged: _setMcpProfileReadAllowed,
+                    onOpenMcpAccess: _showMcpAccess,
                     onThemeChanged: _setThemePreference,
                     onBackup: _showBackupMenu,
                     onRemoteBackup: _uploadRemoteBackup,
@@ -860,6 +1045,7 @@ class _HomePageState extends State<HomePage> {
                     onSearchResultSelected: _selectSearchResult,
                     onSend: _send,
                     onViewProfile: _showPeerProfile,
+                    onVerifyIdentity: _showPeerTrust,
                     onStartVoiceCall: () => _startCall(CallMediaKind.voice),
                     onStartVideoCall: () => _startCall(CallMediaKind.video),
                     oneTime: _oneTime,
@@ -884,6 +1070,7 @@ class _HomePageState extends State<HomePage> {
                     }),
                     onCreateGroup: _createGroup,
                     onMuteChanged: _setConversationMuted,
+                    onAppearanceChanged: _setConversationAppearance,
                     onOneTimeChanged: (value) =>
                         setState(() => _oneTime = value),
                     onExpiresAfterChanged: _setConversationDisappearingMessages,
@@ -931,10 +1118,70 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+class _CreateGroupDialog extends StatefulWidget {
+  const _CreateGroupDialog();
+
+  @override
+  State<_CreateGroupDialog> createState() => _CreateGroupDialogState();
+}
+
+class _CreateGroupDialogState extends State<_CreateGroupDialog> {
+  final _title = TextEditingController();
+  final _members = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _members.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New encrypted group'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            key: const Key('group-title'),
+            controller: _title,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Group name'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('group-members'),
+            controller: _members,
+            decoration: const InputDecoration(
+              labelText: 'Member usernames',
+              helperText: 'Separate usernames with commas',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('group-create'),
+          onPressed: () =>
+              Navigator.of(context)
+                  .pop((_title.text, _members.text.split(','))),
+          child: const Text('Create group'),
+        ),
+      ],
+    );
+  }
+}
+
 class _EditProfileDialog extends StatefulWidget {
-  const _EditProfileDialog({required this.profile});
+  const _EditProfileDialog({required this.profile, required this.avatarPicker});
 
   final AccountProfile profile;
+  final ProfileAvatarPicker avatarPicker;
 
   @override
   State<_EditProfileDialog> createState() => _EditProfileDialogState();
@@ -966,25 +1213,30 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   }
 
   Future<void> _pickAvatar() async {
-    final file = await openFile(
-      acceptedTypeGroups: const [
-        XTypeGroup(
-          label: 'Profile image',
-          extensions: ['jpg', 'jpeg', 'png', 'webp'],
-          mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-        ),
-      ],
-    );
-    if (file == null || !mounted) return;
-    final bytes = await file.readAsBytes();
-    if (!mounted) return;
+    ProfileAvatarSelection? selection;
+    try {
+      selection = await widget.avatarPicker.pickAvatar();
+    } on ProfileAvatarPickerException catch (error) {
+      if (mounted) setState(() => _validationError = error.message);
+      return;
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _validationError =
+              'The selected profile image could not be read.',
+        );
+      }
+      return;
+    }
+    if (selection == null || !mounted) return;
+    final bytes = selection.bytes;
     if (bytes.length > AccountProfileLimits.maxAvatarBytes) {
       setState(() {
         _validationError = 'Profile images must be 256 KiB or smaller.';
       });
       return;
     }
-    final contentType = _profileImageContentType(file.name);
+    final contentType = _profileImageContentType(selection.name);
     if (contentType == null) {
       setState(() {
         _validationError = 'Choose a JPEG, PNG, or WebP image.';
@@ -1062,7 +1314,11 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _ProfileAvatar(profile: preview, radius: 42),
+              _ProfileAvatar(
+                key: const Key('profile-avatar-preview'),
+                profile: preview,
+                radius: 42,
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -1132,6 +1388,55 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   }
 }
 
+class _McpEndpointField extends StatelessWidget {
+  const _McpEndpointField({
+    required this.label,
+    required this.keyName,
+    required this.uri,
+    required this.onCopy,
+  });
+
+  final String label;
+  final String keyName;
+  final Uri uri;
+  final Future<void> Function() onCopy;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 4),
+                SelectableText(
+                  uri.toString(),
+                  key: ValueKey(keyName),
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            key: ValueKey('$keyName-copy'),
+            tooltip: 'Copy $label',
+            onPressed: onCopy,
+            icon: const Icon(Icons.copy_outlined),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _AccountPanel extends StatelessWidget {
   const _AccountPanel({
     required this.connection,
@@ -1140,6 +1445,7 @@ class _AccountPanel extends StatelessWidget {
     required this.compact,
     required this.profileBusy,
     required this.mcpConsent,
+    required this.mcpAccessBusy,
     required this.mcpConsentBusy,
     required this.preferenceBusy,
     required this.backupBusy,
@@ -1147,7 +1453,7 @@ class _AccountPanel extends StatelessWidget {
     required this.contactCount,
     required this.themePreference,
     required this.onEditProfile,
-    required this.onMcpProfileReadAllowedChanged,
+    required this.onOpenMcpAccess,
     required this.onThemeChanged,
     required this.onBackup,
     required this.onRemoteBackup,
@@ -1161,6 +1467,7 @@ class _AccountPanel extends StatelessWidget {
   final bool compact;
   final bool profileBusy;
   final WampAppMcpConsent mcpConsent;
+  final bool mcpAccessBusy;
   final bool mcpConsentBusy;
   final bool preferenceBusy;
   final bool backupBusy;
@@ -1168,7 +1475,7 @@ class _AccountPanel extends StatelessWidget {
   final int contactCount;
   final WampAppThemePreference themePreference;
   final VoidCallback onEditProfile;
-  final ValueChanged<bool> onMcpProfileReadAllowedChanged;
+  final VoidCallback onOpenMcpAccess;
   final ValueChanged<WampAppThemePreference> onThemeChanged;
   final VoidCallback onBackup;
   final VoidCallback onRemoteBackup;
@@ -1251,7 +1558,11 @@ class _AccountPanel extends StatelessWidget {
                 SizedBox(height: compact ? 12 : 24),
                 Row(
                   children: [
-                    _ProfileAvatar(profile: profile, radius: 25),
+                    _ProfileAvatar(
+                      key: const Key('account-profile-avatar'),
+                      profile: profile,
+                      radius: 25,
+                    ),
                     const SizedBox(width: 13),
                     Expanded(
                       child: Column(
@@ -1259,9 +1570,15 @@ class _AccountPanel extends StatelessWidget {
                         children: [
                           Text(
                             connection.displayName,
+                            maxLines: compact ? 1 : 2,
+                            overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
-                          Text('@${connection.username}'),
+                          Text(
+                            '@${connection.username}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           if (profile.status.isNotEmpty)
                             Text(
                               profile.status,
@@ -1328,21 +1645,17 @@ class _AccountPanel extends StatelessWidget {
                     const SizedBox(width: 6),
                     IconButton(
                       key: const Key('account-mcp-profile-consent'),
-                      tooltip: mcpConsent.profileReadAllowed
-                          ? 'Disable MCP public-profile access'
-                          : 'Enable MCP public-profile access',
+                      tooltip: 'MCP access settings',
                       constraints: const BoxConstraints.tightFor(
                         width: 28,
                         height: 28,
                       ),
                       padding: EdgeInsets.zero,
                       visualDensity: VisualDensity.compact,
-                      onPressed: mcpConsentBusy
+                      onPressed: mcpAccessBusy || mcpConsentBusy
                           ? null
-                          : () => onMcpProfileReadAllowedChanged(
-                              !mcpConsent.profileReadAllowed,
-                            ),
-                      icon: mcpConsentBusy
+                          : onOpenMcpAccess,
+                      icon: mcpAccessBusy || mcpConsentBusy
                           ? const SizedBox.square(
                               dimension: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
@@ -1454,7 +1767,11 @@ class _AccountPanel extends StatelessWidget {
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.profile, required this.radius});
+  const _ProfileAvatar({
+    super.key,
+    required this.profile,
+    required this.radius,
+  });
 
   final AccountProfile profile;
   final double radius;
@@ -1508,6 +1825,306 @@ class _OnlineBadge extends StatelessWidget {
   }
 }
 
+class _PeerTrustDialog extends StatefulWidget {
+  const _PeerTrustDialog({required this.controller, required this.username});
+
+  final WampAppController controller;
+  final String username;
+
+  @override
+  State<_PeerTrustDialog> createState() => _PeerTrustDialogState();
+}
+
+class _PeerTrustDialogState extends State<_PeerTrustDialog> {
+  PeerTrustSummary? _summary;
+  Object? _error;
+  bool _loading = true;
+  String? _verifyingDeviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final summary = await widget.controller.inspectPeerTrust(widget.username);
+      if (!mounted) return;
+      setState(() {
+        _summary = summary;
+        _error = summary == null
+            ? StateError('The account session changed.')
+            : null;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _verify(PeerDeviceTrust device) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm safety number'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(device.device.enrollment.deviceName),
+            const SizedBox(height: 8),
+            SelectableText(
+              device.safetyNumber,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Only continue after comparing this number with your contact '
+              'through another trusted channel.',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('peer-trust-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Numbers match'),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+    setState(() {
+      _verifyingDeviceId = device.device.deviceId;
+      _error = null;
+    });
+    try {
+      final summary = await widget.controller.verifyPeerDevice(device);
+      if (!mounted) return;
+      setState(() {
+        _summary = summary;
+        _error = summary == null
+            ? StateError('The account session changed.')
+            : null;
+        _verifyingDeviceId = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _verifyingDeviceId = null;
+      });
+    }
+  }
+
+  String get _errorMessage => switch (_error) {
+    FormatException(:final message) => message,
+    _ => 'Could not load or verify this encryption identity.',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = _summary;
+    return AlertDialog(
+      key: const Key('peer-trust-dialog'),
+      title: Text(
+        summary == null
+            ? 'Encryption identity'
+            : 'Encryption identity · @${summary.username}',
+      ),
+      content: SizedBox(
+        width: 440,
+        child: _loading
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            : SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (summary != null) ...[
+                      _PeerTrustStatusBanner(summary: summary),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Compare each active device safety number through '
+                        'another trusted channel. Verification detects later '
+                        'identity changes but does not replace that first '
+                        'comparison.',
+                      ),
+                      const SizedBox(height: 16),
+                      for (final device in summary.devices) ...[
+                        DecoratedBox(
+                          key: ValueKey(
+                            'peer-trust-device-${device.device.deviceId}',
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        device.device.enrollment.deviceName,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall,
+                                      ),
+                                    ),
+                                    if (device.verified)
+                                      const Chip(
+                                        avatar: Icon(Icons.verified, size: 18),
+                                        label: Text('Verified'),
+                                      ),
+                                  ],
+                                ),
+                                SelectableText(
+                                  device.safetyNumber,
+                                  key: ValueKey(
+                                    'peer-trust-number-${device.device.deviceId}',
+                                  ),
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: FilledButton.tonalIcon(
+                                    key: ValueKey(
+                                      'peer-trust-verify-${device.device.deviceId}',
+                                    ),
+                                    onPressed:
+                                        device.verified ||
+                                            _verifyingDeviceId != null
+                                        ? null
+                                        : () => _verify(device),
+                                    icon:
+                                        _verifyingDeviceId ==
+                                            device.device.deviceId
+                                        ? const SizedBox.square(
+                                            dimension: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.fact_check_outlined),
+                                    label: Text(
+                                      device.verified
+                                          ? 'Verified'
+                                          : 'Verify device',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ],
+                    if (_error != null) ...[
+                      Text(
+                        _errorMessage,
+                        key: const Key('peer-trust-error'),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: _verifyingDeviceId == null ? _load : null,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PeerTrustStatusBanner extends StatelessWidget {
+  const _PeerTrustStatusBanner({required this.summary});
+
+  final PeerTrustSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color, text) = switch (summary.status) {
+      PeerTrustStatus.unverified => (
+        Icons.shield_outlined,
+        Theme.of(context).colorScheme.secondary,
+        'Not verified yet. Messages can be sent, but compare every active '
+            'device before relying on this identity.',
+      ),
+      PeerTrustStatus.verified => (
+        Icons.verified_user,
+        const Color(0xFF197A52),
+        'Every active device is verified.',
+      ),
+      PeerTrustStatus.changed => (
+        Icons.gpp_bad_outlined,
+        Theme.of(context).colorScheme.error,
+        'Encryption identity changed. Sending is blocked until every active '
+            'device is reviewed and verified.',
+      ),
+    };
+    return DecoratedBox(
+      key: const Key('peer-trust-status'),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ConversationPanel extends StatelessWidget {
   const _ConversationPanel({
     required this.controller,
@@ -1524,6 +2141,7 @@ class _ConversationPanel extends StatelessWidget {
     required this.onSearchResultSelected,
     required this.onSend,
     required this.onViewProfile,
+    required this.onVerifyIdentity,
     required this.onStartVoiceCall,
     required this.onStartVideoCall,
     required this.oneTime,
@@ -1533,6 +2151,7 @@ class _ConversationPanel extends StatelessWidget {
     required this.onConversationChanged,
     required this.onCreateGroup,
     required this.onMuteChanged,
+    required this.onAppearanceChanged,
     required this.onOneTimeChanged,
     required this.onExpiresAfterChanged,
     required this.onOpenMessage,
@@ -1563,6 +2182,7 @@ class _ConversationPanel extends StatelessWidget {
   final Future<void> Function(LocalChatMessage message) onSearchResultSelected;
   final Future<void> Function() onSend;
   final Future<void> Function() onViewProfile;
+  final Future<void> Function() onVerifyIdentity;
   final VoidCallback onStartVoiceCall;
   final VoidCallback onStartVideoCall;
   final bool oneTime;
@@ -1572,6 +2192,11 @@ class _ConversationPanel extends StatelessWidget {
   final ValueChanged<String?> onConversationChanged;
   final Future<void> Function() onCreateGroup;
   final Future<void> Function(String conversationId, bool muted) onMuteChanged;
+  final Future<void> Function(
+    String conversationId,
+    WampAppConversationAppearance appearance,
+  )
+  onAppearanceChanged;
   final ValueChanged<bool> onOneTimeChanged;
   final Future<void> Function(String conversationId, Duration? duration)
   onExpiresAfterChanged;
@@ -1606,6 +2231,9 @@ class _ConversationPanel extends StatelessWidget {
     final conversationMuted =
         activeConversationId != null &&
         controller.isConversationMuted(activeConversationId);
+    final conversationAppearance = activeConversationId == null
+        ? WampAppConversationAppearance.standard
+        : controller.conversationAppearanceFor(activeConversationId);
     final canStartCall =
         !groupMode &&
         recipientController.text.trim().isNotEmpty &&
@@ -1619,18 +2247,15 @@ class _ConversationPanel extends StatelessWidget {
     final globalSearch = query.isGlobalSearch;
     final visibleMessages = query.select(controller.messages);
     final compact = MediaQuery.sizeOf(context).width < 760;
+    final compactComposition =
+        compact && (selectedAttachments.isNotEmpty || voiceRecording);
+    final chromeHidden = keyboardVisible || compactComposition;
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(
-          keyboardVisible
-              ? 8
-              : compact
-              ? 14
-              : 22,
-        ),
+        padding: EdgeInsets.all(compact || chromeHidden ? 8 : 22),
         child: Column(
           children: [
-            if (!keyboardVisible) ...[
+            if (!chromeHidden) ...[
               Row(
                 children: [
                   Icon(
@@ -1641,6 +2266,8 @@ class _ConversationPanel extends StatelessWidget {
                   Expanded(
                     child: Text(
                       selectedGroup?.title ?? 'Encrypted messages',
+                      maxLines: compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -1683,6 +2310,35 @@ class _ConversationPanel extends StatelessWidget {
                                   : Icons.notifications_none,
                             ),
                     ),
+                  PopupMenuButton<WampAppConversationAppearance>(
+                    key: const Key('conversation-appearance-menu'),
+                    enabled:
+                        activeConversationId != null &&
+                        !controller.preferenceBusy,
+                    tooltip:
+                        'Chat appearance: ${_appearanceLabel(conversationAppearance)}',
+                    onSelected: activeConversationId == null
+                        ? null
+                        : (appearance) => unawaited(
+                            onAppearanceChanged(
+                              activeConversationId,
+                              appearance,
+                            ),
+                          ),
+                    itemBuilder: (context) => [
+                      for (final appearance
+                          in WampAppConversationAppearance.values)
+                        CheckedPopupMenuItem<WampAppConversationAppearance>(
+                          key: ValueKey(
+                            'conversation-appearance-${appearance.wireName}',
+                          ),
+                          value: appearance,
+                          checked: conversationAppearance == appearance,
+                          child: Text(_appearanceLabel(appearance)),
+                        ),
+                    ],
+                    icon: const Icon(Icons.palette_outlined),
+                  ),
                   IconButton(
                     tooltip: 'Sync messages',
                     onPressed: controller.messageBusy
@@ -1692,7 +2348,7 @@ class _ConversationPanel extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: compact ? 4 : 12),
               TextField(
                 key: const Key('message-global-search'),
                 controller: searchController,
@@ -1722,7 +2378,7 @@ class _ConversationPanel extends StatelessWidget {
                 onTapOutside: (_) =>
                     FocusManager.instance.primaryFocus?.unfocus(),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: compact ? 4 : 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -1790,9 +2446,9 @@ class _ConversationPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: compact ? 6 : 14),
             ],
-            if (!keyboardVisible &&
+            if (!chromeHidden &&
                 !groupMode &&
                 controller.contacts.isNotEmpty) ...[
               SizedBox(
@@ -1820,7 +2476,7 @@ class _ConversationPanel extends StatelessWidget {
                   },
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: compact ? 4 : 10),
             ],
             if (!groupMode)
               TextField(
@@ -1830,16 +2486,31 @@ class _ConversationPanel extends StatelessWidget {
                 decoration: InputDecoration(
                   labelText: 'Recipient username',
                   prefixIcon: const Icon(Icons.alternate_email),
-                  suffixIcon: IconButton(
-                    key: const Key('recipient-profile-view'),
-                    tooltip: 'View public profile',
-                    onPressed: controller.profileBusy ? null : onViewProfile,
-                    icon: controller.profileBusy
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.account_circle_outlined),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        key: const Key('recipient-identity-view'),
+                        tooltip: 'Verify encryption identity',
+                        onPressed: onVerifyIdentity,
+                        icon: const Icon(Icons.verified_user_outlined),
+                      ),
+                      IconButton(
+                        key: const Key('recipient-profile-view'),
+                        tooltip: 'View public profile',
+                        onPressed: controller.profileBusy
+                            ? null
+                            : onViewProfile,
+                        icon: controller.profileBusy
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.account_circle_outlined),
+                      ),
+                    ],
                   ),
                 ),
                 onChanged: (_) => onRecipientChanged(),
@@ -1859,7 +2530,13 @@ class _ConversationPanel extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-            SizedBox(height: keyboardVisible ? 6 : 14),
+            SizedBox(
+              height: chromeHidden
+                  ? 4
+                  : compact
+                  ? 6
+                  : 14,
+            ),
             Expanded(
               child: visibleMessages.isEmpty
                   ? _NoMessages(
@@ -1881,6 +2558,9 @@ class _ConversationPanel extends StatelessWidget {
                             visibleMessages[visibleMessages.length - index - 1];
                         return _MessageBubble(
                           message: message,
+                          appearance: controller.conversationAppearanceFor(
+                            message.conversationId,
+                          ),
                           outbound: controller.outboundMessageFor(
                             message.messageId,
                           ),
@@ -1935,8 +2615,8 @@ class _ConversationPanel extends StatelessWidget {
                 ),
               ),
             ],
-            if (!keyboardVisible) ...[
-              const SizedBox(height: 14),
+            if (!chromeHidden) ...[
+              SizedBox(height: compact ? 6 : 14),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -1944,10 +2624,7 @@ class _ConversationPanel extends StatelessWidget {
                     FilterChip(
                       key: const Key('message-one-time'),
                       selected: !groupMode && oneTime,
-                      onSelected:
-                          controller.messageBusy ||
-                              groupMode ||
-                              selectedAttachments.isNotEmpty
+                      onSelected: controller.messageBusy || groupMode
                           ? null
                           : onOneTimeChanged,
                       avatar: const Icon(
@@ -1996,7 +2673,7 @@ class _ConversationPanel extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: compact ? 4 : 8),
             ] else
               const SizedBox(height: 4),
             if (selectedAttachments.isNotEmpty) ...[
@@ -2169,6 +2846,13 @@ class _ConversationPanel extends StatelessWidget {
     const Duration(days: 7) => 'Delete after 7 days',
     _ => 'Auto-delete enabled',
   };
+
+  static String _appearanceLabel(WampAppConversationAppearance appearance) =>
+      switch (appearance) {
+        WampAppConversationAppearance.standard => 'Standard',
+        WampAppConversationAppearance.ocean => 'Ocean',
+        WampAppConversationAppearance.sunset => 'Sunset',
+      };
 }
 
 class _NoMessages extends StatelessWidget {
@@ -2187,9 +2871,91 @@ class _NoMessages extends StatelessWidget {
   }
 }
 
+final class _ConversationAppearancePalette {
+  const _ConversationAppearancePalette({
+    required this.outgoingBackground,
+    required this.incomingBackground,
+    required this.outgoingForeground,
+    required this.incomingForeground,
+    required this.radius,
+    required this.tailRadius,
+  });
+
+  final Color outgoingBackground;
+  final Color incomingBackground;
+  final Color outgoingForeground;
+  final Color incomingForeground;
+  final double radius;
+  final double tailRadius;
+
+  Color background(bool outgoing) =>
+      outgoing ? outgoingBackground : incomingBackground;
+
+  Color foreground(bool outgoing) =>
+      outgoing ? outgoingForeground : incomingForeground;
+
+  BorderRadius borderRadius(bool outgoing) => BorderRadius.only(
+    topLeft: Radius.circular(radius),
+    topRight: Radius.circular(radius),
+    bottomLeft: Radius.circular(outgoing ? radius : tailRadius),
+    bottomRight: Radius.circular(outgoing ? tailRadius : radius),
+  );
+
+  static _ConversationAppearancePalette resolve(
+    BuildContext context,
+    WampAppConversationAppearance appearance,
+  ) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    return switch (appearance) {
+      WampAppConversationAppearance.standard => _ConversationAppearancePalette(
+        outgoingBackground: theme.colorScheme.primaryContainer,
+        incomingBackground: theme.colorScheme.surfaceContainerHighest,
+        outgoingForeground: theme.colorScheme.onPrimaryContainer,
+        incomingForeground: theme.colorScheme.onSurface,
+        radius: 16,
+        tailRadius: 16,
+      ),
+      WampAppConversationAppearance.ocean => _ConversationAppearancePalette(
+        outgoingBackground: dark
+            ? const Color(0xFF145766)
+            : const Color(0xFFB7E5EA),
+        incomingBackground: dark
+            ? const Color(0xFF243E48)
+            : const Color(0xFFD5EEF2),
+        outgoingForeground: dark
+            ? const Color(0xFFD6F7FA)
+            : const Color(0xFF08363E),
+        incomingForeground: dark
+            ? const Color(0xFFE1F1F4)
+            : const Color(0xFF17343B),
+        radius: 22,
+        tailRadius: 6,
+      ),
+      WampAppConversationAppearance.sunset => _ConversationAppearancePalette(
+        outgoingBackground: dark
+            ? const Color(0xFF74451F)
+            : const Color(0xFFFFD29B),
+        incomingBackground: dark
+            ? const Color(0xFF51372A)
+            : const Color(0xFFFFE7CC),
+        outgoingForeground: dark
+            ? const Color(0xFFFFE9D2)
+            : const Color(0xFF4C2A06),
+        incomingForeground: dark
+            ? const Color(0xFFFDECE4)
+            : const Color(0xFF452C16),
+        radius: 12,
+        tailRadius: 3,
+      ),
+    };
+  }
+}
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
+    required this.appearance,
     this.outbound,
     this.onTap,
     this.onRetry,
@@ -2198,6 +2964,7 @@ class _MessageBubble extends StatelessWidget {
   });
 
   final LocalChatMessage message;
+  final WampAppConversationAppearance appearance;
   final OutboundChatMessage? outbound;
   final VoidCallback? onTap;
   final Future<void> Function()? onRetry;
@@ -2236,77 +3003,89 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pending = outbound;
+    final palette = _ConversationAppearancePalette.resolve(context, appearance);
+    final borderRadius = palette.borderRadius(message.outgoing);
     return Align(
       alignment: message.outgoing
           ? Alignment.centerRight
           : Alignment.centerLeft,
       child: InkWell(
+        key: ValueKey('message-bubble-${message.messageId}'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: borderRadius,
         child: Container(
+          key: ValueKey('message-surface-${message.messageId}'),
           constraints: const BoxConstraints(maxWidth: 520),
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
           decoration: BoxDecoration(
-            color: message.outgoing
-                ? Theme.of(context).colorScheme.primaryContainer
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+            color: palette.background(message.outgoing),
+            borderRadius: borderRadius,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                message.isGroup
-                    ? '${message.groupTitle} · @${message.peerUsername}'
-                    : '@${message.peerUsername}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (message.text.isNotEmpty || message.oneTime) ...[
-                const SizedBox(height: 4),
+          child: DefaultTextStyle.merge(
+            style: TextStyle(color: palette.foreground(message.outgoing)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  message.oneTime && !message.outgoing
-                      ? 'Tap to view once'
-                      : message.text,
+                  message.isGroup
+                      ? '${message.groupTitle} · @${message.peerUsername}'
+                      : '@${message.peerUsername}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
+                if (message.text.isNotEmpty || message.oneTime) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    message.oneTime && !message.outgoing
+                        ? 'Tap to view once'
+                        : message.text,
+                    key: message.oneTime && !message.outgoing
+                        ? ValueKey('message-view-once-${message.messageId}')
+                        : null,
+                  ),
+                ],
+                for (final attachment
+                    in message.oneTime && !message.outgoing
+                        ? const <EncryptedAttachmentDescriptor>[]
+                        : message.attachments) ...[
+                  const SizedBox(height: 7),
+                  _AttachmentCard(
+                    attachment: attachment,
+                    onOpen: onOpenAttachment == null
+                        ? null
+                        : () => onOpenAttachment!(attachment),
+                  ),
+                ],
+                const SizedBox(height: 5),
+                Text(_statusLabel, style: const TextStyle(fontSize: 10)),
+                if (pending?.canRetry == true ||
+                    pending?.canDiscard == true) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      if (pending?.canRetry == true)
+                        TextButton.icon(
+                          key: ValueKey('message-retry-${message.messageId}'),
+                          onPressed: onRetry,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Retry'),
+                        ),
+                      if (pending?.canDiscard == true)
+                        TextButton.icon(
+                          key: ValueKey('message-discard-${message.messageId}'),
+                          onPressed: onDiscard,
+                          icon: const Icon(Icons.delete_outline, size: 16),
+                          label: const Text('Discard'),
+                        ),
+                    ],
+                  ),
+                ],
               ],
-              for (final attachment in message.attachments) ...[
-                const SizedBox(height: 7),
-                _AttachmentCard(
-                  attachment: attachment,
-                  onOpen: onOpenAttachment == null
-                      ? null
-                      : () => onOpenAttachment!(attachment),
-                ),
-              ],
-              const SizedBox(height: 5),
-              Text(_statusLabel, style: const TextStyle(fontSize: 10)),
-              if (pending?.canRetry == true || pending?.canDiscard == true) ...[
-                const SizedBox(height: 4),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: [
-                    if (pending?.canRetry == true)
-                      TextButton.icon(
-                        key: ValueKey('message-retry-${message.messageId}'),
-                        onPressed: onRetry,
-                        icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('Retry'),
-                      ),
-                    if (pending?.canDiscard == true)
-                      TextButton.icon(
-                        key: ValueKey('message-discard-${message.messageId}'),
-                        onPressed: onDiscard,
-                        icon: const Icon(Icons.delete_outline, size: 16),
-                        label: const Text('Discard'),
-                      ),
-                  ],
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),

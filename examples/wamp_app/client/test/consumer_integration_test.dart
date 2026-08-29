@@ -46,6 +46,9 @@ void main() {
       );
       addTearDown(controller.dispose);
 
+      await controller.probeServer(
+        serverAddress: server.websocketUri.toString(),
+      );
       await controller.registerAndConnect(
         serverAddress: server.websocketUri.toString(),
         username: 'alice',
@@ -89,6 +92,85 @@ void main() {
 
       await controller.signOut();
       expect(controller.status, WampAppStatus.signedOut);
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test(
+    'verified peer continuity blocks a newly enrolled device until review',
+    () async {
+      final temporary = await Directory.systemTemp.createTemp(
+        'wamp-app-peer-trust-',
+      );
+      addTearDown(() => temporary.delete(recursive: true));
+      final server = await WampAppServer.start(
+        WampAppServerConfig(
+          host: '127.0.0.1',
+          port: 0,
+          websocketPath: '/ws',
+          accountStorePath: '${temporary.path}/accounts.json',
+          messageStorePath: '${temporary.path}/messages.json',
+          argonIterations: 1,
+          argonMemoryKiB: 8192,
+        ),
+      );
+      addTearDown(server.close);
+      final alice = _controller(_MemoryVaultStorage(), 'Alice phone');
+      final bobPhone = _controller(_MemoryVaultStorage(), 'Bob phone');
+      final bobTablet = _controller(_MemoryVaultStorage(), 'Bob tablet');
+      addTearDown(alice.dispose);
+      addTearDown(bobPhone.dispose);
+      addTearDown(bobTablet.dispose);
+
+      await alice.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'alice',
+        displayName: 'Alice Example',
+        password: 'alice secret phrase',
+      );
+      await bobPhone.registerAndConnect(
+        serverAddress: server.websocketUri.toString(),
+        username: 'bob',
+        displayName: 'Bob Example',
+        password: 'bob secret phrase',
+      );
+      final initial = await alice.inspectPeerTrust('bob');
+      expect(initial!.devices, hasLength(1));
+      expect(initial.status, PeerTrustStatus.unverified);
+      await alice.verifyPeerDevice(initial.devices.single);
+
+      await bobTablet.login(
+        serverAddress: server.websocketUri.toString(),
+        username: 'bob',
+        password: 'bob secret phrase',
+      );
+      final changed = await alice.inspectPeerTrust('bob');
+      expect(changed!.devices, hasLength(2));
+      expect(changed.status, PeerTrustStatus.changed);
+      expect(changed.devices.where((device) => device.verified), hasLength(1));
+      expect(
+        await alice.sendMessage(
+          recipientUsername: 'bob',
+          text: 'blocked before re-verification',
+        ),
+        isFalse,
+      );
+      expect(alice.messages, isEmpty);
+      expect(alice.messageError, contains('Encryption identity changed'));
+
+      final refreshed = await alice.verifyPeerDevice(
+        changed.devices.singleWhere((device) => !device.verified),
+      );
+      expect(refreshed!.status, PeerTrustStatus.verified);
+      expect(
+        await alice.sendMessage(
+          recipientUsername: 'bob',
+          text: 'sent after every active device is verified',
+        ),
+        isTrue,
+      );
+      expect(alice.messageError, isNull);
+      expect(alice.messages.single.text, contains('sent after'));
     },
     timeout: const Timeout(Duration(minutes: 2)),
   );
@@ -203,7 +285,7 @@ void main() {
       final revealed = await bob.consumeOneTimeMessage(
         oneTimeMessage.messageId,
       );
-      expect(revealed, oneTimePlaintext);
+      expect(revealed?.text, oneTimePlaintext);
       expect(
         bob.messages.any(
           (message) => message.messageId == oneTimeMessage.messageId,
@@ -255,6 +337,32 @@ void main() {
             .text,
         groupPlaintext,
       );
+      const groupReplyPlaintext = 'A discovered group member can reply.';
+      expect(
+        await bob.sendGroupMessage(
+          groupId: group.conversationId,
+          text: groupReplyPlaintext,
+        ),
+        isTrue,
+        reason: '${bob.messageError}',
+      );
+      expect(bob.messageError, isNull);
+      final groupReply = bob.messages.singleWhere(
+        (message) =>
+            message.conversationId == group.conversationId &&
+            message.text == groupReplyPlaintext,
+      );
+      await _waitFor(
+        () =>
+            alice.messages.any(
+              (message) => message.messageId == groupReply.messageId,
+            ) &&
+            carol.messages.any(
+              (message) => message.messageId == groupReply.messageId,
+            ) &&
+            !alice.messageBusy &&
+            !carol.messageBusy,
+      );
       await _waitFor(
         () =>
             alice.messages
@@ -293,11 +401,12 @@ void main() {
       expect(mailboxDocument, isNot(contains(plaintext)));
       expect(mailboxDocument, isNot(contains(oneTimePlaintext)));
       expect(mailboxDocument, isNot(contains(groupPlaintext)));
+      expect(mailboxDocument, isNot(contains(groupReplyPlaintext)));
       expect(mailboxDocument, isNot(contains('Launch crew')));
       expect(mailboxDocument, contains('encrypted_payload'));
       expect(mailboxDocument, contains('consumed_by_device_id'));
 
-      await _waitFor(() => !bob.messageBusy && bob.messages.length == 2);
+      await _waitFor(() => !bob.messageBusy && bob.messages.length == 3);
       await bob.signOut();
       bob.dispose();
       bob = _controller(bobStorage, 'Bob phone');
@@ -311,7 +420,7 @@ void main() {
         WampAppStatus.connected,
         reason: '${bob.errorMessage} / ${bob.messageError}',
       );
-      expect(bob.messages, hasLength(2));
+      expect(bob.messages, hasLength(3));
       expect(
         bob.messages.any((message) => message.messageId == durableMessageId),
         isTrue,
@@ -503,6 +612,65 @@ void main() {
       expect(gateway.closed, isTrue);
     },
     timeout: const Timeout(Duration(minutes: 3)),
+  );
+
+  test(
+    'authenticated app session discovers configured MCP access routes',
+    () async {
+      final temporary = await Directory.systemTemp.createTemp(
+        'wamp-app-mcp-discovery-consumer-',
+      );
+      addTearDown(() => temporary.delete(recursive: true));
+      final server = await WampAppServer.start(
+        WampAppServerConfig(
+          host: '127.0.0.1',
+          port: 0,
+          websocketPath: '/ws',
+          accountStorePath: '${temporary.path}/accounts.json',
+          messageStorePath: '${temporary.path}/messages.json',
+          mcp: WampAppMcpConfig(
+            enabled: true,
+            path: '/ai/mcp',
+            authPath: '/ai/mcp/auth',
+            consentStorePath: '${temporary.path}/mcp-consent.json',
+            allowInsecureTransport: true,
+          ),
+          argonIterations: 1,
+          argonMemoryKiB: 8192,
+        ),
+      );
+      addTearDown(server.close);
+      final endpoint = ServerEndpoint.parse(server.websocketUri.toString());
+      const gateway = WampAccountGateway(
+        connectionTimeout: Duration(seconds: 15),
+        derivationTimeout: Duration(seconds: 30),
+      );
+      await gateway.register(
+        endpoint: endpoint,
+        registration: AccountRegistration(
+          username: 'alice',
+          displayName: 'Alice',
+          password: 'alice mcp discovery secret',
+        ),
+      );
+      final connection = await gateway.login(
+        endpoint: endpoint,
+        username: 'alice',
+        password: 'alice mcp discovery secret',
+      );
+      addTearDown(connection.close);
+
+      final access = await connection.getMcpAccessConfiguration();
+
+      expect(access.mcpUriFor(endpoint), server.mcpUri);
+      expect(access.authUriFor(endpoint).path, '/ai/mcp/auth');
+      expect(access.profileFields, WampAppMcpAccessContract.profileFields);
+      expect(
+        access.toWampKeywords().values,
+        isNot(contains('alice mcp discovery secret')),
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
   );
 
   test(

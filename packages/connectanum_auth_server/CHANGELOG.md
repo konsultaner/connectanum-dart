@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.3
+
+- Keep the auth server synchronized with the corrected client connection
+  lifecycle release.
+
 ## 3.0.0-beta.2
 
 - Keep the auth server synchronized with the corrected hosted native package

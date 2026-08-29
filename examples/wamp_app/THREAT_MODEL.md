@@ -14,9 +14,10 @@ The design treats the router and application server as trusted for account
 authentication, authorization, availability, and device-directory delivery,
 but not for message, attachment, backup, or call-signaling plaintext. It
 protects content from passive network observers, storage disclosure, and an
-honest-but-curious service. It does not yet provide key transparency, a double
-ratchet, or a defense against an active server that substitutes an unverified
-participant device key.
+honest-but-curious service. It does not yet provide key transparency or a
+double ratchet. An active server can still substitute or equivocate about a
+device on first use unless users compare the displayed safety numbers through
+another trusted channel.
 
 ## Assets And Trust Boundaries
 
@@ -66,7 +67,12 @@ and push delivery timing. WampApp does not claim traffic-analysis resistance.
 - Device enrollment and revocation are caller-bound. Ed25519 signing and
   X25519 exchange keys are generated per device and private keys remain in the
   encrypted vault.
-- Safety numbers support out-of-band identity verification. There is no public
+- Safety numbers support explicit per-device out-of-band identity verification
+  and are retained only in the encrypted vault. Once any device for a contact
+  has been verified, direct and group encryption fails closed if the current
+  active directory contains any new or changed unverified device. Verification
+  re-fetches the device and requires the same fingerprint before committing.
+  First-contact sends remain trust-on-first-use because there is no public
   account discovery or key-transparency service. Contact import is opt-in and
   local: Android/iOS use the permissionless system picker without requesting
   properties, while other platforms use an explicit vCard. The parser decodes
@@ -124,6 +130,8 @@ and push delivery timing. WampApp does not claim traffic-analysis resistance.
    missing benchmark evidence fails closed.
 7. Contact import must not upload or retain phone numbers, email addresses,
    postal addresses, native contact IDs, or the selected address-book file.
+8. After explicit contact-device verification, no new direct or group content
+   key may be wrapped for an unverified active device of that contact.
 
 These invariants are covered by focused unit tests, real native-router consumer
 smokes, six-device conflict stress, real Chrome worker tests, cross-platform
@@ -136,10 +144,11 @@ artifact builds, and the production benchmark gate.
 - Static per-device exchange keys and independent per-message keys do not offer
   double-ratchet forward secrecy or post-compromise security. A stolen device
   private key can open retained wraps addressed to that device.
-- Without key transparency, an active server can attempt device-key
-  substitution. Out-of-band safety-number verification is the current
-  detection mechanism and must be made mandatory for stronger active-server
-  resistance.
+- Without key transparency, an active server can substitute a key on first use,
+  present different directories to different clients, or keep clients
+  partitioned. Out-of-band safety-number comparison is the current detection
+  mechanism. Post-verification continuity blocks later new or changed devices,
+  but first-contact sends remain allowed and there is no global auditable log.
 - A saved contact alias is convenience metadata, not proof of identity. The
   operating-system picker or file chooser observes the selection, and wiping
   WampApp's selected vCard bytes does not erase the source file outside the

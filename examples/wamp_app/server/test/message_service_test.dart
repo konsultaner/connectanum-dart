@@ -198,6 +198,71 @@ void main() {
     expect(consumed.receipt.consumedAt, DateTime.utc(2026, 8, 24, 12, 1));
   });
 
+  test(
+    'one-time attachment consumption deletes ciphertext before success',
+    () async {
+      final attachmentId = _token(16, 91);
+      final message = _message(
+        alice,
+        bob,
+        oneTime: true,
+        messageSeed: 90,
+        attachmentIds: [attachmentId],
+      );
+      final bytes = Uint8List.fromList(
+        List<int>.filled(WampAppAttachmentLimits.secretBoxOverheadBytes, 92),
+      );
+      await attachments.put(
+        EncryptedAttachmentChunk(
+          senderUsername: 'alice',
+          messageId: message.messageId,
+          attachmentId: attachmentId,
+          chunkIndex: 0,
+          chunkCount: 1,
+          ciphertextSha256: sha256.convert(bytes).toString(),
+          encryptedBytes: bytes,
+        ),
+      );
+      await service.send('alice', message, now: DateTime.utc(2026, 8, 24, 12));
+      final attachmentService = AttachmentService(
+        store: attachments,
+        mailbox: mailbox,
+      );
+      expect(
+        (await attachmentService.getChunk(
+          'bob',
+          messageId: message.messageId,
+          attachmentId: attachmentId,
+          chunkIndex: 0,
+          now: DateTime.utc(2026, 8, 24, 12),
+        )).encryptedBytes,
+        bytes,
+      );
+
+      final proof = _consumption(bob, 'bob', message.messageId);
+      final consumed = await service.consumeOneTime(
+        'bob',
+        proof,
+        now: DateTime.utc(2026, 8, 24, 12, 1),
+      );
+
+      expect(consumed.receipt.consumedAt, isNotNull);
+      expect(attachments.totalBytes, 0);
+      await expectLater(
+        attachmentService.getChunk(
+          'bob',
+          messageId: message.messageId,
+          attachmentId: attachmentId,
+          chunkIndex: 0,
+        ),
+        throwsA(isA<AttachmentNotFound>()),
+      );
+      final retry = await service.consumeOneTime('bob', proof);
+      expect(retry.receipt.cursor, consumed.receipt.cursor);
+      expect(attachments.totalBytes, 0);
+    },
+  );
+
   test('revoked devices cannot consume one-time messages', () async {
     final message = _message(alice, bob, oneTime: true, messageSeed: 78);
     await service.send('alice', message, now: DateTime.utc(2026, 8, 24, 12));

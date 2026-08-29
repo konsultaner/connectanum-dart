@@ -436,7 +436,9 @@ final class CallController extends ChangeNotifier {
     }
     await _applySignals(update);
     if (record.state == CallState.active && _mediaSession != null) {
-      _phase = CallUiPhase.connecting;
+      if (_phase != CallUiPhase.active) {
+        _phase = CallUiPhase.connecting;
+      }
       await _flushLocalCandidates();
       notifyListeners();
     }
@@ -459,8 +461,8 @@ final class CallController extends ChangeNotifier {
           final media = _mediaSession;
           if (media == null) continue;
           _remoteDevice = sender;
-          await media.applyAnswer(description);
           _phase = CallUiPhase.connecting;
+          await media.applyAnswer(description);
           await _flushLocalCandidates();
         case CallCandidateSignalPayload(:final candidate):
           await _mediaSession?.addRemoteCandidate(candidate);

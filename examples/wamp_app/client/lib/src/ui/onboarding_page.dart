@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../application/wamp_app_controller.dart';
 import 'backup_passphrase_dialog.dart';
 
 enum _AccountMode { register, login }
+
+enum _ServerProbeState { idle, checking, reachable, unreachable }
 
 const _defaultServerAddress = String.fromEnvironment(
   'WAMP_APP_SERVER_ADDRESS',
@@ -20,19 +24,69 @@ class OnboardingPage extends StatefulWidget {
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
+  static const _serverProbeDebounce = Duration(milliseconds: 350);
+
   final _server = TextEditingController(text: _defaultServerAddress);
   final _username = TextEditingController();
   final _displayName = TextEditingController();
   final _password = TextEditingController();
   _AccountMode _mode = _AccountMode.register;
+  Timer? _serverProbeTimer;
+  int _serverProbeGeneration = 0;
+  _ServerProbeState _serverProbeState = _ServerProbeState.idle;
+
+  @override
+  void initState() {
+    super.initState();
+    _server.addListener(_onServerChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scheduleServerProbe(immediate: true);
+    });
+  }
 
   @override
   void dispose() {
+    _serverProbeGeneration += 1;
+    _serverProbeTimer?.cancel();
+    _server.removeListener(_onServerChanged);
     _server.dispose();
     _username.dispose();
     _displayName.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  void _onServerChanged() => _scheduleServerProbe();
+
+  void _scheduleServerProbe({bool immediate = false}) {
+    if (!mounted) return;
+    _serverProbeTimer?.cancel();
+    final generation = ++_serverProbeGeneration;
+    final serverAddress = _server.text.trim();
+    if (serverAddress.isEmpty) {
+      setState(() => _serverProbeState = _ServerProbeState.idle);
+      return;
+    }
+    setState(() => _serverProbeState = _ServerProbeState.checking);
+    if (immediate) {
+      unawaited(_probeServer(serverAddress, generation));
+      return;
+    }
+    _serverProbeTimer = Timer(_serverProbeDebounce, () {
+      _serverProbeTimer = null;
+      unawaited(_probeServer(serverAddress, generation));
+    });
+  }
+
+  Future<void> _probeServer(String serverAddress, int generation) async {
+    var nextState = _ServerProbeState.reachable;
+    try {
+      await widget.controller.probeServer(serverAddress: serverAddress);
+    } catch (_) {
+      nextState = _ServerProbeState.unreachable;
+    }
+    if (!mounted || generation != _serverProbeGeneration) return;
+    setState(() => _serverProbeState = nextState);
   }
 
   Future<void> _submit() async {
@@ -183,6 +237,13 @@ class _AccountCard extends StatelessWidget {
                   prefixIcon: Icon(Icons.dns_outlined),
                 ),
               ),
+              const SizedBox(height: 8),
+              _ServerProbeStatus(
+                state: state._serverProbeState,
+                onRetry: controller.isBusy
+                    ? null
+                    : () => state._scheduleServerProbe(immediate: true),
+              ),
               const SizedBox(height: 14),
               TextField(
                 key: const Key('username'),
@@ -290,6 +351,77 @@ class _AccountCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ServerProbeStatus extends StatelessWidget {
+  const _ServerProbeStatus({required this.state, required this.onRetry});
+
+  final _ServerProbeState state;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      child: switch (state) {
+        _ServerProbeState.idle => const SizedBox.shrink(
+          key: Key('server-probe-idle'),
+        ),
+        _ServerProbeState.checking => Semantics(
+          key: const Key('server-probe-checking'),
+          liveRegion: true,
+          child: const Row(
+            children: [
+              SizedBox.square(
+                dimension: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 8),
+              Expanded(child: Text('Checking router availability...')),
+            ],
+          ),
+        ),
+        _ServerProbeState.reachable => Semantics(
+          key: const Key('server-probe-reachable'),
+          liveRegion: true,
+          child: Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Router ready for secure WAMP onboarding.'),
+              ),
+            ],
+          ),
+        ),
+        _ServerProbeState.unreachable => Semantics(
+          key: const Key('server-probe-unreachable'),
+          liveRegion: true,
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, size: 18, color: colorScheme.error),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Router not reachable. Check the address or start the server.',
+                ),
+              ),
+              TextButton(
+                key: const Key('server-probe-retry'),
+                onPressed: onRetry,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      },
     );
   }
 }

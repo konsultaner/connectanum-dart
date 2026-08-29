@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.3
+
+- Keep the benchmark package synchronized with the corrected client connection
+  lifecycle release.
+
 ## 3.0.0-beta.2
 
 - Keep the benchmark tooling synchronized with the corrected hosted native

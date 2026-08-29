@@ -54,6 +54,7 @@ final class FakeDeviceTrustStore implements DeviceTrustStore {
       previous?.mailboxCursor ?? 0,
       previous?.preferences ?? initialPreferences,
       initialContacts: previous?.contacts ?? initialContacts,
+      initialVerifications: previous?._verifications,
     );
   }
 
@@ -82,6 +83,7 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     this._mailboxCursor,
     this._preferences, {
     List<LocalContactAlias> initialContacts = const [],
+    Map<String, String>? initialVerifications,
     this.sealCallSignalCallback,
     this.openCallSignalCallback,
   }) {
@@ -89,6 +91,9 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
     _groups.addAll(initialGroups);
     _outbox.addAll(initialOutbox);
     _contacts.addAll(initialContacts);
+    if (initialVerifications != null) {
+      _verifications.addAll(initialVerifications);
+    }
   }
 
   final String username;
@@ -98,6 +103,7 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   final List<LocalChatGroup> _groups = [];
   final List<OutboundChatMessage> _outbox = [];
   final List<LocalContactAlias> _contacts = [];
+  final Map<String, String> _verifications = {};
   LocalAppPreferences _preferences;
   Object? saveContactsFailure;
   Completer<void>? saveContactsGate;
@@ -166,13 +172,30 @@ final class FakeDeviceTrustSession implements DeviceTrustSession {
   }
 
   @override
-  bool isVerified(DeviceRecord contact) => false;
+  bool hasVerifiedContact(String username) {
+    final normalized = AccountRegistration.normalizeUsername(username);
+    return _verifications.keys.any((key) => key.startsWith('$normalized:'));
+  }
 
   @override
-  Future<void> markVerified(DeviceRecord contact) async {}
+  bool isVerified(DeviceRecord contact) =>
+      !contact.isRevoked &&
+      _verifications['${contact.username}:${contact.deviceId}'] ==
+          safetyNumberFor(contact);
 
   @override
-  String safetyNumberFor(DeviceRecord contact) => safetyNumber;
+  Future<void> markVerified(DeviceRecord contact) async {
+    if (contact.isRevoked) {
+      throw const FormatException('Cannot verify a revoked device.');
+    }
+    _verifications['${contact.username}:${contact.deviceId}'] = safetyNumberFor(
+      contact,
+    );
+  }
+
+  @override
+  String safetyNumberFor(DeviceRecord contact) =>
+      '$safetyNumber ${contact.username} ${contact.deviceId}';
 
   @override
   WrappedConversationKey wrapConversationKey({

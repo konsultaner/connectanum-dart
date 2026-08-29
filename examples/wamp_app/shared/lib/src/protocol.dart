@@ -8,6 +8,7 @@ abstract final class WampAppProtocol {
   static const profileUpdate = 'com.wampapp.profile.update';
   static const mcpConsentGet = 'com.wampapp.mcp.consent.get';
   static const mcpConsentUpdate = 'com.wampapp.mcp.consent.update';
+  static const mcpAccessGet = 'com.wampapp.mcp.access.get';
   static const mcpProfileSummary = 'com.wampapp.mcp.profile.summary';
   static const deviceEnroll = 'com.wampapp.device.enroll';
   static const deviceList = 'com.wampapp.device.list';
@@ -48,6 +49,7 @@ abstract final class WampAppProtocol {
   static const errorProfileUnavailable =
       'com.wampapp.error.profile_unavailable';
   static const errorInvalidMcpConsent = 'com.wampapp.error.invalid_mcp_consent';
+  static const errorInvalidMcpAccess = 'com.wampapp.error.invalid_mcp_access';
   static const errorMcpConsentConflict =
       'com.wampapp.error.mcp_consent_conflict';
   static const errorMcpConsentRequired =

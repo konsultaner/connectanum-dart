@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -21,6 +22,64 @@ import '../infrastructure/wamp_account_gateway.dart';
 import 'call_controller.dart';
 
 enum WampAppStatus { signedOut, busy, connected, failed }
+
+enum PeerTrustStatus { unverified, verified, changed }
+
+final class PeerDeviceTrust {
+  const PeerDeviceTrust({
+    required this.device,
+    required this.safetyNumber,
+    required this.verified,
+  });
+
+  final DeviceRecord device;
+  final String safetyNumber;
+  final bool verified;
+}
+
+final class PeerTrustSummary {
+  PeerTrustSummary({
+    required this.username,
+    required Iterable<PeerDeviceTrust> devices,
+    required this.previouslyVerified,
+  }) : devices = List<PeerDeviceTrust>.unmodifiable(devices);
+
+  final String username;
+  final List<PeerDeviceTrust> devices;
+  final bool previouslyVerified;
+
+  PeerTrustStatus get status {
+    if (devices.isNotEmpty && devices.every((device) => device.verified)) {
+      return PeerTrustStatus.verified;
+    }
+    return previouslyVerified
+        ? PeerTrustStatus.changed
+        : PeerTrustStatus.unverified;
+  }
+}
+
+final class OpenedOneTimeMessage {
+  OpenedOneTimeMessage._({
+    required this.messageId,
+    required this.text,
+    required Iterable<EncryptedAttachmentDescriptor> attachments,
+    required this._scope,
+    required this._senderUsername,
+  }) : _attachments = attachments.toList(growable: true) {
+    this.attachments = UnmodifiableListView<EncryptedAttachmentDescriptor>(
+      _attachments,
+    );
+  }
+
+  final String messageId;
+  final String text;
+  late final List<EncryptedAttachmentDescriptor> attachments;
+  final List<EncryptedAttachmentDescriptor> _attachments;
+  final String _scope;
+  final String _senderUsername;
+
+  void _invalidate() => _attachments.clear();
+}
 
 class WampAppController extends ChangeNotifier {
   WampAppController({
@@ -67,6 +126,7 @@ class WampAppController extends ChangeNotifier {
   Object? _messageExpiryError;
   Object? _profileError;
   Object? _contactError;
+  Object? _mcpAccessError;
   Object? _mcpConsentError;
   Object? _preferenceError;
   Object? _platformPushError;
@@ -77,6 +137,7 @@ class WampAppController extends ChangeNotifier {
   bool _messageBusy = false;
   bool _profileBusy = false;
   bool _contactBusy = false;
+  bool _mcpAccessBusy = false;
   bool _mcpConsentBusy = false;
   bool _preferenceBusy = false;
   bool _backupBusy = false;
@@ -85,6 +146,8 @@ class WampAppController extends ChangeNotifier {
   int _pendingMailboxWakeupCursor = 0;
   bool _automaticSyncRunning = false;
   int _operationGeneration = 0;
+  Future<void>? _signOutOperation;
+  OpenedOneTimeMessage? _openedOneTimeMessage;
   bool _disposed = false;
 
   WampAppStatus get status => _status;
@@ -103,6 +166,7 @@ class WampAppController extends ChangeNotifier {
   bool get messageBusy => _messageBusy;
   bool get profileBusy => _profileBusy;
   bool get contactBusy => _contactBusy;
+  bool get mcpAccessBusy => _mcpAccessBusy;
   bool get mcpConsentBusy => _mcpConsentBusy;
   WampAppMcpConsent get mcpConsent =>
       _connection?.mcpConsent ?? WampAppMcpConsent.denied;
@@ -134,6 +198,14 @@ class WampAppController extends ChangeNotifier {
   String? get contactError => switch (_contactError) {
     FormatException(:final message) => message,
     _ when _contactError != null => 'The local contact operation failed.',
+    _ => null,
+  };
+  String? get mcpAccessError => switch (_mcpAccessError) {
+    FormatException(:final message) => message,
+    McpAccessException() => _mcpAccessError.toString(),
+    StateError() => 'MCP access discovery is unavailable.',
+    _ when _mcpAccessError != null =>
+      'Could not load MCP connection information.',
     _ => null,
   };
   String? get mcpConsentError => switch (_mcpConsentError) {
@@ -172,6 +244,10 @@ class WampAppController extends ChangeNotifier {
   bool isConversationMuted(String conversationId) =>
       _preferences.isMuted(conversationId);
 
+  WampAppConversationAppearance conversationAppearanceFor(
+    String conversationId,
+  ) => _preferences.conversationAppearanceFor(conversationId);
+
   bool shouldPresentNotificationFor(LocalChatMessage message) =>
       _connection != null &&
       !message.outgoing &&
@@ -189,6 +265,24 @@ class WampAppController extends ChangeNotifier {
     try {
       return _savePreferences(
         _preferences.withConversationMuted(conversationId, muted),
+      );
+    } on FormatException catch (error) {
+      _preferenceError = error;
+      if (!_disposed) notifyListeners();
+      return Future<bool>.value(false);
+    }
+  }
+
+  Future<bool> setConversationAppearance(
+    String conversationId,
+    WampAppConversationAppearance appearance,
+  ) {
+    if (_preferences.conversationAppearanceFor(conversationId) == appearance) {
+      return Future<bool>.value(true);
+    }
+    try {
+      return _savePreferences(
+        _preferences.withConversationAppearance(conversationId, appearance),
       );
     } on FormatException catch (error) {
       _preferenceError = error;
@@ -274,6 +368,15 @@ class WampAppController extends ChangeNotifier {
         password: password,
       );
     });
+  }
+
+  Future<void> probeServer({required String serverAddress}) async {
+    if (_disposed) {
+      throw StateError('WampAppController is disposed.');
+    }
+    final endpoint = ServerEndpoint.parse(serverAddress);
+    endpoint.requireSecureRegistration();
+    await _gateway.probe(endpoint: endpoint);
   }
 
   Future<void> login({
@@ -463,6 +566,23 @@ class WampAppController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final activeOperation = _signOutOperation;
+    if (activeOperation != null) {
+      await activeOperation;
+      return;
+    }
+    final operation = _performSignOut();
+    _signOutOperation = operation;
+    try {
+      await operation;
+    } finally {
+      if (identical(_signOutOperation, operation)) {
+        _signOutOperation = null;
+      }
+    }
+  }
+
+  Future<void> _performSignOut() async {
     if (_backupBusy) return;
     _operationGeneration += 1;
     _messageExpiryTimer?.cancel();
@@ -471,6 +591,10 @@ class WampAppController extends ChangeNotifier {
     final trustSession = _trustSession;
     final wakeupSubscription = _mailboxWakeupSubscription;
     final calls = _calls;
+    final openedOneTimeMessage = _openedOneTimeMessage;
+    final openedOneTimeMessageHasAttachments =
+        openedOneTimeMessage?.attachments.isNotEmpty ?? false;
+    openedOneTimeMessage?._invalidate();
     _connection = null;
     _trustSession = null;
     _localDevice = null;
@@ -478,11 +602,13 @@ class WampAppController extends ChangeNotifier {
     _mailboxWakeupSubscription = null;
     _pendingMailboxWakeupCursor = 0;
     _automaticSyncRunning = false;
+    _openedOneTimeMessage = null;
     _error = null;
     _messageError = null;
     _messageExpiryError = null;
     _profileError = null;
     _contactError = null;
+    _mcpAccessError = null;
     _mcpConsentError = null;
     _preferenceError = null;
     _platformPushError = null;
@@ -492,14 +618,25 @@ class WampAppController extends ChangeNotifier {
     _messageBusy = false;
     _profileBusy = false;
     _contactBusy = false;
+    _mcpAccessBusy = false;
     _mcpConsentBusy = false;
     _preferenceBusy = false;
     _backupBusy = false;
     _preferences = LocalAppPreferences.defaults;
     _status = WampAppStatus.signedOut;
     if (!_disposed) notifyListeners();
-    await _platformPush.clear();
-    await _closeState(connection, trustSession, wakeupSubscription, calls);
+    try {
+      await Future.wait<void>([
+        _platformPush.clear(),
+        if (openedOneTimeMessage != null && openedOneTimeMessageHasAttachments)
+          _attachmentCache.removeMessage(
+            scope: openedOneTimeMessage._scope,
+            messageId: openedOneTimeMessage.messageId,
+          ),
+      ]);
+    } finally {
+      await _closeState(connection, trustSession, wakeupSubscription, calls);
+    }
   }
 
   Future<bool> updateProfile(AccountProfileUpdate update) async {
@@ -531,6 +668,31 @@ class WampAppController extends ChangeNotifier {
     } finally {
       if (isCurrent()) {
         _profileBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<WampAppMcpAccessConfiguration?> loadMcpAccessConfiguration() async {
+    final connection = _connection;
+    if (_disposed || _mcpAccessBusy || connection == null) return null;
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection);
+    _mcpAccessBusy = true;
+    _mcpAccessError = null;
+    notifyListeners();
+    try {
+      final configuration = await connection.getMcpAccessConfiguration();
+      return isCurrent() ? configuration : null;
+    } catch (error) {
+      if (isCurrent()) _mcpAccessError = error;
+      return null;
+    } finally {
+      if (isCurrent()) {
+        _mcpAccessBusy = false;
         notifyListeners();
       }
     }
@@ -742,6 +904,7 @@ class WampAppController extends ChangeNotifier {
     _error = null;
     _messageError = null;
     _contactError = null;
+    _mcpAccessError = null;
     _mcpConsentError = null;
     _status = WampAppStatus.busy;
     notifyListeners();
@@ -859,12 +1022,14 @@ class WampAppController extends ChangeNotifier {
     _replaceMessages(nextMessages);
     _messageError = nextWakeupError;
     _messageExpiryError = null;
+    _mcpAccessError = null;
     _mcpConsentError = null;
     _contactError = null;
     _preferenceError = null;
     _platformPushError = null;
     _preferenceBusy = false;
     _contactBusy = false;
+    _mcpAccessBusy = false;
     _mcpConsentBusy = false;
     _status = WampAppStatus.connected;
     notifyListeners();
@@ -928,14 +1093,20 @@ class WampAppController extends ChangeNotifier {
           effectiveExpiresAfter <= Duration.zero) {
         throw const FormatException('Message expiry must be positive.');
       }
-      if (oneTime && attachmentSources.isNotEmpty) {
-        throw const FormatException(
-          'View-once attachments are not supported yet.',
-        );
-      }
       final ownDevices = await connection.listDevices();
       final recipientDevices = await connection.lookupDevices(
         recipientUsername,
+      );
+      if (recipientDevices.devices.isEmpty) {
+        final username = AccountRegistration.normalizeUsername(
+          recipientUsername,
+        );
+        throw FormatException('@$username has no active device.');
+      }
+      _ensurePeerTrustAllowsSending(
+        trust,
+        recipientUsername,
+        recipientDevices.devices,
       );
       final participants = <String, DeviceRecord>{
         for (final device in [
@@ -1175,6 +1346,9 @@ class WampAppController extends ChangeNotifier {
         if (directory.devices.isEmpty) {
           throw FormatException('@$username has no active device.');
         }
+        if (username != connection.username) {
+          _ensurePeerTrustAllowsSending(trust, username, directory.devices);
+        }
         for (final device in directory.devices) {
           participants['${device.username}\n${device.deviceId}'] = device;
         }
@@ -1287,6 +1461,92 @@ class WampAppController extends ChangeNotifier {
         }
       }
     }
+  }
+
+  Future<PeerTrustSummary?> inspectPeerTrust(String username) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    if (_disposed || connection == null || trust == null) return null;
+    final normalized = AccountRegistration.normalizeUsername(username);
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    final directory = normalized == connection.username
+        ? await connection.listDevices()
+        : await connection.lookupDevices(normalized);
+    if (!isCurrent()) return null;
+    if (directory.devices.isEmpty) {
+      throw FormatException('@$normalized has no active device.');
+    }
+    return _peerTrustSummary(trust, normalized, directory.devices);
+  }
+
+  Future<PeerTrustSummary?> verifyPeerDevice(PeerDeviceTrust expected) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    if (_disposed || connection == null || trust == null) return null;
+    final username = AccountRegistration.normalizeUsername(
+      expected.device.username,
+    );
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession);
+    final directory = username == connection.username
+        ? await connection.listDevices()
+        : await connection.lookupDevices(username);
+    if (!isCurrent()) return null;
+    final current = directory.devices
+        .where((device) => device.deviceId == expected.device.deviceId)
+        .firstOrNull;
+    if (current == null ||
+        trust.safetyNumberFor(current) != expected.safetyNumber) {
+      throw const FormatException(
+        'That device identity changed before verification completed.',
+      );
+    }
+    await trust.markVerified(current);
+    if (!isCurrent()) return null;
+    return _peerTrustSummary(trust, username, directory.devices);
+  }
+
+  PeerTrustSummary _peerTrustSummary(
+    DeviceTrustSession trust,
+    String username,
+    Iterable<DeviceRecord> devices,
+  ) {
+    return PeerTrustSummary(
+      username: username,
+      devices: devices.map(
+        (device) => PeerDeviceTrust(
+          device: device,
+          safetyNumber: trust.safetyNumberFor(device),
+          verified: trust.isVerified(device),
+        ),
+      ),
+      previouslyVerified: trust.hasVerifiedContact(username),
+    );
+  }
+
+  void _ensurePeerTrustAllowsSending(
+    DeviceTrustSession trust,
+    String username,
+    Iterable<DeviceRecord> devices,
+  ) {
+    final normalized = AccountRegistration.normalizeUsername(username);
+    if (!trust.hasVerifiedContact(normalized) ||
+        devices.every(trust.isVerified)) {
+      return;
+    }
+    throw FormatException(
+      'Encryption identity changed for @$normalized. Review and verify every '
+      'active device before sending.',
+    );
   }
 
   Future<bool> retryMessage(String messageId) async {
@@ -1504,7 +1764,7 @@ class WampAppController extends ChangeNotifier {
     }
   }
 
-  Future<String?> consumeOneTimeMessage(String messageId) async {
+  Future<OpenedOneTimeMessage?> consumeOneTimeMessage(String messageId) async {
     final connection = _connection;
     final trust = _trustSession;
     final localDevice = _localDevice;
@@ -1523,26 +1783,76 @@ class WampAppController extends ChangeNotifier {
     }
     final generation = _operationGeneration;
     var synchronized = false;
+    OpenedOneTimeMessage? opened;
     _messageBusy = true;
     _messageError = null;
     notifyListeners();
     try {
+      await _discardOpenedOneTimeMessage();
+      final scope = attachmentCacheScope(
+        connection.endpoint,
+        connection.username,
+      );
+      final senderUsername = message.peerUsername;
+      for (final attachment in message.attachments) {
+        await _attachmentCipher.cacheEncryptedChunks(
+          scope: scope,
+          senderUsername: senderUsername,
+          messageId: message.messageId,
+          attachment: attachment,
+          cache: _attachmentCache,
+          fetchChunk: (chunkIndex) => connection.getAttachmentChunk(
+            messageId: message.messageId,
+            attachmentId: attachment.attachmentId,
+            chunkIndex: chunkIndex,
+          ),
+          isCancelled: () =>
+              _disposed ||
+              generation != _operationGeneration ||
+              connection != _connection ||
+              trust != _trustSession,
+        );
+      }
       final consumption = trust.signOneTimeConsumption(messageId);
       if (consumption.deviceId != localDevice.deviceId) {
         throw StateError('The local device identity changed unexpectedly.');
       }
       await connection.consumeOneTime(consumption);
+      opened = OpenedOneTimeMessage._(
+        messageId: message.messageId,
+        text: message.text,
+        attachments: message.attachments,
+        scope: scope,
+        senderUsername: senderUsername,
+      );
+      _openedOneTimeMessage = opened;
       final updated = await _synchronize(connection, trust, localDevice);
       if (_disposed ||
           generation != _operationGeneration ||
           connection != _connection ||
           trust != _trustSession) {
+        await _discardOpenedOneTimeMessage(only: opened);
         return null;
       }
       _replaceMessages(updated);
       synchronized = true;
-      return message.text;
+      return opened;
     } catch (error) {
+      try {
+        if (opened != null) {
+          await _discardOpenedOneTimeMessage(only: opened);
+        } else if (message.attachments.isNotEmpty) {
+          await _attachmentCache.removeMessage(
+            scope: attachmentCacheScope(
+              connection.endpoint,
+              connection.username,
+            ),
+            messageId: message.messageId,
+          );
+        }
+      } catch (_) {
+        // Preserve the consumption or synchronization error for the UI.
+      }
       if (!_disposed &&
           generation == _operationGeneration &&
           connection == _connection) {
@@ -1560,6 +1870,89 @@ class WampAppController extends ChangeNotifier {
         }
       }
     }
+  }
+
+  Future<Uint8List?> loadOpenedOneTimeAttachment({
+    required OpenedOneTimeMessage message,
+    required String attachmentId,
+  }) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    final attachment = message.attachments
+        .where((candidate) => candidate.attachmentId == attachmentId)
+        .firstOrNull;
+    if (_disposed ||
+        _messageBusy ||
+        connection == null ||
+        trust == null ||
+        !identical(_openedOneTimeMessage, message) ||
+        attachment == null) {
+      return null;
+    }
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession) &&
+        identical(_openedOneTimeMessage, message);
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      final opened = await _attachmentCipher.decryptToBytes(
+        scope: message._scope,
+        senderUsername: message._senderUsername,
+        messageId: message.messageId,
+        attachment: attachment,
+        cache: _attachmentCache,
+        isCancelled: () => !isCurrent(),
+      );
+      if (!isCurrent()) {
+        opened.fillRange(0, opened.length, 0);
+        return null;
+      }
+      return opened;
+    } catch (error) {
+      if (isCurrent()) _messageError = error;
+      return null;
+    } finally {
+      if (isCurrent()) {
+        _messageBusy = false;
+        notifyListeners();
+        _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  Future<void> closeOpenedOneTimeMessage(OpenedOneTimeMessage message) async {
+    if (!identical(_openedOneTimeMessage, message)) return;
+    try {
+      await _discardOpenedOneTimeMessage(only: message);
+    } catch (error) {
+      if (!_disposed) _messageError = error;
+    } finally {
+      if (!_disposed) {
+        _messageBusy = false;
+        notifyListeners();
+        _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  Future<void> _discardOpenedOneTimeMessage({
+    OpenedOneTimeMessage? only,
+  }) async {
+    final opened = _openedOneTimeMessage;
+    if (opened == null || (only != null && !identical(opened, only))) return;
+    _openedOneTimeMessage = null;
+    final hasAttachments = opened.attachments.isNotEmpty;
+    opened._invalidate();
+    if (!hasAttachments) return;
+    await _attachmentCache.removeMessage(
+      scope: opened._scope,
+      messageId: opened.messageId,
+    );
   }
 
   Future<void> refreshMessages() async {
@@ -2013,6 +2406,7 @@ class WampAppController extends ChangeNotifier {
     final groupsById = <String, LocalChatGroup>{
       for (final group in trust.groups) group.conversationId: group,
     };
+    final consumedOneTimeMessageIds = <String>{};
     for (var page = 0; page < 20; page += 1) {
       final batch = await connection.syncMessages(afterCursor: cursor);
       if (batch.nextCursor < cursor) {
@@ -2025,6 +2419,9 @@ class WampAppController extends ChangeNotifier {
             encrypted.oneTime &&
             encrypted.recipientUsername == connection.username &&
             recipientState?.consumedAt != null) {
+          if (encrypted.attachmentIds.isNotEmpty) {
+            consumedOneTimeMessageIds.add(encrypted.messageId);
+          }
           byId.remove(encrypted.messageId);
           outboxById.remove(encrypted.messageId);
           continue;
@@ -2118,6 +2515,15 @@ class WampAppController extends ChangeNotifier {
             ? created
             : left.conversationId.compareTo(right.conversationId);
       });
+    final activeOpenedMessageId = _openedOneTimeMessage?.messageId;
+    final scope = attachmentCacheScope(
+      connection.endpoint,
+      connection.username,
+    );
+    for (final messageId in consumedOneTimeMessageIds) {
+      if (messageId == activeOpenedMessageId) continue;
+      await _attachmentCache.removeMessage(scope: scope, messageId: messageId);
+    }
     await trust.saveMailboxState(
       cursor: cursor,
       messages: updated,
@@ -2144,6 +2550,8 @@ class WampAppController extends ChangeNotifier {
     _mailboxWakeupSubscription = null;
     _pendingMailboxWakeupCursor = 0;
     _automaticSyncRunning = false;
+    _openedOneTimeMessage?._invalidate();
+    _openedOneTimeMessage = null;
     unawaited(
       Future.wait<void>([
         _platformPush.dispose().then(

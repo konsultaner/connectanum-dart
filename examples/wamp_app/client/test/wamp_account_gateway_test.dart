@@ -126,6 +126,28 @@ void main() {
     );
   });
 
+  test('classifies MCP discovery failures without exposing credentials', () {
+    McpAccessException classified(String? uri) =>
+        McpAccessException.fromWampError(wamp.Error(48, 1, const {}, uri));
+
+    expect(
+      classified(WampAppProtocol.errorInvalidMcpAccess).kind,
+      McpAccessFailureKind.rejected,
+    );
+    expect(
+      classified(wamp.Error.notAuthorized).kind,
+      McpAccessFailureKind.rejected,
+    );
+    expect(
+      classified(WampAppProtocol.errorMcpUnavailable).kind,
+      McpAccessFailureKind.unavailable,
+    );
+    expect(
+      classified('com.example.unknown').toString(),
+      'This server does not expose a usable WampApp MCP endpoint.',
+    );
+  });
+
   test('classifies platform push failures without exposing tokens', () {
     PlatformPushSubscriptionException classified(String? uri) =>
         PlatformPushSubscriptionException.fromWampError(

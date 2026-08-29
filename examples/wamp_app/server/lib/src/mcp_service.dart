@@ -7,11 +7,31 @@ final class McpConsentRequired implements Exception {
   const McpConsentRequired();
 }
 
+final class McpEndpointUnavailable implements Exception {
+  const McpEndpointUnavailable();
+}
+
+final class McpAccessRequestInvalid implements Exception {
+  const McpAccessRequestInvalid();
+}
+
 final class WampAppMcpService {
-  const WampAppMcpService({required this.accounts, required this.consents});
+  const WampAppMcpService({
+    required this.accounts,
+    required this.consents,
+    required this.accessConfiguration,
+  });
 
   final AccountStore accounts;
   final McpConsentStore consents;
+  final WampAppMcpAccessConfiguration? accessConfiguration;
+
+  Future<WampAppMcpAccessConfiguration> getAccessConfiguration(
+    String username,
+  ) async {
+    await _requireAccount(username);
+    return accessConfiguration ?? (throw const McpEndpointUnavailable());
+  }
 
   Future<WampAppMcpConsent> getConsent(String username) async {
     await _requireAccount(username);

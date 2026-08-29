@@ -8,6 +8,11 @@ void main() {
     expect(preferences.theme, WampAppThemePreference.system);
     expect(preferences.mutedConversationIds, isEmpty);
     expect(preferences.disappearingMessageDurations, isEmpty);
+    expect(preferences.conversationAppearances, isEmpty);
+    expect(
+      preferences.conversationAppearanceFor('direct-a'),
+      WampAppConversationAppearance.standard,
+    );
   });
 
   test('preferences round-trip with stable sorted conversation ids', () {
@@ -18,6 +23,10 @@ void main() {
         'group-z': Duration(days: 7),
         'direct-a': Duration(hours: 1),
       },
+      conversationAppearances: const {
+        'group-z': WampAppConversationAppearance.sunset,
+        'direct-a': WampAppConversationAppearance.ocean,
+      },
     );
 
     final encoded = preferences.toJson();
@@ -27,6 +36,7 @@ void main() {
       'theme': 'dark',
       'muted_conversation_ids': ['direct-a', 'group-z'],
       'disappearing_message_seconds': {'direct-a': 3600, 'group-z': 604800},
+      'conversation_appearances': {'direct-a': 'ocean', 'group-z': 'sunset'},
     });
     expect(decoded.theme, WampAppThemePreference.dark);
     expect(decoded.mutedConversationIds, {'direct-a', 'group-z'});
@@ -35,6 +45,14 @@ void main() {
       const Duration(hours: 1),
     );
     expect(decoded.disappearingMessagesFor('group-z'), const Duration(days: 7));
+    expect(
+      decoded.conversationAppearanceFor('direct-a'),
+      WampAppConversationAppearance.ocean,
+    );
+    expect(
+      decoded.conversationAppearanceFor('group-z'),
+      WampAppConversationAppearance.sunset,
+    );
   });
 
   test('saved preferences without disappearing messages migrate cleanly', () {
@@ -46,6 +64,56 @@ void main() {
     expect(preferences.theme, WampAppThemePreference.dark);
     expect(preferences.isMuted('direct-a'), isTrue);
     expect(preferences.disappearingMessageDurations, isEmpty);
+    expect(preferences.conversationAppearances, isEmpty);
+    expect(
+      preferences.conversationAppearanceFor('direct-a'),
+      WampAppConversationAppearance.standard,
+    );
+  });
+
+  test('immutable updates isolate direct and group chat appearance', () {
+    final directOcean = LocalAppPreferences.defaults.withConversationAppearance(
+      'direct-a',
+      WampAppConversationAppearance.ocean,
+    );
+    final groupSunset = directOcean.withConversationAppearance(
+      'group-b',
+      WampAppConversationAppearance.sunset,
+    );
+    final directStandard = groupSunset.withConversationAppearance(
+      'direct-a',
+      WampAppConversationAppearance.standard,
+    );
+
+    expect(LocalAppPreferences.defaults.conversationAppearances, isEmpty);
+    expect(
+      directOcean.conversationAppearanceFor('direct-a'),
+      WampAppConversationAppearance.ocean,
+    );
+    expect(
+      directOcean.conversationAppearanceFor('group-b'),
+      WampAppConversationAppearance.standard,
+    );
+    expect(
+      groupSunset.conversationAppearanceFor('group-b'),
+      WampAppConversationAppearance.sunset,
+    );
+    expect(
+      directStandard.conversationAppearanceFor('direct-a'),
+      WampAppConversationAppearance.standard,
+    );
+    expect(
+      directStandard.conversationAppearanceFor('group-b'),
+      WampAppConversationAppearance.sunset,
+    );
+    expect(directStandard.conversationAppearances, {
+      'group-b': WampAppConversationAppearance.sunset,
+    });
+    expect(
+      () => directOcean.conversationAppearances['unexpected'] =
+          WampAppConversationAppearance.sunset,
+      throwsUnsupportedError,
+    );
   });
 
   test('immutable updates isolate direct and group mute state', () {
@@ -140,6 +208,21 @@ void main() {
         'muted_conversation_ids': <String>[],
         'disappearing_message_seconds': {'direct-a': '3600'},
       },
+      {
+        'theme': 'dark',
+        'muted_conversation_ids': <String>[],
+        'conversation_appearances': 'ocean',
+      },
+      {
+        'theme': 'dark',
+        'muted_conversation_ids': <String>[],
+        'conversation_appearances': {'direct-a': 1},
+      },
+      {
+        'theme': 'dark',
+        'muted_conversation_ids': <String>[],
+        'conversation_appearances': {'direct-a': 'sepia'},
+      },
     ];
 
     for (final value in invalidValues) {
@@ -204,6 +287,33 @@ void main() {
     expect(
       () => LocalAppPreferences(
         disappearingMessageDurations: const {'direct-a': Duration(minutes: 5)},
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('chat-appearance identifiers and count remain bounded', () {
+    expect(
+      () => LocalAppPreferences(
+        conversationAppearances: {
+          List<String>.filled(
+            LocalAppPreferences.maxConversationIdLength + 1,
+            'x',
+          ).join(): WampAppConversationAppearance.ocean,
+        },
+      ),
+      throwsFormatException,
+    );
+    expect(
+      () => LocalAppPreferences(
+        conversationAppearances: {
+          for (
+            var index = 0;
+            index <= LocalAppPreferences.maxConversationAppearances;
+            index += 1
+          )
+            'conversation-$index': WampAppConversationAppearance.sunset,
+        },
       ),
       throwsFormatException,
     );

@@ -157,9 +157,6 @@ final class EncryptedChatMessage {
           !participantUsernames.contains(recipient)) {
         throw const FormatException('Direct message participants are invalid.');
       }
-      if (oneTime && attachmentIds.isNotEmpty) {
-        throw const FormatException('View-once attachments are not supported.');
-      }
     }
     _validateBase64Url(
       senderDeviceId,

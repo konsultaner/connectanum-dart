@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
+import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
+import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app/src/infrastructure/vault_storage.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
@@ -35,15 +37,24 @@ void main() {
       );
       addTearDown(server.close);
 
+      final prefetchBarrier = _AsyncBarrier(3);
+      final aliceCaches = List<AttachmentChunkCache>.generate(
+        3,
+        (_) => MemoryAttachmentChunkCache(),
+      );
+      final bobCaches = List<_PrefetchBarrierCache>.generate(
+        3,
+        (_) => _PrefetchBarrierCache(prefetchBarrier),
+      );
       final alice = [
-        _controller('Alice phone'),
-        _controller('Alice tablet'),
-        _controller('Alice desktop'),
+        _controller('Alice phone', attachmentCache: aliceCaches[0]),
+        _controller('Alice tablet', attachmentCache: aliceCaches[1]),
+        _controller('Alice desktop', attachmentCache: aliceCaches[2]),
       ];
       final bob = [
-        _controller('Bob phone'),
-        _controller('Bob tablet'),
-        _controller('Bob desktop'),
+        _controller('Bob phone', attachmentCache: bobCaches[0]),
+        _controller('Bob tablet', attachmentCache: bobCaches[1]),
+        _controller('Bob desktop', attachmentCache: bobCaches[2]),
       ];
       final controllers = [...alice, ...bob];
       for (final controller in controllers) {
@@ -179,6 +190,9 @@ void main() {
       );
 
       const oneTimeText = 'only one Bob device may open this';
+      final oneTimeBytes = Uint8List.fromList(
+        List<int>.generate(4096, (index) => (index * 29) & 0xff),
+      );
       await _waitFor(
         () => controllers.every((entry) => !entry.messageBusy),
         description: 'all devices idle before one-time send',
@@ -189,6 +203,15 @@ void main() {
           recipientUsername: 'bob',
           text: oneTimeText,
           oneTime: true,
+          attachmentSources: [
+            AttachmentPlaintextSource(
+              name: 'view-once.bin',
+              contentType: 'application/octet-stream',
+              kind: ChatAttachmentKind.file,
+              byteCount: oneTimeBytes.length,
+              openRead: () => Stream.value(oneTimeBytes),
+            ),
+          ],
         ),
         isTrue,
       );
@@ -204,6 +227,10 @@ void main() {
         description: 'one-time message on every Bob device',
         details: () => _controllerDetails(bob),
       );
+      final oneTimeAttachment = bob.first.messages
+          .singleWhere((message) => message.messageId == oneTimeId)
+          .attachments
+          .single;
       await _waitFor(
         () => bob.every((entry) => !entry.messageBusy),
         description: 'Bob devices idle before one-time race',
@@ -213,8 +240,24 @@ void main() {
         for (final controller in bob)
           controller.consumeOneTimeMessage(oneTimeId),
       ]);
-      expect(openings.where((text) => text == oneTimeText), hasLength(1));
-      expect(openings.where((text) => text == null), hasLength(2));
+      expect(
+        openings.where((message) => message?.text == oneTimeText),
+        hasLength(1),
+      );
+      expect(openings.where((message) => message == null), hasLength(2));
+      expect(prefetchBarrier.arrivals, 3);
+      final winnerIndex = openings.indexWhere((message) => message != null);
+      for (var index = 0; index < bob.length; index += 1) {
+        final cached = await bobCaches[index].get(
+          scope: attachmentCacheScope(bob[index].connection!.endpoint, 'bob'),
+          senderUsername: 'alice',
+          messageId: oneTimeId,
+          attachmentId: oneTimeAttachment.attachmentId,
+          chunkIndex: 0,
+          chunkCount: oneTimeAttachment.chunkCount,
+        );
+        expect(cached, index == winnerIndex ? isNotNull : isNull);
+      }
       await _waitFor(
         () => bob.every(
           (controller) => controller.messages.every(
@@ -224,6 +267,20 @@ void main() {
         description: 'one-time removal from every Bob device',
         details: () => _controllerDetails(bob),
       );
+      await bob[winnerIndex].closeOpenedOneTimeMessage(openings[winnerIndex]!);
+      for (var index = 0; index < bob.length; index += 1) {
+        expect(
+          await bobCaches[index].get(
+            scope: attachmentCacheScope(bob[index].connection!.endpoint, 'bob'),
+            senderUsername: 'alice',
+            messageId: oneTimeId,
+            attachmentId: oneTimeAttachment.attachmentId,
+            chunkIndex: 0,
+            chunkCount: oneTimeAttachment.chunkCount,
+          ),
+          isNull,
+        );
+      }
 
       final profileRevision = alice.first.connection!.profile.revision;
       final profileUpdates = await Future.wait([
@@ -313,7 +370,10 @@ void main() {
   );
 }
 
-WampAppController _controller(String deviceName) {
+WampAppController _controller(
+  String deviceName, {
+  AttachmentChunkCache? attachmentCache,
+}) {
   return WampAppController(
     trustStore: EncryptedDeviceVault(
       storage: _MemoryVaultStorage(),
@@ -321,8 +381,70 @@ WampAppController _controller(String deviceName) {
       iterations: 1,
       memoryKiB: 64,
     ),
+    attachmentCache: attachmentCache,
     deviceName: deviceName,
   );
+}
+
+final class _AsyncBarrier {
+  _AsyncBarrier(this.participants);
+
+  final int participants;
+  final Completer<void> _release = Completer<void>();
+  int arrivals = 0;
+
+  Future<void> arrive() {
+    arrivals += 1;
+    if (arrivals == participants) _release.complete();
+    if (arrivals > participants) {
+      throw StateError(
+        'Attachment prefetch barrier received too many arrivals.',
+      );
+    }
+    return _release.future;
+  }
+}
+
+final class _PrefetchBarrierCache implements AttachmentChunkCache {
+  _PrefetchBarrierCache(this._barrier);
+
+  final _AsyncBarrier _barrier;
+  final MemoryAttachmentChunkCache _delegate = MemoryAttachmentChunkCache();
+
+  @override
+  Future<void> put({
+    required String scope,
+    required EncryptedAttachmentChunk chunk,
+  }) async {
+    await _delegate.put(scope: scope, chunk: chunk);
+    await _barrier.arrive();
+  }
+
+  @override
+  Future<EncryptedAttachmentChunk?> get({
+    required String scope,
+    required String senderUsername,
+    required String messageId,
+    required String attachmentId,
+    required int chunkIndex,
+    required int chunkCount,
+  }) => _delegate.get(
+    scope: scope,
+    senderUsername: senderUsername,
+    messageId: messageId,
+    attachmentId: attachmentId,
+    chunkIndex: chunkIndex,
+    chunkCount: chunkCount,
+  );
+
+  @override
+  Future<void> removeMessage({
+    required String scope,
+    required String messageId,
+  }) => _delegate.removeMessage(scope: scope, messageId: messageId);
+
+  @override
+  Future<void> dispose() => _delegate.dispose();
 }
 
 Future<void> _waitFor(

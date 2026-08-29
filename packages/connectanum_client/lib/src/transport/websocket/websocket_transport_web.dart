@@ -18,7 +18,7 @@ class WebSocketTransport extends AbstractTransport {
   final String _url;
   final AbstractSerializer _serializer;
   final String _serializerType;
-  late WebSocket _socket;
+  WebSocket? _socket;
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
   Completer? _onConnectionLost;
@@ -83,7 +83,7 @@ class WebSocketTransport extends AbstractTransport {
   /// Calling close will close the underlying socket connection
   @override
   Future<void> close({error}) {
-    _socket.close();
+    _socket?.close();
     complete(_onDisconnect, error);
     return Future.value();
   }
@@ -99,7 +99,7 @@ class WebSocketTransport extends AbstractTransport {
   /// This method will return true if the underlying socket has a ready state of open
   @override
   bool get isOpen {
-    return _socket.readyState == WebSocket.OPEN;
+    return _socket?.readyState == WebSocket.OPEN;
   }
 
   /// for this transport this is equal to [isOpen]
@@ -120,14 +120,15 @@ class WebSocketTransport extends AbstractTransport {
     _goodbyeSent = false;
     _goodbyeReceived = false;
     var openCompleter = Completer();
-    _socket = WebSocket(_url, [_serializerType.toJS].toJS);
+    final socket = WebSocket(_url, [_serializerType.toJS].toJS);
+    _socket = socket;
     if (pingInterval != null) {
       _logger.info(
         'The browsers WebSocket API does not support ping interval configuration.',
       );
     }
-    _socket.onOpen.listen((open) => openCompleter.complete(open));
-    _socket.onError.listen((Event error) {
+    socket.onOpen.listen((open) => openCompleter.complete(open));
+    socket.onError.listen((Event error) {
       openCompleter.completeError(error);
       complete(_onConnectionLost, error);
     });
@@ -148,7 +149,7 @@ class WebSocketTransport extends AbstractTransport {
     }
     var serializedMessage = _serializer.serialize(message);
     // toJS only works on casted objects
-    _socket.send(
+    _socket!.send(
       serializedMessage is String
           ? serializedMessage.toJS
           : (serializedMessage as Uint8List).toJS,
@@ -160,6 +161,9 @@ class WebSocketTransport extends AbstractTransport {
   @override
   Stream<AbstractMessage?> receive() {
     final socket = _socket;
+    if (socket == null) {
+      throw StateError('WebSocket transport is not open.');
+    }
     final onDisconnect = _onDisconnect!;
     final onConnectionLost = _onConnectionLost!;
     socket.onClose.listen((closeEvent) {

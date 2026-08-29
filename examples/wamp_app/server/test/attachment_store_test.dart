@@ -359,6 +359,54 @@ void main() {
     },
   );
 
+  test(
+    'retention retries consumed view-once deletion before staging TTL',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('wampapp-files-');
+      addTearDown(() => directory.delete(recursive: true));
+      final now = DateTime.utc(2026, 8, 24, 12);
+      final attachments = AttachmentStore(
+        '${directory.path}/attachments',
+        stagingTtl: const Duration(days: 1),
+        clock: () => now,
+      );
+      final mailbox = MailboxStore('${directory.path}/messages.json');
+      await attachments.initialize();
+      await mailbox.initialize();
+      final message = _message(
+        messageId: _token(16, 33),
+        attachmentId: _token(16, 34),
+        oneTime: true,
+      );
+      final chunk = _chunk(
+        messageId: message.messageId,
+        attachmentId: message.attachmentIds.single,
+        chunkIndex: 0,
+        chunkCount: 1,
+        fill: 35,
+      );
+      await attachments.put(chunk);
+      await mailbox.append(message, now: now);
+      await mailbox.consumeOneTime(
+        'bob',
+        _token(32, 15),
+        message.messageId,
+        now: now.add(const Duration(minutes: 1)),
+      );
+
+      final removed = await attachments.prune(
+        loadActiveMessages: () => mailbox.activeAttachmentMessages(now: now),
+        loadImmediatelyRemovableMessages: () =>
+            mailbox.consumedOneTimeAttachmentMessages(),
+        now: now,
+      );
+
+      expect(removed.removedAttachments, 1);
+      expect(removed.removedBytes, chunk.encryptedBytes.length);
+      expect(attachments.totalBytes, 0);
+    },
+  );
+
   test('message commit is atomic against attachment pruning', () async {
     final directory = await Directory.systemTemp.createTemp('wampapp-files-');
     addTearDown(() => directory.delete(recursive: true));
@@ -662,6 +710,7 @@ EncryptedChatMessage _message({
   required String messageId,
   required String attachmentId,
   DateTime? expiresAt,
+  bool oneTime = false,
 }) {
   final senderDevice = _token(32, 12);
   return EncryptedChatMessage(
@@ -671,6 +720,7 @@ EncryptedChatMessage _message({
     senderDeviceId: senderDevice,
     recipientUsername: 'bob',
     createdAt: DateTime.utc(2026, 8, 24, 12),
+    oneTime: oneTime,
     expiresAt: expiresAt ?? DateTime.utc(2026, 8, 24, 13),
     encryptedPayload: Uint8List.fromList(List<int>.filled(64, 14)),
     attachmentIds: [attachmentId],
