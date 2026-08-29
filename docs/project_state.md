@@ -139,9 +139,25 @@ currently selected chat. Ten preference tests, 49 controller tests, 22 vault
 tests, 22 widget tests, the full 198-test Flutter client suite,
 `bin/test-wamp-app` including Chrome and the release web build, local-model
 review, and repository-wide `bin/verify` pass. The paired native recovery smoke
-now requires the preset after destructive local/cloud restore; exact device
-execution and hosted evidence are next, without interrupting the active tester
-lab.
+now requires the preset after destructive local/cloud restore. Exact-head
+package dry run `33240068792`, PR CI `33240068807`, push CI `33240067540`, and
+WampApp artifact run `33240067539` pass, including all seven bundles and the
+production benchmark gate; the comprehensive feature-head audit and
+protected-`master` strict audit also pass. Exact native device recovery now
+passes on a disposable Android API 36.1 emulator and iOS 26.4 simulator while
+the interactive Android/iOS tester lab and its router remain running and
+undisturbed. The paired smoke proves Standard/Ocean/Sunset selection survives
+both destructive cloud and local-file recovery alongside the existing encrypted
+identity, profile, preference, contact, direct-history, and group-history
+assertions.
+The pre-change `bin/test-fast` for that acceptance run exposed legacy fixed
+ports in the client transport I/O-event tests. Every local WebSocket and
+RawSocket listener in that suite now binds IPv4 loopback on an ephemeral port,
+clients use the listener's resolved address and port, and teardown explicitly
+disconnects clients and closes upgraded sockets and servers. The complete
+11-test file passes while all former ports are occupied and in three concurrent
+processes under the same collision pressure; the post-change `bin/test-fast`
+also passes end to end.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

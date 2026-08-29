@@ -1,9 +1,9 @@
 @TestOn('vm')
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:async';
 
 import 'package:connectanum_client/src/client.dart';
 import 'package:connectanum_core/src/message/abort.dart';
@@ -20,7 +20,8 @@ void main() {
   group('Client Events', () {
     // WebSocket transport
     test('test disconnect with web socket transport', () async {
-      final server = await HttpServer.bind('localhost', 9200);
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
       serverListenHandler(HttpRequest req) async {
         if (req.uri.path == '/wamp') {
           var socket = await WebSocketTransformer.upgrade(req);
@@ -39,9 +40,10 @@ void main() {
 
       server.listen(serverListenHandler);
       final transport = WebSocketTransport.withJsonSerializer(
-        'ws://localhost:9200/wamp',
+        'ws://${server.address.address}:${server.port}/wamp',
       );
       final client = Client(realm: 'com.connectanum', transport: transport);
+      addTearDown(client.disconnect);
       var closeCompleter = Completer();
       client
           .connect(
@@ -60,7 +62,8 @@ void main() {
     });
 
     test('test on reconnect with web socket transport', () async {
-      final server = await HttpServer.bind('localhost', 9201);
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
       late WebSocket currentSocket;
       serverListenHandler(HttpRequest req) async {
         if (req.uri.path == '/wamp') {
@@ -77,9 +80,10 @@ void main() {
 
       server.listen(serverListenHandler);
       final transport = WebSocketTransport.withJsonSerializer(
-        'ws://localhost:9201/wamp',
+        'ws://${server.address.address}:${server.port}/wamp',
       );
       final client = Client(realm: 'com.connectanum', transport: transport);
+      addTearDown(client.disconnect);
       var closeCompleter = Completer();
       var reconnects = 0;
       var hitConnectionLostEvent = false;
@@ -118,7 +122,8 @@ void main() {
     });
 
     test('test on multiple reconnects with web socket transport', () async {
-      final server = await HttpServer.bind('localhost', 9202);
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
       late WebSocket currentSocket;
       serverListenHandler(HttpRequest req) async {
         if (req.uri.path == '/wamp') {
@@ -135,9 +140,10 @@ void main() {
 
       server.listen(serverListenHandler);
       final transport = WebSocketTransport.withJsonSerializer(
-        'ws://localhost:9202/wamp',
+        'ws://${server.address.address}:${server.port}/wamp',
       );
       final client = Client(realm: 'com.connectanum', transport: transport);
+      addTearDown(client.disconnect);
       var closeCompleter = Completer();
       var reconnects = 0;
       client
@@ -167,10 +173,12 @@ void main() {
     test(
       'test on connect web socket transport and no server available',
       () async {
+        final port = await _unusedTcpPort();
         final transport = WebSocketTransport.withJsonSerializer(
-          'ws://localhost:9203/wamp',
+          'ws://${InternetAddress.loopbackIPv4.address}:$port/wamp',
         );
         final client = Client(realm: 'com.connectanum', transport: transport);
+        addTearDown(client.disconnect);
         var closeCompleter = Completer();
         client
             .connect(
@@ -198,7 +206,8 @@ void main() {
 
     // Socket transport
     test('test disconnect with socket transport', () async {
-      final server = await ServerSocket.bind('0.0.0.0', 9010);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
       server.listen((socket) {
         socket.listen((message) {
           if (message.length == 4) {
@@ -244,13 +253,14 @@ void main() {
         });
       });
       final transport = SocketTransport(
-        'localhost',
-        9010,
+        server.address.address,
+        server.port,
         Serializer(),
         SocketHelper.serializationJson,
         messageLengthExponent: SocketHelper.maxMessageLengthConnectanumExponent,
       );
       final client = Client(realm: 'com.connectanum', transport: transport);
+      addTearDown(client.disconnect);
       var closeCompleter = Completer();
       client
           .connect(
@@ -269,7 +279,8 @@ void main() {
     });
 
     test('test on reconnect with socket transport', () async {
-      final server = await ServerSocket.bind('0.0.0.0', 9011);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
       late Socket currentSocket;
       server.listen((socket) {
         currentSocket = socket;
@@ -311,13 +322,14 @@ void main() {
         });
       });
       final transport = SocketTransport(
-        'localhost',
-        9011,
+        server.address.address,
+        server.port,
         Serializer(),
         SocketHelper.serializationJson,
         messageLengthExponent: SocketHelper.maxMessageLengthConnectanumExponent,
       );
       final client = Client(realm: 'com.connectanum', transport: transport);
+      addTearDown(client.disconnect);
       var closeCompleter = Completer();
       var reconnects = 0;
       var hitConnectionLostEvent = false;
@@ -355,7 +367,8 @@ void main() {
     });
 
     test('test on multiple reconnects with socket transport', () async {
-      final server = await ServerSocket.bind('0.0.0.0', 9021);
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
       late Socket currentSocket;
       server.listen((socket) {
         currentSocket = socket;
@@ -397,13 +410,14 @@ void main() {
         });
       });
       final transport = SocketTransport(
-        'localhost',
-        9021,
+        server.address.address,
+        server.port,
         Serializer(),
         SocketHelper.serializationJson,
         messageLengthExponent: SocketHelper.maxMessageLengthConnectanumExponent,
       );
       final client = Client(realm: 'com.connectanum', transport: transport);
+      addTearDown(client.disconnect);
       var closeCompleter = Completer();
       var reconnects = 0;
       client
@@ -431,14 +445,16 @@ void main() {
     });
 
     test('test on connect socket transport and no server available', () async {
+      final port = await _unusedTcpPort();
       final transport = SocketTransport(
-        'localhost',
-        9019,
+        InternetAddress.loopbackIPv4.address,
+        port,
         Serializer(),
         SocketHelper.serializationJson,
         messageLengthExponent: SocketHelper.maxMessageLengthConnectanumExponent,
       );
       final client = Client(realm: 'com.connectanum', transport: transport);
+      addTearDown(client.disconnect);
       var closeCompleter = Completer();
       client
           .connect(
@@ -567,6 +583,7 @@ void main() {
           return null;
         });
         await suite.open();
+        addTearDown(suite.close);
 
         final options = ClientConnectOptions(
           pingInterval: Duration(seconds: 1),
@@ -602,6 +619,7 @@ void main() {
           return null;
         });
         await suite.open();
+        addTearDown(suite.close);
 
         final options = ClientConnectOptions(
           pingInterval: Duration(seconds: 1),
@@ -628,13 +646,17 @@ void main() {
   });
 }
 
-int webSocketTestSuitePort = 9300;
+Future<int> _unusedTcpPort() async {
+  final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final port = server.port;
+  await server.close();
+  return port;
+}
 
 class WebSocketTestSuite {
-  late WebSocket socket;
+  final _sockets = <WebSocket>[];
   late HttpServer server;
   late Client client;
-  final port = webSocketTestSuitePort++;
 
   final AbstractMessage? Function(int msgType) onServerMessage;
 
@@ -642,15 +664,16 @@ class WebSocketTestSuite {
 
   Future<void> open() async {
     await openServer();
-    openTransport();
+    await openTransport();
   }
 
   Future<void> openServer() async {
-    server = await HttpServer.bind('localhost', port);
+    server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
 
     serverListenHandler(HttpRequest req) async {
       if (req.uri.path == '/wamp') {
-        socket = await WebSocketTransformer.upgrade(req);
+        final socket = await WebSocketTransformer.upgrade(req);
+        _sockets.add(socket);
         socket.listen((message) {
           final msg = jsonDecode(message);
           final msgType = msg[0];
@@ -668,8 +691,22 @@ class WebSocketTestSuite {
 
   Future<void> openTransport() async {
     final transport = WebSocketTransport.withJsonSerializer(
-      'ws://localhost:$port/wamp',
+      'ws://${server.address.address}:${server.port}/wamp',
     );
     client = Client(realm: 'com.connectanum', transport: transport);
+  }
+
+  Future<void> close() async {
+    try {
+      await client.disconnect();
+    } finally {
+      try {
+        await Future.wait<void>(
+          _sockets.map((socket) => socket.close()),
+        );
+      } finally {
+        await server.close(force: true);
+      }
+    }
   }
 }
