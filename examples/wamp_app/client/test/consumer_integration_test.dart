@@ -46,6 +46,9 @@ void main() {
       );
       addTearDown(controller.dispose);
 
+      await controller.probeServer(
+        serverAddress: server.websocketUri.toString(),
+      );
       await controller.registerAndConnect(
         serverAddress: server.websocketUri.toString(),
         username: 'alice',

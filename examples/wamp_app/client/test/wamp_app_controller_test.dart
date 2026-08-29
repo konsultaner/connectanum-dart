@@ -20,6 +20,26 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'test_support.dart';
 
 void main() {
+  test('server probe validates the endpoint before delegating', () async {
+    final gateway = _RecordingGateway();
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await controller.probeServer(serverAddress: 'ws://localhost:8080');
+
+    expect(gateway.probedEndpoints, hasLength(1));
+    expect(
+      gateway.probedEndpoints.single.websocketUri.toString(),
+      'ws://localhost:8080/ws',
+    );
+
+    await expectLater(
+      controller.probeServer(serverAddress: 'ws://router.example/ws'),
+      throwsA(isA<FormatException>()),
+    );
+    expect(gateway.probedEndpoints, hasLength(1));
+  });
+
   test('registration normalizes identity and connects with the same challenge secret', () async {
     final gateway = _RecordingGateway();
     final trustStore = FakeDeviceTrustStore();
@@ -2336,6 +2356,7 @@ class _RecordingGateway implements AccountGateway {
   final List<Uint8List> backupChunks = [];
   BackupMetadata? remoteMetadata;
   Uint8List? remoteBackup;
+  final List<ServerEndpoint> probedEndpoints = [];
 
   void seedRemoteBackup(Uint8List archive) {
     remoteBackup = Uint8List.fromList(archive);
@@ -2348,6 +2369,11 @@ class _RecordingGateway implements AccountGateway {
       sha256: sha256.convert(archive).toString(),
       updatedAt: DateTime.utc(2026, 8, 25),
     );
+  }
+
+  @override
+  Future<void> probe({required ServerEndpoint endpoint}) async {
+    probedEndpoints.add(endpoint);
   }
 
   @override
@@ -2602,6 +2628,9 @@ final class _OutboxGateway implements AccountGateway {
   final List<OneTimeMessageConsumption> consumeAttempts = [];
   final List<String> operations = [];
   int? failAfterStoredChunkIndex;
+
+  @override
+  Future<void> probe({required ServerEndpoint endpoint}) async {}
 
   Completer<MessageSendReceipt> blockNextSend() =>
       _sendGate = Completer<MessageSendReceipt>();

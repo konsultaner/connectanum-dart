@@ -370,6 +370,15 @@ class WampAppController extends ChangeNotifier {
     });
   }
 
+  Future<void> probeServer({required String serverAddress}) async {
+    if (_disposed) {
+      throw StateError('WampAppController is disposed.');
+    }
+    final endpoint = ServerEndpoint.parse(serverAddress);
+    endpoint.requireSecureRegistration();
+    await _gateway.probe(endpoint: endpoint);
+  }
+
   Future<void> login({
     required String serverAddress,
     required String username,

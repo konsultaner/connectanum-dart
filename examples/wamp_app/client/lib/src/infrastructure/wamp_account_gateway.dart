@@ -8,6 +8,8 @@ import 'package:crypto/crypto.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 abstract interface class AccountGateway {
+  Future<void> probe({required ServerEndpoint endpoint});
+
   Future<RegistrationReceipt> register({
     required ServerEndpoint endpoint,
     required AccountRegistration registration,
@@ -805,10 +807,29 @@ class WampAccountGateway implements AccountGateway {
   const WampAccountGateway({
     this.connectionTimeout = const Duration(seconds: 15),
     this.derivationTimeout = const Duration(seconds: 75),
+    this.probeTimeout = const Duration(seconds: 4),
   });
 
   final Duration connectionTimeout;
   final Duration derivationTimeout;
+  final Duration probeTimeout;
+
+  @override
+  Future<void> probe({required ServerEndpoint endpoint}) async {
+    endpoint.requireSecureRegistration();
+    final client = Client(
+      transport: WebSocketTransport.withCborSerializer(
+        endpoint.websocketUri.toString(),
+      ),
+      realm: WampAppProtocol.registrationRealm,
+    );
+    Session? session;
+    try {
+      session = await _connect(client, timeout: probeTimeout);
+    } finally {
+      await _close(client, session);
+    }
+  }
 
   @override
   Future<RegistrationReceipt> register({
@@ -1347,7 +1368,7 @@ class WampAccountGateway implements AccountGateway {
     }
   }
 
-  Future<Session> _connect(Client client) {
+  Future<Session> _connect(Client client, {Duration? timeout}) {
     return client
         .connect(
           options: ClientConnectOptions(
@@ -1356,7 +1377,7 @@ class WampAccountGateway implements AccountGateway {
           ),
         )
         .first
-        .timeout(connectionTimeout + derivationTimeout);
+        .timeout(timeout ?? connectionTimeout + derivationTimeout);
   }
 
   Future<void> _close(Client client, Session? session) async {

@@ -23,6 +23,22 @@ CI `33254108332`, package dry run `33254108326`, WampApp artifact run
 `33254106781`, Codecov project/patch checks, feature-head CI/log audit, and the
 protected-`master` strict policy/workflow/package audit all pass. PR #84 awaits
 the required code-owner review.
+Onboarding now probes the configured router with a bounded anonymous WAMP
+handshake and presents debounced checking, ready, unreachable, and retry states
+without weakening registration validation. Stale and post-disposal probe
+results are fenced, the paired native driver waits for proven readiness, and a
+real embedded-router regression covers the default path. The probe exposed a
+client lifecycle defect where canceling a pending Dart WebSocket upgrade could
+leave I/O alive. Source now interrupts pending opens, rejects late sockets, and
+preserves established reconnect behavior on VM and web; a real stalled-upgrade
+regression proves bounded disconnect. Repository-wide `bin/verify`, the full
+11-test transport/reconnect suite, package analysis, and `bin/test-wamp-app`
+including Chrome workers and the release web build pass. The interactive
+Android/iPad tester lab and its router remain running. The standalone app still
+intentionally consumes exact published packages, so the lifecycle correction
+requires the next synchronized beta publication and dependency update before
+published app artifacts consume it; router-readiness UI itself remains
+compatible with the current beta.
 The paired native smoke now opens each peer's identity dialog, compares the
 router-backed per-device safety number, and records explicit verification before
 the first encrypted send. A disposable Android API 36.1 plus iOS 26.4 run passes

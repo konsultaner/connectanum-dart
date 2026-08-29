@@ -13,6 +13,7 @@ import 'package:connectanum_core/src/message/hello.dart';
 import 'package:connectanum_core/src/message/message_types.dart';
 import 'package:connectanum_core/src/message/result.dart';
 import 'package:connectanum_core/src/message/welcome.dart';
+import 'package:connectanum_client/connectanum.dart' show Client;
 import 'package:connectanum_client/src/transport/websocket/websocket_transport_io.dart';
 import 'package:connectanum_client/src/transport/websocket/websocket_transport_serialization.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
@@ -20,6 +21,42 @@ import 'package:test/test.dart';
 
 void main() {
   group('WebSocket protocol with io communication', () {
+    test('client disconnect cancels a pending websocket upgrade', () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final accepted = Completer<Socket>();
+      final peerClosed = Completer<void>();
+      Socket? acceptedSocket;
+      final subscription = server.listen((socket) {
+        acceptedSocket = socket;
+        socket.listen(
+          (_) {},
+          onError: (_) {
+            if (!peerClosed.isCompleted) peerClosed.complete();
+          },
+          onDone: () {
+            if (!peerClosed.isCompleted) peerClosed.complete();
+          },
+        );
+        accepted.complete(socket);
+      });
+      addTearDown(() async {
+        acceptedSocket?.destroy();
+        await subscription.cancel();
+        await server.close();
+      });
+      final transport = WebSocketTransport.withCborSerializer(
+        'ws://127.0.0.1:${server.port}/wamp',
+      );
+      final client = Client(transport: transport, realm: 'probe.realm');
+      final sessions = client.connect().listen((_) {});
+      addTearDown(sessions.cancel);
+      await accepted.future.timeout(const Duration(seconds: 1));
+
+      await client.disconnect().timeout(const Duration(seconds: 1));
+
+      await peerClosed.future.timeout(const Duration(seconds: 1));
+    });
+
     test(
       'Opening a server connection and simple send receive scenario using a serializer',
       () async {

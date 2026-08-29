@@ -251,6 +251,14 @@ void main() {
         find.byKey(const Key('server-address')),
         _serverAddress,
       );
+      await _pumpUntil(
+        tester,
+        () => find
+            .byKey(const Key('server-probe-reachable'))
+            .evaluate()
+            .isNotEmpty,
+        label: 'router readiness probe',
+      );
       await tester.enterText(find.byKey(const Key('username')), _username);
       await tester.enterText(
         find.byKey(const Key('display-name')),
@@ -1014,6 +1022,11 @@ Future<String> _prepareDestructiveBackupRestore(
   await tester.enterText(
     find.byKey(const Key('server-address')),
     _serverAddress,
+  );
+  await _pumpUntil(
+    tester,
+    () => find.byKey(const Key('server-probe-reachable')).evaluate().isNotEmpty,
+    label: 'backup recovery router readiness probe',
   );
   await tester.enterText(find.byKey(const Key('username')), _username);
   await tester.enterText(find.byKey(const Key('password')), _password);

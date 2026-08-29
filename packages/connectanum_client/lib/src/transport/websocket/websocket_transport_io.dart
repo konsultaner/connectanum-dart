@@ -30,6 +30,8 @@ class WebSocketTransport extends AbstractTransport {
   bool _goodbyeSent = false;
   bool _goodbyeReceived = false;
   WebSocket? _socket;
+  HttpClient? _httpClient;
+  int _openAttempt = 0;
   Completer? _onConnectionLost;
   Completer? _onDisconnect;
   late Completer _onReady;
@@ -96,9 +98,14 @@ class WebSocketTransport extends AbstractTransport {
   /// Calling close will close the underlying socket connection
   @override
   Future<void> close({error}) {
-    _socket?.close();
+    _openAttempt += 1;
+    final socket = _socket;
+    final client = _httpClient;
+    _httpClient = null;
+    final closeFuture = socket?.close() ?? Future<void>.value();
+    client?.close(force: socket == null);
     complete(_onDisconnect, error);
-    return Future.value();
+    return closeFuture;
   }
 
   /// on connection lost will only complete if the other end closes unexpectedly
@@ -130,37 +137,48 @@ class WebSocketTransport extends AbstractTransport {
   /// or fail respectively
   @override
   Future<void> open({Duration? pingInterval}) async {
+    final openAttempt = ++_openAttempt;
     _onReady = Completer();
     _onDisconnect = Completer();
     _onConnectionLost = Completer();
     _goodbyeSent = false;
     _goodbyeReceived = false;
+    _socket = null;
+    _httpClient?.close(force: true);
+    final securityContext = _tlsSecurityContext as SecurityContext?;
+    final client = HttpClient(context: securityContext);
+    _httpClient = client;
     try {
-      final securityContext = _tlsSecurityContext as SecurityContext?;
-      final client = securityContext != null || _allowInsecureCertificates
-          ? HttpClient(context: securityContext)
-          : null;
-      if (client != null && _allowInsecureCertificates) {
+      if (_allowInsecureCertificates) {
         client.badCertificateCallback =
             (X509Certificate certificate, String host, int port) => true;
       }
-      _socket = await WebSocket.connect(
+      final socket = await WebSocket.connect(
         _url,
         protocols: [_serializerType],
         headers: _headers,
         customClient: client,
       );
+      if (openAttempt != _openAttempt) {
+        client.close(force: true);
+        await socket.close();
+        return;
+      }
+      _socket = socket;
       _onReady.complete();
       if (pingInterval != null) {
-        Timer.periodic(
-          pingInterval,
-          (timer) => _socket!.pingInterval = Duration(
-            milliseconds: (pingInterval.inMilliseconds * 2 / 3).floor(),
-          ),
+        socket.pingInterval = Duration(
+          milliseconds: (pingInterval.inMilliseconds * 2 / 3).floor(),
         );
       }
-    } on SocketException catch (exception) {
-      _onConnectionLost!.complete(exception);
+    } on IOException catch (exception) {
+      if (identical(_httpClient, client)) {
+        _httpClient = null;
+      }
+      client.close(force: true);
+      if (openAttempt == _openAttempt && !_onConnectionLost!.isCompleted) {
+        _onConnectionLost!.complete(exception);
+      }
     }
   }
 

@@ -22,6 +22,115 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'test_support.dart';
 
 void main() {
+  testWidgets('probes the default router endpoint on onboarding', (
+    tester,
+  ) async {
+    final gateway = _FakeGateway();
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('server-probe-reachable')), findsOneWidget);
+    expect(gateway.probedEndpoints, hasLength(1));
+    expect(
+      gateway.probedEndpoints.single.websocketUri.toString(),
+      const String.fromEnvironment(
+        'WAMP_APP_SERVER_ADDRESS',
+        defaultValue: 'ws://localhost:8080/ws',
+      ),
+    );
+  });
+
+  testWidgets('debounces probes and ignores stale endpoint failures', (
+    tester,
+  ) async {
+    final firstProbe = Completer<void>();
+    final secondProbe = Completer<void>();
+    var probeCount = 0;
+    final gateway = _FakeGateway(
+      probeCallback: (_) =>
+          probeCount++ == 0 ? firstProbe.future : secondProbe.future,
+    );
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pump();
+    expect(gateway.probedEndpoints, hasLength(1));
+
+    await tester.enterText(
+      find.byKey(const Key('server-address')),
+      'wss://router.example/ws',
+    );
+    await tester.pump(const Duration(milliseconds: 349));
+    expect(gateway.probedEndpoints, hasLength(1));
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(gateway.probedEndpoints, hasLength(2));
+
+    secondProbe.complete();
+    await tester.pump();
+    expect(find.byKey(const Key('server-probe-reachable')), findsOneWidget);
+
+    firstProbe.completeError(StateError('stale failure'));
+    await tester.pump();
+    expect(find.byKey(const Key('server-probe-reachable')), findsOneWidget);
+    expect(find.byKey(const Key('server-probe-unreachable')), findsNothing);
+  });
+
+  testWidgets('failed router probe can retry without disabling submit', (
+    tester,
+  ) async {
+    var failProbe = true;
+    final gateway = _FakeGateway(
+      probeCallback: (_) async {
+        if (failProbe) throw StateError('offline');
+      },
+    );
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('server-probe-unreachable')), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('submit-account')))
+          .onPressed,
+      isNotNull,
+    );
+
+    failProbe = false;
+    final retry = find.byKey(const Key('server-probe-retry'));
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('server-probe-reachable')), findsOneWidget);
+    expect(gateway.probedEndpoints, hasLength(2));
+  });
+
+  testWidgets('late router probe failure is ignored after disposal', (
+    tester,
+  ) async {
+    final probe = Completer<void>();
+    final gateway = _FakeGateway(probeCallback: (_) => probe.future);
+    final controller = WampAppController(gateway: gateway);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pump();
+    expect(gateway.probedEndpoints, hasLength(1));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    probe.completeError(StateError('late failure'));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('registers and opens the authenticated shell', (tester) async {
     final oneTimeAttachmentId = _token(16, 39);
     final oneTimeMessage = LocalChatMessage(
@@ -1481,15 +1590,23 @@ Future<void> _pumpUntilFound(
 }
 
 class _FakeGateway implements AccountGateway {
-  _FakeGateway({this.peerAvatarBytes});
+  _FakeGateway({this.peerAvatarBytes, this.probeCallback});
 
   final Uint8List? peerAvatarBytes;
+  Future<void> Function(ServerEndpoint endpoint)? probeCallback;
+  final List<ServerEndpoint> probedEndpoints = [];
   int sendAttempts = 0;
   final Map<String, List<DeviceRecord>> deviceDirectories = {};
   bool mcpProfileReadAllowed = false;
   int mcpConsentRevision = 0;
   final List<bool> mcpConsentUpdates = [];
   final List<String> profileLookups = [];
+
+  @override
+  Future<void> probe({required ServerEndpoint endpoint}) async {
+    probedEndpoints.add(endpoint);
+    await probeCallback?.call(endpoint);
+  }
 
   @override
   Future<RegistrationReceipt> register({
