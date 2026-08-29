@@ -97,6 +97,20 @@ compact valid PNG and asserts the limit before opening the dialog. Six picker
 boundary tests plus 22 focused widget tests, Flutter analysis, the complete
 Android API 36.1 plus iOS 26.4 paired smoke, and repository-wide `bin/verify`
 pass. Exact-head hosted evidence is next.
+Native acceptance now also proves destructive encrypted local-file backup
+recovery while the peer completes destructive cloud recovery in the same
+paired run. The responder exports through the real Flutter backup dialog into
+an ownership-safe test file boundary, requires a bounded non-empty
+`.wampbackup`, and rejects raw UTF-8 plus base64 forms of every protected chat,
+group, contact, synchronization, password, and recovery-phrase token. It then
+signs out, deletes and verifies every tracked local vault ciphertext, restores
+through the signed-out local-backup UI, and must recover the same device
+identity, profile avatar, encrypted preferences, contact alias, direct history,
+and group history. The file gateway returns a defensive archive copy for
+import, so the smoke also proves the controller can wipe its working bytes
+without deleting the user-owned archive. The complete Android API 36.1 plus iOS
+26.4 paired smoke, focused Flutter analysis, local-model review, and
+repository-wide `bin/verify` pass; exact-head hosted evidence is next.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

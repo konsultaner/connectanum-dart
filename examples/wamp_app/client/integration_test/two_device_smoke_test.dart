@@ -10,6 +10,7 @@ import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
 import 'package:wamp_app/src/infrastructure/contact_importer.dart';
+import 'package:wamp_app/src/infrastructure/device_backup_file.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app/src/infrastructure/profile_avatar_picker.dart';
 import 'package:wamp_app/src/infrastructure/vault_storage.dart';
@@ -86,6 +87,59 @@ final class _SmokeProfileAvatarPicker implements ProfileAvatarPicker {
   Future<ProfileAvatarSelection?> pickAvatar() async {
     calls += 1;
     return ProfileAvatarSelection(name: 'native-avatar.png', bytes: bytes);
+  }
+}
+
+final class _SmokeBackupFiles implements DeviceBackupFileGateway {
+  Uint8List? _archive;
+  String? suggestedName;
+  int saveCalls = 0;
+  int openCalls = 0;
+
+  int get archiveLength => _archive?.length ?? 0;
+
+  @override
+  Future<bool> save(Uint8List archive, {required String suggestedName}) async {
+    _wipeArchive();
+    _archive = Uint8List.fromList(archive);
+    this.suggestedName = suggestedName;
+    saveCalls += 1;
+    return true;
+  }
+
+  @override
+  Future<Uint8List?> open() async {
+    openCalls += 1;
+    final archive = _archive;
+    return archive == null ? null : Uint8List.fromList(archive);
+  }
+
+  bool containsUtf8(String value) {
+    final archive = _archive;
+    if (archive == null) return false;
+    final needle = utf8.encode(value);
+    if (needle.isEmpty || needle.length > archive.length) return false;
+    for (var offset = 0; offset <= archive.length - needle.length; offset++) {
+      var matches = true;
+      for (var index = 0; index < needle.length; index++) {
+        if (archive[offset + index] != needle[index]) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) return true;
+    }
+    return false;
+  }
+
+  void dispose() {
+    _wipeArchive();
+    suggestedName = null;
+  }
+
+  void _wipeArchive() {
+    _archive?.fillRange(0, _archive!.length, 0);
+    _archive = null;
   }
 }
 
@@ -169,8 +223,11 @@ void main() {
       );
       final avatarPicker = _SmokeProfileAvatarPicker(avatarBytes);
       final contactImporter = _SmokeContactImporter(_contactDisplayName);
+      final backupFiles = _SmokeBackupFiles();
+      addTearDown(backupFiles.dispose);
       final controller = WampAppController(
         trustStore: EncryptedDeviceVault(storage: vaultStorage),
+        backupFiles: backupFiles,
         deviceName: '$_username device',
       );
       addTearDown(controller.dispose);
@@ -310,6 +367,7 @@ void main() {
         avatarBytes,
         avatarPicker,
         contactImporter,
+        backupFiles,
       );
     },
     timeout: const Timeout(Duration(minutes: 24)),
@@ -323,6 +381,7 @@ Future<void> _exerciseAccountPrivacyControls(
   Uint8List avatarBytes,
   _SmokeProfileAvatarPicker avatarPicker,
   _SmokeContactImporter contactImporter,
+  _SmokeBackupFiles backupFiles,
 ) async {
   await _selectDirectConversation(tester);
   await _updatePublicProfile(tester, controller, avatarBytes, avatarPicker);
@@ -331,6 +390,8 @@ Future<void> _exerciseAccountPrivacyControls(
   await _enableMcpProfileConsent(tester, controller);
   if (_role == 'initiator') {
     await _uploadRemoteBackup(tester, controller);
+  } else {
+    await _exportLocalBackup(tester, controller, backupFiles);
   }
 
   final sent = await controller.sendMessage(
@@ -366,6 +427,14 @@ Future<void> _exerciseAccountPrivacyControls(
       controller,
       vaultStorage,
       avatarBytes,
+    );
+  } else {
+    await _restoreLocalBackupAfterLocalVaultDeletion(
+      tester,
+      controller,
+      vaultStorage,
+      avatarBytes,
+      backupFiles,
     );
   }
   await _exchangeBackupRecoveryMarkers(tester, controller);
@@ -572,6 +641,90 @@ Future<void> _enableMcpProfileConsent(
   expect(controller.mcpConsentError, isNull);
 }
 
+Future<void> _exportLocalBackup(
+  WidgetTester tester,
+  WampAppController controller,
+  _SmokeBackupFiles backupFiles,
+) async {
+  final compact = find.byKey(const Key('account-backup-compact'));
+  await _tapWhenReady(
+    tester,
+    compact.evaluate().isNotEmpty
+        ? compact
+        : find.byKey(const Key('account-backup')),
+    label: 'local backup options',
+  );
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('backup-action-local')),
+    label: 'local encrypted backup action',
+  );
+  await _pumpUntil(
+    tester,
+    () => find
+        .byKey(const Key('backup-recovery-confirmation'))
+        .evaluate()
+        .isNotEmpty,
+    label: 'local backup recovery phrase dialog',
+  );
+  await tester.enterText(
+    find.byKey(const Key('backup-recovery-passphrase')),
+    _backupPassphrase,
+  );
+  await tester.enterText(
+    find.byKey(const Key('backup-recovery-confirmation')),
+    _backupPassphrase,
+  );
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('backup-passphrase-submit')),
+    label: 'local encrypted backup creation',
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        !controller.backupBusy &&
+        backupFiles.saveCalls == 1 &&
+        find.text('Encrypted device backup saved.').evaluate().isNotEmpty,
+    label: 'local encrypted backup export',
+    timeout: const Duration(minutes: 2),
+  );
+
+  expect(controller.backupError, isNull);
+  expect(backupFiles.openCalls, 0);
+  expect(backupFiles.archiveLength, greaterThan(0));
+  expect(
+    backupFiles.archiveLength,
+    lessThanOrEqualTo(WampAppBackupLimits.maximumArchiveBytes),
+  );
+  expect(backupFiles.suggestedName, endsWith('.wampbackup'));
+  for (final plaintext in [
+    _password,
+    _backupPassphrase,
+    _contactDisplayName,
+    _outboundText,
+    _inboundText,
+    _groupTitle,
+    _groupOutboundText,
+    _groupInboundText,
+    _controlsReadyOutbound,
+    _controlsReadyInbound,
+  ]) {
+    expect(
+      backupFiles.containsUtf8(plaintext),
+      isFalse,
+      reason: 'The local backup exposed protected application plaintext.',
+    );
+    expect(
+      backupFiles.containsUtf8(base64Encode(utf8.encode(plaintext))),
+      isFalse,
+      reason: 'The local backup exposed encoded application plaintext.',
+    );
+  }
+}
+
 Future<void> _uploadRemoteBackup(
   WidgetTester tester,
   WampAppController controller,
@@ -634,6 +787,100 @@ Future<void> _restoreRemoteBackupAfterLocalVaultDeletion(
   _TrackedVaultStorage vaultStorage,
   Uint8List avatarBytes,
 ) async {
+  final originalDeviceId = await _prepareDestructiveBackupRestore(
+    tester,
+    controller,
+    vaultStorage,
+  );
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('restore-remote-backup')),
+    label: 'remote backup restore action',
+  );
+  await _pumpUntil(
+    tester,
+    () => find
+        .byKey(const Key('backup-recovery-passphrase'))
+        .evaluate()
+        .isNotEmpty,
+    label: 'remote backup recovery phrase dialog',
+  );
+  await tester.enterText(
+    find.byKey(const Key('backup-recovery-passphrase')),
+    _backupPassphrase,
+  );
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('backup-passphrase-submit')),
+    label: 'remote backup recovery',
+  );
+
+  await _expectDestructiveBackupRecovery(
+    tester,
+    controller,
+    originalDeviceId: originalDeviceId,
+    avatarBytes: avatarBytes,
+    label: 'destructive encrypted cloud-backup recovery',
+  );
+}
+
+Future<void> _restoreLocalBackupAfterLocalVaultDeletion(
+  WidgetTester tester,
+  WampAppController controller,
+  _TrackedVaultStorage vaultStorage,
+  Uint8List avatarBytes,
+  _SmokeBackupFiles backupFiles,
+) async {
+  expect(backupFiles.saveCalls, 1);
+  expect(backupFiles.openCalls, 0);
+  final originalDeviceId = await _prepareDestructiveBackupRestore(
+    tester,
+    controller,
+    vaultStorage,
+  );
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('restore-local-backup')),
+    label: 'local backup restore action',
+  );
+  await _pumpUntil(
+    tester,
+    () => find
+        .byKey(const Key('backup-recovery-passphrase'))
+        .evaluate()
+        .isNotEmpty,
+    label: 'local backup recovery phrase dialog',
+  );
+  await tester.enterText(
+    find.byKey(const Key('backup-recovery-passphrase')),
+    _backupPassphrase,
+  );
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 400));
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('backup-passphrase-submit')),
+    label: 'local backup recovery',
+  );
+
+  await _expectDestructiveBackupRecovery(
+    tester,
+    controller,
+    originalDeviceId: originalDeviceId,
+    avatarBytes: avatarBytes,
+    label: 'destructive encrypted local-backup recovery',
+  );
+  expect(backupFiles.openCalls, 1);
+  expect(backupFiles.archiveLength, greaterThan(0));
+}
+
+Future<String> _prepareDestructiveBackupRestore(
+  WidgetTester tester,
+  WampAppController controller,
+  _TrackedVaultStorage vaultStorage,
+) async {
   final originalDeviceId = controller.localDevice?.deviceId;
   if (originalDeviceId == null) {
     fail('The encrypted backup source device was unavailable.');
@@ -662,31 +909,16 @@ Future<void> _restoreRemoteBackupAfterLocalVaultDeletion(
   await tester.enterText(find.byKey(const Key('password')), _password);
   FocusManager.instance.primaryFocus?.unfocus();
   await tester.pump(const Duration(milliseconds: 400));
-  await _tapWhenReady(
-    tester,
-    find.byKey(const Key('restore-remote-backup')),
-    label: 'remote backup restore action',
-  );
-  await _pumpUntil(
-    tester,
-    () => find
-        .byKey(const Key('backup-recovery-passphrase'))
-        .evaluate()
-        .isNotEmpty,
-    label: 'remote backup recovery phrase dialog',
-  );
-  await tester.enterText(
-    find.byKey(const Key('backup-recovery-passphrase')),
-    _backupPassphrase,
-  );
-  FocusManager.instance.primaryFocus?.unfocus();
-  await tester.pump(const Duration(milliseconds: 400));
-  await _tapWhenReady(
-    tester,
-    find.byKey(const Key('backup-passphrase-submit')),
-    label: 'remote backup recovery',
-  );
+  return originalDeviceId;
+}
 
+Future<void> _expectDestructiveBackupRecovery(
+  WidgetTester tester,
+  WampAppController controller, {
+  required String originalDeviceId,
+  required Uint8List avatarBytes,
+  required String label,
+}) async {
   await _pumpUntil(
     tester,
     () {
@@ -732,7 +964,7 @@ Future<void> _restoreRemoteBackupAfterLocalVaultDeletion(
             ),
           );
     },
-    label: 'destructive encrypted cloud-backup recovery',
+    label: label,
     timeout: const Duration(minutes: 3),
   );
   expect(controller.backupError, isNull);
