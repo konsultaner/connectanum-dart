@@ -139,6 +139,69 @@ void main() {
     },
   );
 
+  test(
+    'prefetch authenticates ciphertext for later offline decryption',
+    () async {
+      final plaintext = Uint8List.fromList(
+        List<int>.generate(65537, (index) => (index * 17) % 251),
+      );
+      final producer = MemoryAttachmentChunkCache();
+      final consumer = MemoryAttachmentChunkCache();
+      addTearDown(producer.dispose);
+      addTearDown(consumer.dispose);
+      final cipher = AttachmentCipher(random: Random(9));
+      addTearDown(cipher.dispose);
+      final attachment = (await cipher.encryptSources(
+        scope: 'producer',
+        senderUsername: 'alice',
+        messageId: messageId,
+        sources: [
+          AttachmentPlaintextSource(
+            name: 'view-once.bin',
+            contentType: 'application/octet-stream',
+            kind: ChatAttachmentKind.file,
+            byteCount: plaintext.length,
+            openRead: () => Stream.value(plaintext),
+          ),
+        ],
+        cache: producer,
+      )).single;
+      var fetches = 0;
+
+      await cipher.cacheEncryptedChunks(
+        scope: scope,
+        senderUsername: 'alice',
+        messageId: messageId,
+        attachment: attachment,
+        cache: consumer,
+        fetchChunk: (chunkIndex) async {
+          fetches += 1;
+          return (await producer.get(
+            scope: 'producer',
+            senderUsername: 'alice',
+            messageId: messageId,
+            attachmentId: attachment.attachmentId,
+            chunkIndex: chunkIndex,
+            chunkCount: attachment.chunkCount,
+          ))!;
+        },
+      );
+      await producer.removeMessage(scope: 'producer', messageId: messageId);
+
+      expect(fetches, attachment.chunkCount);
+      expect(
+        await cipher.decryptToBytes(
+          scope: scope,
+          senderUsername: 'alice',
+          messageId: messageId,
+          attachment: attachment,
+          cache: consumer,
+        ),
+        plaintext,
+      );
+    },
+  );
+
   test('native ciphertext cache survives a new cache instance', () async {
     final root = await Directory.systemTemp.createTemp('wamp-app-cache-');
     addTearDown(() => root.delete(recursive: true));

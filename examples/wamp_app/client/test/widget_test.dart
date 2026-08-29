@@ -23,6 +23,7 @@ import 'test_support.dart';
 
 void main() {
   testWidgets('registers and opens the authenticated shell', (tester) async {
+    final oneTimeAttachmentId = _token(16, 39);
     final oneTimeMessage = LocalChatMessage(
       messageId: 'one-time-message',
       conversationId: 'alice-bob',
@@ -31,6 +32,19 @@ void main() {
       sentAt: DateTime.utc(2026, 8, 24, 12),
       outgoing: false,
       oneTime: true,
+      attachments: [
+        EncryptedAttachmentDescriptor(
+          attachmentId: oneTimeAttachmentId,
+          kind: ChatAttachmentKind.image,
+          name: 'hidden-view-once.png',
+          contentType: 'image/png',
+          plaintextBytes: 128,
+          chunkBytes: WampAppAttachmentLimits.defaultChunkBytes,
+          chunkCount: 1,
+          plaintextSha256: List<String>.filled(64, '0').join(),
+          key: Uint8List(32),
+        ),
+      ],
     );
     final controller = WampAppController(
       gateway: _FakeGateway(),
@@ -86,6 +100,11 @@ void main() {
     expect(find.text('Encrypted device vault'), findsOneWidget);
     expect(find.text('Test device'), findsOneWidget);
     expect(find.text('hidden until consumed'), findsNothing);
+    expect(find.text('hidden-view-once.png'), findsNothing);
+    expect(
+      find.byKey(ValueKey('attachment-open-$oneTimeAttachmentId')),
+      findsNothing,
+    );
     expect(find.text('Tap to view once'), findsOneWidget);
     expect(find.byKey(const Key('message-attach')), findsOneWidget);
 
@@ -1056,7 +1075,7 @@ void main() {
     expect(renderer.renderedDesigns.single.id, 'nice');
     expect(find.byKey(const Key('selected-attachment-0')), findsOneWidget);
     expect(find.textContaining('sticker-nice-'), findsOneWidget);
-    expect(tester.widget<FilterChip>(oneTime).selected, isFalse);
+    expect(tester.widget<FilterChip>(oneTime).selected, isTrue);
   });
 
   testWidgets('keeps a staged sticker usable above a compact keyboard', (

@@ -157,7 +157,26 @@ clients use the listener's resolved address and port, and teardown explicitly
 disconnects clients and closes upgraded sockets and servers. The complete
 11-test file passes while all former ports are occupied and in three concurrent
 processes under the same collision pressure; the post-change `bin/test-fast`
-also passes end to end.
+and repository-wide `bin/verify` also pass end to end. Implementation commit
+`066a6d42` is on both maintained remotes. Exact-head push CI `33243602817`, PR
+CI `33243604898`, push package dry run `33243602835`, PR package dry run
+`33243604871`, and WAMP Profile Benchmarks `33244524715` pass; the benchmark
+run uploaded the canonical profile artifact. The comprehensive feature-head
+audit and protected-`master` strict audit also pass.
+Encrypted view-once direct messages now support attachments without exposing
+plaintext before durable consumption. The client prefetches and authenticates
+all ciphertext, the server atomically commits the first-device-wins consume
+before deleting every message attachment and acknowledging success, and the
+winner decrypts only from its ephemeral cache. Closing, signing out, disposing,
+or losing the consume race invalidates that cache; startup and periodic
+retention immediately retry deletion after a transient filesystem failure.
+Protocol, retention, service, cache, controller, multi-device, and widget
+regressions pass. A disposable Android API 36 plus iOS 26.4 paired smoke proves
+an encrypted sticker stays hidden before reveal, renders from cache after the
+server copy is gone, and cannot be fetched after close, while the interactive
+tester lab remains undisturbed. `bin/test-wamp-app` passes with 53 shared, 144
+server, and 201 Flutter tests, real Chrome IndexedDB and 64 MiB worker checks,
+and a release web build; repository-wide `bin/verify` also passes.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact
@@ -431,8 +450,11 @@ records, rejects incomplete/conflicting envelopes, and authorizes download only
 after an attachment is referenced by a caller-visible mailbox record. Direct
 and group attachment-only messages, ciphertext/plaintext integrity, cache
 restart, cancellation, stale-session fencing, and browser IndexedDB persistence
-have focused regressions. View-once attachments fail closed pending atomic
-consumption/deletion. `bin/test-wamp-app` passes with 28 shared, 36 server, and
+have focused regressions. The original attachment increment failed closed for
+view-once messages; current head closes that limitation with authenticated
+ciphertext prefetch, atomic first-device consumption, server-side deletion
+before success, cache-only ephemeral reveal, and immediate retention recovery
+after transient deletion failures. `bin/test-wamp-app` passes with 28 shared, 36 server, and
 50 Flutter tests plus a release web build; Chrome separately passes the real
 IndexedDB test, and repository `bin/verify` passes on 2026-08-25. Five measured
 64 MiB iterations establish a macOS baseline of

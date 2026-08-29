@@ -358,6 +358,70 @@ final class AttachmentStore {
     });
   }
 
+  Future<T> consumeOneTimeMessage<T>(
+    EncryptedChatMessage message, {
+    required Future<bool> Function() isAlreadyConsumed,
+    required Future<T> Function() commit,
+  }) {
+    _ensureInitialized();
+    return _serializeMutation(() async {
+      if (!await isAlreadyConsumed()) {
+        try {
+          await _requireCompleteLocked(message);
+        } catch (error) {
+          if (error is! AttachmentIncomplete &&
+              error is! AttachmentUnavailable) {
+            rethrow;
+          }
+          if (!await isAlreadyConsumed()) rethrow;
+        }
+      }
+      try {
+        final result = await commit();
+        await _deleteMessageAttachmentsLocked(message);
+        return result;
+      } catch (_) {
+        if (await isAlreadyConsumed()) {
+          await _deleteMessageAttachmentsLocked(message);
+        }
+        rethrow;
+      }
+    });
+  }
+
+  Future<void> _deleteMessageAttachmentsLocked(
+    EncryptedChatMessage message,
+  ) async {
+    for (final attachmentId in message.attachmentIds) {
+      final key = _storageKey(
+        message.senderUsername,
+        message.messageId,
+        attachmentId,
+      );
+      await _serialize(key, () async {
+        final record = _records[key];
+        final attachmentDirectory =
+            record?.directory ??
+            _attachmentDirectory(
+              message.senderUsername,
+              message.messageId,
+              attachmentId,
+            );
+        final manifest = await _readManifest(
+          File(p.join(attachmentDirectory.path, 'manifest.json')),
+        );
+        if (await attachmentDirectory.exists()) {
+          await attachmentDirectory.delete(recursive: true);
+        }
+        _records.remove(key);
+        final bytes =
+            manifest?.storedBytes ?? record?.manifest.storedBytes ?? 0;
+        if (bytes > 0) _removeUsage(message.senderUsername, bytes);
+        await _deleteEmptyParents(attachmentDirectory);
+      });
+    }
+  }
+
   Future<void> _requireCompleteLocked(EncryptedChatMessage message) async {
     for (final attachmentId in message.attachmentIds) {
       final key = _storageKey(
@@ -392,6 +456,8 @@ final class AttachmentStore {
   Future<AttachmentPruneResult> prune({
     required Future<Iterable<EncryptedChatMessage>> Function()
     loadActiveMessages,
+    Future<Iterable<EncryptedChatMessage>> Function()?
+    loadImmediatelyRemovableMessages,
     DateTime? now,
   }) {
     _ensureInitialized();
@@ -410,24 +476,47 @@ final class AttachmentStore {
           );
         }
       }
+      final immediatelyRemovableKeys = <String>{};
+      for (final message
+          in await loadImmediatelyRemovableMessages?.call() ??
+              const <EncryptedChatMessage>[]) {
+        for (final attachmentId in message.attachmentIds) {
+          immediatelyRemovableKeys.add(
+            _storageKey(
+              message.senderUsername,
+              message.messageId,
+              attachmentId,
+            ),
+          );
+        }
+      }
       final cutoff = timestamp.subtract(stagingTtl);
       var removedAttachments = 0;
       var removedBytes = 0;
       for (final entry in List<MapEntry<String, _AttachmentRecord>>.of(
         _records.entries,
       )) {
-        if (activeKeys.contains(entry.key) ||
-            entry.value.manifest.updatedAt.isAfter(cutoff)) {
+        final removeImmediately = immediatelyRemovableKeys.contains(entry.key);
+        if (!removeImmediately &&
+            (activeKeys.contains(entry.key) ||
+                entry.value.manifest.updatedAt.isAfter(cutoff))) {
           continue;
         }
         await _serialize(entry.key, () async {
           final record = _records[entry.key];
-          if (record == null || activeKeys.contains(entry.key)) return;
+          if (record == null ||
+              (!removeImmediately && activeKeys.contains(entry.key))) {
+            return;
+          }
           final manifestFile = File(
             p.join(record.directory.path, 'manifest.json'),
           );
           final manifest = await _readManifest(manifestFile);
-          if (manifest != null && manifest.updatedAt.isAfter(cutoff)) return;
+          if (!removeImmediately &&
+              manifest != null &&
+              manifest.updatedAt.isAfter(cutoff)) {
+            return;
+          }
           if (await record.directory.exists()) {
             await record.directory.delete(recursive: true);
           }

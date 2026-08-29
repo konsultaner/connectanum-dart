@@ -75,8 +75,12 @@ contact IDs, and address-book files are never uploaded or retained by WampApp.
 Credential-backed FCM deployment evidence requires operator-owned secrets and
 remains before a final release. The reviewed security boundaries and residual
 risks are explicit in [THREAT_MODEL.md](THREAT_MODEL.md).
-View-once attachments are rejected until attachment consumption and deletion
-can be made atomic.
+View-once direct messages support encrypted attachments. An official client
+authenticates and caches the ciphertext before a first-device-wins consume;
+the server deletes every attachment chunk before acknowledging success, and
+the client permits only cache-backed ephemeral reveal before invalidating that
+cache on close. This limits ordinary replay across supported clients but is not
+DRM against a modified or compromised recipient device.
 
 ## Run Locally
 

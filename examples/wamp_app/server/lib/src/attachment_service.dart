@@ -49,6 +49,10 @@ final class AttachmentService {
       now: now,
     );
     if (message == null ||
+        (message.message.oneTime &&
+            message.recipientStates.values.any(
+              (state) => state.consumedAt != null,
+            )) ||
         !message.message.attachmentIds.contains(attachmentId)) {
       throw AttachmentNotFound(attachmentId);
     }

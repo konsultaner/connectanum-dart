@@ -12,6 +12,7 @@ import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
+import 'package:wamp_app/src/infrastructure/message_cipher.dart';
 import 'package:wamp_app/src/infrastructure/platform_push_token_source.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -1568,6 +1569,185 @@ void main() {
     },
   );
 
+  test(
+    'view-once attachments prefetch before consume and close invalidates cache',
+    () async {
+      const messageId = 'view-once-attachment-message';
+      final plaintext = Uint8List.fromList(
+        List<int>.generate(65537, (index) => (index * 23) % 251),
+      );
+      final producerCache = MemoryAttachmentChunkCache();
+      final consumerCache = MemoryAttachmentChunkCache();
+      final attachmentCipher = AttachmentCipher();
+      addTearDown(producerCache.dispose);
+      addTearDown(consumerCache.dispose);
+      addTearDown(attachmentCipher.dispose);
+      final descriptor = (await attachmentCipher.encryptSources(
+        scope: 'producer',
+        senderUsername: 'alice',
+        messageId: messageId,
+        sources: [
+          AttachmentPlaintextSource(
+            name: 'view-once.bin',
+            contentType: 'application/octet-stream',
+            kind: ChatAttachmentKind.file,
+            byteCount: plaintext.length,
+            openRead: () => Stream.value(plaintext),
+          ),
+        ],
+        cache: producerCache,
+      )).single;
+      final gateway = _OutboxGateway();
+      for (var index = 0; index < descriptor.chunkCount; index += 1) {
+        final chunk = (await producerCache.get(
+          scope: 'producer',
+          senderUsername: 'alice',
+          messageId: messageId,
+          attachmentId: descriptor.attachmentId,
+          chunkIndex: index,
+          chunkCount: descriptor.chunkCount,
+        ))!;
+        gateway.attachmentChunks[gateway._attachmentKey(
+              messageId,
+              descriptor.attachmentId,
+              index,
+            )] =
+            chunk;
+      }
+      final aliceTrust = FakeDeviceTrustSession(
+        'alice',
+        const [],
+        const [],
+        const [],
+        0,
+        LocalAppPreferences.defaults,
+      );
+      final envelope = MessageCipher().encrypt(
+        senderUsername: 'alice',
+        recipientUsername: 'bob',
+        text: 'Open this attachment once.',
+        trust: aliceTrust,
+        participantDevices: [
+          activeDeviceRecord('alice', aliceTrust.enrollment),
+          activeDeviceRecord('bob', aliceTrust.enrollment),
+        ],
+        now: DateTime.utc(2026, 8, 25, 12),
+        oneTime: true,
+        messageId: messageId,
+        attachments: [descriptor],
+      );
+      gateway.store(envelope, deliveredTo: 'bob');
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: FakeDeviceTrustStore(
+          initialMessages: [
+            LocalChatMessage(
+              messageId: messageId,
+              conversationId: envelope.conversationId,
+              peerUsername: 'alice',
+              text: 'Open this attachment once.',
+              sentAt: envelope.createdAt,
+              outgoing: false,
+              oneTime: true,
+              attachments: [descriptor],
+            ),
+          ],
+        ),
+        attachmentCache: consumerCache,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'bob',
+        password: 'correct horse battery',
+      );
+
+      final opened = await controller.consumeOneTimeMessage(messageId);
+
+      expect(opened?.text, 'Open this attachment once.');
+      expect(opened?.attachments, [descriptor]);
+      expect(gateway.consumeAttempts, hasLength(1));
+      expect(gateway.attachmentChunks, isEmpty);
+      expect(
+        gateway.attachmentGetAttempts,
+        List<int>.generate(descriptor.chunkCount, (index) => index),
+      );
+      expect(controller.messages, isEmpty);
+      final bytes = await controller.loadOpenedOneTimeAttachment(
+        message: opened!,
+        attachmentId: descriptor.attachmentId,
+      );
+      expect(bytes, plaintext);
+      bytes!.fillRange(0, bytes.length, 0);
+      expect(gateway.attachmentGetAttempts, hasLength(descriptor.chunkCount));
+
+      await controller.closeOpenedOneTimeMessage(opened);
+
+      expect(opened.attachments, isEmpty);
+      expect(
+        await controller.loadOpenedOneTimeAttachment(
+          message: opened,
+          attachmentId: descriptor.attachmentId,
+        ),
+        isNull,
+      );
+      expect(
+        await consumerCache.get(
+          scope: attachmentCacheScope(controller.connection!.endpoint, 'bob'),
+          senderUsername: 'alice',
+          messageId: messageId,
+          attachmentId: descriptor.attachmentId,
+          chunkIndex: 0,
+          chunkCount: descriptor.chunkCount,
+        ),
+        isNull,
+      );
+    },
+  );
+
+  test('view-once attachment prefetch failure does not consume', () async {
+    const messageId = 'incomplete-view-once-attachment';
+    final descriptor = EncryptedAttachmentDescriptor(
+      attachmentId: 'incomplete-view-once-attachment-id',
+      name: 'missing.bin',
+      contentType: 'application/octet-stream',
+      kind: ChatAttachmentKind.file,
+      plaintextBytes: 1,
+      plaintextSha256: sha256.convert(const [1]).toString(),
+      chunkBytes: 1,
+      chunkCount: 1,
+      key: Uint8List(32),
+    );
+    final gateway = _OutboxGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(
+        initialMessages: [
+          LocalChatMessage(
+            messageId: messageId,
+            conversationId: 'alice-bob',
+            peerUsername: 'alice',
+            text: '',
+            sentAt: DateTime.utc(2026, 8, 25, 12),
+            outgoing: false,
+            oneTime: true,
+            attachments: [descriptor],
+          ),
+        ],
+      ),
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'bob',
+      password: 'correct horse battery',
+    );
+
+    expect(await controller.consumeOneTimeMessage(messageId), isNull);
+    expect(gateway.consumeAttempts, isEmpty);
+    expect(controller.messages.single.messageId, messageId);
+  });
+
   test('message conflicts are terminal until explicitly discarded', () async {
     final gateway = _OutboxGateway()
       ..nextFailureKind = MessageSendFailureKind.conflict;
@@ -2180,19 +2360,27 @@ final class _OutboxGateway implements AccountGateway {
   final Map<String, EncryptedAttachmentChunk> attachmentChunks = {};
   final List<int> attachmentPutAttempts = [];
   final List<int> attachmentGetAttempts = [];
+  final List<OneTimeMessageConsumption> consumeAttempts = [];
   final List<String> operations = [];
   int? failAfterStoredChunkIndex;
 
   Completer<MessageSendReceipt> blockNextSend() =>
       _sendGate = Completer<MessageSendReceipt>();
 
-  void store(EncryptedChatMessage message) {
+  void store(EncryptedChatMessage message, {String? deliveredTo}) {
     _cursor += 1;
     _mailbox.add(
       MailboxMessage(
         cursor: _cursor,
         message: message,
         acceptedAt: DateTime.utc(2026, 8, 25, 12, _cursor),
+        recipientStates: deliveredTo == null
+            ? const {}
+            : {
+                deliveredTo: MailboxRecipientState(
+                  deliveredAt: DateTime.utc(2026, 8, 25, 12, _cursor),
+                ),
+              },
       ),
     );
   }
@@ -2250,7 +2438,7 @@ final class _OutboxGateway implements AccountGateway {
         return MailboxBatch(nextCursor: _cursor, messages: messages);
       },
       markMessageReceiptCallback: (_, _) => throw UnimplementedError(),
-      consumeOneTimeCallback: (_) => throw UnimplementedError(),
+      consumeOneTimeCallback: _consumeOneTime,
       mailboxWakeups: const Stream<MailboxWakeup>.empty(),
       latestMailboxWakeupCursorCallback: () => 0,
       latestMailboxWakeupErrorCallback: () => null,
@@ -2383,6 +2571,58 @@ final class _OutboxGateway implements AccountGateway {
       );
     }
     return chunk;
+  }
+
+  Future<MessageReceipt> _consumeOneTime(
+    OneTimeMessageConsumption consumption,
+  ) async {
+    consumeAttempts.add(consumption);
+    final existing = _mailbox.reversed
+        .where((stored) => stored.message.messageId == consumption.messageId)
+        .firstOrNull;
+    if (existing == null) throw StateError('Message was not found.');
+    final recipient = existing.message.recipientUsername!;
+    final current = existing.recipientStateFor(recipient);
+    if (current?.consumedAt != null) {
+      if (current?.consumedByDeviceId != consumption.deviceId) {
+        throw StateError('Message was consumed by another device.');
+      }
+      return MessageReceipt(
+        messageId: consumption.messageId,
+        cursor: existing.cursor,
+        deliveredAt: current?.deliveredAt,
+        readAt: current?.readAt,
+        consumedAt: current?.consumedAt,
+      );
+    }
+    final consumedAt = DateTime.utc(2026, 8, 25, 12, 30);
+    final states = Map<String, MailboxRecipientState>.of(
+      existing.recipientStates,
+    );
+    states[recipient] = MailboxRecipientState(
+      deliveredAt: current?.deliveredAt ?? consumedAt,
+      readAt: consumedAt,
+      consumedAt: consumedAt,
+      consumedByDeviceId: consumption.deviceId,
+    );
+    _cursor += 1;
+    final updated = MailboxMessage(
+      cursor: _cursor,
+      message: existing.message,
+      acceptedAt: existing.acceptedAt,
+      recipientStates: states,
+    );
+    _mailbox.add(updated);
+    attachmentChunks.removeWhere(
+      (key, _) => key.startsWith('${consumption.messageId}\n'),
+    );
+    return MessageReceipt(
+      messageId: consumption.messageId,
+      cursor: updated.cursor,
+      deliveredAt: consumedAt,
+      readAt: consumedAt,
+      consumedAt: consumedAt,
+    );
   }
 
   String _attachmentKey(

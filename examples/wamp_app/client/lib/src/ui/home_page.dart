@@ -153,7 +153,6 @@ class _HomePageState extends State<HomePage> {
           ..._attachments,
           ...selected,
         ]);
-        _oneTime = false;
       });
     } catch (error) {
       if (!mounted) return;
@@ -232,7 +231,6 @@ class _HomePageState extends State<HomePage> {
           ..._attachments,
           selected,
         ]);
-        _oneTime = false;
       });
       return true;
     } catch (error) {
@@ -358,7 +356,6 @@ class _HomePageState extends State<HomePage> {
         ..._attachments,
         attachment,
       ]);
-      _oneTime = false;
     });
   }
 
@@ -399,6 +396,14 @@ class _HomePageState extends State<HomePage> {
       attachmentId: attachment.attachmentId,
     );
     if (bytes == null) return;
+    await _showAttachmentBytes(attachment, bytes, allowSaveCopy: true);
+  }
+
+  Future<void> _showAttachmentBytes(
+    EncryptedAttachmentDescriptor attachment,
+    Uint8List bytes, {
+    required bool allowSaveCopy,
+  }) async {
     if (!mounted) {
       bytes.fillRange(0, bytes.length, 0);
       return;
@@ -442,21 +447,22 @@ class _HomePageState extends State<HomePage> {
                   ),
           ),
           actions: [
-            TextButton.icon(
-              onPressed: () async {
-                final location = await getSaveLocation(
-                  suggestedName: attachment.name,
-                );
-                if (location == null) return;
-                await XFile.fromData(
-                  bytes,
-                  name: attachment.name,
-                  mimeType: attachment.contentType,
-                ).saveTo(location.path);
-              },
-              icon: const Icon(Icons.download_outlined),
-              label: const Text('Save copy'),
-            ),
+            if (allowSaveCopy)
+              TextButton.icon(
+                onPressed: () async {
+                  final location = await getSaveLocation(
+                    suggestedName: attachment.name,
+                  );
+                  if (location == null) return;
+                  await XFile.fromData(
+                    bytes,
+                    name: attachment.name,
+                    mimeType: attachment.contentType,
+                  ).saveTo(location.path);
+                },
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Save copy'),
+              ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Close'),
@@ -498,23 +504,67 @@ class _HomePageState extends State<HomePage> {
       await widget.controller.markMessageRead(message.messageId);
       return;
     }
-    final text = await widget.controller.consumeOneTimeMessage(
+    final opened = await widget.controller.consumeOneTimeMessage(
       message.messageId,
     );
-    if (!mounted || text == null) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('View-once message'),
-        content: Text(text, key: const Key('one-time-message-content')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+    if (opened == null) return;
+    if (!mounted) {
+      await widget.controller.closeOpenedOneTimeMessage(opened);
+      return;
+    }
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('View-once message'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560, maxHeight: 560),
+            child: SingleChildScrollView(
+              child: Column(
+                key: const Key('one-time-message-content'),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (opened.text.isNotEmpty) Text(opened.text),
+                  for (final attachment in opened.attachments) ...[
+                    if (opened.text.isNotEmpty) const SizedBox(height: 10),
+                    _AttachmentCard(
+                      attachment: attachment,
+                      onOpen: () async {
+                        final bytes = await widget.controller
+                            .loadOpenedOneTimeAttachment(
+                              message: opened,
+                              attachmentId: attachment.attachmentId,
+                            );
+                        if (bytes == null) {
+                          _showMessage(
+                            'The view-once attachment could not be opened.',
+                          );
+                          return;
+                        }
+                        await _showAttachmentBytes(
+                          attachment,
+                          bytes,
+                          allowSaveCopy: false,
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
-    );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      await widget.controller.closeOpenedOneTimeMessage(opened);
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -2077,10 +2127,7 @@ class _ConversationPanel extends StatelessWidget {
                     FilterChip(
                       key: const Key('message-one-time'),
                       selected: !groupMode && oneTime,
-                      onSelected:
-                          controller.messageBusy ||
-                              groupMode ||
-                              selectedAttachments.isNotEmpty
+                      onSelected: controller.messageBusy || groupMode
                           ? null
                           : onOneTimeChanged,
                       avatar: const Icon(
@@ -2502,7 +2549,10 @@ class _MessageBubble extends StatelessWidget {
                         : null,
                   ),
                 ],
-                for (final attachment in message.attachments) ...[
+                for (final attachment
+                    in message.oneTime && !message.outgoing
+                        ? const <EncryptedAttachmentDescriptor>[]
+                        : message.attachments) ...[
                   const SizedBox(height: 7),
                   _AttachmentCard(
                     attachment: attachment,

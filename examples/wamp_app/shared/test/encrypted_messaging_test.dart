@@ -44,9 +44,19 @@ void main() {
       () => _message(attachmentIds: [attachmentIds.first, attachmentIds.first]),
       throwsFormatException,
     );
+    final oneTimeAttachment = _message(
+      oneTime: true,
+      attachmentIds: [attachmentIds.first],
+    );
     expect(
-      () => _message(oneTime: true, attachmentIds: [attachmentIds.first]),
-      throwsFormatException,
+      EncryptedChatMessage.fromWampKeywords(
+        oneTimeAttachment.toWampKeywords(),
+      ).attachmentIds,
+      [attachmentIds.first],
+    );
+    expect(
+      EncryptedChatMessage.fromJson(oneTimeAttachment.toJson()).oneTime,
+      isTrue,
     );
   });
 

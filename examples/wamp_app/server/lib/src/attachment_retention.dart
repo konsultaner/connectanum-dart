@@ -45,6 +45,8 @@ final class AttachmentRetentionController {
         .prune(
           loadActiveMessages: () =>
               mailbox.activeAttachmentMessages(now: timestamp),
+          loadImmediatelyRemovableMessages: () =>
+              mailbox.consumedOneTimeAttachmentMessages(),
           now: timestamp,
         )
         .then<void>((_) {})

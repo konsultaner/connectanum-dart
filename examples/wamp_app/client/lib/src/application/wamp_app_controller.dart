@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
@@ -21,6 +22,29 @@ import '../infrastructure/wamp_account_gateway.dart';
 import 'call_controller.dart';
 
 enum WampAppStatus { signedOut, busy, connected, failed }
+
+final class OpenedOneTimeMessage {
+  OpenedOneTimeMessage._({
+    required this.messageId,
+    required this.text,
+    required Iterable<EncryptedAttachmentDescriptor> attachments,
+    required this._scope,
+    required this._senderUsername,
+  }) : _attachments = attachments.toList(growable: true) {
+    this.attachments = UnmodifiableListView<EncryptedAttachmentDescriptor>(
+      _attachments,
+    );
+  }
+
+  final String messageId;
+  final String text;
+  late final List<EncryptedAttachmentDescriptor> attachments;
+  final List<EncryptedAttachmentDescriptor> _attachments;
+  final String _scope;
+  final String _senderUsername;
+
+  void _invalidate() => _attachments.clear();
+}
 
 class WampAppController extends ChangeNotifier {
   WampAppController({
@@ -86,6 +110,7 @@ class WampAppController extends ChangeNotifier {
   bool _automaticSyncRunning = false;
   int _operationGeneration = 0;
   Future<void>? _signOutOperation;
+  OpenedOneTimeMessage? _openedOneTimeMessage;
   bool _disposed = false;
 
   WampAppStatus get status => _status;
@@ -511,6 +536,10 @@ class WampAppController extends ChangeNotifier {
     final trustSession = _trustSession;
     final wakeupSubscription = _mailboxWakeupSubscription;
     final calls = _calls;
+    final openedOneTimeMessage = _openedOneTimeMessage;
+    final openedOneTimeMessageHasAttachments =
+        openedOneTimeMessage?.attachments.isNotEmpty ?? false;
+    openedOneTimeMessage?._invalidate();
     _connection = null;
     _trustSession = null;
     _localDevice = null;
@@ -518,6 +547,7 @@ class WampAppController extends ChangeNotifier {
     _mailboxWakeupSubscription = null;
     _pendingMailboxWakeupCursor = 0;
     _automaticSyncRunning = false;
+    _openedOneTimeMessage = null;
     _error = null;
     _messageError = null;
     _messageExpiryError = null;
@@ -538,8 +568,18 @@ class WampAppController extends ChangeNotifier {
     _preferences = LocalAppPreferences.defaults;
     _status = WampAppStatus.signedOut;
     if (!_disposed) notifyListeners();
-    await _platformPush.clear();
-    await _closeState(connection, trustSession, wakeupSubscription, calls);
+    try {
+      await Future.wait<void>([
+        _platformPush.clear(),
+        if (openedOneTimeMessage != null && openedOneTimeMessageHasAttachments)
+          _attachmentCache.removeMessage(
+            scope: openedOneTimeMessage._scope,
+            messageId: openedOneTimeMessage.messageId,
+          ),
+      ]);
+    } finally {
+      await _closeState(connection, trustSession, wakeupSubscription, calls);
+    }
   }
 
   Future<bool> updateProfile(AccountProfileUpdate update) async {
@@ -967,11 +1007,6 @@ class WampAppController extends ChangeNotifier {
       if (effectiveExpiresAfter != null &&
           effectiveExpiresAfter <= Duration.zero) {
         throw const FormatException('Message expiry must be positive.');
-      }
-      if (oneTime && attachmentSources.isNotEmpty) {
-        throw const FormatException(
-          'View-once attachments are not supported yet.',
-        );
       }
       final ownDevices = await connection.listDevices();
       final recipientDevices = await connection.lookupDevices(
@@ -1544,7 +1579,7 @@ class WampAppController extends ChangeNotifier {
     }
   }
 
-  Future<String?> consumeOneTimeMessage(String messageId) async {
+  Future<OpenedOneTimeMessage?> consumeOneTimeMessage(String messageId) async {
     final connection = _connection;
     final trust = _trustSession;
     final localDevice = _localDevice;
@@ -1563,26 +1598,76 @@ class WampAppController extends ChangeNotifier {
     }
     final generation = _operationGeneration;
     var synchronized = false;
+    OpenedOneTimeMessage? opened;
     _messageBusy = true;
     _messageError = null;
     notifyListeners();
     try {
+      await _discardOpenedOneTimeMessage();
+      final scope = attachmentCacheScope(
+        connection.endpoint,
+        connection.username,
+      );
+      final senderUsername = message.peerUsername;
+      for (final attachment in message.attachments) {
+        await _attachmentCipher.cacheEncryptedChunks(
+          scope: scope,
+          senderUsername: senderUsername,
+          messageId: message.messageId,
+          attachment: attachment,
+          cache: _attachmentCache,
+          fetchChunk: (chunkIndex) => connection.getAttachmentChunk(
+            messageId: message.messageId,
+            attachmentId: attachment.attachmentId,
+            chunkIndex: chunkIndex,
+          ),
+          isCancelled: () =>
+              _disposed ||
+              generation != _operationGeneration ||
+              connection != _connection ||
+              trust != _trustSession,
+        );
+      }
       final consumption = trust.signOneTimeConsumption(messageId);
       if (consumption.deviceId != localDevice.deviceId) {
         throw StateError('The local device identity changed unexpectedly.');
       }
       await connection.consumeOneTime(consumption);
+      opened = OpenedOneTimeMessage._(
+        messageId: message.messageId,
+        text: message.text,
+        attachments: message.attachments,
+        scope: scope,
+        senderUsername: senderUsername,
+      );
+      _openedOneTimeMessage = opened;
       final updated = await _synchronize(connection, trust, localDevice);
       if (_disposed ||
           generation != _operationGeneration ||
           connection != _connection ||
           trust != _trustSession) {
+        await _discardOpenedOneTimeMessage(only: opened);
         return null;
       }
       _replaceMessages(updated);
       synchronized = true;
-      return message.text;
+      return opened;
     } catch (error) {
+      try {
+        if (opened != null) {
+          await _discardOpenedOneTimeMessage(only: opened);
+        } else if (message.attachments.isNotEmpty) {
+          await _attachmentCache.removeMessage(
+            scope: attachmentCacheScope(
+              connection.endpoint,
+              connection.username,
+            ),
+            messageId: message.messageId,
+          );
+        }
+      } catch (_) {
+        // Preserve the consumption or synchronization error for the UI.
+      }
       if (!_disposed &&
           generation == _operationGeneration &&
           connection == _connection) {
@@ -1600,6 +1685,89 @@ class WampAppController extends ChangeNotifier {
         }
       }
     }
+  }
+
+  Future<Uint8List?> loadOpenedOneTimeAttachment({
+    required OpenedOneTimeMessage message,
+    required String attachmentId,
+  }) async {
+    final connection = _connection;
+    final trust = _trustSession;
+    final attachment = message.attachments
+        .where((candidate) => candidate.attachmentId == attachmentId)
+        .firstOrNull;
+    if (_disposed ||
+        _messageBusy ||
+        connection == null ||
+        trust == null ||
+        !identical(_openedOneTimeMessage, message) ||
+        attachment == null) {
+      return null;
+    }
+    final generation = _operationGeneration;
+    bool isCurrent() =>
+        !_disposed &&
+        generation == _operationGeneration &&
+        identical(connection, _connection) &&
+        identical(trust, _trustSession) &&
+        identical(_openedOneTimeMessage, message);
+    _messageBusy = true;
+    _messageError = null;
+    notifyListeners();
+    try {
+      final opened = await _attachmentCipher.decryptToBytes(
+        scope: message._scope,
+        senderUsername: message._senderUsername,
+        messageId: message.messageId,
+        attachment: attachment,
+        cache: _attachmentCache,
+        isCancelled: () => !isCurrent(),
+      );
+      if (!isCurrent()) {
+        opened.fillRange(0, opened.length, 0);
+        return null;
+      }
+      return opened;
+    } catch (error) {
+      if (isCurrent()) _messageError = error;
+      return null;
+    } finally {
+      if (isCurrent()) {
+        _messageBusy = false;
+        notifyListeners();
+        _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  Future<void> closeOpenedOneTimeMessage(OpenedOneTimeMessage message) async {
+    if (!identical(_openedOneTimeMessage, message)) return;
+    try {
+      await _discardOpenedOneTimeMessage(only: message);
+    } catch (error) {
+      if (!_disposed) _messageError = error;
+    } finally {
+      if (!_disposed) {
+        _messageBusy = false;
+        notifyListeners();
+        _startAutomaticSyncIfNeeded();
+      }
+    }
+  }
+
+  Future<void> _discardOpenedOneTimeMessage({
+    OpenedOneTimeMessage? only,
+  }) async {
+    final opened = _openedOneTimeMessage;
+    if (opened == null || (only != null && !identical(opened, only))) return;
+    _openedOneTimeMessage = null;
+    final hasAttachments = opened.attachments.isNotEmpty;
+    opened._invalidate();
+    if (!hasAttachments) return;
+    await _attachmentCache.removeMessage(
+      scope: opened._scope,
+      messageId: opened.messageId,
+    );
   }
 
   Future<void> refreshMessages() async {
@@ -2053,6 +2221,7 @@ class WampAppController extends ChangeNotifier {
     final groupsById = <String, LocalChatGroup>{
       for (final group in trust.groups) group.conversationId: group,
     };
+    final consumedOneTimeMessageIds = <String>{};
     for (var page = 0; page < 20; page += 1) {
       final batch = await connection.syncMessages(afterCursor: cursor);
       if (batch.nextCursor < cursor) {
@@ -2065,6 +2234,9 @@ class WampAppController extends ChangeNotifier {
             encrypted.oneTime &&
             encrypted.recipientUsername == connection.username &&
             recipientState?.consumedAt != null) {
+          if (encrypted.attachmentIds.isNotEmpty) {
+            consumedOneTimeMessageIds.add(encrypted.messageId);
+          }
           byId.remove(encrypted.messageId);
           outboxById.remove(encrypted.messageId);
           continue;
@@ -2158,6 +2330,15 @@ class WampAppController extends ChangeNotifier {
             ? created
             : left.conversationId.compareTo(right.conversationId);
       });
+    final activeOpenedMessageId = _openedOneTimeMessage?.messageId;
+    final scope = attachmentCacheScope(
+      connection.endpoint,
+      connection.username,
+    );
+    for (final messageId in consumedOneTimeMessageIds) {
+      if (messageId == activeOpenedMessageId) continue;
+      await _attachmentCache.removeMessage(scope: scope, messageId: messageId);
+    }
     await trust.saveMailboxState(
       cursor: cursor,
       messages: updated,
@@ -2184,6 +2365,8 @@ class WampAppController extends ChangeNotifier {
     _mailboxWakeupSubscription = null;
     _pendingMailboxWakeupCursor = 0;
     _automaticSyncRunning = false;
+    _openedOneTimeMessage?._invalidate();
+    _openedOneTimeMessage = null;
     unawaited(
       Future.wait<void>([
         _platformPush.dispose().then(

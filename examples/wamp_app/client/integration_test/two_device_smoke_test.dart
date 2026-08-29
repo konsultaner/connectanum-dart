@@ -15,6 +15,7 @@ import 'package:wamp_app/src/infrastructure/device_backup_file.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app/src/infrastructure/profile_avatar_picker.dart';
 import 'package:wamp_app/src/infrastructure/vault_storage.dart';
+import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
 import 'package:wamp_app/src/ui/expression_picker.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
@@ -1898,6 +1899,28 @@ Future<void> _sendViewOnceMessage(
     label: 'enabled view-once mode',
   );
 
+  final expression = find.byKey(const Key('message-expression'));
+  await tester.ensureVisible(expression);
+  await tester.tap(expression);
+  final stickerTab = find.byKey(const Key('expression-sticker-tab'));
+  await _pumpUntil(
+    tester,
+    () => stickerTab.hitTestable().evaluate().isNotEmpty,
+    label: 'view-once expression picker',
+  );
+  await tester.tap(stickerTab);
+  await tester.pump(const Duration(milliseconds: 400));
+  final sticker = find.byKey(const ValueKey('sticker-nice'));
+  await tester.ensureVisible(sticker);
+  await tester.tap(sticker);
+  await _pumpUntil(
+    tester,
+    () =>
+        find.byKey(const Key('expression-close')).evaluate().isEmpty &&
+        find.byKey(const Key('selected-attachment-0')).evaluate().isNotEmpty,
+    label: 'staged encrypted view-once sticker',
+  );
+
   final composer = find.byKey(const Key('message-composer'));
   await _enterMessageWhenReady(
     tester,
@@ -1958,7 +1981,14 @@ Future<void> _receiveViewOnceMessage(
     timeout: const Duration(minutes: 2),
   );
   final viewOnce = received!;
+  final attachment = viewOnce.attachments.single;
+  expect(attachment.kind, ChatAttachmentKind.sticker);
   expect(find.text(_oneTimeText), findsNothing);
+  expect(find.text(attachment.name), findsNothing);
+  expect(
+    find.byKey(ValueKey('attachment-open-${attachment.attachmentId}')),
+    findsNothing,
+  );
 
   final historyScrollable = find.descendant(
     of: find.byKey(const Key('message-history')),
@@ -1986,6 +2016,27 @@ Future<void> _receiveViewOnceMessage(
     timeout: const Duration(minutes: 2),
   );
   expect(find.text(_oneTimeText), findsOneWidget);
+  expect(find.text(attachment.name), findsOneWidget);
+  final attachmentCard = find.byKey(
+    ValueKey('attachment-open-${attachment.attachmentId}'),
+  );
+  await tester.ensureVisible(attachmentCard);
+  await tester.tap(attachmentCard);
+  final preview = find.byKey(
+    ValueKey('attachment-preview-${attachment.attachmentId}'),
+  );
+  await _pumpUntil(
+    tester,
+    () => preview.evaluate().isNotEmpty,
+    label: 'decrypted view-once sticker preview',
+    timeout: const Duration(minutes: 2),
+  );
+  await tester.tap(find.widgetWithText(FilledButton, 'Close'));
+  await _pumpUntil(
+    tester,
+    () => preview.evaluate().isEmpty,
+    label: 'closed view-once sticker preview',
+  );
   await tester.tap(find.widgetWithText(TextButton, 'Close'));
   await _pumpUntil(
     tester,
@@ -1997,6 +2048,14 @@ Future<void> _receiveViewOnceMessage(
     label: 'consumed view-once removal',
   );
   expect(find.text(_oneTimeText), findsNothing);
+  await expectLater(
+    controller.connection!.getAttachmentChunk(
+      messageId: viewOnce.messageId,
+      attachmentId: attachment.attachmentId,
+      chunkIndex: 0,
+    ),
+    throwsA(isA<AttachmentTransferException>()),
+  );
   expect(controller.messageError, isNull);
 }
 
@@ -2005,7 +2064,9 @@ bool _matchesOutboundViewOnce(LocalChatMessage message) =>
     !message.isGroup &&
     message.peerUsername == _peerUsername &&
     message.oneTime &&
-    message.text == _oneTimeText;
+    message.text == _oneTimeText &&
+    message.attachments.length == 1 &&
+    message.attachments.single.kind == ChatAttachmentKind.sticker;
 
 bool _matchesGroupMessage(
   LocalChatMessage message, {

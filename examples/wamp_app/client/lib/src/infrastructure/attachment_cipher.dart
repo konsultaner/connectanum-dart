@@ -139,6 +139,68 @@ final class AttachmentCipher {
     }
   }
 
+  Future<void> cacheEncryptedChunks({
+    required String scope,
+    required String senderUsername,
+    required String messageId,
+    required EncryptedAttachmentDescriptor attachment,
+    required AttachmentChunkCache cache,
+    required Future<EncryptedAttachmentChunk> Function(int chunkIndex)
+    fetchChunk,
+    bool Function()? isCancelled,
+  }) async {
+    _throwIfDisposed();
+    attachment.validate();
+    for (
+      var chunkIndex = 0;
+      chunkIndex < attachment.chunkCount;
+      chunkIndex += 1
+    ) {
+      _throwIfCancelled(isCancelled);
+      var chunk = await cache.get(
+        scope: scope,
+        senderUsername: senderUsername,
+        messageId: messageId,
+        attachmentId: attachment.attachmentId,
+        chunkIndex: chunkIndex,
+        chunkCount: attachment.chunkCount,
+      );
+      _throwIfCancelled(isCancelled);
+      if (chunk == null) {
+        chunk = await fetchChunk(chunkIndex);
+        _throwIfCancelled(isCancelled);
+        _validateChunk(
+          chunk: chunk,
+          senderUsername: senderUsername,
+          messageId: messageId,
+          attachment: attachment,
+          chunkIndex: chunkIndex,
+        );
+        if (attachmentCacheDigest(chunk.encryptedBytes) !=
+            chunk.ciphertextSha256) {
+          throw const FormatException(
+            'Encrypted attachment chunk digest does not match.',
+          );
+        }
+        await cache.put(scope: scope, chunk: chunk);
+        _throwIfCancelled(isCancelled);
+      }
+      _validateChunk(
+        chunk: chunk,
+        senderUsername: senderUsername,
+        messageId: messageId,
+        attachment: attachment,
+        chunkIndex: chunkIndex,
+      );
+      if (attachmentCacheDigest(chunk.encryptedBytes) !=
+          chunk.ciphertextSha256) {
+        throw const FormatException(
+          'Encrypted attachment chunk digest does not match.',
+        );
+      }
+    }
+  }
+
   Future<void> decryptToSink({
     required String scope,
     required String senderUsername,

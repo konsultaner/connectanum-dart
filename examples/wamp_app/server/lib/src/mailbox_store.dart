@@ -154,16 +154,45 @@ class MailboxStore {
   }) => _serializeWrite(() async {
     final timestamp = (now ?? DateTime.now()).toUtc();
     final document = await _readDocument();
+    final latestById = <String, MailboxMessage>{};
+    for (final entry in document.messages) {
+      latestById[entry.message.messageId] = entry;
+    }
     return List<EncryptedChatMessage>.unmodifiable(
-      document.messages
-          .map((entry) => entry.message)
+      latestById.values
           .where(
-            (message) =>
-                message.attachmentIds.isNotEmpty &&
-                !message.isExpiredAt(timestamp),
-          ),
+            (entry) =>
+                entry.message.attachmentIds.isNotEmpty &&
+                !entry.message.isExpiredAt(timestamp) &&
+                !(entry.message.oneTime &&
+                    entry.recipientStates.values.any(
+                      (state) => state.consumedAt != null,
+                    )),
+          )
+          .map((entry) => entry.message),
     );
   });
+
+  Future<List<EncryptedChatMessage>> consumedOneTimeAttachmentMessages() =>
+      _serializeWrite(() async {
+        final document = await _readDocument();
+        final latestById = <String, MailboxMessage>{};
+        for (final entry in document.messages) {
+          latestById[entry.message.messageId] = entry;
+        }
+        return List<EncryptedChatMessage>.unmodifiable(
+          latestById.values
+              .where(
+                (entry) =>
+                    entry.message.oneTime &&
+                    entry.message.attachmentIds.isNotEmpty &&
+                    entry.recipientStates.values.any(
+                      (state) => state.consumedAt != null,
+                    ),
+              )
+              .map((entry) => entry.message),
+        );
+      });
 
   Future<MailboxMessage?> findVisibleMessage(
     String username,

@@ -203,7 +203,7 @@ void main() {
       final revealed = await bob.consumeOneTimeMessage(
         oneTimeMessage.messageId,
       );
-      expect(revealed, oneTimePlaintext);
+      expect(revealed?.text, oneTimePlaintext);
       expect(
         bob.messages.any(
           (message) => message.messageId == oneTimeMessage.messageId,

@@ -155,11 +155,40 @@ class MessageService {
     } catch (_) {
       throw StateError('The one-time consumption signature is invalid.');
     }
-    return mailbox.consumeOneTime(
+    final message = await mailbox.findVisibleMessage(
       caller,
-      consumption.deviceId,
       consumption.messageId,
       now: now,
+    );
+    if (message == null) throw MessageNotFound(consumption.messageId);
+    final attachmentStore = attachments;
+    if (message.message.attachmentIds.isEmpty) {
+      return mailbox.consumeOneTime(
+        caller,
+        consumption.deviceId,
+        consumption.messageId,
+        now: now,
+      );
+    }
+    if (attachmentStore == null) {
+      throw const AttachmentUnavailable('attachment-storage-unavailable');
+    }
+    return attachmentStore.consumeOneTimeMessage(
+      message.message,
+      isAlreadyConsumed: () async {
+        final latest = await mailbox.findVisibleMessage(
+          caller,
+          consumption.messageId,
+          now: now,
+        );
+        return latest?.recipientStateFor(caller)?.consumedAt != null;
+      },
+      commit: () => mailbox.consumeOneTime(
+        caller,
+        consumption.deviceId,
+        consumption.messageId,
+        now: now,
+      ),
     );
   }
 
