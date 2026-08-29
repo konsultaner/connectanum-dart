@@ -203,6 +203,160 @@ wait_for_flutter_test_body() {
   return 1
 }
 
+android_app_is_running() {
+  local device_id="$1"
+  local package_id="$2"
+  local process_ids
+
+  process_ids="$(adb -s "$device_id" shell pidof "$package_id" 2>/dev/null | tr -d '\r')" || \
+    return 1
+  [[ "$process_ids" =~ ^[0-9]+([[:space:]][0-9]+)*$ ]]
+}
+
+ios_app_is_running() {
+  local device_id="$1"
+  local bundle_id="$2"
+  local services
+
+  services="$(xcrun simctl spawn "$device_id" launchctl list 2>/dev/null)" || \
+    return 1
+  grep -Fq "UIKitApplication:${bundle_id}[" <<<"$services"
+}
+
+wait_for_android_app() {
+  local device_id="$1"
+  local package_id="$2"
+  local timeout_seconds="$3"
+  local deadline=$((SECONDS + timeout_seconds))
+
+  while ((SECONDS < deadline)); do
+    if android_app_is_running "$device_id" "$package_id"; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
+wait_for_ios_app() {
+  local device_id="$1"
+  local bundle_id="$2"
+  local timeout_seconds="$3"
+  local deadline=$((SECONDS + timeout_seconds))
+
+  while ((SECONDS < deadline)); do
+    if ios_app_is_running "$device_id" "$bundle_id"; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  return 1
+}
+
+launch_android_app() {
+  local device_id="$1"
+  local package_id="$2"
+  local log_path="$3"
+
+  adb -s "$device_id" get-state >/dev/null 2>&1 &&
+    adb -s "$device_id" shell am start \
+      -n "$package_id/.MainActivity" >>"$log_path" 2>&1 &&
+    wait_for_android_app "$device_id" "$package_id" 5
+}
+
+launch_ios_app() {
+  local device_id="$1"
+  local bundle_id="$2"
+  local log_path="$3"
+
+  xcrun simctl launch "$device_id" "$bundle_id" >>"$log_path" 2>&1 &&
+    wait_for_ios_app "$device_id" "$bundle_id" 5
+}
+
+supervise_interactive_lab() {
+  local router_pid="$1"
+  local android_device_id="$2"
+  local ios_device_id="$3"
+  local android_log_path="$4"
+  local ios_log_path="$5"
+  local android_package_id=dev.connectanum.wamp_app
+  local ios_bundle_id=dev.connectanum.wampApp
+  local android_restart_attempts=0
+  local ios_restart_attempts=0
+  local android_last_restart=-10
+  local ios_last_restart=-10
+  local router_status
+
+  while kill -0 "$router_pid" 2>/dev/null; do
+    if android_app_is_running "$android_device_id" "$android_package_id"; then
+      if ((SECONDS - android_last_restart >= 10)); then
+        android_restart_attempts=0
+      fi
+    else
+      if ((SECONDS - android_last_restart >= 10)); then
+        android_restart_attempts=0
+      fi
+      ((android_restart_attempts += 1))
+      android_last_restart=$SECONDS
+      if ((android_restart_attempts > 3)); then
+        printf 'Android WampApp exited repeatedly on %s. See %s.\n' \
+          "$android_device_id" "$android_log_path" >&2
+        return 1
+      fi
+      printf 'Android WampApp exited; relaunching on %s (attempt %d/3)...\n' \
+        "$android_device_id" "$android_restart_attempts"
+      if ! launch_android_app \
+        "$android_device_id" "$android_package_id" "$android_log_path" && \
+        ((android_restart_attempts >= 3))
+      then
+        printf 'Android WampApp could not be kept running on %s. See %s.\n' \
+          "$android_device_id" "$android_log_path" >&2
+        return 1
+      fi
+    fi
+
+    if ios_app_is_running "$ios_device_id" "$ios_bundle_id"; then
+      if ((SECONDS - ios_last_restart >= 10)); then
+        ios_restart_attempts=0
+      fi
+    else
+      if ((SECONDS - ios_last_restart >= 10)); then
+        ios_restart_attempts=0
+      fi
+      ((ios_restart_attempts += 1))
+      ios_last_restart=$SECONDS
+      if ((ios_restart_attempts > 3)); then
+        printf 'iOS WampApp exited repeatedly on %s. See %s.\n' \
+          "$ios_device_id" "$ios_log_path" >&2
+        return 1
+      fi
+      printf 'iOS WampApp exited; relaunching on %s (attempt %d/3)...\n' \
+        "$ios_device_id" "$ios_restart_attempts"
+      if ! launch_ios_app \
+        "$ios_device_id" "$ios_bundle_id" "$ios_log_path" && \
+        ((ios_restart_attempts >= 3))
+      then
+        printf 'iOS WampApp could not be kept running on %s. See %s.\n' \
+          "$ios_device_id" "$ios_log_path" >&2
+        return 1
+      fi
+    fi
+
+    sleep 2
+  done
+
+  set +e
+  wait "$router_pid"
+  router_status=$?
+  set -e
+  server_pid=""
+  printf 'WampApp router exited unexpectedly with status %d.\n' \
+    "$router_status" >&2
+  return 1
+}
+
 prepare_smoke_workspace() {
   local destination="$1"
 
@@ -440,6 +594,8 @@ server_log="$state_dir/server.log"
 runtime_tmp_dir="$state_dir/runtime-tmp"
 android_emulator_log="$state_dir/android-emulator.log"
 ios_emulator_log="$state_dir/ios-emulator.log"
+android_client_log="$state_dir/android-client.log"
+ios_client_log="$state_dir/ios-client.log"
 android_smoke_log="$state_dir/android-smoke.log"
 ios_smoke_log="$state_dir/ios-smoke.log"
 android_smoke_workspace="$state_dir/android-workspace"
@@ -861,7 +1017,16 @@ WampApp lab is ready.
   Log:     $server_log
 
 Register one account in each app, then use the usernames to start a direct or
-group chat. Press Ctrl+C here to stop the router; installed apps remain open.
+group chat. The lab relaunches either client if it exits. Press Ctrl+C here to
+stop the router; installed apps remain open.
 EOF
 
-wait "$server_pid"
+if ! supervise_interactive_lab \
+  "$server_pid" \
+  "$resolved_android" \
+  "$resolved_ios" \
+  "$android_client_log" \
+  "$ios_client_log"
+then
+  fail 'interactive router or client supervision failed.'
+fi

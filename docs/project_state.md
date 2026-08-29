@@ -110,7 +110,21 @@ and group history. The file gateway returns a defensive archive copy for
 import, so the smoke also proves the controller can wipe its working bytes
 without deleting the user-owned archive. The complete Android API 36.1 plus iOS
 26.4 paired smoke, focused Flutter analysis, local-model review, and
-repository-wide `bin/verify` pass; exact-head hosted evidence is next.
+repository-wide `bin/verify` pass. Exact-head package dry run `33234293755`, PR
+CI run `33234293811`, push CI run `33234291717`, and WampApp artifact run
+`33234291729` pass; the artifact run includes the production benchmark gate and
+all seven beta bundles. The comprehensive feature-head audit and
+protected-`master` strict audit also pass.
+Interactive tester-lab readiness now includes bounded client supervision.
+`bin/run-wamp-app-lab` polls both no-resident native clients, relaunches either
+one after an exit, rejects unavailable devices and rapid crash loops after
+three attempts, detects unexpected router exit, and retains router and Android
+reverse-tunnel cleanup on failure. Thirteen process-level launcher tests cover
+Android and iOS relaunch, failed launch, rapid crash, router death, port
+release, and reverse cleanup. A real Android API 35 plus iOS 26.4 lab proved
+both client processes were replaced while the router PID remained stable and
+the WebSocket endpoint still returned `101 Switching Protocols`; `bin/test-fast`
+and repository-wide `bin/verify` pass.
 Milestone 9 production hardening has exact-head hosted CI, benchmark, and
 seven-platform artifact evidence at `0c9ca252`. Opt-in, privacy-preserving
 contact import is complete with exact-head CI and seven-platform artifact

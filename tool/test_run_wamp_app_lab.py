@@ -60,6 +60,163 @@ class RunWampAppLabTests(unittest.TestCase):
                 check=False,
             )
 
+    def run_supervised_script(
+        self,
+        *,
+        android_launch_succeeds: bool,
+        android_stays_running: bool = True,
+        ios_launch_succeeds: bool = True,
+        router_lifetime_seconds: int,
+    ) -> tuple[subprocess.CompletedProcess[str], str, str, int, float]:
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            temporary = pathlib.Path(temporary_directory)
+            state = temporary / "state"
+            adb_log = temporary / "adb.log"
+            android_running = temporary / "android-running"
+            xcrun_log = temporary / "xcrun.log"
+            ios_running = temporary / "ios-running"
+            devices = [
+                {
+                    "name": "Android Emulator",
+                    "id": "emulator-5554",
+                    "isSupported": True,
+                    "targetPlatform": "android-arm64",
+                    "emulator": True,
+                },
+                {
+                    "name": "iPhone Simulator",
+                    "id": "ios-simulator",
+                    "isSupported": True,
+                    "targetPlatform": "ios",
+                    "emulator": True,
+                },
+            ]
+            commands = {
+                "uname": (
+                    "#!/usr/bin/env bash\n"
+                    "[[ \"$1\" == -s ]] && printf '%s\\n' Darwin && exit 0\n"
+                    "exit 99\n"
+                ),
+                "flutter": (
+                    "#!/usr/bin/env bash\n"
+                    "if [[ \"$1\" == devices && \"$2\" == --machine ]]; then\n"
+                    f"  printf '%s\\n' '{json.dumps(devices)}'\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "if [[ \"$1\" == pub && \"$2\" == get ]]; then exit 0; fi\n"
+                    "if [[ \"$1\" == run ]]; then exit 0; fi\n"
+                    "exit 99\n"
+                ),
+                "dart": (
+                    "#!/usr/bin/env bash\n"
+                    "if [[ \"$1\" == pub && \"$2\" == get ]]; then exit 0; fi\n"
+                    "if [[ \"$1\" == run && \"$2\" == wamp_app_server ]]; then\n"
+                    "  config=\"$4\"\n"
+                    "  port=$(awk '/^  port:/ {print $2; exit}' \"$config\")\n"
+                    "  exec python3 - \"$port\" \"$WAMP_APP_TEST_ROUTER_LIFETIME\" <<'PY'\n"
+                    "import socket\n"
+                    "import sys\n"
+                    "import time\n"
+                    "with socket.socket() as listener:\n"
+                    "    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)\n"
+                    "    listener.bind(('127.0.0.1', int(sys.argv[1])))\n"
+                    "    listener.listen()\n"
+                    "    time.sleep(float(sys.argv[2]))\n"
+                    "raise SystemExit(9)\n"
+                    "PY\n"
+                    "fi\n"
+                    "exit 99\n"
+                ),
+                "adb": (
+                    "#!/usr/bin/env bash\n"
+                    "printf '%s\\n' \"$*\" >>\"$WAMP_APP_TEST_ADB_LOG\"\n"
+                    "if [[ \"$3\" == reverse ]]; then exit 0; fi\n"
+                    "if [[ \"$3\" == get-state ]]; then printf '%s\\n' device; exit 0; fi\n"
+                    "if [[ \"$3\" == shell && \"$4\" == pidof ]]; then\n"
+                    "  [[ -f \"$WAMP_APP_TEST_ANDROID_RUNNING\" ]] || exit 1\n"
+                    "  printf '%s\\n' 4242\n"
+                    "  if [[ \"$WAMP_APP_TEST_ANDROID_STAYS_RUNNING\" != true ]]; then\n"
+                    "    rm -f \"$WAMP_APP_TEST_ANDROID_RUNNING\"\n"
+                    "  fi\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "if [[ \"$3\" == shell && \"$4\" == am ]]; then\n"
+                    "  [[ \"$WAMP_APP_TEST_ANDROID_LAUNCH_SUCCEEDS\" == true ]] || exit 1\n"
+                    "  : >\"$WAMP_APP_TEST_ANDROID_RUNNING\"\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "exit 99\n"
+                ),
+                "xcrun": (
+                    "#!/usr/bin/env bash\n"
+                    "printf '%s\\n' \"$*\" >>\"$WAMP_APP_TEST_XCRUN_LOG\"\n"
+                    "if [[ \"$1\" == simctl && \"$2\" == spawn ]]; then\n"
+                    "  if [[ -f \"$WAMP_APP_TEST_IOS_RUNNING\" ]]; then\n"
+                    "    printf '%s\\n' '5252 0 UIKitApplication:dev.connectanum.wampApp[test][rb-legacy]'\n"
+                    "  fi\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "if [[ \"$1\" == simctl && \"$2\" == launch ]]; then\n"
+                    "  [[ \"$WAMP_APP_TEST_IOS_LAUNCH_SUCCEEDS\" == true ]] || exit 1\n"
+                    "  : >\"$WAMP_APP_TEST_IOS_RUNNING\"\n"
+                    "  printf '%s\\n' 'dev.connectanum.wampApp: 5252'\n"
+                    "  exit 0\n"
+                    "fi\n"
+                    "exit 99\n"
+                ),
+            }
+            for name, source in commands.items():
+                command = temporary / name
+                command.write_text(source, encoding="utf-8")
+                command.chmod(command.stat().st_mode | stat.S_IXUSR)
+
+            environment = os.environ.copy()
+            environment["PATH"] = f"{temporary}:{environment['PATH']}"
+            environment["WAMP_APP_TEST_ADB_LOG"] = str(adb_log)
+            environment["WAMP_APP_TEST_ANDROID_RUNNING"] = str(android_running)
+            environment["WAMP_APP_TEST_ANDROID_LAUNCH_SUCCEEDS"] = str(
+                android_launch_succeeds
+            ).lower()
+            environment["WAMP_APP_TEST_ANDROID_STAYS_RUNNING"] = str(
+                android_stays_running
+            ).lower()
+            environment["WAMP_APP_TEST_XCRUN_LOG"] = str(xcrun_log)
+            environment["WAMP_APP_TEST_IOS_RUNNING"] = str(ios_running)
+            environment["WAMP_APP_TEST_IOS_LAUNCH_SUCCEEDS"] = str(
+                ios_launch_succeeds
+            ).lower()
+            environment["WAMP_APP_TEST_ROUTER_LIFETIME"] = str(
+                router_lifetime_seconds
+            )
+            started = time.monotonic()
+            result = subprocess.run(
+                [
+                    str(SCRIPT),
+                    "--port",
+                    str(port),
+                    "--state-dir",
+                    str(state),
+                ],
+                cwd=ROOT,
+                env=environment,
+                text=True,
+                capture_output=True,
+                check=False,
+                timeout=20,
+            )
+            elapsed = time.monotonic() - started
+            return (
+                result,
+                adb_log.read_text(encoding="utf-8"),
+                xcrun_log.read_text(encoding="utf-8"),
+                port,
+                elapsed,
+            )
+
     def test_dry_run_resolves_router_and_both_emulators(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             state = pathlib.Path(temporary_directory) / "does-not-exist"
@@ -307,6 +464,75 @@ class RunWampAppLabTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertIn("mutually exclusive", result.stderr)
+
+    def test_interactive_lab_relaunches_both_clients_and_detects_router_exit(self):
+        result, adb_calls, xcrun_calls, port, _ = self.run_supervised_script(
+            android_launch_succeeds=True,
+            router_lifetime_seconds=6,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Android WampApp exited; relaunching", result.stdout)
+        self.assertIn("iOS WampApp exited; relaunching", result.stdout)
+        self.assertIn("router exited unexpectedly with status 9", result.stderr)
+        self.assertIn(
+            "shell am start -n dev.connectanum.wamp_app/.MainActivity",
+            adb_calls,
+        )
+        self.assertIn(
+            "simctl launch ios-simulator dev.connectanum.wampApp",
+            xcrun_calls,
+        )
+        self.assertIn(f"reverse --remove tcp:{port}", adb_calls)
+        with socket.socket() as released:
+            released.bind(("127.0.0.1", port))
+
+    def test_interactive_lab_bounds_failed_android_relaunches(self):
+        result, adb_calls, _, port, elapsed = self.run_supervised_script(
+            android_launch_succeeds=False,
+            router_lifetime_seconds=30,
+        )
+
+        self.assertLess(elapsed, 15)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.count("Android WampApp exited; relaunching"), 3)
+        self.assertIn("could not be kept running", result.stderr)
+        self.assertIn("interactive router or client supervision failed", result.stderr)
+        self.assertIn(f"reverse --remove tcp:{port}", adb_calls)
+        with socket.socket() as released:
+            released.bind(("127.0.0.1", port))
+
+    def test_interactive_lab_bounds_android_crash_loop(self):
+        result, adb_calls, _, port, elapsed = self.run_supervised_script(
+            android_launch_succeeds=True,
+            android_stays_running=False,
+            router_lifetime_seconds=30,
+        )
+
+        self.assertLess(elapsed, 15)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.count("Android WampApp exited; relaunching"), 3)
+        self.assertIn("Android WampApp exited repeatedly", result.stderr)
+        self.assertIn("interactive router or client supervision failed", result.stderr)
+        self.assertIn(f"reverse --remove tcp:{port}", adb_calls)
+        with socket.socket() as released:
+            released.bind(("127.0.0.1", port))
+
+    def test_interactive_lab_bounds_failed_ios_relaunches(self):
+        result, adb_calls, _, port, elapsed = self.run_supervised_script(
+            android_launch_succeeds=True,
+            ios_launch_succeeds=False,
+            router_lifetime_seconds=30,
+        )
+
+        self.assertLess(elapsed, 15)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.count("iOS WampApp exited; relaunching"), 3)
+        self.assertIn("iOS WampApp could not be kept running", result.stderr)
+        self.assertIn("interactive router or client supervision failed", result.stderr)
+        self.assertIn(f"reverse --remove tcp:{port}", adb_calls)
+        with socket.socket() as released:
+            released.bind(("127.0.0.1", port))
 
     def test_smoke_failure_forces_router_exit_and_removes_reverse(self):
         with socket.socket() as reservation:
