@@ -1,3 +1,8 @@
+## 3.0.0-beta.3
+
+- Keep the shared protocol package synchronized with the corrected client
+  connection lifecycle release.
+
 ## 3.0.0-beta.2
 
 - Keep the synchronized package graph aligned with the corrected hosted native

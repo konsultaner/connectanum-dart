@@ -69,7 +69,7 @@ Future<void> runRouterHostedClient(List<String> args) async {
 Future<_ClientContext> _createClient(_Options options) async {
   const clientInfo = <String, Object?>{
     'name': 'connectanum-mcp-router-hosted-client-example',
-    'version': '3.0.0-beta.2',
+    'version': '3.0.0-beta.3',
   };
   final stateless = _isStatelessProtocolVersion(options.protocolVersion);
 
@@ -503,7 +503,7 @@ Future<void> _deleteStreamableSession(McpStreamableHttpClient client) async {
 Future<void> _runAuthLifecycleSmoke(_Options options) async {
   const clientInfo = <String, Object?>{
     'name': 'connectanum-mcp-router-hosted-client-example',
-    'version': '3.0.0-beta.2',
+    'version': '3.0.0-beta.3',
   };
   final stateless = _isStatelessProtocolVersion(options.protocolVersion);
   final authContext = await _createHttpAuthClient(options);
@@ -5174,7 +5174,7 @@ Future<void> _runStreamableSessionExample(
     id: 'streamable-initialize',
     clientInfo: const <String, Object?>{
       'name': 'connectanum-mcp-router-hosted-client-example',
-      'version': '3.0.0-beta.2',
+      'version': '3.0.0-beta.3',
     },
   );
   final streamableSessionId = client.sessionId;

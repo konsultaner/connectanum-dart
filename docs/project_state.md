@@ -1,28 +1,20 @@
 # Project State
 
 Last updated: 2026-08-29
-Current branch: `codex/wamp-app-native-rich-smoke`
-Current milestone: prove standalone WampApp encrypted direct and group chat,
-including rich content, privacy-sensitive consumption, and WebRTC voice/video calls,
-through concurrent native platform UIs. PR #83 is
-merged to `master` as `d9c53bf9` on both maintained remotes. Exact-head GitHub
-CI run `33180625653` and WampApp artifact run `33180625646` pass; the artifact
-run includes the production benchmark gate and all seven beta bundles, and the
-strict deployment audit passes.
-The current working revision adds explicit per-device safety-number review and
-post-verification key continuity. Verification state is transactionally
-persisted in the encrypted vault, stale device snapshots cannot be approved,
-and direct or group sends stop before encryption whenever a previously verified
-contact presents a new or changed active device. The compact Flutter dialog
-requires out-of-band number comparison and states the remaining trust-on-first-
-use/key-transparency limitation. Focused regressions, a real router-backed
-second-device test, all 212 Flutter client tests, and Flutter analysis pass;
-`bin/test-wamp-app` and repository-wide `bin/verify` also pass. Commit
-`f95d7e24` is on both maintained remotes. Exact-head push CI `33254106778`, PR
-CI `33254108332`, package dry run `33254108326`, WampApp artifact run
-`33254106781`, Codecov project/patch checks, feature-head CI/log audit, and the
-protected-`master` strict policy/workflow/package audit all pass. PR #84 awaits
-the required code-owner review.
+Current branch: `codex/3.0.0-beta.3-prep`
+Current milestone: prepare the synchronized `3.0.0-beta.3` Dart package and
+Rust crate graph for the client WebSocket lifecycle correction discovered by
+WampApp. All seven publishable Dart packages, all three Rust crates, runtime
+identity constants, release-tag tests, changelogs, and release metadata move
+together. WampApp intentionally remains pinned to the published beta.2 graph
+until beta.3 native assets and packages are uploaded. Repository-wide
+`bin/verify`, the 20 release-planner tests, isolated client/router native-hook
+tests, and the Chrome/Dart2Wasm WebSocket suite pass locally. The strict package
+archive gate reached beta.3 successfully and must be rerun from the clean
+release commit to remove pub's expected dirty-tree warning. The interactive
+router plus Android and iPad clients remain live under the launcher supervisor.
+PR #84 still awaits the required code-owner review before this stacked release
+preparation can enter protected `master`.
 Onboarding now probes the configured router with a bounded anonymous WAMP
 handshake and presents debounced checking, ready, unreachable, and retry states
 without weakening registration validation. Stale and post-disposal probe

@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.3
+
+- Keep MCP clients synchronized with the corrected client connection lifecycle
+  release.
+
 ## 3.0.0-beta.2
 
 - Keep MCP clients synchronized with the corrected hosted native package

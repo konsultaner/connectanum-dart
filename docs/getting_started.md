@@ -10,10 +10,12 @@ Pub/Sub example. A Connectanum router deployment has three parts:
 ## Beta Availability
 
 The synchronized `3.0.0-beta.2` Dart packages and matching
-`v3.0.0-beta.2` native release assets are public for integration testing. Use
-the [package path](#install-the-published-package) for applications or the
-[source-checkout path](#run-the-current-beta-from-source) when contributing to
-Connectanum itself.
+`v3.0.0-beta.2` native release assets are public for integration testing. The
+source tree is prepared for the coordinated `3.0.0-beta.3` release, but package
+consumers must remain on beta.2 until every beta.3 package and native asset is
+published. Use the [package path](#install-the-published-package) for
+applications or the [source-checkout path](#run-the-current-beta-from-source)
+when contributing to Connectanum itself.
 
 Do not combine a package from one release with a native library from another.
 The Dart packages, Rust crates, and native release assets move together.

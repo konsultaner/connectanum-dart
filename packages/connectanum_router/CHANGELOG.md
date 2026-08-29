@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.3
+
+- Keep router-hosted MCP and native router installs synchronized with the
+  corrected client connection lifecycle release.
+
 ## 3.0.0-beta.2
 
 - Make isolated pub.dev installs derive the matching signed native release tag

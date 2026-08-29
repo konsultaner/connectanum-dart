@@ -11,6 +11,15 @@ import 'package:test/test.dart';
 
 void main() {
   group('WebSocket protocol with html communication', () {
+    test('closing before opening is safe', () async {
+      final transport = WebSocketTransport.withJsonSerializer(
+        'ws://localhost:1/wamp',
+      );
+
+      await expectLater(transport.close(), completes);
+      expect(transport.isOpen, isFalse);
+    });
+
     test(
       'Opening a server connection and simple send receive scenario using a serializer',
       () async {

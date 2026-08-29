@@ -1,3 +1,8 @@
+## 3.0.0-beta.3
+
+- Advance the compatibility facade to the corrected client connection
+  lifecycle release.
+
 ## 3.0.0-beta.2
 
 - Advance the coordinated beta to the corrected hosted native package
