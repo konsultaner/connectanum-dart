@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.4
+
+- Expand documentation for direct WAMP API metadata and MCP resource
+  registration.
+
 ## 3.0.0-beta.3
 
 - Keep MCP clients synchronized with the corrected client connection lifecycle

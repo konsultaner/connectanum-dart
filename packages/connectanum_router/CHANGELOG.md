@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.4
+
+- Adopt the stable Dart native-hook APIs and expand native runtime and
+  transport-metrics documentation.
+
 ## 3.0.0-beta.3
 
 - Keep router-hosted MCP and native router installs synchronized with the

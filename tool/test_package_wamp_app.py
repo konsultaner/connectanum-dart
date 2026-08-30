@@ -370,6 +370,7 @@ esac
             )
             staged_pubspec = staged_pubspec_log.read_text(encoding="utf-8")
             self.assertIn("hooks:\n  user_defines:\n    connectanum_client:\n", staged_pubspec)
+            self.assertIn("    connectanum_router:\n", staged_pubspec)
             self.assertIn("CONNECTANUM_NATIVE_LIB:", staged_pubspec)
             self.assertIn("dependency_overrides:", staged_pubspec)
             self.assertIn(
@@ -377,6 +378,12 @@ esac
             )
             self.assertIn(
                 (checkout / "packages/connectanum_core").as_posix(), staged_pubspec
+            )
+            self.assertIn(
+                (checkout / "packages/connectanum_mcp").as_posix(), staged_pubspec
+            )
+            self.assertIn(
+                (checkout / "packages/connectanum_router").as_posix(), staged_pubspec
             )
             self.assertEqual(
                 (client / "pubspec.yaml").read_text(encoding="utf-8"), source_pubspec

@@ -1,3 +1,8 @@
+## 3.0.0-beta.4
+
+- Add a packaged getting-started example and align package metadata for the
+  synchronized beta release.
+
 ## 3.0.0-beta.3
 
 - Advance the compatibility facade to the corrected client connection

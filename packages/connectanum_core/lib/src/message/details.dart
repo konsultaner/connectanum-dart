@@ -611,15 +611,33 @@ class Broker {
   BrokerFeatures? features;
 }
 
+/// Broker feature flags advertised in WAMP `WELCOME.Details`.
 class BrokerFeatures {
+  /// Whether events may disclose the publisher session ID.
   bool publisherIdentification = false;
+
+  /// Whether events may include a router-assigned publication trust level.
   bool publicationTrustLevels = false;
+
+  /// Whether the broker supports prefix and wildcard subscriptions.
   bool patternBasedSubscription = false;
+
+  /// Whether the broker exposes the WAMP subscription meta API.
   bool subscriptionMetaApi = false;
+
+  /// Whether publishers may include or exclude specific subscribers.
   bool subscriberBlackWhiteListing = false;
+
+  /// Whether the broker exposes the WAMP session meta API.
   bool sessionMetaApi = false;
+
+  /// Whether publishers may control delivery to their own session.
   bool publisherExclusion = false;
+
+  /// Whether the broker supports event-history retrieval.
   bool eventHistory = false;
+
+  /// Whether the broker supports WAMP Payload Passthru Mode.
   bool payloadPassThruMode = false;
 }
 

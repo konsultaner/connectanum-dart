@@ -16,6 +16,10 @@ typedef PackedPayloadDecoder =
 
 enum LazyPayloadEncoding { json, messagePack, cbor }
 
+/// A payload view that delays decoding until an application reads its values.
+///
+/// The view can retain encoded argument slices or one packed PPT payload while
+/// preserving the object that owns the underlying storage through [anchor].
 class LazyMessagePayload {
   LazyMessagePayload._({
     this.transparentBinaryPayload,
@@ -41,6 +45,7 @@ class LazyMessagePayload {
        _arguments = arguments,
        _argumentsKeywords = argumentsKeywords;
 
+  /// Creates a view backed by separately encoded positional and keyword data.
   factory LazyMessagePayload.encoded({
     Uint8List? transparentBinaryPayload,
     LazyPayloadEncoding? encoding,
@@ -71,6 +76,7 @@ class LazyMessagePayload {
     );
   }
 
+  /// Creates a view backed by one packed Payload Passthru Mode value.
   factory LazyMessagePayload.packed({
     Uint8List? transparentBinaryPayload,
     required LazyPayloadEncoding? encoding,
@@ -93,6 +99,7 @@ class LazyMessagePayload {
     );
   }
 
+  /// Creates a view from already materialized positional and keyword values.
   factory LazyMessagePayload.materialized({
     Uint8List? transparentBinaryPayload,
     LazyPayloadEncoding? encoding,
@@ -115,11 +122,22 @@ class LazyMessagePayload {
     );
   }
 
+  /// The transparent binary payload carried outside regular WAMP arguments.
   final Uint8List? transparentBinaryPayload;
+
+  /// The serializer needed to decode the retained argument bytes.
   final LazyPayloadEncoding? encoding;
+
+  /// Whether any PPT or E2EE wrapper has already been removed.
   final bool pptDecoded;
+
+  /// The provider used to decrypt a retained E2EE payload when required.
   final WampE2eeProvider? e2eeProvider;
+
+  /// Runtime context associated with an encoded E2EE payload.
   final WampE2eeRuntimeContext? e2eeRuntimeContext;
+
+  /// Keeps externally owned encoded storage alive for this view's lifetime.
   final Object? anchor;
 
   Uint8List? _argumentsBytes;
@@ -131,18 +149,25 @@ class LazyMessagePayload {
   List<dynamic>? _arguments;
   Map<String, dynamic>? _argumentsKeywords;
 
+  /// Whether encoded positional arguments remain available without decoding.
   bool get hasEncodedArguments => _argumentsBytes != null;
 
+  /// Whether encoded keyword arguments remain available without decoding.
   bool get hasEncodedArgumentsKeywords => _argumentsKeywordsBytes != null;
 
+  /// The encoded positional argument slice, when one was retained.
   Uint8List? get argumentsBytes => _argumentsBytes;
 
+  /// The encoded keyword argument slice, when one was retained.
   Uint8List? get argumentsKeywordsBytes => _argumentsKeywordsBytes;
 
+  /// Whether this view retains one packed PPT payload.
   bool get hasPackedPayloadBytes => _packedPayloadBytes != null;
 
+  /// The packed PPT payload bytes, when available.
   Uint8List? get packedPayloadBytes => _packedPayloadBytes;
 
+  /// Positional arguments, decoded on first access when necessary.
   List<dynamic>? get arguments {
     _decodePackedPayloadIfNeeded();
     if (_arguments == null &&
@@ -153,6 +178,7 @@ class LazyMessagePayload {
     return _arguments;
   }
 
+  /// Keyword arguments, decoded on first access when necessary.
   Map<String, dynamic>? get argumentsKeywords {
     _decodePackedPayloadIfNeeded();
     if (_argumentsKeywords == null &&
@@ -163,6 +189,7 @@ class LazyMessagePayload {
     return _argumentsKeywords;
   }
 
+  /// Returns an independently owned copy of all retained mutable values.
   LazyMessagePayload toOwned() {
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload == null
@@ -203,6 +230,7 @@ class LazyMessagePayload {
     _argumentsKeywords = decoded.argumentsKeywords;
   }
 
+  /// Returns an equivalent view that retains [anchor].
   LazyMessagePayload withAnchor(Object? anchor) {
     return LazyMessagePayload._(
       transparentBinaryPayload: transparentBinaryPayload,
@@ -222,6 +250,7 @@ class LazyMessagePayload {
     );
   }
 
+  /// Returns an equivalent view associated with [provider].
   LazyMessagePayload withE2eeProvider(WampE2eeProvider? provider) {
     if (provider == e2eeProvider) {
       return this;
@@ -244,6 +273,7 @@ class LazyMessagePayload {
     );
   }
 
+  /// Returns an equivalent view associated with [runtimeContext].
   LazyMessagePayload withE2eeRuntimeContext(
     WampE2eeRuntimeContext? runtimeContext,
   ) {
@@ -509,6 +539,7 @@ class _InlinePptOptions extends PPTOptions {
 
 /// CALL,EVENT,RESULT,ERROR,PUBLISH,INVOCATION,YIELD may have a transparent payload
 abstract class AbstractMessageWithPayload extends AbstractMessage {
+  /// The optional binary payload carried outside regular WAMP arguments.
   Uint8List? transparentBinaryPayload;
 
   List<dynamic>? _arguments;
@@ -524,6 +555,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
   WampE2eeProvider? _e2eeProvider;
   WampE2eeRuntimeContext? _e2eeRuntimeContext;
 
+  /// Creates a message with optional positional and keyword arguments.
   AbstractMessageWithPayload({
     List<dynamic>? arguments,
     Map<String, dynamic>? argumentsKeywords,
@@ -532,6 +564,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     this.argumentsKeywords = argumentsKeywords;
   }
 
+  /// Positional arguments, decoded on first access when retained lazily.
   List<dynamic>? get arguments {
     if (_arguments == null &&
         _encodedArguments != null &&
@@ -549,6 +582,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     _retainedLazyPayload = null;
   }
 
+  /// Keyword arguments, decoded on first access when retained lazily.
   Map<String, dynamic>? get argumentsKeywords {
     if (_argumentsKeywords == null &&
         _encodedArgumentsKeywords != null &&
@@ -568,19 +602,26 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     _retainedLazyPayload = null;
   }
 
+  /// Whether encoded positional arguments are waiting to be decoded.
   bool get hasLazyArguments => _encodedArguments != null;
 
+  /// Whether encoded keyword arguments are waiting to be decoded.
   bool get hasLazyArgumentsKeywords => _encodedArgumentsKeywords != null;
 
+  /// Encoded positional arguments retained for diagnostics and tests.
   Uint8List? get debugEncodedArgumentsBytes => _encodedArguments;
 
+  /// Encoded keyword arguments retained for diagnostics and tests.
   Uint8List? get debugEncodedArgumentsKeywordsBytes =>
       _encodedArgumentsKeywords;
 
+  /// Serializer associated with the retained lazy argument slices.
   LazyPayloadEncoding? get lazyPayloadEncoding => _lazyPayloadEncoding;
 
+  /// Whether the current argument view has already removed a PPT wrapper.
   bool get hasDecodedPptPayload => _pptPayloadDecoded;
 
+  /// Positional arguments in the original wire-level payload view.
   List<dynamic>? get wireArguments {
     final retainedLazyPayload = _retainedLazyPayload;
     if (_pptPayloadDecoded && retainedLazyPayload != null) {
@@ -589,6 +630,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     return _arguments ?? _decodeArgumentsBytes();
   }
 
+  /// Keyword arguments in the original wire-level payload view.
   Map<String, dynamic>? get wireArgumentsKeywords {
     final retainedLazyPayload = _retainedLazyPayload;
     if (_pptPayloadDecoded && retainedLazyPayload != null) {
@@ -597,12 +639,15 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     return _argumentsKeywords ?? _decodeArgumentsKeywordsBytes();
   }
 
+  /// The provider attached for E2EE payload processing.
   WampE2eeProvider? get e2eeProvider =>
       _retainedLazyPayload?.e2eeProvider ?? _e2eeProvider;
 
+  /// Runtime context attached for E2EE payload processing.
   WampE2eeRuntimeContext? get e2eeRuntimeContext =>
       _e2eeRuntimeContext ?? _retainedLazyPayload?.e2eeRuntimeContext;
 
+  /// Attaches [provider] without forcing retained payload bytes to decode.
   void attachE2eeProvider(WampE2eeProvider? provider) {
     _e2eeProvider = provider;
     final retainedLazyPayload = _retainedLazyPayload;
@@ -613,6 +658,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     }
   }
 
+  /// Attaches [runtimeContext] without forcing retained payload bytes to decode.
   void attachE2eeRuntimeContext(WampE2eeRuntimeContext? runtimeContext) {
     _e2eeRuntimeContext = runtimeContext;
     final retainedLazyPayload = _retainedLazyPayload;
@@ -623,10 +669,12 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     }
   }
 
+  /// Marks the current argument view as already unwrapped from PPT.
   void markPptPayloadDecoded() {
     _pptPayloadDecoded = true;
   }
 
+  /// Exposes this message as a lazy payload view without eager re-encoding.
   LazyMessagePayload toLazyPayload({Object? anchor}) {
     final retainedLazyPayload = _retainedLazyPayload;
     if (retainedLazyPayload != null) {
@@ -697,6 +745,7 @@ abstract class AbstractMessageWithPayload extends AbstractMessage {
     }
   }
 
+  /// Retains [payload] as the wire-level source for future forwarding.
   void retainLazyPayload(LazyMessagePayload payload) {
     final provider = payload.e2eeProvider ?? _e2eeProvider;
     final runtimeContext = _e2eeRuntimeContext ?? payload.e2eeRuntimeContext;

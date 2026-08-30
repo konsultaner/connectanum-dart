@@ -1072,6 +1072,75 @@ void main() {
 
       expect(sent.whereType<Cancel>(), isEmpty);
     });
+    test('drops a late invocation response after session shutdown', () async {
+      final transport = _ClosedSendThrowingTransport();
+      transport.outbound.stream.listen((message) {
+        if (message is Hello) {
+          transport.receiveMessage(Welcome(42, Details.forWelcome()));
+        } else if (message is Register) {
+          transport.receiveMessage(Registered(message.requestId, 1010));
+        }
+      });
+      final session = await Client(
+        realm: 'test.realm',
+        transport: transport,
+      ).connect().first;
+      final registered = await session.register('bench.late-response');
+      final invocationCompleter = Completer<Invocation>();
+      registered.onInvoke(invocationCompleter.complete);
+
+      transport.receiveMessage(
+        Invocation(
+          31338,
+          registered.registrationId,
+          InvocationDetails(null, null, false),
+        ),
+      );
+      final invocation = await invocationCompleter.future;
+      await session.close(timeout: Duration.zero);
+
+      expect(
+        () => invocation.respondWith(arguments: const ['too late']),
+        returnsNormally,
+      );
+      expect(invocation.responseClosed, isTrue);
+    });
+    test(
+      'preserves invocation send failures while the session is active',
+      () async {
+        final transport = _InvocationSendThrowingTransport();
+        transport.outbound.stream.listen((message) {
+          if (message is Hello) {
+            transport.receiveMessage(Welcome(42, Details.forWelcome()));
+          } else if (message is Register) {
+            transport.receiveMessage(Registered(message.requestId, 1010));
+          }
+        });
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final registered = await session.register('bench.failed-response');
+        final invocationCompleter = Completer<Invocation>();
+        registered.onInvoke(invocationCompleter.complete);
+
+        transport.receiveMessage(
+          Invocation(
+            31339,
+            registered.registrationId,
+            InvocationDetails(null, null, false),
+          ),
+        );
+        final invocation = await invocationCompleter.future;
+
+        expect(
+          () => invocation.respondWith(arguments: const ['not sent']),
+          throwsStateError,
+        );
+        expect(invocation.responseClosed, isFalse);
+        await transport.close();
+      },
+    );
     test('ignores interrupt messages without closing the session', () async {
       final transport = _MockTransport();
       final client = Client(realm: 'test.realm', transport: transport);
@@ -1980,6 +2049,48 @@ void main() {
 
         final invocation = await invocationCompleter.future;
         expect(invocation.progress, isTrue);
+      },
+    );
+    test(
+      'drops a late native lazy invocation response after session shutdown',
+      () async {
+        final transport = _ClosedSendThrowingSessionOptimizedTransport(
+          (message, transport) {
+            if (message is Hello) {
+              transport.receiveObject(Welcome(42, Details.forWelcome()));
+            } else if (message is Register) {
+              transport.receiveObject(Registered(message.requestId, 5355));
+            }
+          },
+        );
+        final session = await Client(
+          realm: 'test.realm',
+          transport: transport,
+        ).connect().first;
+        final invocationCompleter = Completer<LazyInvocationPayload>();
+        final registered = await session.registerLazyPayloadHandler(
+          'late.native.proc',
+          invocationCompleter.complete,
+        );
+
+        transport.receiveObject(
+          _nativeDirectInvocationMessage(
+            requestId: 9403,
+            registrationId: registered.registrationId,
+            procedure: 'late.native.proc',
+            pptScheme: 'x_custom_scheme',
+            pptSerializer: 'cbor',
+            argsBytes: _encodeNativePptArguments(arguments: const ['late']),
+          ),
+        );
+        final invocation = await invocationCompleter.future;
+        await session.close(timeout: Duration.zero);
+
+        expect(
+          () => invocation.respondWith(arguments: const ['too late']),
+          returnsNormally,
+        );
+        expect(invocation.isResponseClosed(), isTrue);
       },
     );
     test(
@@ -4311,6 +4422,26 @@ class _MockTransport extends AbstractTransport {
   }
 }
 
+class _ClosedSendThrowingTransport extends _MockTransport {
+  @override
+  void send(AbstractMessage message) {
+    if (!isOpen) {
+      throw StateError('StreamSink is closed');
+    }
+    super.send(message);
+  }
+}
+
+class _InvocationSendThrowingTransport extends _MockTransport {
+  @override
+  void send(AbstractMessage message) {
+    if (message is Yield) {
+      throw StateError('Invocation response send failed');
+    }
+    super.send(message);
+  }
+}
+
 class _SessionOptimizedMockTransport extends AbstractTransport
     implements SessionOptimizedTransport {
   _SessionOptimizedMockTransport(this._onSend);
@@ -4382,6 +4513,19 @@ class _SessionOptimizedMockTransport extends AbstractTransport
   @override
   Stream<Object?> receiveSessionMessages() {
     return inbound.stream;
+  }
+}
+
+class _ClosedSendThrowingSessionOptimizedTransport
+    extends _SessionOptimizedMockTransport {
+  _ClosedSendThrowingSessionOptimizedTransport(super.onSend);
+
+  @override
+  void send(AbstractMessage message) {
+    if (!isOpen) {
+      throw StateError('StreamSink is closed');
+    }
+    super.send(message);
   }
 }
 

@@ -2,11 +2,15 @@ import 'dart:convert';
 
 import 'package:yaml/yaml.dart';
 
+/// A validated collection of benchmark scenarios.
 class BenchmarkConfig {
+  /// Creates a configuration from non-empty [scenarios].
   BenchmarkConfig({required this.scenarios});
 
+  /// Scenarios executed in declaration order.
   final List<BenchmarkScenario> scenarios;
 
+  /// Parses benchmark scenarios from the repository's YAML format.
   factory BenchmarkConfig.fromYaml(String source) {
     final dynamic root = loadYaml(source);
     final materialised = _convertYaml(root);
@@ -31,14 +35,17 @@ class BenchmarkConfig {
     return BenchmarkConfig(scenarios: scenarios);
   }
 
+  /// Creates a configuration containing exactly one [scenario].
   factory BenchmarkConfig.single(BenchmarkScenario scenario) =>
       BenchmarkConfig(scenarios: [scenario]);
 
+  /// Formats this configuration as readable JSON for diagnostics.
   String toPrettyJson() => const JsonEncoder.withIndent(
     '  ',
   ).convert({'benchmarks': scenarios.map((s) => s.toJson()).toList()});
 }
 
+/// One timed benchmark workload and its transport-specific options.
 class BenchmarkScenario {
   BenchmarkScenario({
     required this.name,

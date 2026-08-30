@@ -1349,12 +1349,7 @@ class Session {
       final registered = registrations[message.registrationId];
       if (registered != null) {
         message.onResponse((response) {
-          _transport.send(response);
-          if (response is Yield && response.options?.progress == true) {
-            _pendingInvocations[message.requestId]?.resetTimeout();
-          } else {
-            _takeInvocation(message.requestId);
-          }
+          _sendInvocationResponse(message.requestId, response);
         });
         final responder = _PendingInvocationResponder(
           isClosed: () => message.responseClosed,
@@ -1504,12 +1499,7 @@ class Session {
     if (registered.hasMaterializedInvocationConsumers) {
       final invocation = message.materialize() as Invocation;
       invocation.onResponse((response) {
-        _transport.send(response);
-        if (response is Yield && response.options?.progress == true) {
-          _pendingInvocations[message.metadata.primaryId]?.resetTimeout();
-        } else {
-          _takeInvocation(message.metadata.primaryId);
-        }
+        _sendInvocationResponse(message.metadata.primaryId, response);
       });
       final responder = _PendingInvocationResponder(
         isClosed: () => invocation.responseClosed,
@@ -1712,7 +1702,8 @@ class Session {
         throw StateError('Invocation response handler already completed');
       }
       if (isError) {
-        _transport.send(
+        _sendInvocationResponse(
+          message.metadata.primaryId,
           Error(
             MessageTypes.codeInvocation,
             message.metadata.primaryId,
@@ -1723,7 +1714,6 @@ class Session {
           ),
         );
         responseClosed = true;
-        _takeInvocation(message.metadata.primaryId);
         return;
       }
       final yieldMessage = Yield(
@@ -1773,12 +1763,12 @@ class Session {
         _resolveRuntimeE2eeProvider(lazyPayload?.e2eeProvider),
       );
       yieldMessage.attachE2eeRuntimeContext(yieldRuntimeContext);
-      _transport.send(yieldMessage);
-      if (options?.progress == true) {
-        _pendingInvocations[message.metadata.primaryId]?.resetTimeout();
-      } else {
+      final sent = _sendInvocationResponse(
+        message.metadata.primaryId,
+        yieldMessage,
+      );
+      if (!sent || options?.progress != true) {
         responseClosed = true;
-        _takeInvocation(message.metadata.primaryId);
       }
     }
 
@@ -2000,6 +1990,32 @@ class Session {
     _pendingInvocations.remove(requestId)?.dispose();
     _pendingInvocations[requestId] = responder;
     responder.armTimeout(timeoutMilliseconds);
+  }
+
+  bool _sendInvocationResponse(
+    int requestId,
+    AbstractMessageWithPayload response,
+  ) {
+    final progressive = response is Yield && response.options?.progress == true;
+    if (_goodbyeSent || _incomingClosed || !_transport.isReady) {
+      _takeInvocation(requestId);
+      return false;
+    }
+    try {
+      _transport.send(response);
+    } on StateError {
+      if (!_goodbyeSent && !_incomingClosed && _transport.isReady) {
+        rethrow;
+      }
+      _takeInvocation(requestId);
+      return false;
+    }
+    if (progressive) {
+      _pendingInvocations[requestId]?.resetTimeout();
+    } else {
+      _takeInvocation(requestId);
+    }
+    return true;
   }
 
   _PendingInvocationResponder? _takeInvocation(int requestId) {

@@ -219,7 +219,7 @@ void main() {
     addTearDown(() => tempDir.delete(recursive: true));
     final releaseAsset = native_installer.ReleaseAssetSpec(
       repository: 'konsultaner/connectanum-dart',
-      tag: 'v3.0.0-beta.3',
+      tag: 'v3.0.0-beta.4',
       hostTriple: build_hook.currentHostTriple(),
     );
     final sourceRoot = Directory('${tempDir.path}/source bundle')

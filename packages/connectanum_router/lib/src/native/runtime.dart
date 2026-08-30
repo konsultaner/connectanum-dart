@@ -1973,6 +1973,7 @@ class NativeTransportRuntime
     implements
         NativeRuntimeWithHandles,
         NativeRuntimeWithInternalCallForwarding {
+  /// Loads `ct_ffi` and creates the process-wide native transport runtime.
   factory NativeTransportRuntime({String? libraryPath}) {
     if (_instance != null) {
       throw StateError('NativeTransportRuntime already initialised');
@@ -2019,6 +2020,7 @@ class NativeTransportRuntime
   _connectionTrampolinePointer =
       ffi.Pointer.fromFunction<ConnectionCallbackNative>(_connectionTrampoline);
 
+  /// Releases Dart-side callbacks and process-wide runtime ownership.
   void dispose() {
     _releaseRuntimeLock();
     if (_instance == this) {
@@ -2071,6 +2073,7 @@ class NativeTransportRuntime
     _runtimeLock = null;
   }
 
+  /// Installs callbacks for listener startup and accepted connections.
   void setListenerCallbacks({
     void Function(int listenerId, int status)? onStarted,
     void Function(int listenerId, int connectionId)? onConnection,
@@ -2079,6 +2082,7 @@ class NativeTransportRuntime
     _onConnection = onConnection;
   }
 
+  /// Starts the native runtime and acquires its process-wide lock.
   @override
   void start() {
     _acquireRuntimeLock();
@@ -2090,6 +2094,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Stops the native runtime and releases its process-wide lock.
   @override
   void shutdown() {
     try {
@@ -2099,6 +2104,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Opens a native listener and returns its runtime identifier.
   @override
   int listen(String host, int port, {int backlog = 128}) {
     if (backlog <= 0) {
@@ -2114,6 +2120,7 @@ class NativeTransportRuntime
     });
   }
 
+  /// Returns the TCP port bound by [listenerId].
   @override
   int getLocalPort(int listenerId) {
     final result = _bindings.ctGetLocalPort(listenerId);
@@ -2123,6 +2130,7 @@ class NativeTransportRuntime
     return result;
   }
 
+  /// Returns the UDP HTTP/3 port associated with [listenerId].
   @override
   int getHttp3Port(int listenerId) {
     final result = _bindings.ctListenerHttp3Port(listenerId);
@@ -2132,6 +2140,7 @@ class NativeTransportRuntime
     return result;
   }
 
+  /// Stops accepting new connections on [listenerId].
   @override
   void closeListener(int listenerId) {
     final result = _bindings.ctListenerClose(listenerId);
@@ -2140,10 +2149,12 @@ class NativeTransportRuntime
     }
   }
 
+  /// Whether this native build exposes the HTTP/3 test-client hooks.
   bool get supportsHttp3TestClient =>
       _bindings.ctTestHttp3StreamRequestHandle != null &&
       _bindings.ctTestBufferFreeHandle != null;
 
+  /// Runs one synchronous HTTP/3 request through the native test client.
   NativeHttpTestResponse runHttp3StreamRequest({
     required String host,
     required int port,
@@ -2240,6 +2251,7 @@ class NativeTransportRuntime
     });
   }
 
+  /// Polls [listenerId] for the next accepted connection identifier.
   @override
   int pollConnection(int listenerId) {
     final result = _bindings.ctPollConnection(listenerId);
@@ -2252,6 +2264,7 @@ class NativeTransportRuntime
     return result;
   }
 
+  /// Returns the negotiated RawSocket maximum frame-size exponent.
   @override
   int connectionMaxRawSocketExponent(int connectionId) {
     final result = _bindings.ctConnectionMaxRawsocketExponent(connectionId);
@@ -2261,6 +2274,7 @@ class NativeTransportRuntime
     return result;
   }
 
+  /// Returns the transport protocol negotiated by [connectionId].
   @override
   NativeConnectionProtocol connectionProtocol(int connectionId) {
     final result = _bindings.ctConnectionProtocol(connectionId);
@@ -2270,6 +2284,7 @@ class NativeTransportRuntime
     return NativeConnectionProtocol.fromId(result);
   }
 
+  /// Closes [connectionId] and releases its native transport resources.
   @override
   void closeConnection(int connectionId) {
     final result = _bindings.ctConnectionClose(connectionId);
@@ -2278,6 +2293,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Returns the negotiated WebSocket subprotocol for [connectionId].
   @override
   String? connectionWebSocketProtocol(int connectionId) {
     const initialCapacity = 256;
@@ -2311,6 +2327,7 @@ class NativeTransportRuntime
     });
   }
 
+  /// Claims the pending HTTP/1.1 handshake for [connectionId].
   @override
   NativeHttpHandshake? takeHttpHandshake(int connectionId) {
     final handle = _bindings.ctConnectionTakeHttpHandshake(connectionId);
@@ -2381,6 +2398,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Releases a native HTTP handshake [handle].
   @override
   void releaseHttpHandshake(int handle) {
     if (handle <= 0) {
@@ -2389,6 +2407,7 @@ class NativeTransportRuntime
     _bindings.ctHttpHandshakeRelease(handle);
   }
 
+  /// Claims the pending WebSocket handshake for [connectionId].
   @override
   NativeWebSocketHandshake? takeWebSocketHandshake(int connectionId) {
     final handle = _bindings.ctConnectionTakeWebsocketHandshake(connectionId);
@@ -2457,6 +2476,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Accepts a WebSocket upgrade with the selected serializer and protocol.
   @override
   void acceptWebSocket({
     required int connectionId,
@@ -2484,6 +2504,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Rejects a pending WebSocket upgrade with an HTTP status and reason.
   @override
   void rejectWebSocket({
     required int connectionId,
@@ -2511,6 +2532,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Claims the pending HTTP/2 handshake for [connectionId].
   @override
   NativeHttp2Handshake? takeHttp2Handshake(int connectionId) {
     final handle = _bindings.ctConnectionTakeHttp2Handshake(connectionId);
@@ -2568,6 +2590,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Releases a native HTTP/2 handshake [handle].
   @override
   void releaseHttp2Handshake(int handle) {
     if (handle <= 0) {
@@ -2576,6 +2599,7 @@ class NativeTransportRuntime
     _bindings.ctHttp2HandshakeRelease(handle);
   }
 
+  /// Claims the pending HTTP/3 handshake for [connectionId].
   @override
   NativeHttp3Handshake? takeHttp3Handshake(int connectionId) {
     final handle = _bindings.ctConnectionTakeHttp3Handshake(connectionId);
@@ -2633,6 +2657,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Releases a native HTTP/3 handshake [handle].
   @override
   void releaseHttp3Handshake(int handle) {
     if (handle <= 0) {
@@ -2641,6 +2666,7 @@ class NativeTransportRuntime
     _bindings.ctHttp3HandshakeRelease(handle);
   }
 
+  /// Claims the HTTP/3 connection associated with [connectionId].
   @override
   NativeHttp3Connection? takeHttp3Connection(int connectionId) {
     final handle = _bindings.ctConnectionGetHttp3Connection(connectionId);
@@ -2661,6 +2687,7 @@ class NativeTransportRuntime
     );
   }
 
+  /// Polls [connectionId] for the next accepted HTTP/3 stream.
   @override
   NativeHttp3Stream? pollHttp3Stream(int connectionId) {
     final handle = _bindings.ctHttp3ConnectionPollStream(connectionId);
@@ -2693,6 +2720,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Polls [connectionId] for the next complete HTTP/3 request.
   @override
   NativeHttpHandshake? pollHttp3Request(int connectionId) {
     final handle = _bindings.ctHttp3ConnectionPollRequest(connectionId);
@@ -2767,6 +2795,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Sends one complete response for a claimed HTTP handshake.
   @override
   void sendHttpResponse({
     required int handshakeHandle,
@@ -2836,6 +2865,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Opens a native response stream owned by the current isolate.
   @override
   NativeHttpResponseStream openHttpResponseStream({
     required int handshakeHandle,
@@ -2854,6 +2884,7 @@ class NativeTransportRuntime
     );
   }
 
+  /// Opens a response stream descriptor transferable to another isolate.
   @override
   NativeHttpResponseStreamDescriptor openHttpResponseStreamDescriptor({
     required int handshakeHandle,
@@ -2924,6 +2955,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Polls the next native HTTP connection lifecycle event.
   @override
   NativeHttpConnectionEvent? pollHttpConnectionEvent() {
     final handle = _bindings.ctConnectionPollHttpEvent();
@@ -2961,6 +2993,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Captures the current native router metrics snapshot.
   @override
   NativeRouterMetrics? pollRouterMetrics() {
     final infoPtr = calloc<CtRouterMetricsInfo>();
@@ -3247,6 +3280,7 @@ class NativeTransportRuntime
     );
   }
 
+  /// Sends one serialized WAMP frame on [connectionId].
   @override
   void sendMessage(int connectionId, Uint8List payload) {
     if (payload.isEmpty) {
@@ -3272,8 +3306,10 @@ class NativeTransportRuntime
     }
   }
 
+  /// Whether this native build includes deterministic FFI test hooks.
   bool get supportsTestHooks => _bindings.ctTestMessageEnqueue != null;
 
+  /// Enqueues a serialized frame through the deterministic native test hook.
   int enqueueTestMessage({
     required int connectionId,
     required NativeMessageSerializer serializer,
@@ -3301,6 +3337,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Clears all frames retained by deterministic native test hooks.
   void clearTestMessages() {
     final hook = _bindings.ctTestClearMessages;
     if (hook == null) {
@@ -3323,6 +3360,7 @@ class NativeTransportRuntime
     throw NativeTransportException(code, message);
   }
 
+  /// Applies a serialized router configuration to the running native runtime.
   @override
   void applyRouterConfig(Uint8List config) {
     if (config.isEmpty) {
@@ -3338,6 +3376,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Reloads configured TLS identities and returns the reload generation.
   @override
   int reloadTls() {
     final result = _bindings.ctReloadTls();
@@ -3355,6 +3394,7 @@ class NativeTransportRuntime
     _instance?._onConnection?.call(listenerId, connectionId);
   }
 
+  /// Polls and materializes the next WAMP message for [connectionId].
   @override
   NativeIncomingMessage? pollMessage(int connectionId) {
     final handle = pollMessageHandle(connectionId);
@@ -3364,6 +3404,7 @@ class NativeTransportRuntime
     return _messageBindings.materialize(handle);
   }
 
+  /// Polls the next owned native WAMP message handle for [connectionId].
   @override
   int pollMessageHandle(int connectionId) {
     final handle = _bindings.ctPollConnectionMessage(connectionId);
@@ -3376,6 +3417,7 @@ class NativeTransportRuntime
     return handle;
   }
 
+  /// Polls the WebSocket-optimized native message path for [connectionId].
   @override
   int pollWebSocketMessageHandle(int connectionId) {
     final pollWebSocket = _bindings.ctPollWebSocketMessageHandle;
@@ -3392,6 +3434,7 @@ class NativeTransportRuntime
     return handle;
   }
 
+  /// Retains [handle] and returns the additional owned native handle.
   @override
   int retainMessageHandle(int handle) {
     final result = _bindings.ctMessageRetain(handle);
@@ -3401,6 +3444,7 @@ class NativeTransportRuntime
     return result;
   }
 
+  /// Releases one owned native message [handle].
   @override
   void releaseMessageHandle(int handle) {
     if (handle <= 0) {
@@ -3409,6 +3453,7 @@ class NativeTransportRuntime
     _bindings.ctMessageRelease(handle);
   }
 
+  /// Forwards a native PUBLISH payload as an EVENT without re-encoding it.
   @override
   void forwardPublishEvent({
     required int handle,
@@ -3438,6 +3483,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Forwards a native CALL payload as an INVOCATION without re-encoding it.
   @override
   void forwardCallInvocation({
     required int handle,
@@ -3481,6 +3527,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Forwards a native YIELD payload as a RESULT without re-encoding it.
   @override
   void forwardResultFromYield({
     required int handle,
@@ -3499,6 +3546,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Forwards a native internal CALL result without re-encoding it.
   @override
   void forwardResultFromCall({
     required int handle,
@@ -3515,6 +3563,7 @@ class NativeTransportRuntime
     }
   }
 
+  /// Forwards a native invocation ERROR without re-encoding its payload.
   @override
   void forwardInvocationError({
     required int handle,
@@ -3591,8 +3640,10 @@ class NativeTransportRuntime
     return _NativeString(ptr.cast<ffi.Char>(), ptr, bytes.length);
   }
 
+  /// Resolved filesystem path of the loaded `ct_ffi` library.
   String get libraryPath => _libraryPath;
 
+  /// Native library path that worker isolates should load.
   @override
   String? get libraryPathHint => _libraryPath;
 }

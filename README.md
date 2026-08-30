@@ -11,8 +11,8 @@ standalone router, and expose WAMP services to AI agents through MCP.
 [![Coverage](https://codecov.io/gh/konsultaner/connectanum-dart/branch/master/graph/badge.svg)](https://app.codecov.io/gh/konsultaner/connectanum-dart)
 [![WAMP Profile Benchmarks](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/wamp-profile-benchmarks.yml)
 [![Package Dry Run](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml/badge.svg?branch=master)](https://github.com/konsultaner/connectanum-dart/actions/workflows/dart-package-publish.yml)
-[![Version](https://img.shields.io/badge/version-3.0.0--beta.3-f59e0b)](https://github.com/konsultaner/connectanum-dart)
-[![Dart](https://img.shields.io/badge/Dart-%5E3.9.2-0175c2?logo=dart&logoColor=white)](https://dart.dev/)
+[![Version](https://img.shields.io/badge/version-3.0.0--beta.4-f59e0b)](https://github.com/konsultaner/connectanum-dart)
+[![Dart](https://img.shields.io/badge/Dart-%5E3.10.0-0175c2?logo=dart&logoColor=white)](https://dart.dev/)
 [![WAMP](https://img.shields.io/badge/WAMP-v2-4b32c3)](https://wamp-proto.org/)
 [![License](https://img.shields.io/badge/license-MIT-0f766e)](LICENSE)
 
@@ -24,9 +24,9 @@ standalone router, and expose WAMP services to AI agents through MCP.
 </div>
 
 > **3.0 beta:** all Connectanum Dart packages and native Rust crates move
-> together. This source tree is prepared at `3.0.0-beta.3`; the latest published
-> package set remains `3.0.0-beta.2` until the coordinated beta.3 release is
-> uploaded. The beta is intended for integration testing before final `3.0.0`.
+> together. This source tree prepares `3.0.0-beta.4`; use the published beta.2
+> package graph until the coordinated beta.4 packages and native assets are
+> available. The beta is intended for integration testing before final `3.0.0`.
 
 ## Why Connectanum?
 
@@ -193,9 +193,9 @@ coordinated stack.
 | [`connectanum`](packages/connectanum) | Compatibility facade for existing `package:connectanum/...` client imports. |
 | [`connectanum_bench`](packages/connectanum_bench) | Reproducible router, transport, profile, and release-feature benchmark scenarios. |
 
-The latest published synchronized graph is `3.0.0-beta.2` on
+The latest fully synchronized graph is `3.0.0-beta.2` on
 [pub.dev](https://pub.dev/packages/connectanum/versions/3.0.0-beta.2). This
-checkout prepares `3.0.0-beta.3`; until its coordinated upload completes, beta
+checkout prepares `3.0.0-beta.4`; until its coordinated upload completes, beta
 testers should keep every selected package and native asset on beta.2.
 
 ## Documentation
@@ -214,11 +214,11 @@ Start at the [documentation index](docs/README.md), or jump directly to:
 
 ## Project Status
 
-`3.0.0-beta.3` is the coordinated next beta candidate for the announced release
-profile, including corrected cancellation of pending client WebSocket
-connections. The remaining path to final `3.0.0` is the beta.3 publication,
-broader soak, multi-worker, multi-runtime-thread, and downstream workload
-evidence.
+`3.0.0-beta.4` is the coordinated next beta candidate for the announced release
+profile. It includes corrected cancellation of pending client WebSocket
+connections plus package documentation, examples, and stable native-hook
+dependencies. The remaining path to final `3.0.0` is beta publication, broader
+soak, multi-worker, multi-runtime-thread, and downstream workload evidence.
 
 Connectanum is open source under the [MIT License](LICENSE). Issues and
 interoperability reports are welcome in the

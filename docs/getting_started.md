@@ -3,7 +3,7 @@
 This guide takes a new router installation from zero to a working WAMP RPC and
 Pub/Sub example. A Connectanum router deployment has three parts:
 
-1. Dart 3.9.2 or newer and the `connectanum_router` package.
+1. Dart 3.10 or newer and the `connectanum_router` package.
 2. The `ct_ffi` native transport library for the target platform.
 3. A YAML or JSON router configuration file.
 
@@ -11,8 +11,8 @@ Pub/Sub example. A Connectanum router deployment has three parts:
 
 The synchronized `3.0.0-beta.2` Dart packages and matching
 `v3.0.0-beta.2` native release assets are public for integration testing. The
-source tree is prepared for the coordinated `3.0.0-beta.3` release, but package
-consumers must remain on beta.2 until every beta.3 package and native asset is
+source tree is prepared for the coordinated `3.0.0-beta.4` release, but package
+consumers must remain on beta.2 until every beta.4 package and native asset is
 published. Use the [package path](#install-the-published-package) for
 applications or the [source-checkout path](#run-the-current-beta-from-source)
 when contributing to Connectanum itself.
@@ -77,7 +77,7 @@ name: my_connectanum_router
 publish_to: none
 
 environment:
-  sdk: ^3.9.2
+  sdk: ^3.10.0
 
 dependencies:
   connectanum_router: 3.0.0-beta.2

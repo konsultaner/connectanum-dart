@@ -13,7 +13,13 @@ part 'selection.dart';
 /// It mirrors the router's in-process authenticators so the same
 /// `RouterSettings` (and credential providers) can back a standalone remote
 /// authentication service.
+/// Executes router authentication challenges outside the router process.
 class AuthServer implements RemoteAuthenticatorDelegate {
+  /// Creates a remote authenticator backed by [settings].
+  ///
+  /// When [authTokens] is non-empty, every remote request must include one of
+  /// those shared tokens. [fakeChallengeOnHelloFailure] masks early identity
+  /// failures with a challenge to reduce account-enumeration signals.
   AuthServer({
     required RouterSettings settings,
     Iterable<String>? authTokens,
@@ -40,8 +46,10 @@ class AuthServer implements RemoteAuthenticatorDelegate {
   final Random _random;
   final Map<String, _PendingSession> _pending = {};
 
+  /// Router realm and authenticator settings used for challenge processing.
   RouterSettings get settings => _settings;
 
+  /// Selects an authenticator and returns success, failure, or a challenge.
   @override
   Future<RemoteHelloResponse> onHello(RemoteHelloRequest request) async {
     final realmName = request.realmSettings.name;
@@ -164,6 +172,7 @@ class AuthServer implements RemoteAuthenticatorDelegate {
     );
   }
 
+  /// Verifies a response to a previously issued remote challenge.
   @override
   Future<RemoteAuthenticateResponse> onAuthenticate(
     RemoteAuthenticateRequest request,
@@ -260,6 +269,7 @@ class AuthServer implements RemoteAuthenticatorDelegate {
     }
   }
 
+  /// Discards pending challenge state for a router-aborted authentication.
   @override
   Future<void> onAbort(RemoteAbortRequest request) async {
     if (!_isValidAuthToken(request.options)) {

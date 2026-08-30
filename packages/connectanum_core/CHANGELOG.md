@@ -1,3 +1,8 @@
+## 3.0.0-beta.4
+
+- Expand public payload and feature documentation and add a packaged message
+  round-trip example.
+
 ## 3.0.0-beta.3
 
 - Keep the shared protocol package synchronized with the corrected client

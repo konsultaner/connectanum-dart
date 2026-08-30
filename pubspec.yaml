@@ -1,6 +1,6 @@
 name: connectanum_workspace
 environment:
-  sdk: '^3.9.2'
+  sdk: '^3.10.0'
 hooks:
   user_defines:
     connectanum_client:
