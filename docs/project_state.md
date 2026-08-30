@@ -1,32 +1,44 @@
 # Project State
 
 Last updated: 2026-08-30
-Current branch: `codex/pub-score-160`
-Current milestone: prepare the synchronized `3.0.0-beta.4` Dart package and
-Rust crate graph for full pub.dev score readiness. All seven package archives
-now include examples and self-contained analysis settings; every package is
-above the 20 percent public API documentation threshold, with the router at the
-narrowest 21.62 percent. Client and router use stable native-hook dependencies,
-and release-planner tests enforce the score-critical package assets and lockstep
-beta version. Root analysis, both native-hook suites, the retry-deduplication
-regression, and all 22 release-planner tests pass. Repository-wide `bin/verify`
-also passes, including native transport, isolated consumer-package, router,
-remote-auth, zero-copy, Chrome/Dart2Wasm SCRAM, and browser WebSocket coverage.
-The clean-tree strict package dry-run passes all seven archives without
-warnings or blockers. Initial hosted beta.4 evidence exposed two release
-regressions: a late invocation response could reach a closed WebSocket during
-service shutdown, and the disposable Windows beta build mixed the local client
-with the previously published router's incompatible native-hook constraints.
-Session response handling now drops replies only after GOODBYE or transport
-closure while preserving active send failures, with materialized and
-native-lazy regressions. Windows packaging now overrides the complete local
-core/client/MCP/router graph and supplies its prefetched library to both native
-hook packages. Post-fix `bin/test-fast`, repository-wide `bin/verify`, the full
-consumer integration file, and all nine artifact-packaging tests pass. Updated
-hosted evidence, protected-branch review/merge, publication, and
-version-specific pub.dev score confirmation remain. The standalone consumer
-example intentionally remains pinned to the last complete published graph
-until beta.4 packages and native assets are available.
+Current branch: `codex/wamp-app-beta4-hosted-graph`
+Current milestone: promote and publish the synchronized `3.0.0-beta.5` repair
+release. Native beta.4 artifacts and six modular packages are published, and
+all seven package pages are verified under `dart.konsultaner.de`. Publication
+of the compatibility facade remains blocked by its pub.dev automated tag rule,
+which must accept the monorepo tag `connectanum-v{{version}}`. The standalone
+consumer application resolves an exact hosted beta.4 graph from committed
+lockfiles and passes `bin/test-wamp-app`, including 56 shared tests, 145 server
+tests, 217 Flutter tests, Chrome worker coverage, endpoint smoke, and the
+release web build.
+
+All seven Dart packages and three Rust crates now advance together to beta.5.
+Client and router hooks stage and atomically rename every configured, built, or
+downloaded native library, with regressions proving mapped readers keep the old
+inode and failed publication preserves the known-good destination. Every Dart
+archive has the canonical `example/main.dart` required for pub.dev's final 10
+example points. The benchmark package README now publishes the complete
+78-workload transport matrix with Gbit/s units, workload shapes, methodology,
+hosted evidence, and reproduction links; a release-planner regression prevents
+that evidence from disappearing.
+
+Hosted CI exposed that the WampApp production benchmark unnecessarily installed
+`TestWidgetsFlutterBinding`, which replaced real loopback HTTP/WebSocket clients
+with mocked 400 responses. Removing the unused widget binding preserves the
+plain Flutter test runner and real network path. The exact production
+application benchmark passes, and the complete validator passes all 28 metrics
+across production Argon2 onboarding/reconnect, encrypted delivery, and five
+64 MiB memory/disk attachment iterations. Repository-wide `bin/verify` passes
+at beta.5 with 138 native core tests, 90 FFI tests, 416 Dart core tests, 118 MCP
+tests, 474 router tests, isolated consumers, live router/MCP integration, remote
+authentication, zero-copy forwarding, and Chrome/Dart2Wasm coverage. Protected
+branch promotion, clean-tree package archives, native artifacts, dependency-
+ordered publication, and exact hosted beta.5 consumer verification remain.
+
+The live pub.dev score API still reports client and router at 160/160 and the
+facade, core, MCP, auth server, and benchmarks at 150/160 because beta.4
+archives are immutable. The beta.5 archives contain the canonical entrypoints;
+updated scores can appear only after publication and Pana reanalysis.
 Onboarding now probes the configured router with a bounded anonymous WAMP
 handshake and presents debounced checking, ready, unreachable, and retry states
 without weakening registration validation. Stale and post-disposal probe

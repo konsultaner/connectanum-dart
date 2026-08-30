@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.5
+
+- Add the canonical pub.dev example entrypoint and publish the current
+  transport benchmark matrix directly in the package README.
+
 ## 3.0.0-beta.4
 
 - Add a packaged benchmark-configuration example and improve public package

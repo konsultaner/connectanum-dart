@@ -144,7 +144,10 @@ Future<void> runBuildHook(
     }
 
     if (configuredNativeLib != null) {
-      configuredNativeLib.copySync(outputLibFile.path);
+      publishNativeLibrary(
+        source: configuredNativeLib,
+        destination: outputLibFile,
+      );
       output.assets.code.add(
         CodeAsset(
           package: input.packageName,
@@ -200,7 +203,7 @@ Future<void> runBuildHook(
       );
     }
 
-    builtLib.copySync(outputLibFile.path);
+    publishNativeLibrary(source: builtLib, destination: outputLibFile);
 
     output.assets.code.add(
       CodeAsset(
@@ -211,6 +214,24 @@ Future<void> runBuildHook(
       ),
     );
   });
+}
+
+void publishNativeLibrary({
+  required File source,
+  required File destination,
+}) {
+  destination.parent.createSync(recursive: true);
+  final staged = File(
+    '${destination.path}.tmp.$pid.${DateTime.now().microsecondsSinceEpoch}',
+  );
+  try {
+    source.copySync(staged.path);
+    staged.renameSync(destination.path);
+  } finally {
+    if (staged.existsSync()) {
+      staged.deleteSync();
+    }
+  }
 }
 
 final class _BuildHookSettings {
@@ -484,8 +505,7 @@ Future<void> installReleaseAsset({
     );
   }
 
-  outputLibFile.parent.createSync(recursive: true);
-  extractedLib.copySync(outputLibFile.path);
+  publishNativeLibrary(source: extractedLib, destination: outputLibFile);
 }
 
 void _verifyDownloadedArchive(File archiveFile, File checksumFile) {

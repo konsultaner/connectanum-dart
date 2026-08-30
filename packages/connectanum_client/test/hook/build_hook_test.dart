@@ -11,25 +11,83 @@ import 'package:test/test.dart';
 import '../../hook/build.dart' as build_hook;
 
 void main() {
-  test('configured native library copy creates the hook output directory', () {
+  test('configured native library copy replaces the hook output inode', () {
     final tempDir = Directory.systemTemp.createTempSync(
       'connectanum_client_configured_copy_',
     );
     addTearDown(() => tempDir.deleteSync(recursive: true));
 
     final source = File('${tempDir.path}/${_defaultLibraryFileName()}')
-      ..writeAsStringSync('client-prebuilt');
+      ..writeAsStringSync('client-prebuilt-v1');
     final destination = File(
       '${tempDir.path}/missing/hook/output/${_hookLibraryFileName()}',
     );
 
     expect(destination.parent.existsSync(), isFalse);
-    build_hook.copyConfiguredNativeLibrary(
+    build_hook.publishNativeLibrary(
       source: source,
       destination: destination,
     );
 
-    expect(destination.readAsStringSync(), equals('client-prebuilt'));
+    RandomAccessFile? mappedOutput;
+    if (!Platform.isWindows) {
+      mappedOutput = destination.openSync();
+      addTearDown(mappedOutput.closeSync);
+    }
+
+    source.writeAsStringSync('client-prebuilt-v2');
+    build_hook.publishNativeLibrary(
+      source: source,
+      destination: destination,
+    );
+
+    expect(destination.readAsStringSync(), equals('client-prebuilt-v2'));
+    if (mappedOutput != null) {
+      mappedOutput.setPositionSync(0);
+      expect(
+        String.fromCharCodes(
+          mappedOutput.readSync('client-prebuilt-v1'.length),
+        ),
+        equals('client-prebuilt-v1'),
+      );
+    }
+    expect(
+      destination.parent.listSync().where(
+        (entry) => entry.path.contains('${destination.path}.tmp.'),
+      ),
+      isEmpty,
+    );
+  });
+
+  test('native library publication preserves output after copy failure', () {
+    final tempDir = Directory.systemTemp.createTempSync(
+      'connectanum_client_failed_publish_',
+    );
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+
+    final destination = File(
+      '${tempDir.path}/hook/output/${_hookLibraryFileName()}',
+    );
+    destination.parent.createSync(recursive: true);
+    destination.writeAsStringSync('known-good-client-native');
+
+    expect(
+      () => build_hook.publishNativeLibrary(
+        source: File('${tempDir.path}/missing-native-library'),
+        destination: destination,
+      ),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(
+      destination.readAsStringSync(),
+      equals('known-good-client-native'),
+    );
+    expect(
+      destination.parent.listSync().where(
+        (entry) => entry.path.contains('${destination.path}.tmp.'),
+      ),
+      isEmpty,
+    );
   });
 
   test('build hook reuses CONNECTANUM_NATIVE_LIB user define', () {
@@ -196,7 +254,7 @@ void main() {
       addTearDown(() => packageRoot.delete(recursive: true));
       File('${packageRoot.path}/pubspec.yaml').writeAsStringSync('''
 name: connectanum_client
-version: 3.0.0-beta.4
+version: 3.0.0-beta.5
 environment:
   sdk: ^3.9.2
 ''');
@@ -241,7 +299,7 @@ environment:
               downloaded.map((uri) => uri.toString()),
               contains(
                 'https://github.com/konsultaner/connectanum-dart/releases/download/'
-                'v3.0.0-beta.4/${_releaseArchiveName()}',
+                'v3.0.0-beta.5/${_releaseArchiveName()}',
               ),
             );
           },
@@ -267,7 +325,7 @@ environment:
     )..createSync(recursive: true);
     File('${packageRoot.path}/pubspec.yaml').writeAsStringSync('''
 name: connectanum_client
-version: 3.0.0-beta.4
+version: 3.0.0-beta.5
 environment:
   sdk: ^3.9.2
 ''');

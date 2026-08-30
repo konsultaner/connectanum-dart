@@ -1,3 +1,8 @@
+## 3.0.0-beta.5
+
+- Add the canonical pub.dev example entrypoint and keep the compatibility
+  facade synchronized with the native-hook repair release.
+
 ## 3.0.0-beta.4
 
 - Add a packaged getting-started example and align package metadata for the

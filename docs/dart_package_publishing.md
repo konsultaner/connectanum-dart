@@ -52,12 +52,12 @@ and version-sequencing decisions.
   matching native tag from hosted package metadata while preserving source
   checkout builds. Public dependency constraints use `^3.0.0-beta.2`, and the
   strict release gate rejects future package-version drift.
-- The source graph now prepares the synchronized `3.0.0-beta.4` release. It
-  carries corrected cancellation of pending client WebSocket connections,
-  stable native-hook dependencies, package examples, and API documentation
-  while advancing every Dart package and Rust crate together. Published
-  consumers remain on beta.2 until the beta.4 native assets and package tags
-  complete.
+- Six modular `3.0.0-beta.4` packages and the matching native assets are live,
+  and all seven package pages are verified under `dart.konsultaner.de`. The
+  compatibility facade beta.4 remains blocked by its pub.dev automated tag
+  rule. The source graph now prepares synchronized `3.0.0-beta.5` packages and
+  Rust crates with atomic native-hook publication, canonical score examples,
+  and a visible benchmark result matrix.
 
 ## Latest Evidence
 
@@ -126,11 +126,11 @@ When that decision exists, use this sequence:
 
 - No code-owned archive-readiness or private workspace dependency blockers
   remain for the workspace package graph.
-- Promotion of the synchronized `3.0.0-beta.4` manifests through protected
+- Promotion of the synchronized `3.0.0-beta.5` manifests through protected
   `master` and the hosted deployment chain must complete before publish tags
   are created.
-- Package ownership and GitHub OIDC publication are proven by the successful
-  beta.2 publication of all seven package names. Beta.4 still requires its
-  matching native release assets before package-specific tags are pushed.
+- Package ownership and GitHub OIDC publication are proven by the public
+  packages and verified publisher pages. Beta.5 still requires its matching
+  native release assets before package-specific tags are pushed.
 - The published `3.0.0-beta.1` native hook default is unsuitable for external
   native execution; testers should use `3.0.0-beta.2` or newer.

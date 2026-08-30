@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.5
+
+- Add the canonical pub.dev example entrypoint and synchronize authentication
+  services with the native-hook repair release.
+
 ## 3.0.0-beta.4
 
 - Add packaged authentication setup guidance and document the public auth

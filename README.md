@@ -24,9 +24,10 @@ standalone router, and expose WAMP services to AI agents through MCP.
 </div>
 
 > **3.0 beta:** all Connectanum Dart packages and native Rust crates move
-> together. This source tree prepares `3.0.0-beta.4`; use the published beta.2
-> package graph until the coordinated beta.4 packages and native assets are
-> available. The beta is intended for integration testing before final `3.0.0`.
+> together. The modular beta.4 packages and matching native assets are public;
+> this source tree prepares the synchronized `3.0.0-beta.5` native-hook and
+> package-score repair. The beta is intended for integration testing before
+> final `3.0.0`.
 
 ## Why Connectanum?
 
@@ -193,10 +194,12 @@ coordinated stack.
 | [`connectanum`](packages/connectanum) | Compatibility facade for existing `package:connectanum/...` client imports. |
 | [`connectanum_bench`](packages/connectanum_bench) | Reproducible router, transport, profile, and release-feature benchmark scenarios. |
 
-The latest fully synchronized graph is `3.0.0-beta.2` on
-[pub.dev](https://pub.dev/packages/connectanum/versions/3.0.0-beta.2). This
-checkout prepares `3.0.0-beta.4`; until its coordinated upload completes, beta
-testers should keep every selected package and native asset on beta.2.
+The modular client, router, MCP, core, auth-server, and benchmark packages are
+available at `3.0.0-beta.4` on [pub.dev](https://pub.dev/publishers/dart.konsultaner.de/packages),
+with matching native assets. The compatibility facade remains on its prior
+published line until its automated tag rule accepts the monorepo tag. This
+checkout prepares `3.0.0-beta.5`; keep selected modular packages and native
+assets on beta.4 until the coordinated beta.5 publication completes.
 
 ## Documentation
 
@@ -214,11 +217,12 @@ Start at the [documentation index](docs/README.md), or jump directly to:
 
 ## Project Status
 
-`3.0.0-beta.4` is the coordinated next beta candidate for the announced release
-profile. It includes corrected cancellation of pending client WebSocket
-connections plus package documentation, examples, and stable native-hook
-dependencies. The remaining path to final `3.0.0` is beta publication, broader
-soak, multi-worker, multi-runtime-thread, and downstream workload evidence.
+`3.0.0-beta.5` is the coordinated next beta candidate for the announced release
+profile. It atomically publishes native hook outputs, adds canonical pub.dev
+examples to every package, and exposes the current benchmark matrix on the
+benchmark package page. The remaining path to final `3.0.0` is beta
+publication, broader soak, multi-worker, multi-runtime-thread, and downstream
+workload evidence.
 
 Connectanum is open source under the [MIT License](LICENSE). Issues and
 interoperability reports are welcome in the

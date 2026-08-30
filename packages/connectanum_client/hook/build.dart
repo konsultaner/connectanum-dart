@@ -146,7 +146,7 @@ Future<void> runBuildHook(
     }
 
     if (configuredNativeLib != null) {
-      copyConfiguredNativeLibrary(
+      publishNativeLibrary(
         source: configuredNativeLib,
         destination: outputLibFile,
       );
@@ -205,7 +205,7 @@ Future<void> runBuildHook(
       );
     }
 
-    builtLib.copySync(outputLibFile.path);
+    publishNativeLibrary(source: builtLib, destination: outputLibFile);
 
     output.assets.code.add(
       CodeAsset(
@@ -302,12 +302,22 @@ String? _stringEnvironment(Map<String, String> environment, String key) {
 bool _shouldSkipNativeBuild(_BuildHookSettings settings) =>
     settings.skipNativeBuild;
 
-void copyConfiguredNativeLibrary({
+void publishNativeLibrary({
   required File source,
   required File destination,
 }) {
   destination.parent.createSync(recursive: true);
-  source.copySync(destination.path);
+  final staged = File(
+    '${destination.path}.tmp.$pid.${DateTime.now().microsecondsSinceEpoch}',
+  );
+  try {
+    source.copySync(staged.path);
+    staged.renameSync(destination.path);
+  } finally {
+    if (staged.existsSync()) {
+      staged.deleteSync();
+    }
+  }
 }
 
 File? _configuredNativeLibrary(_BuildHookSettings settings) {
@@ -504,8 +514,7 @@ Future<void> installReleaseAsset({
     );
   }
 
-  outputLibFile.parent.createSync(recursive: true);
-  extractedLib.copySync(outputLibFile.path);
+  publishNativeLibrary(source: extractedLib, destination: outputLibFile);
 }
 
 void _verifyDownloadedArchive(File archiveFile, File checksumFile) {

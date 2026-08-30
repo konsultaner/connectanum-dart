@@ -8,6 +8,8 @@ connectanum-dart.iml
 .token
 chat.txt
 pubspec.lock
+!examples/wamp_app/client/pubspec.lock
+!examples/wamp_app/server/pubspec.lock
 coverage
 /out/
 /native/transport/target/
