@@ -216,7 +216,9 @@ prepare_windows_native_release() {
 prepare_windows_checkout_build() {
   local client_package_path
   local core_package_path
+  local mcp_package_path
   local native_lib_path
+  local router_package_path
   local source_dir
   local windows_build_root
 
@@ -240,6 +242,8 @@ prepare_windows_checkout_build() {
 
   client_package_path="$(dart_path "$(repo_root)/packages/connectanum_client")"
   core_package_path="$(dart_path "$(repo_root)/packages/connectanum_core")"
+  mcp_package_path="$(dart_path "$(repo_root)/packages/connectanum_mcp")"
+  router_package_path="$(dart_path "$(repo_root)/packages/connectanum_router")"
   native_lib_path="$(dart_path "$windows_native_lib")"
   cat >>"$client_dir/pubspec.yaml" <<EOF
 
@@ -247,11 +251,17 @@ hooks:
   user_defines:
     connectanum_client:
       CONNECTANUM_NATIVE_LIB: $(yaml_single_quote "$native_lib_path")
+    connectanum_router:
+      CONNECTANUM_NATIVE_LIB: $(yaml_single_quote "$native_lib_path")
 dependency_overrides:
   connectanum_client:
     path: $(yaml_single_quote "$client_package_path")
   connectanum_core:
     path: $(yaml_single_quote "$core_package_path")
+  connectanum_mcp:
+    path: $(yaml_single_quote "$mcp_package_path")
+  connectanum_router:
+    path: $(yaml_single_quote "$router_package_path")
 EOF
 }
 

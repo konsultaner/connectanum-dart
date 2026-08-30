@@ -12,10 +12,21 @@ beta version. Root analysis, both native-hook suites, the retry-deduplication
 regression, and all 22 release-planner tests pass. Repository-wide `bin/verify`
 also passes, including native transport, isolated consumer-package, router,
 remote-auth, zero-copy, Chrome/Dart2Wasm SCRAM, and browser WebSocket coverage.
-Clean-tree strict package dry-runs, hosted publication, and version-specific
-score evidence remain pending. The standalone consumer example intentionally
-remains pinned to the last complete published graph until beta.4 packages and
-native assets are available.
+The clean-tree strict package dry-run passes all seven archives without
+warnings or blockers. Initial hosted beta.4 evidence exposed two release
+regressions: a late invocation response could reach a closed WebSocket during
+service shutdown, and the disposable Windows beta build mixed the local client
+with the previously published router's incompatible native-hook constraints.
+Session response handling now drops replies only after GOODBYE or transport
+closure while preserving active send failures, with materialized and
+native-lazy regressions. Windows packaging now overrides the complete local
+core/client/MCP/router graph and supplies its prefetched library to both native
+hook packages. Post-fix `bin/test-fast`, repository-wide `bin/verify`, the full
+consumer integration file, and all nine artifact-packaging tests pass. Updated
+hosted evidence, protected-branch review/merge, publication, and
+version-specific pub.dev score confirmation remain. The standalone consumer
+example intentionally remains pinned to the last complete published graph
+until beta.4 packages and native assets are available.
 Onboarding now probes the configured router with a bounded anonymous WAMP
 handshake and presents debounced checking, ready, unreachable, and retry states
 without weakening registration validation. Stale and post-disposal probe
