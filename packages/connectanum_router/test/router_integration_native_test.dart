@@ -6395,7 +6395,7 @@ void main() {
                 'result': <String, Object?>{
                   'resultType': 'complete',
                   '_meta': <String, Object?>{
-                    'io.modelcontextprotocol/serverInfo': <String, Object?>{'name': 'connectanum-router', 'version': '3.0.0-beta.3', 'description': serverDescription},
+                    'io.modelcontextprotocol/serverInfo': <String, Object?>{'name': 'connectanum-router', 'version': '3.0.0-beta.4', 'description': serverDescription},
                     'io.modelcontextprotocol/subscriptionId': requestId,
                   },
                 },

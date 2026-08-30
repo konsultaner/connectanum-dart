@@ -1,3 +1,8 @@
+## 3.0.0-beta.4
+
+- Adopt the stable Dart native-hook APIs and expand the documented public MCP
+  client surface.
+
 ## 3.0.0-beta.3
 
 - Cancel pending WebSocket upgrades when a client disconnects, reject sockets

@@ -2,10 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:connectanum_core/connectanum_core.dart' as wamp;
-import 'package:connectanum_router/src/router/config/router_settings.dart';
-import 'package:connectanum_router/src/router/config/router_settings_builder.dart';
 import 'package:connectanum_router/src/router/models/endpoint.dart';
-import 'package:connectanum_router/src/router/models/router_listener.dart';
 import 'package:connectanum_router/src/router/models/tls_mode.dart';
 import 'package:connectanum_router/src/router/router_instance.dart';
 import 'package:connectanum_router/src/router/state/commands.dart';

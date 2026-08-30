@@ -1,20 +1,21 @@
 # Project State
 
-Last updated: 2026-08-29
-Current branch: `codex/3.0.0-beta.3-prep`
-Current milestone: prepare the synchronized `3.0.0-beta.3` Dart package and
-Rust crate graph for the client WebSocket lifecycle correction discovered by
-WampApp. All seven publishable Dart packages, all three Rust crates, runtime
-identity constants, release-tag tests, changelogs, and release metadata move
-together. WampApp intentionally remains pinned to the published beta.2 graph
-until beta.3 native assets and packages are uploaded. Repository-wide
-`bin/verify`, the 20 release-planner tests, isolated client/router native-hook
-tests, and the Chrome/Dart2Wasm WebSocket suite pass locally. The strict package
-archive gate reached beta.3 successfully and must be rerun from the clean
-release commit to remove pub's expected dirty-tree warning. The interactive
-router plus Android and iPad clients remain live under the launcher supervisor.
-PR #84 still awaits the required code-owner review before this stacked release
-preparation can enter protected `master`.
+Last updated: 2026-08-30
+Current branch: `codex/pub-score-160`
+Current milestone: prepare the synchronized `3.0.0-beta.4` Dart package and
+Rust crate graph for full pub.dev score readiness. All seven package archives
+now include examples and self-contained analysis settings; every package is
+above the 20 percent public API documentation threshold, with the router at the
+narrowest 21.62 percent. Client and router use stable native-hook dependencies,
+and release-planner tests enforce the score-critical package assets and lockstep
+beta version. Root analysis, both native-hook suites, the retry-deduplication
+regression, and all 22 release-planner tests pass. Repository-wide `bin/verify`
+also passes, including native transport, isolated consumer-package, router,
+remote-auth, zero-copy, Chrome/Dart2Wasm SCRAM, and browser WebSocket coverage.
+Clean-tree strict package dry-runs, hosted publication, and version-specific
+score evidence remain pending. The standalone consumer example intentionally
+remains pinned to the last complete published graph until beta.4 packages and
+native assets are available.
 Onboarding now probes the configured router with a bounded anonymous WAMP
 handshake and presents debounced checking, ready, unreachable, and retry states
 without weakening registration validation. Stale and post-disposal probe

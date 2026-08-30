@@ -613,7 +613,9 @@ class McpWampTopic {
   }
 }
 
+/// Search, schema, and safety metadata for a WAMP procedure or topic.
 class McpWampApiMetadata {
+  /// Creates metadata advertised by the generated MCP catalog tools.
   const McpWampApiMetadata({
     this.shortDescription,
     this.description,
@@ -632,22 +634,52 @@ class McpWampApiMetadata {
     this.openWorldHint,
   });
 
+  /// Compact summary suitable for catalogs and search results.
   final String? shortDescription;
+
+  /// Full human-readable description of the WAMP operation.
   final String? description;
+
+  /// Application domain associated with the operation.
   final String? domain;
+
+  /// Entity type read or changed by the operation.
   final String? entity;
+
+  /// Action verbs that help agents discover the operation.
   final List<String> verbs;
+
+  /// Free-form catalog tags associated with the operation.
   final List<String> tags;
+
+  /// Alternative terms that should match this operation in search.
   final List<String> synonyms;
+
+  /// Event topics that the operation may cause the router to publish.
   final List<String> publishesEvents;
+
+  /// JSON Schema for the operation's logical input.
   final Map<String, Object?>? inputJsonSchema;
+
+  /// JSON Schema for the operation's logical output.
   final Map<String, Object?>? outputJsonSchema;
+
+  /// Whether invoking the operation can carry elevated application risk.
   final bool danger;
+
+  /// MCP hint indicating that the operation does not modify state.
   final bool? readOnlyHint;
+
+  /// MCP hint indicating that the operation may destroy existing state.
   final bool? destructiveHint;
+
+  /// MCP hint indicating that repeated identical calls are safe.
   final bool? idempotentHint;
+
+  /// MCP hint indicating that the operation can interact outside its domain.
   final bool? openWorldHint;
 
+  /// Whether no catalog, schema, or safety metadata is present.
   bool get isEmpty =>
       shortDescription == null &&
       description == null &&
@@ -665,6 +697,7 @@ class McpWampApiMetadata {
       idempotentHint == null &&
       openWorldHint == null;
 
+  /// Converts the metadata to the direct JSON catalog representation.
   Map<String, Object?> toJson() {
     return <String, Object?>{
       if (shortDescription != null) 'short_description': shortDescription,
@@ -688,6 +721,7 @@ class McpWampApiMetadata {
     };
   }
 
+  /// Maps safety hints to MCP tool annotations, or returns `null` when empty.
   McpToolAnnotations? toToolAnnotations({String? title}) {
     final annotations = McpToolAnnotations(
       title: title,

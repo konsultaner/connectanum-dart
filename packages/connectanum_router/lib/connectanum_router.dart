@@ -1,3 +1,4 @@
+/// Native Connectanum WAMP router, HTTP listeners, auth, and telemetry APIs.
 library;
 
 export 'src/router/router.dart';

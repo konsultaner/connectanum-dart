@@ -247,7 +247,9 @@ class McpBlobResourceContent extends McpResourceContent {
   };
 }
 
+/// Mutable registry used by an MCP server to expose resources and templates.
 class McpResourceRegistry {
+  /// Creates a registry with optional fixed page sizes.
   McpResourceRegistry({
     Iterable<McpResource> resources = const [],
     Iterable<McpResourceTemplate> templates = const [],
@@ -260,17 +262,24 @@ class McpResourceRegistry {
     registerTemplates(templates);
   }
 
+  /// Maximum number of concrete resources returned by one list request.
   final int? pageSize;
+
+  /// Maximum number of resource templates returned by one list request.
   final int? templatePageSize;
   final Map<String, McpResource> _resources = <String, McpResource>{};
   final Map<String, McpResourceTemplate> _templates =
       <String, McpResourceTemplate>{};
   int _revision = 0;
 
+  /// Whether the registry advertises any resource or resource template.
   bool get isNotEmpty => _resources.isNotEmpty || _templates.isNotEmpty;
+
+  /// Whether any template can complete one of its URI variables.
   bool get hasCompletions =>
       _templates.values.any((template) => template.complete != null);
 
+  /// Registers one concrete [resource].
   void register(McpResource resource) {
     if (_resources.containsKey(resource.uri)) {
       throw ArgumentError.value(
@@ -283,18 +292,21 @@ class McpResourceRegistry {
     _revision += 1;
   }
 
+  /// Registers each concrete resource in [resources].
   void registerAll(Iterable<McpResource> resources) {
     for (final resource in resources) {
       register(resource);
     }
   }
 
+  /// Replaces every concrete resource while preserving templates.
   void replaceAll(Iterable<McpResource> resources) {
     _resources.clear();
     _revision += 1;
     registerAll(resources);
   }
 
+  /// Registers one URI [template].
   void registerTemplate(McpResourceTemplate template) {
     if (_templates.containsKey(template.uriTemplate)) {
       throw ArgumentError.value(
@@ -307,18 +319,21 @@ class McpResourceRegistry {
     _revision += 1;
   }
 
+  /// Registers each URI template in [templates].
   void registerTemplates(Iterable<McpResourceTemplate> templates) {
     for (final template in templates) {
       registerTemplate(template);
     }
   }
 
+  /// Replaces every URI template while preserving concrete resources.
   void replaceTemplates(Iterable<McpResourceTemplate> templates) {
     _templates.clear();
     _revision += 1;
     registerTemplates(templates);
   }
 
+  /// Returns a deterministic page of concrete resources after [cursor].
   McpResourceListPage listPage({String? cursor}) {
     final resources = List<McpResource>.unmodifiable(
       _resources.values.toList(growable: false)
@@ -355,6 +370,7 @@ class McpResourceRegistry {
     );
   }
 
+  /// Returns a deterministic page of resource templates after [cursor].
   McpResourceTemplateListPage listTemplatePage({String? cursor}) {
     final templates = List<McpResourceTemplate>.unmodifiable(
       _templates.values.toList(growable: false)
@@ -430,6 +446,7 @@ class McpResourceRegistry {
     );
   }
 
+  /// Reads a concrete or best-matching templated resource.
   Future<List<McpResourceContent>> read(McpResourceRequest request) async {
     final resource = _resources[request.uri];
     if (resource != null) {
@@ -451,6 +468,7 @@ class McpResourceRegistry {
   /// Returns the template advertised with the exact [uriTemplate].
   McpResourceTemplate? template(String uriTemplate) => _templates[uriTemplate];
 
+  /// Returns the concrete resource registered for [uri], if any.
   McpResource? operator [](String uri) => _resources[uri];
 }
 

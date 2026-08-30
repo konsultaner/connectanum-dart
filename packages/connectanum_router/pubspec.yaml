@@ -1,6 +1,6 @@
 name: connectanum_router
 description: Connectanum WAMP router implementation using the native transport runtime.
-version: 3.0.0-beta.3
+version: 3.0.0-beta.4
 homepage: https://github.com/konsultaner/connectanum-dart
 repository: https://github.com/konsultaner/connectanum-dart
 issue_tracker: https://github.com/konsultaner/connectanum-dart/issues
@@ -13,7 +13,7 @@ false_secrets:
 executables:
   connectanum_router:
 environment:
-  sdk: '^3.9.2'
+  sdk: '^3.10.0'
 dependencies:
   logging: ^1.0.0
   meta: ^1.16.0
@@ -21,13 +21,13 @@ dependencies:
   msgpack_dart: ^1.0.0
   cbor: ^6.3.7
   crypto: ^3.0.7
-  hooks: ^0.20.1
-  code_assets: ^0.19.7
+  hooks: ^2.2.0
+  code_assets: ^2.0.0
   ffi: ^2.1.0
   yaml: ^3.1.2
-  connectanum_core: ^3.0.0-beta.3
-  connectanum_client: ^3.0.0-beta.3
-  connectanum_mcp: ^3.0.0-beta.3
+  connectanum_core: ^3.0.0-beta.4
+  connectanum_client: ^3.0.0-beta.4
+  connectanum_mcp: ^3.0.0-beta.4
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.26.2

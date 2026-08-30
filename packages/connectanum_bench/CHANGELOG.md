@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.4
+
+- Add a packaged benchmark-configuration example and improve public package
+  metadata and API documentation.
+
 ## 3.0.0-beta.3
 
 - Keep the benchmark package synchronized with the corrected client connection

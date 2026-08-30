@@ -1621,7 +1621,10 @@ final class McpStreamableHttpClient {
   /// Default maximum raw byte length for buffered responses and SSE events.
   static const int defaultMaxResponseBytes = 16 * 1024 * 1024;
 
+  /// Latest supported stateless MCP protocol revision.
   static const latestProtocolVersion = _mcpLatestProtocolVersion;
+
+  /// Latest supported session-based MCP protocol revision.
   static const latestSessionProtocolVersion = _mcpLatestSessionProtocolVersion;
 
   /// Discovers a same-origin HTTP auth bridge advertised by a protected MCP
@@ -1669,7 +1672,7 @@ final class McpStreamableHttpClient {
       endpoint,
       clientInfo: const <String, Object?>{
         'name': 'connectanum-http-auth-discovery',
-        'version': '3.0.0-beta.3',
+        'version': '3.0.0-beta.4',
       },
       requestTimeout: requestTimeout,
       maxResponseBytes: maxResponseBytes,
@@ -1717,6 +1720,7 @@ final class McpStreamableHttpClient {
     }
   }
 
+  /// Creates a session-based Streamable HTTP MCP client for [endpoint].
   McpStreamableHttpClient(
     this.endpoint, {
     HttpClient? httpClient,
@@ -1861,6 +1865,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Creates a client authorized by a validated OAuth token [grant].
   factory McpStreamableHttpClient.withOAuthToken(
     Uri endpoint,
     McpOAuthTokenGrant grant, {
@@ -1943,10 +1948,19 @@ final class McpStreamableHttpClient {
   /// this value after their acknowledgment arrives.
   final Duration requestTimeout;
 
+  /// Absolute Streamable HTTP endpoint used by this client.
   final Uri endpoint;
+
+  /// Default HTTP headers applied to outgoing MCP requests.
   final Map<String, String> headers;
+
+  /// Client identity sent during MCP initialization, when configured.
   final McpJsonMap? clientInfo;
+
+  /// Client capabilities sent during MCP initialization.
   final McpJsonMap clientCapabilities;
+
+  /// Protocol revision used before a server negotiates another revision.
   final String defaultProtocolVersion;
   final HttpClient _httpClient;
   final McpHttpClientFactory _subscriptionHttpClientFactory;
@@ -1979,8 +1993,10 @@ final class McpStreamableHttpClient {
   String? _lastEventId;
   Object _resumeStateToken = Object();
 
+  /// MCP protocol revision currently used for requests.
   String get protocolVersion => _protocolVersion;
 
+  /// Active MCP session identifier, or `null` for a stateless client.
   String? get sessionId => _sessionId;
 
   set sessionId(String? value) {
@@ -1991,6 +2007,7 @@ final class McpStreamableHttpClient {
   _McpSessionStateSnapshot get _sessionStateSnapshot =>
       _McpSessionStateSnapshot(_sessionStateToken, _sessionId);
 
+  /// Last accepted SSE event identifier used when resuming a stream.
   String? get lastEventId => _lastEventId;
 
   set lastEventId(String? value) {
@@ -2254,6 +2271,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Registers an OAuth client with the discovered authorization server.
   Future<McpOAuthDynamicClientRegistration> registerOAuthClient(
     McpAuthorizationServerMetadata authorizationServer, {
     required McpOAuthDynamicClientRegistrationRequest registration,
@@ -2276,6 +2294,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Exchanges an OAuth authorization code for an access-token grant.
   Future<McpOAuthTokenGrant> exchangeAuthorizationCode(
     McpAuthorizationCode authorizationCode, {
     required McpOAuthClientAuthentication clientAuthentication,
@@ -2405,12 +2424,13 @@ final class McpStreamableHttpClient {
     _authorizationStateToken = Object();
   }
 
+  /// Initializes a session-based MCP connection and captures its session ID.
   Future<McpJsonMap> initialize({
     Object? id = 'initialize',
     McpJsonMap capabilities = const <String, Object?>{},
     McpJsonMap clientInfo = const <String, Object?>{
       'name': 'connectanum_client',
-      'version': '3.0.0-beta.3',
+      'version': '3.0.0-beta.4',
     },
     String? protocolVersion,
     Map<String, String> headers = const <String, String>{},
@@ -2499,6 +2519,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Opens a resumable Streamable HTTP listener for server notifications.
   Future<McpStreamableSubscription> listen({
     Object? id,
     bool toolsListChanged = false,
@@ -2690,12 +2711,14 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Sends the MCP `notifications/initialized` lifecycle notification.
   Future<void> notifyInitialized({
     Map<String, String> headers = const <String, String>{},
   }) async {
     await notification('notifications/initialized', headers: headers);
   }
 
+  /// Sends a stateful JSON-RPC request using the active MCP session.
   Future<McpJsonMap> request(
     String method, {
     Object? id,
@@ -2723,6 +2746,7 @@ final class McpStreamableHttpClient {
     return response;
   }
 
+  /// Sends a direct JSON API request without MCP session headers.
   Future<McpJsonMap> requestDirect(
     String method, {
     Object? id,
@@ -2741,6 +2765,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Pings the active MCP session.
   Future<McpJsonMap> ping({
     Object? id,
     bool streamable = true,
@@ -2759,6 +2784,7 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: 'ping');
   }
 
+  /// Pings the endpoint through the direct JSON API.
   Future<McpJsonMap> pingDirect({
     Object? id,
     String? protocolVersion,
@@ -2773,6 +2799,7 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: 'ping');
   }
 
+  /// Lists one page of tools through the active MCP session.
   Future<McpStreamableToolListPage> listTools({
     Object? id,
     String? cursor,
@@ -2808,6 +2835,7 @@ final class McpStreamableHttpClient {
     return McpStreamableToolListPage(tools: tools, nextCursor: nextCursor);
   }
 
+  /// Lists one page of tools through the direct JSON API.
   Future<McpStreamableToolListPage> listToolsDirect({
     Object? id,
     String? cursor,
@@ -2841,6 +2869,7 @@ final class McpStreamableHttpClient {
     return McpStreamableToolListPage(tools: tools, nextCursor: nextCursor);
   }
 
+  /// Calls an MCP tool through the active session.
   Future<McpJsonMap> callTool(
     String name, {
     Object? id,
@@ -3025,6 +3054,7 @@ final class McpStreamableHttpClient {
     }
   }
 
+  /// Invokes an MCP tool as a notification through the active session.
   Future<void> notifyTool(
     String name, {
     McpJsonMap arguments = const <String, Object?>{},
@@ -3042,6 +3072,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Calls an MCP tool through the direct JSON API.
   Future<McpJsonMap> callToolDirect(
     String name, {
     Object? id,
@@ -3063,6 +3094,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Invokes an MCP tool notification through the direct JSON API.
   Future<void> notifyToolDirect(
     String name, {
     McpJsonMap arguments = const <String, Object?>{},
@@ -3078,6 +3110,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Lists Connectanum JSON tools from the direct API catalog.
   Future<McpStreamableToolListPage> listConnectanumToolsDirect({
     Object? id,
     String? cursor,
@@ -3113,6 +3146,7 @@ final class McpStreamableHttpClient {
     return McpStreamableToolListPage(tools: tools, nextCursor: nextCursor);
   }
 
+  /// Calls a Connectanum JSON tool through the direct API.
   Future<McpJsonMap> callConnectanumToolDirect(
     String name, {
     Object? id,
@@ -3137,6 +3171,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Calls a Connectanum JSON method through the active MCP session.
   Future<McpJsonMap> callConnectanumMethod(
     String method, {
     Object? id,
@@ -3162,6 +3197,7 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: method);
   }
 
+  /// Calls a Connectanum JSON method through the direct API.
   Future<McpJsonMap> callConnectanumMethodDirect(
     String method, {
     Object? id,
@@ -3183,6 +3219,7 @@ final class McpStreamableHttpClient {
     return _jsonRpcResultFrom(response, method: method);
   }
 
+  /// Sends a Connectanum JSON tool notification through the direct API.
   Future<void> notifyConnectanumToolDirect(
     String name, {
     McpJsonMap arguments = const <String, Object?>{},
@@ -3198,6 +3235,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Sends a Connectanum JSON method notification through the MCP session.
   Future<void> notifyConnectanumMethod(
     String method, {
     McpJsonMap params = const <String, Object?>{},
@@ -3218,6 +3256,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Sends a Connectanum JSON method notification through the direct API.
   Future<void> notifyConnectanumMethodDirect(
     String method, {
     McpJsonMap params = const <String, Object?>{},
@@ -3236,6 +3275,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Lists one page of resources through the active MCP session.
   Future<McpStreamableResourceListPage> listResources({
     Object? id,
     String? cursor,
@@ -3268,6 +3308,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Reads a resource through the active MCP session.
   Future<List<McpJsonMap>> readResource(
     String uri, {
     Object? id,
@@ -3298,6 +3339,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Subscribes the active MCP session to resource updates.
   Future<void> subscribeResource(
     String uri, {
     Object? id,
@@ -3315,6 +3357,7 @@ final class McpStreamableHttpClient {
     _jsonRpcResultFrom(response, method: 'resources/subscribe');
   }
 
+  /// Unsubscribes the active MCP session from resource updates.
   Future<void> unsubscribeResource(
     String uri, {
     Object? id,
@@ -3332,6 +3375,7 @@ final class McpStreamableHttpClient {
     _jsonRpcResultFrom(response, method: 'resources/unsubscribe');
   }
 
+  /// Lists one page of resource templates through the MCP session.
   Future<McpStreamableResourceTemplateListPage> listResourceTemplates({
     Object? id,
     String? cursor,
@@ -3367,6 +3411,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Lists one page of prompts through the active MCP session.
   Future<McpStreamablePromptListPage> listPrompts({
     Object? id,
     String? cursor,
@@ -3399,6 +3444,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Resolves a prompt through the active MCP session.
   Future<McpJsonMap> getPrompt(
     String name, {
     Object? id,
@@ -3424,6 +3470,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Lists one page of resources through the direct JSON API.
   Future<McpStreamableResourceListPage> listResourcesDirect({
     Object? id,
     String? cursor,
@@ -3439,6 +3486,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Reads a resource through the direct JSON API.
   Future<List<McpJsonMap>> readResourceDirect(
     String uri, {
     Object? id,
@@ -3454,6 +3502,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Lists one page of resource templates through the direct JSON API.
   Future<McpStreamableResourceTemplateListPage> listResourceTemplatesDirect({
     Object? id,
     String? cursor,
@@ -3469,6 +3518,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Lists one page of prompts through the direct JSON API.
   Future<McpStreamablePromptListPage> listPromptsDirect({
     Object? id,
     String? cursor,
@@ -3484,6 +3534,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Resolves a prompt through the direct JSON API.
   Future<McpJsonMap> getPromptDirect(
     String name, {
     Object? id,
@@ -3540,6 +3591,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Sends an arbitrary JSON-RPC notification through the MCP session.
   Future<void> notification(
     String method, {
     McpJsonMap? params,
@@ -3557,6 +3609,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Sends an arbitrary JSON-RPC notification through the direct API.
   Future<void> notificationDirect(
     String method, {
     McpJsonMap? params,
@@ -3573,6 +3626,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Posts one JSON-RPC message through the active MCP session.
   Future<McpJsonMap?> post(
     McpJsonMap message, {
     bool streamable = true,
@@ -3603,6 +3657,7 @@ final class McpStreamableHttpClient {
     return _jsonMapFrom(response, label: 'JSON-RPC response');
   }
 
+  /// Posts one JSON-RPC message through the direct JSON API.
   Future<McpJsonMap?> postDirect(
     McpJsonMap message, {
     String? protocolVersion,
@@ -3617,6 +3672,7 @@ final class McpStreamableHttpClient {
     );
   }
 
+  /// Posts a JSON-RPC batch through the active MCP session.
   Future<List<McpJsonMap>?> postBatch(
     List<McpJsonMap> messages, {
     bool streamable = true,
@@ -3653,6 +3709,7 @@ final class McpStreamableHttpClient {
     ];
   }
 
+  /// Posts a JSON-RPC batch through the direct JSON API.
   Future<List<McpJsonMap>?> postBatchDirect(
     List<McpJsonMap> messages, {
     String? protocolVersion,
@@ -3972,6 +4029,7 @@ final class McpStreamableHttpClient {
     }
   }
 
+  /// Polls pending Streamable HTTP events for the active session.
   Future<List<McpSseEvent>> poll({
     String? lastEventId,
     Map<String, String> headers = const <String, String>{},
@@ -4049,6 +4107,7 @@ final class McpStreamableHttpClient {
     });
   }
 
+  /// Terminates the active server-side MCP session and clears local state.
   Future<void> deleteSession({
     Map<String, String> headers = const <String, String>{},
   }) async {

@@ -498,6 +498,7 @@ class RouterHttpRequestBodyStreamMetrics {
 /// Aggregated telemetry emitted by the native transport.
 @immutable
 class RouterTransportMetrics {
+  /// Creates an immutable aggregate transport metrics snapshot.
   const RouterTransportMetrics({
     required this.totalEvents,
     required this.gracefulEvents,
@@ -525,38 +526,88 @@ class RouterTransportMetrics {
     this.breakdown = const <RouterTransportMetricsBreakdown>[],
   });
 
+  /// Total connection lifecycle events observed by the router.
   final int totalEvents;
+
+  /// Connections that completed a graceful shutdown.
   final int gracefulEvents;
+
+  /// HTTP/2 or HTTP/3 GOAWAY events observed by the router.
   final int goAwayEvents;
+
+  /// Connections closed after an idle timeout.
   final int idleTimeoutEvents;
+
+  /// Requests closed after a body timeout.
   final int bodyTimeoutEvents;
+
+  /// Connections closed because of a transport protocol error.
   final int protocolErrorEvents;
+
+  /// Connections closed because of an internal transport error.
   final int internalErrorEvents;
+
+  /// Number of backpressure observations across all listeners.
   final int backpressureEvents;
+
+  /// Largest observed pending-write depth.
   final int maxBackpressureDepth;
+
+  /// Backpressure alerts emitted after policy thresholds were crossed.
   final int backpressureAlerts;
+
+  /// Total transport-health alerts emitted by the router.
   final int transportAlerts;
+
+  /// GOAWAY alerts emitted after policy thresholds were crossed.
   final int goAwayAlerts;
+
+  /// Idle-timeout alerts emitted after policy thresholds were crossed.
   final int idleTimeoutAlerts;
+
+  /// Body-timeout alerts emitted after policy thresholds were crossed.
   final int bodyTimeoutAlerts;
+
+  /// Protocol-error alerts emitted after policy thresholds were crossed.
   final int protocolErrorAlerts;
+
+  /// Internal-error alerts emitted after policy thresholds were crossed.
   final int internalErrorAlerts;
+
+  /// RawSocket sends completed through the zero-copy native path.
   final int rawSocketZeroCopyCallsTotal;
+
+  /// Bytes sent through the zero-copy RawSocket path.
   final int rawSocketZeroCopyBytesTotal;
+
+  /// File segments sent through the buffered fallback path.
   final int bufferedFileSegmentCallsTotal;
+
+  /// File bytes sent through the buffered fallback path.
   final int bufferedFileSegmentBytesTotal;
+
+  /// Aggregated native HTTP response-stream metrics.
   final RouterHttpResponseStreamMetrics? httpResponseStream;
+
+  /// Aggregated native HTTP request-body stream metrics.
   final RouterHttpRequestBodyStreamMetrics? httpRequestBodyStream;
+
+  /// Alert and throttle state grouped by listener and protocol.
   final List<RouterTransportAlertBreakdown> alertBreakdown;
+
+  /// Lifecycle metrics grouped by listener and protocol.
   final List<RouterTransportMetricsBreakdown> breakdown;
 
+  /// Number of listener/protocol groups currently being throttled.
   int get activeThrottleCount =>
       alertBreakdown.where((entry) => entry.throttleActive).length;
 
+  /// Listener/protocol groups whose alert throttle is currently active.
   List<RouterTransportAlertBreakdown> get activeThrottles => alertBreakdown
       .where((entry) => entry.throttleActive)
       .toList(growable: false);
 
+  /// Copies this snapshot while replacing selected metrics.
   RouterTransportMetrics copyWith({
     int? totalEvents,
     int? gracefulEvents,
@@ -616,6 +667,7 @@ class RouterTransportMetrics {
     );
   }
 
+  /// Converts the snapshot to the router metrics JSON representation.
   Map<String, Object?> toJson() => {
     'total_events': totalEvents,
     'graceful_events': gracefulEvents,
@@ -730,6 +782,7 @@ class RouterTransportAlertBreakdown {
 /// Per-listener/per-protocol breakdown of transport metrics.
 @immutable
 class RouterTransportMetricsBreakdown {
+  /// Creates an immutable listener/protocol metrics group.
   const RouterTransportMetricsBreakdown({
     required this.listenerId,
     required this.protocol,
@@ -745,19 +798,43 @@ class RouterTransportMetricsBreakdown {
     required this.maxBackpressureDepth,
   });
 
+  /// Native listener identifier represented by this group.
   final int listenerId;
+
+  /// Transport protocol represented by this group.
   final String protocol;
+
+  /// Human-readable listener endpoint.
   final String endpoint;
+
+  /// Total lifecycle events in this group.
   final int totalEvents;
+
+  /// Graceful shutdown events in this group.
   final int gracefulEvents;
+
+  /// GOAWAY events in this group.
   final int goAwayEvents;
+
+  /// Idle-timeout events in this group.
   final int idleTimeoutEvents;
+
+  /// Request-body timeout events in this group.
   final int bodyTimeoutEvents;
+
+  /// Protocol-error events in this group.
   final int protocolErrorEvents;
+
+  /// Internal-error events in this group.
   final int internalErrorEvents;
+
+  /// Backpressure observations in this group.
   final int backpressureEvents;
+
+  /// Largest pending-write depth observed in this group.
   final int maxBackpressureDepth;
 
+  /// Converts this group to the router metrics JSON representation.
   Map<String, Object?> toJson() => {
     'listener_id': listenerId,
     'protocol': protocol,

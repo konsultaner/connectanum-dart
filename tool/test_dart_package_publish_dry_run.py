@@ -26,7 +26,7 @@ BENCH_CHANGELOG = (
 )
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
-EXPECTED_PACKAGE_VERSION = "3.0.0-beta.3"
+EXPECTED_PACKAGE_VERSION = "3.0.0-beta.4"
 NATIVE_PACKAGE_MANIFESTS = (
     REPO_ROOT / "native" / "bench" / "Cargo.toml",
     REPO_ROOT / "native" / "transport" / "ct_core" / "Cargo.toml",
@@ -56,6 +56,33 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                     pubspec,
                     r"(?m)^\s*publish_to:\s*['\"]?none['\"]?\s*$",
                 )
+
+    def test_publishable_packages_include_pub_score_assets(self) -> None:
+        for package_name, package_path in PUBLISHABLE_PACKAGE_ORDER:
+            with self.subTest(package=package_name):
+                package_root = REPO_ROOT / package_path
+                example_files = tuple((package_root / "example").rglob("*.dart"))
+                analysis_options = (
+                    package_root / "analysis_options.yaml"
+                ).read_text(encoding="utf-8")
+
+                self.assertTrue(example_files, "package must include a Dart example")
+                self.assertTrue((package_root / "README.md").is_file())
+                self.assertTrue((package_root / "CHANGELOG.md").is_file())
+                self.assertTrue((package_root / "LICENSE").is_file())
+                self.assertIn("package:lints/recommended.yaml", analysis_options)
+                self.assertIn("trailing_commas: preserve", analysis_options)
+
+    def test_native_hook_packages_use_stable_hook_apis(self) -> None:
+        for package_name in ("connectanum_client", "connectanum_router"):
+            with self.subTest(package=package_name):
+                pubspec = (
+                    REPO_ROOT / "packages" / package_name / "pubspec.yaml"
+                ).read_text(encoding="utf-8")
+
+                self.assertIn("hooks: ^2.2.0", pubspec)
+                self.assertIn("code_assets: ^2.0.0", pubspec)
+                self.assertIn("sdk: '^3.10.0'", pubspec)
 
     def test_versioned_workspace_packages_share_release_version(self) -> None:
         for package_name, package_path in PUBLISHABLE_PACKAGE_ORDER:
@@ -247,7 +274,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         result = self._run_tag_validator(
             "connectanum_core",
             "packages/connectanum_core",
-            "connectanum_client-v3.0.0-beta.3",
+            "connectanum_client-v3.0.0-beta.4",
         )
 
         self.assertEqual(result.returncode, 65, result.stdout)

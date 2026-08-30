@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta.4
+
+- Add packaged authentication setup guidance and document the public auth
+  server integration surface.
+
 ## 3.0.0-beta.3
 
 - Keep the auth server synchronized with the corrected client connection
