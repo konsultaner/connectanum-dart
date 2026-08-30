@@ -1,32 +1,33 @@
 # Project State
 
 Last updated: 2026-08-30
-Current branch: `codex/pub-score-160`
-Current milestone: prepare the synchronized `3.0.0-beta.4` Dart package and
-Rust crate graph for full pub.dev score readiness. All seven package archives
-now include examples and self-contained analysis settings; every package is
-above the 20 percent public API documentation threshold, with the router at the
-narrowest 21.62 percent. Client and router use stable native-hook dependencies,
-and release-planner tests enforce the score-critical package assets and lockstep
-beta version. Root analysis, both native-hook suites, the retry-deduplication
-regression, and all 22 release-planner tests pass. Repository-wide `bin/verify`
-also passes, including native transport, isolated consumer-package, router,
-remote-auth, zero-copy, Chrome/Dart2Wasm SCRAM, and browser WebSocket coverage.
-The clean-tree strict package dry-run passes all seven archives without
-warnings or blockers. Initial hosted beta.4 evidence exposed two release
-regressions: a late invocation response could reach a closed WebSocket during
-service shutdown, and the disposable Windows beta build mixed the local client
-with the previously published router's incompatible native-hook constraints.
-Session response handling now drops replies only after GOODBYE or transport
-closure while preserving active send failures, with materialized and
-native-lazy regressions. Windows packaging now overrides the complete local
-core/client/MCP/router graph and supplies its prefetched library to both native
-hook packages. Post-fix `bin/test-fast`, repository-wide `bin/verify`, the full
-consumer integration file, and all nine artifact-packaging tests pass. Updated
-hosted evidence, protected-branch review/merge, publication, and
-version-specific pub.dev score confirmation remain. The standalone consumer
-example intentionally remains pinned to the last complete published graph
-until beta.4 packages and native assets are available.
+Current branch: `codex/wamp-app-beta4-hosted-graph`
+Current milestone: finish synchronized `3.0.0-beta.4` hosted-package evidence
+and prepare the next beta repair. Native beta.4 artifacts and six dependency
+packages are published, and all seven package pages are verified under
+`dart.konsultaner.de`. Publication of the compatibility facade remains blocked
+by its pub.dev automated-publishing tag rule, which must accept the monorepo tag
+`connectanum-v{{version}}`. The standalone consumer application now resolves an
+exact hosted beta.4 graph from committed lockfiles and passes `bin/test-wamp-app`,
+including 56 shared tests, 145 server tests, 217 Flutter tests, Chrome worker
+coverage, endpoint smoke, and the release web build. That migration exposed a
+macOS code-signing crash when repeated native hooks overwrote an already mapped
+dylib inode. Client and router hooks now stage and atomically rename every
+configured, built, or downloaded native library, with regressions proving mapped
+readers keep the old inode and failed publication preserves the known-good
+destination. Because beta.4 archives are immutable, this hook repair requires
+the next synchronized beta before it reaches hosted consumers. Repository-wide
+`bin/verify` passes with the atomic hook regressions, isolated consumers, live
+router/MCP integration, remote authentication, zero-copy forwarding, and
+Chrome/Dart2Wasm coverage. Protected-branch promotion, next synchronized beta
+preparation, and the compatibility-facade retry remain for the current handoff.
+The live pub.dev score API confirms client and router at 160/160 and reports
+150/160 for the facade, core, MCP, auth server, and benchmarks. Their beta.4
+archives contain valid descriptively named examples, but Pana awards the final
+10 points only when it finds the canonical `example/main.dart`. Each package now
+has a delegating canonical entrypoint, and the release planner requires that
+exact file for all seven packages. The updated score can appear only after the
+next synchronized publication.
 Onboarding now probes the configured router with a bounded anonymous WAMP
 handshake and presents debounced checking, ready, unreachable, and retry states
 without weakening registration validation. Stale and post-disposal probe

@@ -11,6 +11,85 @@ import 'package:test/test.dart';
 import '../../hook/build.dart' as build_hook;
 
 void main() {
+  test('native library publication replaces the hook output inode', () {
+    final tempDir = Directory.systemTemp.createTempSync(
+      'connectanum_router_atomic_publish_',
+    );
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+
+    final source = File('${tempDir.path}/${_defaultLibraryFileName()}')
+      ..writeAsStringSync('router-prebuilt-v1');
+    final destination = File(
+      '${tempDir.path}/missing/hook/output/${_defaultLibraryFileName()}',
+    );
+
+    expect(destination.parent.existsSync(), isFalse);
+    build_hook.publishNativeLibrary(
+      source: source,
+      destination: destination,
+    );
+
+    RandomAccessFile? mappedOutput;
+    if (!Platform.isWindows) {
+      mappedOutput = destination.openSync();
+      addTearDown(mappedOutput.closeSync);
+    }
+
+    source.writeAsStringSync('router-prebuilt-v2');
+    build_hook.publishNativeLibrary(
+      source: source,
+      destination: destination,
+    );
+
+    expect(destination.readAsStringSync(), equals('router-prebuilt-v2'));
+    if (mappedOutput != null) {
+      mappedOutput.setPositionSync(0);
+      expect(
+        String.fromCharCodes(
+          mappedOutput.readSync('router-prebuilt-v1'.length),
+        ),
+        equals('router-prebuilt-v1'),
+      );
+    }
+    expect(
+      destination.parent.listSync().where(
+        (entry) => entry.path.contains('${destination.path}.tmp.'),
+      ),
+      isEmpty,
+    );
+  });
+
+  test('native library publication preserves output after copy failure', () {
+    final tempDir = Directory.systemTemp.createTempSync(
+      'connectanum_router_failed_publish_',
+    );
+    addTearDown(() => tempDir.deleteSync(recursive: true));
+
+    final destination = File(
+      '${tempDir.path}/hook/output/${_defaultLibraryFileName()}',
+    );
+    destination.parent.createSync(recursive: true);
+    destination.writeAsStringSync('known-good-router-native');
+
+    expect(
+      () => build_hook.publishNativeLibrary(
+        source: File('${tempDir.path}/missing-native-library'),
+        destination: destination,
+      ),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(
+      destination.readAsStringSync(),
+      equals('known-good-router-native'),
+    );
+    expect(
+      destination.parent.listSync().where(
+        (entry) => entry.path.contains('${destination.path}.tmp.'),
+      ),
+      isEmpty,
+    );
+  });
+
   test('build hook reuses CONNECTANUM_NATIVE_LIB user define', () {
     return _withPackageRoot(() async {
       final tempDir = await Directory.systemTemp.createTemp(

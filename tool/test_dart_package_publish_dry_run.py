@@ -61,12 +61,15 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         for package_name, package_path in PUBLISHABLE_PACKAGE_ORDER:
             with self.subTest(package=package_name):
                 package_root = REPO_ROOT / package_path
-                example_files = tuple((package_root / "example").rglob("*.dart"))
+                example_main = package_root / "example" / "main.dart"
                 analysis_options = (
                     package_root / "analysis_options.yaml"
                 ).read_text(encoding="utf-8")
 
-                self.assertTrue(example_files, "package must include a Dart example")
+                self.assertTrue(
+                    example_main.is_file(),
+                    "pub.dev scores the canonical example/main.dart entrypoint",
+                )
                 self.assertTrue((package_root / "README.md").is_file())
                 self.assertTrue((package_root / "CHANGELOG.md").is_file())
                 self.assertTrue((package_root / "LICENSE").is_file())
