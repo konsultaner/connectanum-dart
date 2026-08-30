@@ -24,9 +24,10 @@ BENCH_PUBSPEC = REPO_ROOT / "packages" / "connectanum_bench" / "pubspec.yaml"
 BENCH_CHANGELOG = (
     REPO_ROOT / "packages" / "connectanum_bench" / "CHANGELOG.md"
 )
+BENCH_README = REPO_ROOT / "packages" / "connectanum_bench" / "README.md"
 ROUTER_PUBSPEC = REPO_ROOT / "packages" / "connectanum_router" / "pubspec.yaml"
 ROUTER_CHANGELOG = REPO_ROOT / "packages" / "connectanum_router" / "CHANGELOG.md"
-EXPECTED_PACKAGE_VERSION = "3.0.0-beta.4"
+EXPECTED_PACKAGE_VERSION = "3.0.0-beta.5"
 NATIVE_PACKAGE_MANIFESTS = (
     REPO_ROOT / "native" / "bench" / "Cargo.toml",
     REPO_ROOT / "native" / "transport" / "ct_core" / "Cargo.toml",
@@ -75,6 +76,17 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 self.assertTrue((package_root / "LICENSE").is_file())
                 self.assertIn("package:lints/recommended.yaml", analysis_options)
                 self.assertIn("trailing_commas: preserve", analysis_options)
+
+    def test_bench_readme_publishes_current_result_snapshot(self) -> None:
+        readme = BENCH_README.read_text(encoding="utf-8")
+
+        self.assertIn("complete production-gate snapshot covers 78 workloads", readme)
+        self.assertIn("sustained data-window / full-lifecycle throughput", readme)
+        self.assertIn("| Transport and path | JSON (Gbit/s) |", readme)
+        self.assertIn("### 64 MiB file transfer", readme)
+        self.assertIn("### Large RPC frames", readme)
+        self.assertIn("### WebSocket fragmentation and Pub/Sub", readme)
+        self.assertIn("benchmark contract", readme)
 
     def test_native_hook_packages_use_stable_hook_apis(self) -> None:
         for package_name in ("connectanum_client", "connectanum_router"):
@@ -277,7 +289,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         result = self._run_tag_validator(
             "connectanum_core",
             "packages/connectanum_core",
-            "connectanum_client-v3.0.0-beta.4",
+            "connectanum_client-v3.0.0-beta.5",
         )
 
         self.assertEqual(result.returncode, 65, result.stdout)

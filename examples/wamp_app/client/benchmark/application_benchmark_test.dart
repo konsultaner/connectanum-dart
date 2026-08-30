@@ -10,7 +10,6 @@ import 'package:wamp_app/src/infrastructure/vault_storage.dart';
 import 'package:wamp_app_server/wamp_app_server.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
   final argonIterations = _positiveEnvironment(
     'WAMP_APP_BENCH_ARGON_ITERATIONS',
     3,

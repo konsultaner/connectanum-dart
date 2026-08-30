@@ -1,3 +1,8 @@
+## 3.0.0-beta.5
+
+- Publish native libraries through staged atomic replacement so repeated build
+  hooks cannot invalidate an already mapped macOS library image.
+
 ## 3.0.0-beta.4
 
 - Adopt the stable Dart native-hook APIs and expand the documented public MCP

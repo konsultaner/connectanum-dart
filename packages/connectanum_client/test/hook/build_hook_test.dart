@@ -254,7 +254,7 @@ void main() {
       addTearDown(() => packageRoot.delete(recursive: true));
       File('${packageRoot.path}/pubspec.yaml').writeAsStringSync('''
 name: connectanum_client
-version: 3.0.0-beta.4
+version: 3.0.0-beta.5
 environment:
   sdk: ^3.9.2
 ''');
@@ -299,7 +299,7 @@ environment:
               downloaded.map((uri) => uri.toString()),
               contains(
                 'https://github.com/konsultaner/connectanum-dart/releases/download/'
-                'v3.0.0-beta.4/${_releaseArchiveName()}',
+                'v3.0.0-beta.5/${_releaseArchiveName()}',
               ),
             );
           },
@@ -325,7 +325,7 @@ environment:
     )..createSync(recursive: true);
     File('${packageRoot.path}/pubspec.yaml').writeAsStringSync('''
 name: connectanum_client
-version: 3.0.0-beta.4
+version: 3.0.0-beta.5
 environment:
   sdk: ^3.9.2
 ''');
