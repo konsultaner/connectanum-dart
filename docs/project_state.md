@@ -4,12 +4,10 @@ Last updated: 2026-08-31
 Current branch: `codex/wamp-app-beta5-hosted-graph`
 Current milestone: promote and publish the synchronized `3.0.0-beta.5` repair
 release. Signed native beta.5 artifacts, the multi-architecture router image,
-and six modular beta.5 packages are published, and their package pages are
-verified under `dart.konsultaner.de`. Publication of the compatibility facade
-remains blocked by its pub.dev automated tag rule, which still expects
-`v{{version}}` and must accept the monorepo tag
-`connectanum-v{{version}}`. The standalone consumer application resolves the
-exact hosted beta.5 core, client, MCP, and router graph from committed lockfiles.
+and all seven beta.5 packages are published, and their package pages are
+verified under `dart.konsultaner.de`. The standalone consumer application
+resolves the exact hosted beta.5 core, client, MCP, and router graph from
+committed lockfiles.
 `bin/test-wamp-app` passes with 56 shared tests, 145 server tests, 217 Flutter
 tests, Chrome worker coverage, endpoint smoke, and the release web build; the
 production validator also passes all 28 metrics.
@@ -37,9 +35,14 @@ authentication, zero-copy forwarding, and Chrome/Dart2Wasm coverage. Protected
 master promotion, clean-tree package archives, native artifacts, router-image
 publication, dependency-ordered publication of the six modular packages, and
 exact hosted beta.5 consumer verification are complete. The facade tag-rule
-correction, hosted repin evidence, and final deployment audit remain. The exact
-hosted-graph branch also passes the complete repository-wide `bin/verify` gate
-with formatting unchanged.
+correction and compatibility-facade publication are also complete. Exact-head
+hosted repin evidence is complete at `6c78f585`: both CI runs are fully green,
+the production benchmark gate passes all 28 checks, and all seven WampApp beta
+bundles build successfully. The branch-scoped strict deployment checks pass;
+release-candidate readiness correctly remains unavailable until PR #88 receives
+the required independent review, lands on protected `master`, and the
+master-only release workflows and audit run. The exact hosted-graph branch also
+passes the complete repository-wide `bin/verify` gate with formatting unchanged.
 
 The beta.5 benchmark package page is live and renders the complete 78-workload
 Gbit/s matrix. Its published archive contains `README.md`,

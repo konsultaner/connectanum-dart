@@ -65,7 +65,7 @@ The implemented slices provide:
   exact allowlist and no chat, key, backup, or attachment disclosure;
 - bounded anonymous registration, control-operation, and binary-transfer abuse
   guards, plus six-device live conflict stress;
-- hosted `3.0.0-beta.2` dependencies for both client and server; and
+- hosted `3.0.0-beta.5` dependencies for both client and server; and
 - end-to-end tests covering registration, device trust, encrypted two-account
   and group delivery, attachment authorization/resume, receipt propagation,
   reconnect deduplication, server-signature verification, and plaintext
