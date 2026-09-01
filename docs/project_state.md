@@ -1,16 +1,16 @@
 # Project State
 
-Last updated: 2026-08-30
-Current branch: `codex/wamp-app-beta4-hosted-graph`
+Last updated: 2026-08-31
+Current branch: `codex/wamp-app-beta5-hosted-graph`
 Current milestone: promote and publish the synchronized `3.0.0-beta.5` repair
-release. Native beta.4 artifacts and six modular packages are published, and
-all seven package pages are verified under `dart.konsultaner.de`. Publication
-of the compatibility facade remains blocked by its pub.dev automated tag rule,
-which must accept the monorepo tag `connectanum-v{{version}}`. The standalone
-consumer application resolves an exact hosted beta.4 graph from committed
-lockfiles and passes `bin/test-wamp-app`, including 56 shared tests, 145 server
-tests, 217 Flutter tests, Chrome worker coverage, endpoint smoke, and the
-release web build.
+release. Signed native beta.5 artifacts, the multi-architecture router image,
+and all seven beta.5 packages are published, and their package pages are
+verified under `dart.konsultaner.de`. The standalone consumer application
+resolves the exact hosted beta.5 core, client, MCP, and router graph from
+committed lockfiles.
+`bin/test-wamp-app` passes with 56 shared tests, 145 server tests, 217 Flutter
+tests, Chrome worker coverage, endpoint smoke, and the release web build; the
+production validator also passes all 28 metrics.
 
 All seven Dart packages and three Rust crates now advance together to beta.5.
 Client and router hooks stage and atomically rename every configured, built, or
@@ -32,13 +32,22 @@ across production Argon2 onboarding/reconnect, encrypted delivery, and five
 at beta.5 with 138 native core tests, 90 FFI tests, 416 Dart core tests, 118 MCP
 tests, 474 router tests, isolated consumers, live router/MCP integration, remote
 authentication, zero-copy forwarding, and Chrome/Dart2Wasm coverage. Protected
-branch promotion, clean-tree package archives, native artifacts, dependency-
-ordered publication, and exact hosted beta.5 consumer verification remain.
+master promotion, clean-tree package archives, native artifacts, router-image
+publication, dependency-ordered publication of the six modular packages, and
+exact hosted beta.5 consumer verification are complete. The facade tag-rule
+correction and compatibility-facade publication are also complete. Exact-head
+hosted repin evidence is complete at `6c78f585`: both CI runs are fully green,
+the production benchmark gate passes all 28 checks, and all seven WampApp beta
+bundles build successfully. The branch-scoped strict deployment checks pass;
+release-candidate readiness correctly remains unavailable until PR #88 receives
+the required independent review, lands on protected `master`, and the
+master-only release workflows and audit run. The exact hosted-graph branch also
+passes the complete repository-wide `bin/verify` gate with formatting unchanged.
 
-The live pub.dev score API still reports client and router at 160/160 and the
-facade, core, MCP, auth server, and benchmarks at 150/160 because beta.4
-archives are immutable. The beta.5 archives contain the canonical entrypoints;
-updated scores can appear only after publication and Pana reanalysis.
+The beta.5 benchmark package page is live and renders the complete 78-workload
+Gbit/s matrix. Its published archive contains `README.md`,
+`analysis_options.yaml`, and `example/main.dart`; completed pub.dev Pana analysis
+awards `160/160`. Beta.4 remains immutable at 150/160.
 Onboarding now probes the configured router with a bounded anonymous WAMP
 handshake and presents debounced checking, ready, unreachable, and retry states
 without weakening registration validation. Stale and post-disposal probe

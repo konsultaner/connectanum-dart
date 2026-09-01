@@ -434,11 +434,12 @@ stop_process() {
 
   if owned_process_is_live "$pid"; then
     kill "$pid" 2>/dev/null || true
-    for attempt in 1 2 3 4 5; do
+    # Preserve the five-second TERM grace while noticing prompt exits quickly.
+    for attempt in {1..50}; do
       if ! owned_process_is_live "$pid"; then
         break
       fi
-      sleep 1
+      sleep 0.1
     done
     if owned_process_is_live "$pid"; then
       kill -9 "$pid" 2>/dev/null || true
