@@ -1,16 +1,22 @@
 # Project State
 
-Last updated: 2026-08-31
-Current branch: `codex/wamp-app-beta5-hosted-graph`
-Current milestone: promote and publish the synchronized `3.0.0-beta.5` repair
-release. Signed native beta.5 artifacts, the multi-architecture router image,
-and all seven beta.5 packages are published, and their package pages are
-verified under `dart.konsultaner.de`. The standalone consumer application
-resolves the exact hosted beta.5 core, client, MCP, and router graph from
-committed lockfiles.
-`bin/test-wamp-app` passes with 56 shared tests, 145 server tests, 217 Flutter
-tests, Chrome worker coverage, endpoint smoke, and the release web build; the
-production validator also passes all 28 metrics.
+Last updated: 2026-09-02
+Current branch: `codex/wamp-app-consumer-settings`
+Current milestone: harden the standalone WampApp as a consumer-facing
+application on top of the merged and published `3.0.0-beta.5` graph. The main
+shell now keeps protocol and endpoint details out of the conversation flow and
+offers dedicated Settings and technical-information screens. Account-encrypted
+preferences cover system/light/dark appearance, English, German, Spanish,
+French, Italian, and Portuguese, plus global push enablement. Native Android
+and Apple clients support opt-in biometric remembered sign-in through encrypted
+platform storage; explicit sign-out revokes it, stale prompt results cannot
+cross account operations, and web fails closed as unsupported.
+`bin/test-wamp-app` passes with the complete shared, server, Flutter, Chrome
+worker/widget, endpoint-smoke, and release-web gates. Android debug APK and iOS
+simulator debug builds also pass with `local_auth` 3.0.2. The current branch
+passes the complete repository-wide `bin/verify` gate, including live
+router/MCP consumer smokes, benchmark integration, package smokes, and Chrome
+Dart2Wasm SCRAM worker coverage.
 
 All seven Dart packages and three Rust crates now advance together to beta.5.
 Client and router hooks stage and atomically rename every configured, built, or
@@ -39,10 +45,10 @@ correction and compatibility-facade publication are also complete. Exact-head
 hosted repin evidence is complete at `6c78f585`: both CI runs are fully green,
 the production benchmark gate passes all 28 checks, and all seven WampApp beta
 bundles build successfully. The branch-scoped strict deployment checks pass;
-release-candidate readiness correctly remains unavailable until PR #88 receives
-the required independent review, lands on protected `master`, and the
-master-only release workflows and audit run. The exact hosted-graph branch also
-passes the complete repository-wide `bin/verify` gate with formatting unchanged.
+release-candidate readiness completed after the required independent review;
+PR #88 landed on protected `master` at `e624e24f`. The exact hosted-graph branch
+also passes the complete repository-wide `bin/verify` gate with formatting
+unchanged.
 
 The beta.5 benchmark package page is live and renders the complete 78-workload
 Gbit/s matrix. Its published archive contains `README.md`,

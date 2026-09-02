@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../application/wamp_app_controller.dart';
 import 'backup_passphrase_dialog.dart';
 
@@ -34,6 +35,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Timer? _serverProbeTimer;
   int _serverProbeGeneration = 0;
   _ServerProbeState _serverProbeState = _ServerProbeState.idle;
+  bool _rememberWithBiometrics = false;
+  bool _automaticBiometricAttempted = false;
 
   @override
   void initState() {
@@ -91,6 +94,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   Future<void> _submit() async {
     final password = _password.text;
+    final biometricReason = AppLocalizations.of(context).signInWithBiometrics;
     try {
       if (_mode == _AccountMode.register) {
         await widget.controller.registerAndConnect(
@@ -106,10 +110,36 @@ class _OnboardingPageState extends State<OnboardingPage> {
           password: password,
         );
       }
+      if (_rememberWithBiometrics && widget.controller.connection != null) {
+        await widget.controller.enableBiometricLogin(
+          password: password,
+          localizedReason: biometricReason,
+        );
+      }
     } finally {
       _password.clear();
     }
   }
+
+  void _scheduleBiometricUnlock() {
+    final controller = widget.controller;
+    if (_automaticBiometricAttempted ||
+        !controller.biometricRemembered ||
+        controller.biometricBusy ||
+        controller.connection != null) {
+      return;
+    }
+    _automaticBiometricAttempted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_unlockWithBiometrics());
+    });
+  }
+
+  Future<void> _unlockWithBiometrics() =>
+      widget.controller.unlockWithBiometrics(
+        localizedReason: AppLocalizations.of(context).signInWithBiometrics,
+      );
 
   Future<void> _restoreFromBackup() async {
     final recoveryPassphrase = await showBackupPassphraseDialog(
@@ -153,8 +183,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
     setState(() => _mode = mode);
   }
 
+  void _setRememberWithBiometrics(bool value) {
+    setState(() => _rememberWithBiometrics = value);
+  }
+
   @override
   Widget build(BuildContext context) {
+    _scheduleBiometricUnlock();
     return Scaffold(
       body: Stack(
         children: [
@@ -204,6 +239,7 @@ class _AccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = state.widget.controller;
     final registering = state._mode == _AccountMode.register;
+    final l10n = AppLocalizations.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(26),
@@ -212,14 +248,14 @@ class _AccountCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SegmentedButton<_AccountMode>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: _AccountMode.register,
-                    label: Text('Create account'),
+                    label: Text(l10n.createAccount),
                   ),
                   ButtonSegment(
                     value: _AccountMode.login,
-                    label: Text('Sign in'),
+                    label: Text(l10n.signIn),
                   ),
                 ],
                 selected: {state._mode},
@@ -232,9 +268,9 @@ class _AccountCard extends StatelessWidget {
                 key: const Key('server-address'),
                 controller: state._server,
                 enabled: !controller.isBusy,
-                decoration: const InputDecoration(
-                  labelText: 'Server address',
-                  prefixIcon: Icon(Icons.dns_outlined),
+                decoration: InputDecoration(
+                  labelText: l10n.serverAddress,
+                  prefixIcon: const Icon(Icons.dns_outlined),
                 ),
               ),
               const SizedBox(height: 8),
@@ -250,9 +286,9 @@ class _AccountCard extends StatelessWidget {
                 controller: state._username,
                 enabled: !controller.isBusy,
                 autofillHints: const [AutofillHints.username],
-                decoration: const InputDecoration(
-                  labelText: 'Username',
-                  prefixIcon: Icon(Icons.alternate_email),
+                decoration: InputDecoration(
+                  labelText: l10n.username,
+                  prefixIcon: const Icon(Icons.alternate_email),
                 ),
               ),
               if (registering) ...[
@@ -261,9 +297,9 @@ class _AccountCard extends StatelessWidget {
                   key: const Key('display-name'),
                   controller: state._displayName,
                   enabled: !controller.isBusy,
-                  decoration: const InputDecoration(
-                    labelText: 'Display name',
-                    prefixIcon: Icon(Icons.badge_outlined),
+                  decoration: InputDecoration(
+                    labelText: l10n.displayName,
+                    prefixIcon: const Icon(Icons.badge_outlined),
                   ),
                 ),
               ],
@@ -277,12 +313,29 @@ class _AccountCard extends StatelessWidget {
                     ? const [AutofillHints.newPassword]
                     : const [AutofillHints.password],
                 onSubmitted: (_) => state._submit(),
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: Icon(Icons.key_outlined),
+                decoration: InputDecoration(
+                  labelText: l10n.password,
+                  prefixIcon: const Icon(Icons.key_outlined),
                 ),
               ),
-              if ((controller.backupError ?? controller.errorMessage)
+              if (controller.biometricAvailable) ...[
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  key: const Key('remember-with-biometrics'),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(l10n.staySignedIn),
+                  subtitle: Text(l10n.staySignedInSubtitle),
+                  value: state._rememberWithBiometrics,
+                  onChanged: controller.isBusy
+                      ? null
+                      : (value) =>
+                            state._setRememberWithBiometrics(value ?? false),
+                ),
+              ],
+              if ((controller.backupError ??
+                      controller.biometricError ??
+                      controller.errorMessage)
                   case final message?) ...[
                 const SizedBox(height: 14),
                 Semantics(
@@ -307,9 +360,25 @@ class _AccountCard extends StatelessWidget {
                       )
                     : Icon(registering ? Icons.arrow_forward : Icons.login),
                 label: Text(
-                  registering ? 'Create and connect' : 'Connect securely',
+                  registering ? l10n.createAndConnect : l10n.connectSecurely,
                 ),
               ),
+              if (controller.biometricRemembered) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  key: const Key('biometric-sign-in'),
+                  onPressed: controller.biometricBusy
+                      ? null
+                      : state._unlockWithBiometrics,
+                  icon: controller.biometricBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.fingerprint),
+                  label: Text(l10n.signInWithBiometrics),
+                ),
+              ],
               if (!registering) ...[
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
@@ -318,18 +387,18 @@ class _AccountCard extends StatelessWidget {
                       ? null
                       : state._restoreFromBackup,
                   icon: const Icon(Icons.settings_backup_restore),
-                  label: const Text('Restore encrypted backup'),
+                  label: Text(l10n.restoreEncryptedBackup),
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   key: const Key('restore-remote-backup'),
                   onPressed: controller.isBusy ? null : state._restoreFromCloud,
                   icon: const Icon(Icons.cloud_download_outlined),
-                  label: const Text('Restore backup from server'),
+                  label: Text(l10n.restoreBackupFromServer),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Both restore paths recover this account\'s device identity, chats, settings, and attachment keys. The server copy is end-to-end encrypted. Cached media bytes are not included and must be downloaded again.',
+                  l10n.backupRestoreBoundary,
                   key: const Key('backup-restore-boundary'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -338,15 +407,6 @@ class _AccountCard extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 14),
-              Text(
-                'SCRAM derives the password key off the UI thread. Plaintext passwords are not stored by the app or server.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
             ],
           ),
         ),
@@ -364,6 +424,7 @@ class _ServerProbeStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
       child: switch (state) {
@@ -373,14 +434,14 @@ class _ServerProbeStatus extends StatelessWidget {
         _ServerProbeState.checking => Semantics(
           key: const Key('server-probe-checking'),
           liveRegion: true,
-          child: const Row(
+          child: Row(
             children: [
-              SizedBox.square(
+              const SizedBox.square(
                 dimension: 14,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              SizedBox(width: 8),
-              Expanded(child: Text('Checking router availability...')),
+              const SizedBox(width: 8),
+              Expanded(child: Text(l10n.checkingServer)),
             ],
           ),
         ),
@@ -395,9 +456,7 @@ class _ServerProbeStatus extends StatelessWidget {
                 color: colorScheme.primary,
               ),
               const SizedBox(width: 8),
-              const Expanded(
-                child: Text('Router ready for secure WAMP onboarding.'),
-              ),
+              Expanded(child: Text(l10n.serverReady)),
             ],
           ),
         ),
@@ -408,15 +467,11 @@ class _ServerProbeStatus extends StatelessWidget {
             children: [
               Icon(Icons.error_outline, size: 18, color: colorScheme.error),
               const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Router not reachable. Check the address or start the server.',
-                ),
-              ),
+              Expanded(child: Text(l10n.serverUnavailable)),
               TextButton(
                 key: const Key('server-probe-retry'),
                 onPressed: onRetry,
-                child: const Text('Retry'),
+                child: Text(l10n.retry),
               ),
             ],
           ),
@@ -433,6 +488,7 @@ class _Intro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: compact
           ? CrossAxisAlignment.center
@@ -441,24 +497,27 @@ class _Intro extends StatelessWidget {
         const _Wordmark(),
         const SizedBox(height: 26),
         Text(
-          'Your conversations.\nYour keys. Your server.',
+          l10n.introHeadline,
           textAlign: compact ? TextAlign.center : TextAlign.start,
           style: Theme.of(context).textTheme.displaySmall,
         ),
         const SizedBox(height: 18),
         Text(
-          'WampApp is the integration example for secure, real-time messaging over Connectanum. Start locally, then point the same client at your own WSS endpoint.',
+          l10n.introBody,
           textAlign: compact ? TextAlign.center : TextAlign.start,
           style: Theme.of(context).textTheme.bodyLarge,
         ),
         const SizedBox(height: 24),
-        const Wrap(
+        Wrap(
           spacing: 10,
           runSpacing: 10,
           children: [
-            _TrustChip(icon: Icons.lock_outline, label: 'E2EE-ready'),
-            _TrustChip(icon: Icons.bolt_outlined, label: 'WAMP real time'),
-            _TrustChip(icon: Icons.smart_toy_outlined, label: 'MCP-ready'),
+            _TrustChip(icon: Icons.lock_outline, label: l10n.privateByDesign),
+            _TrustChip(
+              icon: Icons.bolt_outlined,
+              label: l10n.realTimeMessaging,
+            ),
+            _TrustChip(icon: Icons.person_outline, label: l10n.yourOwnAccount),
           ],
         ),
       ],

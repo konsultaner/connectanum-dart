@@ -5,6 +5,8 @@ import 'package:wamp_app/src/infrastructure/call_media.dart';
 import 'package:wamp_app/src/infrastructure/flutter_webrtc_call_media.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
+import '../../l10n/generated/app_localizations.dart';
+
 class CallOverlay extends StatelessWidget {
   const CallOverlay({super.key, required this.controller});
 
@@ -49,6 +51,7 @@ class _IncomingCallCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final video = controller.call?.media == CallMediaKind.video;
     return ColoredBox(
       color: Colors.black.withValues(alpha: 0.58),
@@ -79,15 +82,15 @@ class _IncomingCallCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    '@${controller.peerUsername ?? 'unknown'}',
+                    '@${controller.peerUsername ?? l10n.unknown}',
                     style: Theme.of(context).textTheme.headlineSmall
                         ?.copyWith(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     video
-                        ? 'Incoming encrypted video call'
-                        : 'Incoming encrypted voice call',
+                        ? l10n.incomingEncryptedVideoCall
+                        : l10n.incomingEncryptedVoiceCall,
                     textAlign: TextAlign.center,
                   ),
                   if (controller.errorMessage case final error?) ...[
@@ -107,14 +110,14 @@ class _IncomingCallCard extends StatelessWidget {
                     children: [
                       _RoundCallAction(
                         key: const Key('call-decline'),
-                        label: 'Decline',
+                        label: l10n.decline,
                         icon: Icons.call_end_rounded,
                         color: Theme.of(context).colorScheme.error,
                         onPressed: controller.busy ? null : controller.endCall,
                       ),
                       _RoundCallAction(
                         key: const Key('call-accept'),
-                        label: 'Accept',
+                        label: l10n.accept,
                         icon: video
                             ? Icons.videocam_rounded
                             : Icons.call_rounded,
@@ -142,6 +145,7 @@ class _ActiveCallSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final media = controller.mediaSession;
     final video = controller.call?.media == CallMediaKind.video;
     final remoteVideo = video && media != null
@@ -186,7 +190,7 @@ class _ActiveCallSurface extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    '@${controller.peerUsername ?? 'unknown'}',
+                    '@${controller.peerUsername ?? l10n.unknown}',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -194,7 +198,7 @@ class _ActiveCallSurface extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    _phaseLabel(controller.phase),
+                    _phaseLabel(l10n, controller.phase),
                     key: const Key('call-phase'),
                     style: const TextStyle(color: Colors.white70),
                   ),
@@ -236,7 +240,7 @@ class _ActiveCallSurface extends StatelessWidget {
                     children: [
                       _RoundCallAction(
                         key: const Key('call-mute'),
-                        label: media?.muted ?? false ? 'Unmute' : 'Mute',
+                        label: media?.muted ?? false ? l10n.unmute : l10n.mute,
                         icon: media?.muted ?? false
                             ? Icons.mic_off_rounded
                             : Icons.mic_rounded,
@@ -249,8 +253,8 @@ class _ActiveCallSurface extends StatelessWidget {
                         _RoundCallAction(
                           key: const Key('call-camera'),
                           label: media?.cameraEnabled ?? false
-                              ? 'Camera off'
-                              : 'Camera on',
+                              ? l10n.cameraOff
+                              : l10n.cameraOn,
                           icon: media?.cameraEnabled ?? false
                               ? Icons.videocam_rounded
                               : Icons.videocam_off_rounded,
@@ -264,7 +268,9 @@ class _ActiveCallSurface extends StatelessWidget {
                       if (media?.speakerRoutingSupported ?? false)
                         _RoundCallAction(
                           key: const Key('call-speaker'),
-                          label: media!.speakerEnabled ? 'Earpiece' : 'Speaker',
+                          label: media!.speakerEnabled
+                              ? l10n.earpiece
+                              : l10n.speaker,
                           icon: media.speakerEnabled
                               ? Icons.volume_up_rounded
                               : Icons.hearing_rounded,
@@ -277,7 +283,7 @@ class _ActiveCallSurface extends StatelessWidget {
                         ),
                       _RoundCallAction(
                         key: const Key('call-end'),
-                        label: 'End',
+                        label: l10n.endCall,
                         icon: Icons.call_end_rounded,
                         color: const Color(0xFFD83B43),
                         onPressed: controller.busy ? null : controller.endCall,
@@ -320,10 +326,11 @@ class _CallResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final title = switch (controller.phase) {
-      CallUiPhase.answeredElsewhere => 'Answered on another device',
-      CallUiPhase.failed => 'Call unavailable',
-      _ => 'Call ended',
+      CallUiPhase.answeredElsewhere => l10n.answeredOtherDevice,
+      CallUiPhase.failed => l10n.callUnavailable,
+      _ => l10n.callEnded,
     };
     return ColoredBox(
       color: Colors.black.withValues(alpha: 0.5),
@@ -357,7 +364,7 @@ class _CallResultCard extends StatelessWidget {
                   FilledButton(
                     key: const Key('call-dismiss'),
                     onPressed: controller.dismiss,
-                    child: const Text('Back to chats'),
+                    child: Text(l10n.backToChats),
                   ),
                 ],
               ),
@@ -414,10 +421,10 @@ Widget? _videoView(CallVideoRendererHandle handle, {required bool mirror}) {
   );
 }
 
-String _phaseLabel(CallUiPhase phase) => switch (phase) {
-  CallUiPhase.outgoingRinging => 'Calling securely...',
-  CallUiPhase.connecting => 'Connecting media...',
-  CallUiPhase.active => 'End-to-end encrypted signaling',
-  CallUiPhase.ending => 'Ending call...',
+String _phaseLabel(AppLocalizations l10n, CallUiPhase phase) => switch (phase) {
+  CallUiPhase.outgoingRinging => l10n.callingSecurely,
+  CallUiPhase.connecting => l10n.connectingMedia,
+  CallUiPhase.active => l10n.encryptedSignaling,
+  CallUiPhase.ending => l10n.endingCall,
   _ => '',
 };

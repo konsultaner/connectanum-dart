@@ -354,6 +354,8 @@ void main() {
         isTrue,
       );
 
+      await _exerciseDirectReplySelection(tester, controller);
+
       await _exerciseEncryptedGroupSticker(tester, controller);
       await _exerciseEncryptedRichMedia(tester, controller);
       await _exerciseViewOnceMessage(tester, controller);
@@ -382,6 +384,95 @@ void main() {
       );
     },
     timeout: const Timeout(Duration(minutes: 24)),
+  );
+}
+
+Future<void> _exerciseDirectReplySelection(
+  WidgetTester tester,
+  WampAppController controller,
+) async {
+  final inbound = controller.messages.singleWhere(
+    (message) =>
+        !message.outgoing &&
+        message.peerUsername == _peerUsername &&
+        message.text == _inboundText,
+  );
+  final recipient = find.byKey(const Key('message-recipient'));
+  final clearRecipient = find.byKey(const Key('recipient-clear'));
+  await _pumpUntil(
+    tester,
+    () =>
+        recipient.evaluate().length == 1 &&
+        clearRecipient.evaluate().length == 1 &&
+        clearRecipient.hitTestable().evaluate().length == 1 &&
+        tester.widget<IconButton>(clearRecipient).onPressed != null,
+    label: 'direct recipient clearing readiness',
+  );
+  await tester.ensureVisible(clearRecipient);
+  await tester.tap(clearRecipient);
+  await _pumpUntil(
+    tester,
+    () => tester.widget<TextField>(recipient).controller?.text.isEmpty ?? false,
+    label: 'cleared direct recipient',
+  );
+
+  FocusManager.instance.primaryFocus?.unfocus();
+  final inboundBubble = find.byKey(
+    ValueKey('message-bubble-${inbound.messageId}'),
+  );
+  await tester.ensureVisible(inboundBubble);
+  await _pumpUntil(
+    tester,
+    () =>
+        inboundBubble.evaluate().length == 1 &&
+        inboundBubble.hitTestable().evaluate().length == 1 &&
+        tester.widget<InkWell>(inboundBubble).onTap != null,
+    label: 'enabled inbound direct conversation',
+  );
+  await tester.tap(inboundBubble);
+  await _pumpUntil(
+    tester,
+    () =>
+        tester.widget<TextField>(recipient).controller?.text == _peerUsername &&
+        !controller.messageBusy,
+    label: 'inbound direct conversation selection',
+  );
+
+  final replyText = 'Reply to $_inboundText';
+  final composer = find.byKey(const Key('message-composer'));
+  await _enterMessageWhenReady(
+    tester,
+    composer,
+    replyText,
+    label: 'selected direct reply composer',
+  );
+  expect(
+    tester.widget<TextField>(composer).textInputAction,
+    TextInputAction.send,
+  );
+  await tester.testTextInput.receiveAction(TextInputAction.send);
+  await _pumpUntil(
+    tester,
+    () => controller.messages.any(
+      (message) =>
+          message.outgoing &&
+          message.peerUsername == _peerUsername &&
+          message.text == replyText,
+    ),
+    label: 'keyboard-submitted direct reply',
+  );
+  final reply = controller.messages.singleWhere(
+    (message) =>
+        message.outgoing &&
+        message.peerUsername == _peerUsername &&
+        message.text == replyText,
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        controller.outboundMessageFor(reply.messageId) == null &&
+        controller.messageError == null,
+    label: 'router acceptance of keyboard-submitted direct reply',
   );
 }
 
@@ -525,6 +616,7 @@ Future<void> _updatePublicProfile(
   Uint8List avatarBytes,
   _SmokeProfileAvatarPicker avatarPicker,
 ) async {
+  await _openSettings(tester);
   final edit = find.byKey(const Key('account-profile-edit'));
   await _tapWhenReady(tester, edit, label: 'public-profile editor');
   await _pumpUntil(
@@ -580,6 +672,7 @@ Future<void> _updatePublicProfile(
     controller.connection?.profile.avatarBytes,
     orderedEquals(avatarBytes),
   );
+  await _closeSettings(tester);
   expect(
     find.descendant(
       of: find.byKey(const Key('account-profile-avatar')),
@@ -593,7 +686,9 @@ Future<void> _setLocalConversationPreferences(
   WidgetTester tester,
   WampAppController controller,
 ) async {
+  await _openSettings(tester);
   final theme = find.byKey(const Key('account-theme-menu'));
+  await _scrollSettingsTo(tester, theme, label: 'appearance setting');
   await _tapWhenReady(tester, theme, label: 'appearance menu');
   final dark = find.byKey(const ValueKey('appearance-dark'));
   await _tapWhenReady(tester, dark, label: 'dark appearance');
@@ -606,6 +701,7 @@ Future<void> _setLocalConversationPreferences(
             ThemeMode.dark,
     label: 'local dark appearance',
   );
+  await _closeSettings(tester);
 
   final conversationId = controller.directConversationIdFor(_peerUsername);
   if (conversationId == null) {
@@ -659,10 +755,8 @@ Future<void> _saveLocalContactAlias(
   WampAppController controller,
   _SmokeContactImporter contactImporter,
 ) async {
-  final compact = find.byKey(const Key('account-contacts-compact'));
-  final contacts = compact.evaluate().isNotEmpty
-      ? compact
-      : find.byKey(const Key('account-contacts'));
+  await _openSettings(tester);
+  final contacts = find.byKey(const Key('account-contacts'));
   await _tapWhenReady(tester, contacts, label: 'local contact manager');
   await _pumpUntil(
     tester,
@@ -710,17 +804,17 @@ Future<void> _saveLocalContactAlias(
     find.byKey(const Key('contact-close')),
     label: 'contact dialog close',
   );
+  await _closeSettings(tester);
 }
 
 Future<void> _enableMcpProfileConsent(
   WidgetTester tester,
   WampAppController controller,
 ) async {
-  await _tapWhenReady(
-    tester,
-    find.byKey(const Key('account-mcp-profile-consent')),
-    label: 'MCP profile consent',
-  );
+  await _openSettings(tester);
+  final consent = find.byKey(const Key('account-mcp-profile-consent'));
+  await _scrollSettingsTo(tester, consent, label: 'MCP access setting');
+  await _tapWhenReady(tester, consent, label: 'MCP profile consent');
   final accessDialog = find.byKey(const Key('mcp-access-dialog'));
   await _pumpUntil(
     tester,
@@ -757,6 +851,7 @@ Future<void> _enableMcpProfileConsent(
     () => accessDialog.evaluate().isEmpty,
     label: 'closed MCP access dialog',
   );
+  await _closeSettings(tester);
 }
 
 Future<void> _exportLocalBackup(
@@ -764,14 +859,10 @@ Future<void> _exportLocalBackup(
   WampAppController controller,
   _SmokeBackupFiles backupFiles,
 ) async {
-  final compact = find.byKey(const Key('account-backup-compact'));
-  await _tapWhenReady(
-    tester,
-    compact.evaluate().isNotEmpty
-        ? compact
-        : find.byKey(const Key('account-backup')),
-    label: 'local backup options',
-  );
+  await _openSettings(tester);
+  final backup = find.byKey(const Key('account-backup'));
+  await _scrollSettingsTo(tester, backup, label: 'local backup setting');
+  await _tapWhenReady(tester, backup, label: 'local backup options');
   await _tapWhenReady(
     tester,
     find.byKey(const Key('backup-action-local')),
@@ -841,27 +932,21 @@ Future<void> _exportLocalBackup(
       reason: 'The local backup exposed encoded application plaintext.',
     );
   }
+  await _closeSettings(tester);
 }
 
 Future<void> _uploadRemoteBackup(
   WidgetTester tester,
   WampAppController controller,
 ) async {
-  final compact = find.byKey(const Key('account-backup-compact'));
-  if (compact.evaluate().isNotEmpty) {
-    await _tapWhenReady(tester, compact, label: 'backup options');
-    await _tapWhenReady(
-      tester,
-      find.byKey(const Key('backup-action-remote')),
-      label: 'remote encrypted backup action',
-    );
-  } else {
-    await _tapWhenReady(
-      tester,
-      find.byKey(const Key('account-backup-remote')),
-      label: 'remote encrypted backup action',
-    );
-  }
+  await _openSettings(tester);
+  final remoteBackup = find.byKey(const Key('account-backup-remote'));
+  await _scrollSettingsTo(tester, remoteBackup, label: 'server backup setting');
+  await _tapWhenReady(
+    tester,
+    remoteBackup,
+    label: 'remote encrypted backup action',
+  );
   await _pumpUntil(
     tester,
     () => find
@@ -897,6 +982,7 @@ Future<void> _uploadRemoteBackup(
     timeout: const Duration(minutes: 2),
   );
   expect(controller.backupError, isNull);
+  await _closeSettings(tester);
 }
 
 Future<void> _restoreRemoteBackupAfterLocalVaultDeletion(
@@ -1005,11 +1091,10 @@ Future<String> _prepareDestructiveBackupRestore(
   }
   expect(vaultStorage.trackedKeyCount, greaterThan(0));
 
-  await _tapWhenReady(
-    tester,
-    find.byKey(const Key('account-sign-out-compact')),
-    label: 'backup recovery sign out',
-  );
+  await _openSettings(tester);
+  final signOut = find.byKey(const Key('settings-sign-out'));
+  await _scrollSettingsTo(tester, signOut, label: 'sign-out setting');
+  await _tapWhenReady(tester, signOut, label: 'backup recovery sign out');
   await _pumpUntil(
     tester,
     () => find.byKey(const Key('submit-account')).evaluate().isNotEmpty,
@@ -1250,6 +1335,49 @@ Future<void> _exerciseSearchAndReadFilters(
     label: 'all-message filter reset',
   );
   expect(controller.messageError, isNull);
+}
+
+Future<void> _openSettings(WidgetTester tester) async {
+  await _tapWhenReady(
+    tester,
+    find.byKey(const Key('account-settings')),
+    label: 'settings',
+  );
+  await _pumpUntil(
+    tester,
+    () => find.byKey(const Key('settings-page')).evaluate().isNotEmpty,
+    label: 'settings page',
+  );
+}
+
+Future<void> _scrollSettingsTo(
+  WidgetTester tester,
+  Finder target, {
+  required String label,
+}) async {
+  final list = find.descendant(
+    of: find.byKey(const Key('settings-page')),
+    matching: find.byType(Scrollable),
+  );
+  for (var attempt = 0; attempt < 12; attempt += 1) {
+    if (target.evaluate().isNotEmpty) {
+      await tester.ensureVisible(target);
+      await tester.pump();
+      return;
+    }
+    await tester.drag(list, const Offset(0, -280));
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+  fail('Timed out waiting for $label.');
+}
+
+Future<void> _closeSettings(WidgetTester tester) async {
+  await tester.pageBack();
+  await _pumpUntil(
+    tester,
+    () => find.byKey(const Key('settings-page')).evaluate().isEmpty,
+    label: 'closed settings page',
+  );
 }
 
 Future<void> _tapWhenReady(

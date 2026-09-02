@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wamp_app/l10n/generated/app_localizations.dart';
 import 'package:wamp_app/src/app.dart';
 import 'package:wamp_app/src/application/wamp_app_controller.dart';
 import 'package:wamp_app/src/domain/local_app_preferences.dart';
@@ -11,6 +12,7 @@ import 'package:wamp_app/src/domain/local_chat_group.dart';
 import 'package:wamp_app/src/domain/local_chat_message.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/contact_importer_contract.dart';
+import 'package:wamp_app/src/infrastructure/biometric_session_store_contract.dart';
 import 'package:wamp_app/src/infrastructure/message_cipher.dart';
 import 'package:wamp_app/src/infrastructure/profile_avatar_picker.dart';
 import 'package:wamp_app/src/infrastructure/wamp_account_gateway.dart';
@@ -21,7 +23,33 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
 import 'test_support.dart';
 
+class _LocalizedMaterialApp extends StatelessWidget {
+  const _LocalizedMaterialApp({required this.home});
+
+  final Widget home;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    locale: const Locale('en'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
+}
+
 void main() {
+  final binding = TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    binding.platformDispatcher.localeTestValue = const Locale('en');
+    binding.platformDispatcher.localesTestValue = const [Locale('en')];
+  });
+
+  tearDown(() {
+    binding.platformDispatcher.clearLocaleTestValue();
+    binding.platformDispatcher.clearLocalesTestValue();
+  });
+
   testWidgets('probes the default router endpoint on onboarding', (
     tester,
   ) async {
@@ -131,6 +159,32 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('remembered login requests biometric unlock on launch', (
+    tester,
+  ) async {
+    final biometrics = _WidgetBiometricSessionStore.withLogin(
+      RememberedLogin(
+        serverAddress: 'wss://localhost/ws',
+        username: 'alice',
+        password: 'remembered account password',
+      ),
+    );
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+      biometricSessionStore: biometrics,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(biometrics.unlockCount, 1);
+    expect(controller.status, WampAppStatus.connected);
+    expect(find.byKey(const Key('account-settings')), findsOneWidget);
+    expect(find.text('remembered account password'), findsNothing);
+  });
+
   testWidgets('registers and opens the authenticated shell', (tester) async {
     final oneTimeAttachmentId = _token(16, 39);
     final oneTimeMessage = LocalChatMessage(
@@ -174,7 +228,7 @@ void main() {
     await tester.pumpWidget(WampApp(controller: controller));
 
     expect(
-      find.text('Your conversations.\nYour keys. Your server.'),
+      find.text('Private conversations that feel effortless.'),
       findsOneWidget,
     );
     expect(
@@ -206,8 +260,9 @@ void main() {
     expect(find.byKey(const Key('message-composer')), findsOneWidget);
     expect(find.text('Alice Example'), findsOneWidget);
     expect(find.text('@alice'), findsOneWidget);
-    expect(find.text('Encrypted device vault'), findsOneWidget);
-    expect(find.text('Test device'), findsOneWidget);
+    expect(find.byKey(const Key('account-settings')), findsOneWidget);
+    expect(find.text('Encrypted device vault'), findsNothing);
+    expect(find.text('Test device'), findsNothing);
     expect(find.text('hidden until consumed'), findsNothing);
     expect(find.text('hidden-view-once.png'), findsNothing);
     expect(
@@ -316,6 +371,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
     final composer = find.byKey(const Key('message-composer'));
     await tester.enterText(composer, 'first draft');
+    await tester.pump();
     final composerController = tester.widget<TextField>(composer).controller!;
     var replacedDraft = false;
     void replaceDraftOnIdle() {
@@ -336,6 +392,119 @@ void main() {
     expect(replacedDraft, isTrue);
     expect(composerController.text, 'next draft');
     expect(gateway.sendAttempts, 1);
+  });
+
+  testWidgets('opens an inbound direct thread and replies from the keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final gateway = _FakeGateway();
+    final trustStore = FakeDeviceTrustStore(
+      initialMessages: [
+        LocalChatMessage(
+          messageId: 'bob-inbound',
+          conversationId: MessageCipher.directConversationId('alice', 'bob'),
+          peerUsername: 'bob',
+          text: 'Can you reply?',
+          sentAt: DateTime.utc(2026, 8, 25, 12, 2),
+          outgoing: false,
+          deliveredAt: DateTime.utc(2026, 8, 25, 12, 2),
+          readAt: DateTime.utc(2026, 8, 25, 12, 3),
+        ),
+        LocalChatMessage(
+          messageId: 'carol-inbound',
+          conversationId: MessageCipher.directConversationId('alice', 'carol'),
+          peerUsername: 'carol',
+          text: 'This belongs to another chat',
+          sentAt: DateTime.utc(2026, 8, 25, 12),
+          outgoing: false,
+          deliveredAt: DateTime.utc(2026, 8, 25, 12),
+          readAt: DateTime.utc(2026, 8, 25, 12, 1),
+        ),
+      ],
+    );
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: trustStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    final enrollment = trustStore.session!.enrollment;
+    gateway.deviceDirectories['alice'] = [
+      activeDeviceRecord('alice', enrollment),
+    ];
+    gateway.deviceDirectories['bob'] = [activeDeviceRecord('bob', enrollment)];
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    final recipient = find.byKey(const Key('message-recipient'));
+    expect(tester.widget<TextField>(recipient).controller!.text, isEmpty);
+    expect(find.text('Can you reply?'), findsOneWidget);
+    expect(find.text('This belongs to another chat'), findsOneWidget);
+
+    final composer = find.byKey(const Key('message-composer'));
+    await tester.enterText(composer, 'Unaddressed draft');
+    await tester.pump();
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const Key('message-send')))
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(composer, '');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('message-bubble-bob-inbound')));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(recipient).controller!.text, 'bob');
+    expect(find.text('Can you reply?'), findsOneWidget);
+    expect(find.text('This belongs to another chat'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('recipient-clear')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(recipient).controller!.text, isEmpty);
+    expect(find.text('Encrypted messages'), findsOneWidget);
+    await tester.enterText(composer, 'Still unaddressed');
+    await tester.pump();
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const Key('message-send')))
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(composer, '');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('message-bubble-bob-inbound')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(recipient).controller!.text, 'bob');
+
+    final composerWidget = tester.widget<TextField>(composer);
+    expect(composerWidget.textInputAction, TextInputAction.send);
+    await tester.enterText(composer, 'Yes, this is my reply.');
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await tester.pumpAndSettle();
+
+    expect(gateway.sendAttempts, 1);
+    expect(
+      controller.messages.any(
+        (message) =>
+            message.outgoing &&
+            message.peerUsername == 'bob' &&
+            message.text == 'Yes, this is my reply.',
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('direct call actions fail closed with a recoverable result', (
@@ -370,7 +539,7 @@ void main() {
     expect(find.byKey(const Key('call-error')), findsOneWidget);
     await tester.tap(find.byKey(const Key('call-dismiss')));
     await tester.pumpAndSettle();
-    expect(find.text('Encrypted messages'), findsOneWidget);
+    expect(find.text('@bob'), findsOneWidget);
   });
 
   testWidgets('edits the public profile and views a recipient profile', (
@@ -395,6 +564,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _openSettings(tester);
     await tester.tap(find.byKey(const Key('account-profile-edit')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('profile-avatar-pick')));
@@ -416,6 +586,8 @@ void main() {
       'Shipping safely',
     );
     await tester.tap(find.byKey(const Key('profile-save')));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
     await tester.pumpAndSettle();
 
     expect(find.text('Alice Updated'), findsOneWidget);
@@ -475,6 +647,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _openSettings(tester);
     await tester.tap(find.byKey(const Key('account-profile-edit')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('profile-avatar-pick')));
@@ -571,6 +744,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _openSettings(tester);
     await tester.tap(find.byKey(const Key('account-contacts')));
     await tester.pumpAndSettle();
 
@@ -602,6 +776,8 @@ void main() {
     await tester.ensureVisible(contact);
     await tester.tap(contact);
     await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('contact-privacy-boundary')), findsNothing);
     expect(
@@ -613,6 +789,7 @@ void main() {
     );
     expect(find.byKey(const ValueKey('contact-recipient-bob')), findsOneWidget);
 
+    await _openSettings(tester);
     await tester.tap(find.byKey(const Key('account-contacts')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('contact-edit-bob')));
@@ -635,6 +812,8 @@ void main() {
     expect(find.byKey(const ValueKey('contact-bob')), findsNothing);
     expect(trustStore.session!.saveContactsCalls, 3);
     await tester.tap(find.byKey(const Key('contact-close')));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('contact-recipient-bob')), findsNothing);
   });
@@ -664,7 +843,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('account-contacts-compact')));
+    await _openSettings(tester);
+    await tester.ensureVisible(find.byKey(const Key('account-contacts')));
+    await tester.tap(find.byKey(const Key('account-contacts')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('contact-privacy-boundary')), findsOneWidget);
@@ -705,6 +886,16 @@ void main() {
       find.byKey(const Key('message-composer')).hitTestable(),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('message-voice')).hitTestable(),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
+    await tester.enterText(
+      find.byKey(const Key('message-composer')),
+      'Keyboard-safe reply',
+    );
+    await tester.pump();
     expect(find.byKey(const Key('message-send')).hitTestable(), findsOneWidget);
   });
 
@@ -729,7 +920,9 @@ void main() {
     await tester.pumpWidget(WampApp(controller: controller));
     await tester.pumpAndSettle();
 
+    await _openSettings(tester);
     final consent = find.byKey(const Key('account-mcp-profile-consent'));
+    await _scrollSettingsTo(tester, consent);
     await tester.tap(consent);
     await tester.pumpAndSettle();
 
@@ -749,7 +942,7 @@ void main() {
     await tester.tap(profileSwitch);
     await tester.pumpAndSettle();
 
-    expect(find.text('Allow MCP public-profile access?'), findsOneWidget);
+    expect(find.text('Allow public-profile access?'), findsOneWidget);
     expect(find.textContaining('Chats, messages, attachments'), findsWidgets);
     expect(gateway.mcpProfileReadAllowed, isFalse);
 
@@ -762,9 +955,103 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(profileSwitch);
     await tester.pumpAndSettle();
-    expect(find.text('Allow MCP public-profile access?'), findsNothing);
+    expect(find.text('Allow public-profile access?'), findsNothing);
     expect(gateway.mcpProfileReadAllowed, isFalse);
     expect(gateway.mcpConsentUpdates, [true, false]);
+  });
+
+  testWidgets(
+    'settings manage biometrics, push, language, and technical details',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final biometrics = _WidgetBiometricSessionStore();
+      final controller = WampAppController(
+        gateway: _FakeGateway(),
+        trustStore: FakeDeviceTrustStore(),
+        biometricSessionStore: biometrics,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'wss://localhost/ws',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      await tester.pumpWidget(WampApp(controller: controller));
+      await tester.pumpAndSettle();
+      await _openSettings(tester);
+
+      final biometric = find.byKey(const Key('settings-biometric-login'));
+      await tester.tap(biometric);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('biometric-password')),
+        'correct horse battery',
+      );
+      await tester.tap(find.byKey(const Key('biometric-enable')));
+      await tester.pumpAndSettle();
+      expect(controller.biometricRemembered, isTrue);
+      expect(biometrics.savedUsername, 'alice');
+      expect(find.text('correct horse battery'), findsNothing);
+
+      final push = find.byKey(const Key('settings-push-notifications'));
+      await tester.tap(push);
+      await tester.pumpAndSettle();
+      expect(controller.pushNotificationsEnabled, isFalse);
+
+      final language = find.byKey(const Key('settings-language-menu'));
+      await _scrollSettingsTo(tester, language);
+      await tester.tap(language);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('language-de')));
+      await tester.pumpAndSettle();
+      expect(controller.localePreference, WampAppLocalePreference.german);
+      expect(find.text('Einstellungen'), findsOneWidget);
+
+      final technical = find.byKey(const Key('settings-technical-info'));
+      await _scrollSettingsTo(tester, technical);
+      await tester.tap(technical);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Technische Informationen'), findsWidgets);
+      expect(find.text('wss://localhost/ws'), findsOneWidget);
+      expect(find.text('correct horse battery'), findsNothing);
+      expect(find.text(controller.safetyNumber!), findsOneWidget);
+    },
+  );
+
+  testWidgets('sign out leaves settings before secure cleanup completes', (
+    tester,
+  ) async {
+    final clearGate = Completer<void>();
+    final biometrics = _WidgetBiometricSessionStore()..clearGate = clearGate;
+    final controller = WampAppController(
+      gateway: _FakeGateway(),
+      trustStore: FakeDeviceTrustStore(),
+      biometricSessionStore: biometrics,
+    );
+    addTearDown(controller.dispose);
+    await controller.login(
+      serverAddress: 'wss://localhost/ws',
+      username: 'alice',
+      password: 'correct horse battery',
+    );
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+    await _openSettings(tester);
+
+    final signOut = find.byKey(const Key('settings-sign-out'));
+    await _scrollSettingsTo(tester, signOut);
+    await tester.tap(signOut);
+    await tester.pump();
+
+    expect(find.byKey(const Key('settings-page')), findsNothing);
+    expect(find.byKey(const Key('server-address')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    clearGate.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('switches appearance and mutes direct and group chats', (
@@ -823,7 +1110,9 @@ void main() {
     await tester.pumpAndSettle();
 
     Future<void> chooseAppearance(WampAppThemePreference preference) async {
-      await tester.tap(find.byKey(const Key('account-theme-menu')));
+      final themeMenu = find.byKey(const Key('account-theme-menu'));
+      await _scrollSettingsTo(tester, themeMenu);
+      await tester.tap(themeMenu);
       await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(ValueKey('appearance-${preference.wireName}')),
@@ -858,12 +1147,19 @@ void main() {
       find.byKey(const Key('message-composer')),
       'Unsent encrypted draft',
     );
+    await _openSettings(tester);
     await chooseAppearance(WampAppThemePreference.dark);
     expect(controller.themePreference, WampAppThemePreference.dark);
     expect(
       tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
       ThemeMode.dark,
     );
+    await chooseAppearance(WampAppThemePreference.light);
+    expect(controller.themePreference, WampAppThemePreference.light);
+    await chooseAppearance(WampAppThemePreference.system);
+    expect(controller.themePreference, WampAppThemePreference.system);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     expect(find.text('Unsent encrypted draft'), findsOneWidget);
     expect(
       tester
@@ -872,10 +1168,6 @@ void main() {
           ?.text,
       'bob',
     );
-    await chooseAppearance(WampAppThemePreference.light);
-    expect(controller.themePreference, WampAppThemePreference.light);
-    await chooseAppearance(WampAppThemePreference.system);
-    expect(controller.themePreference, WampAppThemePreference.system);
 
     await tester.pumpAndSettle();
     final directId = controller.directConversationIdFor('bob')!;
@@ -1166,7 +1458,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _LocalizedMaterialApp(
         home: HomePage(
           controller: controller,
           connection: controller.connection!,
@@ -1191,7 +1483,13 @@ void main() {
     expect(find.byKey(const Key('selected-attachment-0')), findsOneWidget);
     expect(find.textContaining('voice-note-'), findsOneWidget);
 
-    await tester.tap(microphone);
+    tester
+        .widget<InputChip>(find.byKey(const Key('selected-attachment-0')))
+        .onDeleted!();
+    await tester.pump();
+    expect(find.byKey(const Key('selected-attachment-0')), findsNothing);
+    final nextMicrophone = find.byKey(const Key('message-voice'));
+    await tester.tap(nextMicrophone);
     await tester.pump();
     expect(find.byKey(const Key('voice-recording-status')), findsOneWidget);
     await tester.tap(find.byKey(const Key('voice-recording-cancel')));
@@ -1218,7 +1516,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _LocalizedMaterialApp(
         home: HomePage(
           controller: controller,
           connection: controller.connection!,
@@ -1286,7 +1584,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _LocalizedMaterialApp(
         home: HomePage(
           controller: controller,
           connection: controller.connection!,
@@ -1330,7 +1628,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
+      _LocalizedMaterialApp(
         home: HomePage(
           controller: controller,
           connection: controller.connection!,
@@ -1495,8 +1793,11 @@ void main() {
     await tester.pumpWidget(WampApp(controller: controller));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('backup-export-boundary')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('account-backup')));
+    await _openSettings(tester);
+    final backup = find.byKey(const Key('account-backup'));
+    await _scrollSettingsTo(tester, backup);
+    expect(backup, findsOneWidget);
+    await tester.tap(backup);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('backup-action-local')));
     await tester.pumpAndSettle();
@@ -1714,6 +2015,26 @@ class _FakeGateway implements AccountGateway {
   }
 }
 
+Future<void> _openSettings(WidgetTester tester) async {
+  final settings = find.byKey(const Key('account-settings'));
+  await tester.ensureVisible(settings);
+  await tester.tap(settings);
+  await tester.pumpAndSettle();
+  expect(find.byKey(const Key('settings-page')), findsOneWidget);
+}
+
+Future<void> _scrollSettingsTo(WidgetTester tester, Finder target) async {
+  await tester.scrollUntilVisible(
+    target,
+    240,
+    scrollable: find.descendant(
+      of: find.byKey(const Key('settings-page')),
+      matching: find.byType(Scrollable),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 final class _FakeContactImporter implements ContactImporter {
   _FakeContactImporter(this.candidates);
 
@@ -1727,6 +2048,61 @@ final class _FakeContactImporter implements ContactImporter {
   Future<List<ImportedContactCandidate>> pickContacts() async {
     calls += 1;
     return candidates;
+  }
+}
+
+final class _WidgetBiometricSessionStore implements BiometricSessionStore {
+  _WidgetBiometricSessionStore();
+
+  factory _WidgetBiometricSessionStore.withLogin(RememberedLogin login) {
+    final store = _WidgetBiometricSessionStore();
+    store._login = login;
+    return store;
+  }
+
+  RememberedLogin? _login;
+  String? savedUsername;
+  int unlockCount = 0;
+  Completer<void>? clearGate;
+
+  @override
+  Future<void> clear() async {
+    await clearGate?.future;
+    _login?.dispose();
+    _login = null;
+  }
+
+  @override
+  Future<bool> hasLogin() async => _login != null;
+
+  @override
+  Future<bool> isAvailable() async => true;
+
+  @override
+  Future<bool> save({
+    required RememberedLogin login,
+    required String localizedReason,
+  }) async {
+    savedUsername = login.username;
+    _login?.dispose();
+    _login = RememberedLogin(
+      serverAddress: login.serverAddress,
+      username: login.username,
+      password: login.password,
+    );
+    return true;
+  }
+
+  @override
+  Future<RememberedLogin?> unlock({required String localizedReason}) async {
+    unlockCount += 1;
+    final login = _login;
+    if (login == null) return null;
+    return RememberedLogin(
+      serverAddress: login.serverAddress,
+      username: login.username,
+      password: login.password,
+    );
   }
 }
 

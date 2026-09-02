@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>WampApp uses the camera only while you participate in a video call.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID to securely unlock your saved WampApp sign-in.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>WampApp uses the microphone only while you record a voice note or participate in a call.</string>
 	<key>UIApplicationSceneManifest</key>

@@ -6,6 +6,8 @@ void main() {
     final preferences = LocalAppPreferences.fromJson(null);
 
     expect(preferences.theme, WampAppThemePreference.system);
+    expect(preferences.locale, WampAppLocalePreference.system);
+    expect(preferences.pushNotificationsEnabled, isTrue);
     expect(preferences.mutedConversationIds, isEmpty);
     expect(preferences.disappearingMessageDurations, isEmpty);
     expect(preferences.conversationAppearances, isEmpty);
@@ -18,6 +20,8 @@ void main() {
   test('preferences round-trip with stable sorted conversation ids', () {
     final preferences = LocalAppPreferences(
       theme: WampAppThemePreference.dark,
+      locale: WampAppLocalePreference.german,
+      pushNotificationsEnabled: false,
       mutedConversationIds: const ['group-z', 'direct-a'],
       disappearingMessageDurations: const {
         'group-z': Duration(days: 7),
@@ -34,11 +38,15 @@ void main() {
 
     expect(encoded, {
       'theme': 'dark',
+      'locale': 'de',
+      'push_notifications_enabled': false,
       'muted_conversation_ids': ['direct-a', 'group-z'],
       'disappearing_message_seconds': {'direct-a': 3600, 'group-z': 604800},
       'conversation_appearances': {'direct-a': 'ocean', 'group-z': 'sunset'},
     });
     expect(decoded.theme, WampAppThemePreference.dark);
+    expect(decoded.locale, WampAppLocalePreference.german);
+    expect(decoded.pushNotificationsEnabled, isFalse);
     expect(decoded.mutedConversationIds, {'direct-a', 'group-z'});
     expect(
       decoded.disappearingMessagesFor('direct-a'),
@@ -62,6 +70,8 @@ void main() {
     });
 
     expect(preferences.theme, WampAppThemePreference.dark);
+    expect(preferences.locale, WampAppLocalePreference.system);
+    expect(preferences.pushNotificationsEnabled, isTrue);
     expect(preferences.isMuted('direct-a'), isTrue);
     expect(preferences.disappearingMessageDurations, isEmpty);
     expect(preferences.conversationAppearances, isEmpty);
@@ -114,6 +124,19 @@ void main() {
           WampAppConversationAppearance.sunset,
       throwsUnsupportedError,
     );
+  });
+
+  test('locale and push updates preserve the remaining preferences', () {
+    final localized = LocalAppPreferences.defaults.withLocale(
+      WampAppLocalePreference.german,
+    );
+    final pushDisabled = localized.withPushNotificationsEnabled(false);
+
+    expect(LocalAppPreferences.defaults.locale, WampAppLocalePreference.system);
+    expect(LocalAppPreferences.defaults.pushNotificationsEnabled, isTrue);
+    expect(pushDisabled.locale, WampAppLocalePreference.german);
+    expect(pushDisabled.pushNotificationsEnabled, isFalse);
+    expect(pushDisabled.theme, WampAppThemePreference.system);
   });
 
   test('immutable updates isolate direct and group mute state', () {
@@ -179,6 +202,16 @@ void main() {
       'dark',
       <String, dynamic>{},
       {'theme': 'sepia', 'muted_conversation_ids': <String>[]},
+      {
+        'theme': 'dark',
+        'locale': 'klingon',
+        'muted_conversation_ids': <String>[],
+      },
+      {
+        'theme': 'dark',
+        'push_notifications_enabled': 'yes',
+        'muted_conversation_ids': <String>[],
+      },
       {'theme': 'dark', 'muted_conversation_ids': 'direct-a'},
       {
         'theme': 'dark',

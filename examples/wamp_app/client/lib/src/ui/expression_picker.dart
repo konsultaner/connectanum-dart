@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
+
 abstract interface class StickerRenderer {
   Future<Uint8List> render(StickerDesign design);
 }
@@ -580,6 +582,7 @@ class _ExpressionPickerState extends State<ExpressionPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final mediaQuery = MediaQuery.of(context);
     final keyboardInset = mediaQuery.viewInsets.bottom;
     final availableHeight = (mediaQuery.size.height - keyboardInset).clamp(
@@ -608,13 +611,13 @@ class _ExpressionPickerState extends State<ExpressionPicker> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Emoji & stickers',
+                          l10n.emojiAndStickers,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
                       IconButton(
                         key: const Key('expression-close'),
-                        tooltip: 'Close emoji and stickers',
+                        tooltip: l10n.closeExpressions,
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close),
                       ),
@@ -623,23 +626,23 @@ class _ExpressionPickerState extends State<ExpressionPicker> {
                   TextField(
                     key: const Key('expression-search'),
                     onChanged: (value) => setState(() => _query = value),
-                    decoration: const InputDecoration(
-                      hintText: 'Search expressions',
-                      prefixIcon: Icon(Icons.search),
+                    decoration: InputDecoration(
+                      hintText: l10n.searchExpressions,
+                      prefixIcon: const Icon(Icons.search),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const TabBar(
+                  TabBar(
                     tabs: [
                       Tab(
-                        key: Key('expression-emoji-tab'),
-                        icon: Icon(Icons.emoji_emotions_outlined),
-                        text: 'Emoji',
+                        key: const Key('expression-emoji-tab'),
+                        icon: const Icon(Icons.emoji_emotions_outlined),
+                        text: l10n.emoji,
                       ),
                       Tab(
-                        key: Key('expression-sticker-tab'),
-                        icon: Icon(Icons.auto_awesome_outlined),
-                        text: 'Stickers',
+                        key: const Key('expression-sticker-tab'),
+                        icon: const Icon(Icons.auto_awesome_outlined),
+                        text: l10n.stickers,
                       ),
                     ],
                   ),
@@ -733,6 +736,7 @@ class _StickerGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (designs.isEmpty) return const _NoExpressions();
     return GridView.builder(
       key: const Key('expression-sticker-grid'),
@@ -748,7 +752,7 @@ class _StickerGrid extends StatelessWidget {
         final busy = busyStickerId == design.id;
         return Semantics(
           button: true,
-          label: '${design.label} sticker',
+          label: l10n.stickerLabel(design.label),
           child: InkWell(
             key: ValueKey('sticker-${design.id}'),
             borderRadius: BorderRadius.circular(24),
@@ -802,10 +806,11 @@ class _NoExpressions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final l10n = AppLocalizations.of(context);
+    return Center(
       child: Text(
-        'No matching expressions',
-        key: Key('expression-empty'),
+        l10n.noMatchingExpressions,
+        key: const Key('expression-empty'),
         textAlign: TextAlign.center,
       ),
     );

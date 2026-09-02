@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../application/wamp_app_controller.dart';
 import '../application/call_controller.dart';
 import '../domain/local_app_preferences.dart';
@@ -22,6 +23,7 @@ import 'backup_passphrase_dialog.dart';
 import 'call_overlay.dart';
 import 'contact_manager_dialog.dart';
 import 'expression_picker.dart';
+import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -82,12 +84,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _send() async {
+    final l10n = AppLocalizations.of(context);
     final text = _messageController.text;
     final sentAttachments = _attachments;
     final groupId = _selectedGroupId;
+    final recipientUsername = _recipientController.text.trim();
+    if (groupId == null && recipientUsername.isEmpty) {
+      _showMessage(l10n.openConversationBeforeSending);
+      return;
+    }
+    if (text.trim().isEmpty && sentAttachments.isEmpty) return;
     final conversationId =
-        groupId ??
-        widget.controller.directConversationIdFor(_recipientController.text);
+        groupId ?? widget.controller.directConversationIdFor(recipientUsername);
     final expiresAfter = conversationId == null
         ? null
         : widget.controller.disappearingMessagesFor(conversationId);
@@ -96,7 +104,7 @@ class _HomePageState extends State<HomePage> {
         .toList(growable: false);
     final queued = groupId == null
         ? await widget.controller.sendMessage(
-            recipientUsername: _recipientController.text,
+            recipientUsername: recipientUsername,
             text: text,
             oneTime: _oneTime,
             expiresAfter: expiresAfter,
@@ -126,6 +134,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _pickAttachments() async {
+    final l10n = AppLocalizations.of(context);
     try {
       final files = await openFiles();
       if (!mounted || files.isEmpty) return;
@@ -133,17 +142,13 @@ class _HomePageState extends State<HomePage> {
           WampAppAttachmentLimits.maxAttachmentsPerMessage -
           _attachments.length;
       if (remaining <= 0 || files.length > remaining) {
-        throw const FormatException(
-          'A message can contain up to 8 attachments.',
-        );
+        throw FormatException(l10n.attachmentLimit);
       }
       final selected = <_SelectedAttachment>[];
       for (final file in files) {
         final byteCount = await file.length();
         if (byteCount > WampAppAttachmentLimits.maxAttachmentBytes) {
-          throw const FormatException(
-            'Each attachment must be 64 MiB or smaller.',
-          );
+          throw FormatException(l10n.attachmentSizeLimit);
         }
         selected.add(_SelectedAttachment(file, byteCount));
       }
@@ -158,7 +163,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       final message = error is FormatException
           ? error.message
-          : 'The selected files could not be opened.';
+          : l10n.attachmentReadFailed;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message.toString())));
     }
@@ -202,11 +207,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<bool> _stageSticker(StickerDesign design) async {
+    final l10n = AppLocalizations.of(context);
     if (_stickerBusy) return false;
     Uint8List? rendered;
     if (_attachments.length >=
         WampAppAttachmentLimits.maxAttachmentsPerMessage) {
-      _showMessage('A message can contain up to 8 attachments.');
+      _showMessage(l10n.attachmentLimit);
       return false;
     }
     setState(() => _stickerBusy = true);
@@ -216,9 +222,7 @@ class _HomePageState extends State<HomePage> {
               .render(design);
       if (rendered.isEmpty ||
           rendered.length > WampAppAttachmentLimits.maxAttachmentBytes) {
-        throw const FormatException(
-          'The rendered sticker exceeds the attachment limits.',
-        );
+        throw FormatException(l10n.stickerTooLarge);
       }
       if (!mounted) {
         rendered.fillRange(0, rendered.length, 0);
@@ -238,7 +242,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return false;
       final message = error is FormatException
           ? error.message
-          : 'The sticker could not be rendered.';
+          : l10n.stickerRenderFailed;
       _showMessage(message.toString());
       return false;
     } finally {
@@ -258,6 +262,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _toggleVoiceRecording() async {
+    final l10n = AppLocalizations.of(context);
     final active = _voiceRecording;
     if (active != null) {
       setState(() => _voiceControlBusy = true);
@@ -270,7 +275,7 @@ class _HomePageState extends State<HomePage> {
     }
     if (_attachments.length >=
         WampAppAttachmentLimits.maxAttachmentsPerMessage) {
-      _showMessage('A message can contain up to 8 attachments.');
+      _showMessage(l10n.attachmentLimit);
       return;
     }
     setState(() => _voiceControlBusy = true);
@@ -302,7 +307,7 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _voiceControlBusy = false);
-      _showMessage('The microphone could not start recording.');
+      _showMessage(l10n.microphoneStartFailed);
     }
   }
 
@@ -373,7 +378,7 @@ class _HomePageState extends State<HomePage> {
       _showMessage(
         error is VoiceNoteRecordingException
             ? error.message
-            : 'The voice-note recording failed.',
+            : AppLocalizations.of(context).voiceRecordingFailed,
       );
     }
   }
@@ -408,6 +413,7 @@ class _HomePageState extends State<HomePage> {
       bytes.fillRange(0, bytes.length, 0);
       return;
     }
+    final l10n = AppLocalizations.of(context);
     MemoryImage? preview;
     VoiceNotePlaybackController? voicePlayer;
     try {
@@ -461,11 +467,11 @@ class _HomePageState extends State<HomePage> {
                   ).saveTo(location.path);
                 },
                 icon: const Icon(Icons.download_outlined),
-                label: const Text('Save copy'),
+                label: Text(l10n.saveCopy),
               ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Close'),
+              child: Text(l10n.close),
             ),
           ],
         ),
@@ -499,6 +505,14 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _openMessage(LocalChatMessage message) async {
+    setState(() {
+      _selectedGroupId = message.isGroup ? message.conversationId : null;
+      if (message.isGroup) {
+        _oneTime = false;
+      } else {
+        _recipientController.text = message.peerUsername;
+      }
+    });
     if (message.outgoing) return;
     if (!message.oneTime) {
       await widget.controller.markMessageRead(message.messageId);
@@ -512,11 +526,12 @@ class _HomePageState extends State<HomePage> {
       await widget.controller.closeOpenedOneTimeMessage(opened);
       return;
     }
+    final l10n = AppLocalizations.of(context);
     try {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('View-once message'),
+          title: Text(l10n.viewOnceMessage),
           content: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560, maxHeight: 560),
             child: SingleChildScrollView(
@@ -537,9 +552,7 @@ class _HomePageState extends State<HomePage> {
                               attachmentId: attachment.attachmentId,
                             );
                         if (bytes == null) {
-                          _showMessage(
-                            'The view-once attachment could not be opened.',
-                          );
+                          _showMessage(l10n.viewOnceOpenFailed);
                           return;
                         }
                         await _showAttachmentBytes(
@@ -557,7 +570,7 @@ class _HomePageState extends State<HomePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Close'),
+              child: Text(l10n.close),
             ),
           ],
         ),
@@ -606,34 +619,31 @@ class _HomePageState extends State<HomePage> {
     if (update == null || !mounted) return;
     final saved = await widget.controller.updateProfile(update);
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     _showMessage(
       saved
-          ? 'Profile updated.'
-          : widget.controller.profileError ?? 'Profile update failed.',
+          ? l10n.profileUpdated
+          : widget.controller.profileError ?? l10n.profileUpdateFailed,
     );
   }
 
   Future<void> _setMcpProfileReadAllowed(bool allowed) async {
+    final l10n = AppLocalizations.of(context);
     if (allowed) {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Allow MCP public-profile access?'),
-          content: const Text(
-            'An authenticated MCP client will be able to read your username, '
-            'display name, status, and profile revision. Chats, messages, '
-            'attachments, backups, devices, calls, encryption keys, and your '
-            'avatar remain unavailable. You can revoke access immediately.',
-          ),
+          title: Text(l10n.allowMcpProfileTitle),
+          content: Text(l10n.mcpProfileConsentBoundary),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             FilledButton(
               key: const Key('mcp-profile-consent-confirm'),
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Allow'),
+              child: Text(l10n.allow),
             ),
           ],
         ),
@@ -643,18 +653,17 @@ class _HomePageState extends State<HomePage> {
     final saved = await widget.controller.setMcpProfileReadAllowed(allowed);
     if (!mounted || saved) return;
     _showMessage(
-      widget.controller.mcpConsentError ??
-          'Could not update MCP public-profile access.',
+      widget.controller.mcpConsentError ?? l10n.mcpConsentUpdateFailed,
     );
   }
 
   Future<void> _showMcpAccess() async {
+    final l10n = AppLocalizations.of(context);
     final configuration = await widget.controller.loadMcpAccessConfiguration();
     if (!mounted) return;
     if (configuration == null) {
       _showMessage(
-        widget.controller.mcpAccessError ??
-            'Could not load MCP connection information.',
+        widget.controller.mcpAccessError ?? l10n.mcpConnectionLoadFailed,
       );
       return;
     }
@@ -667,11 +676,11 @@ class _HomePageState extends State<HomePage> {
         builder: (context, _) => AlertDialog(
           key: const Key('mcp-access-dialog'),
           scrollable: true,
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.smart_toy_outlined),
-              SizedBox(width: 10),
-              Expanded(child: Text('Connect an AI service')),
+              const Icon(Icons.smart_toy_outlined),
+              const SizedBox(width: 10),
+              Expanded(child: Text(l10n.connectAiService)),
             ],
           ),
           content: SizedBox(
@@ -679,14 +688,10 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Use the endpoint below with an MCP client that supports '
-                  'Streamable HTTP or direct JSON. The client authenticates '
-                  'as this WampApp account using a WAMP-SCRAM access grant.',
-                ),
+                Text(l10n.mcpConnectionHelp),
                 const SizedBox(height: 16),
                 _McpEndpointField(
-                  label: 'MCP endpoint',
+                  label: l10n.mcpEndpoint,
                   keyName: 'mcp-access-endpoint',
                   uri: endpoint,
                   onCopy: () async {
@@ -695,14 +700,14 @@ class _HomePageState extends State<HomePage> {
                     );
                     if (mounted) {
                       ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(content: Text('MCP endpoint copied.')),
+                        SnackBar(content: Text(l10n.mcpEndpointCopied)),
                       );
                     }
                   },
                 ),
                 const SizedBox(height: 12),
                 _McpEndpointField(
-                  label: 'Authentication endpoint',
+                  label: l10n.authenticationEndpoint,
                   keyName: 'mcp-auth-endpoint',
                   uri: authEndpoint,
                   onCopy: () async {
@@ -711,29 +716,26 @@ class _HomePageState extends State<HomePage> {
                     );
                     if (mounted) {
                       ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(content: Text('Auth endpoint copied.')),
+                        SnackBar(content: Text(l10n.authEndpointCopied)),
                       );
                     }
                   },
                 ),
                 const SizedBox(height: 14),
-                Text('Account: @${widget.connection.username}'),
-                const Text('Realm: ${WampAppProtocol.appRealm}'),
-                const Text('Authentication: WAMP-SCRAM access grant'),
+                Text(l10n.mcpAccount(widget.connection.username)),
+                Text(l10n.mcpRealm(WampAppProtocol.appRealm)),
+                Text(l10n.mcpAuthentication),
                 const SizedBox(height: 14),
-                const Text(
-                  'Catalogs: tools, resources, and prompts · Transports: '
-                  'Streamable HTTP and direct JSON',
-                ),
+                Text(l10n.mcpCatalog),
                 const SizedBox(height: 14),
                 SwitchListTile.adaptive(
                   key: const Key('mcp-access-profile-switch'),
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Allow public-profile access'),
+                  title: Text(l10n.allowPublicProfileAccess),
                   subtitle: Text(
                     widget.controller.mcpConsent.profileReadAllowed
-                        ? 'Enabled. Revocation takes effect immediately.'
-                        : 'Disabled by default.',
+                        ? l10n.accessEnabled
+                        : l10n.accessDisabledByDefault,
                   ),
                   value: widget.controller.mcpConsent.profileReadAllowed,
                   onChanged: widget.controller.mcpConsentBusy
@@ -741,16 +743,13 @@ class _HomePageState extends State<HomePage> {
                       : _setMcpProfileReadAllowed,
                 ),
                 Text(
-                  'Visible fields: ${configuration.profileFields.join(', ')}.',
+                  l10n.visibleFields(configuration.profileFields.join(', ')),
                   key: const Key('mcp-access-profile-fields'),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Chats, messages, attachments, backups, devices, calls, '
-                  'encryption keys, and avatars remain unavailable. WampApp '
-                  'never displays or copies your password, access token, or '
-                  'refresh token.',
-                  key: Key('mcp-access-data-boundary'),
+                Text(
+                  l10n.mcpDataBoundary,
+                  key: const Key('mcp-access-data-boundary'),
                 ),
               ],
             ),
@@ -758,7 +757,7 @@ class _HomePageState extends State<HomePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+              child: Text(l10n.close),
             ),
           ],
         ),
@@ -767,23 +766,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _showPeerProfile() async {
+    final l10n = AppLocalizations.of(context);
     final username = _recipientController.text.trim();
     if (username.isEmpty) {
-      _showMessage('Enter a recipient username first.');
+      _showMessage(l10n.enterRecipientFirst);
       return;
     }
     final profile = await widget.controller.lookupProfile(username);
     if (!mounted) return;
     if (profile == null) {
-      _showMessage(
-        widget.controller.profileError ?? 'Could not load that profile.',
-      );
+      _showMessage(widget.controller.profileError ?? l10n.profileLoadFailed);
       return;
     }
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Public profile'),
+        title: Text(l10n.publicProfile),
         content: SizedBox(
           width: 360,
           child: Column(
@@ -802,7 +800,7 @@ class _HomePageState extends State<HomePage> {
               Text('@${profile.username}'),
               const SizedBox(height: 12),
               Text(
-                profile.status.isEmpty ? 'No status set' : profile.status,
+                profile.status.isEmpty ? l10n.noStatusSet : profile.status,
                 key: const Key('peer-profile-status'),
                 textAlign: TextAlign.center,
               ),
@@ -812,7 +810,7 @@ class _HomePageState extends State<HomePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(l10n.close),
           ),
         ],
       ),
@@ -820,9 +818,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _showPeerTrust() async {
+    final l10n = AppLocalizations.of(context);
     final username = _recipientController.text.trim();
     if (username.isEmpty) {
-      _showMessage('Enter a recipient username first.');
+      _showMessage(l10n.enterRecipientFirst);
       return;
     }
     await showDialog<void>(
@@ -832,30 +831,19 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _setThemePreference(WampAppThemePreference value) async {
-    final saved = await widget.controller.setThemePreference(value);
-    if (!mounted) return;
-    _showMessage(
-      saved
-          ? 'Appearance preference saved on this account.'
-          : widget.controller.preferenceError ??
-                'Could not save the appearance preference.',
-    );
-  }
-
   Future<void> _setConversationMuted(String conversationId, bool muted) async {
     final saved = await widget.controller.setConversationMuted(
       conversationId,
       muted,
     );
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     _showMessage(
       saved
           ? muted
-                ? 'Chat muted on this account.'
-                : 'Chat unmuted on this account.'
-          : widget.controller.preferenceError ??
-                'Could not save the chat preference.',
+                ? l10n.chatMuted
+                : l10n.chatUnmuted
+          : widget.controller.preferenceError ?? l10n.chatPreferenceSaveFailed,
     );
   }
 
@@ -868,11 +856,13 @@ class _HomePageState extends State<HomePage> {
       appearance,
     );
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     _showMessage(
       saved
-          ? '${_ConversationPanel._appearanceLabel(appearance)} chat appearance saved on this account.'
-          : widget.controller.preferenceError ??
-                'Could not save the chat appearance.',
+          ? l10n.chatAppearanceSaved(
+              _ConversationPanel._appearanceLabel(l10n, appearance),
+            )
+          : widget.controller.preferenceError ?? l10n.chatAppearanceSaveFailed,
     );
   }
 
@@ -885,13 +875,18 @@ class _HomePageState extends State<HomePage> {
       duration,
     );
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     _showMessage(
       saved
           ? duration == null
-                ? 'Disappearing messages disabled for this chat.'
-                : 'New messages in this chat will ${_ConversationPanel._expiryLabel(duration).toLowerCase()}.'
-          : widget.controller.preferenceError ??
-                'Could not save the chat preference.',
+                ? l10n.disappearingMessagesDisabled
+                : l10n.disappearingMessagesEnabled(
+                    _ConversationPanel._expiryLabel(
+                      l10n,
+                      duration,
+                    ).toLowerCase(),
+                  )
+          : widget.controller.preferenceError ?? l10n.chatPreferenceSaveFailed,
     );
   }
 
@@ -905,10 +900,11 @@ class _HomePageState extends State<HomePage> {
       recoveryPassphrase: recoveryPassphrase,
     );
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     _showMessage(
       saved
-          ? 'Encrypted device backup saved.'
-          : widget.controller.backupError ?? 'Backup was cancelled.',
+          ? l10n.encryptedDeviceBackupSaved
+          : widget.controller.backupError ?? l10n.backupCancelled,
     );
   }
 
@@ -922,14 +918,16 @@ class _HomePageState extends State<HomePage> {
       recoveryPassphrase: recoveryPassphrase,
     );
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     _showMessage(
       saved
-          ? 'Encrypted backup stored on this server.'
-          : widget.controller.backupError ?? 'Cloud backup was cancelled.',
+          ? l10n.encryptedServerBackupSaved
+          : widget.controller.backupError ?? l10n.cloudBackupCancelled,
     );
   }
 
   Future<void> _showBackupMenu() async {
+    final l10n = AppLocalizations.of(context);
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -941,24 +939,22 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Encrypted backup',
+                l10n.encryptedBackup,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 12),
               ListTile(
                 key: const Key('backup-action-local'),
                 leading: const Icon(Icons.save_alt_outlined),
-                title: const Text('Save backup file'),
-                subtitle: const Text('Keep an encrypted archive yourself.'),
+                title: Text(l10n.saveBackupFile),
+                subtitle: Text(l10n.saveBackupFileSubtitle),
                 onTap: () => Navigator.of(context).pop('local'),
               ),
               ListTile(
                 key: const Key('backup-action-remote'),
                 leading: const Icon(Icons.cloud_upload_outlined),
-                title: const Text('Back up to this server'),
-                subtitle: const Text(
-                  'The server stores only the encrypted archive.',
-                ),
+                title: Text(l10n.backupToServer),
+                subtitle: Text(l10n.backupToServerSubtitle),
                 onTap: () => Navigator.of(context).pop('remote'),
               ),
             ],
@@ -994,6 +990,19 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> _openSettings() => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => SettingsPage(
+        controller: widget.controller,
+        onEditProfile: _editProfile,
+        onManageContacts: _manageContacts,
+        onOpenMcpAccess: _showMcpAccess,
+        onBackup: _showBackupMenu,
+        onRemoteBackup: _uploadRemoteBackup,
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final calls = widget.controller.calls!;
@@ -1009,25 +1018,8 @@ class _HomePageState extends State<HomePage> {
                   final wide = constraints.maxWidth >= 760;
                   final account = _AccountPanel(
                     connection: widget.connection,
-                    localDevice: widget.controller.localDevice!,
-                    safetyNumber: widget.controller.safetyNumber!,
                     compact: !wide,
-                    profileBusy: widget.controller.profileBusy,
-                    mcpConsent: widget.controller.mcpConsent,
-                    mcpAccessBusy: widget.controller.mcpAccessBusy,
-                    mcpConsentBusy: widget.controller.mcpConsentBusy,
-                    preferenceBusy: widget.controller.preferenceBusy,
-                    backupBusy: widget.controller.backupBusy,
-                    contactBusy: widget.controller.contactBusy,
-                    contactCount: widget.controller.contacts.length,
-                    themePreference: widget.controller.themePreference,
-                    onEditProfile: _editProfile,
-                    onOpenMcpAccess: _showMcpAccess,
-                    onThemeChanged: _setThemePreference,
-                    onBackup: _showBackupMenu,
-                    onRemoteBackup: _uploadRemoteBackup,
-                    onManageContacts: _manageContacts,
-                    onSignOut: widget.controller.signOut,
+                    onOpenSettings: _openSettings,
                   );
                   final conversation = _ConversationPanel(
                     controller: widget.controller,
@@ -1138,8 +1130,9 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('New encrypted group'),
+      title: Text(l10n.newEncryptedGroup),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1147,15 +1140,15 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
             key: const Key('group-title'),
             controller: _title,
             autofocus: true,
-            decoration: const InputDecoration(labelText: 'Group name'),
+            decoration: InputDecoration(labelText: l10n.groupName),
           ),
           const SizedBox(height: 12),
           TextField(
             key: const Key('group-members'),
             controller: _members,
-            decoration: const InputDecoration(
-              labelText: 'Member usernames',
-              helperText: 'Separate usernames with commas',
+            decoration: InputDecoration(
+              labelText: l10n.memberUsernames,
+              helperText: l10n.separateUsernames,
             ),
           ),
         ],
@@ -1163,14 +1156,14 @@ class _CreateGroupDialogState extends State<_CreateGroupDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           key: const Key('group-create'),
           onPressed: () =>
               Navigator.of(context)
                   .pop((_title.text, _members.text.split(','))),
-          child: const Text('Create group'),
+          child: Text(l10n.createGroup),
         ),
       ],
     );
@@ -1297,6 +1290,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final preview = AccountProfile(
       username: widget.profile.username,
       displayName: widget.profile.displayName,
@@ -1307,7 +1301,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
       avatarContentType: _avatarContentType,
     );
     return AlertDialog(
-      title: const Text('Edit public profile'),
+      title: Text(l10n.editPublicProfile),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -1327,14 +1321,14 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                     key: const Key('profile-avatar-pick'),
                     onPressed: _pickAvatar,
                     icon: const Icon(Icons.photo_camera_outlined),
-                    label: const Text('Choose image'),
+                    label: Text(l10n.chooseImage),
                   ),
                   if (_avatarBytes != null)
                     TextButton.icon(
                       key: const Key('profile-avatar-remove'),
                       onPressed: _removeAvatar,
                       icon: const Icon(Icons.delete_outline),
-                      label: const Text('Remove'),
+                      label: Text(l10n.remove),
                     ),
                 ],
               ),
@@ -1343,16 +1337,16 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 key: const Key('profile-display-name'),
                 controller: _displayName,
                 maxLength: 80,
-                decoration: const InputDecoration(labelText: 'Display name'),
+                decoration: InputDecoration(labelText: l10n.displayName),
               ),
               const SizedBox(height: 8),
               TextField(
                 key: const Key('profile-status'),
                 controller: _status,
                 maxLength: AccountProfileLimits.maxStatusCharacters,
-                decoration: const InputDecoration(
-                  labelText: 'Status',
-                  hintText: 'Available',
+                decoration: InputDecoration(
+                  labelText: l10n.status,
+                  hintText: l10n.available,
                 ),
               ),
               if (_validationError case final message?) ...[
@@ -1364,10 +1358,9 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                 ),
               ],
               const SizedBox(height: 10),
-              const Text(
-                'Your profile is visible to authenticated WampApp members. '
-                'Message contents and device keys are never included.',
-                style: TextStyle(fontSize: 12),
+              Text(
+                l10n.profileVisibilityBoundary,
+                style: const TextStyle(fontSize: 12),
               ),
             ],
           ),
@@ -1376,12 +1369,12 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           key: const Key('profile-save'),
           onPressed: _save,
-          child: const Text('Save'),
+          child: Text(l10n.save),
         ),
       ],
     );
@@ -1427,7 +1420,7 @@ class _McpEndpointField extends StatelessWidget {
           ),
           IconButton(
             key: ValueKey('$keyName-copy'),
-            tooltip: 'Copy $label',
+            tooltip: AppLocalizations.of(context).copyLabel(label),
             onPressed: onCopy,
             icon: const Icon(Icons.copy_outlined),
           ),
@@ -1440,326 +1433,71 @@ class _McpEndpointField extends StatelessWidget {
 class _AccountPanel extends StatelessWidget {
   const _AccountPanel({
     required this.connection,
-    required this.localDevice,
-    required this.safetyNumber,
     required this.compact,
-    required this.profileBusy,
-    required this.mcpConsent,
-    required this.mcpAccessBusy,
-    required this.mcpConsentBusy,
-    required this.preferenceBusy,
-    required this.backupBusy,
-    required this.contactBusy,
-    required this.contactCount,
-    required this.themePreference,
-    required this.onEditProfile,
-    required this.onOpenMcpAccess,
-    required this.onThemeChanged,
-    required this.onBackup,
-    required this.onRemoteBackup,
-    required this.onManageContacts,
-    required this.onSignOut,
+    required this.onOpenSettings,
   });
 
   final AccountConnection connection;
-  final DeviceRecord localDevice;
-  final String safetyNumber;
   final bool compact;
-  final bool profileBusy;
-  final WampAppMcpConsent mcpConsent;
-  final bool mcpAccessBusy;
-  final bool mcpConsentBusy;
-  final bool preferenceBusy;
-  final bool backupBusy;
-  final bool contactBusy;
-  final int contactCount;
-  final WampAppThemePreference themePreference;
-  final VoidCallback onEditProfile;
-  final VoidCallback onOpenMcpAccess;
-  final ValueChanged<WampAppThemePreference> onThemeChanged;
-  final VoidCallback onBackup;
-  final VoidCallback onRemoteBackup;
-  final VoidCallback onManageContacts;
-  final VoidCallback onSignOut;
+  final VoidCallback onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
+    final settingsLabel = AppLocalizations.of(context).settings;
     final profile = connection.profile;
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(compact ? 14 : 22),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final content = Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.waves_rounded,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 9),
-                          const Flexible(
-                            child: Text(
-                              'WampApp',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!compact) const _OnlineBadge(),
-                    if (compact) ...[
-                      IconButton(
-                        key: const Key('account-contacts-compact'),
-                        tooltip: 'Manage local contacts',
-                        onPressed: contactBusy ? null : onManageContacts,
-                        icon: contactBusy
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.contacts_outlined),
-                      ),
-                      IconButton(
-                        key: const Key('account-backup-compact'),
-                        tooltip: 'Export encrypted backup',
-                        onPressed: backupBusy ? null : onBackup,
-                        icon: backupBusy
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.backup_outlined),
-                      ),
-                      IconButton(
-                        key: const Key('account-sign-out-compact'),
-                        tooltip: 'Sign out',
-                        onPressed: onSignOut,
-                        icon: const Icon(Icons.logout),
-                      ),
-                    ],
-                  ],
-                ),
-                SizedBox(height: compact ? 12 : 24),
-                Row(
-                  children: [
-                    _ProfileAvatar(
-                      key: const Key('account-profile-avatar'),
-                      profile: profile,
-                      radius: 25,
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            connection.displayName,
-                            maxLines: compact ? 1 : 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          Text(
-                            '@${connection.username}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (profile.status.isNotEmpty)
-                            Text(
-                              profile.status,
-                              key: const Key('account-profile-status'),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      key: const Key('account-profile-edit'),
-                      tooltip: 'Edit public profile',
-                      onPressed: profileBusy ? null : onEditProfile,
-                      icon: profileBusy
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.edit_outlined),
-                    ),
-                    PopupMenuButton<WampAppThemePreference>(
-                      key: const Key('account-theme-menu'),
-                      enabled: !preferenceBusy,
-                      initialValue: themePreference,
-                      tooltip: 'Choose appearance',
-                      onSelected: onThemeChanged,
-                      itemBuilder: (context) => [
-                        for (final preference in WampAppThemePreference.values)
-                          CheckedPopupMenuItem<WampAppThemePreference>(
-                            key: ValueKey('appearance-${preference.wireName}'),
-                            value: preference,
-                            checked: preference == themePreference,
-                            child: Text(switch (preference) {
-                              WampAppThemePreference.system =>
-                                'System appearance',
-                              WampAppThemePreference.light =>
-                                'Light appearance',
-                              WampAppThemePreference.dark => 'Dark appearance',
-                            }),
-                          ),
-                      ],
-                      icon: preferenceBusy
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.brightness_6_outlined),
-                    ),
-                  ],
-                ),
-                SizedBox(height: compact ? 10 : 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        compact
-                            ? '${localDevice.enrollment.deviceName} · ${connection.endpoint.websocketUri.authority}'
-                            : connection.endpoint.websocketUri.authority,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      key: const Key('account-mcp-profile-consent'),
-                      tooltip: 'MCP access settings',
-                      constraints: const BoxConstraints.tightFor(
-                        width: 28,
-                        height: 28,
-                      ),
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
-                      onPressed: mcpAccessBusy || mcpConsentBusy
-                          ? null
-                          : onOpenMcpAccess,
-                      icon: mcpAccessBusy || mcpConsentBusy
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(
-                              mcpConsent.profileReadAllowed
-                                  ? Icons.smart_toy
-                                  : Icons.smart_toy_outlined,
-                              size: 20,
-                            ),
-                    ),
-                  ],
-                ),
-                if (!compact) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.verified_user_outlined, size: 18),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Encrypted device vault',
-                                style: TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 9),
-                        Text(localDevice.enrollment.deviceName),
-                        const SizedBox(height: 4),
-                        Text(
-                          safetyNumber,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 10,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    key: const Key('account-contacts'),
-                    onPressed: contactBusy ? null : onManageContacts,
-                    icon: const Icon(Icons.contacts_outlined),
-                    label: Text(
-                      contactCount == 0
-                          ? 'Import contacts'
-                          : 'Contacts · $contactCount',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    key: const Key('account-backup'),
-                    onPressed: backupBusy ? null : onBackup,
-                    icon: backupBusy
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.backup_outlined),
-                    label: const Text('Backup options'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    key: const Key('account-backup-remote'),
-                    onPressed: backupBusy ? null : onRemoteBackup,
-                    icon: const Icon(Icons.cloud_upload_outlined),
-                    label: const Text('Back up to this server'),
-                  ),
-                  const SizedBox(height: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 14 : 18,
+          vertical: compact ? 10 : 18,
+        ),
+        child: Row(
+          children: [
+            _ProfileAvatar(
+              key: const Key('account-profile-avatar'),
+              profile: profile,
+              radius: compact ? 22 : 27,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    'Includes device identity, chats, settings, and attachment keys. Cached media bytes are not included.',
-                    key: const Key('backup-export-boundary'),
-                    textAlign: TextAlign.center,
+                    connection.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    '@${connection.username}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 11,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: onSignOut,
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Sign out'),
-                  ),
+                  if (!compact && profile.status.isNotEmpty)
+                    Text(
+                      profile.status,
+                      key: const Key('account-profile-status'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                 ],
-              ],
-            );
-            if (compact || !constraints.hasBoundedHeight) return content;
-            return SingleChildScrollView(child: content);
-          },
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (!compact) const _OnlineBadge(),
+            IconButton(
+              key: const Key('account-settings'),
+              tooltip: settingsLabel,
+              onPressed: onOpenSettings,
+              icon: const Icon(Icons.settings_outlined),
+            ),
+          ],
         ),
       ),
     );
@@ -1811,14 +1549,14 @@ class _OnlineBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CircleAvatar(radius: 4, backgroundColor: Color(0xFF38A66D)),
-        SizedBox(width: 6),
+        const CircleAvatar(radius: 4, backgroundColor: Color(0xFF38A66D)),
+        const SizedBox(width: 6),
         Text(
-          'Online',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          AppLocalizations.of(context).online,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -1868,10 +1606,11 @@ class _PeerTrustDialogState extends State<_PeerTrustDialog> {
   }
 
   Future<void> _verify(PeerDeviceTrust device) async {
+    final l10n = AppLocalizations.of(context);
     final accepted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm safety number'),
+        title: Text(l10n.confirmSafetyNumber),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1886,21 +1625,18 @@ class _PeerTrustDialogState extends State<_PeerTrustDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Only continue after comparing this number with your contact '
-              'through another trusted channel.',
-            ),
+            Text(l10n.compareSafetyNumber),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             key: const Key('peer-trust-confirm'),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Numbers match'),
+            child: Text(l10n.numbersMatch),
           ),
         ],
       ),
@@ -1929,20 +1665,21 @@ class _PeerTrustDialogState extends State<_PeerTrustDialog> {
     }
   }
 
-  String get _errorMessage => switch (_error) {
+  String _errorMessage(AppLocalizations l10n) => switch (_error) {
     FormatException(:final message) => message,
-    _ => 'Could not load or verify this encryption identity.',
+    _ => l10n.trustLoadFailed,
   };
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final summary = _summary;
     return AlertDialog(
       key: const Key('peer-trust-dialog'),
       title: Text(
         summary == null
-            ? 'Encryption identity'
-            : 'Encryption identity · @${summary.username}',
+            ? l10n.encryptionIdentity
+            : l10n.encryptionIdentityFor(summary.username),
       ),
       content: SizedBox(
         width: 440,
@@ -1961,12 +1698,7 @@ class _PeerTrustDialogState extends State<_PeerTrustDialog> {
                     if (summary != null) ...[
                       _PeerTrustStatusBanner(summary: summary),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Compare each active device safety number through '
-                        'another trusted channel. Verification detects later '
-                        'identity changes but does not replace that first '
-                        'comparison.',
-                      ),
+                      Text(l10n.trustComparisonHelp),
                       const SizedBox(height: 16),
                       for (final device in summary.devices) ...[
                         DecoratedBox(
@@ -1997,9 +1729,12 @@ class _PeerTrustDialogState extends State<_PeerTrustDialog> {
                                       ),
                                     ),
                                     if (device.verified)
-                                      const Chip(
-                                        avatar: Icon(Icons.verified, size: 18),
-                                        label: Text('Verified'),
+                                      Chip(
+                                        avatar: const Icon(
+                                          Icons.verified,
+                                          size: 18,
+                                        ),
+                                        label: Text(l10n.verified),
                                       ),
                                   ],
                                 ),
@@ -2037,8 +1772,8 @@ class _PeerTrustDialogState extends State<_PeerTrustDialog> {
                                         : const Icon(Icons.fact_check_outlined),
                                     label: Text(
                                       device.verified
-                                          ? 'Verified'
-                                          : 'Verify device',
+                                          ? l10n.verified
+                                          : l10n.verifyDevice,
                                     ),
                                   ),
                                 ),
@@ -2051,7 +1786,7 @@ class _PeerTrustDialogState extends State<_PeerTrustDialog> {
                     ],
                     if (_error != null) ...[
                       Text(
-                        _errorMessage,
+                        _errorMessage(l10n),
                         key: const Key('peer-trust-error'),
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
@@ -2061,7 +1796,7 @@ class _PeerTrustDialogState extends State<_PeerTrustDialog> {
                       OutlinedButton.icon(
                         onPressed: _verifyingDeviceId == null ? _load : null,
                         icon: const Icon(Icons.refresh),
-                        label: const Text('Refresh'),
+                        label: Text(l10n.refresh),
                       ),
                     ],
                   ],
@@ -2071,7 +1806,7 @@ class _PeerTrustDialogState extends State<_PeerTrustDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
+          child: Text(l10n.close),
         ),
       ],
     );
@@ -2085,23 +1820,22 @@ class _PeerTrustStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final (icon, color, text) = switch (summary.status) {
       PeerTrustStatus.unverified => (
         Icons.shield_outlined,
         Theme.of(context).colorScheme.secondary,
-        'Not verified yet. Messages can be sent, but compare every active '
-            'device before relying on this identity.',
+        l10n.trustUnverified,
       ),
       PeerTrustStatus.verified => (
         Icons.verified_user,
         const Color(0xFF197A52),
-        'Every active device is verified.',
+        l10n.trustVerified,
       ),
       PeerTrustStatus.changed => (
         Icons.gpp_bad_outlined,
         Theme.of(context).colorScheme.error,
-        'Encryption identity changed. Sending is blocked until every active '
-            'device is reviewed and verified.',
+        l10n.trustChanged,
       ),
     };
     return DecoratedBox(
@@ -2219,13 +1953,15 @@ class _ConversationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final selectedGroup = controller.groups
         .where((group) => group.conversationId == selectedGroupId)
         .firstOrNull;
     final groupMode = selectedGroupId != null;
+    final directRecipient = recipientController.text.trim();
     final directConversationId = groupMode
         ? null
-        : controller.directConversationIdFor(recipientController.text);
+        : controller.directConversationIdFor(directRecipient);
     final activeConversationId =
         selectedGroup?.conversationId ?? directConversationId;
     final conversationMuted =
@@ -2236,13 +1972,14 @@ class _ConversationPanel extends StatelessWidget {
         : controller.conversationAppearanceFor(activeConversationId);
     final canStartCall =
         !groupMode &&
-        recipientController.text.trim().isNotEmpty &&
+        directConversationId != null &&
         !calls.hasCall &&
         !calls.busy;
     final query = LocalMessageQuery(
       text: searchQuery,
       readFilter: readFilter,
       selectedGroupId: selectedGroupId,
+      selectedDirectConversationId: groupMode ? null : directConversationId,
     );
     final globalSearch = query.isGlobalSearch;
     final visibleMessages = query.select(controller.messages);
@@ -2265,7 +2002,10 @@ class _ConversationPanel extends StatelessWidget {
                   const SizedBox(width: 9),
                   Expanded(
                     child: Text(
-                      selectedGroup?.title ?? 'Encrypted messages',
+                      selectedGroup?.title ??
+                          (directRecipient.isEmpty
+                              ? l10n.encryptedMessages
+                              : '@$directRecipient'),
                       maxLines: compact ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleLarge,
@@ -2274,16 +2014,16 @@ class _ConversationPanel extends StatelessWidget {
                   IconButton(
                     key: const Key('conversation-voice-call'),
                     tooltip: groupMode
-                        ? 'Group calls are not available yet'
-                        : 'Start encrypted voice call',
+                        ? l10n.groupCallsUnavailable
+                        : l10n.startEncryptedVoiceCall,
                     onPressed: canStartCall ? onStartVoiceCall : null,
                     icon: const Icon(Icons.call_outlined),
                   ),
                   IconButton(
                     key: const Key('conversation-video-call'),
                     tooltip: groupMode
-                        ? 'Group calls are not available yet'
-                        : 'Start encrypted video call',
+                        ? l10n.groupCallsUnavailable
+                        : l10n.startEncryptedVideoCall,
                     onPressed: canStartCall ? onStartVideoCall : null,
                     icon: const Icon(Icons.videocam_outlined),
                   ),
@@ -2291,8 +2031,8 @@ class _ConversationPanel extends StatelessWidget {
                     IconButton(
                       key: const Key('conversation-mute'),
                       tooltip: conversationMuted
-                          ? 'Unmute this chat'
-                          : 'Mute this chat',
+                          ? l10n.unmuteChat
+                          : l10n.muteChat,
                       onPressed: controller.preferenceBusy
                           ? null
                           : () => onMuteChanged(
@@ -2315,8 +2055,9 @@ class _ConversationPanel extends StatelessWidget {
                     enabled:
                         activeConversationId != null &&
                         !controller.preferenceBusy,
-                    tooltip:
-                        'Chat appearance: ${_appearanceLabel(conversationAppearance)}',
+                    tooltip: l10n.chatAppearance(
+                      _appearanceLabel(l10n, conversationAppearance),
+                    ),
                     onSelected: activeConversationId == null
                         ? null
                         : (appearance) => unawaited(
@@ -2334,13 +2075,13 @@ class _ConversationPanel extends StatelessWidget {
                           ),
                           value: appearance,
                           checked: conversationAppearance == appearance,
-                          child: Text(_appearanceLabel(appearance)),
+                          child: Text(_appearanceLabel(l10n, appearance)),
                         ),
                     ],
                     icon: const Icon(Icons.palette_outlined),
                   ),
                   IconButton(
-                    tooltip: 'Sync messages',
+                    tooltip: l10n.syncMessages,
                     onPressed: controller.messageBusy
                         ? null
                         : controller.refreshMessages,
@@ -2362,14 +2103,14 @@ class _ConversationPanel extends StatelessWidget {
                 }) => null,
                 decoration: InputDecoration(
                   labelText: globalSearch
-                      ? 'Local search · ${visibleMessages.length} result${visibleMessages.length == 1 ? '' : 's'}'
-                      : 'Search local messages · stays on this device',
+                      ? l10n.localSearchResults(visibleMessages.length)
+                      : l10n.searchLocalMessages,
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: searchController.text.isEmpty
                       ? null
                       : IconButton(
                           key: const Key('message-search-clear'),
-                          tooltip: 'Clear message search',
+                          tooltip: l10n.clearMessageSearch,
                           onPressed: onClearSearch,
                           icon: const Icon(Icons.close),
                         ),
@@ -2390,7 +2131,7 @@ class _ConversationPanel extends StatelessWidget {
                           ? null
                           : (_) => onConversationChanged(null),
                       avatar: const Icon(Icons.person_outline, size: 18),
-                      label: const Text('Direct'),
+                      label: Text(l10n.direct),
                     ),
                     for (final group in controller.groups) ...[
                       const SizedBox(width: 8),
@@ -2412,7 +2153,7 @@ class _ConversationPanel extends StatelessWidget {
                       key: const Key('conversation-create-group'),
                       onPressed: controller.messageBusy ? null : onCreateGroup,
                       avatar: const Icon(Icons.add, size: 18),
-                      label: const Text('New group'),
+                      label: Text(l10n.newGroup),
                     ),
                     const SizedBox(width: 16),
                     FilterChip(
@@ -2420,7 +2161,7 @@ class _ConversationPanel extends StatelessWidget {
                       selected: readFilter == LocalMessageReadFilter.all,
                       onSelected: (_) =>
                           onReadFilterChanged(LocalMessageReadFilter.all),
-                      label: const Text('All'),
+                      label: Text(l10n.all),
                     ),
                     const SizedBox(width: 8),
                     FilterChip(
@@ -2432,7 +2173,7 @@ class _ConversationPanel extends StatelessWidget {
                         Icons.mark_chat_unread_outlined,
                         size: 18,
                       ),
-                      label: const Text('Unread received'),
+                      label: Text(l10n.unreadReceived),
                     ),
                     const SizedBox(width: 8),
                     FilterChip(
@@ -2441,7 +2182,7 @@ class _ConversationPanel extends StatelessWidget {
                       onSelected: (_) =>
                           onReadFilterChanged(LocalMessageReadFilter.read),
                       avatar: const Icon(Icons.done_all, size: 18),
-                      label: const Text('Read received'),
+                      label: Text(l10n.readReceived),
                     ),
                   ],
                 ),
@@ -2484,20 +2225,34 @@ class _ConversationPanel extends StatelessWidget {
                 controller: recipientController,
                 enabled: !controller.messageBusy,
                 decoration: InputDecoration(
-                  labelText: 'Recipient username',
+                  labelText: directRecipient.isEmpty
+                      ? l10n.startDirectChat
+                      : l10n.directChat,
                   prefixIcon: const Icon(Icons.alternate_email),
                   suffixIcon: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (directRecipient.isNotEmpty)
+                        IconButton(
+                          key: const Key('recipient-clear'),
+                          tooltip: l10n.closeDirectChat,
+                          onPressed: controller.messageBusy
+                              ? null
+                              : () {
+                                  recipientController.clear();
+                                  onRecipientChanged();
+                                },
+                          icon: const Icon(Icons.close),
+                        ),
                       IconButton(
                         key: const Key('recipient-identity-view'),
-                        tooltip: 'Verify encryption identity',
+                        tooltip: l10n.verifyEncryptionIdentity,
                         onPressed: onVerifyIdentity,
                         icon: const Icon(Icons.verified_user_outlined),
                       ),
                       IconButton(
                         key: const Key('recipient-profile-view'),
-                        tooltip: 'View public profile',
+                        tooltip: l10n.viewPublicProfile,
                         onPressed: controller.profileBusy
                             ? null
                             : onViewProfile,
@@ -2522,7 +2277,7 @@ class _ConversationPanel extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   selectedGroup == null
-                      ? 'Group unavailable'
+                      ? l10n.groupUnavailable
                       : selectedGroup.memberUsernames
                             .map((username) => '@$username')
                             .join('  '),
@@ -2541,11 +2296,13 @@ class _ConversationPanel extends StatelessWidget {
               child: visibleMessages.isEmpty
                   ? _NoMessages(
                       message: globalSearch
-                          ? 'No local messages match this search and filter.'
+                          ? l10n.noSearchMessages
                           : switch (readFilter) {
-                              LocalMessageReadFilter.all => 'No messages yet. Choose a registered account and send the first end-to-end encrypted message.',
-                              LocalMessageReadFilter.unread => 'No unread received messages in this conversation.',
-                              LocalMessageReadFilter.read => 'No read received messages in this conversation.',
+                              LocalMessageReadFilter.all => l10n.noMessages,
+                              LocalMessageReadFilter.unread =>
+                                l10n.noUnreadMessages,
+                              LocalMessageReadFilter.read =>
+                                l10n.noReadMessages,
                             },
                     )
                   : ListView.separated(
@@ -2631,7 +2388,7 @@ class _ConversationPanel extends StatelessWidget {
                         Icons.visibility_off_outlined,
                         size: 18,
                       ),
-                      label: const Text('View once'),
+                      label: Text(l10n.viewOnce),
                     ),
                     const SizedBox(width: 12),
                     PopupMenuButton<Duration>(
@@ -2647,27 +2404,27 @@ class _ConversationPanel extends StatelessWidget {
                               activeConversationId,
                               value == Duration.zero ? null : value,
                             ),
-                      itemBuilder: (context) => const [
+                      itemBuilder: (context) => [
                         PopupMenuItem(
                           value: Duration.zero,
-                          child: Text('Keep chat messages'),
+                          child: Text(l10n.keepChatMessages),
                         ),
                         PopupMenuItem(
-                          value: Duration(hours: 1),
-                          child: Text('Delete after 1 hour'),
+                          value: const Duration(hours: 1),
+                          child: Text(l10n.deleteAfterOneHour),
                         ),
                         PopupMenuItem(
-                          value: Duration(days: 1),
-                          child: Text('Delete after 1 day'),
+                          value: const Duration(days: 1),
+                          child: Text(l10n.deleteAfterOneDay),
                         ),
                         PopupMenuItem(
-                          value: Duration(days: 7),
-                          child: Text('Delete after 7 days'),
+                          value: const Duration(days: 7),
+                          child: Text(l10n.deleteAfterSevenDays),
                         ),
                       ],
                       child: Chip(
                         avatar: const Icon(Icons.timer_outlined, size: 18),
-                        label: Text(_expiryLabel(expiresAfter)),
+                        label: Text(_expiryLabel(l10n, expiresAfter)),
                       ),
                     ),
                   ],
@@ -2703,135 +2460,23 @@ class _ConversationPanel extends StatelessWidget {
               ),
               const SizedBox(height: 8),
             ],
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                IconButton(
-                  key: const Key('message-attach'),
-                  tooltip: 'Attach encrypted files',
-                  onPressed: controller.messageBusy || voiceRecording
-                      ? null
-                      : onPickAttachments,
-                  icon: const Icon(Icons.attach_file_rounded),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  key: const Key('message-expression'),
-                  tooltip: 'Choose emoji or encrypted sticker',
-                  onPressed:
-                      controller.messageBusy || voiceRecording || stickerBusy
-                      ? null
-                      : onPickExpression,
-                  icon: stickerBusy
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.emoji_emotions_outlined),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: voiceRecording
-                      ? Container(
-                          key: const Key('voice-recording-status'),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 11,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.errorContainer,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.fiber_manual_record,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onErrorContainer,
-                                size: 15,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Recording ${_formatDuration(voiceRecordingElapsed)}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                key: const Key('voice-recording-cancel'),
-                                tooltip: 'Cancel voice note',
-                                onPressed: voiceControlBusy
-                                    ? null
-                                    : onCancelVoiceRecording,
-                                visualDensity: VisualDensity.compact,
-                                icon: const Icon(Icons.delete_outline),
-                              ),
-                            ],
-                          ),
-                        )
-                      : TextField(
-                          key: const Key('message-composer'),
-                          controller: messageController,
-                          enabled: !controller.messageBusy,
-                          minLines: 1,
-                          maxLines: 4,
-                          decoration: InputDecoration(
-                            hintText: groupMode
-                                ? 'Write to the encrypted group'
-                                : 'Write an encrypted message',
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 6),
-                IconButton(
-                  key: const Key('message-voice'),
-                  tooltip: voiceRecording
-                      ? 'Finish voice note'
-                      : 'Record encrypted voice note',
-                  onPressed:
-                      controller.messageBusy ||
-                          voiceControlBusy ||
-                          (!voiceRecording &&
-                              selectedAttachments.length >=
-                                  WampAppAttachmentLimits
-                                      .maxAttachmentsPerMessage)
-                      ? null
-                      : onToggleVoiceRecording,
-                  icon: voiceControlBusy
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(
-                          voiceRecording
-                              ? Icons.stop_circle_outlined
-                              : Icons.mic_none_rounded,
-                          color: voiceRecording
-                              ? Theme.of(context).colorScheme.error
-                              : null,
-                        ),
-                ),
-                const SizedBox(width: 4),
-                IconButton.filled(
-                  key: const Key('message-send'),
-                  tooltip: 'Send encrypted message',
-                  onPressed:
-                      controller.messageBusy ||
-                          controller.preferenceBusy ||
-                          voiceRecording
-                      ? null
-                      : onSend,
-                  icon: controller.messageBusy
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send_rounded),
-                ),
-              ],
+            _MessageComposer(
+              messageController: messageController,
+              recipientController: recipientController,
+              directConversationIdFor: controller.directConversationIdFor,
+              groupMode: groupMode,
+              messageBusy: controller.messageBusy,
+              preferenceBusy: controller.preferenceBusy,
+              selectedAttachments: selectedAttachments,
+              voiceRecording: voiceRecording,
+              voiceControlBusy: voiceControlBusy,
+              voiceRecordingElapsed: voiceRecordingElapsed,
+              stickerBusy: stickerBusy,
+              onSend: onSend,
+              onPickAttachments: onPickAttachments,
+              onPickExpression: onPickExpression,
+              onToggleVoiceRecording: onToggleVoiceRecording,
+              onCancelVoiceRecording: onCancelVoiceRecording,
             ),
           ],
         ),
@@ -2839,20 +2484,242 @@ class _ConversationPanel extends StatelessWidget {
     );
   }
 
-  static String _expiryLabel(Duration? value) => switch (value) {
-    null => 'Keep chat messages',
-    const Duration(hours: 1) => 'Delete after 1 hour',
-    const Duration(days: 1) => 'Delete after 1 day',
-    const Duration(days: 7) => 'Delete after 7 days',
-    _ => 'Auto-delete enabled',
-  };
-
-  static String _appearanceLabel(WampAppConversationAppearance appearance) =>
-      switch (appearance) {
-        WampAppConversationAppearance.standard => 'Standard',
-        WampAppConversationAppearance.ocean => 'Ocean',
-        WampAppConversationAppearance.sunset => 'Sunset',
+  static String _expiryLabel(AppLocalizations l10n, Duration? value) =>
+      switch (value) {
+        null => l10n.keepChatMessages,
+        const Duration(hours: 1) => l10n.deleteAfterOneHour,
+        const Duration(days: 1) => l10n.deleteAfterOneDay,
+        const Duration(days: 7) => l10n.deleteAfterSevenDays,
+        _ => l10n.autoDeleteEnabled,
       };
+
+  static String _appearanceLabel(
+    AppLocalizations l10n,
+    WampAppConversationAppearance appearance,
+  ) => switch (appearance) {
+    WampAppConversationAppearance.standard => l10n.appearanceStandard,
+    WampAppConversationAppearance.ocean => l10n.appearanceOcean,
+    WampAppConversationAppearance.sunset => l10n.appearanceSunset,
+  };
+}
+
+class _MessageComposer extends StatelessWidget {
+  const _MessageComposer({
+    required this.messageController,
+    required this.recipientController,
+    required this.directConversationIdFor,
+    required this.groupMode,
+    required this.messageBusy,
+    required this.preferenceBusy,
+    required this.selectedAttachments,
+    required this.voiceRecording,
+    required this.voiceControlBusy,
+    required this.voiceRecordingElapsed,
+    required this.stickerBusy,
+    required this.onSend,
+    required this.onPickAttachments,
+    required this.onPickExpression,
+    required this.onToggleVoiceRecording,
+    required this.onCancelVoiceRecording,
+  });
+
+  final TextEditingController messageController;
+  final TextEditingController recipientController;
+  final String? Function(String username) directConversationIdFor;
+  final bool groupMode;
+  final bool messageBusy;
+  final bool preferenceBusy;
+  final List<_SelectedAttachment> selectedAttachments;
+  final bool voiceRecording;
+  final bool voiceControlBusy;
+  final Duration voiceRecordingElapsed;
+  final bool stickerBusy;
+  final Future<void> Function() onSend;
+  final VoidCallback onPickAttachments;
+  final VoidCallback onPickExpression;
+  final VoidCallback onToggleVoiceRecording;
+  final VoidCallback onCancelVoiceRecording;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    if (voiceRecording) {
+      return Row(
+        children: [
+          Expanded(
+            child: Container(
+              key: const Key('voice-recording-status'),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.fiber_manual_record,
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                    size: 15,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.recordingDuration(
+                        _formatDuration(voiceRecordingElapsed),
+                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('voice-recording-cancel'),
+                    tooltip: l10n.cancelVoiceNote,
+                    onPressed: voiceControlBusy ? null : onCancelVoiceRecording,
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            key: const Key('message-voice'),
+            tooltip: l10n.finishVoiceNote,
+            onPressed: messageBusy || voiceControlBusy
+                ? null
+                : onToggleVoiceRecording,
+            icon: voiceControlBusy
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.stop_rounded),
+          ),
+        ],
+      );
+    }
+
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: recipientController,
+      builder: (context, recipientValue, _) {
+        return ValueListenableBuilder<TextEditingValue>(
+          valueListenable: messageController,
+          builder: (context, value, _) {
+            final hasActiveConversation =
+                groupMode ||
+                directConversationIdFor(recipientValue.text.trim()) != null;
+            final canCompose = !messageBusy;
+            final hasPayload =
+                value.text.trim().isNotEmpty || selectedAttachments.isNotEmpty;
+            final canSend =
+                canCompose &&
+                hasActiveConversation &&
+                !preferenceBusy &&
+                hasPayload;
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: const Key('message-composer'),
+                    controller: messageController,
+                    enabled: canCompose,
+                    minLines: 1,
+                    maxLines: 5,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.send,
+                    textCapitalization: TextCapitalization.sentences,
+                    onSubmitted: canSend ? (_) => onSend() : null,
+                    decoration: InputDecoration(
+                      hintText: !hasActiveConversation
+                          ? l10n.openConversationToReply
+                          : groupMode
+                          ? l10n.messageGroup
+                          : l10n.message,
+                      filled: true,
+                      fillColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(26),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(26),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(26),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 1.5,
+                        ),
+                      ),
+                      prefixIcon: IconButton(
+                        key: const Key('message-expression'),
+                        tooltip: l10n.chooseExpression,
+                        onPressed: !canCompose || stickerBusy
+                            ? null
+                            : onPickExpression,
+                        icon: stickerBusy
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.emoji_emotions_outlined),
+                      ),
+                      suffixIcon: IconButton(
+                        key: const Key('message-attach'),
+                        tooltip: l10n.attachEncryptedFiles,
+                        onPressed:
+                            !canCompose ||
+                                selectedAttachments.length >=
+                                    WampAppAttachmentLimits
+                                        .maxAttachmentsPerMessage
+                            ? null
+                            : onPickAttachments,
+                        icon: const Icon(Icons.attach_file_rounded),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  key: Key(hasPayload ? 'message-send' : 'message-voice'),
+                  tooltip: hasPayload
+                      ? l10n.sendEncryptedMessage
+                      : l10n.recordEncryptedVoiceNote,
+                  onPressed: hasPayload
+                      ? canSend
+                            ? onSend
+                            : null
+                      : canCompose && !voiceControlBusy
+                      ? onToggleVoiceRecording
+                      : null,
+                  icon: messageBusy || voiceControlBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          hasPayload
+                              ? Icons.send_rounded
+                              : Icons.mic_none_rounded,
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
 class _NoMessages extends StatelessWidget {
@@ -2972,36 +2839,37 @@ class _MessageBubble extends StatelessWidget {
   final Future<void> Function(EncryptedAttachmentDescriptor attachment)?
   onOpenAttachment;
 
-  String get _statusLabel {
+  String _statusLabel(AppLocalizations l10n) {
     final pending = outbound;
     if (pending != null) {
       return switch (pending.state) {
-        OutboundMessageState.queued => 'Sending…',
-        OutboundMessageState.accepted => 'Sent · syncing',
-        OutboundMessageState.retryable => 'Not sent',
-        OutboundMessageState.rejected => 'Rejected',
-        OutboundMessageState.conflict => 'Message conflict',
+        OutboundMessageState.queued => l10n.sending,
+        OutboundMessageState.accepted => l10n.sentSyncing,
+        OutboundMessageState.retryable => l10n.notSent,
+        OutboundMessageState.rejected => l10n.rejected,
+        OutboundMessageState.conflict => l10n.messageConflict,
       };
     }
     return message.outgoing
         ? (message.readAt != null
               ? (message.oneTime
-                    ? 'Opened'
+                    ? l10n.opened
                     : message.isGroup
-                    ? 'Read by everyone'
-                    : 'Read')
+                    ? l10n.readByEveryone
+                    : l10n.read)
               : message.deliveredAt != null
-              ? (message.isGroup ? 'Delivered to everyone' : 'Delivered')
-              : 'Sent')
+              ? (message.isGroup ? l10n.deliveredToEveryone : l10n.delivered)
+              : l10n.sent)
         : message.oneTime
-        ? 'View once'
+        ? l10n.viewOnce
         : message.readAt != null
-        ? 'Read'
-        : 'Tap to mark read';
+        ? l10n.read
+        : l10n.tapToOpenMarkRead;
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final pending = outbound;
     final palette = _ConversationAppearancePalette.resolve(context, appearance);
     final borderRadius = palette.borderRadius(message.outgoing);
@@ -3039,7 +2907,7 @@ class _MessageBubble extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     message.oneTime && !message.outgoing
-                        ? 'Tap to view once'
+                        ? l10n.tapToViewOnce
                         : message.text,
                     key: message.oneTime && !message.outgoing
                         ? ValueKey('message-view-once-${message.messageId}')
@@ -3059,7 +2927,7 @@ class _MessageBubble extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 5),
-                Text(_statusLabel, style: const TextStyle(fontSize: 10)),
+                Text(_statusLabel(l10n), style: const TextStyle(fontSize: 10)),
                 if (pending?.canRetry == true ||
                     pending?.canDiscard == true) ...[
                   const SizedBox(height: 4),
@@ -3072,14 +2940,14 @@ class _MessageBubble extends StatelessWidget {
                           key: ValueKey('message-retry-${message.messageId}'),
                           onPressed: onRetry,
                           icon: const Icon(Icons.refresh, size: 16),
-                          label: const Text('Retry'),
+                          label: Text(l10n.retry),
                         ),
                       if (pending?.canDiscard == true)
                         TextButton.icon(
                           key: ValueKey('message-discard-${message.messageId}'),
                           onPressed: onDiscard,
                           icon: const Icon(Icons.delete_outline, size: 16),
-                          label: const Text('Discard'),
+                          label: Text(l10n.discard),
                         ),
                     ],
                   ),
@@ -3198,6 +3066,7 @@ class _AttachmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerHighest
           .withValues(alpha: 0.72),
@@ -3226,7 +3095,7 @@ class _AttachmentCard extends StatelessWidget {
                     Text(
                       '${_formatBytes(attachment.plaintextBytes)}'
                       '${_durationSuffix(attachment.durationMilliseconds)}'
-                      ' · encrypted',
+                      ' · ${l10n.encrypted}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -3249,6 +3118,7 @@ class _FileSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -3260,10 +3130,7 @@ class _FileSummary extends StatelessWidget {
           const SizedBox(height: 4),
           Text(_formatBytes(attachment.plaintextBytes)),
           const SizedBox(height: 12),
-          const Text(
-            'The file was authenticated and decrypted on this device.',
-            textAlign: TextAlign.center,
-          ),
+          Text(l10n.fileDecrypted, textAlign: TextAlign.center),
         ],
       ),
     );
@@ -3278,6 +3145,7 @@ class _VoiceNotePlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
@@ -3294,8 +3162,8 @@ class _VoiceNotePlayer extends StatelessWidget {
               IconButton.filled(
                 key: ValueKey('voice-play-${attachment.attachmentId}'),
                 tooltip: controller.state == VoiceNotePlaybackState.playing
-                    ? 'Pause voice note'
-                    : 'Play voice note',
+                    ? l10n.pauseVoiceNote
+                    : l10n.playVoiceNote,
                 onPressed: controller.busy ? null : controller.toggle,
                 icon: controller.busy
                     ? const SizedBox.square(
@@ -3325,7 +3193,7 @@ class _VoiceNotePlayer extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 '${_formatBytes(attachment.plaintextBytes)} · '
-                'authenticated and decrypted on this device',
+                '${l10n.voiceNoteDecrypted}',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall,
               ),

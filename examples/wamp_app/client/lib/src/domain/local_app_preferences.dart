@@ -18,6 +18,34 @@ enum WampAppThemePreference {
   }
 }
 
+enum WampAppLocalePreference {
+  system('system', null),
+  english('en', 'en'),
+  german('de', 'de'),
+  spanish('es', 'es'),
+  french('fr', 'fr'),
+  italian('it', 'it'),
+  portuguese('pt', 'pt');
+
+  const WampAppLocalePreference(this.wireName, this.languageCode);
+
+  final String wireName;
+  final String? languageCode;
+
+  static WampAppLocalePreference parse(Object? value) {
+    if (value == null) return system;
+    if (value is! String) {
+      throw const FormatException('The saved language preference is invalid.');
+    }
+    return values
+            .where((candidate) => candidate.wireName == value)
+            .firstOrNull ??
+        (throw const FormatException(
+          'The saved language preference is invalid.',
+        ));
+  }
+}
+
 enum WampAppConversationAppearance {
   standard('standard'),
   ocean('ocean'),
@@ -45,6 +73,8 @@ enum WampAppConversationAppearance {
 final class LocalAppPreferences {
   factory LocalAppPreferences({
     WampAppThemePreference theme = WampAppThemePreference.system,
+    WampAppLocalePreference locale = WampAppLocalePreference.system,
+    bool pushNotificationsEnabled = true,
     Iterable<String> mutedConversationIds = const [],
     Map<String, Duration> disappearingMessageDurations = const {},
     Map<String, WampAppConversationAppearance> conversationAppearances =
@@ -73,6 +103,8 @@ final class LocalAppPreferences {
     );
     return LocalAppPreferences._(
       theme,
+      locale,
+      pushNotificationsEnabled,
       uniqueIds,
       Map<String, Duration>.of(disappearingMessageDurations),
       appearances,
@@ -81,6 +113,8 @@ final class LocalAppPreferences {
 
   LocalAppPreferences._(
     this.theme,
+    this.locale,
+    this.pushNotificationsEnabled,
     Set<String> mutedConversationIds,
     Map<String, Duration> disappearingMessageDurations,
     Map<String, WampAppConversationAppearance> conversationAppearances,
@@ -107,6 +141,8 @@ final class LocalAppPreferences {
   static final defaults = LocalAppPreferences();
 
   final WampAppThemePreference theme;
+  final WampAppLocalePreference locale;
+  final bool pushNotificationsEnabled;
   final Set<String> mutedConversationIds;
   final Map<String, Duration> disappearingMessageDurations;
   final Map<String, WampAppConversationAppearance> conversationAppearances;
@@ -126,6 +162,28 @@ final class LocalAppPreferences {
   LocalAppPreferences withTheme(WampAppThemePreference value) =>
       LocalAppPreferences(
         theme: value,
+        locale: locale,
+        pushNotificationsEnabled: pushNotificationsEnabled,
+        mutedConversationIds: mutedConversationIds,
+        disappearingMessageDurations: disappearingMessageDurations,
+        conversationAppearances: conversationAppearances,
+      );
+
+  LocalAppPreferences withLocale(WampAppLocalePreference value) =>
+      LocalAppPreferences(
+        theme: theme,
+        locale: value,
+        pushNotificationsEnabled: pushNotificationsEnabled,
+        mutedConversationIds: mutedConversationIds,
+        disappearingMessageDurations: disappearingMessageDurations,
+        conversationAppearances: conversationAppearances,
+      );
+
+  LocalAppPreferences withPushNotificationsEnabled(bool value) =>
+      LocalAppPreferences(
+        theme: theme,
+        locale: locale,
+        pushNotificationsEnabled: value,
         mutedConversationIds: mutedConversationIds,
         disappearingMessageDurations: disappearingMessageDurations,
         conversationAppearances: conversationAppearances,
@@ -140,6 +198,8 @@ final class LocalAppPreferences {
     }
     return LocalAppPreferences(
       theme: theme,
+      locale: locale,
+      pushNotificationsEnabled: pushNotificationsEnabled,
       mutedConversationIds: updated,
       disappearingMessageDurations: disappearingMessageDurations,
       conversationAppearances: conversationAppearances,
@@ -159,6 +219,8 @@ final class LocalAppPreferences {
     }
     return LocalAppPreferences(
       theme: theme,
+      locale: locale,
+      pushNotificationsEnabled: pushNotificationsEnabled,
       mutedConversationIds: mutedConversationIds,
       disappearingMessageDurations: updated,
       conversationAppearances: conversationAppearances,
@@ -180,6 +242,8 @@ final class LocalAppPreferences {
     }
     return LocalAppPreferences(
       theme: theme,
+      locale: locale,
+      pushNotificationsEnabled: pushNotificationsEnabled,
       mutedConversationIds: mutedConversationIds,
       disappearingMessageDurations: disappearingMessageDurations,
       conversationAppearances: updated,
@@ -195,6 +259,8 @@ final class LocalAppPreferences {
       ..sort();
     return {
       'theme': theme.wireName,
+      'locale': locale.wireName,
+      'push_notifications_enabled': pushNotificationsEnabled,
       'muted_conversation_ids': muted,
       'disappearing_message_seconds': <String, int>{
         for (final conversationId in disappearingIds)
@@ -257,6 +323,14 @@ final class LocalAppPreferences {
     }
     return LocalAppPreferences(
       theme: WampAppThemePreference.parse(value['theme']),
+      locale: WampAppLocalePreference.parse(value['locale']),
+      pushNotificationsEnabled: switch (value['push_notifications_enabled']) {
+        null => true,
+        final bool enabled => enabled,
+        _ => throw const FormatException(
+          'The saved push-notification preference is invalid.',
+        ),
+      },
       mutedConversationIds: muted.map((raw) {
         if (raw is! String) {
           throw const FormatException(

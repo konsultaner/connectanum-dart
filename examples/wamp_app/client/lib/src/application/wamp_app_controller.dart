@@ -11,6 +11,7 @@ import '../domain/local_contact_alias.dart';
 import '../domain/outbound_chat_message.dart';
 import '../infrastructure/attachment_chunk_cache.dart';
 import '../infrastructure/attachment_cipher.dart';
+import '../infrastructure/biometric_session_store.dart';
 import '../infrastructure/call_media.dart';
 import '../infrastructure/device_backup_file.dart';
 import '../infrastructure/device_vault.dart';
@@ -91,6 +92,7 @@ class WampAppController extends ChangeNotifier {
     DeviceBackupFileGateway? backupFiles,
     CallMediaFactory? callMediaFactory,
     PlatformPushTokenSource? platformPushTokenSource,
+    BiometricSessionStore? biometricSessionStore,
     this.deviceName = 'This device',
   }) : _gateway = gateway ?? const WampAccountGateway(),
        _trustStore = trustStore ?? EncryptedDeviceVault(),
@@ -100,7 +102,9 @@ class WampAppController extends ChangeNotifier {
        _callMediaFactory =
            callMediaFactory ?? const FlutterWebRtcCallMediaFactory(),
        _backupFiles =
-           backupFiles ?? const FileSelectorDeviceBackupFileGateway() {
+           backupFiles ?? const FileSelectorDeviceBackupFileGateway(),
+       _biometricSessions =
+           biometricSessionStore ?? createBiometricSessionStore() {
     _platformPush = PlatformPushRegistrationCoordinator(
       source: platformPushTokenSource,
       onError: _recordPlatformPushError,
@@ -114,6 +118,7 @@ class WampAppController extends ChangeNotifier {
   final AttachmentCipher _attachmentCipher;
   final CallMediaFactory _callMediaFactory;
   final DeviceBackupFileGateway _backupFiles;
+  final BiometricSessionStore _biometricSessions;
   late final PlatformPushRegistrationCoordinator _platformPush;
   final String deviceName;
   WampAppStatus _status = WampAppStatus.signedOut;
@@ -141,6 +146,11 @@ class WampAppController extends ChangeNotifier {
   bool _mcpConsentBusy = false;
   bool _preferenceBusy = false;
   bool _backupBusy = false;
+  bool _biometricInitialized = false;
+  bool _biometricAvailable = false;
+  bool _biometricRemembered = false;
+  bool _biometricBusy = false;
+  Object? _biometricError;
   LocalAppPreferences _preferences = LocalAppPreferences.defaults;
   StreamSubscription<MailboxWakeup>? _mailboxWakeupSubscription;
   int _pendingMailboxWakeupCursor = 0;
@@ -173,6 +183,14 @@ class WampAppController extends ChangeNotifier {
   bool get preferenceBusy => _preferenceBusy;
   bool get backupBusy => _backupBusy;
   WampAppThemePreference get themePreference => _preferences.theme;
+  WampAppLocalePreference get localePreference => _preferences.locale;
+  bool get pushNotificationsEnabled => _preferences.pushNotificationsEnabled;
+  bool get biometricAvailable => _biometricAvailable;
+  bool get biometricRemembered => _biometricRemembered;
+  bool get biometricBusy => _biometricBusy;
+  String? get biometricError => _biometricError == null
+      ? null
+      : 'Biometric sign-in could not be completed.';
   String? get preferenceError => switch (_preferenceError) {
     FormatException(:final message) => message,
     _ when _preferenceError != null => 'Could not save local preferences.',
@@ -250,12 +268,142 @@ class WampAppController extends ChangeNotifier {
 
   bool shouldPresentNotificationFor(LocalChatMessage message) =>
       _connection != null &&
+      _preferences.pushNotificationsEnabled &&
       !message.outgoing &&
       !_preferences.isMuted(message.conversationId);
 
   Future<bool> setThemePreference(WampAppThemePreference theme) {
     if (_preferences.theme == theme) return Future<bool>.value(true);
     return _savePreferences(_preferences.withTheme(theme));
+  }
+
+  Future<bool> setLocalePreference(WampAppLocalePreference locale) {
+    if (_preferences.locale == locale) return Future<bool>.value(true);
+    return _savePreferences(_preferences.withLocale(locale));
+  }
+
+  Future<bool> setPushNotificationsEnabled(bool enabled) {
+    if (_preferences.pushNotificationsEnabled == enabled) {
+      return Future<bool>.value(true);
+    }
+    return _savePreferences(_preferences.withPushNotificationsEnabled(enabled));
+  }
+
+  Future<void> initializeBiometricLogin() async {
+    if (_disposed || _biometricInitialized) return;
+    _biometricInitialized = true;
+    _biometricError = null;
+    try {
+      final available = await _biometricSessions.isAvailable();
+      final remembered = available && await _biometricSessions.hasLogin();
+      if (_disposed) return;
+      _biometricAvailable = available;
+      _biometricRemembered = remembered;
+    } catch (error) {
+      if (_disposed) return;
+      _biometricAvailable = false;
+      _biometricRemembered = false;
+      _biometricError = error;
+    }
+    notifyListeners();
+  }
+
+  Future<bool> unlockWithBiometrics({required String localizedReason}) async {
+    if (_disposed ||
+        _biometricBusy ||
+        !_biometricAvailable ||
+        !_biometricRemembered ||
+        _connection != null) {
+      return false;
+    }
+    final generation = _operationGeneration;
+    _biometricBusy = true;
+    _biometricError = null;
+    notifyListeners();
+    RememberedLogin? remembered;
+    try {
+      remembered = await _biometricSessions.unlock(
+        localizedReason: localizedReason,
+      );
+      if (remembered == null ||
+          _disposed ||
+          generation != _operationGeneration) {
+        return false;
+      }
+      await login(
+        serverAddress: remembered.serverAddress,
+        username: remembered.username,
+        password: remembered.password,
+      );
+      return _connection != null && _status == WampAppStatus.connected;
+    } catch (error) {
+      if (!_disposed) _biometricError = error;
+      return false;
+    } finally {
+      remembered?.dispose();
+      if (!_disposed) {
+        _biometricBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> enableBiometricLogin({
+    required String password,
+    required String localizedReason,
+  }) async {
+    final connection = _connection;
+    if (_disposed ||
+        _biometricBusy ||
+        !_biometricAvailable ||
+        connection == null ||
+        password.isEmpty) {
+      return false;
+    }
+    _biometricBusy = true;
+    _biometricError = null;
+    notifyListeners();
+    final remembered = RememberedLogin(
+      serverAddress: connection.endpoint.websocketUri.toString(),
+      username: connection.username,
+      password: password,
+    );
+    try {
+      final saved = await _biometricSessions.save(
+        login: remembered,
+        localizedReason: localizedReason,
+      );
+      if (_disposed) return false;
+      if (saved) _biometricRemembered = true;
+      return saved;
+    } catch (error) {
+      if (!_disposed) _biometricError = error;
+      return false;
+    } finally {
+      remembered.dispose();
+      if (!_disposed) {
+        _biometricBusy = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> disableBiometricLogin() async {
+    if (_disposed || _biometricBusy) return;
+    _biometricBusy = true;
+    _biometricError = null;
+    notifyListeners();
+    try {
+      await _biometricSessions.clear();
+      _biometricRemembered = false;
+    } catch (error) {
+      _biometricError = error;
+    } finally {
+      if (!_disposed) {
+        _biometricBusy = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<bool> setConversationMuted(String conversationId, bool muted) {
@@ -329,10 +477,30 @@ class WampAppController extends ChangeNotifier {
     try {
       await trust.savePreferences(preferences);
       if (!isCurrent()) return false;
+      final pushChanged =
+          preferences.pushNotificationsEnabled !=
+          _preferences.pushNotificationsEnabled;
       _preferences = preferences;
-      await _platformPush.updateMutedConversationIds(
-        preferences.mutedConversationIds,
-      );
+      if (pushChanged) {
+        if (preferences.pushNotificationsEnabled) {
+          final connection = _connection;
+          final device = _localDevice;
+          if (connection != null && device != null) {
+            await _platformPush.replace(
+              deviceId: device.deviceId,
+              register: connection.registerPlatformPush,
+              unregister: connection.unregisterPlatformPush,
+              mutedConversationIds: preferences.mutedConversationIds,
+            );
+          }
+        } else {
+          await _platformPush.clear();
+        }
+      } else if (preferences.pushNotificationsEnabled) {
+        await _platformPush.updateMutedConversationIds(
+          preferences.mutedConversationIds,
+        );
+      }
       if (!isCurrent()) return false;
       return true;
     } catch (error) {
@@ -622,10 +790,17 @@ class WampAppController extends ChangeNotifier {
     _mcpConsentBusy = false;
     _preferenceBusy = false;
     _backupBusy = false;
+    _biometricRemembered = false;
     _preferences = LocalAppPreferences.defaults;
     _status = WampAppStatus.signedOut;
     if (!_disposed) notifyListeners();
     try {
+      try {
+        await _biometricSessions.clear();
+      } catch (error) {
+        _biometricError = error;
+        if (!_disposed) notifyListeners();
+      }
       await Future.wait<void>([
         _platformPush.clear(),
         if (openedOneTimeMessage != null && openedOneTimeMessageHasAttachments)
@@ -1034,12 +1209,16 @@ class WampAppController extends ChangeNotifier {
     _status = WampAppStatus.connected;
     notifyListeners();
     _startAutomaticSyncIfNeeded();
-    await _platformPush.replace(
-      deviceId: nextDevice.deviceId,
-      register: next.registerPlatformPush,
-      unregister: next.unregisterPlatformPush,
-      mutedConversationIds: nextTrust.preferences.mutedConversationIds,
-    );
+    if (nextTrust.preferences.pushNotificationsEnabled) {
+      await _platformPush.replace(
+        deviceId: nextDevice.deviceId,
+        register: next.registerPlatformPush,
+        unregister: next.unregisterPlatformPush,
+        mutedConversationIds: nextTrust.preferences.mutedConversationIds,
+      );
+    } else {
+      await _platformPush.clear();
+    }
     try {
       await _closeState(
         previous,

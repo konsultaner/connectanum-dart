@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'application/wamp_app_controller.dart';
 import 'domain/local_app_preferences.dart';
 import 'infrastructure/contact_importer.dart';
 import 'infrastructure/platform_push_token_source.dart';
 import 'infrastructure/profile_avatar_picker.dart';
+import '../l10n/generated/app_localizations.dart';
 import 'ui/home_page.dart';
 import 'ui/onboarding_page.dart';
 import 'ui/wamp_app_theme.dart';
@@ -40,6 +44,7 @@ class _WampAppState extends State<WampApp> {
         WampAppController(
           platformPushTokenSource: widget.platformPushTokenSource,
         );
+    unawaited(_controller.initializeBiometricLogin());
   }
 
   @override
@@ -54,8 +59,19 @@ class _WampAppState extends State<WampApp> {
       animation: _controller,
       builder: (context, _) {
         return MaterialApp(
-          title: 'WampApp',
+          onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
           debugShowCheckedModeBanner: false,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: switch (_controller.localePreference) {
+            WampAppLocalePreference.system => null,
+            final preference => Locale(preference.languageCode!),
+          },
           theme: WampAppTheme.light(),
           darkTheme: WampAppTheme.dark(),
           themeMode: switch (_controller.themePreference) {

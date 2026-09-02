@@ -112,6 +112,11 @@ void main() {
 
   test('empty search stays in scope while active search is global', () {
     final direct = _message(id: 'direct', text: 'needle', peer: 'bob');
+    final otherDirect = _message(
+      id: 'other-direct',
+      text: 'needle',
+      peer: 'carol',
+    );
     final group = _message(
       id: 'group',
       text: 'needle',
@@ -129,15 +134,33 @@ void main() {
       readFilter: LocalMessageReadFilter.all,
       selectedGroupId: group.conversationId,
     ).select([direct, group]);
+    final selectedDirectScope = LocalMessageQuery(
+      text: '',
+      readFilter: LocalMessageReadFilter.all,
+      selectedDirectConversationId: direct.conversationId,
+    ).select([direct, otherDirect, group]);
     final global = LocalMessageQuery(
       text: 'needle',
       readFilter: LocalMessageReadFilter.all,
       selectedGroupId: group.conversationId,
-    ).select([direct, group]);
+    ).select([direct, otherDirect, group]);
 
     expect(directScope, [direct]);
     expect(groupScope, [group]);
-    expect(global, [direct, group]);
+    expect(selectedDirectScope, [direct]);
+    expect(global, [direct, otherDirect, group]);
+  });
+
+  test('rejects simultaneous direct and group conversation scopes', () {
+    expect(
+      () => LocalMessageQuery(
+        text: '',
+        readFilter: LocalMessageReadFilter.all,
+        selectedGroupId: 'group:launch-crew',
+        selectedDirectConversationId: 'direct:alice:bob',
+      ),
+      throwsArgumentError,
+    );
   });
 
   test('global search retains the newest bounded result window', () {

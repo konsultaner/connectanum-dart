@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
+
 Future<String?> showBackupPassphraseDialog(
   BuildContext context, {
   required bool confirm,
@@ -38,16 +40,17 @@ final class _BackupPassphraseDialogState
   }
 
   void _submit() {
+    final l10n = AppLocalizations.of(context);
     final passphrase = _passphrase.text;
     final encoded = utf8.encode(passphrase);
     final validLength = encoded.length >= 16 && encoded.length <= 1024;
     encoded.fillRange(0, encoded.length, 0);
     if (!validLength) {
-      setState(() => _error = 'Use 16 to 1024 UTF-8 bytes.');
+      setState(() => _error = l10n.passphraseLength);
       return;
     }
     if (widget.confirm && passphrase != _confirmation.text) {
-      setState(() => _error = 'The recovery phrases do not match.');
+      setState(() => _error = l10n.passphraseMismatch);
       return;
     }
     Navigator.of(context).pop(passphrase);
@@ -55,8 +58,11 @@ final class _BackupPassphraseDialogState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: Text(widget.confirm ? 'Encrypt device backup' : 'Restore backup'),
+      title: Text(
+        widget.confirm ? l10n.encryptDeviceBackup : l10n.restoreBackup,
+      ),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
         child: Column(
@@ -64,9 +70,7 @@ final class _BackupPassphraseDialogState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              widget.confirm
-                  ? 'This phrase is the only way to decrypt the export. It is not stored or sent to the server.'
-                  : 'Enter the recovery phrase used when this device backup was created.',
+              widget.confirm ? l10n.backupCreateHelp : l10n.backupRestoreHelp,
             ),
             const SizedBox(height: 14),
             TextField(
@@ -77,9 +81,9 @@ final class _BackupPassphraseDialogState
               onSubmitted: (_) {
                 if (!widget.confirm) _submit();
               },
-              decoration: const InputDecoration(
-                labelText: 'Recovery phrase',
-                prefixIcon: Icon(Icons.key_outlined),
+              decoration: InputDecoration(
+                labelText: l10n.recoveryPhrase,
+                prefixIcon: const Icon(Icons.key_outlined),
               ),
             ),
             if (widget.confirm) ...[
@@ -89,9 +93,9 @@ final class _BackupPassphraseDialogState
                 controller: _confirmation,
                 obscureText: true,
                 onSubmitted: (_) => _submit(),
-                decoration: const InputDecoration(
-                  labelText: 'Confirm recovery phrase',
-                  prefixIcon: Icon(Icons.verified_user_outlined),
+                decoration: InputDecoration(
+                  labelText: l10n.confirmRecoveryPhrase,
+                  prefixIcon: const Icon(Icons.verified_user_outlined),
                 ),
               ),
             ],
@@ -109,12 +113,12 @@ final class _BackupPassphraseDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           key: const Key('backup-passphrase-submit'),
           onPressed: _submit,
-          child: Text(widget.confirm ? 'Create backup' : 'Choose backup'),
+          child: Text(widget.confirm ? l10n.createBackup : l10n.chooseBackup),
         ),
       ],
     );

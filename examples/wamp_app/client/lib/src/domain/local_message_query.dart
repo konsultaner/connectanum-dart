@@ -7,7 +7,14 @@ final class LocalMessageQuery {
     required String text,
     required this.readFilter,
     this.selectedGroupId,
-  }) : text = _validatedText(text);
+    this.selectedDirectConversationId,
+  }) : text = _validatedText(text) {
+    if (selectedGroupId != null && selectedDirectConversationId != null) {
+      throw ArgumentError(
+        'A local message query cannot select a group and direct conversation.',
+      );
+    }
+  }
 
   static const maxQueryLength = 200;
   static const maxSearchResults = 200;
@@ -15,6 +22,7 @@ final class LocalMessageQuery {
   final String text;
   final LocalMessageReadFilter readFilter;
   final String? selectedGroupId;
+  final String? selectedDirectConversationId;
 
   bool get isGlobalSearch => text.isNotEmpty;
 
@@ -47,7 +55,11 @@ final class LocalMessageQuery {
 
   bool _matchesScope(LocalChatMessage message) => switch (selectedGroupId) {
     final groupId? => message.isGroup && message.conversationId == groupId,
-    null => !message.isGroup,
+    null => switch (selectedDirectConversationId) {
+      final conversationId? =>
+        !message.isGroup && message.conversationId == conversationId,
+      null => !message.isGroup,
+    },
   };
 
   bool _matchesTerms(LocalChatMessage message, List<String> terms) {

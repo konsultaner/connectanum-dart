@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/generated/app_localizations.dart';
 import '../application/wamp_app_controller.dart';
 import '../domain/local_contact_alias.dart';
 import '../infrastructure/contact_importer.dart';
@@ -64,7 +65,7 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
     } catch (_) {
       if (mounted) {
         setState(
-          () => _importError = 'The selected contact could not be read.',
+          () => _importError = AppLocalizations.of(context).contactReadFailed,
         );
       }
     } finally {
@@ -143,10 +144,11 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
+        final l10n = AppLocalizations.of(context);
         final contacts = widget.controller.contacts;
         final busy = _importBusy || widget.controller.contactBusy;
         return AlertDialog(
-          title: const Text('Contacts'),
+          title: Text(l10n.contacts),
           content: SizedBox(
             width: 560,
             child: SingleChildScrollView(
@@ -161,9 +163,7 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
                       color: Theme.of(context).colorScheme.secondaryContainer,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Text(
-                      'Only the selected display name and the WampApp username you enter are saved in this encrypted device vault. Phone numbers, email addresses, contact IDs, and address-book files are never uploaded or retained.',
-                    ),
+                    child: Text(l10n.contactPrivacyBoundary),
                   ),
                   const SizedBox(height: 14),
                   Wrap(
@@ -181,21 +181,21 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
                                 ),
                               )
                             : const Icon(Icons.contact_page_outlined),
-                        label: Text(widget.importer.actionLabel),
+                        label: Text(l10n.importContacts),
                       ),
                       OutlinedButton.icon(
                         key: const Key('contact-add-manual'),
                         onPressed: busy ? null : _startManual,
                         icon: const Icon(Icons.person_add_alt_1_outlined),
-                        label: const Text('Add by username'),
+                        label: Text(l10n.addByUsername),
                       ),
                     ],
                   ),
                   if (_candidates.length > 1) ...[
                     const SizedBox(height: 12),
                     InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Imported display name',
+                      decoration: InputDecoration(
+                        labelText: l10n.importedDisplayName,
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<int>(
@@ -228,9 +228,9 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
                     controller: _displayName,
                     enabled: !busy,
                     maxLength: 80,
-                    decoration: const InputDecoration(
-                      labelText: 'Name on this device',
-                      prefixIcon: Icon(Icons.badge_outlined),
+                    decoration: InputDecoration(
+                      labelText: l10n.nameOnDevice,
+                      prefixIcon: const Icon(Icons.badge_outlined),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -242,10 +242,10 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
                     autocorrect: false,
                     textCapitalization: TextCapitalization.none,
                     decoration: InputDecoration(
-                      labelText: 'WampApp username',
+                      labelText: l10n.wampAppUsername,
                       helperText: _editingUsername == null
-                          ? 'Verified with the connected server before saving.'
-                          : 'The canonical account cannot be changed while renaming.',
+                          ? l10n.contactVerifyHelper
+                          : l10n.contactRenameHelper,
                       prefixIcon: const Icon(Icons.alternate_email),
                     ),
                   ),
@@ -262,8 +262,8 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
                           : const Icon(Icons.verified_outlined),
                       label: Text(
                         _editingUsername == null
-                            ? 'Verify and save'
-                            : 'Save local name',
+                            ? l10n.verifyAndSave
+                            : l10n.saveLocalName,
                       ),
                     ),
                   ),
@@ -290,8 +290,8 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
                   const SizedBox(height: 18),
                   Text(
                     contacts.isEmpty
-                        ? 'No contacts saved on this device.'
-                        : '${contacts.length} local contact${contacts.length == 1 ? '' : 's'}',
+                        ? l10n.noContactsSaved
+                        : l10n.localContacts(contacts.length),
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   if (contacts.isNotEmpty) ...[
@@ -324,7 +324,7 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
                                   key: ValueKey(
                                     'contact-edit-${contact.username}',
                                   ),
-                                  tooltip: 'Rename local contact',
+                                  tooltip: l10n.renameLocalContact,
                                   onPressed: busy ? null : () => _edit(contact),
                                   icon: const Icon(Icons.edit_outlined),
                                 ),
@@ -332,7 +332,7 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
                                   key: ValueKey(
                                     'contact-remove-${contact.username}',
                                   ),
-                                  tooltip: 'Remove local contact',
+                                  tooltip: l10n.removeLocalContact,
                                   onPressed: busy
                                       ? null
                                       : () => _remove(contact),
@@ -353,7 +353,7 @@ class _ContactManagerDialogState extends State<_ContactManagerDialog> {
             TextButton(
               key: const Key('contact-close'),
               onPressed: busy ? null : () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+              child: Text(l10n.close),
             ),
           ],
         );

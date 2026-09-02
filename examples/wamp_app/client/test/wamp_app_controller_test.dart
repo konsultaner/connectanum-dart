@@ -11,6 +11,7 @@ import 'package:wamp_app/src/domain/local_contact_alias.dart';
 import 'package:wamp_app/src/domain/outbound_chat_message.dart';
 import 'package:wamp_app/src/infrastructure/attachment_chunk_cache.dart';
 import 'package:wamp_app/src/infrastructure/attachment_cipher.dart';
+import 'package:wamp_app/src/infrastructure/biometric_session_store_contract.dart';
 import 'package:wamp_app/src/infrastructure/device_vault.dart';
 import 'package:wamp_app/src/infrastructure/message_cipher.dart';
 import 'package:wamp_app/src/infrastructure/platform_push_token_source.dart';
@@ -20,6 +21,173 @@ import 'package:wamp_app_protocol/wamp_app_protocol.dart';
 import 'test_support.dart';
 
 void main() {
+  test(
+    'biometric unlock restores one remembered login and clears memory',
+    () async {
+      final biometricStore = _FakeBiometricSessionStore(
+        stored: RememberedLogin(
+          serverAddress: 'ws://localhost:8080/ws',
+          username: 'alice',
+          password: 'remembered password',
+        ),
+      );
+      final controller = WampAppController(
+        gateway: _RecordingGateway(),
+        trustStore: FakeDeviceTrustStore(),
+        biometricSessionStore: biometricStore,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.initializeBiometricLogin();
+      final unlocked = await controller.unlockWithBiometrics(
+        localizedReason: 'Unlock WampApp',
+      );
+
+      expect(unlocked, isTrue);
+      expect(controller.status, WampAppStatus.connected);
+      expect(controller.connection?.username, 'alice');
+      expect(biometricStore.unlockReasons, ['Unlock WampApp']);
+      expect(biometricStore.lastReturnedLogin?.password, isEmpty);
+    },
+  );
+
+  test('biometric login is opt-in and explicit sign-out revokes it', () async {
+    final biometricStore = _FakeBiometricSessionStore();
+    final controller = WampAppController(
+      gateway: _RecordingGateway(),
+      trustStore: FakeDeviceTrustStore(),
+      biometricSessionStore: biometricStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.initializeBiometricLogin();
+    await controller.login(
+      serverAddress: 'ws://localhost:8080',
+      username: 'alice',
+      password: 'account password',
+    );
+
+    expect(controller.biometricRemembered, isFalse);
+    expect(
+      await controller.enableBiometricLogin(
+        password: 'account password',
+        localizedReason: 'Enable biometric sign-in',
+      ),
+      isTrue,
+    );
+    expect(controller.biometricRemembered, isTrue);
+    expect(biometricStore.savedUsername, 'alice');
+    expect(biometricStore.savedPassword, 'account password');
+
+    await controller.signOut();
+
+    expect(controller.biometricRemembered, isFalse);
+    expect(biometricStore.clearCount, 1);
+    expect(biometricStore.stored, isNull);
+  });
+
+  test(
+    'sign out disables biometric auto-unlock before secure deletion',
+    () async {
+      final clearGate = Completer<void>();
+      final biometricStore = _FakeBiometricSessionStore(
+        stored: RememberedLogin(
+          serverAddress: 'ws://localhost:8080/ws',
+          username: 'alice',
+          password: 'remembered password',
+        ),
+      )..clearGate = clearGate;
+      final controller = WampAppController(
+        gateway: _RecordingGateway(),
+        trustStore: FakeDeviceTrustStore(),
+        biometricSessionStore: biometricStore,
+      );
+      addTearDown(controller.dispose);
+      await controller.initializeBiometricLogin();
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'remembered password',
+      );
+
+      final signOut = controller.signOut();
+
+      expect(controller.status, WampAppStatus.signedOut);
+      expect(controller.biometricRemembered, isFalse);
+      expect(biometricStore.stored, isNotNull);
+      clearGate.complete();
+      await signOut;
+      expect(biometricStore.stored, isNull);
+    },
+  );
+
+  test('sign out fences an in-flight biometric unlock', () async {
+    final unlockGate = Completer<void>();
+    final biometricStore = _FakeBiometricSessionStore(
+      stored: RememberedLogin(
+        serverAddress: 'ws://localhost:8080/ws',
+        username: 'alice',
+        password: 'remembered password',
+      ),
+    )..unlockGate = unlockGate;
+    final gateway = _RecordingGateway();
+    final controller = WampAppController(
+      gateway: gateway,
+      trustStore: FakeDeviceTrustStore(),
+      biometricSessionStore: biometricStore,
+    );
+    addTearDown(controller.dispose);
+    await controller.initializeBiometricLogin();
+
+    final unlock = controller.unlockWithBiometrics(
+      localizedReason: 'Unlock WampApp',
+    );
+    expect(biometricStore.unlockReasons, ['Unlock WampApp']);
+
+    await controller.signOut();
+    unlockGate.complete();
+
+    expect(await unlock, isFalse);
+    expect(controller.status, WampAppStatus.signedOut);
+    expect(gateway.connections, isEmpty);
+    expect(biometricStore.lastReturnedLogin?.password, isEmpty);
+  });
+
+  test(
+    'cancelled biometric re-save preserves the prior remembered state',
+    () async {
+      final biometricStore = _FakeBiometricSessionStore(
+        stored: RememberedLogin(
+          serverAddress: 'ws://localhost:8080/ws',
+          username: 'alice',
+          password: 'old remembered password',
+        ),
+      )..saveResult = false;
+      final controller = WampAppController(
+        gateway: _RecordingGateway(),
+        trustStore: FakeDeviceTrustStore(),
+        biometricSessionStore: biometricStore,
+      );
+      addTearDown(controller.dispose);
+      await controller.initializeBiometricLogin();
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'current password',
+      );
+
+      expect(
+        await controller.enableBiometricLogin(
+          password: 'current password',
+          localizedReason: 'Confirm biometric login',
+        ),
+        isFalse,
+      );
+
+      expect(controller.biometricRemembered, isTrue);
+      expect(biometricStore.stored?.password, 'old remembered password');
+    },
+  );
+
   test('server probe validates the endpoint before delegating', () async {
     final gateway = _RecordingGateway();
     final controller = WampAppController(gateway: gateway);
@@ -500,6 +668,49 @@ void main() {
   });
 
   test(
+    'disabled push unregisters and stays disabled after reconnect',
+    () async {
+      final gateway = _RecordingGateway();
+      final source = _ControllerTokenSource(gateway.operations);
+      final session = source.addSession();
+      final controller = WampAppController(
+        gateway: gateway,
+        trustStore: FakeDeviceTrustStore(),
+        platformPushTokenSource: source,
+      );
+      addTearDown(controller.dispose);
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+      session.emit(const PlatformPushToken(provider: 'fcm', token: 'token-1'));
+      await _waitFor(() => gateway.pushRegistrations.length == 1);
+
+      expect(await controller.setPushNotificationsEnabled(false), isTrue);
+      expect(controller.pushNotificationsEnabled, isFalse);
+      expect(session.closed, isTrue);
+      expect(gateway.pushUnregistrations, hasLength(1));
+      final tokenOpens = gateway.operations
+          .where((operation) => operation == 'token-open')
+          .length;
+
+      await controller.login(
+        serverAddress: 'ws://localhost:8080',
+        username: 'alice',
+        password: 'correct horse battery',
+      );
+
+      expect(controller.pushNotificationsEnabled, isFalse);
+      expect(
+        gateway.operations.where((operation) => operation == 'token-open'),
+        hasLength(tokenOpens),
+      );
+      expect(gateway.pushRegistrations, hasLength(1));
+    },
+  );
+
+  test(
     'replacement unregisters push before closing the old transport',
     () async {
       final gateway = _RecordingGateway();
@@ -555,6 +766,10 @@ void main() {
         await controller.setThemePreference(WampAppThemePreference.dark),
         isTrue,
       );
+      expect(
+        await controller.setLocalePreference(WampAppLocalePreference.german),
+        isTrue,
+      );
       expect(await controller.setConversationMuted(directId, true), isTrue);
       expect(
         await controller.setConversationAppearance(
@@ -571,6 +786,7 @@ void main() {
         isTrue,
       );
       expect(controller.themePreference, WampAppThemePreference.dark);
+      expect(controller.localePreference, WampAppLocalePreference.german);
       expect(controller.isConversationMuted(directId), isTrue);
       expect(
         controller.conversationAppearanceFor(directId),
@@ -583,6 +799,7 @@ void main() {
 
       await controller.signOut();
       expect(controller.themePreference, WampAppThemePreference.system);
+      expect(controller.localePreference, WampAppLocalePreference.system);
       expect(controller.isConversationMuted(directId), isFalse);
       expect(
         controller.conversationAppearanceFor(directId),
@@ -596,6 +813,7 @@ void main() {
         password: 'correct horse battery',
       );
       expect(controller.themePreference, WampAppThemePreference.dark);
+      expect(controller.localePreference, WampAppLocalePreference.german);
       expect(controller.isConversationMuted(directId), isTrue);
       expect(
         controller.conversationAppearanceFor(directId),
@@ -2294,6 +2512,66 @@ void main() {
     expect(controller.messages.single.attachments.single.name, 'field-map.png');
     expect(controller.messageError, isNull);
   });
+}
+
+final class _FakeBiometricSessionStore implements BiometricSessionStore {
+  _FakeBiometricSessionStore({this.stored});
+
+  RememberedLogin? stored;
+  RememberedLogin? lastReturnedLogin;
+  String? savedUsername;
+  String? savedPassword;
+  int clearCount = 0;
+  Completer<void>? clearGate;
+  Completer<void>? unlockGate;
+  bool saveResult = true;
+  final List<String> unlockReasons = [];
+
+  @override
+  Future<void> clear() async {
+    clearCount += 1;
+    await clearGate?.future;
+    stored?.dispose();
+    stored = null;
+  }
+
+  @override
+  Future<bool> hasLogin() async => stored != null;
+
+  @override
+  Future<bool> isAvailable() async => true;
+
+  @override
+  Future<bool> save({
+    required RememberedLogin login,
+    required String localizedReason,
+  }) async {
+    savedUsername = login.username;
+    savedPassword = login.password;
+    if (!saveResult) return false;
+    stored?.dispose();
+    stored = RememberedLogin(
+      serverAddress: login.serverAddress,
+      username: login.username,
+      password: login.password,
+    );
+    return true;
+  }
+
+  @override
+  Future<RememberedLogin?> unlock({required String localizedReason}) async {
+    unlockReasons.add(localizedReason);
+    final login = stored;
+    if (login == null) return null;
+    final returned = RememberedLogin(
+      serverAddress: login.serverAddress,
+      username: login.username,
+      password: login.password,
+    );
+    lastReturnedLogin = returned;
+    await unlockGate?.future;
+    return returned;
+  }
 }
 
 AccountProfile _profileFor(String username) => AccountProfile(
