@@ -30,8 +30,11 @@ work are merged into both `master` remotes at `f63dbe3d`. Fresh local
 WampApp run `34099558143` passes all 28 production benchmark checks and six
 bundles, including the repaired Linux secure-storage build. Windows exposed
 the biometric plugin's obsolete `/await` flag under current MSVC; the
-application now removes that flag from only the affected C++20 target, with
-a CMake regression test. Final hosted Windows, CI, and strict audit evidence
+first flag-only correction at `1db5edb6` exposed an upstream nonstandard
+coroutine return (C3773). The application now preserves the plugin's legacy
+coroutine behavior and applies Microsoft's deprecation compatibility define
+only to that target while it still uses `/await`, with an isolation and
+idempotence regression. Final hosted Windows, CI, and strict audit evidence
 remain required before declaring all seven beta bundles published.
 The public Connectanum package graph
 remains at `3.0.0-beta.5`; this application-only update does not change library

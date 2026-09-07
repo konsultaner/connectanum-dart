@@ -25,9 +25,9 @@ SERVER_ENTRYPOINT = ROOT / "examples/wamp_app/server/bin/wamp_app_server.dart"
 
 class WampAppPackagingTest(unittest.TestCase):
     @unittest.skipUnless(shutil.which("cmake"), "CMake is required")
-    def test_windows_local_auth_uses_standard_coroutines_only(self) -> None:
+    def test_windows_local_auth_compatibility_is_target_scoped(self) -> None:
         compatibility = (
-            ROOT / "examples/wamp_app/client/windows/local_auth_coroutines.cmake"
+            ROOT / "examples/wamp_app/client/windows/local_auth_compatibility.cmake"
         ).as_posix()
         with tempfile.TemporaryDirectory() as temporary_dir:
             source = Path(temporary_dir)
@@ -36,32 +36,56 @@ class WampAppPackagingTest(unittest.TestCase):
                     f"""\
                     cmake_minimum_required(VERSION 3.14)
                     project(coroutine_options LANGUAGES NONE)
+                    set(MSVC TRUE)
                     # Missing optional plugins must be harmless.
                     include("{compatibility}")
                     add_library(local_auth_windows_plugin INTERFACE)
                     add_library(unrelated_plugin INTERFACE)
                     set_property(TARGET unrelated_plugin PROPERTY
                       COMPILE_OPTIONS "/await")
+                    set_property(TARGET unrelated_plugin PROPERTY
+                      COMPILE_DEFINITIONS "UNCHANGED")
                     set_property(TARGET local_auth_windows_plugin PROPERTY
                       COMPILE_OPTIONS "/W4;/await;/EHsc;/await")
+                    set_property(TARGET local_auth_windows_plugin PROPERTY
+                      COMPILE_DEFINITIONS "FLUTTER_PLUGIN_IMPL")
                     include("{compatibility}")
                     include("{compatibility}")
                     get_target_property(options local_auth_windows_plugin
                       COMPILE_OPTIONS)
-                    if(NOT options STREQUAL "/W4;/EHsc")
+                    if(NOT options STREQUAL "/W4;/await;/EHsc;/await")
                       message(FATAL_ERROR "Unexpected options: ${{options}}")
                     endif()
-                    get_target_property(unrelated unrelated_plugin COMPILE_OPTIONS)
-                    if(NOT unrelated STREQUAL "/await")
+                    get_target_property(definitions local_auth_windows_plugin
+                      COMPILE_DEFINITIONS)
+                    if(NOT definitions STREQUAL
+                        "FLUTTER_PLUGIN_IMPL;_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS")
+                      message(FATAL_ERROR "Unexpected definitions: ${{definitions}}")
+                    endif()
+                    get_target_property(unrelated unrelated_plugin
+                      COMPILE_DEFINITIONS)
+                    if(NOT unrelated STREQUAL "UNCHANGED")
                       message(FATAL_ERROR "Changed unrelated plugin")
                     endif()
+                    set(MSVC FALSE)
+                    set_property(TARGET local_auth_windows_plugin PROPERTY
+                      COMPILE_DEFINITIONS "FLUTTER_PLUGIN_IMPL")
+                    include("{compatibility}")
+                    get_target_property(non_msvc local_auth_windows_plugin
+                      COMPILE_DEFINITIONS)
+                    if(NOT non_msvc STREQUAL "FLUTTER_PLUGIN_IMPL")
+                      message(FATAL_ERROR "Changed non-MSVC plugin")
+                    endif()
+                    set(MSVC TRUE)
                     set_property(TARGET local_auth_windows_plugin PROPERTY
                       COMPILE_OPTIONS "")
+                    set_property(TARGET local_auth_windows_plugin PROPERTY
+                      COMPILE_DEFINITIONS "FLUTTER_PLUGIN_IMPL")
                     include("{compatibility}")
                     get_target_property(empty local_auth_windows_plugin
-                      COMPILE_OPTIONS)
-                    if(NOT empty STREQUAL "")
-                      message(FATAL_ERROR "Changed empty options")
+                      COMPILE_DEFINITIONS)
+                    if(NOT empty STREQUAL "FLUTTER_PLUGIN_IMPL")
+                      message(FATAL_ERROR "Changed plugin without legacy flag")
                     endif()
                     """
                 ),
@@ -79,7 +103,7 @@ class WampAppPackagingTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertLess(
             application.index("include(flutter/generated_plugins.cmake)"),
-            application.index("include(local_auth_coroutines.cmake)"),
+            application.index("include(local_auth_compatibility.cmake)"),
         )
 
     def test_android_release_signing_never_uses_the_debug_key(self) -> None:
