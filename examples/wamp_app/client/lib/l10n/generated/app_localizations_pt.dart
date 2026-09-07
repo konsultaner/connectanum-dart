@@ -80,6 +80,27 @@ class AppLocalizationsPt extends AppLocalizations {
   String get themeDark => 'Escuro';
 
   @override
+  String get accentColor => 'Cor da aplicação';
+
+  @override
+  String get accentColorSubtitle => 'Escolha a cor principal da WampApp';
+
+  @override
+  String get accentTeal => 'Verde-azulado';
+
+  @override
+  String get accentBlue => 'Azul';
+
+  @override
+  String get accentCoral => 'Coral';
+
+  @override
+  String get accentAmber => 'Âmbar';
+
+  @override
+  String get accentIndigo => 'Índigo';
+
+  @override
   String get language => 'Idioma';
 
   @override
@@ -195,6 +216,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get password => 'Palavra-passe';
 
   @override
+  String get showPassword => 'Mostrar palavra-passe';
+
+  @override
+  String get hidePassword => 'Ocultar palavra-passe';
+
+  @override
   String get createAccount => 'Criar conta';
 
   @override
@@ -202,6 +229,13 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get serverAddress => 'Endereço do servidor';
+
+  @override
+  String get advancedServerSettings => 'Definições avançadas do servidor';
+
+  @override
+  String get advancedServerSettingsSubtitle =>
+      'Altere o endereço do servidor apenas se o seu fornecedor indicar';
 
   @override
   String get displayName => 'Nome de exibição';

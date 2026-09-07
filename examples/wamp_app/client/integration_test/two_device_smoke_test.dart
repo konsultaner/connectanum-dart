@@ -247,6 +247,7 @@ void main() {
         label: 'onboarding form',
       );
 
+      await _openAdvancedServerSettings(tester);
       await tester.enterText(
         find.byKey(const Key('server-address')),
         _serverAddress,
@@ -701,6 +702,20 @@ Future<void> _setLocalConversationPreferences(
             ThemeMode.dark,
     label: 'local dark appearance',
   );
+  final accent = find.byKey(const Key('settings-accent-color'));
+  await _scrollSettingsTo(tester, accent, label: 'app color setting');
+  await _tapWhenReady(
+    tester,
+    find.byKey(const ValueKey('accent-indigo')),
+    label: 'indigo app color',
+  );
+  await _pumpUntil(
+    tester,
+    () =>
+        !controller.preferenceBusy &&
+        controller.accentPreference == WampAppAccentPreference.indigo,
+    label: 'local indigo app color',
+  );
   await _closeSettings(tester);
 
   final conversationId = controller.directConversationIdFor(_peerUsername);
@@ -1104,6 +1119,7 @@ Future<String> _prepareDestructiveBackupRestore(
   await vaultStorage.deleteTrackedAndVerify();
 
   await _tapWhenReady(tester, find.text('Sign in'), label: 'sign-in mode');
+  await _openAdvancedServerSettings(tester);
   await tester.enterText(
     find.byKey(const Key('server-address')),
     _serverAddress,
@@ -1137,6 +1153,7 @@ Future<void> _expectDestructiveBackupRecovery(
           controller.connection?.profile.avatarBytes != null &&
           controller.localDevice?.deviceId == originalDeviceId &&
           controller.themePreference.wireName == 'dark' &&
+          controller.accentPreference == WampAppAccentPreference.indigo &&
           conversationId != null &&
           controller.conversationAppearanceFor(conversationId) ==
               WampAppConversationAppearance.ocean &&
@@ -2468,6 +2485,14 @@ Future<void> _tapSendAndWait(
     }
   }
   fail('Timed out waiting for $label (${_messageState(controller)}).');
+}
+
+Future<void> _openAdvancedServerSettings(WidgetTester tester) async {
+  final advanced = find.byKey(const Key('advanced-server-settings'));
+  await tester.ensureVisible(advanced);
+  await tester.tap(advanced);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 250));
 }
 
 String _messageState(WampAppController controller) =>

@@ -18,6 +18,29 @@ enum WampAppThemePreference {
   }
 }
 
+enum WampAppAccentPreference {
+  teal('teal'),
+  blue('blue'),
+  coral('coral'),
+  amber('amber'),
+  indigo('indigo');
+
+  const WampAppAccentPreference(this.wireName);
+
+  final String wireName;
+
+  static WampAppAccentPreference parse(Object? value) {
+    if (value == null) return teal;
+    if (value is! String) {
+      throw const FormatException('The saved app color is invalid.');
+    }
+    return values
+            .where((candidate) => candidate.wireName == value)
+            .firstOrNull ??
+        (throw const FormatException('The saved app color is invalid.'));
+  }
+}
+
 enum WampAppLocalePreference {
   system('system', null),
   english('en', 'en'),
@@ -73,6 +96,7 @@ enum WampAppConversationAppearance {
 final class LocalAppPreferences {
   factory LocalAppPreferences({
     WampAppThemePreference theme = WampAppThemePreference.system,
+    WampAppAccentPreference accent = WampAppAccentPreference.teal,
     WampAppLocalePreference locale = WampAppLocalePreference.system,
     bool pushNotificationsEnabled = true,
     Iterable<String> mutedConversationIds = const [],
@@ -103,6 +127,7 @@ final class LocalAppPreferences {
     );
     return LocalAppPreferences._(
       theme,
+      accent,
       locale,
       pushNotificationsEnabled,
       uniqueIds,
@@ -113,6 +138,7 @@ final class LocalAppPreferences {
 
   LocalAppPreferences._(
     this.theme,
+    this.accent,
     this.locale,
     this.pushNotificationsEnabled,
     Set<String> mutedConversationIds,
@@ -141,6 +167,7 @@ final class LocalAppPreferences {
   static final defaults = LocalAppPreferences();
 
   final WampAppThemePreference theme;
+  final WampAppAccentPreference accent;
   final WampAppLocalePreference locale;
   final bool pushNotificationsEnabled;
   final Set<String> mutedConversationIds;
@@ -162,6 +189,18 @@ final class LocalAppPreferences {
   LocalAppPreferences withTheme(WampAppThemePreference value) =>
       LocalAppPreferences(
         theme: value,
+        accent: accent,
+        locale: locale,
+        pushNotificationsEnabled: pushNotificationsEnabled,
+        mutedConversationIds: mutedConversationIds,
+        disappearingMessageDurations: disappearingMessageDurations,
+        conversationAppearances: conversationAppearances,
+      );
+
+  LocalAppPreferences withAccent(WampAppAccentPreference value) =>
+      LocalAppPreferences(
+        theme: theme,
+        accent: value,
         locale: locale,
         pushNotificationsEnabled: pushNotificationsEnabled,
         mutedConversationIds: mutedConversationIds,
@@ -172,6 +211,7 @@ final class LocalAppPreferences {
   LocalAppPreferences withLocale(WampAppLocalePreference value) =>
       LocalAppPreferences(
         theme: theme,
+        accent: accent,
         locale: value,
         pushNotificationsEnabled: pushNotificationsEnabled,
         mutedConversationIds: mutedConversationIds,
@@ -182,6 +222,7 @@ final class LocalAppPreferences {
   LocalAppPreferences withPushNotificationsEnabled(bool value) =>
       LocalAppPreferences(
         theme: theme,
+        accent: accent,
         locale: locale,
         pushNotificationsEnabled: value,
         mutedConversationIds: mutedConversationIds,
@@ -198,6 +239,7 @@ final class LocalAppPreferences {
     }
     return LocalAppPreferences(
       theme: theme,
+      accent: accent,
       locale: locale,
       pushNotificationsEnabled: pushNotificationsEnabled,
       mutedConversationIds: updated,
@@ -219,6 +261,7 @@ final class LocalAppPreferences {
     }
     return LocalAppPreferences(
       theme: theme,
+      accent: accent,
       locale: locale,
       pushNotificationsEnabled: pushNotificationsEnabled,
       mutedConversationIds: mutedConversationIds,
@@ -242,6 +285,7 @@ final class LocalAppPreferences {
     }
     return LocalAppPreferences(
       theme: theme,
+      accent: accent,
       locale: locale,
       pushNotificationsEnabled: pushNotificationsEnabled,
       mutedConversationIds: mutedConversationIds,
@@ -259,6 +303,7 @@ final class LocalAppPreferences {
       ..sort();
     return {
       'theme': theme.wireName,
+      'accent_color': accent.wireName,
       'locale': locale.wireName,
       'push_notifications_enabled': pushNotificationsEnabled,
       'muted_conversation_ids': muted,
@@ -323,6 +368,7 @@ final class LocalAppPreferences {
     }
     return LocalAppPreferences(
       theme: WampAppThemePreference.parse(value['theme']),
+      accent: WampAppAccentPreference.parse(value['accent_color']),
       locale: WampAppLocalePreference.parse(value['locale']),
       pushNotificationsEnabled: switch (value['push_notifications_enabled']) {
         null => true,

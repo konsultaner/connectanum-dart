@@ -6,6 +6,7 @@ void main() {
     final preferences = LocalAppPreferences.fromJson(null);
 
     expect(preferences.theme, WampAppThemePreference.system);
+    expect(preferences.accent, WampAppAccentPreference.teal);
     expect(preferences.locale, WampAppLocalePreference.system);
     expect(preferences.pushNotificationsEnabled, isTrue);
     expect(preferences.mutedConversationIds, isEmpty);
@@ -20,6 +21,7 @@ void main() {
   test('preferences round-trip with stable sorted conversation ids', () {
     final preferences = LocalAppPreferences(
       theme: WampAppThemePreference.dark,
+      accent: WampAppAccentPreference.indigo,
       locale: WampAppLocalePreference.german,
       pushNotificationsEnabled: false,
       mutedConversationIds: const ['group-z', 'direct-a'],
@@ -38,6 +40,7 @@ void main() {
 
     expect(encoded, {
       'theme': 'dark',
+      'accent_color': 'indigo',
       'locale': 'de',
       'push_notifications_enabled': false,
       'muted_conversation_ids': ['direct-a', 'group-z'],
@@ -45,6 +48,7 @@ void main() {
       'conversation_appearances': {'direct-a': 'ocean', 'group-z': 'sunset'},
     });
     expect(decoded.theme, WampAppThemePreference.dark);
+    expect(decoded.accent, WampAppAccentPreference.indigo);
     expect(decoded.locale, WampAppLocalePreference.german);
     expect(decoded.pushNotificationsEnabled, isFalse);
     expect(decoded.mutedConversationIds, {'direct-a', 'group-z'});
@@ -70,6 +74,7 @@ void main() {
     });
 
     expect(preferences.theme, WampAppThemePreference.dark);
+    expect(preferences.accent, WampAppAccentPreference.teal);
     expect(preferences.locale, WampAppLocalePreference.system);
     expect(preferences.pushNotificationsEnabled, isTrue);
     expect(preferences.isMuted('direct-a'), isTrue);
@@ -126,10 +131,11 @@ void main() {
     );
   });
 
-  test('locale and push updates preserve the remaining preferences', () {
-    final localized = LocalAppPreferences.defaults.withLocale(
-      WampAppLocalePreference.german,
+  test('appearance, locale, and push updates preserve other preferences', () {
+    final recolored = LocalAppPreferences.defaults.withAccent(
+      WampAppAccentPreference.blue,
     );
+    final localized = recolored.withLocale(WampAppLocalePreference.german);
     final pushDisabled = localized.withPushNotificationsEnabled(false);
 
     expect(LocalAppPreferences.defaults.locale, WampAppLocalePreference.system);
@@ -137,6 +143,7 @@ void main() {
     expect(pushDisabled.locale, WampAppLocalePreference.german);
     expect(pushDisabled.pushNotificationsEnabled, isFalse);
     expect(pushDisabled.theme, WampAppThemePreference.system);
+    expect(pushDisabled.accent, WampAppAccentPreference.blue);
   });
 
   test('immutable updates isolate direct and group mute state', () {
@@ -202,6 +209,11 @@ void main() {
       'dark',
       <String, dynamic>{},
       {'theme': 'sepia', 'muted_conversation_ids': <String>[]},
+      {
+        'theme': 'dark',
+        'accent_color': 'ultraviolet',
+        'muted_conversation_ids': <String>[],
+      },
       {
         'theme': 'dark',
         'locale': 'klingon',

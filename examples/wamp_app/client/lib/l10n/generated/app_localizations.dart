@@ -238,6 +238,48 @@ abstract class AppLocalizations {
   /// **'Dark'**
   String get themeDark;
 
+  /// No description provided for @accentColor.
+  ///
+  /// In en, this message translates to:
+  /// **'App color'**
+  String get accentColor;
+
+  /// No description provided for @accentColorSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the primary color used throughout WampApp'**
+  String get accentColorSubtitle;
+
+  /// No description provided for @accentTeal.
+  ///
+  /// In en, this message translates to:
+  /// **'Teal'**
+  String get accentTeal;
+
+  /// No description provided for @accentBlue.
+  ///
+  /// In en, this message translates to:
+  /// **'Blue'**
+  String get accentBlue;
+
+  /// No description provided for @accentCoral.
+  ///
+  /// In en, this message translates to:
+  /// **'Coral'**
+  String get accentCoral;
+
+  /// No description provided for @accentAmber.
+  ///
+  /// In en, this message translates to:
+  /// **'Amber'**
+  String get accentAmber;
+
+  /// No description provided for @accentIndigo.
+  ///
+  /// In en, this message translates to:
+  /// **'Indigo'**
+  String get accentIndigo;
+
   /// No description provided for @language.
   ///
   /// In en, this message translates to:
@@ -460,6 +502,18 @@ abstract class AppLocalizations {
   /// **'Password'**
   String get password;
 
+  /// No description provided for @showPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get showPassword;
+
+  /// No description provided for @hidePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get hidePassword;
+
   /// No description provided for @createAccount.
   ///
   /// In en, this message translates to:
@@ -477,6 +531,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Server address'**
   String get serverAddress;
+
+  /// No description provided for @advancedServerSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced server settings'**
+  String get advancedServerSettings;
+
+  /// No description provided for @advancedServerSettingsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change the server address only when your provider tells you to'**
+  String get advancedServerSettingsSubtitle;
 
   /// No description provided for @displayName.
   ///

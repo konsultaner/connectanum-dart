@@ -1,22 +1,35 @@
 # Project State
 
-Last updated: 2026-09-02
+Last updated: 2026-09-07
 Current branch: `codex/wamp-app-consumer-settings`
 Current milestone: harden the standalone WampApp as a consumer-facing
 application on top of the merged and published `3.0.0-beta.5` graph. The main
 shell now keeps protocol and endpoint details out of the conversation flow and
 offers dedicated Settings and technical-information screens. Account-encrypted
 preferences cover system/light/dark appearance, English, German, Spanish,
-French, Italian, and Portuguese, plus global push enablement. Native Android
-and Apple clients support opt-in biometric remembered sign-in through encrypted
-platform storage; explicit sign-out revokes it, stale prompt results cannot
-cross account operations, and web fails closed as unsupported.
+French, Italian, and Portuguese, selectable teal, blue, coral, amber, and indigo
+accents, plus global push enablement. The compact Material 3 onboarding keeps
+credentials primary and places custom router configuration behind an advanced
+disclosure. Every accent is regression-tested in light and dark mode against
+WCAG 2.2 AA text and control-contrast targets, color choices retain labels and
+selection marks, and the narrowest onboarding layout remains usable at 200%
+text scaling. Native Android and Apple clients support opt-in biometric
+remembered sign-in through encrypted platform storage; explicit sign-out
+revokes it, stale prompt results cannot cross account operations, and web fails
+closed as unsupported.
 `bin/test-wamp-app` passes with the complete shared, server, Flutter, Chrome
 worker/widget, endpoint-smoke, and release-web gates. Android debug APK and iOS
 simulator debug builds also pass with `local_auth` 3.0.2. The current branch
 passes the complete repository-wide `bin/verify` gate, including live
 router/MCP consumer smokes, benchmark integration, package smokes, and Chrome
 Dart2Wasm SCRAM worker coverage.
+
+The consumer settings, biometric sign-in, localization, and accessible accent
+work are now being promoted to `master` for fresh WampApp beta bundles across
+all seven existing artifact targets. The public Connectanum package graph
+remains at `3.0.0-beta.5`; this application-only update does not change library
+release inputs. Fresh local verification, hosted CI, production benchmark
+gates, and the strict deployment audit are required for the promotion handoff.
 
 All seven Dart packages and three Rust crates now advance together to beta.5.
 Client and router hooks stage and atomically rename every configured, built, or

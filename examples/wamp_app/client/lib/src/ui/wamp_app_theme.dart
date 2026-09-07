@@ -1,97 +1,129 @@
 import 'package:flutter/material.dart';
 
-abstract final class WampAppTheme {
-  static const ink = Color(0xFF17342D);
-  static const pine = Color(0xFF1F6757);
-  static const mint = Color(0xFFCFEBDD);
-  static const sand = Color(0xFFF7F0E4);
-  static const coral = Color(0xFFEE785F);
+import '../domain/local_app_preferences.dart';
 
-  static ThemeData light() => _build(
+abstract final class WampAppTheme {
+  static const ink = Color(0xFF16201D);
+  static const mint = Color(0xFFD8F3EA);
+  static const sand = Color(0xFFF8FAF8);
+
+  static Color accentColor(WampAppAccentPreference preference) =>
+      switch (preference) {
+        WampAppAccentPreference.teal => const Color(0xFF006B5E),
+        WampAppAccentPreference.blue => const Color(0xFF165FA7),
+        WampAppAccentPreference.coral => const Color(0xFFA54040),
+        WampAppAccentPreference.amber => const Color(0xFF8A5600),
+        WampAppAccentPreference.indigo => const Color(0xFF4E5D95),
+      };
+
+  static ThemeData light([
+    WampAppAccentPreference accent = WampAppAccentPreference.teal,
+  ]) => _build(
     ColorScheme.fromSeed(
-      seedColor: pine,
-      primary: pine,
-      secondary: coral,
-      surface: sand,
+      seedColor: accentColor(accent),
+      brightness: Brightness.light,
+      contrastLevel: 0.5,
     ),
   );
 
-  static ThemeData dark() => _build(
+  static ThemeData dark([
+    WampAppAccentPreference accent = WampAppAccentPreference.teal,
+  ]) => _build(
     ColorScheme.fromSeed(
-      seedColor: pine,
+      seedColor: accentColor(accent),
       brightness: Brightness.dark,
-      primary: const Color(0xFF83D6BE),
-      secondary: const Color(0xFFFFA08A),
-      surface: const Color(0xFF10231E),
+      contrastLevel: 0.5,
     ),
   );
 
   static ThemeData _build(ColorScheme colors) {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: colors,
+    final base = ThemeData(useMaterial3: true, colorScheme: colors);
+    return base.copyWith(
       scaffoldBackgroundColor: colors.surface,
-      fontFamily: 'Georgia',
-      textTheme: TextTheme(
-        displaySmall: TextStyle(
-          color: colors.onSurface,
-          fontSize: 42,
+      textTheme: base.textTheme.copyWith(
+        displaySmall: base.textTheme.displaySmall?.copyWith(
+          fontSize: 36,
           fontWeight: FontWeight.w700,
-          height: 1.05,
+          height: 1.08,
+          letterSpacing: -0.8,
         ),
-        headlineSmall: TextStyle(
-          color: colors.onSurface,
-          fontSize: 24,
+        headlineSmall: base.textTheme.headlineSmall?.copyWith(
+          fontSize: 28,
           fontWeight: FontWeight.w700,
+          height: 1.15,
+          letterSpacing: -0.4,
         ),
-        titleLarge: TextStyle(
-          color: colors.onSurface,
+        titleLarge: base.textTheme.titleLarge?.copyWith(
           fontSize: 20,
           fontWeight: FontWeight.w700,
         ),
-        bodyLarge: TextStyle(
-          color: colors.onSurface,
+        bodyLarge: base.textTheme.bodyLarge?.copyWith(
           fontSize: 16,
           height: 1.45,
         ),
-        bodyMedium: TextStyle(
-          color: colors.onSurface,
+        bodyMedium: base.textTheme.bodyMedium?.copyWith(
           fontSize: 14,
           height: 1.4,
         ),
       ),
+      appBarTheme: AppBarTheme(
+        centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        backgroundColor: colors.surface,
+        foregroundColor: colors.onSurface,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.72),
+        fillColor: colors.surfaceContainerHighest,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: colors.outline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(color: colors.outlineVariant),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: colors.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: colors.primary, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
+          horizontal: 16,
           vertical: 16,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(54),
+          minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
           ),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          side: BorderSide(color: colors.outline),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
       cardTheme: CardThemeData(
-        color: colors.surfaceContainerLow.withValues(alpha: 0.92),
+        color: colors.surfaceContainerLow,
         elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: colors.outlineVariant),
         ),
+      ),
+      dividerTheme: DividerThemeData(color: colors.outlineVariant),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: colors.surfaceContainer,
+        indicatorColor: colors.secondaryContainer,
       ),
     );
   }

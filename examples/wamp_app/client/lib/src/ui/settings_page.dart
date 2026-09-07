@@ -4,6 +4,7 @@ import '../../l10n/generated/app_localizations.dart';
 import '../application/wamp_app_controller.dart';
 import '../domain/local_app_preferences.dart';
 import 'technical_info_page.dart';
+import 'wamp_app_theme.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
@@ -166,6 +167,11 @@ class _SettingsPageState extends State<SettingsPage> {
                                 trailing: const Icon(Icons.chevron_right),
                               ),
                             ),
+                            _AccentSelector(
+                              selected: controller.accentPreference,
+                              enabled: !controller.preferenceBusy,
+                              onSelected: controller.setAccentPreference,
+                            ),
                             PopupMenuButton<WampAppLocalePreference>(
                               key: const Key('settings-language-menu'),
                               enabled: !controller.preferenceBusy,
@@ -305,6 +311,64 @@ class _SectionLabel extends StatelessWidget {
   );
 }
 
+class _AccentSelector extends StatelessWidget {
+  const _AccentSelector({
+    required this.selected,
+    required this.enabled,
+    required this.onSelected,
+  });
+
+  final WampAppAccentPreference selected;
+  final bool enabled;
+  final ValueChanged<WampAppAccentPreference> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Semantics(
+      key: const Key('settings-accent-color'),
+      container: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.palette_outlined),
+            title: Text(l10n.accentColor),
+            subtitle: Text(l10n.accentColorSubtitle),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final preference in WampAppAccentPreference.values)
+                  ChoiceChip(
+                    key: ValueKey('accent-${preference.wireName}'),
+                    avatar: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: WampAppTheme.accentColor(preference),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
+                      child: const SizedBox.square(dimension: 18),
+                    ),
+                    label: Text(_accentLabel(l10n, preference)),
+                    selected: selected == preference,
+                    showCheckmark: true,
+                    onSelected: enabled ? (_) => onSelected(preference) : null,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BiometricPasswordDialog extends StatefulWidget {
   const _BiometricPasswordDialog();
 
@@ -365,6 +429,17 @@ String _themeLabel(AppLocalizations l10n, WampAppThemePreference preference) =>
       WampAppThemePreference.light => l10n.themeLight,
       WampAppThemePreference.dark => l10n.themeDark,
     };
+
+String _accentLabel(
+  AppLocalizations l10n,
+  WampAppAccentPreference preference,
+) => switch (preference) {
+  WampAppAccentPreference.teal => l10n.accentTeal,
+  WampAppAccentPreference.blue => l10n.accentBlue,
+  WampAppAccentPreference.coral => l10n.accentCoral,
+  WampAppAccentPreference.amber => l10n.accentAmber,
+  WampAppAccentPreference.indigo => l10n.accentIndigo,
+};
 
 String _languageLabel(
   AppLocalizations l10n,

@@ -37,6 +37,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   _ServerProbeState _serverProbeState = _ServerProbeState.idle;
   bool _rememberWithBiometrics = false;
   bool _automaticBiometricAttempted = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -55,6 +56,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     _server.dispose();
     _username.dispose();
     _displayName.dispose();
+    _password.clear();
     _password.dispose();
     super.dispose();
   }
@@ -187,37 +189,59 @@ class _OnboardingPageState extends State<OnboardingPage> {
     setState(() => _rememberWithBiometrics = value);
   }
 
+  void _togglePasswordVisibility() {
+    setState(() => _obscurePassword = !_obscurePassword);
+  }
+
   @override
   Widget build(BuildContext context) {
     _scheduleBiometricUnlock();
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(child: _Atmosphere()),
+          const Positioned.fill(
+            child: RepaintBoundary(child: _WelcomeBackdrop()),
+          ),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final wide = constraints.maxWidth >= 860;
                 return Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.fromLTRB(
+                      constraints.maxWidth < 420 ? 16 : 24,
+                      24,
+                      constraints.maxWidth < 420 ? 16 : 24,
+                      32,
+                    ),
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1120),
-                      child: wide
-                          ? Row(
-                              children: [
-                                const Expanded(child: _Intro()),
-                                const SizedBox(width: 54),
-                                Expanded(child: _AccountCard(state: this)),
-                              ],
-                            )
-                          : Column(
-                              children: [
-                                const _Intro(compact: true),
-                                const SizedBox(height: 30),
-                                _AccountCard(state: this),
-                              ],
-                            ),
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Align(child: _Wordmark()),
+                          const SizedBox(height: 24),
+                          const _WelcomeGraphic(),
+                          const SizedBox(height: 22),
+                          Text(
+                            AppLocalizations.of(context).introHeadline,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            AppLocalizations.of(context).introBody,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                          const SizedBox(height: 28),
+                          _AccountCard(state: this),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -242,12 +266,13 @@ class _AccountCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(26),
+        padding: const EdgeInsets.all(24),
         child: AutofillGroup(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SegmentedButton<_AccountMode>(
+                showSelectedIcon: false,
                 segments: [
                   ButtonSegment(
                     value: _AccountMode.register,
@@ -265,27 +290,12 @@ class _AccountCard extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               TextField(
-                key: const Key('server-address'),
-                controller: state._server,
-                enabled: !controller.isBusy,
-                decoration: InputDecoration(
-                  labelText: l10n.serverAddress,
-                  prefixIcon: const Icon(Icons.dns_outlined),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _ServerProbeStatus(
-                state: state._serverProbeState,
-                onRetry: controller.isBusy
-                    ? null
-                    : () => state._scheduleServerProbe(immediate: true),
-              ),
-              const SizedBox(height: 14),
-              TextField(
                 key: const Key('username'),
                 controller: state._username,
                 enabled: !controller.isBusy,
+                autocorrect: false,
                 autofillHints: const [AutofillHints.username],
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: l10n.username,
                   prefixIcon: const Icon(Icons.alternate_email),
@@ -297,9 +307,11 @@ class _AccountCard extends StatelessWidget {
                   key: const Key('display-name'),
                   controller: state._displayName,
                   enabled: !controller.isBusy,
+                  textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: l10n.displayName,
-                    prefixIcon: const Icon(Icons.badge_outlined),
+                    prefixIcon: const Icon(Icons.person_outline),
                   ),
                 ),
               ],
@@ -308,15 +320,58 @@ class _AccountCard extends StatelessWidget {
                 key: const Key('password'),
                 controller: state._password,
                 enabled: !controller.isBusy,
-                obscureText: true,
+                obscureText: state._obscurePassword,
                 autofillHints: registering
                     ? const [AutofillHints.newPassword]
                     : const [AutofillHints.password],
+                textInputAction: TextInputAction.done,
                 onSubmitted: (_) => state._submit(),
                 decoration: InputDecoration(
                   labelText: l10n.password,
-                  prefixIcon: const Icon(Icons.key_outlined),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    key: const Key('password-visibility'),
+                    tooltip: state._obscurePassword
+                        ? l10n.showPassword
+                        : l10n.hidePassword,
+                    onPressed: state._togglePasswordVisibility,
+                    icon: Icon(
+                      state._obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                  ),
                 ),
+              ),
+              const SizedBox(height: 10),
+              ExpansionTile(
+                key: const Key('advanced-server-settings'),
+                maintainState: true,
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(bottom: 8),
+                leading: const Icon(Icons.tune_outlined),
+                title: Text(l10n.advancedServerSettings),
+                subtitle: Text(l10n.advancedServerSettingsSubtitle),
+                children: [
+                  TextField(
+                    key: const Key('server-address'),
+                    controller: state._server,
+                    enabled: !controller.isBusy,
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    decoration: InputDecoration(
+                      labelText: l10n.serverAddress,
+                      prefixIcon: const Icon(Icons.dns_outlined),
+                    ),
+                  ),
+                ],
+              ),
+              _ServerProbeStatus(
+                state: state._serverProbeState,
+                onRetry: controller.isBusy
+                    ? null
+                    : () => state._scheduleServerProbe(immediate: true),
               ),
               if (controller.biometricAvailable) ...[
                 const SizedBox(height: 8),
@@ -340,28 +395,55 @@ class _AccountCard extends StatelessWidget {
                 const SizedBox(height: 14),
                 Semantics(
                   liveRegion: true,
-                  child: Text(
-                    message,
-                    key: const Key('connection-error'),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onErrorContainer,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              message,
+                              key: const Key('connection-error'),
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ],
               const SizedBox(height: 22),
-              FilledButton.icon(
+              FilledButton(
                 key: const Key('submit-account'),
                 onPressed: controller.isBusy ? null : state._submit,
-                icon: controller.isBusy
+                child: controller.isBusy
                     ? const SizedBox.square(
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Icon(registering ? Icons.arrow_forward : Icons.login),
-                label: Text(
-                  registering ? l10n.createAndConnect : l10n.connectSecurely,
-                ),
+                    : Text(
+                        registering
+                            ? l10n.createAndConnect
+                            : l10n.connectSecurely,
+                        textAlign: TextAlign.center,
+                      ),
               ),
               if (controller.biometricRemembered) ...[
                 const SizedBox(height: 10),
@@ -481,108 +563,95 @@ class _ServerProbeStatus extends StatelessWidget {
   }
 }
 
-class _Intro extends StatelessWidget {
-  const _Intro({this.compact = false});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Column(
-      crossAxisAlignment: compact
-          ? CrossAxisAlignment.center
-          : CrossAxisAlignment.start,
-      children: [
-        const _Wordmark(),
-        const SizedBox(height: 26),
-        Text(
-          l10n.introHeadline,
-          textAlign: compact ? TextAlign.center : TextAlign.start,
-          style: Theme.of(context).textTheme.displaySmall,
-        ),
-        const SizedBox(height: 18),
-        Text(
-          l10n.introBody,
-          textAlign: compact ? TextAlign.center : TextAlign.start,
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        const SizedBox(height: 24),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _TrustChip(icon: Icons.lock_outline, label: l10n.privateByDesign),
-            _TrustChip(
-              icon: Icons.bolt_outlined,
-              label: l10n.realTimeMessaging,
-            ),
-            _TrustChip(icon: Icons.person_outline, label: l10n.yourOwnAccount),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final stackWordmark = MediaQuery.textScalerOf(context).scale(1) >= 1.6;
+    return Flex(
+      direction: stackWordmark ? Axis.vertical : Axis.horizontal,
       mainAxisSize: MainAxisSize.min,
       children: [
         CircleAvatar(
-          radius: 22,
-          backgroundColor: Theme.of(context).colorScheme.primary,
+          radius: 20,
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
           child: Icon(
-            Icons.waves_rounded,
-            color: Theme.of(context).colorScheme.onPrimary,
+            Icons.chat_bubble_rounded,
+            size: 22,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: stackWordmark ? 0 : 10, height: stackWordmark ? 8 : 0),
         const Text(
           'WampApp',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          style: TextStyle(
+            fontSize: 21,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.3,
+          ),
         ),
       ],
     );
   }
 }
 
-class _TrustChip extends StatelessWidget {
-  const _TrustChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
+class _WelcomeGraphic extends StatelessWidget {
+  const _WelcomeGraphic();
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest
-            .withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 17, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 7),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-          ],
+    final colors = Theme.of(context).colorScheme;
+    return Align(
+      child: Semantics(
+        label: AppLocalizations.of(context).privateByDesign,
+        image: true,
+        child: SizedBox.square(
+          dimension: 92,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.forum_rounded,
+                    size: 46,
+                    color: colors.onPrimaryContainer,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 2,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.surface, width: 3),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(7),
+                    child: Icon(
+                      Icons.lock_rounded,
+                      size: 16,
+                      color: colors.onPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _Atmosphere extends StatelessWidget {
-  const _Atmosphere();
+class _WelcomeBackdrop extends StatelessWidget {
+  const _WelcomeBackdrop();
 
   @override
   Widget build(BuildContext context) {
@@ -590,36 +659,16 @@ class _Atmosphere extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: const [0, 0.46, 1],
           colors: [
+            colors.primaryContainer.withValues(alpha: 0.58),
+            colors.surface.withValues(alpha: 0.96),
             colors.surface,
-            colors.primaryContainer.withValues(alpha: 0.72),
-            colors.secondaryContainer.withValues(alpha: 0.62),
           ],
         ),
       ),
-      child: CustomPaint(painter: _DotPainter(colors.outlineVariant)),
     );
   }
-}
-
-class _DotPainter extends CustomPainter {
-  const _DotPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color.withValues(alpha: 0.28);
-    for (double x = 20; x < size.width; x += 34) {
-      for (double y = 20; y < size.height; y += 34) {
-        canvas.drawCircle(Offset(x, y), 1.2, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DotPainter oldDelegate) =>
-      color != oldDelegate.color;
 }

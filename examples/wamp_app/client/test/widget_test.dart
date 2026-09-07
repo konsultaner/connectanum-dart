@@ -37,6 +37,14 @@ class _LocalizedMaterialApp extends StatelessWidget {
   );
 }
 
+Future<void> _openAdvancedServerSettings(WidgetTester tester) async {
+  final advanced = find.byKey(const Key('advanced-server-settings'));
+  await tester.ensureVisible(advanced);
+  await tester.tap(advanced);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 250));
+}
+
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -59,6 +67,7 @@ void main() {
 
     await tester.pumpWidget(WampApp(controller: controller));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'initial layout');
 
     expect(find.byKey(const Key('server-probe-reachable')), findsOneWidget);
     expect(gateway.probedEndpoints, hasLength(1));
@@ -69,6 +78,37 @@ void main() {
         defaultValue: 'ws://localhost:8080/ws',
       ),
     );
+  });
+
+  testWidgets('onboarding remains usable at 200% text scaling', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final controller = WampAppController(gateway: _FakeGateway());
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(WampApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull, reason: 'scaled initial layout');
+    expect(find.byKey(const Key('username')), findsOneWidget);
+    expect(find.byKey(const Key('password')), findsOneWidget);
+    expect(find.byKey(const Key('advanced-server-settings')), findsOneWidget);
+    expect(find.byKey(const Key('server-address')), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('password-visibility')));
+    await tester.tap(find.byKey(const Key('password-visibility')));
+    await tester.pump();
+    expect(tester.takeException(), isNull, reason: 'password visibility');
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('password'))).obscureText,
+      isFalse,
+    );
+    await _openAdvancedServerSettings(tester);
+    expect(find.byKey(const Key('server-address')), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'advanced settings');
   });
 
   testWidgets('debounces probes and ignores stale endpoint failures', (
@@ -88,6 +128,7 @@ void main() {
     await tester.pump();
     expect(gateway.probedEndpoints, hasLength(1));
 
+    await _openAdvancedServerSettings(tester);
     await tester.enterText(
       find.byKey(const Key('server-address')),
       'wss://router.example/ws',
@@ -231,6 +272,7 @@ void main() {
       find.text('Private conversations that feel effortless.'),
       findsOneWidget,
     );
+    await _openAdvancedServerSettings(tester);
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('server-address')))
@@ -1046,7 +1088,7 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('settings-page')), findsNothing);
-    expect(find.byKey(const Key('server-address')), findsOneWidget);
+    expect(find.byKey(const Key('advanced-server-settings')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     clearGate.complete();
@@ -1120,6 +1162,15 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> chooseAccent(WampAppAccentPreference preference) async {
+      final selector = find.byKey(const Key('settings-accent-color'));
+      await _scrollSettingsTo(tester, selector);
+      final chip = find.byKey(ValueKey('accent-${preference.wireName}'));
+      await tester.ensureVisible(chip);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+    }
+
     Future<void> chooseChatAppearance(
       WampAppConversationAppearance appearance,
     ) async {
@@ -1142,6 +1193,11 @@ void main() {
       tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
       ThemeMode.system,
     );
+    final defaultPrimary = tester
+        .widget<MaterialApp>(find.byType(MaterialApp))
+        .theme!
+        .colorScheme
+        .primary;
     await tester.enterText(find.byKey(const Key('message-recipient')), 'bob');
     await tester.enterText(
       find.byKey(const Key('message-composer')),
@@ -1156,6 +1212,22 @@ void main() {
     );
     await chooseAppearance(WampAppThemePreference.light);
     expect(controller.themePreference, WampAppThemePreference.light);
+    await chooseAccent(WampAppAccentPreference.indigo);
+    expect(controller.accentPreference, WampAppAccentPreference.indigo);
+    expect(
+      tester
+          .widget<ChoiceChip>(find.byKey(const ValueKey('accent-indigo')))
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<MaterialApp>(find.byType(MaterialApp))
+          .theme!
+          .colorScheme
+          .primary,
+      isNot(defaultPrimary),
+    );
     await chooseAppearance(WampAppThemePreference.system);
     expect(controller.themePreference, WampAppThemePreference.system);
     await tester.pageBack();

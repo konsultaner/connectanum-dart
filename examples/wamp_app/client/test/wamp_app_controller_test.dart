@@ -767,6 +767,10 @@ void main() {
         isTrue,
       );
       expect(
+        await controller.setAccentPreference(WampAppAccentPreference.indigo),
+        isTrue,
+      );
+      expect(
         await controller.setLocalePreference(WampAppLocalePreference.german),
         isTrue,
       );
@@ -786,6 +790,7 @@ void main() {
         isTrue,
       );
       expect(controller.themePreference, WampAppThemePreference.dark);
+      expect(controller.accentPreference, WampAppAccentPreference.indigo);
       expect(controller.localePreference, WampAppLocalePreference.german);
       expect(controller.isConversationMuted(directId), isTrue);
       expect(
@@ -799,6 +804,7 @@ void main() {
 
       await controller.signOut();
       expect(controller.themePreference, WampAppThemePreference.system);
+      expect(controller.accentPreference, WampAppAccentPreference.teal);
       expect(controller.localePreference, WampAppLocalePreference.system);
       expect(controller.isConversationMuted(directId), isFalse);
       expect(
@@ -813,6 +819,7 @@ void main() {
         password: 'correct horse battery',
       );
       expect(controller.themePreference, WampAppThemePreference.dark);
+      expect(controller.accentPreference, WampAppAccentPreference.indigo);
       expect(controller.localePreference, WampAppLocalePreference.german);
       expect(controller.isConversationMuted(directId), isTrue);
       expect(

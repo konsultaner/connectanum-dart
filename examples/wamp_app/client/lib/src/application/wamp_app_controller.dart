@@ -183,6 +183,7 @@ class WampAppController extends ChangeNotifier {
   bool get preferenceBusy => _preferenceBusy;
   bool get backupBusy => _backupBusy;
   WampAppThemePreference get themePreference => _preferences.theme;
+  WampAppAccentPreference get accentPreference => _preferences.accent;
   WampAppLocalePreference get localePreference => _preferences.locale;
   bool get pushNotificationsEnabled => _preferences.pushNotificationsEnabled;
   bool get biometricAvailable => _biometricAvailable;
@@ -275,6 +276,11 @@ class WampAppController extends ChangeNotifier {
   Future<bool> setThemePreference(WampAppThemePreference theme) {
     if (_preferences.theme == theme) return Future<bool>.value(true);
     return _savePreferences(_preferences.withTheme(theme));
+  }
+
+  Future<bool> setAccentPreference(WampAppAccentPreference accent) {
+    if (_preferences.accent == accent) return Future<bool>.value(true);
+    return _savePreferences(_preferences.withAccent(accent));
   }
 
   Future<bool> setLocalePreference(WampAppLocalePreference locale) {

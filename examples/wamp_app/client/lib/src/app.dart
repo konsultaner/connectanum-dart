@@ -72,8 +72,8 @@ class _WampAppState extends State<WampApp> {
             WampAppLocalePreference.system => null,
             final preference => Locale(preference.languageCode!),
           },
-          theme: WampAppTheme.light(),
-          darkTheme: WampAppTheme.dark(),
+          theme: WampAppTheme.light(_controller.accentPreference),
+          darkTheme: WampAppTheme.dark(_controller.accentPreference),
           themeMode: switch (_controller.themePreference) {
             WampAppThemePreference.system => ThemeMode.system,
             WampAppThemePreference.light => ThemeMode.light,
