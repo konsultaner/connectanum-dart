@@ -114,6 +114,7 @@ jobs:
             libgtk-3-dev \
             liblzma-dev \
             libpulse-dev \
+            libsecret-1-dev \
             ninja-build \
             pkg-config
 

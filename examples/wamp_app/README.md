@@ -232,6 +232,10 @@ Artifacts are written under `out/wamp-app-artifacts/` by default.
 | Windows | Release bundle | Unsigned; normal code signing avoids SmartScreen friction. |
 | Server | Host-native CLI plus YAML | Review YAML, TLS, secrets, and filesystem permissions before deployment. |
 
+Linux builds also require `libsecret-1-dev` for platform secure storage. Install
+the `libsecret-1-0` runtime and provide a desktop Secret Service (such as GNOME
+Keyring) on tester machines in addition to the declared audio/runtime libraries.
+
 For Android release signing, copy
 `client/android/key.properties.example` to the ignored
 `client/android/key.properties` and point it at an operator-owned upload
