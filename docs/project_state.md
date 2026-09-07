@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-09-07
-Current branch: `codex/wamp-app-consumer-settings`
+Current branch: `master`
 Current milestone: harden the standalone WampApp as a consumer-facing
 application on top of the merged and published `3.0.0-beta.5` graph. The main
 shell now keeps protocol and endpoint details out of the conversation flow and
@@ -25,8 +25,15 @@ router/MCP consumer smokes, benchmark integration, package smokes, and Chrome
 Dart2Wasm SCRAM worker coverage.
 
 The consumer settings, biometric sign-in, localization, and accessible accent
-work are now being promoted to `master` for fresh WampApp beta bundles across
-all seven existing artifact targets. The public Connectanum package graph
+work are merged into both `master` remotes at `f63dbe3d`. Fresh local
+`bin/test-fast`, `bin/test-wamp-app`, and `bin/verify` gates pass. Hosted
+WampApp run `34099558143` passes all 28 production benchmark checks and six
+bundles, including the repaired Linux secure-storage build. Windows exposed
+the biometric plugin's obsolete `/await` flag under current MSVC; the
+application now removes that flag from only the affected C++20 target, with
+a CMake regression test. Final hosted Windows, CI, and strict audit evidence
+remain required before declaring all seven beta bundles published.
+The public Connectanum package graph
 remains at `3.0.0-beta.5`; this application-only update does not change library
 release inputs. Fresh local verification, hosted CI, production benchmark
 gates, and the strict deployment audit are required for the promotion handoff.

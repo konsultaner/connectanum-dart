@@ -24,6 +24,64 @@ SERVER_ENTRYPOINT = ROOT / "examples/wamp_app/server/bin/wamp_app_server.dart"
 
 
 class WampAppPackagingTest(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("cmake"), "CMake is required")
+    def test_windows_local_auth_uses_standard_coroutines_only(self) -> None:
+        compatibility = (
+            ROOT / "examples/wamp_app/client/windows/local_auth_coroutines.cmake"
+        ).as_posix()
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            source = Path(temporary_dir)
+            (source / "CMakeLists.txt").write_text(
+                textwrap.dedent(
+                    f"""\
+                    cmake_minimum_required(VERSION 3.14)
+                    project(coroutine_options LANGUAGES NONE)
+                    # Missing optional plugins must be harmless.
+                    include("{compatibility}")
+                    add_library(local_auth_windows_plugin INTERFACE)
+                    add_library(unrelated_plugin INTERFACE)
+                    set_property(TARGET unrelated_plugin PROPERTY
+                      COMPILE_OPTIONS "/await")
+                    set_property(TARGET local_auth_windows_plugin PROPERTY
+                      COMPILE_OPTIONS "/W4;/await;/EHsc;/await")
+                    include("{compatibility}")
+                    include("{compatibility}")
+                    get_target_property(options local_auth_windows_plugin
+                      COMPILE_OPTIONS)
+                    if(NOT options STREQUAL "/W4;/EHsc")
+                      message(FATAL_ERROR "Unexpected options: ${{options}}")
+                    endif()
+                    get_target_property(unrelated unrelated_plugin COMPILE_OPTIONS)
+                    if(NOT unrelated STREQUAL "/await")
+                      message(FATAL_ERROR "Changed unrelated plugin")
+                    endif()
+                    set_property(TARGET local_auth_windows_plugin PROPERTY
+                      COMPILE_OPTIONS "")
+                    include("{compatibility}")
+                    get_target_property(empty local_auth_windows_plugin
+                      COMPILE_OPTIONS)
+                    if(NOT empty STREQUAL "")
+                      message(FATAL_ERROR "Changed empty options")
+                    endif()
+                    """
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                ["cmake", "-S", str(source), "-B", str(source / "build")],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+        application = (
+            ROOT / "examples/wamp_app/client/windows/CMakeLists.txt"
+        ).read_text(encoding="utf-8")
+        self.assertLess(
+            application.index("include(flutter/generated_plugins.cmake)"),
+            application.index("include(local_auth_coroutines.cmake)"),
+        )
+
     def test_android_release_signing_never_uses_the_debug_key(self) -> None:
         build_script = ANDROID_BUILD.read_text(encoding="utf-8")
 
