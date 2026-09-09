@@ -14051,16 +14051,10 @@ void main() {
           (documentedRegistrationLookup['structuredContent']
                   as Map<String, Object?>)['arguments']
               as List;
-      expect(documentedRegistrationIds, hasLength(1));
-      final documentedRegistrationId = (documentedRegistrationIds.single as num)
-          .toInt();
-      expect(documentedRegistrationId, greaterThan(0));
+      // Explicit API documentation is not permission to discover a registration.
+      expect(documentedRegistrationIds, isEmpty);
       final lateLiveRegistration = await serviceSession.register(
         'app.late.live',
-      );
-      expect(
-        lateLiveRegistration.registrationId,
-        isNot(equals(documentedRegistrationId)),
       );
 
       final documentedRegistrationList = await _callRouterJsonMethod(
@@ -14075,52 +14069,6 @@ void main() {
                       as Map<String, Object?>)['argumentsKeywords']
                   as Map<String, Object?>)['exact']
               as List;
-      expect(
-        documentedRegistrationExactIds,
-        contains(documentedRegistrationId),
-      );
-
-      final documentedRegistrationGet = await _callRouterJsonMethod(
-        client,
-        listener.port,
-        '/mcp/public',
-        'wamp.registration.get',
-        {'id': documentedRegistrationId},
-      );
-      final documentedRegistrationDetails =
-          (documentedRegistrationGet['structuredContent']
-                  as Map<String, Object?>)['argumentsKeywords']
-              as Map<String, Object?>;
-      expect(
-        documentedRegistrationDetails,
-        containsPair('uri', 'app.documented.only'),
-      );
-
-      final documentedRegistrationCallees = await _callRouterJsonMethod(
-        client,
-        listener.port,
-        '/mcp/public',
-        'wamp.registration.list_callees',
-        {'id': documentedRegistrationId},
-      );
-      expect(
-        (documentedRegistrationCallees['structuredContent']
-            as Map<String, Object?>)['arguments'],
-        isEmpty,
-      );
-
-      final documentedRegistrationCalleeCount = await _callRouterJsonMethod(
-        client,
-        listener.port,
-        '/mcp/public',
-        'wamp.registration.count_callees',
-        {'id': documentedRegistrationId},
-      );
-      expect(
-        (documentedRegistrationCalleeCount['structuredContent']
-            as Map<String, Object?>)['arguments'],
-        equals([0]),
-      );
 
       final subscribeResult = await _callMcpTool(
         client,
@@ -14940,6 +14888,14 @@ void main() {
           (secureJsonDirectDocumentedRegistration.arguments.single as num)
               .toInt();
       expect(secureJsonDirectDocumentedRegistrationId, greaterThan(0));
+      expect(
+        lateLiveRegistration.registrationId,
+        isNot(equals(secureJsonDirectDocumentedRegistrationId)),
+      );
+      expect(
+        documentedRegistrationExactIds,
+        isNot(contains(secureJsonDirectDocumentedRegistrationId)),
+      );
       final secureJsonDirectDocumentedRegistrationDetails =
           await secureJsonPostClient.getWampRegistration(
             secureJsonDirectDocumentedRegistrationId,
@@ -14950,6 +14906,43 @@ void main() {
         secureJsonDirectDocumentedRegistrationDetails.argumentsKeywords,
         containsPair('uri', 'app.documented.only'),
       );
+      final authorizedRegistrations = await secureJsonPostClient
+          .callWampMetaProcedure('wamp.registration.list', directJson: true);
+      expect(
+        authorizedRegistrations.argumentsKeywords['exact'],
+        contains(secureJsonDirectDocumentedRegistrationId),
+      );
+      for (final method in ['get', 'list_callees', 'count_callees']) {
+        final hidden = await _callRouterJsonMethod(
+          client,
+          listener.port,
+          '/mcp/public',
+          'wamp.registration.$method',
+          {'id': secureJsonDirectDocumentedRegistrationId},
+        );
+        final missing = await _callRouterJsonMethod(
+          client,
+          listener.port,
+          '/mcp/public',
+          'wamp.registration.$method',
+          {'id': 9007199254740990},
+        );
+        expect(
+          hidden['structuredContent'],
+          equals(missing['structuredContent']),
+        );
+        if (method != 'get') {
+          final authorized = await secureJsonPostClient.callWampMetaProcedure(
+            'wamp.registration.$method',
+            arguments: [secureJsonDirectDocumentedRegistrationId],
+            directJson: true,
+          );
+          expect(
+            authorized.arguments,
+            method == 'list_callees' ? isEmpty : equals([0]),
+          );
+        }
+      }
 
       final secureJsonDirectResources = await secureJsonPostClient
           .listResources(

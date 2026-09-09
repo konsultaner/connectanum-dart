@@ -1337,19 +1337,17 @@ Future<List<SubscriptionSnapshot>> _visibleMetaSubscriptionsForState(
 }) async {
   final visible = <SubscriptionSnapshot>[];
   for (final subscription in subscriptions) {
-    final canPublish = await _stateActionAuthorized(
-      state: state,
-      connectionId: connectionId,
-      action: AuthorizationAction.publish,
-      uri: subscription.topic,
-    );
     final canSubscribe = await _stateActionAuthorized(
       state: state,
       connectionId: connectionId,
       action: AuthorizationAction.subscribe,
       uri: subscription.topic,
+      targetMatchPolicy: _permissionMatchPolicyFromTopic(
+        subscription.matchPolicy,
+      ),
+      options: {'match': _topicMatchPolicyName(subscription.matchPolicy)},
     );
-    if (canPublish || canSubscribe) {
+    if (canSubscribe) {
       visible.add(subscription);
     }
   }
@@ -1361,6 +1359,8 @@ Future<bool> _stateActionAuthorized({
   required int connectionId,
   required AuthorizationAction action,
   required String uri,
+  PermissionMatchPolicy? targetMatchPolicy,
+  Map<String, Object?> options = const {},
 }) async {
   final realmSettings = state.realmSettings;
   final realmUri = state.realmUri;
@@ -1381,6 +1381,8 @@ Future<bool> _stateActionAuthorized({
     authMethod: welcomeDetails?.authmethod ?? state.authMethod,
     authProvider: welcomeDetails?.authprovider,
     protocol: state.protocol ?? state.listenerSettings.primaryProtocol,
+    targetMatchPolicy: targetMatchPolicy,
+    options: options,
     isInternal: false,
   );
   return decision.allowed;

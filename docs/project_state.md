@@ -1,8 +1,31 @@
 # Project State
 
-Last updated: 2026-09-07
-Current branch: `master`
-Current milestone: harden the standalone WampApp as a consumer-facing
+Last updated: 2026-09-09
+Current branch: `codex/meta-discovery-authorization`
+Current milestone: the WAMP Meta discovery authorization fix is implemented
+and locally verified. Its completed plan is
+`docs/exec-plans/2026-09-09-meta-discovery-authorization.md`; the broader active
+consumer plan remains `docs/exec-plans/2026-08-24-wamp-app.md`.
+Live WebSocket, RawSocket, MCP direct JSON, and
+MCP Streamable HTTP regressions reproduced subscription disclosure to callers
+with publish permission but no subscribe permission. Subscription snapshots now
+require subscribe permission, with exact/prefix/wildcard match context forwarded
+to dynamic authorization. Configured MCP registration snapshots no longer skip
+call authorization for documentation-only entries. Related lookup, match, get,
+participant, and count methods retain the same filtered view and existing wire
+shapes. General explicitly configured API documentation catalogs are unchanged.
+Baseline `bin/test-fast`, router analysis, and 122 focused live Meta/session/auth
+tests pass. Local semantic review is complete. The first `bin/verify` run found
+one obsolete MCP smoke expectation for the configured-registration bypass;
+it now checks public nondisclosure and authorized-member visibility. The final
+`bin/verify` rerun passes, including all 482 router tests, six isolated remote-auth
+tests, 13 zero-copy tests, package-consumer and live MCP smokes, 124 benchmark
+tests, and Chrome/Dart2Wasm coverage. This source fix is isolated on the security
+branch; integration into master and the next synchronized beta release are
+still required before published-package consumers receive it. Branch publication
+does not publish packages. The beta.5 packages are unchanged.
+
+Previous milestone: harden the standalone WampApp as a consumer-facing
 application on top of the merged and published `3.0.0-beta.5` graph. The main
 shell now keeps protocol and endpoint details out of the conversation flow and
 offers dedicated Settings and technical-information screens. Account-encrypted
@@ -25,21 +48,29 @@ router/MCP consumer smokes, benchmark integration, package smokes, and Chrome
 Dart2Wasm SCRAM worker coverage.
 
 The consumer settings, biometric sign-in, localization, and accessible accent
-work are merged into both `master` remotes at `f63dbe3d`. Fresh local
-`bin/test-fast`, `bin/test-wamp-app`, and `bin/verify` gates pass. Hosted
-WampApp run `34099558143` passes all 28 production benchmark checks and six
-bundles, including the repaired Linux secure-storage build. Windows exposed
-the biometric plugin's obsolete `/await` flag under current MSVC; the
-first flag-only correction at `1db5edb6` exposed an upstream nonstandard
-coroutine return (C3773). The application now preserves the plugin's legacy
-coroutine behavior and applies Microsoft's deprecation compatibility define
-only to that target while it still uses `/await`, with an isolation and
-idempotence regression. Final hosted Windows, CI, and strict audit evidence
-remain required before declaring all seven beta bundles published.
-The public Connectanum package graph
-remains at `3.0.0-beta.5`; this application-only update does not change library
-release inputs. Fresh local verification, hosted CI, production benchmark
-gates, and the strict deployment audit are required for the promotion handoff.
+work and platform packaging fixes are merged into both `master` remotes at
+`a5613d17`. Local `bin/test-fast`, `bin/test-wamp-app`, and final `bin/verify`
+gates pass, including all ten packaging regressions. Hosted
+[CI run 34102845220](https://github.com/konsultaner/connectanum-dart/actions/runs/34102845220)
+passes all four jobs, including Full Verify and Dart VM Coverage. Hosted
+[WampApp run 34102845216](https://github.com/konsultaner/connectanum-dart/actions/runs/34102845216)
+publishes all six client bundles and the Linux server, with all 28 production
+benchmark checks passing. Downloaded web and Windows archives have verified
+SHA-256 checksums and clean-tree manifests matching the release head. Windows
+includes the app, Connectanum native, biometric, and secure-storage DLLs.
+The strict deployment audit passes baseline protection, workflow visibility,
+router package visibility, exact-head CI, and clean CI logs. These are beta
+testing artifacts retained for 14 days, not app-store or live-service releases.
+The public Connectanum package graph remains at `3.0.0-beta.5`; this
+application-only update does not change library release inputs.
+
+Linux packaging now installs libsecret development headers. Windows preserves
+the upstream biometric plugin's legacy coroutine behavior using Microsoft's
+deprecation compatibility define only on the affected MSVC target while it
+still uses `/await`. The initially attempted flag removal exposed an upstream
+nonstandard coroutine return (C3773), so retain the scoped compatibility shim
+until upstream adopts standard coroutines. Hosted compilation is proven;
+Windows Hello hardware interaction was not exercised on the macOS host.
 
 All seven Dart packages and three Rust crates now advance together to beta.5.
 Client and router hooks stage and atomically rename every configured, built, or
@@ -445,7 +476,7 @@ dedicated Web Worker, while existing XSalsa20-Poly1305 v1 attachments remain
 readable. Server attachment storage is now
 bounded by configurable global and per-sender ciphertext quotas, reconciled on
 startup, and pruned by staged TTL without racing mailbox commits.
-The active plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
+The active consumer UX plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 
 WampApp lives under `examples/wamp_app` as standalone client, server, and shared
 protocol packages. The server and Flutter client resolve the public
@@ -27298,7 +27329,8 @@ at the older `47bbf9c` commit.
 
 ## Active Plan
 
-- There is no active execution plan. The most recently completed MCP
+- See the current milestone at the top of this file for the active plan.
+  The following entries retain historical verification evidence. The completed MCP
   downstream-readiness plan is
   `docs/exec-plans/2026-08-17-mcp-grant-runtime-expiry-enforcement.md`. It closes
   the post-construction lifetime gap for router HTTP-auth and OAuth grant-aware
