@@ -12,7 +12,7 @@ use ct_core::{
     HttpRequestSummary, HttpResponseHandle, HttpRouteResolution, ListenerId, RawSocketSerializer,
     ResponseStreamWriter, WampMessage, WampRawFrame, WebSocketHandshake,
 };
-use dashmap::DashMap;
+use dashmap::{mapref::entry::Entry, DashMap};
 use quinn::Connection as QuinnConnection;
 use tokio::sync::mpsc::Receiver;
 
@@ -1132,6 +1132,40 @@ struct MessageStore {
     messages: DashMap<u32, Arc<StoredMessage>>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MessageHandleError {
+    Unavailable,
+    Exhausted,
+}
+
+impl MessageStore {
+    fn insert(&self, message: Arc<StoredMessage>) -> Result<u32, MessageHandleError> {
+        // Legacy FFI reserves zero for no message and negative values for errors.
+        // Never recycle IDs: queued work and finalizers may still hold old ones.
+        let id = self
+            .next_id
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |next| {
+                if next == 0 || next > i32::MAX as u32 {
+                    None
+                } else {
+                    Some(next + 1)
+                }
+            })
+            .map_err(|_| MessageHandleError::Exhausted)?;
+        match self.messages.entry(id) {
+            Entry::Vacant(entry) => {
+                entry.insert(message);
+                Ok(id)
+            }
+            Entry::Occupied(_) => Err(MessageHandleError::Exhausted),
+        }
+    }
+
+    fn clear(&self) {
+        self.messages.clear();
+    }
+}
+
 impl Default for MessageStore {
     fn default() -> Self {
         Self {
@@ -1147,11 +1181,8 @@ fn message_store() -> &'static MessageStore {
     MESSAGE_STORE.get_or_init(MessageStore::default)
 }
 
-pub fn store_message(message: StoredMessage) -> u32 {
-    let store = message_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.messages.insert(id, Arc::new(message));
-    id
+pub fn store_message(message: StoredMessage) -> Result<u32, MessageHandleError> {
+    message_store().insert(Arc::new(message))
 }
 
 pub fn with_message<F, T>(id: u32, f: F) -> Option<T>
@@ -1199,22 +1230,23 @@ pub fn observe_call(procedure: &str) -> Option<std::sync::Weak<StoredMessage>> {
 
 pub fn clear_messages() {
     if let Some(store) = MESSAGE_STORE.get() {
-        store.messages.clear();
+        store.clear();
     }
 }
 
-pub fn clone_message(id: u32) -> Option<u32> {
+pub fn clone_message(id: u32) -> Result<u32, MessageHandleError> {
     clone_message_in_store(message_store(), id)
 }
 
-fn clone_message_in_store(store: &MessageStore, id: u32) -> Option<u32> {
+fn clone_message_in_store(store: &MessageStore, id: u32) -> Result<u32, MessageHandleError> {
     let cloned = {
-        let message = store.messages.get(&id)?;
+        let message = store
+            .messages
+            .get(&id)
+            .ok_or(MessageHandleError::Unavailable)?;
         Arc::clone(message.value())
     };
-    let new_id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.messages.insert(new_id, cloned);
-    Some(new_id)
+    store.insert(cloned)
 }
 
 #[cfg(test)]
@@ -1224,6 +1256,226 @@ mod message_store_tests {
     use std::thread;
     use std::time::Duration;
 
+    fn test_message(reason: &str) -> Arc<StoredMessage> {
+        Arc::new(StoredMessage {
+            serializer: RawSocketSerializer::Json,
+            code: 7,
+            raw: StoredRawFrame::from_bytes(Bytes::from(format!("[7,{{}},\"{reason}\"]"))),
+            message: WampMessage::Goodbye {
+                details: Default::default(),
+                reason: reason.to_string(),
+                payload: Default::default(),
+            },
+            details: None,
+            args: None,
+            kwargs: None,
+        })
+    }
+
+    fn try_clone(store: &MessageStore, id: u32) -> Option<u32> {
+        clone_message_in_store(store, id).ok()
+    }
+
+    #[test]
+    fn cloning_rejects_signed_handle_exhaustion_without_leaking() {
+        let store = MessageStore {
+            next_id: AtomicU32::new(i32::MAX as u32),
+            messages: DashMap::new(),
+        };
+        let message = test_message("wamp.close.normal");
+        let observer = Arc::downgrade(&message);
+        store.messages.insert(1, message);
+        assert_eq!(try_clone(&store, 1), Some(i32::MAX as u32));
+        for _ in 0..4 {
+            assert_eq!(try_clone(&store, 1), None);
+        }
+        assert_eq!(store.messages.len(), 2);
+        assert_eq!(observer.strong_count(), 2);
+        assert_eq!(store.next_id.load(Ordering::SeqCst), i32::MAX as u32 + 1);
+    }
+
+    #[test]
+    fn cloning_never_wraps_and_replaces_a_live_message() {
+        let store = MessageStore {
+            next_id: AtomicU32::new(u32::MAX),
+            messages: DashMap::new(),
+        };
+        let victim = test_message("wamp.close.victim");
+        let source = test_message("wamp.close.source");
+        store.messages.insert(1, Arc::clone(&victim));
+        store.messages.insert(2, source);
+        let results = (0..3).map(|_| try_clone(&store, 2)).collect::<Vec<_>>();
+        assert!(Arc::ptr_eq(
+            store.messages.get(&1).unwrap().value(),
+            &victim
+        ));
+        assert!(!store.messages.contains_key(&0));
+        assert_eq!(results, vec![None; 3]);
+        assert_eq!(store.messages.len(), 2);
+        assert_eq!(store.next_id.load(Ordering::SeqCst), u32::MAX);
+    }
+
+    #[test]
+    fn cloning_rejects_zero_as_an_allocation_id() {
+        let store = MessageStore {
+            next_id: AtomicU32::new(0),
+            messages: DashMap::new(),
+        };
+        store.messages.insert(1, test_message("wamp.close.normal"));
+        assert_eq!(try_clone(&store, 1), None);
+        assert!(!store.messages.contains_key(&0));
+        assert_eq!(store.messages.len(), 1);
+    }
+
+    #[test]
+    fn rejected_insertions_drop_their_owned_message() {
+        for next_id in [0, i32::MAX as u32 + 1, u32::MAX] {
+            let store = MessageStore {
+                next_id: AtomicU32::new(next_id),
+                messages: DashMap::new(),
+            };
+            let message = test_message("wamp.close.normal");
+            let observer = Arc::downgrade(&message);
+            assert_eq!(store.insert(message), Err(MessageHandleError::Exhausted));
+            assert_eq!(observer.strong_count(), 0);
+            assert!(store.messages.is_empty());
+            assert_eq!(store.next_id.load(Ordering::SeqCst), next_id);
+        }
+    }
+
+    #[test]
+    fn insertion_accepts_the_last_positive_handle_only_once() {
+        let store = MessageStore {
+            next_id: AtomicU32::new(i32::MAX as u32),
+            messages: DashMap::new(),
+        };
+        let message = test_message("wamp.close.normal");
+        let observer = Arc::downgrade(&message);
+        assert_eq!(store.insert(message), Ok(i32::MAX as u32));
+        assert_eq!(
+            store.insert(test_message("wamp.close.other")),
+            Err(MessageHandleError::Exhausted)
+        );
+        assert_eq!(store.messages.len(), 1);
+        assert_eq!(observer.strong_count(), 1);
+        store.clear();
+        assert_eq!(observer.strong_count(), 0);
+        assert_eq!(
+            store.insert(test_message("wamp.close.other")),
+            Err(MessageHandleError::Exhausted)
+        );
+    }
+
+    #[test]
+    fn collisions_preserve_existing_entries_and_drop_the_rejected_owner() {
+        let store = MessageStore::default();
+        let original = test_message("wamp.close.original");
+        store.messages.insert(1, Arc::clone(&original));
+        let replacement = test_message("wamp.close.replacement");
+        let observer = Arc::downgrade(&replacement);
+        assert_eq!(
+            store.insert(replacement),
+            Err(MessageHandleError::Exhausted)
+        );
+        assert!(Arc::ptr_eq(
+            store.messages.get(&1).unwrap().value(),
+            &original
+        ));
+        assert_eq!(observer.strong_count(), 0);
+        assert_eq!(store.messages.len(), 1);
+    }
+
+    #[test]
+    fn clearing_messages_does_not_recycle_a_stale_handle() {
+        let store = MessageStore::default();
+        let message = test_message("wamp.close.original");
+        let retained_owner = Arc::clone(&message);
+        let observer = Arc::downgrade(&message);
+        let stale = store.insert(message).unwrap();
+        store.clear();
+        assert_eq!(observer.strong_count(), 1);
+        let current = store.insert(test_message("wamp.close.current")).unwrap();
+        assert_ne!(stale, current);
+        assert_eq!(
+            clone_message_in_store(&store, stale),
+            Err(MessageHandleError::Unavailable)
+        );
+        drop(retained_owner);
+        assert_eq!(observer.strong_count(), 0);
+        assert!(store.messages.contains_key(&current));
+    }
+
+    #[test]
+    fn unavailable_sources_do_not_consume_the_last_valid_id() {
+        let store = MessageStore {
+            next_id: AtomicU32::new(i32::MAX as u32),
+            messages: DashMap::new(),
+        };
+        assert_eq!(
+            clone_message_in_store(&store, 1),
+            Err(MessageHandleError::Unavailable)
+        );
+        assert_eq!(store.next_id.load(Ordering::SeqCst), i32::MAX as u32);
+        assert_eq!(
+            store.insert(test_message("wamp.close.normal")),
+            Ok(i32::MAX as u32)
+        );
+    }
+
+    #[test]
+    fn concurrent_insertions_and_clones_cannot_cross_the_signed_boundary() {
+        let store = Arc::new(MessageStore {
+            next_id: AtomicU32::new(i32::MAX as u32 - 7),
+            messages: DashMap::new(),
+        });
+        let source = test_message("wamp.close.source");
+        let observer = Arc::downgrade(&source);
+        store.messages.insert(1, source);
+        let barrier = Arc::new(std::sync::Barrier::new(16));
+        let threads = (0..16)
+            .map(|index| {
+                let store = Arc::clone(&store);
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || {
+                    barrier.wait();
+                    let is_clone = index % 2 == 0;
+                    let result = if is_clone {
+                        clone_message_in_store(&store, 1)
+                    } else {
+                        store.insert(test_message("wamp.close.inserted"))
+                    };
+                    (is_clone, result)
+                })
+            })
+            .collect::<Vec<_>>();
+        let results = threads
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .collect::<Vec<_>>();
+        let ids = results
+            .iter()
+            .filter_map(|(_, result)| result.as_ref().ok().copied())
+            .collect::<std::collections::HashSet<_>>();
+        assert_eq!(ids.len(), 8);
+        assert!(ids.iter().all(|id| *id > 0 && *id <= i32::MAX as u32));
+        assert_eq!(
+            results
+                .iter()
+                .filter(|(_, result)| *result == Err(MessageHandleError::Exhausted))
+                .count(),
+            8
+        );
+        assert_eq!(store.messages.len(), 9);
+        let cloned = results
+            .iter()
+            .filter(|(is_clone, result)| *is_clone && result.is_ok())
+            .count();
+        assert_eq!(observer.strong_count(), 1 + cloned);
+        assert_eq!(store.next_id.load(Ordering::SeqCst), i32::MAX as u32 + 1);
+        store.clear();
+        assert_eq!(observer.strong_count(), 0);
+    }
+
     #[test]
     fn cloning_releases_the_source_shard_before_insert() {
         let store = Arc::new(MessageStore {
@@ -1231,6 +1483,7 @@ mod message_store_tests {
             messages: DashMap::new(),
         });
         // Reusing the initial next ID forces get and insert onto the same shard.
+        // That occupied slot must now be rejected rather than replaced.
         store.messages.insert(
             1,
             Arc::new(StoredMessage {
@@ -1253,14 +1506,14 @@ mod message_store_tests {
         let (tx, rx) = mpsc::channel();
         let thread_store = Arc::clone(&store);
         thread::spawn(move || {
-            tx.send(clone_message_in_store(&thread_store, 1))
+            tx.send(clone_message_in_store(&thread_store, 1).ok())
                 .expect("clone result receiver remains available");
         });
 
         assert_eq!(
             rx.recv_timeout(Duration::from_secs(10))
                 .expect("message cloning must not deadlock its DashMap shard"),
-            Some(1),
+            None,
         );
     }
 }

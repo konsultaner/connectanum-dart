@@ -213,6 +213,38 @@ scope, including code excluded from the root workspace gates.
   performance work for controlled final confirmation and continue every pending
   component row. No audit candidate has been pushed or released.
 
+## SA-005 Message Handle Boundaries
+
+- Four bounded fail-first tests confirm negative/sentinel handles and live-entry
+  replacement from unchecked unsigned allocation. They use isolated stores,
+  not billions of packets or an unsafe global-counter injection.
+- Local checked admission permits the last positive ID, rejects invalid/exhausted
+  counters and collisions, drops rejected owners, and preserves old handles and
+  stale-ID safety across clear. Typed internal errors map to existing FFI -4/-14
+  statuses without an ABI change. Ten store tests and FFI result mapping are
+  covered by the passing 112-test confirmation run. The initial full FFI run
+  had an HTTP/3 handshake timeout; isolated and complete reruns pass, but its
+  root cause is not established. Fresh `bin/verify` passes, including 105 default
+  FFI, 112 test-hook FFI, 514 router, and all existing live/package/browser gates.
+  Six longer ABBAAB comparison passes complete 188,640 measured operations plus
+  11,160 warmups without errors, including 384 GiB of large-frame payload.
+- This is a mitigation, not a solution to finite process-lifetime availability.
+  Complete an additive wide-handle ABI across polling, materialization, byte
+  exports, binary/SHA-256/E2EE consumers, native forwarding, test queues, both
+  Dart bindings, and the shared exporter. Legacy adapters must reject truncation;
+  capability selection must cover the entire family. Include tests above the
+  old boundary, partial-library rejection/fallback, escaped owners and old ABI.
+- The checked-allocator comparison uses identical Dart executables and frozen
+  native libraries. Results are mixed: 32/64 MiB throughput +3.9%/+14.1%, but
+  WebSocket pub/sub -6.5%. Late background inference exceeds 2200% CPU; retain
+  every pass and do not infer either a guard speedup or harmless noise. All 62
+  unchanged frame/file gates pass over 73.5 GiB. Relative performance, especially
+  pub/sub, remains open alongside SA-002/SA-004 confirmation. Full artifact,
+  verification outcomes and source fingerprints are in the audit report.
+  Next: implement the complete wide-handle migration, then confirm performance
+  without repeatedly replacing unfavorable evidence. Review reset/wrap behavior
+  of other native stores as separate coverage. Keep this checkpoint local.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.

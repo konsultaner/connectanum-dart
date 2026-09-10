@@ -137,6 +137,26 @@ comparisons: performance is not cleared and nothing has been pushed/published.
 Continue bounded handle-allocation/cancellation and external-buffer review,
 alongside outstanding performance confirmation and all pending component rows.
 
+SA-005: four bounded fail-first tests confirm negative/sentinel native message
+handles and live-entry replacement at counter wrap. Checked allocation now
+rejects exhaustion/collisions, preserves existing entries, and drops rejected
+owners. The last positive ID is usable once; clearing does not recycle stale
+IDs. Existing FFI -4/-14 errors are preserved and no public ABI changes. All 112
+FFI tests pass on confirmation. The initial run had an HTTP/3 handshake timeout;
+isolated and full reruns pass, with no established root cause. Fresh `bin/verify`
+passes, including 105 default FFI and 514 router tests plus the live/browser
+gates. Six longer native-only passes complete 188,640 operations and 11,160
+warmups without errors, including 384 GiB of large-frame payload. Results remain
+mixed: large frames improve, but WebSocket pub/sub falls 6.5%, and late background
+inference exceeds 2200% CPU. All 62 unchanged frame/file gates pass over 73.5 GiB;
+relative performance is not cleared. Full evidence is retained and public-artifact
+checks pass after generation. This is a fail-closed mitigation, not the final
+availability solution: an additive wide
+message-handle family must cover all poll/read/export/forward/E2EE/hash consumers
+and retain safe legacy adapters. The wider migration and other native stores'
+reset/wrap review are required next work. No audit changes are published and the
+full component audit remains active.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

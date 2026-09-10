@@ -635,6 +635,107 @@ evidence and SA-002/SA-003 confirmation are still required. Continue the wider
 audit with bounded signed-handle allocation tests, cancellation/late-transfer
 cases, and other external-buffer owners; these leads are not confirmed findings.
 
+### SA-005: Native Message Handles Cross The Signed ABI Boundary
+
+**Status:** confirmed; local fail-closed mitigation passes full verification.
+Comparison and absolute-gate evidence are retained, but relative performance is
+not cleared. Wider-handle migration is still required.
+
+**Severity and prerequisites:** high-impact conditional lifetime/resource defect.
+This is the native process's internal message-handle namespace, not a WAMP
+request ID supplied by a peer. An admitted workload must accumulate enough
+parsed messages and retained aliases to exhaust that process-global namespace.
+The tests inject counter boundaries into isolated stores; they do not claim a
+single malformed packet can set the counter or demonstrate a complete remote
+cross-session disclosure chain.
+
+`MessageStore` previously used unchecked `AtomicU32::fetch_add` for both creation
+and cloning, while poll/wait/retain returned signed `c_int` and readers rejected
+nonpositive handles. After `i32::MAX`, entries could be stored under IDs returned
+as errors, preventing ordinary callers from releasing them. At unsigned wrap,
+zero collided with the no-message sentinel and subsequent IDs replaced existing
+map entries. A stale handle could therefore resolve to a different allocation.
+The namespace was already process-lifetime: clearing messages did not reset it.
+
+Four safe fail-first tests reproduce a returned `2147483648`, a returned zero,
+live-entry replacement after three injected-boundary clones, and reuse of an
+occupied same-shard ID. Assertions compare owned Arc identities and reference
+counts, never read freed bytes, and never modify the process-global counter.
+
+The shared insertion path now atomically reserves only `1..=i32::MAX`, rejects
+zero/exhausted counters without advancing them, and accepts only vacant map
+entries. The last positive ID remains valid exactly once. Rejected owners are
+dropped; a clone releases its source shard guard before insertion. Parsing and
+test enqueue paths propagate allocation failure without storing or queuing a
+bad ID. Invalid retain remains `ERR_INVALID_ARGUMENT` (-4); exhaustion returns
+the existing `ERR_HANDLE_UNAVAILABLE` (-14). C ABI layouts and Dart bindings do
+not change. Existing owners and handles can still be read/released after
+allocation exhaustion, and clearing cannot resurrect stale handles.
+
+The expanded tests cover new-message rejection cleanup, final-ID insertion,
+occupied-slot preservation, clear/reuse boundaries, unavailable-source admission,
+and 16 concurrent creators/cloners competing for eight remaining IDs. A separate
+FFI test verifies positive-boundary/error conversion. All 112 feature-enabled
+FFI tests pass on confirmation. The first full run passed 111 tests but timed out
+in an HTTP/3 handshake; that test passed in isolation and the complete fresh
+suite passed. Its cause remains unproven, not fixed by this WAMP-only change.
+Fresh `bin/verify` passes, including 105 default FFI, 112 test-hook FFI, 514 router,
+and the existing package, live MCP, remote-auth, zero-copy, and Chrome/Dart2Wasm
+checks. Do not treat the initial failed run as passing evidence. The measured
+`ffi-test` release library SHA-256 is
+`67479063a474a9867d79ac274999747e53912bcc1a37fa6279e9e603b436b036`.
+
+The [native-only comparison and production gates](2026-09-10-native-message-handle-benchmarks.json)
+retain frozen identities, source fingerprints, commands, runner sources, scenario,
+raw hashes, and verification outcomes, including the initial failed FFI run.
+Both variants use the same payload-only AOT service, client, and driver; only the
+native library changes. Six ABBAAB passes complete 188,640 measured operations
+and 11,160 warmups without errors. Each pass now uses 512 calls at 32 MiB and
+256 at 64 MiB, rather than the earlier 16 and eight, providing longer measurement
+windows and 384 GiB of measured large-frame request-plus-response payload.
+
+| Native-only comparison | Baseline Gbit/s | Candidate Gbit/s | Median change |
+| --- | ---: | ---: | ---: |
+| Native RawSocket JSON RPC, 1 KiB serial | 0.00629 | 0.00627 | -0.5% |
+| Native RawSocket MessagePack RPC, 64 KiB | 9.361 | 9.218 | -1.5% |
+| Native RawSocket CBOR RPC, 64 KiB | 9.568 | 9.640 | +0.8% |
+| Native WebSocket MessagePack RPC, 64 KiB | 9.409 | 9.469 | +0.6% |
+| Native WebSocket CBOR RPC, 64 KiB | 9.011 | 9.431 | +4.7% |
+| Native RawSocket CBOR pub/sub, 64 KiB | 0.789 | 0.776 | -1.7% |
+| Native WebSocket MessagePack pub/sub, 64 KiB | 2.073 | 1.939 | -6.5% |
+| Dart RawSocket CBOR RPC, 64 KiB | 9.096 | 9.138 | +0.5% |
+| Native RawSocket MessagePack RPC, 32 MiB | 39.786 | 41.355 | +3.9% |
+| Native RawSocket CBOR RPC, 64 MiB | 35.957 | 41.017 | +14.1% |
+
+WebSocket pub/sub median p99 rises from 65.944 to 67.048 ms. Large-frame p99 is
+18.600 versus 18.558 ms and 35.557 versus 34.700 ms; median observed 64 MiB server
+RSS is 315.2 versus 314.3 MiB. Background inference rises from near idle to
+2201.5% at a run boundary; VM activity ranges from 133.5% to 298.8%, with emulators
+also active. The late baseline and candidate CBOR passes both fall to roughly
+34 Gbit/s. Preserve every pass: neither the apparent large-frame improvement nor
+the pub/sub decrease can be assigned to the guard from these measurements alone.
+No audit build, test, or companion inference overlapped the benchmark passes.
+**Relative performance remains open**, especially pub/sub confirmation; this
+also does not clear earlier SA-002/SA-004 results.
+
+All 62 unchanged absolute gates pass with the same library: 24 large-frame
+workloads / 864 samples / 24 GiB, eight heavy-file workloads / 190 transfers /
+24 GiB, and 30 file-matrix workloads / 408 transfers / 25.5 GiB. There are no
+errors or counter/metric findings. Public-artifact references and JSON/hash
+consistency checks pass after evidence generation. Nothing is published.
+
+**Remaining work:** checked admission prevents wrapping, leaks from unreachable
+handles, and replacement, but leaves a finite legacy lifetime limit. Recycling
+released IDs is not a solution because queued work/finalizers can retain stale
+identities. Add an explicitly wide, positive handle ABI and migrate every
+consumer together: poll/wait, get/peek, retain/release, slice export, binary decode,
+SHA-256, E2EE, forwarding, test queues, both Dart bindings, and the shared byte
+export helper. Legacy wrappers must fail closed rather than truncate wide IDs;
+partial capability sets must not mix wide producers with narrow consumers.
+Test operations above the old signed boundary and keep old-library compatibility.
+Review the other native handle stores' reset/wrap behavior independently. This
+mitigation is not the completed security audit or release clearance.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and

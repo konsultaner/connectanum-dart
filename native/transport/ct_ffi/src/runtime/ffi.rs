@@ -96,8 +96,8 @@ use super::state::{
     store_message, store_websocket_handshake, with_channel, with_e2ee_keyring, with_e2ee_session,
     with_http2_handshake, with_http3_handshake, with_http3_stream, with_http_body,
     with_http_connection_event, with_http_handshake, with_http_response_stream, with_message,
-    with_websocket_handshake, HttpMetadata, StoredHttpHandshakePayload, StoredMessage,
-    StoredRawFrame,
+    with_websocket_handshake, HttpMetadata, MessageHandleError, StoredHttpHandshakePayload,
+    StoredMessage, StoredRawFrame,
 };
 use rmp::encode::{write_array_len, write_u64};
 use serde::Serialize;
@@ -4340,6 +4340,14 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
     info
 }
 
+fn message_handle_result(result: Result<u32, MessageHandleError>) -> c_int {
+    match result {
+        Ok(handle) => handle as c_int,
+        Err(MessageHandleError::Unavailable) => ERR_INVALID_ARGUMENT,
+        Err(MessageHandleError::Exhausted) => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
 fn store_parsed_message(parsed: ct_core::ParsedMessage) -> c_int {
     let ct_core::ParsedMessage {
         message,
@@ -4357,7 +4365,7 @@ fn store_parsed_message(parsed: ct_core::ParsedMessage) -> c_int {
         args,
         kwargs,
     };
-    store_message(info) as c_int
+    message_handle_result(store_message(info))
 }
 
 #[no_mangle]
@@ -4421,7 +4429,7 @@ pub extern "C" fn ct_test_message_enqueue(
         }) => {
             let (args, kwargs) = extract_payload_slices(&message);
             let details = extract_detail_bytes(serializer, &message);
-            let handle = store_message(StoredMessage {
+            let handle = match store_message(StoredMessage {
                 serializer,
                 code: message.code(),
                 raw: StoredRawFrame::from_raw(raw),
@@ -4429,7 +4437,10 @@ pub extern "C" fn ct_test_message_enqueue(
                 details,
                 args,
                 kwargs,
-            });
+            }) {
+                Ok(handle) => handle,
+                Err(error) => return message_handle_result(Err(error)),
+            };
             enqueue_test_handle(ConnectionId(connection_id as u32), handle);
             handle as c_int
         }
@@ -6266,10 +6277,7 @@ pub extern "C" fn ct_message_retain(handle: c_int) -> c_int {
         return ERR_INVALID_ARGUMENT;
     }
     let handle_u32 = handle as u32;
-    match clone_message(handle_u32) {
-        Some(new_handle) => new_handle as c_int,
-        None => ERR_INVALID_ARGUMENT,
-    }
+    message_handle_result(clone_message(handle_u32))
 }
 
 #[no_mangle]
@@ -6842,6 +6850,22 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
+    fn message_handle_results_preserve_positive_ids_and_report_exhaustion() {
+        assert_eq!(message_handle_result(Ok(1)), 1);
+        assert_eq!(message_handle_result(Ok(i32::MAX as u32)), i32::MAX);
+        assert_eq!(
+            message_handle_result(Err(MessageHandleError::Unavailable)),
+            ERR_INVALID_ARGUMENT
+        );
+        assert_eq!(
+            message_handle_result(Err(MessageHandleError::Exhausted)),
+            ERR_HANDLE_UNAVAILABLE
+        );
+        assert!(ERR_HANDLE_UNAVAILABLE < 0);
+        assert_ne!(ERR_HANDLE_UNAVAILABLE, ERR_INVALID_ARGUMENT);
+    }
+
+    #[test]
     fn single_binary_argument_parsers_borrow_the_exact_payload() {
         let cbor = [0x81, 0x43, b'a', b'b', b'c'];
         let cbor_payload = cbor_single_binary_argument(&cbor).unwrap();
@@ -7310,7 +7334,8 @@ mod tests {
             details: None,
             args: Some(Bytes::from(args)),
             kwargs: None,
-        }) as c_int;
+        })
+        .expect("test message handle is available") as c_int;
         let mut output = CtExternalByteBuffer {
             ptr: ptr::null_mut(),
             len: 0,
@@ -7360,7 +7385,8 @@ mod tests {
             details: None,
             args: Some(args),
             kwargs: None,
-        });
+        })
+        .expect("test message handle is available");
         (handle as c_int, raw_ptr)
     }
 
@@ -7562,7 +7588,8 @@ mod tests {
             unsafe { slice::from_raw_parts(info.binary_arg_ptr, info.binary_arg_len) },
             b"abc"
         );
-        let message_handle = store_message(message) as c_int;
+        let message_handle =
+            store_message(message).expect("test message handle is available") as c_int;
         let sha256_handle = ct_sha256_new();
         assert!(sha256_handle > 0);
         assert_eq!(
