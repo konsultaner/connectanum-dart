@@ -1,12 +1,29 @@
 # Project State
 
 Last updated: 2026-09-10
-Current branch: `codex/coverage-pub-auth-isolation`
-Current milestone: the WAMP Meta discovery authorization fix is implemented
-and merged into both master remotes; repair the post-merge coverage bootstrap
-authentication failure before further release work. Its implementation plan is
-`docs/exec-plans/2026-09-09-meta-discovery-authorization.md`; the broader active
-consumer plan remains `docs/exec-plans/2026-08-24-wamp-app.md`.
+Current branch: `codex/security-audit`
+Current milestone: deep component security audit with before/after performance
+evidence for hardening changes. The active plan is
+`docs/exec-plans/2026-09-10-component-security-audit.md`; the WampApp feature
+plan is paused during this review. Baseline `733c6d91` has green hosted CI and
+fresh `bin/test-fast` passes. The first confirmed fix (SA-001) validates remote
+service credentials before either pending-challenge map is touched and before
+claimed-user failure accounting. All 25 auth-service tests and eight mTLS RPC
+integration tests, static analysis, and full `bin/verify` pass. Twelve alternating
+JIT/AOT benchmark passes complete 60,000 measured logins without errors. JIT
+shows +3.1% concurrent and -3.1% serial throughput; AOT confirmation shows
++2.7% serial and +5.4% concurrent, with lower median tail latency. No consistent
+slowdown reproduced, but shared-host results are not proof of identical timing.
+Both Rust lockfiles also contain published network-library advisories (SA-002), which are
+the next hardening slice. The [security report](security/2026-09-10-component-audit.md)
+records prerequisites, evidence, and remaining component coverage. This audit
+is not complete and no new release has been published.
+
+Previous milestone: the WAMP Meta discovery authorization fix is implemented
+and merged into both master remotes, together with the post-merge coverage
+bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is
+`docs/exec-plans/2026-09-09-meta-discovery-authorization.md`; the broader paused
+consumer plan is `docs/exec-plans/2026-08-24-wamp-app.md`.
 Live WebSocket, RawSocket, MCP direct JSON, and
 MCP Streamable HTTP regressions reproduced subscription disclosure to callers
 with publish permission but no subscribe permission. Subscription snapshots now
@@ -51,9 +68,18 @@ Two fail-first regressions verify step ordering, unchanged Codecov/strict
 artifact settings, real Dart token removal, another registry's preservation,
 and repeated cleanup. The fixture isolates both cache and platform configuration
 directories and confirms the temporary token path before writes. Baseline
-`bin/test-fast` and all 22 verification-script tests pass; fresh `bin/verify`
-for the workflow follow-up is running. Master CI remains red until this fix is
-independently reviewed and merged.
+`bin/test-fast`, all 22 verification-script tests, and fresh `bin/verify` pass.
+Both hosted follow-up CI runs (`34475872067` and `34475902747`) pass all four
+jobs, including Codecov and coverage artifact uploads. Exact-head CI/log audits
+pass, and master package/benchmark evidence still covers unchanged inputs.
+[PR #90](https://github.com/konsultaner/connectanum-dart/pull/90) was merged by
+the user at `733c6d91`; local master and both remotes are synchronized. Its tree
+matches verified `87f1a60b` exactly. Master CI `34478086614` passes all four jobs,
+including coverage collection and upload. The final strict master audit passes
+exact-head CI/log cleanliness, baseline protection, workflow/router-package
+visibility, and relevant package publish dry-run and WAMP benchmark evidence.
+These post-merge evidence notes remain uncommitted until the next implementation
+commit, per policy; no package version or release tag changed.
 
 Previous milestone: harden the standalone WampApp as a consumer-facing
 application on top of the merged and published `3.0.0-beta.5` graph. The main

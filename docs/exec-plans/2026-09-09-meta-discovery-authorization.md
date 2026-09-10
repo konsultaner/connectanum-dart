@@ -1,8 +1,8 @@
 # Meta Discovery Authorization
 
-Status: source fix merged; coverage bootstrap repair in progress; package release pending
+Status: source and coverage fixes merged and verified; package release pending
 Started: 2026-09-09
-Completed: 2026-09-09
+Completed: 2026-09-10
 
 ## Contract
 
@@ -106,7 +106,7 @@ IDs indistinguishable from missing IDs through the related Meta endpoints.
 - Regression tests execute the exact workflow shell block against dummy
   env-var tokens, preserving another registry and proving repeated cleanup.
   Both tests failed before the fix and pass afterward. All 22 verification
-  script tests and baseline `bin/test-fast` pass; fresh `bin/verify` is running.
+  script tests, baseline `bin/test-fast`, and fresh `bin/verify` pass.
 - Dart's [token store](https://github.com/dart-lang/pub/blob/master/lib/src/authentication/token_store.dart)
   uses the [platform configuration directory](https://github.com/dart-lang/pub/blob/master/lib/src/io.dart),
   not `PUB_CACHE`. The fixture now isolates HOME, APPDATA, XDG_CONFIG_HOME,
@@ -114,5 +114,16 @@ IDs indistinguishable from missing IDs through the related Meta endpoints.
   unless CLI help confirms its temporary token location. The initial fixture
   mistakenly created a local dummy-token file; test entries were removed and
   the generated file deleted. The pre-existing OAuth login file was unchanged.
-- Follow-up branch: `codex/coverage-pub-auth-isolation`. Master remains red
-  until the workflow fix has hosted evidence and protected-branch integration.
+- Follow-up commit `87f1a60b` is pushed to both maintained remotes. Hosted CI
+  `34475872067` and PR CI `34475902747` pass all four jobs, including coverage
+  collection, Codecov upload, and strict artifact upload. The exact-head CI/log
+  audit passes, as do strict master protection and relevant package/benchmark
+  audits: the follow-up changes no release or WAMP benchmark inputs.
+- The user merged [PR #90](https://github.com/konsultaner/connectanum-dart/pull/90)
+  at `733c6d91`. Local master and GitLab master are fast-forwarded to that GitHub
+  merge commit; its tree is identical to verified `87f1a60b`. Final master CI
+  `34478086614` passes all four jobs. The final strict master audit passes
+  exact-head CI/log cleanliness, required checks, workflow/router-package
+  visibility, and relevant package dry-run and WAMP benchmark evidence.
+  No additional implementation or package publication is included in this
+  handoff. Post-merge notes stay uncommitted per policy.

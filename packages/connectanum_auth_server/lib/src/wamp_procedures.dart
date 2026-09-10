@@ -77,6 +77,17 @@ class AuthServerProcedureBinding {
   Future<void> _handleHello(LazyInvocationPayload invocation) async {
     try {
       final payload = _payloadMap(invocation);
+      final options = _optionsPayload(
+        payload,
+        reservedKeys: const {'transactionId', 'hello'},
+      );
+      final tokenFailure = _server.validateAuthToken(options);
+      if (tokenFailure != null) {
+        invocation.respondWith(
+          argumentsKeywords: _failurePayload(tokenFailure),
+        );
+        return;
+      }
       final transactionId = _requiredString(payload, 'transactionId');
       final hello = _requiredMap(payload, 'hello');
       final realmName = _requiredString(hello, 'realm');
@@ -89,10 +100,7 @@ class AuthServerProcedureBinding {
       final request = RemoteHelloRequest(
         realmSettings: realmSettings,
         context: _helloContext(realmSettings, hello),
-        options: _optionsPayload(
-          payload,
-          reservedKeys: const {'transactionId', 'hello'},
-        ),
+        options: options,
         transactionId: transactionId,
       );
       final response = await _server.onHello(request);
@@ -127,7 +135,23 @@ class AuthServerProcedureBinding {
   Future<void> _handleAuthenticate(LazyInvocationPayload invocation) async {
     try {
       final payload = _payloadMap(invocation);
+      final options = _optionsPayload(
+        payload,
+        reservedKeys: const {'transactionId', 'authenticate'},
+      );
+      final tokenFailure = _server.validateAuthToken(options);
+      if (tokenFailure != null) {
+        invocation.respondWith(
+          argumentsKeywords: _failurePayload(tokenFailure),
+        );
+        return;
+      }
       final transactionId = _requiredString(payload, 'transactionId');
+      final authenticate = _requiredMap(payload, 'authenticate');
+      final message = AuthenticateMessage(
+        signature: _requiredString(authenticate, 'signature'),
+        extra: _optionalMap(authenticate, 'extra') ?? const <String, Object?>{},
+      );
       final pending = _pending.remove(transactionId);
       if (pending == null) {
         invocation.respondWith(
@@ -142,20 +166,12 @@ class AuthServerProcedureBinding {
         );
         return;
       }
-      final authenticate = _requiredMap(payload, 'authenticate');
       final request = RemoteAuthenticateRequest(
         realmSettings: pending.realmSettings,
         context: pending.context,
         authId: pending.authId,
-        authenticate: AuthenticateMessage(
-          signature: _requiredString(authenticate, 'signature'),
-          extra:
-              _optionalMap(authenticate, 'extra') ?? const <String, Object?>{},
-        ),
-        options: _optionsPayload(
-          payload,
-          reservedKeys: const {'transactionId', 'authenticate'},
-        ),
+        authenticate: message,
+        options: options,
         transactionId: transactionId,
       );
       final response = await _server.onAuthenticate(request);
@@ -180,7 +196,19 @@ class AuthServerProcedureBinding {
   Future<void> _handleAbort(LazyInvocationPayload invocation) async {
     try {
       final payload = _payloadMap(invocation);
+      final options = _optionsPayload(
+        payload,
+        reservedKeys: const {'transactionId', 'reason'},
+      );
+      final tokenFailure = _server.validateAuthToken(options);
+      if (tokenFailure != null) {
+        invocation.respondWith(
+          argumentsKeywords: _failurePayload(tokenFailure),
+        );
+        return;
+      }
       final transactionId = _requiredString(payload, 'transactionId');
+      final reason = _optionalString(payload, 'reason');
       final pending = _pending.remove(transactionId);
       if (pending != null) {
         await _server.onAbort(
@@ -188,12 +216,9 @@ class AuthServerProcedureBinding {
             realmSettings: pending.realmSettings,
             context: pending.context,
             authId: pending.authId,
-            options: _optionsPayload(
-              payload,
-              reservedKeys: const {'transactionId', 'reason'},
-            ),
+            options: options,
             transactionId: transactionId,
-            reason: _optionalString(payload, 'reason'),
+            reason: reason,
           ),
         );
       }
@@ -321,8 +346,9 @@ class AuthServerProcedureBinding {
 
   Map<String, Object?>? _optionalMap(Map<String, Object?> map, String key) {
     final value = map[key];
+    if (value == null) return null;
     if (value is! Map) {
-      return null;
+      throw _InvocationSchemaException('Expected map "$key".');
     }
     final normalized = <String, Object?>{};
     for (final entry in value.entries) {
@@ -349,7 +375,11 @@ class AuthServerProcedureBinding {
 
   String? _optionalString(Map<String, Object?> map, String key) {
     final value = map[key];
-    return value is String && value.isNotEmpty ? value : null;
+    if (value == null) return null;
+    if (value is! String) {
+      throw _InvocationSchemaException('Expected string "$key".');
+    }
+    return value.isNotEmpty ? value : null;
   }
 
   int _requiredInt(Map<String, Object?> map, String key) {

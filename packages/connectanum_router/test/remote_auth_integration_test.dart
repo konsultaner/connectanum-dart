@@ -7,7 +7,9 @@ import 'dart:io';
 
 import 'package:connectanum_auth_server/connectanum_auth_server.dart';
 import 'package:connectanum_client/connectanum.dart' as client_pkg;
+import 'package:connectanum_client/socket.dart' as client_socket;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
+import 'package:connectanum_core/json_serializer.dart' as json_serializer;
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:test/test.dart';
 
@@ -20,6 +22,173 @@ void main() {
       : null;
 
   group('Remote auth integration', () {
+    test(
+      'rejects untrusted RPCs without consuming pending challenges',
+      () async {
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
+        await harness.bindAuthServer(
+          AuthServer(
+            settings: _buildAuthServerSettings(),
+            authTokens: const ['shared-token'],
+            fakeChallengeOnHelloFailure: true,
+          ),
+        );
+        final caller = await harness.connectAuthService();
+        addTearDown(caller.close);
+        const hello = <String, Object?>{
+          'realm': 'demo.realm',
+          'sessionId': 42,
+          'transport': {'connectionId': 42},
+          'details': {
+            'authid': 'ticket-user',
+            'authmethods': ['ticket'],
+          },
+        };
+        var sequence = 0;
+        for (final method in ['hello', 'authenticate', 'abort']) {
+          for (final token in [null, 'wrong', 42]) {
+            final id = 'token-guard-${sequence++}';
+            final challenge = await caller
+                .call(
+                  'authenticate.hello',
+                  argumentsKeywords: {
+                    'transactionId': id,
+                    'hello': hello,
+                    'auth_token': 'shared-token',
+                  },
+                )
+                .first;
+            expect(challenge.argumentsKeywords?['status'], 'challenge');
+            final rejected = await caller
+                .call(
+                  'authenticate.$method',
+                  argumentsKeywords: {
+                    'transactionId': id,
+                    'auth_token': ?token,
+                    if (method == 'hello') 'hello': hello,
+                    if (method == 'authenticate')
+                      'authenticate': {'signature': 'ticket-secret'},
+                  },
+                )
+                .first;
+            expect(
+              rejected.argumentsKeywords?['status'],
+              'failure',
+              reason: '$method $token',
+            );
+            expect(
+              rejected.argumentsKeywords?['reason'],
+              wamp_core.Error.notAuthorized,
+            );
+            final success = await caller
+                .call(
+                  'authenticate.authenticate',
+                  argumentsKeywords: {
+                    'transactionId': id,
+                    'auth_token': 'shared-token',
+                    'authenticate': {'signature': 'ticket-secret'},
+                  },
+                )
+                .first;
+            expect(
+              success.argumentsKeywords?['status'],
+              'success',
+              reason: '$method $token',
+            );
+          }
+        }
+      },
+      skip: skipReason,
+    );
+
+    test('malformed admitted RPCs do not consume pending challenges', () async {
+      final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+      addTearDown(harness.dispose);
+      await harness.bindAuthServer(
+        AuthServer(
+          settings: _buildAuthServerSettings(),
+          authTokens: const ['shared-token'],
+        ),
+      );
+      final caller = await harness.connectAuthService();
+      addTearDown(caller.close);
+      final malformed = <(String, Map<String, Object?>)>[
+        ('authenticate', {}),
+        ('authenticate', {'authenticate': {}}),
+        (
+          'authenticate',
+          {
+            'authenticate': {'signature': 42},
+          },
+        ),
+        (
+          'authenticate',
+          {
+            'authenticate': {'signature': 'ticket-secret', 'extra': []},
+          },
+        ),
+        ('abort', {'reason': 42}),
+      ];
+      for (var index = 0; index < malformed.length; index++) {
+        final id = 'schema-guard-$index';
+        final challenge = await caller
+            .call(
+              'authenticate.hello',
+              argumentsKeywords: {
+                'transactionId': id,
+                'auth_token': 'shared-token',
+                'hello': {
+                  'realm': 'demo.realm',
+                  'sessionId': 42,
+                  'transport': {'connectionId': 42},
+                  'details': {
+                    'authid': 'ticket-user',
+                    'authmethods': ['ticket'],
+                  },
+                },
+              },
+            )
+            .first;
+        expect(challenge.argumentsKeywords?['status'], 'challenge');
+        final (method, payload) = malformed[index];
+        await expectLater(
+          caller
+              .call(
+                'authenticate.$method',
+                argumentsKeywords: {
+                  'transactionId': id,
+                  'auth_token': 'shared-token',
+                  ...payload,
+                },
+              )
+              .first,
+          throwsA(
+            isA<wamp_core.Error>().having(
+              (error) => error.error,
+              'error',
+              wamp_core.Error.invalidArgument,
+            ),
+          ),
+        );
+        final success = await caller
+            .call(
+              'authenticate.authenticate',
+              argumentsKeywords: {
+                'transactionId': id,
+                'auth_token': 'shared-token',
+                'authenticate': {'signature': 'ticket-secret'},
+              },
+            )
+            .first;
+        expect(
+          success.argumentsKeywords?['status'],
+          'success',
+          reason: '$method $payload',
+        );
+      }
+    }, skip: skipReason);
+
     test(
       'authenticates ticket clients through the remote auth RPC service over mTLS',
       () async {
@@ -341,6 +510,30 @@ class _RemoteAuthHarness {
     );
     _clients.add(client);
     return client.connect().first.timeout(const Duration(seconds: 10));
+  }
+
+  Future<client_pkg.Session> connectAuthService() async {
+    final tls = SecurityContext(withTrustedRoots: false)
+      ..setTrustedCertificates(_fixturePath('remote_auth_ca_cert.pem'))
+      ..useCertificateChain(_fixturePath('remote_auth_client_cert.pem'))
+      ..usePrivateKey(_fixturePath('remote_auth_client_key.pem'));
+    final client = client_pkg.Client(
+      realm: 'connectanum.authenticate',
+      authId: 'auth-service',
+      authenticationMethods: [
+        client_pkg.TicketAuthentication('service-ticket-v1'),
+      ],
+      transport: client_socket.SocketTransport(
+        '127.0.0.1',
+        authPort,
+        json_serializer.Serializer(),
+        1,
+        ssl: true,
+        tlsSecurityContext: tls,
+      ),
+    );
+    _clients.add(client);
+    return client.connect().first;
   }
 
   Future<void> dispose() async {

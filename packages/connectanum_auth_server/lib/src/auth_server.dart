@@ -19,7 +19,8 @@ class AuthServer implements RemoteAuthenticatorDelegate {
   ///
   /// When [authTokens] is non-empty, every remote request must include one of
   /// those shared tokens. [fakeChallengeOnHelloFailure] masks early identity
-  /// failures with a challenge to reduce account-enumeration signals.
+  /// failures with a challenge to reduce account-enumeration signals, but only
+  /// after the caller's service token has been accepted.
   AuthServer({
     required RouterSettings settings,
     Iterable<String>? authTokens,
@@ -52,6 +53,10 @@ class AuthServer implements RemoteAuthenticatorDelegate {
   /// Selects an authenticator and returns success, failure, or a challenge.
   @override
   Future<RemoteHelloResponse> onHello(RemoteHelloRequest request) async {
+    final tokenFailure = validateAuthToken(request.options);
+    if (tokenFailure != null) {
+      return RemoteHelloResponse.failure(tokenFailure);
+    }
     final realmName = request.realmSettings.name;
     final realm = _settings.realms.firstWhere(
       (entry) => entry.name == realmName,
@@ -65,19 +70,6 @@ class AuthServer implements RemoteAuthenticatorDelegate {
     final authId = rawAuthId == null || rawAuthId.isEmpty
         ? 'unknown'
         : rawAuthId;
-
-    if (!_isValidAuthToken(request.options)) {
-      return _respondWithHelloFailure(
-        realm: realm,
-        request: request,
-        authId: authId,
-        method: 'remote',
-        failure: const AuthFailure(
-          reason: wamp_core.Error.notAuthorized,
-          message: 'Remote authenticator token rejected',
-        ),
-      );
-    }
 
     if (rawAuthId == null || rawAuthId.isEmpty) {
       return _respondWithHelloFailure(
@@ -177,6 +169,10 @@ class AuthServer implements RemoteAuthenticatorDelegate {
   Future<RemoteAuthenticateResponse> onAuthenticate(
     RemoteAuthenticateRequest request,
   ) async {
+    final tokenFailure = validateAuthToken(request.options);
+    if (tokenFailure != null) {
+      return RemoteAuthenticateResponse.failure(tokenFailure);
+    }
     final pending = _pending.remove(request.transactionId);
     if (pending == null) {
       return RemoteAuthenticateResponse.failure(
@@ -195,21 +191,6 @@ class AuthServer implements RemoteAuthenticatorDelegate {
               reason: wamp_core.Error.authenticationFailed,
               message: 'Remote authentication rejected',
             ),
-      );
-    }
-
-    if (!_isValidAuthToken(request.options)) {
-      _recordFailure(
-        pending.realm,
-        pending.authId,
-        method: pending.method,
-        message: 'Remote authenticator token rejected',
-      );
-      return RemoteAuthenticateResponse.failure(
-        const AuthFailure(
-          reason: wamp_core.Error.notAuthorized,
-          message: 'Remote authenticator token rejected',
-        ),
       );
     }
 
@@ -272,7 +253,7 @@ class AuthServer implements RemoteAuthenticatorDelegate {
   /// Discards pending challenge state for a router-aborted authentication.
   @override
   Future<void> onAbort(RemoteAbortRequest request) async {
-    if (!_isValidAuthToken(request.options)) {
+    if (validateAuthToken(request.options) != null) {
       return;
     }
     _pending.remove(request.transactionId);
@@ -283,13 +264,22 @@ class AuthServer implements RemoteAuthenticatorDelegate {
     _pending.remove(transactionId);
   }
 
-  bool _isValidAuthToken(Map<String, Object?> options) {
+  /// Checks service admission without reading or changing challenge state.
+  ///
+  /// Returns null for an accepted token, including intentionally token-free
+  /// configurations. Adapters must call this before accessing their own pending
+  /// state. Rejected service credentials are not failures of the claimed user.
+  AuthFailure? validateAuthToken(Map<String, Object?> options) {
     final tokens = _authTokens;
     if (tokens == null || tokens.isEmpty) {
-      return true;
+      return null;
     }
     final provided = options['auth_token'];
-    return provided is String && tokens.contains(provided);
+    if (provided is String && tokens.contains(provided)) return null;
+    return const AuthFailure(
+      reason: wamp_core.Error.notAuthorized,
+      message: 'Remote authenticator token rejected',
+    );
   }
 
   List<String> _extractClientMethods(Map<String, Object?> details) {
