@@ -5410,7 +5410,12 @@ class _RouterMcpEndpoint {
     );
   }
 
-  Future<bool> _isAuthorized(AuthorizationAction action, String uri) async {
+  Future<bool> _isAuthorized(
+    AuthorizationAction action,
+    String uri, {
+    PermissionMatchPolicy? targetMatchPolicy,
+    Map<String, Object?> options = const {},
+  }) async {
     if (isDisposed) {
       return false;
     }
@@ -5439,6 +5444,8 @@ class _RouterMcpEndpoint {
           authMethod: session.authMethod,
           authProvider: session.authProvider,
           isInternal: session.authorizationIsInternal,
+          targetMatchPolicy: targetMatchPolicy,
+          options: options,
         ),
       );
       return !isDisposed && decision.allowed;
@@ -5674,8 +5681,7 @@ class _RouterMcpEndpoint {
       if (visibleExactProcedures.contains(procedure.procedure)) {
         continue;
       }
-      if (procedure.allowCall &&
-          !await _isAuthorized(AuthorizationAction.call, procedure.procedure)) {
+      if (!await _isAuthorized(AuthorizationAction.call, procedure.procedure)) {
         continue;
       }
       visible.add(
@@ -5696,15 +5702,15 @@ class _RouterMcpEndpoint {
   ) async {
     final visible = <SubscriptionSnapshot>[];
     for (final subscription in subscriptions) {
-      final canPublish = await _isAuthorized(
-        AuthorizationAction.publish,
-        subscription.topic,
-      );
       final canSubscribe = await _isAuthorized(
         AuthorizationAction.subscribe,
         subscription.topic,
+        targetMatchPolicy: _permissionMatchPolicyFromTopic(
+          subscription.matchPolicy,
+        ),
+        options: {'match': _topicMatchPolicyName(subscription.matchPolicy)},
       );
-      if (canPublish || canSubscribe) {
+      if (canSubscribe) {
         visible.add(subscription);
       }
     }
@@ -5731,13 +5737,15 @@ class _RouterMcpEndpoint {
       if (visibleExactTopics.contains(topic.topic)) {
         continue;
       }
-      final canPublish =
-          topic.allowPublish &&
-          await _isAuthorized(AuthorizationAction.publish, topic.topic);
       final canSubscribe =
           topic.allowSubscribe &&
-          await _isAuthorized(AuthorizationAction.subscribe, topic.topic);
-      if (!canPublish && !canSubscribe) {
+          await _isAuthorized(
+            AuthorizationAction.subscribe,
+            topic.topic,
+            targetMatchPolicy: PermissionMatchPolicy.exact,
+            options: const {'match': 'exact'},
+          );
+      if (!canSubscribe) {
         continue;
       }
       visible.add(
