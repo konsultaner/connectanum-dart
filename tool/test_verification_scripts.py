@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 import textwrap
@@ -55,6 +56,91 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_coverage_isolates_pub_download_auth_from_codecov_oidc(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
+        coverage = workflow.split("\n  coverage:\n", 1)[1]
+        cleanup = "dart pub token remove https://pub.dev"
+
+        self.assertIn(cleanup, coverage)
+        self.assertLess(
+            coverage.index("uses: dart-lang/setup-dart@"), coverage.index(cleanup)
+        )
+        self.assertLess(coverage.index(cleanup), coverage.index("run: bin/bootstrap"))
+        self.assertLess(
+            coverage.index(cleanup),
+            coverage.index("run: dart pub global activate coverage"),
+        )
+        self.assertIn("id-token: write", coverage)
+        self.assertIn("uses: codecov/codecov-action@", coverage)
+        self.assertIn("use_oidc: true", coverage)
+        self.assertIn("fail_ci_if_error: true", coverage)
+        self.assertIn("if-no-files-found: error", coverage)
+
+    def test_coverage_pub_token_cleanup_preserves_other_registries(self) -> None:
+        workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
+        coverage = workflow.split("\n  coverage:\n", 1)[1]
+        marker = "      - name: Use anonymous pub.dev downloads\n"
+        self.assertIn(marker, coverage)
+        step = coverage.split(marker, 1)[1].split("\n      - ", 1)[0]
+        command = textwrap.dedent(step.split("        run: |\n", 1)[1])
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            env = dict(
+                os.environ,
+                PUB_CACHE=tmp_dir,
+                HOME=tmp_dir,
+                APPDATA=tmp_dir,
+                XDG_CONFIG_HOME=tmp_dir,
+                CONNECTANUM_TEST_PUB_TOKEN="not-a-real-token",
+                DART_SUPPRESS_ANALYTICS="true",
+            )
+            env.pop("_PUB_TEST_CONFIG_DIR", None)
+
+            def run_dart(*args: str) -> str:
+                result = subprocess.run(
+                    ["dart", *args],
+                    env=env,
+                    cwd=REPO_ROOT,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    check=False,
+                    timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout)
+                return result.stdout
+
+            def cleanup() -> None:
+                result = subprocess.run(
+                    ["bash", "-euo", "pipefail", "-c", command],
+                    env=env,
+                    cwd=REPO_ROOT,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    check=False,
+                    timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout)
+
+            # Refuse token writes unless Dart confirms an isolated config path.
+            self.assertIn(tmp_dir, run_dart("pub", "token", "add", "--help"))
+            for host in ("https://pub.dev", "https://packages.example.test"):
+                run_dart(
+                    "pub", "token", "add", host,
+                    "--env-var", "CONNECTANUM_TEST_PUB_TOKEN",
+                )
+                self.assertEqual(
+                    len(list(Path(tmp_dir).rglob("pub-tokens.json"))), 1
+                )
+            self.assertIn("https://pub.dev", run_dart("pub", "token", "list"))
+            cleanup()
+            remaining = run_dart("pub", "token", "list")
+            self.assertNotIn("https://pub.dev", remaining)
+            self.assertIn("https://packages.example.test", remaining)
+            cleanup()
+            self.assertEqual(remaining, run_dart("pub", "token", "list"))
+
     def test_core_shell_scripts_are_bash_syntax_clean(self) -> None:
         for script_path in [
             BOOTSTRAP,
