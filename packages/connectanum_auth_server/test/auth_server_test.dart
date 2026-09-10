@@ -300,10 +300,10 @@ void main() {
             realmSettings: settings.realms.first,
             context: _helloContext(
               realm: settings.realms.first,
-              authId: 'ticket-user',
+              authId: '',
               methods: const ['ticket'],
             ),
-            authId: 'ticket-user',
+            authId: helloResponse.challenge!.authId,
             authenticate: AuthenticateMessage(signature: 'ignored'),
             options: const {'auth_token': 'expected'},
             transactionId: 'tx-fake',

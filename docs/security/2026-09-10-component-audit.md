@@ -179,6 +179,97 @@ Result-returning assembler; its failure is a missing runtime rejection, not a
 compile-time API mismatch. The fixture allocates at most a few MiB and uses no
 network access or real user traffic.
 
+### SA-003: Remote Authentication Transaction Lifecycle
+
+**Confirmed availability and lifecycle-integrity defects. Authentication-only
+candidate and full verification pass; the six-pass before/after comparison below
+is provisional on this shared host. Not published. Router dispatch is unchanged.**
+
+Six deterministic direct-service tests fail on unchanged `1bc60ef1`:
+aborting during factory creation does not prevent late HELLO, aborting during
+HELLO or AUTHENTICATE does not suppress late success, duplicate HELLO overwrites
+an existing challenge, in-flight factory creation bypasses the configured
+pending limit, and a challenge remains usable exactly at its expiry deadline.
+The service also lacks automatic eviction of abandoned challenges. These are
+not proof of credential bypass or account takeover. Service-token/realm
+admission still applies, and targeting a specific transaction requires its ID.
+
+The candidate reserves a single shared transaction record before any provider
+await, rejects duplicate IDs without changing the original record, and retains
+the record throughout AUTHENTICATE. Timer expiry, abort, and shutdown invalidate
+late results. The binding uses this same registry instead of maintaining a
+second challenge map. Binding identity prevents one binding's close/abort from
+invalidating another binding's work; the public RPC schema and old Dart import
+URI remain available. Direct continuation checks realm, auth identity, session,
+and transport metadata against the admitted context.
+
+Capacity is per configured realm and includes unfinished factory/provider work,
+real/masked challenges, and abort cleanup. Cancelling the caller's future does
+not release capacity while underlying uncooperative work is still running.
+Provider futures cannot be forcibly stopped: cleanup runs once after the active
+callback settles, and a hung provider retains its bounded slot.
+`pendingAuthenticationCounts` exposes occupied slots for operator inspection.
+Positive timeouts now cover the entire attempt from admission; nonpositive
+capacity/timeouts preserve existing operator opt-out semantics. Late errors
+are caught without logging provider exception contents or poisoning an
+aborted identity's failure accounting.
+
+All 41 auth-service tests pass, including 16 lifecycle tests with controllable
+completers and fake-clock/timer coverage. Three new mTLS tests exercise
+in-flight HELLO deadline expiry, duplicate challenge preservation, and closing an active
+AUTHENTICATE while a separate binding remains usable; all 11 live remote-auth
+tests pass. The prior fake-identity test now continues with the identity returned
+by its fake challenge rather than changing identity midway through the attempt.
+Separate negative tests preserve the original challenge after mismatched
+identity/transport continuation and abort attempts.
+
+An additional live abort experiment exposed router head-of-line blocking:
+dispatch to an in-process callee awaits its full response before signalling
+readiness. A later abort RPC cannot reach the service while that worker is
+waiting. The failure reproduced on both the original connection and a second
+connection sharing the worker. Temporarily detaching response waiting made the
+same-connection regression pass, but the experiment was removed after the native
+lifetime review below. The retained live test proves timer cancellation without
+depending on another CALL reaching the blocked worker; it is not evidence that
+same-connection RPC cancellation is fixed. Direct service abort is covered by
+deterministic provider/factory cancellation tests.
+
+The first full verification attempt with the dispatch experiment failed one
+worker test whose completion assumption was no longer valid, and one native
+HTTP/3 direct-JSON test with a 30-second timeout/handshake failure. The separated
+patch passes all 85 unchanged worker-session tests plus the 11 remote-auth tests.
+Fresh full verification passes, including the previously timed-out HTTP/3 test,
+all router/live MCP and zero-copy tests, public package/CLI smokes, and
+Chrome/Dart2Wasm. The initial failed run remains recorded, not treated as green.
+
+Protocol basis: WAMP
+[session lifecycle](https://wamp-proto.org/wamp_bp_latest_ietf.html) makes ABORT
+terminate opening rather than authorize a later WELCOME, and
+[challenge authentication](https://wamp-proto.org/wamp_ap_latest_ietf.html)
+requires success/failure to correspond to the current handshake. Remote RPC
+transaction IDs and service capacity are Connectanum implementation policy, not
+additional WAMP wire messages or a claim that WAMP mandates a particular limit.
+
+**Separate open router dispatch/native ownership review:**
+in-process lazy payloads are reconstructed from native addresses, while the
+worker releases its retained handle when the reply port completes. Verify
+cancellation/disconnect and escaped lazy-view ownership before accepting more
+concurrent dispatch. The dispatch experiment is not part of this patch.
+A raw-pointer view with an ordinary metadata-map anchor is
+not, by itself, evidence of native allocation ownership. No exploit or
+deterministic lifetime regression has yet been established for this candidate.
+This review must not be replaced by merely observing that the auth tests pass.
+Any follow-up fix must preserve zero-copy ownership across application-retained
+views and prove cancellation, normal reply, disconnect, and isolate teardown
+without reading potentially freed memory in a test.
+The resolved MessagePack decoder also defaults to borrowed binary data, so
+materializing a generic message is not automatically an ownership fix. In
+contrast, the auth RPC adapter normalizes its schema recursively into new
+lists/maps before awaiting the provider, including nested byte lists. Do not
+generalize that auth-specific boundary to generic internal handlers.
+Broader remote-auth delegation, router HTTP-auth admission, binding registration
+failure cleanup, provider error policy, and cross-service trust remain in scope.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and
@@ -214,6 +305,10 @@ remain required.
   Rust formatting checks and public-artifact-reference checks pass as well.
 - These audit changes are local. Hosted verification has not been requested
   for these changes and no package version or release tag has changed.
+- SA-003 authentication-only full `bin/verify` passes, including all 41 auth
+  tests, 482 router tests, 11 isolated remote-auth tests, and the existing
+  native, zero-copy, public CLI/MCP, benchmark, and browser gates. Router
+  dispatch remains unchanged pending the separate ownership review.
 - Local companion suggestions were checked against source and executable tests;
   incorrect suggestions (including missing the fake-state and adapter ABORT
   mutations) were not used as audit conclusions.
@@ -361,3 +456,43 @@ Prometheus snapshots, and gate JSON/Markdown remain in the temporary
 or companion inference overlapped measured workloads; unrelated host activity
 was not controlled. Driver-only and repeated native-library comparisons remain
 required before claiming no measurable performance regression.
+
+## SA-003 Performance Evidence
+
+The [machine-readable comparison](2026-09-10-auth-lifecycle-benchmarks.json)
+retains all six AOT passes in baseline/candidate/candidate/baseline/baseline/
+candidate order. It includes source and binary hashes, toolchain, per-process
+host CPU estimates, process time/RSS evidence, latency distributions, transport
+error deltas, and raw JSONL/log hashes. Baseline Dart service code is SA-001
+(`227b5b06`); the native library, driver, and AOT client worker are identical
+between variants. The candidate changes only the auth service lifecycle, not
+router dispatch. Both builds use the existing
+`remote_auth_security_throughput.toml` workload: 1,200 warmups followed by 1,000
+serial and 4,000 concurrent valid ticket logins per process, through RawSocket
+and the mTLS remote auth service, with one router worker/runtime thread.
+
+All 30,000 measured exchanges and 7,200 warmups completed without driver errors;
+recorded protocol/internal/body-timeout deltas are zero. Values below are medians
+of three independent process runs per variant, not pooled latencies.
+
+| Workload | Baseline logins/s | Candidate logins/s | Delta | p95 baseline / candidate, ms | p99 baseline / candidate, ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Serial | 81.06 | 79.96 | -1.4% | 15.610 / 15.571 | 16.685 / 16.662 |
+| Concurrent | 185.68 | 191.80 | +3.3% | 60.552 / 59.173 | 75.878 / 73.088 |
+
+Serial throughput ranges are 80.60-86.86 / 78.78-82.10 logins/s; concurrent
+ranges are 179.24-186.78 / 184.34-192.11. Median BSD `time -l` maximum RSS is
+46,907,392 bytes for both variants. Router RSS after the concurrent workload is
+46,825,472 / 46,809,088 bytes; retained capacity under deliberately uncooperative
+providers is tested separately, not measured by this valid-login workload.
+
+No audit tests, builds, or companion inference overlapped these measurements.
+Unrelated virtualization/emulator activity was present throughout; unrelated
+inference appeared at the end of baseline pass 4 and beginning of pass 5 (roughly
+1,036% / 1,152% aggregate CPU estimates). Every pass is retained, including those
+observations. Ranges overlap and median tails/RSS are similar or lower, but the
+serial median decreased and the host was not controlled. This is **provisional
+evidence, not proof of zero overhead or release clearance**. Obtain quieter
+confirmation before a strict no-regression claim; do not infer a speedup or
+discard inconvenient runs. This comparison does not resolve SA-002's separate
+HTTP performance concern or the broader native ownership finding.

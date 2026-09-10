@@ -43,6 +43,26 @@ The [security report](security/2026-09-10-component-audit.md)
 records prerequisites, evidence, and remaining component coverage. This audit
 is not complete and no new release has been published.
 
+SA-003 authentication lifecycle hardening is locally implemented. Six
+fail-first regressions reproduced late post-abort results, challenge overwrites,
+missing in-flight capacity enforcement, and an expiry boundary error. A shared
+service/binding registry now covers admission through deferred cleanup; all 41
+auth-service tests and 11 live mTLS tests pass. A separate live abort experiment
+reproduced in-process RPC head-of-line blocking. Its dispatch change was removed
+pending native lazy-payload cancellation/lifetime review; router code is unchanged.
+The authentication-only live suite tests deadline expiry, duplicate challenges,
+and binding-scoped shutdown. All 85 worker-session tests also pass. The initial
+full verification failed the experimental worker completion assertion and an
+HTTP/3 handshake timeout. Fresh separated `bin/verify` now passes, including all
+router, live MCP, zero-copy, package/CLI, and Chrome/Dart2Wasm checks.
+Six alternating AOT passes completed 30,000 measured logins and 7,200 warmups
+without errors. Median serial throughput fell 1.4%; concurrent improved 3.3%,
+with similar memory and lower median tail latency. Ranges overlap, and unrelated
+inference appeared around two baseline passes, so zero overhead is not proven.
+The comparison is retained; quiet confirmation remains required before a strict
+no-regression claim. Neither this work nor the earlier audit commits have been
+pushed or published. The complete component audit remains active.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

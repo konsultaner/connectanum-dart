@@ -10,6 +10,7 @@ import 'package:connectanum_client/connectanum.dart' as client_pkg;
 import 'package:connectanum_client/socket.dart' as client_socket;
 import 'package:connectanum_core/connectanum_core.dart' as wamp_core;
 import 'package:connectanum_core/json_serializer.dart' as json_serializer;
+import 'package:connectanum_router/auth.dart';
 import 'package:connectanum_router/connectanum_router.dart';
 import 'package:test/test.dart';
 
@@ -22,6 +23,159 @@ void main() {
       : null;
 
   group('Remote auth integration', () {
+    test(
+      'RPC deadline cancels active provider creation and rejects late success',
+      () async {
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
+        final factory = _LifecycleFactory();
+        AuthenticatorRegistry.registerFactory(factory);
+        addTearDown(
+          () => AuthenticatorRegistry.unregisterFactory(factory.method),
+        );
+        final server = _lifecycleServer(
+          challengeTimeout: const Duration(milliseconds: 500),
+        );
+        addTearDown(server.close);
+        await harness.bindAuthServer(server);
+        final caller = await harness.connectAuthService();
+        addTearDown(caller.close);
+        final creation = Completer<Authenticator>();
+        factory.creation = creation.future;
+        final pending = _authRpc(caller, 'hello', 'inflight', {
+          'hello': _lifecycleHello,
+        });
+        await factory.entered.future.timeout(const Duration(seconds: 5));
+        expect((await pending)['status'], 'failure');
+        expect(server.pendingAuthenticationCounts, {'demo.realm': 1});
+        creation.complete(factory.authenticator);
+        await factory.authenticator.aborted.future.timeout(
+          const Duration(seconds: 5),
+        );
+        factory.creation = null;
+        expect(
+          (await _authRpc(caller, 'hello', 'retry', {
+            'hello': _lifecycleHello,
+          }))['status'],
+          'challenge',
+        );
+        expect(
+          (await _authRpc(caller, 'authenticate', 'retry', {
+            'authenticate': {'signature': 'proof'},
+          }))['status'],
+          'success',
+        );
+        expect(factory.authenticator.helloCalls, 1);
+      },
+      skip: skipReason,
+    );
+
+    test('RPC duplicate HELLO preserves the original challenge', () async {
+      final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+      addTearDown(harness.dispose);
+      final factory = _LifecycleFactory();
+      AuthenticatorRegistry.registerFactory(factory);
+      addTearDown(
+        () => AuthenticatorRegistry.unregisterFactory(factory.method),
+      );
+      final server = _lifecycleServer();
+      addTearDown(server.close);
+      await harness.bindAuthServer(server);
+      final caller = await harness.connectAuthService();
+      addTearDown(caller.close);
+      expect(
+        (await _authRpc(caller, 'hello', 'duplicate', {
+          'hello': _lifecycleHello,
+        }))['status'],
+        'challenge',
+      );
+      expect(
+        (await _authRpc(caller, 'hello', 'duplicate', {
+          'hello': _lifecycleHello,
+        }))['status'],
+        'failure',
+      );
+      expect(
+        (await _authRpc(caller, 'authenticate', 'duplicate', {
+          'authenticate': {'signature': 'proof'},
+        }))['status'],
+        'success',
+      );
+      expect(factory.authenticator.helloCalls, 1);
+    }, skip: skipReason);
+
+    test(
+      'binding close cancels active AUTHENTICATE but not another binding',
+      () async {
+        final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
+        addTearDown(harness.dispose);
+        final factory = _LifecycleFactory();
+        AuthenticatorRegistry.registerFactory(factory);
+        addTearDown(
+          () => AuthenticatorRegistry.unregisterFactory(factory.method),
+        );
+        final server = _lifecycleServer();
+        addTearDown(server.close);
+        await harness.bindAuthServer(server);
+        final second = await AuthServerProcedureBinding.bind(
+          server: server,
+          session: harness.authSession,
+          helloProcedure: 'authenticate.other.hello',
+          authenticateProcedure: 'authenticate.other.authenticate',
+          abortProcedure: 'authenticate.other.abort',
+        );
+        addTearDown(second.close);
+        final caller = await harness.connectAuthService();
+        addTearDown(caller.close);
+        expect(
+          (await _authRpc(caller, 'hello', 'first', {
+            'hello': _lifecycleHello,
+          }))['status'],
+          'challenge',
+        );
+        expect(
+          (await _authRpc(caller, 'other.hello', 'second', {
+            'hello': _lifecycleHello,
+          }))['status'],
+          'challenge',
+        );
+        expect(
+          (await _authRpc(caller, 'other.authenticate', 'first', {
+            'authenticate': {'signature': 'proof'},
+          }))['status'],
+          'failure',
+        );
+        final response = Completer<AuthResult>();
+        factory.authenticator.response = response.future;
+        final first = _authRpc(caller, 'authenticate', 'first', {
+          'authenticate': {'signature': 'proof'},
+        });
+        await factory.authenticator.authEntered.future.timeout(
+          const Duration(seconds: 5),
+        );
+        await harness._procedures!.close();
+        harness._procedures = null;
+        expect((await first)['status'], 'failure');
+        response.complete(
+          AuthResult.success(
+            const AuthSuccess(authId: 'user', authRole: 'member'),
+          ),
+        );
+        await factory.authenticator.aborted.future.timeout(
+          const Duration(seconds: 5),
+        );
+        factory.authenticator.response = null;
+        expect(
+          (await _authRpc(caller, 'other.authenticate', 'second', {
+            'authenticate': {'signature': 'proof'},
+          }))['status'],
+          'success',
+        );
+        expect(server.pendingAuthenticationCounts, isEmpty);
+      },
+      skip: skipReason,
+    );
+
     test(
       'rejects untrusted RPCs without consuming pending challenges',
       () async {
@@ -584,6 +738,99 @@ RouterConfig _webSocketConfig({
     ),
   ],
 );
+
+const _lifecycleHello = <String, Object?>{
+  'realm': 'demo.realm',
+  'sessionId': 42,
+  'transport': {'connectionId': 42},
+  'details': {
+    'authid': 'user',
+    'authmethods': ['lifecycle'],
+  },
+};
+
+Future<Map<String, Object?>> _authRpc(
+  client_pkg.Session caller,
+  String method,
+  String id,
+  Map<String, Object?> payload,
+) async {
+  final result = await caller
+      .call(
+        'authenticate.$method',
+        argumentsKeywords: {
+          'transactionId': id,
+          'auth_token': 'shared-token',
+          ...payload,
+        },
+      )
+      .first
+      .timeout(const Duration(seconds: 5));
+  return Map<String, Object?>.from(result.argumentsKeywords ?? {});
+}
+
+AuthServer _lifecycleServer({Duration? challengeTimeout}) => AuthServer(
+  challengeTimeout: challengeTimeout,
+  settings:
+      (RouterSettingsBuilder()..addRealmFromBuilder(
+            RealmSettingsBuilder('demo.realm')
+              ..addAuthMethod('lifecycle')
+              ..setLimits(const RealmLimitSettings(maxPendingAuth: 2)),
+          ))
+          .build(),
+  authTokens: const ['shared-token'],
+);
+
+class _LifecycleFactory extends AuthenticatorFactory {
+  final authenticator = _LifecycleAuthenticator();
+  final entered = Completer<void>();
+  Future<Authenticator>? creation;
+
+  @override
+  String get method => 'lifecycle';
+
+  @override
+  Future<Authenticator> create(
+    RealmSettings realm,
+    Map<String, Object?> options,
+  ) async {
+    if (!entered.isCompleted) entered.complete();
+    return creation ?? authenticator;
+  }
+}
+
+class _LifecycleAuthenticator extends Authenticator {
+  final aborted = Completer<void>();
+  final authEntered = Completer<void>();
+  Future<AuthResult>? response;
+  int helloCalls = 0;
+
+  @override
+  String get method => 'lifecycle';
+
+  @override
+  Future<AuthResult> onHello(AuthenticatorContext context) async {
+    helloCalls++;
+    return AuthResult.challenge(const AuthChallenge(extra: {}));
+  }
+
+  @override
+  Future<AuthResult> onAuthenticate(
+    AuthenticatorContext context,
+    AuthenticateMessage message,
+  ) async {
+    if (!authEntered.isCompleted) authEntered.complete();
+    return response ??
+        AuthResult.success(
+          const AuthSuccess(authId: 'user', authRole: 'member'),
+        );
+  }
+
+  @override
+  Future<void> onAbort(AuthenticatorContext context, {String? reason}) async {
+    if (!aborted.isCompleted) aborted.complete();
+  }
+}
 
 RouterSettings _buildAuthServerSettings() {
   final builder = RouterSettingsBuilder()

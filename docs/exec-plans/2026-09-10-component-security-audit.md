@@ -18,7 +18,7 @@ narrow fix does not complete this plan.
 | Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | Pending |
 | Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 native dependency mitigation and bounded H2/QUIC regressions pass; broader review and performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
-| Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission fix reproduced and locally passing; broader review pending |
+| Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
 | Router authorization and state | Realm/role boundaries, RPC/pubsub/meta, pattern grants, dynamic authorization races, worker isolation | Pending; previous Meta fix is baseline only |
 | HTTP and MCP | Origins, redirects, HTTP auth grants, sessions/SSE, tool/resource access, request smuggling, file/proxy routes and SSRF | Pending |
 | Payload cryptography | Key/nonce lifetime, replay/context binding, authenticated metadata, E2EE parity and file integrity | Pending |
@@ -133,6 +133,31 @@ The Meta-discovery and coverage-CI fixes remain merged baseline work, not eviden
 that this audit's other surfaces have been reviewed.
 
 ## Next Implementation Slice
+
+SA-003 authentication-only hardening is locally verified, not published. Six
+fail-first direct-service lifecycle regressions were reproduced on `1bc60ef1`.
+The candidate shared transaction registry, capacity/timeout/cancellation guards,
+and owner-scoped binding cleanup pass all 41 auth-service and 11 live mTLS
+tests. An additional live abort experiment reproduced in-process router RPC
+head-of-line blocking, including a second connection sharing the worker. The
+experimental detached dispatch passed the same-connection regression but was
+removed pending native lazy-payload ownership review. Router code is unchanged;
+the retained live test proves deadline expiry during provider creation. The
+85 worker tests pass. Initial full verification failed an experimental worker
+assertion and a native HTTP/3 timeout; separated `bin/verify` now passes,
+including the full router, package/live MCP, zero-copy, and browser checks.
+Independently verify ownership after cancellation/disconnect and escaped views
+before accepting detached dispatch; the retained-handle/reply-port lifetime
+needs explicit evidence. Do not hide the blocking behavior behind the narrowed
+service acceptance tests.
+Six alternating AOT authentication benchmark passes completed 30,000 measured
+logins plus 7,200 warmups without errors. Serial median throughput decreased
+1.4%; concurrent increased 3.3%, with similar memory and lower median tails.
+Ranges overlap; unrelated inference appeared during two baseline pass boundaries.
+Retain the complete comparison and confirm under quieter conditions before
+claiming zero overhead. Router RPC performance must be rechecked with any future
+dispatch/ownership fix. Do not treat these green tests as complete audit or
+release clearance.
 
 1. Preserve the verified SA-001 implementation and its performance evidence.
    It is local only; do not confuse baseline master CI with hosted evidence for
