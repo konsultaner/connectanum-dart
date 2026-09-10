@@ -183,6 +183,36 @@ scope, including code excluded from the root workspace gates.
   relative regression. Keep this local and optimize receiver materialization
   next; all other audit rows and final production/profile evidence remain open.
 
+- Payload-only receiver: native internal CALL delivery no longer constructs a
+  full incoming-message wrapper or unnecessary metadata. It validates type and
+  serializer before exporting argument/keyword views, and releases the temporary
+  retained handle on all helper exits. Lifetime ownership, legacy copies, and
+  external-memory accounting remain intact. All 31 focused cases, 28 applicable
+  legacy cases, 14 live WebSocket tests, router analysis, and fresh `bin/verify`
+  pass, including 514 router tests and the existing native/live/browser gates.
+- The first fast gate found absolute repository paths in the previous Arc gate
+  artifact, added after that checkpoint's verification. Normalization fixes
+  this public-artifact failure without altering measurements. The corrected
+  fast gate, full verify, and post-generation public-reference guard pass.
+- Full-baseline and incremental six-pass comparisons each complete 184,176
+  measured operations and 11,160 warmups without errors. The full repeat shows
+  +2.3%/+2.4% large-frame throughput, but its baseline moved under host contention,
+  tails/memory remain higher, and the incremental 32 MiB result falls 3.4%.
+  Retain all earlier decreases. All 62 unchanged frame/file gates pass over
+  73.5 GiB; relative performance is still not cleared.
+- Six separate AOT GC passes retain 18 hashed process traces with explicit
+  aggregation and runtime options. Both safe readers have the same 147 young
+  and 72 old server collection intervals, including 146 `external` young events.
+  Payload-only materialization does not remove that pressure. This is whole-
+  process instrumented evidence, not proof of throughput causality or pause time
+  obtained by summing nested/concurrent events. Keep ownership/accounting intact.
+- Next bounded native review: reproduce signed-positive message-handle exhaustion
+  without billions of allocations, then investigate cancellation/late-transfer
+  and escaped HTTP body views. These are leads, not confirmed vulnerabilities.
+  Do not spend the full audit repeating noisy microbenchmarks; retain unresolved
+  performance work for controlled final confirmation and continue every pending
+  component row. No audit candidate has been pushed or released.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.

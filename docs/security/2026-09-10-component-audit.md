@@ -536,6 +536,105 @@ reduce redundant receiver-side materialization without weakening ownership,
 repeat the comparisons and finalized production-library/profile gates, and
 continue the full audit's outstanding cancellation and external-buffer reviews.
 
+### SA-004 Payload-Only CALL Receiver
+
+Internal native CALL receivers now acquire only independent argument and keyword
+views, rather than materializing a complete `NativeIncomingMessage`, parsing its
+metadata, and attaching an immediately disposed routing-handle finalizer. The
+temporary retained handle is released on every helper exit, including allocation,
+peek, validation, and export failure. Message code and serializer must match
+before byte exports occur. The original sender handle is not consumed. Empty
+payloads need no byte owner; nonempty backing stores retain their independent
+owners, and old native libraries still return Dart-owned copies. Generic message
+materialization, wire encoding, and external-memory accounting are unchanged.
+
+The internal producer uses the exact `json`, `messagePack`, and `cbor` encoding
+names and excludes PPT/transparent-binary messages from this shortcut. Local
+review's encoding-mismatch concern was checked against that producer, not assumed
+to be a remote wire incompatibility. This is a narrower receiver contract and
+ownership optimization, not an additional demonstrated remote vulnerability.
+
+All 31 focused lifetime cases pass, including JSON/MessagePack/CBOR arguments and
+keywords, empty CALLs, serializer/type mismatch without leaked handles, expired
+handles, and escaped subviews surviving original-handle release and shutdown.
+Normal isolate-group cleanup releases payload-only owners. The legacy-library
+run passes 28 cases with three native-owner-specific skips; all 14 live WebSocket
+tests and router analysis pass. Full `bin/verify` passes, including 514 router,
+102 test-hook FFI, 95 default FFI, and the existing live MCP, package, remote-auth,
+zero-copy, and Chrome/Dart2Wasm gates.
+
+The first pre-change fast gate caught absolute repository paths in the previous
+Arc production-gate artifact, which had been added after that checkpoint's full
+verification. Those command/checker paths are now repository-relative, with an
+explicit convention; measurements and binary hashes are unchanged. Corrected
+`bin/test-fast` and full verification pass. Newly generated artifacts are also
+normalized and checked by the public-reference guard after generation.
+
+The [full and incremental comparisons](2026-09-10-native-call-payload-benchmarks.json)
+each retain six ABBAAB passes, 184,176 measured operations, 11,160 warmups, and
+zero errors. Source fingerprints, runner sources, frozen binary identities,
+commands, raw hashes, scenarios, CPU, memory, and latency remain available.
+Embedded runner sources normalize repository paths for privacy; their hashes
+identify the original local scripts before normalization, not the displayed text.
+The new AOT service SHA-256 is
+`17a0c6fd8028ae0ac366677554bcd388eb7bfdd8403194830e6a47b573319885`.
+The incremental comparison changes only that service; the Arc native library,
+client executable, and HTTP driver are identical on both sides.
+
+| Full pre-SA-004 baseline comparison | Baseline Gbit/s | Candidate Gbit/s | Median change |
+| --- | ---: | ---: | ---: |
+| Native RawSocket JSON RPC, 1 KiB serial | 0.00628 | 0.00624 | -0.5% |
+| Native RawSocket MessagePack RPC, 64 KiB | 9.342 | 9.476 | +1.4% |
+| Native RawSocket CBOR RPC, 64 KiB | 9.451 | 9.438 | -0.1% |
+| Native WebSocket MessagePack RPC, 64 KiB | 9.644 | 9.525 | -1.2% |
+| Native WebSocket CBOR RPC, 64 KiB | 9.179 | 9.562 | +4.2% |
+| Native RawSocket CBOR pub/sub, 64 KiB | 0.718 | 0.796 | +10.9% |
+| Native WebSocket MessagePack pub/sub, 64 KiB | 1.931 | 2.089 | +8.2% |
+| Dart RawSocket CBOR RPC, 64 KiB | 8.950 | 9.070 | +1.3% |
+| Native RawSocket MessagePack RPC, 32 MiB | 35.719 | 36.536 | +2.3% |
+| Native RawSocket CBOR RPC, 64 MiB | 35.345 | 36.186 | +2.4% |
+
+This repeat does not reproduce the earlier large-frame throughput decrease, but
+does not clear it: baseline throughput moved too, inference reached 102.7% at a
+run boundary, and unrelated VM activity ranged from 130.9% to 254.9%. Large-frame
+median p99 still rises from 22.776 to 24.625 ms and 28.929 to 30.899 ms. Median
+observed 64 MiB server RSS remains higher, 169.6 versus 311.5 MiB.
+The incremental comparison is mixed: 32 MiB MessagePack decreases 3.4%, 64 MiB
+CBOR increases 2.6%, and remaining throughput changes range from -1.7% to +2.9%.
+Its large-frame p99 rises from 22.004 to 24.680 ms and 30.877 to 31.954 ms.
+Inference is near idle, but VM activity ranges from 130.1% to 342.2%. Neither
+comparison proves a speedup or unchanged performance. No audit test, build, or
+companion inference overlapped a measured pass; every pass is retained.
+
+A separate [AOT GC diagnostic](2026-09-10-native-call-payload-gc.json) uses the
+SDK's documented [standalone VM options](https://raw.githubusercontent.com/dart-lang/sdk/3.13.1/CHANGELOG.md)
+and [GC file recorder](https://github.com/dart-lang/sdk/blob/3.13.1/runtime/vm/timeline.cc).
+It runs baseline/Arc/payload/payload/Arc/baseline, each with eight warmup and 64
+measured serial 64 MiB CBOR calls, without errors. All 18 per-process trace hashes,
+launchers, aggregation source, and per-event statistics are retained. These
+whole-process traces include startup, warmup, and teardown and are not throughput
+measurements. Begin/end intervals are paired by process, thread, name, and
+isolate group; unmatched pairs fail aggregation. Concurrent/nested intervals
+must not be added together as stop-the-world time.
+
+Both safe receiver variants record 147 server young-generation collections
+(146 marked `external`) and 72 old-generation intervals marked `finalize` in
+each run. The pre-ownership baseline records four young collections and no old
+collection intervals. Payload-only receiver totals are 11.5-12.5 ms for young
+and 10.0-13.4 ms for old intervals, versus Arc's 12.6-14.0 ms and 12.5-16.6 ms.
+This confirms external-memory collection pressure remains; it does not establish
+how much of the uninstrumented throughput or RSS difference GC causes. Removing
+accounting or weakening owner lifetimes is not an acceptable optimization.
+
+All 62 unchanged [large-frame/file gates](2026-09-10-native-call-payload-production-gates.json)
+pass: 24 frame workloads / 864 samples / 24 GiB, eight heavy-file workloads /
+190 transfers / 24 GiB, and 30 file-matrix workloads / 408 transfers / 25.5 GiB.
+There are no errors or counter/metric findings. **Relative performance remains
+open and the candidate stays local.** Final production-library/canonical-profile
+evidence and SA-002/SA-003 confirmation are still required. Continue the wider
+audit with bounded signed-handle allocation tests, cancellation/late-transfer
+cases, and other external-buffer owners; these leads are not confirmed findings.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and

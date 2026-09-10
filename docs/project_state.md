@@ -117,6 +117,26 @@ The report retains both comparisons and the exact verified `ffi-test` binary.
 Keep the audit changes local; reduce redundant receiver materialization next
 without weakening lifetime safety. The full component audit remains active.
 
+SA-004 receiver follow-up: internal native CALL delivery now reads only owned
+argument/keyword views and validates message type/serializer under a temporary
+handle lease, instead of materializing a full message. The independent byte
+owners, legacy copies, and external-memory accounting are preserved. All 31
+focused lifetime tests pass (legacy: 28 plus three skips), all 14 live WebSocket
+tests pass, and fresh `bin/verify` passes with 514 router tests. The first fast
+gate caught absolute paths in the previous evidence artifact; path normalization
+fixed that without changing measurements, and the corrected fast gate passes.
+New artifacts are checked after generation, not only before they are added.
+Full-baseline and incremental comparisons each complete 184,176 operations plus
+11,160 warmups without errors. The full repeat has +2.3%/+2.4% large-frame
+throughput, but baseline speeds moved under contention, p99 and memory remain
+higher, and the incremental 32 MiB result falls 3.4%. Six separate AOT GC runs
+confirm external-memory collection pressure remains with both safe readers;
+these instrumented results do not prove throughput causality. All 62 unchanged
+large-frame/file gates pass, covering 73.5 GiB. Preserve earlier unfavorable
+comparisons: performance is not cleared and nothing has been pushed/published.
+Continue bounded handle-allocation/cancellation and external-buffer review,
+alongside outstanding performance confirmation and all pending component rows.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

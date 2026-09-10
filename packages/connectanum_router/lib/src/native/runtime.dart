@@ -1599,6 +1599,50 @@ class _MessageBindings {
   final NativeMessageBytes _messageBytes;
   final Finalizer<_MessageFinalizerToken> _messageFinalizer;
 
+  NativeCallPayloadBytes readCallPayload(
+    int handle, {
+    required NativeMessageSerializer serializer,
+  }) {
+    ffi.Pointer<CtMessageInfo> infoPtr = ffi.nullptr;
+    try {
+      infoPtr = calloc<CtMessageInfo>();
+      final result = _bindings.ctMessagePeek(handle, infoPtr);
+      if (result != NativeTransportErrorCode.success) {
+        throw NativeTransportException(result, 'Failed to peek CALL payload');
+      }
+      final info = infoPtr.ref;
+      if (info.messageCode != 48 || info.serializer != serializer.id) {
+        throw NativeTransportException(
+          NativeTransportErrorCode.invalidArgument,
+          'Expected a CALL with the transferred serializer',
+        );
+      }
+      return NativeCallPayloadBytes._(
+        serializer: serializer,
+        argumentsBytes: info.argsLen == 0
+            ? null
+            : _messageBytes.read(
+                handle,
+                NativeMessageBytePart.arguments,
+                borrowed: info.argsPtr,
+                length: info.argsLen,
+              ),
+        argumentsKeywordsBytes: info.kwargsLen == 0
+            ? null
+            : _messageBytes.read(
+                handle,
+                NativeMessageBytePart.argumentsKeywords,
+                borrowed: info.kwargsPtr,
+                length: info.kwargsLen,
+              ),
+      );
+    } finally {
+      // Returned backing stores own their slices; no routing handle escapes.
+      _bindings.ctMessageRelease(handle);
+      if (infoPtr != ffi.nullptr) calloc.free(infoPtr);
+    }
+  }
+
   NativeIncomingMessage materialize(int handle) {
     final infoPtr = calloc<CtMessageInfo>();
     try {
@@ -1841,6 +1885,20 @@ NativeHttpConnectionCloseReason _connectionReasonFromCode(int code) {
   }
 }
 
+/// Independently owned CALL argument views, without a materialized message.
+/// Legacy native libraries produce Dart-owned copies instead of native views.
+class NativeCallPayloadBytes {
+  const NativeCallPayloadBytes._({
+    required this.serializer,
+    required this.argumentsBytes,
+    required this.argumentsKeywordsBytes,
+  });
+
+  final NativeMessageSerializer serializer;
+  final Uint8List? argumentsBytes;
+  final Uint8List? argumentsKeywordsBytes;
+}
+
 class NativeMessageHandleDecoder {
   factory NativeMessageHandleDecoder({String? libraryPath}) {
     final resolvedPath = NativeLibraryLoader.resolvePath(libraryPath);
@@ -1863,6 +1921,22 @@ class NativeMessageHandleDecoder {
 
   NativeIncomingMessage materialize(int handle) =>
       _messageBindings.materialize(handle);
+
+  /// Retains a transferred CALL only while acquiring its owned argument views.
+  /// Rejects expired handles and mismatched message types or serializers.
+  NativeCallPayloadBytes readRetainedCallPayload(
+    int handle, {
+    required NativeMessageSerializer serializer,
+  }) {
+    final retained = _bindings.ctMessageRetain(handle);
+    if (retained <= 0) {
+      throw NativeTransportException(
+        retained,
+        'Native message transfer has expired',
+      );
+    }
+    return _messageBindings.readCallPayload(retained, serializer: serializer);
+  }
 
   /// Acquires independent ownership before reading a handle sent by an isolate.
   /// An expired transfer fails without dereferencing its former byte addresses.

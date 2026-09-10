@@ -342,7 +342,7 @@ class RouterSession {
         registrationId,
         details,
       );
-      NativeIncomingMessage? ownedNativeMessage;
+      NativeCallPayloadBytes? ownedNativePayload;
       try {
         if (_isTransferredNativeCallPayload(transferredPayload)) {
           final runtime = binding.runtime;
@@ -352,14 +352,22 @@ class RouterSession {
           final decoder = _nativePayloadDecoder ??= NativeMessageHandleDecoder(
             libraryPath: runtime.libraryPathHint,
           );
-          ownedNativeMessage = decoder.materializeRetained(
+          final serializer = switch ((transferredPayload
+              as Map)[_transferredLazyPayloadEncodingKey]) {
+            'json' => NativeMessageSerializer.json,
+            'messagePack' => NativeMessageSerializer.messagePack,
+            'cbor' => NativeMessageSerializer.cbor,
+            _ => throw StateError('Unknown native CALL payload encoding'),
+          };
+          ownedNativePayload = decoder.readRetainedCallPayload(
             _transferredNativeCallHandle(transferredPayload) ?? 0,
+            serializer: serializer,
           );
         }
         _applyTransferredLazyPayload(
           invocation,
           transferredPayload,
-          ownedNativeMessage: ownedNativeMessage,
+          ownedNativePayload: ownedNativePayload,
           fallbackArguments:
               (_materializeTransferredValue(message['arguments']) as List?)
                   ?.cast<dynamic>()
@@ -380,9 +388,6 @@ class RouterSession {
           'error': wamp_core.Error.runtimeError,
         });
         return;
-      } finally {
-        // The typed-data backing stores now own any exported native slices.
-        ownedNativeMessage?.dispose();
       }
       invocation.onResponse((response) {
         if (response is yield_msg.Yield) {
@@ -1222,7 +1227,7 @@ Object? _copyTransferredNativeCallPayload(
 
 LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   Object? value, {
-  NativeIncomingMessage? ownedNativeMessage,
+  NativeCallPayloadBytes? ownedNativePayload,
   String? pptScheme,
   String? pptSerializer,
   String? pptCipher,
@@ -1237,7 +1242,9 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   );
   final retainedNativeCallPayload =
       raw[_transferredNativeCallPayloadKey] == true;
-  if (retainedNativeCallPayload && ownedNativeMessage == null) {
+  if (retainedNativeCallPayload &&
+      (ownedNativePayload == null ||
+          ownedNativePayload.serializer.name != encoding?.name)) {
     throw StateError('Native payload must be retained before reading');
   }
   final transparentBinaryPayload = _coerceTransferredBytes(
@@ -1245,12 +1252,12 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   );
   final pptDecoded = raw[_transferredLazyPayloadPptDecodedKey] == true;
   final argumentsBytes = retainedNativeCallPayload
-      ? ownedNativeMessage!.argumentsBytes
+      ? ownedNativePayload!.argumentsBytes
       : _coerceTransferredBytes(
           raw[_transferredLazyPayloadArgumentsBytesKey],
         );
   final argumentsKeywordsBytes = retainedNativeCallPayload
-      ? ownedNativeMessage!.argumentsKeywordsBytes
+      ? ownedNativePayload!.argumentsKeywordsBytes
       : _coerceTransferredBytes(
           raw[_transferredLazyPayloadArgumentsKeywordsBytesKey],
         );
@@ -1347,7 +1354,7 @@ Uint8List? _coerceTransferredBytes(Object? value) {
 void _applyTransferredLazyPayload(
   AbstractMessageWithPayload message,
   Object? transferredPayload, {
-  NativeIncomingMessage? ownedNativeMessage,
+  NativeCallPayloadBytes? ownedNativePayload,
   List<dynamic>? fallbackArguments,
   Map<String, dynamic>? fallbackArgumentsKeywords,
   String? pptScheme,
@@ -1357,7 +1364,7 @@ void _applyTransferredLazyPayload(
 }) {
   final payload = _lazyPayloadFromTransferredWithPpt(
     transferredPayload,
-    ownedNativeMessage: ownedNativeMessage,
+    ownedNativePayload: ownedNativePayload,
     pptScheme: pptScheme,
     pptSerializer: pptSerializer,
     pptCipher: pptCipher,

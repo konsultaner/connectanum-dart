@@ -1,0 +1,2091 @@
+{
+  "script_source_convention": "Embedded runner sources have repository paths normalized for privacy. Script sha256 fields identify the original local files before that normalization; binary and raw-trace hashes are unchanged.",
+  "runs": [
+    {
+      "variant": "baseline",
+      "command": [
+        "/tmp/connectanum-sa002-patched-http_stream",
+        "--dart",
+        "/tmp/connectanum-sa004-gc-service-launch",
+        "--bench-main",
+        "/tmp/connectanum-sa003-aot/bundle/bin/bench_router_service",
+        "--wamp-worker-executable",
+        "/tmp/connectanum-sa004-gc-worker-launch",
+        "--native-lib",
+        "/tmp/connectanum-sa004-baseline-libct_ffi.dylib",
+        "--scenario",
+        "/tmp/connectanum-sa004-gc-profile/gc_diagnostic.toml",
+        "--router-worker-counts",
+        "1",
+        "--native-runtime-thread-counts",
+        "4",
+        "--results",
+        "/tmp/connectanum-sa004-gc-profile/01-baseline/bench_results.jsonl",
+        "--artifact-dir",
+        "/tmp/connectanum-sa004-gc-profile/01-baseline"
+      ],
+      "started_at": 1789066092.1292522,
+      "binaries": {
+        "service": {
+          "path": "/tmp/connectanum-sa003-aot/bundle/bin/bench_router_service",
+          "sha256": "77993e0c80f257b920e10661eba6c055af737d48944ebfacbd7b96966410611e"
+        },
+        "worker": {
+          "path": "/tmp/connectanum-security-shared-worker/bundle/bin/wamp_client_worker",
+          "sha256": "8660228f267af779d67282be1c4aa38a1a7745fff383793ac01de9c62d719e30"
+        },
+        "native": {
+          "path": "/tmp/connectanum-sa004-baseline-libct_ffi.dylib",
+          "sha256": "0617efe498fcc78646e6d96ab3d86b624f97716b8f7a0554711abaa57adcbe81"
+        }
+      },
+      "finished_at": 1789066096.003936,
+      "results_sha256": "f2384005abc1fca4f09258be4395b68891cc81855fffcddc2b5246652fec249e",
+      "traces": [
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/01-baseline/traces/service-48450.json",
+          "sha256": "5ac0f845b1be702b46717da76be3207f62262a03a3f97c93871e2759f00e58c5",
+          "event_count": 129,
+          "rss_bytes_at_gc": {
+            "count": 8,
+            "min": 28606464,
+            "median": 107397120.0,
+            "max": 108281856,
+            "sum": 703299584
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 4,
+                "min": 0.097,
+                "median": 0.193,
+                "max": 0.228,
+                "sum": 0.7110000000000001
+              },
+              "reasons": {
+                "new space": 4
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 4,
+                "min": 12,
+                "median": 21.5,
+                "max": 75,
+                "sum": 130
+              },
+              "external_after_kb": {
+                "count": 4,
+                "min": 0,
+                "median": 21.0,
+                "max": 21,
+                "sum": 63
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/01-baseline/traces/worker-48451.json",
+          "sha256": "eec13eedb5914a2d5af9f42df47ea2d4db0e5305197ae6f2208f254efd542789",
+          "event_count": 597,
+          "rss_bytes_at_gc": {
+            "count": 34,
+            "min": 22904832,
+            "median": 135856128.0,
+            "max": 335953920,
+            "sum": 5604376576
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 5,
+                "min": 0.323,
+                "median": 1.447,
+                "max": 5.281,
+                "sum": 12.173
+              },
+              "reasons": {
+                "new space": 5
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 5,
+                "min": 0,
+                "median": 0,
+                "max": 0,
+                "sum": 0
+              },
+              "external_after_kb": {
+                "count": 5,
+                "min": 0,
+                "median": 0,
+                "max": 0,
+                "sum": 0
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 6,
+                "min": 0.116,
+                "median": 0.16,
+                "max": 0.293,
+                "sum": 1.072
+              },
+              "reasons": {
+                "finalize": 6
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 6,
+                "min": 0,
+                "median": 0.0,
+                "max": 0,
+                "sum": 0
+              },
+              "external_after_kb": {
+                "count": 6,
+                "min": 0,
+                "median": 0.0,
+                "max": 0,
+                "sum": 0
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 18,
+                "min": 0.037,
+                "median": 0.328,
+                "max": 6.18,
+                "sum": 33.056
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 6,
+                "min": 0.84,
+                "median": 1.5695000000000001,
+                "max": 3.437,
+                "sum": 11.291
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/01-baseline/traces/worker-48453.json",
+          "sha256": "784efe279793a70076f6c7443cc9301b8ba99de08f0ee3e9e5c1bb7fb7c24b4a",
+          "event_count": 601,
+          "rss_bytes_at_gc": {
+            "count": 34,
+            "min": 22888448,
+            "median": 135798784.0,
+            "max": 336117760,
+            "sum": 5604737024
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 5,
+                "min": 0.36,
+                "median": 1.628,
+                "max": 5.958,
+                "sum": 13.731
+              },
+              "reasons": {
+                "new space": 5
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 5,
+                "min": 0,
+                "median": 0,
+                "max": 0,
+                "sum": 0
+              },
+              "external_after_kb": {
+                "count": 5,
+                "min": 0,
+                "median": 0,
+                "max": 0,
+                "sum": 0
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 6,
+                "min": 0.093,
+                "median": 0.197,
+                "max": 0.309,
+                "sum": 1.194
+              },
+              "reasons": {
+                "finalize": 6
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 6,
+                "min": 0,
+                "median": 0.0,
+                "max": 0,
+                "sum": 0
+              },
+              "external_after_kb": {
+                "count": 6,
+                "min": 0,
+                "median": 0.0,
+                "max": 0,
+                "sum": 0
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 18,
+                "min": 0.04,
+                "median": 0.3175,
+                "max": 8.292,
+                "sum": 40.521
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 6,
+                "min": 0.817,
+                "median": 1.5394999999999999,
+                "max": 3.536,
+                "sum": 11.347999999999999
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "variant": "arc",
+      "command": [
+        "/tmp/connectanum-sa002-patched-http_stream",
+        "--dart",
+        "/tmp/connectanum-sa004-gc-service-launch",
+        "--bench-main",
+        "/tmp/connectanum-sa004-metadata-service/bundle/bin/bench_router_service",
+        "--wamp-worker-executable",
+        "/tmp/connectanum-sa004-gc-worker-launch",
+        "--native-lib",
+        "/tmp/connectanum-sa004-arc-libct_ffi.dylib",
+        "--scenario",
+        "/tmp/connectanum-sa004-gc-profile/gc_diagnostic.toml",
+        "--router-worker-counts",
+        "1",
+        "--native-runtime-thread-counts",
+        "4",
+        "--results",
+        "/tmp/connectanum-sa004-gc-profile/02-arc/bench_results.jsonl",
+        "--artifact-dir",
+        "/tmp/connectanum-sa004-gc-profile/02-arc"
+      ],
+      "started_at": 1789066096.004837,
+      "binaries": {
+        "service": {
+          "path": "/tmp/connectanum-sa004-metadata-service/bundle/bin/bench_router_service",
+          "sha256": "ec2eeb12f279e9ff26795353e825c50684b61c1917e6a540a42e8af088f77957"
+        },
+        "worker": {
+          "path": "/tmp/connectanum-sa004-metadata-worker/bundle/bin/wamp_client_worker",
+          "sha256": "14be7632b4a83095adea064e37a560f5d0cd8c39ba7293221de840c9bad661b2"
+        },
+        "native": {
+          "path": "/tmp/connectanum-sa004-arc-libct_ffi.dylib",
+          "sha256": "77f12083ff5e54dc299f7749f41dedda0f4b1b4d4267f420baaec6979bb6ca76"
+        }
+      },
+      "finished_at": 1789066099.4243908,
+      "results_sha256": "3aa265410799f4a1b385a68d0e79c36456565d9fd30939880ee48cb15f16e858",
+      "traces": [
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/02-arc/traces/service-48460.json",
+          "sha256": "135c85752e7ac275c5ec2f5e8fee2de531ecfd40e48238cacc31a9d227c4cfcb",
+          "event_count": 9880,
+          "rss_bytes_at_gc": {
+            "count": 582,
+            "min": 28835840,
+            "median": 173916160.0,
+            "max": 173965312,
+            "sum": 100302766080
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 147,
+                "min": 0.047,
+                "median": 0.095,
+                "max": 0.239,
+                "sum": 13.985
+              },
+              "reasons": {
+                "new space": 1,
+                "external": 146
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 147,
+                "min": 12,
+                "median": 131093,
+                "max": 196629,
+                "sum": 19008590
+              },
+              "external_after_kb": {
+                "count": 147,
+                "min": 0,
+                "median": 65557,
+                "max": 196629,
+                "sum": 14289927
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 72,
+                "min": 0.093,
+                "median": 0.233,
+                "max": 0.409,
+                "sum": 16.602
+              },
+              "reasons": {
+                "finalize": 72
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 72,
+                "min": 131093,
+                "median": 131093.0,
+                "max": 196629,
+                "sum": 9504232
+              },
+              "external_after_kb": {
+                "count": 72,
+                "min": 65557,
+                "median": 65557.0,
+                "max": 131093,
+                "sum": 4785640
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 216,
+                "min": 0.0,
+                "median": 0.6875,
+                "max": 2.283,
+                "sum": 119.014
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 72,
+                "min": 0.109,
+                "median": 0.139,
+                "max": 0.188,
+                "sum": 9.937
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "Pause": {
+              "interval_ms": {
+                "count": 2,
+                "min": 0.085,
+                "median": 0.0865,
+                "max": 0.088,
+                "sum": 0.173
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/02-arc/traces/worker-48461.json",
+          "sha256": "7cb9a2bd3f5e157c54b5e4ce9c32bf73541086d0dc0789cb0cb4d9e1f0179fa9",
+          "event_count": 915,
+          "rss_bytes_at_gc": {
+            "count": 56,
+            "min": 22839296,
+            "median": 263979008.0,
+            "max": 397950976,
+            "sum": 13557923840
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 14,
+                "min": 0.056,
+                "median": 0.1095,
+                "max": 5.415,
+                "sum": 13.43
+              },
+              "reasons": {
+                "new space": 5,
+                "external": 9
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 14,
+                "min": 0,
+                "median": 131072.0,
+                "max": 196608,
+                "sum": 1507328
+              },
+              "external_after_kb": {
+                "count": 14,
+                "min": 0,
+                "median": 98304.0,
+                "max": 131072,
+                "sum": 1048576
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.095,
+                "median": 0.143,
+                "max": 0.6,
+                "sum": 1.502
+              },
+              "reasons": {
+                "finalize": 7
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              },
+              "external_after_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 21,
+                "min": 0.024,
+                "median": 0.275,
+                "max": 8.041,
+                "sum": 39.343
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.07,
+                "median": 1.546,
+                "max": 3.539,
+                "sum": 11.625
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/02-arc/traces/worker-48462.json",
+          "sha256": "d968ca158d5b092acea40b4f349b15bd60d0b52c744ed4a402e8559b9d028ede",
+          "event_count": 2371,
+          "rss_bytes_at_gc": {
+            "count": 168,
+            "min": 22872064,
+            "median": 398376960.0,
+            "max": 398540800,
+            "sum": 58190970880
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 70,
+                "min": 0.055,
+                "median": 0.076,
+                "max": 5.315,
+                "sum": 17.545
+              },
+              "reasons": {
+                "new space": 5,
+                "external": 65
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 70,
+                "min": 0,
+                "median": 196608.0,
+                "max": 196608,
+                "sum": 12517376
+              },
+              "external_after_kb": {
+                "count": 70,
+                "min": 0,
+                "median": 131072.0,
+                "max": 131072,
+                "sum": 8388608
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.103,
+                "median": 0.174,
+                "max": 0.627,
+                "sum": 1.643
+              },
+              "reasons": {
+                "finalize": 7
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              },
+              "external_after_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 21,
+                "min": 0.001,
+                "median": 0.345,
+                "max": 8.102,
+                "sum": 41.628
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.088,
+                "median": 1.569,
+                "max": 3.564,
+                "sum": 11.785
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "variant": "payload",
+      "command": [
+        "/tmp/connectanum-sa002-patched-http_stream",
+        "--dart",
+        "/tmp/connectanum-sa004-gc-service-launch",
+        "--bench-main",
+        "/tmp/connectanum-sa004-payload-service/bundle/bin/bench_router_service",
+        "--wamp-worker-executable",
+        "/tmp/connectanum-sa004-gc-worker-launch",
+        "--native-lib",
+        "/tmp/connectanum-sa004-arc-libct_ffi.dylib",
+        "--scenario",
+        "/tmp/connectanum-sa004-gc-profile/gc_diagnostic.toml",
+        "--router-worker-counts",
+        "1",
+        "--native-runtime-thread-counts",
+        "4",
+        "--results",
+        "/tmp/connectanum-sa004-gc-profile/03-payload/bench_results.jsonl",
+        "--artifact-dir",
+        "/tmp/connectanum-sa004-gc-profile/03-payload"
+      ],
+      "started_at": 1789066099.426034,
+      "binaries": {
+        "service": {
+          "path": "/tmp/connectanum-sa004-payload-service/bundle/bin/bench_router_service",
+          "sha256": "17a0c6fd8028ae0ac366677554bcd388eb7bfdd8403194830e6a47b573319885"
+        },
+        "worker": {
+          "path": "/tmp/connectanum-sa004-metadata-worker/bundle/bin/wamp_client_worker",
+          "sha256": "14be7632b4a83095adea064e37a560f5d0cd8c39ba7293221de840c9bad661b2"
+        },
+        "native": {
+          "path": "/tmp/connectanum-sa004-arc-libct_ffi.dylib",
+          "sha256": "77f12083ff5e54dc299f7749f41dedda0f4b1b4d4267f420baaec6979bb6ca76"
+        }
+      },
+      "finished_at": 1789066102.836458,
+      "results_sha256": "0f415fb076f7ffbd2736c57930e54737bb9ee5caa4ec88ccced574236eefa89a",
+      "traces": [
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/03-payload/traces/service-48470.json",
+          "sha256": "1622a5aa4b635cd4d2d53552397084b409ded602b14a48ce32bcd04f25e42c06",
+          "event_count": 9208,
+          "rss_bytes_at_gc": {
+            "count": 582,
+            "min": 28688384,
+            "median": 173752320.0,
+            "max": 173981696,
+            "sum": 100240916480
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 147,
+                "min": 0.041,
+                "median": 0.077,
+                "max": 0.266,
+                "sum": 12.487
+              },
+              "reasons": {
+                "new space": 1,
+                "external": 146
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 147,
+                "min": 12,
+                "median": 131093,
+                "max": 196629,
+                "sum": 19008587
+              },
+              "external_after_kb": {
+                "count": 147,
+                "min": 0,
+                "median": 65557,
+                "max": 196629,
+                "sum": 14289927
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 72,
+                "min": 0.091,
+                "median": 0.2065,
+                "max": 0.371,
+                "sum": 13.351
+              },
+              "reasons": {
+                "finalize": 72
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 72,
+                "min": 131093,
+                "median": 131093.0,
+                "max": 196629,
+                "sum": 9504232
+              },
+              "external_after_kb": {
+                "count": 72,
+                "min": 65557,
+                "median": 65557.0,
+                "max": 131093,
+                "sum": 4785640
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 216,
+                "min": 0.0,
+                "median": 0.7295,
+                "max": 1.677,
+                "sum": 121.944
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 72,
+                "min": 0.108,
+                "median": 0.1355,
+                "max": 0.205,
+                "sum": 9.903
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "Pause": {
+              "interval_ms": {
+                "count": 2,
+                "min": 0.076,
+                "median": 0.08149999999999999,
+                "max": 0.087,
+                "sum": 0.16299999999999998
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/03-payload/traces/worker-48471.json",
+          "sha256": "88b073b848ee3dc1719d3f6d2b7a1c657783f49001b10df49d1ad819defcccbd",
+          "event_count": 943,
+          "rss_bytes_at_gc": {
+            "count": 56,
+            "min": 22757376,
+            "median": 263634944.0,
+            "max": 397574144,
+            "sum": 13544062976
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 14,
+                "min": 0.052,
+                "median": 0.119,
+                "max": 5.258,
+                "sum": 13.225999999999999
+              },
+              "reasons": {
+                "new space": 5,
+                "external": 9
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 14,
+                "min": 0,
+                "median": 131072.0,
+                "max": 196608,
+                "sum": 1507328
+              },
+              "external_after_kb": {
+                "count": 14,
+                "min": 0,
+                "median": 98304.0,
+                "max": 131072,
+                "sum": 1048576
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.106,
+                "median": 0.141,
+                "max": 0.57,
+                "sum": 1.442
+              },
+              "reasons": {
+                "finalize": 7
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              },
+              "external_after_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 21,
+                "min": 0.0,
+                "median": 0.34,
+                "max": 8.435,
+                "sum": 36.819
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.083,
+                "median": 1.531,
+                "max": 3.552,
+                "sum": 11.563
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/03-payload/traces/worker-48477.json",
+          "sha256": "6bc947efd428ac375c9737eec38262db282937b22ee9dd266e95c3b55a44cff1",
+          "event_count": 2375,
+          "rss_bytes_at_gc": {
+            "count": 168,
+            "min": 22855680,
+            "median": 397082624.0,
+            "max": 397246464,
+            "sum": 58012778496
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 70,
+                "min": 0.062,
+                "median": 0.0735,
+                "max": 5.357,
+                "sum": 17.385
+              },
+              "reasons": {
+                "new space": 5,
+                "external": 65
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 70,
+                "min": 0,
+                "median": 196608.0,
+                "max": 196608,
+                "sum": 12517376
+              },
+              "external_after_kb": {
+                "count": 70,
+                "min": 0,
+                "median": 131072.0,
+                "max": 131072,
+                "sum": 8388608
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.099,
+                "median": 0.178,
+                "max": 0.337,
+                "sum": 1.243
+              },
+              "reasons": {
+                "finalize": 7
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              },
+              "external_after_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 21,
+                "min": 0.001,
+                "median": 0.337,
+                "max": 7.936,
+                "sum": 39.245
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.072,
+                "median": 1.538,
+                "max": 3.537,
+                "sum": 11.816
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "variant": "payload",
+      "command": [
+        "/tmp/connectanum-sa002-patched-http_stream",
+        "--dart",
+        "/tmp/connectanum-sa004-gc-service-launch",
+        "--bench-main",
+        "/tmp/connectanum-sa004-payload-service/bundle/bin/bench_router_service",
+        "--wamp-worker-executable",
+        "/tmp/connectanum-sa004-gc-worker-launch",
+        "--native-lib",
+        "/tmp/connectanum-sa004-arc-libct_ffi.dylib",
+        "--scenario",
+        "/tmp/connectanum-sa004-gc-profile/gc_diagnostic.toml",
+        "--router-worker-counts",
+        "1",
+        "--native-runtime-thread-counts",
+        "4",
+        "--results",
+        "/tmp/connectanum-sa004-gc-profile/04-payload/bench_results.jsonl",
+        "--artifact-dir",
+        "/tmp/connectanum-sa004-gc-profile/04-payload"
+      ],
+      "started_at": 1789066102.838024,
+      "binaries": {
+        "service": {
+          "path": "/tmp/connectanum-sa004-payload-service/bundle/bin/bench_router_service",
+          "sha256": "17a0c6fd8028ae0ac366677554bcd388eb7bfdd8403194830e6a47b573319885"
+        },
+        "worker": {
+          "path": "/tmp/connectanum-sa004-metadata-worker/bundle/bin/wamp_client_worker",
+          "sha256": "14be7632b4a83095adea064e37a560f5d0cd8c39ba7293221de840c9bad661b2"
+        },
+        "native": {
+          "path": "/tmp/connectanum-sa004-arc-libct_ffi.dylib",
+          "sha256": "77f12083ff5e54dc299f7749f41dedda0f4b1b4d4267f420baaec6979bb6ca76"
+        }
+      },
+      "finished_at": 1789066106.1516612,
+      "results_sha256": "47ecb6cde1a54f474ab48f149b158d67d2493e112f1a647ccbb8d9d9e1e29ab8",
+      "traces": [
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/04-payload/traces/service-48482.json",
+          "sha256": "cb985d2dfe8b33f34e7225b04bcf3ac9a840d0565e1d277e4123152a84924d94",
+          "event_count": 8413,
+          "rss_bytes_at_gc": {
+            "count": 582,
+            "min": 28721152,
+            "median": 173899776.0,
+            "max": 173916160,
+            "sum": 100258611200
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 147,
+                "min": 0.043,
+                "median": 0.074,
+                "max": 0.254,
+                "sum": 11.534
+              },
+              "reasons": {
+                "new space": 1,
+                "external": 146
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 147,
+                "min": 12,
+                "median": 131093,
+                "max": 196629,
+                "sum": 19008590
+              },
+              "external_after_kb": {
+                "count": 147,
+                "min": 0,
+                "median": 65557,
+                "max": 196629,
+                "sum": 14289927
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 72,
+                "min": 0.086,
+                "median": 0.119,
+                "max": 0.302,
+                "sum": 10.023
+              },
+              "reasons": {
+                "finalize": 72
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 72,
+                "min": 131093,
+                "median": 131093.0,
+                "max": 196629,
+                "sum": 9504232
+              },
+              "external_after_kb": {
+                "count": 72,
+                "min": 65557,
+                "median": 65557.0,
+                "max": 131093,
+                "sum": 4785640
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 216,
+                "min": 0.0,
+                "median": 0.677,
+                "max": 1.71,
+                "sum": 113.392
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 72,
+                "min": 0.108,
+                "median": 0.128,
+                "max": 0.19,
+                "sum": 9.396
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "Pause": {
+              "interval_ms": {
+                "count": 2,
+                "min": 0.095,
+                "median": 0.098,
+                "max": 0.101,
+                "sum": 0.196
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/04-payload/traces/worker-48483.json",
+          "sha256": "464e78c3f1f28375c48cd6e2ee3edf15da89da42651efdf43a787ad12291c16e",
+          "event_count": 875,
+          "rss_bytes_at_gc": {
+            "count": 56,
+            "min": 22822912,
+            "median": 267862016.0,
+            "max": 397377536,
+            "sum": 13541654528
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 14,
+                "min": 0.063,
+                "median": 0.0985,
+                "max": 5.428,
+                "sum": 13.690999999999999
+              },
+              "reasons": {
+                "new space": 5,
+                "external": 9
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 14,
+                "min": 0,
+                "median": 131072.0,
+                "max": 196608,
+                "sum": 1507328
+              },
+              "external_after_kb": {
+                "count": 14,
+                "min": 0,
+                "median": 98304.0,
+                "max": 131072,
+                "sum": 1048576
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.109,
+                "median": 0.135,
+                "max": 0.596,
+                "sum": 1.417
+              },
+              "reasons": {
+                "finalize": 7
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              },
+              "external_after_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 21,
+                "min": 0.0,
+                "median": 0.318,
+                "max": 9.293,
+                "sum": 42.647
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.806,
+                "median": 1.521,
+                "max": 3.3,
+                "sum": 11.62
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/04-payload/traces/worker-48484.json",
+          "sha256": "e7a44b065683b6c6fe52f20d9ae395413e34ff8fd2adbb675107228d391c2662",
+          "event_count": 2393,
+          "rss_bytes_at_gc": {
+            "count": 168,
+            "min": 22822912,
+            "median": 397197312.0,
+            "max": 397344768,
+            "sum": 58024361984
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 70,
+                "min": 0.057,
+                "median": 0.073,
+                "max": 5.295,
+                "sum": 17.26
+              },
+              "reasons": {
+                "new space": 5,
+                "external": 65
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 70,
+                "min": 0,
+                "median": 196608.0,
+                "max": 196608,
+                "sum": 12517376
+              },
+              "external_after_kb": {
+                "count": 70,
+                "min": 0,
+                "median": 131072.0,
+                "max": 131072,
+                "sum": 8388608
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.115,
+                "median": 0.172,
+                "max": 0.595,
+                "sum": 1.506
+              },
+              "reasons": {
+                "finalize": 7
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              },
+              "external_after_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 21,
+                "min": 0.029,
+                "median": 0.325,
+                "max": 7.554,
+                "sum": 39.69
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.084,
+                "median": 1.545,
+                "max": 3.578,
+                "sum": 11.795
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "variant": "arc",
+      "command": [
+        "/tmp/connectanum-sa002-patched-http_stream",
+        "--dart",
+        "/tmp/connectanum-sa004-gc-service-launch",
+        "--bench-main",
+        "/tmp/connectanum-sa004-metadata-service/bundle/bin/bench_router_service",
+        "--wamp-worker-executable",
+        "/tmp/connectanum-sa004-gc-worker-launch",
+        "--native-lib",
+        "/tmp/connectanum-sa004-arc-libct_ffi.dylib",
+        "--scenario",
+        "/tmp/connectanum-sa004-gc-profile/gc_diagnostic.toml",
+        "--router-worker-counts",
+        "1",
+        "--native-runtime-thread-counts",
+        "4",
+        "--results",
+        "/tmp/connectanum-sa004-gc-profile/05-arc/bench_results.jsonl",
+        "--artifact-dir",
+        "/tmp/connectanum-sa004-gc-profile/05-arc"
+      ],
+      "started_at": 1789066106.1532218,
+      "binaries": {
+        "service": {
+          "path": "/tmp/connectanum-sa004-metadata-service/bundle/bin/bench_router_service",
+          "sha256": "ec2eeb12f279e9ff26795353e825c50684b61c1917e6a540a42e8af088f77957"
+        },
+        "worker": {
+          "path": "/tmp/connectanum-sa004-metadata-worker/bundle/bin/wamp_client_worker",
+          "sha256": "14be7632b4a83095adea064e37a560f5d0cd8c39ba7293221de840c9bad661b2"
+        },
+        "native": {
+          "path": "/tmp/connectanum-sa004-arc-libct_ffi.dylib",
+          "sha256": "77f12083ff5e54dc299f7749f41dedda0f4b1b4d4267f420baaec6979bb6ca76"
+        }
+      },
+      "finished_at": 1789066109.579902,
+      "results_sha256": "2433ea77e405185a340b1b2c93206a4df7d4ea9af9db6d0e947accd433712b53",
+      "traces": [
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/05-arc/traces/service-48491.json",
+          "sha256": "a5a30c3254a381da3f3a8e8e0d5fa871b89a6d797ef8b9405ff4a36f67e91cd8",
+          "event_count": 8738,
+          "rss_bytes_at_gc": {
+            "count": 582,
+            "min": 28704768,
+            "median": 173916160.0,
+            "max": 173948928,
+            "sum": 100254580736
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 147,
+                "min": 0.05,
+                "median": 0.075,
+                "max": 0.246,
+                "sum": 12.631
+              },
+              "reasons": {
+                "new space": 1,
+                "external": 146
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 147,
+                "min": 12,
+                "median": 131093,
+                "max": 196629,
+                "sum": 19008590
+              },
+              "external_after_kb": {
+                "count": 147,
+                "min": 0,
+                "median": 65557,
+                "max": 196629,
+                "sum": 14289927
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 72,
+                "min": 0.086,
+                "median": 0.151,
+                "max": 0.354,
+                "sum": 12.454
+              },
+              "reasons": {
+                "finalize": 72
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 72,
+                "min": 131093,
+                "median": 131093.0,
+                "max": 196629,
+                "sum": 9504232
+              },
+              "external_after_kb": {
+                "count": 72,
+                "min": 65557,
+                "median": 65557.0,
+                "max": 131093,
+                "sum": 4785640
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 216,
+                "min": 0.0,
+                "median": 0.696,
+                "max": 1.741,
+                "sum": 122.459
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 72,
+                "min": 0.107,
+                "median": 0.133,
+                "max": 0.283,
+                "sum": 9.548
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "Pause": {
+              "interval_ms": {
+                "count": 2,
+                "min": 0.087,
+                "median": 0.088,
+                "max": 0.089,
+                "sum": 0.176
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/05-arc/traces/worker-48492.json",
+          "sha256": "dd532ee576aa662f6b30c3eb621db11227ac877e478a68d2e4b81a5a30dc3269",
+          "event_count": 883,
+          "rss_bytes_at_gc": {
+            "count": 56,
+            "min": 22757376,
+            "median": 263815168.0,
+            "max": 397754368,
+            "sum": 13552697344
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 14,
+                "min": 0.057,
+                "median": 0.106,
+                "max": 6.489,
+                "sum": 14.883000000000001
+              },
+              "reasons": {
+                "new space": 5,
+                "external": 9
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 14,
+                "min": 0,
+                "median": 131072.0,
+                "max": 196608,
+                "sum": 1507328
+              },
+              "external_after_kb": {
+                "count": 14,
+                "min": 0,
+                "median": 98304.0,
+                "max": 131072,
+                "sum": 1048576
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.113,
+                "median": 0.192,
+                "max": 0.288,
+                "sum": 1.31
+              },
+              "reasons": {
+                "finalize": 7
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              },
+              "external_after_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 21,
+                "min": 0.024,
+                "median": 0.329,
+                "max": 6.793,
+                "sum": 37.029
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.071,
+                "median": 1.525,
+                "max": 3.801,
+                "sum": 11.866
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/05-arc/traces/worker-48494.json",
+          "sha256": "5d6db7dfb4c2bb5bfaa2bb8c55af1c9d5625660ad911b459a76df1262fda686f",
+          "event_count": 2343,
+          "rss_bytes_at_gc": {
+            "count": 168,
+            "min": 22773760,
+            "median": 397262848.0,
+            "max": 397410304,
+            "sum": 58032013312
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 70,
+                "min": 0.052,
+                "median": 0.077,
+                "max": 5.315,
+                "sum": 17.768
+              },
+              "reasons": {
+                "new space": 5,
+                "external": 65
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 70,
+                "min": 0,
+                "median": 196608.0,
+                "max": 196608,
+                "sum": 12517376
+              },
+              "external_after_kb": {
+                "count": 70,
+                "min": 0,
+                "median": 131072.0,
+                "max": 131072,
+                "sum": 8388608
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.106,
+                "median": 0.128,
+                "max": 0.607,
+                "sum": 1.367
+              },
+              "reasons": {
+                "finalize": 7
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              },
+              "external_after_kb": {
+                "count": 7,
+                "min": 0,
+                "median": 0,
+                "max": 65536,
+                "sum": 65536
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 21,
+                "min": 0.028,
+                "median": 0.269,
+                "max": 7.675,
+                "sum": 38.929
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 7,
+                "min": 0.727,
+                "median": 1.504,
+                "max": 3.498,
+                "sum": 11.797
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "variant": "baseline",
+      "command": [
+        "/tmp/connectanum-sa002-patched-http_stream",
+        "--dart",
+        "/tmp/connectanum-sa004-gc-service-launch",
+        "--bench-main",
+        "/tmp/connectanum-sa003-aot/bundle/bin/bench_router_service",
+        "--wamp-worker-executable",
+        "/tmp/connectanum-sa004-gc-worker-launch",
+        "--native-lib",
+        "/tmp/connectanum-sa004-baseline-libct_ffi.dylib",
+        "--scenario",
+        "/tmp/connectanum-sa004-gc-profile/gc_diagnostic.toml",
+        "--router-worker-counts",
+        "1",
+        "--native-runtime-thread-counts",
+        "4",
+        "--results",
+        "/tmp/connectanum-sa004-gc-profile/06-baseline/bench_results.jsonl",
+        "--artifact-dir",
+        "/tmp/connectanum-sa004-gc-profile/06-baseline"
+      ],
+      "started_at": 1789066109.5814981,
+      "binaries": {
+        "service": {
+          "path": "/tmp/connectanum-sa003-aot/bundle/bin/bench_router_service",
+          "sha256": "77993e0c80f257b920e10661eba6c055af737d48944ebfacbd7b96966410611e"
+        },
+        "worker": {
+          "path": "/tmp/connectanum-security-shared-worker/bundle/bin/wamp_client_worker",
+          "sha256": "8660228f267af779d67282be1c4aa38a1a7745fff383793ac01de9c62d719e30"
+        },
+        "native": {
+          "path": "/tmp/connectanum-sa004-baseline-libct_ffi.dylib",
+          "sha256": "0617efe498fcc78646e6d96ab3d86b624f97716b8f7a0554711abaa57adcbe81"
+        }
+      },
+      "finished_at": 1789066112.8781528,
+      "results_sha256": "8743a144580855990d1c326d55846c3a8e164fcc0e588900b62c0417b72b2458",
+      "traces": [
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/06-baseline/traces/service-48504.json",
+          "sha256": "190a7e7ecf83833691a4a8f65fd066897b3ec3f8261cfddfa538ec9e8aca34a5",
+          "event_count": 129,
+          "rss_bytes_at_gc": {
+            "count": 8,
+            "min": 28540928,
+            "median": 107372544.0,
+            "max": 108249088,
+            "sum": 702988288
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 4,
+                "min": 0.158,
+                "median": 0.195,
+                "max": 0.246,
+                "sum": 0.794
+              },
+              "reasons": {
+                "new space": 4
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 4,
+                "min": 12,
+                "median": 21.5,
+                "max": 78,
+                "sum": 133
+              },
+              "external_after_kb": {
+                "count": 4,
+                "min": 0,
+                "median": 21.0,
+                "max": 21,
+                "sum": 63
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/06-baseline/traces/worker-48505.json",
+          "sha256": "4f2d7011231ded371803405f2ff68aeb179d7dca315cc8ec4050c693f3825707",
+          "event_count": 577,
+          "rss_bytes_at_gc": {
+            "count": 34,
+            "min": 22872064,
+            "median": 135880704.0,
+            "max": 269598720,
+            "sum": 5204639744
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 5,
+                "min": 0.326,
+                "median": 1.399,
+                "max": 5.347,
+                "sum": 12.282
+              },
+              "reasons": {
+                "new space": 5
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 5,
+                "min": 0,
+                "median": 0,
+                "max": 0,
+                "sum": 0
+              },
+              "external_after_kb": {
+                "count": 5,
+                "min": 0,
+                "median": 0,
+                "max": 0,
+                "sum": 0
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 6,
+                "min": 0.099,
+                "median": 0.14650000000000002,
+                "max": 0.938,
+                "sum": 1.769
+              },
+              "reasons": {
+                "finalize": 6
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 6,
+                "min": 0,
+                "median": 0.0,
+                "max": 0,
+                "sum": 0
+              },
+              "external_after_kb": {
+                "count": 6,
+                "min": 0,
+                "median": 0.0,
+                "max": 0,
+                "sum": 0
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 18,
+                "min": 0.041,
+                "median": 0.4655,
+                "max": 6.262,
+                "sum": 34.383
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 6,
+                "min": 0.879,
+                "median": 1.536,
+                "max": 3.532,
+                "sum": 11.023
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        },
+        {
+          "path": "/tmp/connectanum-sa004-gc-profile/06-baseline/traces/worker-48508.json",
+          "sha256": "6a28caf9f1e0c79ee6fd16296df2564f6f4b9d6ce0288b70c153a2f882a224e1",
+          "event_count": 623,
+          "rss_bytes_at_gc": {
+            "count": 34,
+            "min": 22839296,
+            "median": 135790592.0,
+            "max": 336052224,
+            "sum": 5604130816
+          },
+          "events": {
+            "CollectNewGeneration": {
+              "interval_ms": {
+                "count": 5,
+                "min": 0.296,
+                "median": 1.432,
+                "max": 5.671,
+                "sum": 13.182
+              },
+              "reasons": {
+                "new space": 5
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 5,
+                "min": 0,
+                "median": 0,
+                "max": 0,
+                "sum": 0
+              },
+              "external_after_kb": {
+                "count": 5,
+                "min": 0,
+                "median": 0,
+                "max": 0,
+                "sum": 0
+              }
+            },
+            "CollectOldGeneration": {
+              "interval_ms": {
+                "count": 6,
+                "min": 0.103,
+                "median": 0.16949999999999998,
+                "max": 0.589,
+                "sum": 1.357
+              },
+              "reasons": {
+                "finalize": 6
+              },
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 6,
+                "min": 0,
+                "median": 0.0,
+                "max": 0,
+                "sum": 0
+              },
+              "external_after_kb": {
+                "count": 6,
+                "min": 0,
+                "median": 0.0,
+                "max": 0,
+                "sum": 0
+              }
+            },
+            "ConcurrentMark": {
+              "interval_ms": {
+                "count": 18,
+                "min": 0.0,
+                "median": 0.395,
+                "max": 7.26,
+                "sum": 35.635
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            },
+            "ConcurrentSweep": {
+              "interval_ms": {
+                "count": 6,
+                "min": 0.806,
+                "median": 1.6435,
+                "max": 3.483,
+                "sum": 11.533
+              },
+              "reasons": {},
+              "isolate_groups": 1,
+              "external_before_kb": {
+                "count": 0
+              },
+              "external_after_kb": {
+                "count": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "scenario": "name = \"gc_diagnostic\"\ndescription = \"Instrumented GC diagnosis; never use as a release throughput comparison.\"\n\n[[workloads]]\nname = \"warmup_cbor_64m\"\nprotocol = \"wamp_rawsocket_rpc\"\nclient_impl = \"native\"\nserializer = \"cbor\"\nrequest_bytes = 67108864\niterations = 8\nconcurrency = 1\nin_flight_per_session = 1\npath = \"bench.rpc.echo\"\n\n[[workloads]]\nname = \"cbor_64m\"\nprotocol = \"wamp_rawsocket_rpc\"\nclient_impl = \"native\"\nserializer = \"cbor\"\nrequest_bytes = 67108864\niterations = 64\nconcurrency = 1\nin_flight_per_session = 1\npath = \"bench.rpc.echo\"\n",
+  "limitation": "Instrumented whole-process GC evidence, not a throughput comparison. Includes startup, warmup and teardown.",
+  "method": {
+    "vm_options": "--timeline_streams=GC,--timeline_recorder=file:<unique-per-process-path>",
+    "sdk": "Dart 3.13.1",
+    "pairing": "Stable timestamp sort; B/E stack per process, thread, event name and isolate group. Reject unmatched pairs.",
+    "time_unit": "Input timestamps are microseconds; per-name paired intervals are reported in milliseconds.",
+    "interpretation": "Intervals may overlap across names and threads. Never sum categories into a stop-the-world pause or attribute concurrent marking time to UI blocking.",
+    "memory": "External kB is the VM-reported new-plus-old amount at a collection boundary, not unique native allocation size. RSS samples are taken around GC, not a continuous peak measurement.",
+    "work": "Each of six processes runs 8 warmup and 64 measured serial 64 MiB CBOR RawSocket calls. Two worker processes per service separate warmup and measurement.",
+    "sources": [
+      "https://raw.githubusercontent.com/dart-lang/sdk/3.13.1/CHANGELOG.md",
+      "https://github.com/dart-lang/sdk/blob/3.13.1/runtime/vm/timeline.cc"
+    ]
+  },
+  "scripts": {
+    "connectanum-sa004-gc-profile.py": {
+      "sha256": "f2d52ef1a2ced1f645617dd8ee8a907d3d50ab447a9083021702693966b7d731",
+      "source": "import hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport subprocess\nimport time\n\nROOT = Path('.')\nOUT = Path('/tmp/connectanum-sa004-gc-profile')\nDRIVER = Path('/tmp/connectanum-sa002-patched-http_stream')\nBINARIES = {\n    'baseline': (\n        '/tmp/connectanum-sa003-aot/bundle/bin/bench_router_service',\n        '/tmp/connectanum-security-shared-worker/bundle/bin/wamp_client_worker',\n        '/tmp/connectanum-sa004-baseline-libct_ffi.dylib'),\n    'arc': (\n        '/tmp/connectanum-sa004-metadata-service/bundle/bin/bench_router_service',\n        '/tmp/connectanum-sa004-metadata-worker/bundle/bin/wamp_client_worker',\n        '/tmp/connectanum-sa004-arc-libct_ffi.dylib'),\n    'payload': (\n        '/tmp/connectanum-sa004-payload-service/bundle/bin/bench_router_service',\n        '/tmp/connectanum-sa004-metadata-worker/bundle/bin/wamp_client_worker',\n        '/tmp/connectanum-sa004-arc-libct_ffi.dylib'),\n}\n\n\ndef digest(path):\n    with path.open('rb') as stream:\n        return hashlib.file_digest(stream, 'sha256').hexdigest()\n\n\ndef main():\n    OUT.mkdir(exist_ok=False)\n    scenario = OUT / 'gc_diagnostic.toml'\n    scenario.write_text('''name = \"gc_diagnostic\"\ndescription = \"Instrumented GC diagnosis; never use as a release throughput comparison.\"\n\n[[workloads]]\nname = \"warmup_cbor_64m\"\nprotocol = \"wamp_rawsocket_rpc\"\nclient_impl = \"native\"\nserializer = \"cbor\"\nrequest_bytes = 67108864\niterations = 8\nconcurrency = 1\nin_flight_per_session = 1\npath = \"bench.rpc.echo\"\n\n[[workloads]]\nname = \"cbor_64m\"\nprotocol = \"wamp_rawsocket_rpc\"\nclient_impl = \"native\"\nserializer = \"cbor\"\nrequest_bytes = 67108864\niterations = 64\nconcurrency = 1\nin_flight_per_session = 1\npath = \"bench.rpc.echo\"\n''')\n    runs = []\n    for index, variant in enumerate(['baseline', 'arc', 'payload', 'payload', 'arc', 'baseline'], 1):\n        service, worker, library = BINARIES[variant]\n        directory = OUT / f'{index:02}-{variant}'\n        directory.mkdir()\n        traces = directory / 'traces'\n        traces.mkdir()\n        results = directory / 'bench_results.jsonl'\n        command = [str(DRIVER), '--dart', '/tmp/connectanum-sa004-gc-service-launch',\n                   '--bench-main', service, '--wamp-worker-executable',\n                   '/tmp/connectanum-sa004-gc-worker-launch', '--native-lib', library,\n                   '--scenario', str(scenario), '--router-worker-counts', '1',\n                   '--native-runtime-thread-counts', '4', '--results', str(results),\n                   '--artifact-dir', str(directory)]\n        environment = dict(os.environ, GC_OUTPUT_DIR=str(traces), GC_WORKER_BINARY=worker)\n        environment.pop('DART_VM_OPTIONS', None)\n        record = dict(variant=variant, command=command, started_at=time.time(),\n                      binaries={role: dict(path=path, sha256=digest(Path(path))) for role, path in\n                                [('service', service), ('worker', worker), ('native', library)]})\n        print(f'Starting {index:02}-{variant}', flush=True)\n        with (directory / 'driver.log').open('x') as log:\n            subprocess.run(command, cwd=ROOT, env=environment, stdout=log,\n                           stderr=subprocess.STDOUT, timeout=600, check=True)\n        rows = [json.loads(line) for line in results.read_text().splitlines()]\n        assert len(rows) == 2\n        assert sum(len(row['samples']) for row in rows) == 72\n        assert not any(sample.get('error') for row in rows for sample in row['samples'])\n        record.update(finished_at=time.time(), results_sha256=digest(results),\n                      traces=[dict(path=str(path), sha256=digest(path)) for path in sorted(traces.glob('*.json'))])\n        with (directory / 'record.json').open('x') as stream:\n            json.dump(record, stream, indent=2)\n            stream.write('\\n')\n        runs.append(record)\n        print(f'Finished {index:02}-{variant}: {len(record[\"traces\"])} traces', flush=True)\n    with (OUT / 'runs.json').open('x') as stream:\n        json.dump(dict(runs=runs, scenario=scenario.read_text(),\n                       limitation='Instrumented whole-process GC evidence, not a throughput comparison. Includes startup, warmup and teardown.'), stream, indent=2)\n        stream.write('\\n')\n\n\nif __name__ == '__main__':\n    main()\n"
+    },
+    "connectanum-sa004-gc-service-launch": {
+      "sha256": "7295d38a001cf4bc159ee5054da3d1ddff8f1aab3f1318ef179147b0386f0ba7",
+      "source": "#!/bin/sh\nset -eu\nif [ \"${1:-}\" = run ]; then shift; fi\nexport DART_VM_OPTIONS=\"--timeline_streams=GC,--timeline_recorder=file:${GC_OUTPUT_DIR}/service-$$.json\"\nexec \"$@\"\n"
+    },
+    "connectanum-sa004-gc-worker-launch": {
+      "sha256": "2e5ab6b64e8d091fe2f2b9c7d4229b3827ead77a5171fde071ebab69d109316f",
+      "source": "#!/bin/sh\nset -eu\nexport DART_VM_OPTIONS=\"--timeline_streams=GC,--timeline_recorder=file:${GC_OUTPUT_DIR}/worker-$$.json\"\nexec \"$GC_WORKER_BINARY\" \"$@\"\n"
+    },
+    "connectanum-sa004-gc-summary.py": {
+      "sha256": "099c137a9aaa63e8f145945f4aa0679026464b18b5bbaa8b8a6a6171820cfb4e",
+      "source": "import hashlib\nimport json\nfrom collections import Counter, defaultdict\nfrom pathlib import Path\nfrom statistics import median\n\nROOT = Path('/tmp/connectanum-sa004-gc-profile')\nNAMES = {'CollectNewGeneration', 'CollectOldGeneration', 'ConcurrentMark',\n         'ConcurrentSweep', 'Pause'}\n\n\ndef digest(path):\n    with path.open('rb') as stream:\n        return hashlib.file_digest(stream, 'sha256').hexdigest()\n\n\ndef summarize(values):\n    return dict(count=len(values), min=min(values), median=median(values),\n                max=max(values), sum=sum(values)) if values else dict(count=0)\n\n\ndef summarize_trace(path):\n    events = json.loads(path.read_text())\n    stacks = defaultdict(list)\n    durations = defaultdict(list)\n    reasons = defaultdict(Counter)\n    external_before = defaultdict(list)\n    external_after = defaultdict(list)\n    groups = defaultdict(set)\n    rss = []\n    # File-recorded buffers are not globally ordered across Dart threads.\n    for event in sorted(events, key=lambda item: item['ts']):\n        if event['name'] == 'RSS' and event['ph'] == 'C':\n            rss.append(int(event['args']['value']))\n        name = event['name']\n        if name not in NAMES:\n            continue\n        args = event.get('args', {})\n        group = args.get('isolateGroupId')\n        key = (event['pid'], event['tid'], name, group)\n        if event['ph'] == 'B':\n            stacks[key].append(event['ts'])\n        elif event['ph'] == 'E':\n            assert stacks[key], (path, key, 'unmatched end')\n            elapsed = event['ts'] - stacks[key].pop()\n            assert elapsed >= 0\n            durations[name].append(elapsed / 1000)\n            if group:\n                groups[name].add(group)\n            if 'Reason' in args:\n                reasons[name][args['Reason']] += 1\n            for phase, target in [('Before', external_before), ('After', external_after)]:\n                fields = [f'{phase}.{generation}.External (kB)' for generation in ['New', 'Old']]\n                if all(field in args for field in fields):\n                    target[name].append(sum(int(args[field]) for field in fields))\n        else:\n            raise AssertionError((path, name, event['ph']))\n    assert not any(stacks.values()), (path, 'unmatched begin')\n    return dict(\n        path=str(path), sha256=digest(path), event_count=len(events),\n        rss_bytes_at_gc=summarize(rss),\n        events={name: dict(interval_ms=summarize(values), reasons=dict(reasons[name]),\n                           isolate_groups=len(groups[name]),\n                           external_before_kb=summarize(external_before[name]),\n                           external_after_kb=summarize(external_after[name]))\n                for name, values in sorted(durations.items())})\n\n\ndef main():\n    evidence = json.loads((ROOT / 'runs.json').read_text())\n    evidence['method'] = {\n        'vm_options': '--timeline_streams=GC,--timeline_recorder=file:<unique-per-process-path>',\n        'sdk': 'Dart 3.13.1',\n        'pairing': 'Stable timestamp sort; B/E stack per process, thread, event name and isolate group. Reject unmatched pairs.',\n        'time_unit': 'Input timestamps are microseconds; per-name paired intervals are reported in milliseconds.',\n        'interpretation': 'Intervals may overlap across names and threads. Never sum categories into a stop-the-world pause or attribute concurrent marking time to UI blocking.',\n        'memory': 'External kB is the VM-reported new-plus-old amount at a collection boundary, not unique native allocation size. RSS samples are taken around GC, not a continuous peak measurement.',\n        'work': 'Each of six processes runs 8 warmup and 64 measured serial 64 MiB CBOR RawSocket calls. Two worker processes per service separate warmup and measurement.',\n        'sources': ['https://raw.githubusercontent.com/dart-lang/sdk/3.13.1/CHANGELOG.md',\n                    'https://github.com/dart-lang/sdk/blob/3.13.1/runtime/vm/timeline.cc'],\n    }\n    evidence['scripts'] = {name: dict(sha256=digest(Path('/tmp') / name),\n                                    source=(Path('/tmp') / name).read_text())\n                           for name in ['connectanum-sa004-gc-profile.py',\n                                        'connectanum-sa004-gc-service-launch',\n                                        'connectanum-sa004-gc-worker-launch',\n                                        'connectanum-sa004-gc-summary.py']}\n    for run in evidence['runs']:\n        for trace in run['traces']:\n            summary = summarize_trace(Path(trace['path']))\n            assert summary['sha256'] == trace['sha256']\n            trace.update(summary)\n    with (ROOT / 'summary.json').open('x') as stream:\n        json.dump(evidence, stream, indent=2)\n        stream.write('\\n')\n    for run in evidence['runs']:\n        service = next(trace for trace in run['traces'] if Path(trace['path']).name.startswith('service-'))\n        print(run['variant'], {name: dict(count=details['interval_ms']['count'],\n                                         ms=details['interval_ms']['sum'], reasons=details['reasons'])\n                               for name, details in service['events'].items()},\n              'rss_mib', service['rss_bytes_at_gc'].get('max', 0) / 1024**2)\n\n\nif __name__ == '__main__':\n    main()\n"
+    }
+  },
+  "command_path_convention": "Repository-root absolute paths are normalized to repository-relative paths (the root itself to dot). Temporary artifact paths and measured values are unchanged."
+}

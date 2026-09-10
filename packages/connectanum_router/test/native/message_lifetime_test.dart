@@ -297,6 +297,151 @@ void main() {
     }
   }
 
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+  ]) {
+    for (final hasPayload in [false, true]) {
+      test(
+        'payload-only ${serializer.name} reader '
+        '${hasPayload ? 'owns escaped slices' : 'releases empty CALL storage'}',
+        () {
+          final runtime = NativeTransportRuntime(libraryPath: path)..start();
+          addTearDown(() {
+            runtime.shutdown();
+            runtime.dispose();
+          });
+          final decoder = NativeMessageHandleDecoder(libraryPath: path);
+          final arguments = <Object?>[
+            'alpha',
+            Uint8List.fromList([1, 2, 3]),
+          ];
+          final keywords = <String, Object?>{'flag': true};
+          final handle = runtime.enqueueTestMessage(
+            connectionId: 9720,
+            serializer: serializer,
+            frame: _encodeLifetimeWire(serializer, [
+              48,
+              123,
+              <String, Object?>{'trace_label': 'metadata is not a payload'},
+              'com.example.lifetime',
+              if (hasPayload) arguments,
+              if (hasPayload) keywords,
+            ]),
+          );
+          final observer = _MessageObserver(ffi.DynamicLibrary.open(path!));
+          final token = observer.watch(handle);
+          addTearDown(() => observer.free(token));
+          final payload = decoder.readRetainedCallPayload(
+            handle,
+            serializer: serializer,
+          );
+          expect(payload.serializer, serializer);
+          expect(observer.alive(token), 1);
+          final subview = payload.argumentsBytes == null
+              ? null
+              : Uint8List.sublistView(payload.argumentsBytes!, 1);
+          final kwargs = payload.argumentsKeywordsBytes;
+          decoder.release(handle);
+          // Check ownership before reading potentially escaped native views.
+          expect(observer.alive(token), hasPayload ? expectedNativeOwner : 0);
+          runtime.shutdown();
+          expect(observer.alive(token), hasPayload ? expectedNativeOwner : 0);
+          if (hasPayload) {
+            expect(
+              subview,
+              _encodeLifetimeWire(serializer, arguments).sublist(1),
+            );
+            expect(kwargs, _encodeLifetimeWire(serializer, keywords));
+          } else {
+            expect(subview, isNull);
+            expect(kwargs, isNull);
+          }
+        },
+        skip: path == null ? 'Native library unavailable' : null,
+      );
+    }
+
+    test('payload-only ${serializer.name} reader rejects mismatched transfers '
+        'without consuming the source or leaking a lease', () {
+      final runtime = NativeTransportRuntime(libraryPath: path)..start();
+      addTearDown(() {
+        runtime.shutdown();
+        runtime.dispose();
+      });
+      final decoder = NativeMessageHandleDecoder(libraryPath: path);
+      final library = ffi.DynamicLibrary.open(path!);
+      final observer = _MessageObserver(library);
+      final peek = library
+          .lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
+            'ct_message_peek',
+          );
+      final info = calloc<CtMessageInfo>();
+      addTearDown(() => calloc.free(info));
+      for (final wrongType in [false, true]) {
+        final handle = runtime.enqueueTestMessage(
+          connectionId: 9721,
+          serializer: serializer,
+          frame: _encodeLifetimeWire(serializer, [
+            wrongType ? 50 : 48,
+            123,
+            <String, Object?>{},
+            if (!wrongType) 'com.example.lifetime',
+            ['alpha'],
+            {'flag': true},
+          ]),
+        );
+        final token = observer.watch(handle);
+        addTearDown(() => observer.free(token));
+        final expectedSerializer = wrongType
+            ? serializer
+            : serializer == NativeMessageSerializer.json
+            ? NativeMessageSerializer.messagePack
+            : NativeMessageSerializer.json;
+        expect(
+          () => decoder.readRetainedCallPayload(
+            handle,
+            serializer: expectedSerializer,
+          ),
+          throwsA(isA<NativeTransportException>()),
+        );
+        expect(peek(handle, info), 0);
+        decoder.release(handle);
+        expect(observer.alive(token), 0);
+      }
+    }, skip: path == null ? 'Native library unavailable' : null);
+  }
+
+  test('payload-only reader rejects expired and invalid handles', () {
+    final runtime = NativeTransportRuntime(libraryPath: path)..start();
+    addTearDown(() {
+      runtime.shutdown();
+      runtime.dispose();
+    });
+    final decoder = NativeMessageHandleDecoder(libraryPath: path);
+    final handle = runtime.enqueueTestMessage(
+      connectionId: 9722,
+      serializer: NativeMessageSerializer.json,
+      frame: _encodeLifetimeWire(NativeMessageSerializer.json, [
+        48,
+        123,
+        <String, Object?>{},
+        'com.example.lifetime',
+      ]),
+    );
+    decoder.release(handle);
+    for (final expired in [handle, 0, -1]) {
+      expect(
+        () => decoder.readRetainedCallPayload(
+          expired,
+          serializer: NativeMessageSerializer.json,
+        ),
+        throwsA(isA<NativeTransportException>()),
+      );
+    }
+  }, skip: path == null ? 'Native library unavailable' : null);
+
   test('receiver acquires its own handle and rejects expired transfers', () {
     final runtime = NativeTransportRuntime(libraryPath: path)..start();
     addTearDown(() {
@@ -385,71 +530,90 @@ void main() {
     }, skip: path == null ? 'Native library unavailable' : null);
   }
 
-  test(
-    'subview owns storage across groups and frees it when its group exits',
-    () async {
-      final runtime = NativeTransportRuntime(libraryPath: path)..start();
-      addTearDown(() {
-        runtime.shutdown();
-        runtime.dispose();
-      });
-      final handle = runtime.enqueueTestMessage(
-        connectionId: 9714,
-        serializer: NativeMessageSerializer.json,
-        frame: Uint8List.fromList(
-          utf8.encode('[48,123,{},"com.example.lifetime",["alpha"]]'),
-        ),
-      );
-      final observer = _MessageObserver(ffi.DynamicLibrary.open(path!));
-      final token = observer.watch(handle);
-      addTearDown(() => observer.free(token));
-      final messages = ReceivePort();
-      final iterator = StreamIterator<dynamic>(messages);
-      addTearDown(() async {
-        messages.close();
-        await iterator.cancel();
-      });
-      final exits = ReceivePort();
-      final exited = exits.first;
-      addTearDown(exits.close);
-      var script = File('test/support/native_message_owner_isolate.dart');
-      if (!script.existsSync()) {
-        script = File(
-          'packages/connectanum_router/test/support/native_message_owner_isolate.dart',
+  for (final payloadOnly in [false, true]) {
+    test(
+      '${payloadOnly ? 'payload-only' : 'full message'} subview owns storage '
+      'across groups and frees it when its group exits',
+      () async {
+        final runtime = NativeTransportRuntime(libraryPath: path)..start();
+        addTearDown(() {
+          runtime.shutdown();
+          runtime.dispose();
+        });
+        final handle = runtime.enqueueTestMessage(
+          connectionId: 9714,
+          serializer: NativeMessageSerializer.json,
+          frame: Uint8List.fromList(
+            utf8.encode('[48,123,{},"com.example.lifetime",["alpha"]]'),
+          ),
         );
-      }
-      final child = await Isolate.spawnUri(
-        script.absolute.uri,
-        [path, '$handle'],
-        messages.sendPort,
-        packageConfig: await Isolate.packageConfig,
-        onExit: exits.sendPort,
-      );
-      addTearDown(() => child.kill(priority: Isolate.immediate));
-      expect(
-        await iterator.moveNext().timeout(const Duration(seconds: 15)),
-        isTrue,
-      );
-      final commands = iterator.current as SendPort;
-      NativeMessageHandleDecoder(libraryPath: path).release(handle);
-      runtime.shutdown();
-      expect(observer.alive(token), expectedNativeOwner);
-      commands.send('read');
-      expect(
-        await iterator.moveNext().timeout(const Duration(seconds: 15)),
-        isTrue,
-      );
-      expect(iterator.current, utf8.encode('"alpha"]'));
-      commands.send('finish');
-      await exited.timeout(const Duration(seconds: 15));
-      expect(
-        observer.alive(token),
-        0,
-        reason: 'Normal group exit must release all native byte owners',
-      );
-    },
-    skip: path == null ? 'Native library unavailable' : null,
-  );
+        final observer = _MessageObserver(ffi.DynamicLibrary.open(path!));
+        final token = observer.watch(handle);
+        addTearDown(() => observer.free(token));
+        final messages = ReceivePort();
+        final iterator = StreamIterator<dynamic>(messages);
+        addTearDown(() async {
+          messages.close();
+          await iterator.cancel();
+        });
+        final exits = ReceivePort();
+        final exited = exits.first;
+        addTearDown(exits.close);
+        var script = File('test/support/native_message_owner_isolate.dart');
+        if (!script.existsSync()) {
+          script = File(
+            'packages/connectanum_router/test/support/native_message_owner_isolate.dart',
+          );
+        }
+        final child = await Isolate.spawnUri(
+          script.absolute.uri,
+          [path, '$handle', if (payloadOnly) 'payload-only'],
+          messages.sendPort,
+          packageConfig: await Isolate.packageConfig,
+          onExit: exits.sendPort,
+        );
+        addTearDown(() => child.kill(priority: Isolate.immediate));
+        expect(
+          await iterator.moveNext().timeout(const Duration(seconds: 15)),
+          isTrue,
+        );
+        final commands = iterator.current as SendPort;
+        NativeMessageHandleDecoder(libraryPath: path).release(handle);
+        runtime.shutdown();
+        expect(observer.alive(token), expectedNativeOwner);
+        commands.send('read');
+        expect(
+          await iterator.moveNext().timeout(const Duration(seconds: 15)),
+          isTrue,
+        );
+        expect(iterator.current, utf8.encode('"alpha"]'));
+        commands.send('finish');
+        await exited.timeout(const Duration(seconds: 15));
+        expect(
+          observer.alive(token),
+          0,
+          reason: 'Normal group exit must release all native byte owners',
+        );
+      },
+      skip: path == null ? 'Native library unavailable' : null,
+    );
+  }
+}
+
+Uint8List _encodeLifetimeWire(
+  NativeMessageSerializer serializer,
+  Object? wire,
+) {
+  return switch (serializer) {
+    NativeMessageSerializer.json => Uint8List.fromList(
+      utf8.encode(jsonEncode(wire)),
+    ),
+    NativeMessageSerializer.messagePack => msgpack.serialize(wire),
+    NativeMessageSerializer.cbor => Uint8List.fromList(
+      cbor.cbor.encode(cbor.CborValue(wire)),
+    ),
+    _ => throw StateError('Unsupported test serializer'),
+  };
 }
 
 class _MessageObserver {
