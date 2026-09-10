@@ -157,6 +157,32 @@ and retain safe legacy adapters. The wider migration and other native stores'
 reset/wrap review are required next work. No audit changes are published and the
 full component audit remains active.
 
+SA-005 native-wide checkpoint: an additive 64-bit family now covers every native
+routing-message consumer and producer while preserving the old C ABI. Separate
+monotonic allocation avoids consuming the legacy budget; a bit-31 marker also
+makes accidental signed-32-bit narrowing fail closed. Two new fail-first cases
+cover that marker and low-word carry. All 17 focused wide cases pass, including
+six live RawSocket/WebSocket serializer combinations and both E2EE ciphers.
+Final `bin/verify` passes with 121 default/129 test-hook FFI, 514 router tests,
+and all existing package/live/browser gates. Initial new-test and default-build
+fixture errors were corrected and retained separately. The next implementation
+step is all-or-nothing wide-family adoption in both Dart bindings and the shared
+byte exporter, with partial-library, legacy-library and actual high-ID transfer
+tests. Native compatibility benchmarks do not substitute for wide application
+performance. The dynamic C-ABI smoke verifies all 18 exports, full-width handles,
+narrowing rejection, and escaped-owner lifetime against the frozen library.
+Six legacy-adapter comparison passes complete 188,640 measured operations plus
+11,160 warmups without errors. Results are mixed, including -2.3% MessagePack
+64 KiB RPC, +0.7%/+1.4% large-frame throughput, and higher sampled 64 MiB server
+RSS (280.6 to 318.5 MiB); performance is not cleared. The first absolute run
+passes the large-frame/heavy-file gates but fails buffered Dart WebSocket JSON
+file lifecycle throughput (1.952 versus 2.0 GBit/s). A fixed four-pass ABBA
+confirmation of the unchanged full file matrix passes all four gates, 1,632
+samples and 102 GiB without errors; candidate lifecycle results are 2.169 and
+2.167 GBit/s. Both the failure and confirmation are retained, without claiming
+a proven cause or replacing unfavorable evidence. The security audit and earlier
+performance questions remain open; nothing is pushed or released.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

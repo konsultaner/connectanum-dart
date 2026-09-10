@@ -245,6 +245,30 @@ scope, including code excluded from the root workspace gates.
   without repeatedly replacing unfavorable evidence. Review reset/wrap behavior
   of other native stores as separate coverage. Keep this checkpoint local.
 
+- SA-005 native-wide checkpoint: the complete additive native handle family is
+  implemented with independent monotonic allocation and unchanged legacy ABI.
+  Two fail-first cases led to a bit-31 marker and carry skip, so accidental
+  signed-32-bit narrowing rejects wide IDs instead of aliasing a legacy entry.
+  All 17 focused cases and six included live transport/serializer combinations
+  pass, including E2EE and zero-copy owner preservation. Final `bin/verify`
+  passes with 121 default/129 test-hook FFI and 514 router tests plus existing
+  live/package/browser gates. Transient test-fixture/default-feature errors are
+  retained separately. Dart still uses the old family: next migrate both
+  bindings and the shared exporter atomically, test partial/legacy libraries and
+  actual high-handle transfers, then measure the wide application path. Do not
+  equate the native-only checkpoint or legacy-adapter benchmarks with completion.
+- The dynamic C-ABI probe verifies all 18 production exports and escaped-owner
+  lifetime with full-width handles. Six ABBAAB legacy-adapter passes complete
+  188,640 measured operations plus 11,160 warmups without errors. Throughput is
+  mixed and sampled memory rises; neither this nor earlier audit performance is
+  cleared. The initial 62-workload absolute run fails one file-lifecycle metric
+  (buffered Dart WebSocket JSON: 1.952 versus 2.0 GBit/s). A fixed four-pass
+  baseline/candidate ABBA confirmation repeats all 30 file workloads unchanged;
+  all gates pass over 1,632 samples and 102 GiB. Candidate results of 2.169 and
+  2.167 GBit/s do not reproduce the miss, but its cause remains unproven. Preserve
+  the original failure and both comparisons. The report links exact artifacts;
+  keep this implementation checkpoint local and continue the Dart migration.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.

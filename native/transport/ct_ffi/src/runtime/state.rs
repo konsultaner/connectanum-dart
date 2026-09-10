@@ -1185,6 +1185,7 @@ pub fn store_message(message: StoredMessage) -> Result<u32, MessageHandleError> 
     message_store().insert(Arc::new(message))
 }
 
+#[cfg(test)]
 pub fn with_message<F, T>(id: u32, f: F) -> Option<T>
 where
     F: FnOnce(&StoredMessage) -> T,
@@ -1229,6 +1230,7 @@ pub fn observe_call(procedure: &str) -> Option<std::sync::Weak<StoredMessage>> {
 }
 
 pub fn clear_messages() {
+    super::message_handles::clear();
     if let Some(store) = MESSAGE_STORE.get() {
         store.clear();
     }

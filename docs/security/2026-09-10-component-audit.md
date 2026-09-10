@@ -736,6 +736,113 @@ Test operations above the old signed boundary and keep old-library compatibility
 Review the other native handle stores' reset/wrap behavior independently. This
 mitigation is not the completed security audit or release clearance.
 
+### SA-005 Native Wide-Handle ABI
+
+The native half of the migration is implemented locally. The additive `_wide`
+family uses signed 64-bit routing message handles for polling/waiting, get/peek,
+retain/release, byte exports, binary decode, SHA-256 updates, both E2EE message
+consumers, forwarding (including progressive invocation v2), and test queues and
+observers. `ct_message_handle_abi_version()` reports version 1. Connection,
+keyring, crypto-session and hash handles, status codes, `CtMessageInfo`, and WAMP
+wire IDs are unchanged. Existing C entry points keep their original signatures.
+
+An independent store and counter avoid consuming the legacy allocation budget.
+Wide readers accept legacy IDs; wide retain creates a distinct wide handle with
+independent shared ownership. Neither counter resets on clear or restart. The
+native read helper retains the allocation and releases the map shard before
+running the reader/encoder. Exported slice owners still outlive routing handles.
+
+Simply starting IDs above 32 bits is insufficient protection against an
+accidentally narrow binding: its low word could name an unrelated legacy message.
+Two fail-first tests reproduced that problem and the low-word carry boundary in
+the initial local wide allocator. The final layout starts at `0x180000000` and
+always sets bit 31, skipping the positive low-word range at carry. Every issued
+wide handle therefore becomes negative if narrowed to signed 32 bits, and legacy
+entry points reject it rather than accessing another message. `i64::MAX` remains
+usable once; its successor is a nonissued exhaustion sentinel. Collisions,
+invalid counters and exhaustion drop rejected owners without replacement or reuse.
+This defensive layout does not replace consistent binding-family selection.
+
+All 17 focused wide-handle tests pass. Coverage includes concurrent final-ID
+allocation, invalid/carry/exhaustion boundaries, stale IDs across clear, explicit
+legacy narrowing rejection, independent byte owners, full-width binary/hash
+consumers, E2EE consumption on failure, and both E2EE ciphers. The unique AES-GCM
+consuming path still reuses the receive allocation. Six live tests exercise
+RawSocket and WebSocket with JSON, MessagePack and CBOR, including all native
+forwarding variants, progressive flags, payloads and unchanged wire IDs.
+
+Fresh final `bin/verify` passes: 142 core, 121 default FFI, 129 test-hook FFI,
+29 native artifact and 74 HTTP-driver tests, 514 router tests, and the existing
+package/live MCP/zero-copy/Chrome/Dart2Wasm gates. Initial new-test compile errors,
+an incorrect expectation that peek exports the whole frame, and a default-feature
+test import error were corrected; their failed runs remain separate evidence.
+The pre-marker passing verification is not final-tree evidence. The final frozen
+FFI-test library SHA-256 is
+`9d221311e95d882985ec022c8b27c5d56ed3d460a452369557a0c8507af417ce`.
+
+A dynamic C-ABI smoke test loads that exact library and checks all 18 production
+wide symbols plus version 1 with explicit signed-64-bit argument/return types.
+Handles `6442450944` and `6442450945` survive poll/retain without truncation;
+legacy narrowing rejects them. An exported frame remains valid after both
+handles are released and the store is cleared, and the weak allocation observer
+reports destruction only after the independent export owner is freed.
+
+The [native-wide compatibility evidence](2026-09-10-native-wide-message-handle-benchmarks.json)
+preserves source/library hashes, all raw-result hashes, commands and scripts,
+failed verification attempts, final verification, and the dynamic C-ABI probe.
+Six ABBAAB passes compare this candidate against the checked-32-bit native
+library at `9864836c`, using identical Dart executables. They complete 188,640
+measured operations and 11,160 warmups with no errors, including 384 GiB of
+large-frame request/response payload. Median application throughput is:
+
+| Workload | Checked-32-bit GBit/s | Native-wide adapters GBit/s | Change |
+| --- | ---: | ---: | ---: |
+| RawSocket JSON RPC, 1 KiB | 0.006244 | 0.006242 | -0.04% |
+| RawSocket MessagePack RPC, 64 KiB | 9.631 | 9.413 | -2.26% |
+| RawSocket CBOR RPC, 64 KiB | 9.420 | 9.497 | +0.81% |
+| WebSocket MessagePack RPC, 64 KiB | 9.356 | 9.342 | -0.16% |
+| WebSocket CBOR RPC, 64 KiB | 9.472 | 9.358 | -1.21% |
+| RawSocket CBOR pub/sub, 64 KiB | 0.787 | 0.793 | +0.66% |
+| WebSocket MessagePack pub/sub, 64 KiB | 2.088 | 2.057 | -1.51% |
+| Dart RawSocket CBOR RPC, 64 KiB | 8.978 | 8.897 | -0.91% |
+| RawSocket MessagePack RPC, 32 MiB | 42.278 | 42.569 | +0.69% |
+| RawSocket CBOR RPC, 64 MiB | 41.519 | 42.115 | +1.43% |
+
+This is **not performance clearance**. The artifact retains every pass and
+tail-latency observation, including Dart CBOR RPC median p99 increasing from
+2.531 to 2.851 ms. Median sampled server RSS for 64 MiB CBOR RPC is 280.6 MiB
+before and 318.5 MiB after; this is an observation, not an established leak or
+attributed regression. Boundary CPU samples show unrelated inference reaching
+1009.1%, VM activity 133.5-278.9%, and emulator activity 20.6-32.3%. No own
+builds, tests or companion inference overlapped the benchmarks. The comparison
+does not settle earlier SA-002/SA-004 decreases or memory questions.
+
+The first absolute-budget run completes all 62 workloads over 73.5 GiB without
+sample errors or counter findings, but **fails** one metric. The 24-workload
+large-frame and eight-workload heavy-file gates pass. In the 30-workload file
+matrix, buffered Dart WebSocket JSON at 64 MiB reports 2.067 GBit/s in the data
+window but 1.952 GBit/s over its lifecycle, below the unchanged 2.0 GBit/s minimum.
+The fail-fast checker exits 1. Its artifacts are preserved; the reconstructed
+aggregate explicitly omits unavailable orchestrator timestamps/CPU samples.
+
+A predetermined four-process ABBA confirmation repeats the entire unchanged
+30-workload file scenario and policy, not only the failed case. All four gates
+pass, with 1,632 samples and 102 GiB total payload without sample errors. For the
+initially failing workload, lifecycle results are baseline 2.145, candidate
+2.169, candidate 2.167, baseline 2.160 GBit/s. Inference boundary activity is
+0.4-0.5% and VM activity remains 153.1-155.0%. The initial miss did not reproduce
+in these two candidate passes; its cause is not established. Do not erase it,
+relax the policy, or infer a general no-regression claim from this bounded run.
+
+**Not complete:** both Dart bindings and the shared byte exporter still select
+legacy producers. Migrate the entire family together, including optional crypto
+lookups and finalizer/release paths; verify partial-library fallback/rejection,
+old-library compatibility, high-handle client/router transfers and actual wide
+application benchmarks. Legacy application compatibility measurements cannot
+prove wide-path application speed or resolve earlier audit regressions. Native
+HTTP body lifetime and other resource-store reset/wrap reviews remain pending.
+No audit change is published.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and
