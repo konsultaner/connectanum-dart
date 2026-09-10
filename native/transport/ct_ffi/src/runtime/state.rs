@@ -1168,6 +1168,35 @@ pub fn remove_message(id: u32) -> Option<Arc<StoredMessage>> {
     message_store().messages.remove(&id).map(|(_, msg)| msg)
 }
 
+pub fn retain_message_allocation(id: u32) -> Option<Arc<StoredMessage>> {
+    message_store()
+        .messages
+        .get(&id)
+        .map(|entry| Arc::clone(entry.value()))
+}
+
+#[cfg(feature = "ffi-test")]
+pub fn observe_message(id: u32) -> Option<std::sync::Weak<StoredMessage>> {
+    message_store()
+        .messages
+        .get(&id)
+        .map(|entry| Arc::downgrade(entry.value()))
+}
+
+#[cfg(feature = "ffi-test")]
+pub fn observe_call(procedure: &str) -> Option<std::sync::Weak<StoredMessage>> {
+    message_store()
+        .messages
+        .iter()
+        .find_map(|entry| match &entry.value().message {
+            WampMessage::Call {
+                procedure: candidate,
+                ..
+            } if candidate == procedure => Some(Arc::downgrade(entry.value())),
+            _ => None,
+        })
+}
+
 pub fn clear_messages() {
     if let Some(store) = MESSAGE_STORE.get() {
         store.messages.clear();

@@ -63,6 +63,46 @@ The comparison is retained; quiet confirmation remains required before a strict
 no-regression claim. Neither this work nor the earlier audit commits have been
 pushed or published. The complete component audit remains active.
 
+SA-004 native payload lifetime hardening is locally implemented, not published.
+Six safe fail-first probes reproduced allocation destruction while client/router
+byte views remained live. Independent native slice owners now preserve zero-copy
+views beyond routing-handle release; legacy libraries use owned copies. Internal
+CALL receivers acquire their own handle before reading, and expired transfers
+fail closed instead of reconstructing dangling addresses. Four Rust ownership
+tests and all 11 focused Dart tests pass, including sole-binary views, old-library
+fallback, and subview cleanup at normal isolate-group exit. A live WebSocket
+internal-service regression passes after reply and router shutdown. Full
+`bin/verify` passes with 494 router tests and the existing live/package/browser
+gates. A transient integration compile error and a separate test-lock collision
+were corrected/retested; they are not passing baseline evidence. Six alternating
+AOT native/client/router passes completed 184,176 measured operations and 11,160
+warmups without errors. Performance is not cleared: 64 KiB CBOR RawSocket RPC
+falls 12.1%, 32 MiB MessagePack RPC 9.7%, and 64 MiB CBOR RPC 8.3%; other RPC
+results are mixed. The 64 MiB server RSS observation rises from about 173 MiB to
+315 MiB. All runs and shared-host caveats are retained in the security report's
+machine-readable comparison. Profile and optimize ownership/materialization
+without weakening safety before publishing. Additional cancellation paths and other external-buffer owners remain
+under review, as do all pending rows of the full component audit.
+
+SA-004 follow-up: six additional fail-first probes confirmed that lazy metadata
+kept native storage alive unnecessarily. Client/router metadata now uses a Dart
+copy made under a temporary native owner, which also protects synchronous string
+copying; argument, frame, and binary views remain zero-copy. All 20 focused tests
+pass, including callback failure, stale/mismatched exports, and the previous
+lifetime cases. The legacy path passes 17 applicable cases. Fresh `bin/verify`
+passes with 503 router tests and all existing native/live/package/browser gates.
+Two more six-pass comparisons each complete 184,176 measured operations and
+11,160 warmups without errors. The first has heavy unrelated inference; the
+lower-inference repeat still shows 8.3%/8.6% decreases for 32/64 MiB RPC and
+observed server RSS around 169 MiB baseline versus 309 MiB candidate. Metadata
+retention is fixed, but payload ownership costs are not performance-cleared.
+The full 24-workload large-frame, eight-workload heavy file-transfer, and
+30-workload file matrix absolute gates pass: 24 GiB of large-frame payload and
+49.5 GiB of file transfers without errors. Preserve all
+comparisons and do not publish this candidate. Next: reduce redundant receiver
+materialization and native owner allocations without losing escaped-view safety,
+then repeat performance evidence and continue the remaining component review.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

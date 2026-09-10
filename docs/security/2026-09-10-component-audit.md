@@ -250,14 +250,14 @@ requires success/failure to correspond to the current handshake. Remote RPC
 transaction IDs and service capacity are Connectanum implementation policy, not
 additional WAMP wire messages or a claim that WAMP mandates a particular limit.
 
-**Separate open router dispatch/native ownership review:**
+**Router dispatch/native ownership candidate at the SA-003 checkpoint:**
 in-process lazy payloads are reconstructed from native addresses, while the
 worker releases its retained handle when the reply port completes. Verify
 cancellation/disconnect and escaped lazy-view ownership before accepting more
 concurrent dispatch. The dispatch experiment is not part of this patch.
 A raw-pointer view with an ordinary metadata-map anchor is
-not, by itself, evidence of native allocation ownership. No exploit or
-deterministic lifetime regression has yet been established for this candidate.
+not, by itself, evidence of native allocation ownership. SA-004 below subsequently
+established deterministic lifetime regressions; no exploitation is demonstrated.
 This review must not be replaced by merely observing that the auth tests pass.
 Any follow-up fix must preserve zero-copy ownership across application-retained
 views and prove cancellation, normal reply, disconnect, and isolate teardown
@@ -269,6 +269,204 @@ lists/maps before awaiting the provider, including nested byte lists. Do not
 generalize that auth-specific boundary to generic internal handlers.
 Broader remote-auth delegation, router HTTP-auth admission, binding registration
 failure cleanup, provider error policy, and cross-service trust remain in scope.
+
+### SA-004: Native Payload Views Outlive Their Routing Handles
+
+**Confirmed native allocation-lifetime defect. Local ownership mitigation and
+full verification pass; performance and additional cancellation review remain
+in progress. Not published.**
+
+Both native client and router materializers exposed `Uint8List` views directly
+over `StoredMessage` buffers. Explicit handle release, routing completion, or
+runtime shutdown could remove the final native owner while application code
+still held a byte view or a lazily decoded binary value. Internal-session CALLs
+also reconstructed views from integer addresses sent between isolates, without
+first acquiring receiver-side ownership. Cancellation could invalidate a queued
+transfer or an already-delivered handler's payload.
+
+Prerequisites: use of the native runtime and application code retaining payload
+bytes beyond the routing handle's lifetime. The live regression uses an ordinary
+authorized WebSocket CALL to an internal service, retains a subview, replies,
+then closes the sessions/router. No malformed frame or privileged native pointer
+input is required. This is a use-after-free risk, not demonstrated code execution
+or proven extraction of another session's data. The fail-first probes check a
+test-only Rust `Weak<StoredMessage>` before any post-release byte access, and stop
+when the allocation is gone; they never deliberately read freed memory.
+
+The new native export API clones the message's `Arc` while its store entry is
+locked and returns an independent owner token for the selected slice. Dart
+attaches a native release callback to the external typed-data backing store,
+not merely to the message wrapper. Frame, argument, keyword, details, and
+supported sole-binary invocation views retain storage without copying payloads.
+Releasing a routing handle does not release those owners. On older libraries
+without the paired export/free symbols, the shared client/router helper uses
+owned Dart copies rather than exposing unowned memory. That compatibility path
+does copy data and is not claimed to retain zero-copy performance.
+
+Internal-session receivers now retain the transmitted handle before consulting
+native message info. Expired transfers fail closed without dereferencing their
+old addresses. Generic payload decoding refuses native-transfer metadata unless
+an owned message is supplied. Reply fallback copies from the originating owned
+message, not addresses in a returned metadata map; the existing native-forwarded
+echo path remains available. This does not change WAMP wire formats, serializers,
+session authentication, or router authorization policy.
+
+The design follows Dart's [external typed-list finalizer API](https://api.dart.dev/dart-ffi/Uint8Pointer/asTypedList.html)
+and [native finalizer lifetime contract](https://api.dart.dev/dart-ffi/NativeFinalizer-class.html).
+The callback is a real native `void(void*)` function dropping an owner token,
+not a cast of the integer-handle release API. Normal isolate-group shutdown is
+covered; abrupt process termination is not a cleanup guarantee.
+
+Evidence:
+
+- All six original fail-first cases, client/router times JSON/MessagePack/CBOR,
+  observed native allocation destruction while byte views were live. The fixed
+  tests pass and also exercise runtime shutdown, repeated release, expired
+  receiver transfers, and MessagePack/CBOR sole-binary invocation views.
+- Four Rust tests pass: exact pointer and byte identity for exported frame,
+  argument, keyword, and details slices; lazy segmented-frame preservation and
+  store clearing; missing/invalid exports; and 100 export/release races. Weak
+  observers reach zero once the last exported owner is freed.
+- A live internal-session WebSocket regression passes after reply and router
+  shutdown. It verifies native allocation liveness before reading the escaped
+  subview. The existing lazy subscriber/callee regression also passes.
+- An independent isolate group retains only a subview, reads it after the
+  sending handle and runtime are released, and exits normally. The observing
+  group then verifies that the native allocation was destroyed. All 11 focused
+  tests pass with both the new ownership ABI and the older-library copy path.
+- Full `bin/verify` passes, including 494 router tests, 11 live remote-auth
+  tests, 13 zero-copy tests, 124 benchmark tests, native FFI/benchmark suites,
+  package/MCP smokes, and Chrome/Dart2Wasm. One earlier resumed fast run caught a
+  transient integration compile error, since corrected. An overlapping focused
+  run failed to acquire the verification process's runtime lock; the subsequent
+  isolated run passes. Neither failure is hidden as passing baseline evidence.
+
+The six-pass before/after comparison below completed without errors but exposed
+RPC throughput and memory regressions. Performance is not cleared.
+Still required: ownership-path profiling/optimization and confirmation, the
+large-frame/file performance gates, fuller live cancellation/late-delivery coverage, and review
+of separately owned JSON/E2EE/external buffers. Native integer-handle exhaustion
+and mutable byte aliases also remain review candidates, not closed findings.
+
+### SA-004 Initial Performance Evidence
+
+[Machine-readable comparison](2026-09-10-native-message-lifetime-benchmarks.json)
+preserves every run's workload statistics, process memory, transport counters,
+CPU observations, exact commands, binary hashes, and the complete scenario TOML.
+The run uses the same patched HTTP driver, one router worker, four native runtime
+threads, and separately built AOT service/client executables. Baseline service
+source is `26bc6234`; the preserved baseline client executable predates the
+auth-only work, which did not change client code. Both native libraries contain
+the SA-002 dependency updates. This comparison changes the SA-004 client, router,
+and native ownership implementation together; it is not yet an attribution
+profile of individual costs.
+
+Order is baseline/candidate/candidate/baseline/baseline/candidate. Each process
+runs actual warmup requests immediately before each measured workload: 184,176
+measured operations and 11,160 warmup operations in total, with no request or
+transport-error counter failures. Rates below count request plus response
+application payload during the measured data window, not network wire bytes;
+warmups are excluded. Lifecycle timings and tail latencies are retained in the
+artifact rather than conflated with payload throughput.
+
+| Workload | Baseline Gbit/s | Candidate Gbit/s | Median change |
+| --- | ---: | ---: | ---: |
+| Native RawSocket JSON RPC, 1 KiB serial | 0.00627 | 0.00624 | -0.5% |
+| Native RawSocket MessagePack RPC, 64 KiB | 9.080 | 9.334 | +2.8% |
+| Native RawSocket CBOR RPC, 64 KiB | 9.572 | 8.409 | -12.1% |
+| Native WebSocket MessagePack RPC, 64 KiB | 9.772 | 9.193 | -5.9% |
+| Native WebSocket CBOR RPC, 64 KiB | 9.552 | 9.182 | -3.9% |
+| Native RawSocket CBOR pub/sub, 64 KiB | 0.781 | 0.773 | -1.0% |
+| Native WebSocket MessagePack pub/sub, 64 KiB | 2.086 | 2.060 | -1.2% |
+| Dart RawSocket CBOR RPC, 64 KiB | 9.223 | 8.885 | -3.7% |
+| Native RawSocket MessagePack RPC, 32 MiB | 38.175 | 34.465 | -9.7% |
+| Native RawSocket CBOR RPC, 64 MiB | 37.005 | 33.922 | -8.3% |
+
+The 64 MiB workload's median observed server RSS rises from about 173 MiB to
+315 MiB and client peak RSS from 321 MiB to 380 MiB. Its median p99 rises from
+27.839 ms to 32.797 ms. The 32 MiB workload's median p99 rises from 21.866 ms to
+25.892 ms. Larger retained allocations and repeated receiver materialization
+are profiling candidates, not yet proven explanations. Optimizations must retain
+the tested lifetime guarantees, not detach owners early or hide allocation costs.
+
+The host is shared: a VM and emulators remained active, and a brief unrelated
+inference load was observed before the fourth process. No audit tests, builds,
+or local-companion inference overlapped the measured run. All observations,
+including that baseline pass, are preserved. These uncertainties do not justify
+calling the repeated RPC decreases harmless. **Do not publish this candidate or
+claim unchanged speed until the affected paths are optimized and remeasured.**
+
+### SA-004 Metadata Ownership Optimization
+
+The first candidate gave every details/options byte view an owner of the entire
+native message. Lazy metadata loaders could therefore retain a large payload
+even when only metadata remained relevant. Six additional fail-first regressions
+reproduced that retention across client/router and all three serializers. The
+client fixture explicitly materializes `NativeSessionMessage`; an initial direct
+`Result` cast was corrected before recording the six valid failing probes.
+
+Metadata now uses `NativeMessageBytes.withCopiedBytes`: acquire and validate the
+native owner, copy details into a Dart-owned list, synchronously copy the other
+metadata strings under that owner, then free the temporary owner in `finally`.
+Lazy metadata retains only Dart storage. Frame, argument, keyword, and binary
+payload views keep the original zero-copy backing-store ownership. There is no
+native ABI, WAMP wire, serializer negotiation, or cryptographic change.
+
+All 20 focused cases pass, including callback success/failure after releasing
+the original handle and shutting down the runtime, stale handles, deliberately
+mismatched pointers/lengths, and all previous payload/subview/isolate-group
+tests. The legacy ABI passes its 17 applicable cases; three tests specifically
+requiring native owner tokens are skipped there. Local bounded review found no
+concrete bug; its export-disagreement cleanup concern is explicitly covered.
+The initial heavyweight review exhausted its response limit and is not counted
+as completed review evidence. Full `bin/verify` passes with 503 router tests and
+all existing native, benchmark, live MCP, package, and Chrome/Dart2Wasm gates.
+
+[The first repeat](2026-09-10-native-metadata-lifetime-benchmarks.json) and
+[the lower-inference repeat](2026-09-10-native-metadata-lifetime-quieter-benchmarks.json)
+each retain all six ABBAAB runs, 184,176 measured operations, 11,160 actual warmup
+operations, zero errors, exact binaries/commands, scenario, memory, tails, and
+CPU observations. The former encountered roughly 2200% unrelated inference CPU.
+The latter had much lower inference activity, but a VM, emulator, and other CPU
+activity remained; it is not a dedicated-host measurement. No audit tests,
+builds, or companion inference overlapped either comparison.
+The candidate was built and verified with Dart 3.13.1 on macOS arm64; the local
+Rust toolchain is rustc 1.95.0. The same frozen native library and HTTP driver
+were used for both metadata repeats; no unrecorded native rebuild is substituted.
+
+| Lower-inference workload | Baseline Gbit/s | Candidate Gbit/s | Median change |
+| --- | ---: | ---: | ---: |
+| Native RawSocket JSON RPC, 1 KiB serial | 0.00676 | 0.00638 | -5.6% |
+| Native RawSocket MessagePack RPC, 64 KiB | 8.628 | 8.951 | +3.7% |
+| Native RawSocket CBOR RPC, 64 KiB | 9.327 | 9.091 | -2.5% |
+| Native WebSocket MessagePack RPC, 64 KiB | 8.827 | 9.019 | +2.2% |
+| Native WebSocket CBOR RPC, 64 KiB | 9.073 | 8.861 | -2.3% |
+| Native RawSocket CBOR pub/sub, 64 KiB | 0.777 | 0.771 | -0.8% |
+| Native WebSocket MessagePack pub/sub, 64 KiB | 2.118 | 2.044 | -3.5% |
+| Dart RawSocket CBOR RPC, 64 KiB | 9.014 | 8.717 | -3.3% |
+| Native RawSocket MessagePack RPC, 32 MiB | 38.751 | 35.549 | -8.3% |
+| Native RawSocket CBOR RPC, 64 MiB | 37.544 | 34.330 | -8.6% |
+
+Large-frame p99 rises from 20.128 to 25.873 ms (32 MiB) and from 28.201 to
+35.322 ms (64 MiB). The latter's median observed server RSS remains higher,
+about 169 MiB versus 309 MiB. Copying metadata fixes its independent retention
+problem, but does not explain away or resolve the payload performance cost.
+Diagnostic OS samples of the frozen first candidate lacked Dart symbols, so
+they do not establish a CPU hotspot. Next targets are redundant receiver-side
+full-message materialization and per-export native owner allocations. Preserve
+both lifetime guarantees and truthful external-memory accounting.
+
+The full 24-workload large-frame matrix, eight-workload heavy file-transfer
+matrix, and 30-workload file matrix pass their unchanged counter, throughput,
+and lifecycle budgets. They cover 864 large-frame samples (24 GiB request plus
+response), 190 heavy file transfers (24 GiB), and 408 matrix file transfers
+(25.5 GiB), with no errors. The
+[production gate evidence](2026-09-10-native-ownership-production-gates.json)
+retains each workload, policy, report, and candidate binary identity. The nine
+canonical profile scenarios last passed on SA-002; rerun them for the finalized
+ownership candidate as well. These are absolute gates, not
+before/after clearance. **The candidate remains local and must not be published
+while the roughly 8% large-frame regression remains unresolved.**
 
 ### Public Dart Dependency Advisory Coverage
 

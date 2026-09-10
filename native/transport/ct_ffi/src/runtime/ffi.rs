@@ -6114,6 +6114,55 @@ pub extern "C" fn ct_message_get(handle: c_int, out_info: *mut CtMessageInfo) ->
     }
 }
 
+// Test observers never keep the message allocation alive or read its bytes.
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_message_observer_new(handle: c_int) -> *mut c_void {
+    if handle <= 0 {
+        return ptr::null_mut();
+    }
+    super::state::observe_message(handle as u32)
+        .map(|observer| Box::into_raw(Box::new(observer)).cast())
+        .unwrap_or(ptr::null_mut())
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_call_observer_new(procedure: *const u8, len: usize) -> *mut c_void {
+    if procedure.is_null() || len == 0 {
+        return ptr::null_mut();
+    }
+    let Ok(procedure) = std::str::from_utf8(unsafe { slice::from_raw_parts(procedure, len) })
+    else {
+        return ptr::null_mut();
+    };
+    super::state::observe_call(procedure)
+        .map(|observer| Box::into_raw(Box::new(observer)).cast())
+        .unwrap_or(ptr::null_mut())
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_message_observer_alive(observer: *mut c_void) -> c_int {
+    if observer.is_null() {
+        return 0;
+    }
+    let observer = unsafe { &*observer.cast::<std::sync::Weak<StoredMessage>>() };
+    c_int::from(observer.strong_count() > 0)
+}
+
+#[cfg(feature = "ffi-test")]
+#[no_mangle]
+pub extern "C" fn ct_test_message_observer_free(observer: *mut c_void) {
+    if !observer.is_null() {
+        unsafe {
+            drop(Box::from_raw(
+                observer.cast::<std::sync::Weak<StoredMessage>>(),
+            ))
+        };
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn ct_message_peek(handle: c_int, out_info: *mut CtMessageInfo) -> c_int {
     if out_info.is_null() || handle <= 0 {
@@ -6138,6 +6187,75 @@ pub extern "C" fn ct_message_release(handle: c_int) {
     }
     let handle_u32 = handle as u32;
     remove_message(handle_u32);
+}
+
+#[repr(C)]
+pub struct CtMessageByteView {
+    pub ptr: *const u8,
+    pub len: usize,
+    pub owner: *mut c_void,
+}
+
+/// Exports a zero-copy slice with ownership independent of routing handles.
+/// Parts: 0 frame, 1 arguments, 2 keyword arguments, 3 details, 4 binary argument.
+/// The caller must release each non-null owner exactly once with
+/// `ct_message_buffer_free`, after every view of that slice is unreachable.
+#[no_mangle]
+pub extern "C" fn ct_message_buffer_export(
+    handle: c_int,
+    part: c_uint,
+    out: *mut CtMessageByteView,
+) -> c_int {
+    if out.is_null() || handle <= 0 {
+        return ERR_INVALID_ARGUMENT;
+    }
+    unsafe {
+        out.write(CtMessageByteView {
+            ptr: ptr::null(),
+            len: 0,
+            owner: ptr::null_mut(),
+        });
+    }
+    let Some(message) = super::state::retain_message_allocation(handle as u32) else {
+        return ERR_INVALID_ARGUMENT;
+    };
+    let bytes = match part {
+        0 => Some(message.raw.bytes().as_ref()),
+        1 => message.args.as_deref(),
+        2 => message.kwargs.as_deref(),
+        3 => message.details.as_deref(),
+        4 if message.code == 68 && message.kwargs.is_none() => message
+            .args
+            .as_deref()
+            .and_then(|args| single_binary_argument(message.serializer, args).ok()),
+        4 => None,
+        _ => return ERR_INVALID_ARGUMENT,
+    };
+    let Some(bytes) = bytes else {
+        return SUCCESS;
+    };
+    if bytes.is_empty() {
+        return SUCCESS;
+    }
+    let data = bytes.as_ptr();
+    let len = bytes.len();
+    let owner = Box::into_raw(Box::new(message)).cast();
+    unsafe {
+        out.write(CtMessageByteView {
+            ptr: data,
+            len,
+            owner,
+        });
+    }
+    SUCCESS
+}
+
+/// Native finalizer ABI; the token is not the data pointer or an integer handle.
+#[no_mangle]
+pub extern "C" fn ct_message_buffer_free(owner: *mut c_void) {
+    if !owner.is_null() {
+        unsafe { drop(Box::from_raw(owner.cast::<Arc<StoredMessage>>())) };
+    }
 }
 
 #[no_mangle]
@@ -8202,6 +8320,177 @@ mod tests {
                 {"flag": true}
             ])
         );
+    }
+
+    #[test]
+    fn message_byte_exports_retain_exact_slices_after_handle_release() {
+        let _guard = test_guard();
+        let value = json!([50, 77, {"custom": "value"}, ["payload"], {"flag": true}]);
+        for serializer in [
+            RawSocketSerializer::Json,
+            RawSocketSerializer::MessagePack,
+            RawSocketSerializer::Cbor,
+        ] {
+            let encoded = match serializer {
+                RawSocketSerializer::Json => serde_json::to_vec(&value).unwrap(),
+                RawSocketSerializer::MessagePack => to_msgpack(&value).unwrap(),
+                RawSocketSerializer::Cbor => serde_cbor::to_vec(&value).unwrap(),
+                _ => unreachable!(),
+            };
+            let parsed = ct_core::parse_message(serializer, Bytes::from(encoded)).unwrap();
+            let handle = store_parsed_message(parsed);
+            let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
+            let observer = Arc::downgrade(&allocation);
+            drop(allocation);
+            let mut info = CtMessageInfo::default();
+            assert_eq!(ct_message_get(handle, &mut info), SUCCESS);
+            let mut exports = Vec::new();
+            for (part, data, len) in [
+                (0, info.frame_ptr, info.frame_len),
+                (1, info.args_ptr, info.args_len),
+                (2, info.kwargs_ptr, info.kwargs_len),
+                (3, info.details_ptr, info.details_len),
+            ] {
+                let mut view = CtMessageByteView {
+                    ptr: ptr::null(),
+                    len: 0,
+                    owner: ptr::null_mut(),
+                };
+                assert_eq!(ct_message_buffer_export(handle, part, &mut view), SUCCESS);
+                assert!(!view.owner.is_null());
+                assert_eq!(view.ptr, data);
+                assert_eq!(view.len, len);
+                let expected = unsafe { slice::from_raw_parts(view.ptr, view.len) }.to_vec();
+                exports.push((view, expected));
+            }
+            ct_message_release(handle);
+            ct_message_release(handle);
+            assert!(super::super::state::retain_message_allocation(handle as u32).is_none());
+            for (view, expected) in exports {
+                // Check ownership before any post-release payload access.
+                assert!(observer.strong_count() > 0);
+                assert_eq!(
+                    unsafe { slice::from_raw_parts(view.ptr, view.len) },
+                    expected
+                );
+                ct_message_buffer_free(view.owner);
+            }
+            assert_eq!(observer.strong_count(), 0);
+        }
+    }
+
+    #[test]
+    fn message_byte_export_is_lazy_and_survives_store_clear() {
+        let _guard = test_guard();
+        let value = json!([50, 77, {}, ["payload"], {"flag": true}]);
+        let encoded = Bytes::from(to_msgpack(&value).unwrap());
+        let split = encoded.len() / 2;
+        let parsed = parse_message_segments(
+            RawSocketSerializer::MessagePack,
+            vec![encoded.slice(..split), encoded.slice(split..)],
+        )
+        .unwrap();
+        let handle = store_parsed_message(parsed);
+        let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
+        let observer = Arc::downgrade(&allocation);
+        drop(allocation);
+        let mut view = CtMessageByteView {
+            ptr: ptr::null(),
+            len: 0,
+            owner: ptr::null_mut(),
+        };
+        assert_eq!(ct_message_buffer_export(handle, 1, &mut view), SUCCESS);
+        with_message(handle as u32, |message| {
+            assert!(!message.raw.has_contiguous_cache())
+        })
+        .unwrap();
+        let expected = unsafe { slice::from_raw_parts(view.ptr, view.len) }.to_vec();
+        super::super::state::clear_messages();
+        assert_eq!(observer.strong_count(), 1);
+        assert_eq!(
+            unsafe { slice::from_raw_parts(view.ptr, view.len) },
+            expected
+        );
+        ct_message_buffer_free(view.owner);
+        assert_eq!(observer.strong_count(), 0);
+    }
+
+    #[test]
+    fn message_byte_export_rejects_expired_or_invalid_parts_without_owners() {
+        let _guard = test_guard();
+        let parsed =
+            ct_core::parse_message(RawSocketSerializer::Json, Bytes::from_static(b"[50,77,{}]"))
+                .unwrap();
+        let handle = store_parsed_message(parsed);
+        let mut view = CtMessageByteView {
+            ptr: ptr::null(),
+            len: 0,
+            owner: ptr::null_mut(),
+        };
+        for part in [1, 2, 4] {
+            assert_eq!(ct_message_buffer_export(handle, part, &mut view), SUCCESS);
+            assert!(view.ptr.is_null());
+            assert_eq!(view.len, 0);
+            assert!(view.owner.is_null());
+        }
+        assert_eq!(
+            ct_message_buffer_export(handle, 99, &mut view),
+            ERR_INVALID_ARGUMENT
+        );
+        assert!(view.owner.is_null());
+        assert_eq!(
+            ct_message_buffer_export(handle, 0, ptr::null_mut()),
+            ERR_INVALID_ARGUMENT
+        );
+        ct_message_release(handle);
+        assert_eq!(
+            ct_message_buffer_export(handle, 0, &mut view),
+            ERR_INVALID_ARGUMENT
+        );
+        assert!(view.owner.is_null());
+        ct_message_buffer_free(ptr::null_mut());
+    }
+
+    #[test]
+    fn message_byte_export_races_handle_release_without_losing_ownership() {
+        let _guard = test_guard();
+        for _ in 0..100 {
+            let parsed = ct_core::parse_message(
+                RawSocketSerializer::Json,
+                Bytes::from_static(b"[50,77,{},[\"payload\"]]"),
+            )
+            .unwrap();
+            let handle = store_parsed_message(parsed);
+            let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
+            let observer = Arc::downgrade(&allocation);
+            drop(allocation);
+            let barrier = Arc::new(std::sync::Barrier::new(2));
+            let release_barrier = barrier.clone();
+            let releaser = std::thread::spawn(move || {
+                release_barrier.wait();
+                ct_message_release(handle);
+            });
+            barrier.wait();
+            let mut view = CtMessageByteView {
+                ptr: ptr::null(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+            let result = ct_message_buffer_export(handle, 1, &mut view);
+            releaser.join().unwrap();
+            if result == SUCCESS {
+                assert_eq!(observer.strong_count(), 1);
+                assert_eq!(
+                    unsafe { slice::from_raw_parts(view.ptr, view.len) },
+                    b"[\"payload\"]"
+                );
+                ct_message_buffer_free(view.owner);
+            } else {
+                assert_eq!(result, ERR_INVALID_ARGUMENT);
+                assert!(view.owner.is_null());
+            }
+            assert_eq!(observer.strong_count(), 0);
+        }
     }
 
     #[test]

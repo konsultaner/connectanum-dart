@@ -126,6 +126,48 @@ scope, including code excluded from the root workspace gates.
   comparisons. Native/driver performance confirmation and the broader audit
   remain open; this does not complete SA-002.
 
+## SA-004 Native Payload Ownership
+
+- Six fail-first weak-observer tests reproduced premature native allocation
+  release for client/router JSON, MessagePack, and CBOR views. The new shared
+  native slice-owner API preserves zero-copy storage independently of routing
+  handles; older libraries safely copy. Internal CALL receivers retain before
+  reading and reject expired transfers. Reply fallback no longer dereferences
+  transferred addresses.
+- Four Rust export/release tests and all 11 focused Dart tests pass, including
+  exact native pointers, store clearing, 100 release races, sole-binary views,
+  legacy fallback, and normal isolate-group cleanup of a retained subview. A
+  live internal WebSocket CALL test passes after reply and router shutdown.
+- Full `bin/verify` passes with 494 router tests and all existing native,
+  benchmark, remote-auth, zero-copy, package/MCP, and Chrome/Dart2Wasm gates.
+  Earlier transient compile and overlapping runtime-lock failures are preserved
+  separately; the isolated rerun passes.
+- Six alternating AOT native/client/router comparison passes completed 184,176
+  measured operations plus 11,160 warmups, without errors. The first candidate
+  is not performance-cleared: CBOR RawSocket 64 KiB RPC drops 12.1%, large
+  MessagePack/CBOR RPC drops 9.7%/8.3%, and observed memory rises. The report
+  retains all runs, exact binary hashes, scenario, and shared-host caveats.
+- Next: profile and optimize ownership/materialization while preserving the
+  safety tests, repeat comparisons, run large-frame/file gates, add live
+  cancellation/late transfer regressions, and review other external/JSON/E2EE
+  owners. SA-002/SA-003 performance confirmation is still open. The full audit
+  remains active; this is not a release or a completed component review.
+- Metadata optimization: six fail-first cases confirmed lazy metadata could pin
+  the entire native frame. A temporary native owner now protects a Dart-owned
+  metadata copy and synchronous string decoding, without changing zero-copy
+  payload views or the native ABI. All 20 focused cases pass; 17 legacy cases
+  pass with three native-owner-only cases skipped. Fresh full `bin/verify`
+  passes with 503 router tests. Local bounded review found no concrete defect;
+  its stale/disagreement cleanup concern is covered explicitly.
+- Two further ABBAAB comparisons each finish 184,176 measured operations and
+  11,160 warmups without errors. Both are retained. Lower inference load does
+  not clear performance: 32/64 MiB RPC still falls 8.3%/8.6%, with higher memory.
+  The 24-workload large-frame, eight-workload heavy-file, and 30-workload file
+  matrix absolute gates pass, covering 24 GiB of frames and 49.5 GiB of files.
+  Remove redundant receiver
+  materialization/owner allocations next, not ownership or external-memory
+  accounting. Keep this checkpoint local and continue all pending audit rows.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.
