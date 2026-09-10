@@ -468,6 +468,74 @@ ownership candidate as well. These are absolute gates, not
 before/after clearance. **The candidate remains local and must not be published
 while the roughly 8% large-frame regression remains unresolved.**
 
+### SA-004 Direct Arc Owner Tokens
+
+The native slice exporter now transfers its already-acquired `Arc<StoredMessage>`
+reference directly instead of allocating a separate `Box<Arc<StoredMessage>>`
+for each export. Its paired finalizer reconstructs and drops that one reference.
+This follows the standard library's documented
+[Arc raw-pointer ownership contract](https://doc.rust-lang.org/std/sync/struct.Arc.html#method.into_raw).
+Separate exports can have equal token addresses; each successful export still
+owns a separate reference and must be freed once. Consumers must not deduplicate
+tokens by address. Payload pointers, zero-copy storage, Dart finalizers, external
+memory accounting, serializer behavior, and the ABI shape are unchanged.
+
+The new fail-first regression releases the routing handle, verifies four strong
+references, frees one token, verifies three references, concurrently frees the
+rest, and verifies zero references. Its allocation-reuse assertion fails on the
+boxed implementation only after safe cleanup; no freed payload is read. All five
+focused Rust ownership tests pass after the change. Bounded local review did
+not establish another defect: failed exports drop their local Arc, null-free
+already has a regression, and equal token addresses do not imply duplicate
+ownership. Freeing a single acquired reference twice remains invalid native API
+use; deliberately invoking undefined behavior is not a valid negative test.
+
+Fresh `bin/test-fast` and `bin/verify` pass. Verification includes 142 Rust core,
+95 default FFI, 102 test-hook FFI, 29 native artifact, 74 HTTP-driver, and 503
+router tests, plus the existing package, live MCP, and Chrome/Dart2Wasm gates.
+The measured library is the release `ffi-test` output actually built by
+`bin/verify`, not the older library left in the ordinary release directory.
+Its SHA-256 is
+`77f12083ff5e54dc299f7749f41dedda0f4b1b4d4267f420baaec6979bb6ca76`.
+
+The [two comparisons](2026-09-10-native-arc-owner-benchmarks.json) each retain
+six ABBAAB passes, 184,176 measured operations, 11,160 warmup operations, zero
+errors, commands, hashes, scenario, CPU, memory, and latency summaries.
+The incremental comparison changes only the native library and keeps identical
+metadata-optimized Dart executables. Its 32 MiB MessagePack median falls 1.3%;
+64 MiB CBOR improves 4.1%. Other results are mixed. This removes one allocation
+per nonempty export, but is not evidence that the full security fix has no cost.
+
+| Full baseline comparison | Baseline Gbit/s | Candidate Gbit/s | Median change |
+| --- | ---: | ---: | ---: |
+| Native RawSocket JSON RPC, 1 KiB serial | 0.00626 | 0.00626 | +0.04% |
+| Native RawSocket MessagePack RPC, 64 KiB | 9.811 | 9.015 | -8.1% |
+| Native RawSocket CBOR RPC, 64 KiB | 9.768 | 8.282 | -15.2% |
+| Native WebSocket MessagePack RPC, 64 KiB | 9.579 | 9.548 | -0.3% |
+| Native WebSocket CBOR RPC, 64 KiB | 9.508 | 9.090 | -4.4% |
+| Native RawSocket CBOR pub/sub, 64 KiB | 0.795 | 0.780 | -1.9% |
+| Native WebSocket MessagePack pub/sub, 64 KiB | 2.082 | 2.076 | -0.3% |
+| Dart RawSocket CBOR RPC, 64 KiB | 9.366 | 8.484 | -9.4% |
+| Native RawSocket MessagePack RPC, 32 MiB | 40.499 | 35.894 | -11.4% |
+| Native RawSocket CBOR RPC, 64 MiB | 38.912 | 34.595 | -11.1% |
+
+Large-frame median p99 increases from 22.930 to 24.879 ms and from 25.690 to
+33.559 ms, respectively. Median observed server RSS for the 64 MiB case rises
+from about 171 MiB to 313 MiB. Inference remains near idle, but unrelated VM
+activity ranges from about 132% to 568% at run boundaries. Preserve every pass;
+these remain shared-host observations, not dedicated production-binary proof.
+No audit build, test, or companion inference overlapped the comparisons.
+
+The optimized library also passes all 62 unchanged
+[large-frame and file gates](2026-09-10-native-arc-owner-production-gates.json):
+24 large-frame workloads / 864 samples / 24 GiB request plus response,
+eight heavy-file workloads / 190 transfers / 24 GiB, and 30 file-matrix workloads
+/ 408 transfers / 25.5 GiB, without errors or counter/metric findings.
+**Relative performance is still not cleared.** Keep the candidate local. Next,
+reduce redundant receiver-side materialization without weakening ownership,
+repeat the comparisons and finalized production-library/profile gates, and
+continue the full audit's outstanding cancellation and external-buffer reviews.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and

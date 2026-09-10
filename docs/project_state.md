@@ -103,6 +103,20 @@ comparisons and do not publish this candidate. Next: reduce redundant receiver
 materialization and native owner allocations without losing escaped-view safety,
 then repeat performance evidence and continue the remaining component review.
 
+SA-004 allocation follow-up: byte exports now use direct Arc references rather
+than allocating boxed owner tokens. A fail-first test verifies allocation reuse,
+partial release, and concurrent cleanup of independent same-address tokens.
+All five focused Rust tests and fresh `bin/verify` pass, including 102 test-hook
+FFI and 503 router tests. Two further six-pass comparisons each complete
+184,176 measured operations and 11,160 warmups without errors. The incremental
+native-only result is mixed; the full baseline comparison still shows 11.4% and
+11.1% large-frame decreases, with higher memory and shared VM contention.
+All 62 large-frame and file workloads pass their unchanged absolute gates,
+covering 73.5 GiB application payload. This is not relative performance clearance.
+The report retains both comparisons and the exact verified `ffi-test` binary.
+Keep the audit changes local; reduce redundant receiver materialization next
+without weakening lifetime safety. The full component audit remains active.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

@@ -168,6 +168,21 @@ scope, including code excluded from the root workspace gates.
   materialization/owner allocations next, not ownership or external-memory
   accounting. Keep this checkpoint local and continue all pending audit rows.
 
+- Direct Arc tokens now remove the extra native allocation per nonempty byte
+  export. The fail-first allocation-reuse test also verifies independent equal
+  token addresses, partial release, and concurrent final cleanup. All five
+  focused Rust tests and fresh `bin/verify` pass, including 102 test-hook FFI
+  and 503 router tests. The measured binary is the verified `target/ffi-test`
+  release output; the ordinary release directory still contains an older build.
+- Incremental and full-baseline comparisons each retain all six ABBAAB passes,
+  184,176 measured operations and 11,160 warmups without errors. The incremental
+  native-only result is mixed; the full comparison still drops 11.4%/11.1% on
+  32/64 MiB RPC and 15.2% on 64 KiB CBOR RawSocket. Shared VM contention remains.
+  All 62 large-frame/heavy-file/file-matrix absolute gates pass on this binary,
+  covering 73.5 GiB application payload without errors. These do not clear the
+  relative regression. Keep this local and optimize receiver materialization
+  next; all other audit rows and final production/profile evidence remain open.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.

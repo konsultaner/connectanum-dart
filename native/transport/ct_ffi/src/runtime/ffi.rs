@@ -6200,6 +6200,7 @@ pub struct CtMessageByteView {
 /// Parts: 0 frame, 1 arguments, 2 keyword arguments, 3 details, 4 binary argument.
 /// The caller must release each non-null owner exactly once with
 /// `ct_message_buffer_free`, after every view of that slice is unreachable.
+/// Token addresses may repeat; each successful export owns a separate reference.
 #[no_mangle]
 pub extern "C" fn ct_message_buffer_export(
     handle: c_int,
@@ -6239,7 +6240,8 @@ pub extern "C" fn ct_message_buffer_export(
     }
     let data = bytes.as_ptr();
     let len = bytes.len();
-    let owner = Box::into_raw(Box::new(message)).cast();
+    // Transfer the acquired strong reference without another heap allocation.
+    let owner = Arc::into_raw(message).cast_mut().cast();
     unsafe {
         out.write(CtMessageByteView {
             ptr: data,
@@ -6254,7 +6256,7 @@ pub extern "C" fn ct_message_buffer_export(
 #[no_mangle]
 pub extern "C" fn ct_message_buffer_free(owner: *mut c_void) {
     if !owner.is_null() {
-        unsafe { drop(Box::from_raw(owner.cast::<Arc<StoredMessage>>())) };
+        unsafe { drop(Arc::from_raw(owner.cast::<StoredMessage>().cast_const())) };
     }
 }
 
@@ -8377,6 +8379,48 @@ mod tests {
             }
             assert_eq!(observer.strong_count(), 0);
         }
+    }
+
+    #[test]
+    fn message_byte_exports_reuse_the_message_allocation_for_independent_tokens() {
+        let _guard = test_guard();
+        let parsed = ct_core::parse_message(
+            RawSocketSerializer::Json,
+            Bytes::from_static(b"[50,77,{},[\"payload\"],{\"flag\":true}]"),
+        )
+        .unwrap();
+        let handle = store_parsed_message(parsed);
+        let allocation = super::super::state::retain_message_allocation(handle as u32).unwrap();
+        let observer = Arc::downgrade(&allocation);
+        let allocation_address = Arc::as_ptr(&allocation) as usize;
+        drop(allocation);
+        let mut owners = Vec::new();
+        for part in 0..4 {
+            let mut view = CtMessageByteView {
+                ptr: ptr::null(),
+                len: 0,
+                owner: ptr::null_mut(),
+            };
+            assert_eq!(ct_message_buffer_export(handle, part, &mut view), SUCCESS);
+            assert!(!view.owner.is_null());
+            owners.push(view.owner as usize);
+        }
+        ct_message_release(handle);
+        assert_eq!(observer.strong_count(), 4);
+        let reuses_allocation = owners.iter().all(|&owner| owner == allocation_address);
+        // Equal token addresses still represent separate acquired references.
+        ct_message_buffer_free(owners.pop().unwrap() as *mut c_void);
+        assert_eq!(observer.strong_count(), 3);
+        std::thread::scope(|scope| {
+            for owner in owners {
+                scope.spawn(move || ct_message_buffer_free(owner as *mut c_void));
+            }
+        });
+        assert_eq!(observer.strong_count(), 0);
+        assert!(
+            reuses_allocation,
+            "Each export must reuse the existing Arc allocation"
+        );
     }
 
     #[test]
