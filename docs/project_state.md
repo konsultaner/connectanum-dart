@@ -1,9 +1,10 @@
 # Project State
 
-Last updated: 2026-09-09
-Current branch: `codex/meta-discovery-authorization`
+Last updated: 2026-09-10
+Current branch: `codex/coverage-pub-auth-isolation`
 Current milestone: the WAMP Meta discovery authorization fix is implemented
-and locally verified. Its completed plan is
+and merged into both master remotes; repair the post-merge coverage bootstrap
+authentication failure before further release work. Its implementation plan is
 `docs/exec-plans/2026-09-09-meta-discovery-authorization.md`; the broader active
 consumer plan remains `docs/exec-plans/2026-08-24-wamp-app.md`.
 Live WebSocket, RawSocket, MCP direct JSON, and
@@ -20,10 +21,39 @@ one obsolete MCP smoke expectation for the configured-registration bypass;
 it now checks public nondisclosure and authorized-member visibility. The final
 `bin/verify` rerun passes, including all 482 router tests, six isolated remote-auth
 tests, 13 zero-copy tests, package-consumer and live MCP smokes, 124 benchmark
-tests, and Chrome/Dart2Wasm coverage. This source fix is isolated on the security
-branch; integration into master and the next synchronized beta release are
-still required before published-package consumers receive it. Branch publication
-does not publish packages. The beta.5 packages are unchanged.
+tests, and Chrome/Dart2Wasm coverage. This source fix is now on master; the next
+synchronized beta release is still required before published-package consumers
+receive it. Master integration does not publish packages. The beta.5 packages
+are unchanged.
+
+Commit `16d0efa5` is pushed to both maintained security-branch remotes. A fresh
+clean-tree `bin/verify` passes. Hosted CI `34331583523` passes all four jobs and
+package publish dry run `34331583640` passes at that exact head. The strict
+master deployment baseline and branch-scoped exact-head CI/log, package dry-run,
+workflow-visibility, and router-package audits pass. These post-push evidence
+notes remain uncommitted until the next implementation commit, per policy.
+
+[PR #89](https://github.com/konsultaner/connectanum-dart/pull/89) was merged by
+the user on 2026-09-10 at `04123953`. Local master and both maintained remotes
+now match that merge commit, whose source tree is identical to `16d0efa5`.
+Fresh master `bin/verify`, package publish dry run `34472422572`, and WAMP
+Profile Benchmarks `34472422573` pass. Strict baseline, package dry-run, and
+benchmark artifact audits pass at the merge commit. CI `34472422608` passes
+Fast Checks, WampApp Consumer, and Full Verify, but coverage bootstrap fails
+twice with pub.dev authorization errors, including a targeted rerun. The
+missing coverage artifact is secondary; coverage never ran.
+No release tag or package publication was requested or performed.
+
+The follow-up branch removes only the automatically registered pub.dev token
+from the ephemeral coverage runner before bootstrap, retaining Codecov OIDC and
+all publishing workflows. A guarded token-list check handles absent tokens.
+Two fail-first regressions verify step ordering, unchanged Codecov/strict
+artifact settings, real Dart token removal, another registry's preservation,
+and repeated cleanup. The fixture isolates both cache and platform configuration
+directories and confirms the temporary token path before writes. Baseline
+`bin/test-fast` and all 22 verification-script tests pass; fresh `bin/verify`
+for the workflow follow-up is running. Master CI remains red until this fix is
+independently reviewed and merged.
 
 Previous milestone: harden the standalone WampApp as a consumer-facing
 application on top of the merged and published `3.0.0-beta.5` graph. The main

@@ -103,6 +103,13 @@ jobs:
 
       - uses: dart-lang/setup-dart@v1
 
+      # Codecov needs OIDC, but public dependency downloads do not need pub auth.
+      - name: Use anonymous pub.dev downloads
+        run: |
+          if dart pub token list | grep -Fxq 'https://pub.dev'; then
+            dart pub token remove https://pub.dev
+          fi
+
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Bootstrap workspace
