@@ -68,9 +68,13 @@ error sanitization, and token rotation policy still need independent review.
 
 ### SA-002: Resolved Native Network Dependencies Have Published Advisories
 
-**Open. Shipping-path dependency updates and performance validation required.**
+**Transport and benchmark dependency mitigations are implemented; final full
+verification and production-budget gates pass. Before/after performance
+confirmation remains open.**
 
-`cargo audit` against both checked-in Rust lockfiles on 2026-09-10 reports:
+The initial `cargo audit` against both locally resolved Rust lockfiles on
+2026-09-10 reported the following. These lockfiles are ignored by the repository,
+not checked in; security minimums must therefore be enforced in the manifests.
 
 | Dependency | Resolved | Advisory | Scope / next action |
 | --- | --- | --- | --- |
@@ -78,10 +82,76 @@ error sanitization, and token rotation policy still need independent review.
 | `quinn-proto` | `0.11.14` | [Upstream advisory](https://github.com/quinn-rs/quinn/security/advisories/GHSA-4w2j-m93h-cj5j), RUSTSEC-2026-0185 | Direct/transitive native QUIC dependency; excessive out-of-order gaps can exhaust memory. Patched `>=0.11.15`; inspect upstream mitigation and test HTTP/3 performance after updating. |
 | `rustls-webpki` | `0.101.7` | RUSTSEC-2026-0104, RUSTSEC-2026-0098, RUSTSEC-2026-0099 | Benchmark-control `reqwest` 0.11.27 / `hyper-rustls` 0.24.2 / `rustls` 0.21.12 dependency, not the production router TLS server. Control client intentionally trusts lab certificates and uses HTTP/1; assess advisory-specific reachability and update this older client dependency. |
 
-Dependency resolution is confirmed, but no Connectanum-specific adversarial
-network reproduction has yet been run for these advisories. No dependency
-updates have been applied. The three older WebPKI reports are not evidence that
-the router's current Rustls server uses that version.
+The transport manifests now require `h2 >=0.4.16` (within 0.4) and
+`quinn-proto >=0.11.15` (within 0.11). The HTTP/2 adapter and FFI test client now
+use the existing `http` 1.x dependency instead of a second 0.2 type graph.
+Production window sizes, concurrency limits, body readers, public FFI ABI, and
+TLS policy are unchanged. The tested local candidate resolves `h2 0.4.19` and
+`quinn-proto 0.11.17`. Its transport audit reports zero published vulnerabilities;
+the maintenance warnings below remain. The benchmark's independent graph is
+also upgraded: reqwest 0.13.5 uses Rustls 0.23, h2/QUIC enforce the same minima,
+and the unused ureq dependency is removed. Hyper 0.14 remains only for HTTP/1;
+its old HTTP/2 feature is disabled, and the two H2 test servers use h2 directly.
+The resolved benchmark audit now has zero vulnerabilities and zero warnings.
+
+The benchmark scan also reported
+[RUSTSEC-2026-0190](https://rustsec.org/advisories/RUSTSEC-2026-0190.html), an
+`anyhow::Error::downcast_mut` unsoundness warning. No such call is present in the
+benchmark source, so this was not demonstrated as reachable from a peer. The
+manifest nevertheless requires patched `anyhow >=1.0.103` and resolves 1.0.104.
+The tested benchmark graph resolves h2 0.4.19, quinn-proto 0.11.17, reqwest
+0.13.5, and Rustls 0.23.38. Local lockfile SHA-256 values are
+`13497ce8aaca9fd23ea45d21d9ae809aebeb8439a881a6695ce291d3b3c9e447`
+(benchmark) and
+`2c4a72fb955b5a3a5a4c7401ccba40c8500b3d561f5682ae345472127d101fe8`
+(transport). These describe tested resolutions, not committed lockfile pins.
+
+Attack prerequisites: a malicious HTTP/2 or QUIC peer on an enabled native
+endpoint. The affected parsers operate before application authorization.
+The demonstrated impact is resource exhaustion, not a proof of code execution,
+authentication bypass, or payload disclosure. TLS does not make malicious
+authenticated transport frames safe.
+
+Four bounded raw-frame regressions use the actual production HTTP/2 builder
+over Tokio duplex I/O. A PING ACK forms a processing barrier while the request
+body is deliberately not drained. Both plain and padded empty DATA were queued
+on `h2 0.3.27`, and 101-frame floods were accepted: all four tests failed before
+the upgrade. The candidate discards nonterminal empty frames, preserves payload
+and terminal-empty END_STREAM behavior, and sends `ENHANCE_YOUR_CALM` GOAWAY for
+both floods. All four pass. This is a protocol-adapter regression, not a public
+TCP/TLS attack replay; the existing live FFI network tests provide separate
+positive-control transport coverage.
+
+The bounded [QUIC assembler probe](../../tool/quinn_assembler_security_probe.rs)
+compiles the resolved upstream assembler and range-set sources verbatim without
+vendoring or modifying production dependencies. With each one-byte fragment
+retaining a separate 1,500-byte packet allocation, a missing prefix, and gaps,
+`0.11.14` accepted all 4,096 fragments without a limit error. Both `0.11.15` and
+the resolved `0.11.17` reject at fragment 1,034. The same probe verifies ordinary
+reordering and overlapping data still reconstruct all 2,000 expected bytes.
+This is source-level upstream evidence, **not** an encrypted QUIC packet replay
+through Connectanum; that deeper transport/FFI review remains open.
+
+Expanded `ffi-test` execution exposed three previously unselected event fixtures
+with native TLS enabled but no certificate. They now use an existing test
+identity, and the synthetic idle event asserts the GOAWAY counter actually
+supplied to the hook. No production validation or live timeout expectation was
+relaxed. All 97 feature-enabled FFI tests pass. `bin/verify` now runs this entire
+suite rather than only the metrics test; a fail-first script regression protects
+the broader gate. The former benchmark WebPKI 0.101 graph is no longer resolved.
+Its control client still uses HTTP/1 only and accepts self-signed lab identities;
+that explicit benchmark-only policy has not moved into production code. A live
+TLS test offers both h2 and HTTP/1.1 and verifies that control requests negotiate
+HTTP/1.1. Other regressions cover preserved binary-request headers, invalid
+bearer-header rejection, a multi-frame UTF-8 JSON request, and a large 401 response
+without status/body loss. All 74 HTTP-driver and 29 artifact library tests pass.
+Existing connection-reuse, chunking, H2/H3 multiplexing, and timeout tests remain.
+The complete native benchmark suite is now in `bin/verify`, protected by another
+fail-first script regression; all 24 verification-script tests pass.
+An isolated invocation of the control-timeout test exposed reliance on another
+test installing Rustls's process-wide crypto provider. It now installs the same
+ring provider explicitly and passes independently, matching the existing CLI
+startup without changing runtime client policy.
 
 The RustSec database used for the scan was commit
 `b50980aad8b8f14f77e25a97b32dd94bf008b0af` (updated 2026-09-09). Reproduce with
@@ -93,6 +163,21 @@ The transport lockfile additionally reports maintenance warnings for
 are maintenance risks, not proof of exploitable vulnerabilities. Dart and
 standalone-application dependencies were also queried below; platform-native
 dependencies and bundled assets still need separate review.
+
+For the HTTP/2 regressions, run
+`cargo test --manifest-path native/transport/Cargo.toml -p ct_core http2_security_tests`.
+The source-level QUIC probe is intentionally outside normal Cargo targets so
+building a consumer package never depends on a registry-cache source path.
+To reproduce it, build `ct_core` with `--message-format=json`, obtain the `bytes`
+`.rlib` from its compiler-artifact records, and obtain the resolved `quinn-proto`
+`src` directory using its manifest location from `cargo metadata`. Compile
+`tool/quinn_assembler_security_probe.rs` with Rust 2021, that directory in
+`QUINN_PROTO_SOURCE`, `--extern bytes=<rlib>`, and
+`-L dependency=native/transport/target/debug/deps`, then run the resulting binary.
+The same probe compiles against the old void-returning assembler and patched
+Result-returning assembler; its failure is a missing runtime rejection, not a
+compile-time API mismatch. The fixture allocates at most a few MiB and uses no
+network access or real user traffic.
 
 ### Public Dart Dependency Advisory Coverage
 
@@ -122,7 +207,12 @@ remain required.
   consumer smokes, and Chrome/Dart2Wasm tests. The two final null-aware test
   style fixes were reanalyzed; auth tests reran and the full verification run
   subsequently exercised the updated RPC test file.
-- The first audit slice is local. Hosted verification has not been requested
+- SA-002 final `bin/verify` passes after the test-isolation correction, including
+  142 Rust core tests, 90 default FFI tests, all 97 feature-enabled FFI tests,
+  29 native artifact tests, 74 HTTP-driver tests, 24 verification-script tests,
+  and the full Dart, live MCP/router, zero-copy, and Chrome/Dart2Wasm checks.
+  Rust formatting checks and public-artifact-reference checks pass as well.
+- These audit changes are local. Hosted verification has not been requested
   for these changes and no package version or release tag has changed.
 - Local companion suggestions were checked against source and executable tests;
   incorrect suggestions (including missing the fake-state and adapter ABORT
@@ -184,3 +274,90 @@ extracted from `733c6d91`; all other package sources and the native library were
 identical between variants. Raw JSONL and `time -l` logs are retained in the
 local `connectanum-security-auth-performance` and
 `connectanum-security-auth-performance-aot` temporary evidence directories.
+
+## SA-002 Initial Performance Evidence
+
+**Not yet a cleared no-regression result.** The
+[six-run comparison](2026-09-10-native-http-security-benchmarks.json) retains
+every run, per-process medians/ranges, library/driver/service hashes, CPU/RSS,
+and transport counters. The
+[scenario](../../native/bench/scenarios/http_dependency_security.toml) uses one
+router worker, four native threads, the same baseline benchmark client and AOT
+router service for both variants, and swaps only the native library. Each
+process performs 512 actual warmup requests per protocol, then 2,000 serial
+1-KiB request/response exchanges and 4,096 multiplexed exchanges with 256-KiB
+requests and 1-MiB responses per protocol. Order is A/B/B/A/A/B with a three-second
+cooldown. The six measured passes complete 73,152 requests plus 6,144 warmups,
+with no payload-count errors or protocol/internal/body/idle-timeout events.
+
+| Workload | Baseline / candidate requests/s | Change | Baseline / candidate total payload Gbit/s | Baseline / candidate p99, ms |
+| --- | ---: | ---: | ---: | ---: |
+| HTTP/2 serial | 425.80 / 405.10 | -4.9% | 0.00698 / 0.00664 | 2.691 / 3.373 |
+| HTTP/2 multiplexed | 2,531.52 / 2,540.94 | +0.4% | 26.545 / 26.644 | 8.976 / 9.979 |
+| HTTP/3 serial | 421.41 / 416.93 | -1.1% | 0.00690 / 0.00683 | 2.796 / 2.978 |
+| HTTP/3 multiplexed | 105.51 / 114.60 | +8.6% | 1.106 / 1.202 | 297.311 / 275.830 |
+
+Values are medians of three processes, not pooled samples. Gbit/s sums request
+and response payload bytes over workload wall time, including connection setup;
+it is not a one-direction physical-link rating. Median process-tree CPU is
+209.17 / 215.49 seconds; peak RSS is 164,888,576 / 160,497,664 bytes, baseline /
+candidate. These include startup and helpers, not isolated allocator profiling.
+
+An unrelated VM consumed approximately ten CPU cores during the later passes.
+Baseline HTTP/2 multiplex throughput fell from 26-28 Gbit/s to 8 Gbit/s, and
+candidate throughput also fell to 7.4 Gbit/s. All outliers remain included.
+No audit tests, builds, or companion inference overlapped these six passes,
+but other host work cannot be treated as controlled. A quiet repeat is required
+to distinguish the serial HTTP/2 decrease and tail changes from contention.
+Do not describe this as unchanged speed or a proven HTTP/3 speedup. Canonical
+production-budget and large-frame/file gates now pass as recorded below, but
+they do not resolve this relative comparison. The benchmark graph is now upgraded,
+but driver-only performance must be compared separately with the patched server
+held constant. The bounded security reproductions do not depend on timing noise.
+
+Raw JSONL, BSD `time -l` output, and logs remain in the local
+`connectanum-sa002-performance` temporary evidence directory. An initial setup
+pilot is excluded a priori from the six timed passes; none of those six passes
+was discarded. A report-parser type error after the first completed pass was
+corrected to select numeric transport counters; its complete raw run was reused
+without rerunning or overwriting it.
+
+A subsequent lower-load attempt completed one baseline and one candidate process
+(24,384 measured requests plus 2,048 warmups, no errors). It was stopped while
+waiting between processes because unrelated inference repeatedly used many CPU
+cores. No measured process was interrupted and no unrelated workload was stopped.
+The same JSON retains both processes and before/after aggregate host CPU samples;
+these are spot observations, not continuous isolation proof. One process per
+variant is insufficient to resolve the earlier serial/tail comparison. Raw files
+remain in the `connectanum-sa002-performance-confirmation` temporary evidence
+directory. Performance remains **not cleared**, rather than selecting a favorable
+pair or silently discarding the initial six passes.
+
+### SA-002 Production Gates
+
+With the upgraded benchmark driver and native library, all nine scenarios in
+`bin/wamp-profile-validate` pass their existing policies: 102 workload gates
+cover clear/TLS WAMP, control operations, pub/sub fan-out, E2EE, progressive
+invocations, call timeout, and Meta APIs. The full large-frame scenario adds
+24 workload gates and 864 samples with 12 GiB request plus 12 GiB response
+payload. It covers native/Dart clients, JSON/MessagePack/CBOR, 64 MiB RawSocket
+frames, 8 MiB WebSocket frames, and clear/TLS variants. The file-transfer
+throughput scenario adds 30 workload gates and 408 transfers totaling 25.5 GiB.
+No counter or performance-policy findings were reported in these 156 gates.
+
+The existing policies were not weakened. These are absolute production gates
+on a shared macOS host, not a paired speed comparison or Linux kTLS evidence.
+Large-frame dominant-direction throughput ranges from 0.664 to 17.681 Gbit/s;
+file-transfer throughput ranges from 2.190 to 20.634 Gbit/s across distinct
+workloads. These ranges are not a single transport rating. The canonical
+dominant-direction metric differs from the initial HTTP comparison's summed
+request/response metric; do not compare those numbers as equivalent.
+
+The same machine-readable evidence retains per-workload large-frame/file results
+and gate counts, with the benchmark/native hashes. Raw summaries, JSONL,
+Prometheus snapshots, and gate JSON/Markdown remain in the temporary
+`connectanum-sa002-wamp-profile-validation`, `connectanum-sa002-large-frames`, and
+`connectanum-sa002-file-transfer` evidence directories. No audit tests, builds,
+or companion inference overlapped measured workloads; unrelated host activity
+was not controlled. Driver-only and repeated native-library comparisons remain
+required before claiming no measurable performance regression.

@@ -21,12 +21,13 @@ use clap::Parser;
 use h2::{client as h2_client, RecvStream as H2RecvStream};
 use h3_quinn::Connection as H3QuinnConnection;
 use hmac::{Hmac, Mac};
+use http as http2;
 use http as http3;
 use hyper::body::HttpBody as _;
 use hyper::client::conn::Builder as HyperConnBuilder;
 use hyper::http::{
     header::{HeaderValue as HyperHeaderValue, ACCEPT, USER_AGENT},
-    Method as HyperMethod, StatusCode as HyperStatusCode, Version as HyperVersion,
+    Method as HyperMethod, StatusCode as HyperStatusCode,
 };
 use hyper::{Body, Request};
 use pbkdf2::pbkdf2_hmac;
@@ -4645,34 +4646,37 @@ fn build_h2_json_request(
     path: &str,
     request_bytes: u64,
     bearer: Option<&str>,
-) -> Result<Request<()>> {
+) -> Result<http2::Request<()>> {
     let uri = format!(
         "{}://{}:{}{}",
         endpoint.scheme, endpoint.host, endpoint.port, path
     );
-    let mut request_builder = Request::builder()
-        .method(method.clone())
+    let mut request_builder = http2::Request::builder()
+        .method(method.as_str())
         .uri(uri)
-        .version(HyperVersion::HTTP_2);
+        .version(http2::Version::HTTP_2);
     let headers = request_builder.headers_mut().unwrap();
     headers.insert(
         "content-type",
-        HyperHeaderValue::from_static("application/json"),
+        http2::HeaderValue::from_static("application/json"),
     );
     headers.insert(
         "content-length",
-        HyperHeaderValue::from_str(&request_bytes.to_string())
-            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+        http2::HeaderValue::from_str(&request_bytes.to_string())
+            .unwrap_or_else(|_| http2::HeaderValue::from_static("0")),
     );
-    headers.insert(ACCEPT, HyperHeaderValue::from_static("application/json"));
     headers.insert(
-        USER_AGENT,
-        HyperHeaderValue::from_static("connectanum-bench/0.1"),
+        "accept",
+        http2::HeaderValue::from_static("application/json"),
+    );
+    headers.insert(
+        "user-agent",
+        http2::HeaderValue::from_static("connectanum-bench/0.1"),
     );
     if let Some(token) = bearer {
         headers.insert(
             "authorization",
-            HyperHeaderValue::from_str(&format!("Bearer {token}"))
+            http2::HeaderValue::from_str(&format!("Bearer {token}"))
                 .context("invalid authorization header")?,
         );
     }
@@ -4739,9 +4743,10 @@ async fn drain_hyper_response_bytes(response: hyper::Response<Body>) -> Result<H
 }
 
 async fn drain_h2_response_bytes(
-    response: hyper::http::Response<H2RecvStream>,
+    response: http2::Response<H2RecvStream>,
 ) -> Result<HttpBodyResponse> {
-    let status = response.status();
+    let status = HyperStatusCode::from_u16(response.status().as_u16())
+        .context("invalid HTTP/2 response status")?;
     let mut body = response.into_body();
     let mut received = Vec::new();
     while let Some(chunk) = body.data().await {
@@ -5418,39 +5423,42 @@ async fn connect_h2_sender(endpoint: &HttpEndpoint) -> Result<H2BenchSender> {
     }
 }
 
-fn build_h2_request(endpoint: &HttpEndpoint, workload: &PreparedWorkload) -> Result<Request<()>> {
+fn build_h2_request(
+    endpoint: &HttpEndpoint,
+    workload: &PreparedWorkload,
+) -> Result<http2::Request<()>> {
     let uri = format!(
         "{}://{}:{}{}",
         endpoint.scheme, endpoint.host, endpoint.port, workload.path
     );
-    let mut request_builder = Request::builder()
-        .method(workload.method.clone())
+    let mut request_builder = http2::Request::builder()
+        .method(workload.method.as_str())
         .uri(uri)
-        .version(HyperVersion::HTTP_2);
+        .version(http2::Version::HTTP_2);
     let headers = request_builder.headers_mut().unwrap();
     headers.insert(
         "content-type",
-        HyperHeaderValue::from_static("application/octet-stream"),
+        http2::HeaderValue::from_static("application/octet-stream"),
     );
     headers.insert(
         "content-length",
-        HyperHeaderValue::from_str(&workload.request_bytes.to_string())
-            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+        http2::HeaderValue::from_str(&workload.request_bytes.to_string())
+            .unwrap_or_else(|_| http2::HeaderValue::from_static("0")),
     );
     headers.insert(
         "x-bench-response-bytes",
-        HyperHeaderValue::from_str(&workload.response_bytes.to_string())
-            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+        http2::HeaderValue::from_str(&workload.response_bytes.to_string())
+            .unwrap_or_else(|_| http2::HeaderValue::from_static("0")),
     );
     headers.insert(
         "x-bench-response-chunk-bytes",
-        HyperHeaderValue::from_str(&workload.response_chunk_bytes.to_string())
-            .unwrap_or_else(|_| HyperHeaderValue::from_static("1024")),
+        http2::HeaderValue::from_str(&workload.response_chunk_bytes.to_string())
+            .unwrap_or_else(|_| http2::HeaderValue::from_static("1024")),
     );
-    headers.insert(ACCEPT, HyperHeaderValue::from_static("*/*"));
+    headers.insert("accept", http2::HeaderValue::from_static("*/*"));
     headers.insert(
-        USER_AGENT,
-        HyperHeaderValue::from_static("connectanum-bench/0.1"),
+        "user-agent",
+        http2::HeaderValue::from_static("connectanum-bench/0.1"),
     );
     request_builder
         .body(())
@@ -5461,44 +5469,44 @@ fn build_h2_protected_request(
     endpoint: &HttpEndpoint,
     workload: &PreparedWorkload,
     bearer: &str,
-) -> Result<Request<()>> {
+) -> Result<http2::Request<()>> {
     let uri = format!(
         "{}://{}:{}{}",
         endpoint.scheme, endpoint.host, endpoint.port, workload.path
     );
-    let mut request_builder = Request::builder()
-        .method(workload.method.clone())
+    let mut request_builder = http2::Request::builder()
+        .method(workload.method.as_str())
         .uri(uri)
-        .version(HyperVersion::HTTP_2);
+        .version(http2::Version::HTTP_2);
     let headers = request_builder.headers_mut().unwrap();
     headers.insert(
         "authorization",
-        HyperHeaderValue::from_str(&format!("Bearer {bearer}"))
+        http2::HeaderValue::from_str(&format!("Bearer {bearer}"))
             .context("invalid authorization header")?,
     );
     headers.insert(
         "content-type",
-        HyperHeaderValue::from_static("application/octet-stream"),
+        http2::HeaderValue::from_static("application/octet-stream"),
     );
     headers.insert(
         "content-length",
-        HyperHeaderValue::from_str(&workload.request_bytes.to_string())
-            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+        http2::HeaderValue::from_str(&workload.request_bytes.to_string())
+            .unwrap_or_else(|_| http2::HeaderValue::from_static("0")),
     );
     headers.insert(
         "x-bench-response-bytes",
-        HyperHeaderValue::from_str(&workload.response_bytes.to_string())
-            .unwrap_or_else(|_| HyperHeaderValue::from_static("0")),
+        http2::HeaderValue::from_str(&workload.response_bytes.to_string())
+            .unwrap_or_else(|_| http2::HeaderValue::from_static("0")),
     );
     headers.insert(
         "x-bench-response-chunk-bytes",
-        HyperHeaderValue::from_str(&workload.response_chunk_bytes.to_string())
-            .unwrap_or_else(|_| HyperHeaderValue::from_static("1024")),
+        http2::HeaderValue::from_str(&workload.response_chunk_bytes.to_string())
+            .unwrap_or_else(|_| http2::HeaderValue::from_static("1024")),
     );
-    headers.insert(ACCEPT, HyperHeaderValue::from_static("*/*"));
+    headers.insert("accept", http2::HeaderValue::from_static("*/*"));
     headers.insert(
-        USER_AGENT,
-        HyperHeaderValue::from_static("connectanum-bench/0.1"),
+        "user-agent",
+        http2::HeaderValue::from_static("connectanum-bench/0.1"),
     );
     request_builder
         .body(())
@@ -5526,7 +5534,7 @@ async fn drain_hyper_response(response: hyper::Response<Body>) -> Result<u64> {
 }
 
 async fn drain_h2_response(
-    response: hyper::http::Response<H2RecvStream>,
+    response: http2::Response<H2RecvStream>,
     read_probe: H2ClientReadProbe,
     read_tracker: Arc<H2ClientReadTracker>,
 ) -> Result<H2ResponseDrainStats> {
@@ -7961,14 +7969,17 @@ mod tests {
                 let request_count_for_conn = Arc::clone(&request_count_for_task);
                 let max_request_chunks_for_conn = Arc::clone(&max_request_chunks_for_task);
                 tokio::spawn(async move {
-                    let service = service_fn(move |request: Request<Body>| {
+                    let mut connection = h2::server::handshake(stream).await.unwrap();
+                    while let Some(request) = connection.accept().await {
+                        let (request, mut respond) = request.unwrap();
                         let request_count_for_req = Arc::clone(&request_count_for_conn);
                         let max_request_chunks_for_req = Arc::clone(&max_request_chunks_for_conn);
-                        async move {
+                        tokio::spawn(async move {
                             let mut body = request.into_body();
                             let mut chunk_count = 0usize;
                             while let Some(chunk) = body.data().await {
-                                chunk?;
+                                let chunk = chunk.unwrap();
+                                body.flow_control().release_capacity(chunk.len()).unwrap();
                                 chunk_count += 1;
                             }
                             let _ = max_request_chunks_for_req.fetch_update(
@@ -7983,13 +7994,13 @@ mod tests {
                                 },
                             );
                             request_count_for_req.fetch_add(1, Ordering::SeqCst);
-                            Ok::<_, hyper::Error>(Response::new(Body::from("ok")))
-                        }
-                    });
-                    let _ = HyperServerHttp::new()
-                        .http2_only(true)
-                        .serve_connection(stream, service)
-                        .await;
+                            respond
+                                .send_response(http2::Response::new(()), false)
+                                .unwrap()
+                                .send_data(Bytes::from_static(b"ok"), true)
+                                .unwrap();
+                        });
+                    }
                 });
             }
         });
@@ -8106,11 +8117,13 @@ mod tests {
                 let current_for_conn = Arc::clone(&current_in_flight_for_task);
                 let max_for_conn = Arc::clone(&max_in_flight_for_task);
                 tokio::spawn(async move {
-                    let service = service_fn(move |request: Request<Body>| {
+                    let mut connection = h2::server::handshake(stream).await.unwrap();
+                    while let Some(request) = connection.accept().await {
+                        let (request, mut respond) = request.unwrap();
                         let request_count_for_req = Arc::clone(&request_count_for_conn);
                         let current_for_req = Arc::clone(&current_for_conn);
                         let max_for_req = Arc::clone(&max_for_conn);
-                        async move {
+                        tokio::spawn(async move {
                             let in_flight = current_for_req.fetch_add(1, Ordering::SeqCst) + 1;
                             let _ = max_for_req.fetch_update(
                                 Ordering::SeqCst,
@@ -8125,18 +8138,19 @@ mod tests {
                             );
                             let mut body = request.into_body();
                             while let Some(chunk) = body.data().await {
-                                chunk?;
+                                let chunk = chunk.unwrap();
+                                body.flow_control().release_capacity(chunk.len()).unwrap();
                             }
                             tokio::time::sleep(Duration::from_millis(50)).await;
                             current_for_req.fetch_sub(1, Ordering::SeqCst);
                             request_count_for_req.fetch_add(1, Ordering::SeqCst);
-                            Ok::<_, hyper::Error>(Response::new(Body::from("ok")))
-                        }
-                    });
-                    let _ = HyperServerHttp::new()
-                        .http2_only(true)
-                        .serve_connection(stream, service)
-                        .await;
+                            respond
+                                .send_response(http2::Response::new(()), false)
+                                .unwrap()
+                                .send_data(Bytes::from_static(b"ok"), true)
+                                .unwrap();
+                        });
+                    }
                 });
             }
         });
@@ -8610,13 +8624,182 @@ mod tests {
     }
 
     #[test]
+    fn h2_request_builders_preserve_wire_metadata() {
+        let endpoint = HttpEndpoint {
+            scheme: "https".to_string(),
+            host: "localhost".to_string(),
+            port: 8443,
+            http3_port: None,
+        };
+        let mut workload = sample_h2_workload(true, 1);
+        workload.method = HyperMethod::PATCH;
+        workload.path = "/bench/stream?mode=binary".to_string();
+        workload.request_bytes = 131072;
+        workload.response_bytes = 262144;
+        workload.response_chunk_bytes = 16384;
+        for request in [
+            build_h2_request(&endpoint, &workload).unwrap(),
+            build_h2_protected_request(&endpoint, &workload, "test-token").unwrap(),
+        ] {
+            assert_eq!(request.version(), http2::Version::HTTP_2);
+            assert_eq!(request.method(), "PATCH");
+            assert_eq!(
+                request.uri(),
+                "https://localhost:8443/bench/stream?mode=binary"
+            );
+            assert_eq!(request.headers()["content-length"], "131072");
+            assert_eq!(request.headers()["x-bench-response-bytes"], "262144");
+            assert_eq!(request.headers()["x-bench-response-chunk-bytes"], "16384");
+            assert_eq!(
+                request.headers()["content-type"],
+                "application/octet-stream"
+            );
+        }
+        assert!(build_h2_request(&endpoint, &workload)
+            .unwrap()
+            .headers()
+            .get("authorization")
+            .is_none());
+        let protected = build_h2_protected_request(&endpoint, &workload, "test-token").unwrap();
+        assert_eq!(protected.headers()["authorization"], "Bearer test-token");
+        assert!(build_h2_protected_request(&endpoint, &workload, "bad\r\nheader").is_err());
+        assert!(build_h2_json_request(
+            &endpoint,
+            &HyperMethod::POST,
+            "/bench/auth",
+            2,
+            Some("bad\r\nheader")
+        )
+        .is_err());
+    }
+
+    #[tokio::test]
+    async fn h2_json_exchange_preserves_error_status_and_large_bodies() {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+            let endpoint = HttpEndpoint {
+                scheme: "http".to_string(),
+                host: Ipv4Addr::LOCALHOST.to_string(),
+                port: listener.local_addr().unwrap().port(),
+                http3_port: None,
+            };
+            let message = json!({"message": "\u{00e4}".repeat(65536)});
+            let expected_body = json_request_bytes(&message).unwrap();
+            let expected_request_bytes = expected_body.len() as u64;
+            let server = tokio::spawn(async move {
+                let (socket, _) = listener.accept().await.unwrap();
+                let mut connection = h2::server::handshake(socket).await.unwrap();
+                let (request, mut respond) = connection.accept().await.unwrap().unwrap();
+                let exchange = tokio::spawn(async move {
+                    assert_eq!(request.method(), "POST");
+                    assert_eq!(request.uri().path(), "/bench/auth");
+                    assert_eq!(request.headers()["authorization"], "Bearer test-token");
+                    assert_eq!(request.headers()["content-type"], "application/json");
+                    assert_eq!(
+                        request.headers()["content-length"],
+                        expected_body.len().to_string()
+                    );
+                    let mut body = request.into_body();
+                    let mut received = Vec::new();
+                    while let Some(chunk) = body.data().await {
+                        let chunk = chunk.unwrap();
+                        body.flow_control().release_capacity(chunk.len()).unwrap();
+                        received.extend_from_slice(&chunk);
+                    }
+                    assert_eq!(received, expected_body);
+                    let response = http2::Response::builder().status(401).body(()).unwrap();
+                    respond
+                        .send_response(response, false)
+                        .unwrap()
+                        .send_data(Bytes::from(vec![b'x'; 131072]), true)
+                        .unwrap();
+                });
+                while let Some(request) = connection.accept().await {
+                    panic!("unexpected additional request: {request:?}");
+                }
+                exchange.await.unwrap();
+            });
+            let sender = connect_h2_sender(&endpoint).await.unwrap();
+            let (response, request_bytes) = send_h2_json_request(
+                sender,
+                &endpoint,
+                &HyperMethod::POST,
+                "/bench/auth",
+                &message,
+                Some("test-token"),
+            )
+            .await
+            .unwrap();
+            assert_eq!(request_bytes, expected_request_bytes);
+            assert_eq!(response.status, HyperStatusCode::UNAUTHORIZED);
+            assert_eq!(response.body, vec![b'x'; 131072]);
+            server.await.unwrap();
+        })
+        .await
+        .expect("bounded HTTP/2 JSON exchange timed out");
+    }
+
+    #[test]
     fn bench_http_client_builds_https_client() {
+        let _ = ring::default_provider().install_default();
         let client = BenchHttpClient::new("https://127.0.0.1:8080/bench").unwrap();
         client.build_client().unwrap();
     }
 
     #[test]
+    fn bench_https_control_stays_http1_with_self_signed_lab_identity() {
+        let _ = ring::default_provider().install_default();
+        let certified = generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
+        let mut config = RustlsServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![certified.cert.der().clone()],
+                PrivateKeyDer::from(PrivatePkcs8KeyDer::from(certified.key_pair.serialize_der())),
+            )
+            .unwrap();
+        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+                .block_on(async move {
+                    tokio::time::timeout(Duration::from_secs(5), async move {
+                        let listener = TcpListener::from_std(listener).unwrap();
+                        let (socket, _) = listener.accept().await.unwrap();
+                        let stream = tokio_rustls::TlsAcceptor::from(Arc::new(config))
+                            .accept(socket)
+                            .await
+                            .unwrap();
+                        assert_eq!(stream.get_ref().1.alpn_protocol(), Some(&b"http/1.1"[..]));
+                        let service = service_fn(|request: Request<Body>| async move {
+                            assert_eq!(request.version(), hyper::Version::HTTP_11);
+                            assert_eq!(request.uri().path(), "/bench/healthz");
+                            assert_eq!(request.headers()["connection"], "close");
+                            Ok::<_, hyper::Error>(Response::new(Body::from("{\"status\":\"ok\"}")))
+                        });
+                        HyperServerHttp::new()
+                            .http1_only(true)
+                            .serve_connection(stream, service)
+                            .await
+                            .unwrap();
+                    })
+                    .await
+                    .expect("bounded HTTPS control fixture timed out");
+                });
+        });
+        let client = BenchHttpClient::new(&format!("https://{address}/bench")).unwrap();
+        let response = client.healthz();
+        server.join().unwrap();
+        assert_eq!(response.unwrap(), json!({"status": "ok"}));
+    }
+
+    #[test]
     fn bench_http_client_honors_per_request_timeout() {
+        let _ = ring::default_provider().install_default();
         fn delayed_json_response(delay: Duration) -> (String, thread::JoinHandle<()>) {
             use std::io::Read;
 
@@ -8803,7 +8986,7 @@ impl BenchHttpClient {
             .map_err(|err| anyhow!("invalid control_base stop URL: {err}"))?;
         self.build_client()?
             .post(url)
-            .header(hyper::http::header::CONNECTION, "close")
+            .header(reqwest::header::CONNECTION, "close")
             .json(&serde_json::json!({"source":"orchestrator"}))
             .send()
             .and_then(|resp| resp.error_for_status())
@@ -8819,7 +9002,7 @@ impl BenchHttpClient {
         let response = self
             .build_client()?
             .get(url)
-            .header(hyper::http::header::CONNECTION, "close")
+            .header(reqwest::header::CONNECTION, "close")
             .send()
             .and_then(|resp| resp.error_for_status())
             .context(format!("GET /bench/{path} failed"))?;
@@ -8834,7 +9017,7 @@ impl BenchHttpClient {
         let response = self
             .build_client_with_timeout(request_timeout)?
             .post(url)
-            .header(hyper::http::header::CONNECTION, "close")
+            .header(reqwest::header::CONNECTION, "close")
             .json(body)
             .send()
             .and_then(|resp| resp.error_for_status())

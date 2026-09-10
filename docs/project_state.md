@@ -14,8 +14,32 @@ JIT/AOT benchmark passes complete 60,000 measured logins without errors. JIT
 shows +3.1% concurrent and -3.1% serial throughput; AOT confirmation shows
 +2.7% serial and +5.4% concurrent, with lower median tail latency. No consistent
 slowdown reproduced, but shared-host results are not proof of identical timing.
-Both Rust lockfiles also contain published network-library advisories (SA-002), which are
-the next hardening slice. The [security report](security/2026-09-10-component-audit.md)
+SA-002 shipping transport manifests now require patched h2/QUIC versions; the
+local candidate resolves h2 0.4.19 and quinn-proto 0.11.17 with zero published
+transport dependency vulnerabilities. Four bounded H2 regressions fail before
+and pass after the upgrade; a separate upstream-source QUIC probe confirms
+fragment rejection without breaking ordinary reordering. All 97 feature-enabled
+FFI tests pass after correcting stale event fixtures, and `bin/verify` now runs
+that entire suite. Twenty-four verification-script tests and fresh full
+`bin/verify` pass, including live MCP, all 482 router tests, remote auth,
+zero-copy, and Chrome/Dart2Wasm. Six native-library comparison passes completed 73,152
+measured requests without errors, but shared-host contention and a 4.9% serial
+H2 median decrease mean performance is not yet cleared. Keep the initial
+evidence and repeat under quieter conditions. A lower-load attempt completed
+another two processes without errors but stopped between processes because
+unrelated inference stayed busy; its partial results are retained. The benchmark
+harness now uses patched h2/QUIC minima, reqwest 0.13.5, and anyhow >=1.0.103;
+its resolved audit has zero vulnerabilities and warnings. All 29 Rust artifact
+tests, 74 HTTP-driver tests, and 24 verification-script tests pass. The full
+native benchmark suite is now part of `bin/verify`; final full verification
+passes after a test-only Rustls initialization isolation fix. All
+nine canonical scenarios (102 workloads), the 24 GiB large-frame matrix (24
+workloads), and 25.5 GiB file-transfer matrix (30 workloads) pass their existing
+artifact and performance gates. Native/driver before-after performance
+confirmation and broader component review remain required work. Both Rust
+lockfiles are ignored local resolution artifacts;
+patched minimums are enforced in manifests rather than assumed from local pins.
+The [security report](security/2026-09-10-component-audit.md)
 records prerequisites, evidence, and remaining component coverage. This audit
 is not complete and no new release has been published.
 

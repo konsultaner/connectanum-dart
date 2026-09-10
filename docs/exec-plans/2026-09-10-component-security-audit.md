@@ -16,14 +16,14 @@ narrow fix does not complete this plan.
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
 | Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | Pending |
-| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | Pending |
+| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 native dependency mitigation and bounded H2/QUIC regressions pass; broader review and performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission fix reproduced and locally passing; broader review pending |
 | Router authorization and state | Realm/role boundaries, RPC/pubsub/meta, pattern grants, dynamic authorization races, worker isolation | Pending; previous Meta fix is baseline only |
 | HTTP and MCP | Origins, redirects, HTTP auth grants, sessions/SSE, tool/resource access, request smuggling, file/proxy routes and SSRF | Pending |
 | Payload cryptography | Key/nonce lifetime, replay/context binding, authenticated metadata, E2EE parity and file integrity | Pending |
 | Consumer application | Account/device trust, encrypted storage/backup, attachments, push, WebRTC, MCP consent, native/web boundaries | Pending |
-| Packaging and dependencies | All Dart/Rust lockfiles, advisories and reachability, native download verification, CLI/config secrets, workflows and publishing | SA-002: both Rust lockfiles scanned, network advisories open; other coverage pending |
+| Packaging and dependencies | All Dart/Rust lockfiles, advisories and reachability, native download verification, CLI/config secrets, workflows and publishing | SA-002: transport and benchmark scans now have zero published vulnerabilities; transport maintenance warnings and other coverage pending |
 
 The compatibility facade, benchmark CLI/harness, auth-server executable, router
 executable, all three Rust crates, and standalone application packages are in
@@ -86,6 +86,45 @@ scope, including code excluded from the root workspace gates.
   queried 163 public package/version pairs against OSV with no listed matching
   advisories and no pending pages. SDK/native-platform and bundled asset scans
   remain open; absence of advisories does not replace component source review.
+- SA-002 shipping manifests now enforce patched h2/QUIC minimums and share
+  http 1.x types. Four paused-body H2 regressions fail before and pass after the
+  upgrade. The identical upstream-source QUIC probe rejects gapped packet
+  allocations on patched versions and retains ordinary reorder/overlap behavior.
+  The native lockfiles are local ignored resolution artifacts, not checked-in
+  pins; resolved versions/hashes are captured in the report.
+- All 97 feature-enabled FFI tests and 23 verification-script tests pass after
+  repairing three stale TLS event fixtures and one mismatched injected-counter
+  expectation. The full FFI test-hook suite is now part of `bin/verify`, not only
+  its metrics test. The fresh pre-change fast suite hit a secure MCP timeout;
+  the isolated full live MCP smoke rerun passed without production changes.
+- Six alternating native-library passes completed 73,152 measured HTTP requests
+  plus 6,144 warmups without errors. The serial H2 median fell 4.9%; unrelated
+  VM contention also reduced baseline multiplex throughput by roughly 70%.
+  Every timed pass is retained. Performance is **not cleared**: repeat on a
+  quieter host and investigate any reproducible decrease. Full `bin/verify`
+  passes, including live MCP, 482 router tests, eight remote-auth tests, 13
+  zero-copy tests, and Chrome/Dart2Wasm. A lower-load confirmation completed two
+  processes with 24,384 measured requests and no errors before being stopped
+  between processes because unrelated inference remained busy. These partial
+  results are retained and do not resolve the comparison.
+- The benchmark graph now uses patched h2/QUIC minima, reqwest 0.13.5, and
+  anyhow >=1.0.103; unused ureq and Hyper's old H2 feature are removed. Its
+  resolved audit has zero vulnerabilities and zero warnings. All 29 artifact
+  library tests and 74 driver tests pass, including large UTF-8 JSON/error-status
+  preservation and real HTTPS control ALPN. The complete native benchmark suite
+  joins the full verification gate; 24 script tests pass after a fail-first gate
+  regression. Full combined verification passes. An isolated control-timeout
+  run then exposed a test-order dependency on another fixture installing the
+  Rustls provider; the fixture now initializes it explicitly and passes alone.
+  Final full verification passes after that test-only correction, including
+  142 Rust core, 90 default FFI, 97 test-hook FFI, 29 native artifact, and 74
+  HTTP-driver tests, plus the full Dart/live MCP/router/browser gates.
+- All nine canonical WAMP scenarios pass (102 workload gates), as do the full
+  24 GiB large-frame matrix (24 workloads / 864 samples) and 25.5 GiB file-transfer
+  matrix (30 workloads / 408 samples). There are no counter or metric findings.
+  These are unchanged absolute production budgets, not before/after speed
+  comparisons. Native/driver performance confirmation and the broader audit
+  remain open; this does not complete SA-002.
 
 ## Related Plans
 
@@ -98,13 +137,16 @@ that this audit's other surfaces have been reviewed.
 1. Preserve the verified SA-001 implementation and its performance evidence.
    It is local only; do not confuse baseline master CI with hosted evidence for
    this new code. No publication or master integration has occurred.
-2. Address SA-002 before returning to other surfaces: capture HTTP/2 and HTTP/3
-   baselines, update shipping `quinn-proto` and migrate `h2`/HTTP types to patched
-   versions, then update the benchmark's legacy TLS client dependency. Inspect
-   upstream regression tests and add relevant transport attack regressions.
-3. Rerun both dependency audits, targeted transport tests, before/after HTTP
-   benchmarks and production budgets, and `bin/verify`. Keep unsafe TLS bypasses
-   restricted to intentional benchmark fixtures, not consumer/production paths.
+2. Finish SA-002 performance evidence: the transport and benchmark dependency
+   graphs and targeted regressions are upgraded. Retain the old compiled driver
+   for native-only attribution and compare the new driver separately on the
+   same patched server. Do not equate the source-level QUIC probe with encrypted
+   network packet replay.
+3. Complete quiet alternating HTTP comparisons. Final `bin/verify`, canonical
+   production budgets, and large-frame/file checks pass. Retain the initial noisy
+   comparison and partial lower-load attempt; do not call the serial H2 slowdown
+   resolved without follow-up evidence. Keep unsafe TLS bypasses restricted to
+   intentional benchmark fixtures.
 4. Continue every outstanding row, including admitted-auth pending-state bounds
    and races, protocol/FFI fuzz and ownership cases, router/MCP authorization,
    payload key/replay handling, consumer device/storage boundaries, and

@@ -24,12 +24,12 @@ use h2::{
 use h3::{quic::BidiStream as H3BidiStreamTrait, server::RequestStream as H3RequestStream};
 use h3_quinn::Connection as H3QuinnConnection;
 use http::{
-    header::{HeaderName, HeaderValue, CONTENT_LENGTH},
-    Request as HttpRequest, Response as HttpResponse, StatusCode,
-};
-use http02::{
     header::{HeaderName as Http2HeaderName, HeaderValue as Http2HeaderValue},
     Request as Http2Request, Response as Http2Response, StatusCode as Http2StatusCode,
+};
+use http::{
+    header::{HeaderName, HeaderValue, CONTENT_LENGTH},
+    Request as HttpRequest, Response as HttpResponse, StatusCode,
 };
 use sha1::{Digest, Sha1};
 use thiserror::Error;
@@ -5957,6 +5957,9 @@ fn has_bearer_header_bytes(headers: &[(Arc<[u8]>, Arc<[u8]>)]) -> bool {
 }
 
 #[cfg(test)]
+mod http2_security_tests;
+
+#[cfg(test)]
 mod stats_tests {
     use super::*;
 
@@ -7809,7 +7812,7 @@ fn flatten_headers(
 }
 
 fn flatten_http2_headers(
-    headers: &http02::HeaderMap,
+    headers: &http::HeaderMap,
     authority: Option<&str>,
 ) -> Vec<(Arc<[u8]>, Arc<[u8]>)> {
     let mut flattened = headers
@@ -8700,7 +8703,7 @@ mod tests {
 
     #[test]
     fn flatten_http2_headers_preserves_raw_bytes() {
-        let mut headers = http02::HeaderMap::new();
+        let mut headers = http::HeaderMap::new();
         headers.insert(
             Http2HeaderName::from_static("x-binary"),
             Http2HeaderValue::from_bytes(b"abc\xff").expect("header value"),
@@ -8714,7 +8717,7 @@ mod tests {
 
     #[test]
     fn flatten_http2_headers_keeps_existing_host() {
-        let mut headers = http02::HeaderMap::new();
+        let mut headers = http::HeaderMap::new();
         headers.insert(
             Http2HeaderName::from_static("host"),
             Http2HeaderValue::from_static("example.test"),

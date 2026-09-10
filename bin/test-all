@@ -156,7 +156,8 @@ if native_runtime_supported; then
     --manifest-path native/transport/Cargo.toml \
     -p ct_ffi \
     --features ffi-test \
-    router_metrics_snapshot_aggregates_reason_totals_and_listener_breakdowns
+    -- --test-threads=1
+  cargo_with_retry test --manifest-path native/bench/Cargo.toml
 else
   printf 'Native Rust runtime tests require Linux or macOS; skipping them on %s.\n' "$(uname -s)"
 fi

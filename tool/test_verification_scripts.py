@@ -56,6 +56,18 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_full_verify_runs_native_benchmark_regressions(self) -> None:
+        self.assertIn(
+            "cargo_with_retry test --manifest-path native/bench/Cargo.toml",
+            TEST_ALL.read_text(),
+        )
+
+    def test_full_verify_runs_complete_native_test_hook_suite(self) -> None:
+        script = TEST_ALL.read_text()
+        command = script.split("--features ffi-test", 1)[1].splitlines()[:2]
+        self.assertNotIn("router_metrics_snapshot_", "\n".join(command))
+        self.assertIn("-- --test-threads=1", "\n".join(command))
+
     def test_coverage_isolates_pub_download_auth_from_codecov_oidc(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/dart.yml").read_text()
         coverage = workflow.split("\n  coverage:\n", 1)[1]
