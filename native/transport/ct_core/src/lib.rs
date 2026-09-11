@@ -6033,6 +6033,7 @@ async fn serve_http_connection(
     registry: Arc<ListenerRegistry>,
 ) {
     let (mut stream, request, body_phase, prefetched) = handshake.into_parts();
+    let initial_version = request.version;
     if !prefetched.is_empty() {
         // Preserve parser-prefetched bytes on the underlying stream so the
         // body reader or the next pipelined request can drain them directly.
@@ -6068,6 +6069,20 @@ async fn serve_http_connection(
                     Ok(Some(value)) => value,
                     Ok(None) => break,
                     Err(err) => {
+                        if let protocol::NegotiationError::Protocol(detail) = &err {
+                            if let Some(status) = protocol::classify_http_error_status(detail) {
+                                let _ = send_http_simple_response(
+                                    &mut write_half,
+                                    initial_version,
+                                    StatusCode::from_u16(status as u16).unwrap(),
+                                    false,
+                                    b"invalid HTTP request",
+                                    &[],
+                                )
+                                .await;
+                                let _ = write_half.shutdown().await;
+                            }
+                        }
                         if should_log_http1_read_error(&err) {
                             eprintln!(
                                 "http/1 connection read error for listener {:?}: {:?}",

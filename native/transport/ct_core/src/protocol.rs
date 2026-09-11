@@ -630,15 +630,6 @@ async fn parse_http_handshake(
                 )));
             }
         }
-        if header_equals(&request, "Transfer-Encoding", "chunked") {
-            let stream = reader.into_inner();
-            return Err(HttpHandshakeError::Reject(HttpRejectResponse::status_only(
-                stream,
-                request.version,
-                501,
-                "chunked transfer encoding is not supported",
-            )));
-        }
         let prefetched = Bytes::copy_from_slice(reader.buffer());
         reader.consume(prefetched.len());
         let stream = reader.into_inner();
@@ -674,13 +665,15 @@ fn classify_http_handshake_error(
     }
 }
 
-fn classify_http_error_status(detail: &str) -> Option<i32> {
+pub(crate) fn classify_http_error_status(detail: &str) -> Option<i32> {
     if detail.contains("exceeds configured limit") {
         Some(413)
     } else if detail == "chunked transfer encoding is not supported" {
         Some(501)
     } else if detail == "invalid Content-Length value"
         || detail == "conflicting Content-Length headers"
+        || detail == "invalid Transfer-Encoding framing"
+        || detail == "invalid HTTP request"
         || detail == "missing HTTP method"
         || detail == "missing request target"
         || detail == "incomplete HTTP headers"
@@ -784,12 +777,6 @@ where
         None => None,
     };
 
-    if header_equals(&request, "Transfer-Encoding", "chunked") {
-        return Err(NegotiationError::Protocol(
-            "chunked transfer encoding is not supported".into(),
-        ));
-    }
-
     if let Some(len) = content_length {
         if len <= inline_limit {
             let mut body_bytes = BytesMut::with_capacity(len);
@@ -845,7 +832,7 @@ fn parse_http_request(bytes: &[u8]) -> Result<(HttpRequest, Option<u64>), Negoti
     let mut request = httparse::Request::new(&mut headers);
     let status = request
         .parse(bytes)
-        .map_err(|err| NegotiationError::Protocol(err.to_string()))?;
+        .map_err(|_| NegotiationError::Protocol("invalid HTTP request".into()))?;
     match status {
         httparse::Status::Complete(_) => {}
         httparse::Status::Partial => {
@@ -865,11 +852,21 @@ fn parse_http_request(bytes: &[u8]) -> Result<(HttpRequest, Option<u64>), Negoti
 
     let mut header_list = Vec::with_capacity(request.headers.len());
     let mut content_length: Option<u64> = None;
+    let mut transfer_encoding_seen = false;
+    let mut final_coding_is_chunked = false;
+    let mut invalid_transfer_order = false;
 
     for header in request.headers.iter() {
         let name = header.name.to_string();
         let value = String::from_utf8_lossy(header.value).trim().to_string();
         if name.eq_ignore_ascii_case("Content-Length") {
+            // HTTP lengths are ASCII digits, not signed or Unicode-trimmed integers.
+            let raw_value = header.value.trim_ascii();
+            if raw_value.is_empty() || !raw_value.iter().all(u8::is_ascii_digit) {
+                return Err(NegotiationError::Protocol(
+                    "invalid Content-Length value".into(),
+                ));
+            }
             let parsed = value
                 .parse::<u64>()
                 .map_err(|_| NegotiationError::Protocol("invalid Content-Length value".into()))?;
@@ -881,8 +878,32 @@ fn parse_http_request(bytes: &[u8]) -> Result<(HttpRequest, Option<u64>), Negoti
                 }
             }
             content_length = Some(parsed);
+        } else if name.eq_ignore_ascii_case("Transfer-Encoding") {
+            transfer_encoding_seen = true;
+            // Repeated fields form one ordered list. Empty list members carry no coding.
+            for coding in value.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                invalid_transfer_order |= final_coding_is_chunked;
+                final_coding_is_chunked = coding.eq_ignore_ascii_case("chunked");
+            }
         }
         header_list.push((name, value));
+    }
+
+    if transfer_encoding_seen {
+        if content_length.is_some()
+            || version == 0
+            || invalid_transfer_order
+            || !final_coding_is_chunked
+        {
+            return Err(NegotiationError::Protocol(
+                "invalid Transfer-Encoding framing".into(),
+            ));
+        }
+        // Request transfer decoding is unsupported. Never fall back to CL or an
+        // empty body: either would expose encoded body bytes as another request.
+        return Err(NegotiationError::Protocol(
+            "chunked transfer encoding is not supported".into(),
+        ));
     }
 
     Ok((
@@ -924,6 +945,10 @@ fn header_contains_token(request: &HttpRequest, name: &str, token: &str) -> bool
 }
 
 #[cfg(test)]
+#[path = "http1_framing_tests.rs"]
+mod http1_framing_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::{
@@ -934,7 +959,7 @@ mod tests {
     use std::collections::HashMap;
     use tokio::{net::TcpListener, net::TcpStream, sync::oneshot};
 
-    fn runtime_config(
+    pub(super) fn runtime_config(
         handshake_timeout: Option<Duration>,
         rawsocket_exponent: u32,
     ) -> EndpointRuntimeConfig {

@@ -16,11 +16,11 @@ narrow fix does not complete this plan.
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
 | Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | Pending |
-| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation and SA-009 response completion are locally regression-verified; broader framing/lifetime review, finite ID availability and performance confirmation pending |
+| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation, SA-009 response completion and SA-010 HTTP/1 request framing are locally regression-verified; broader framing/lifetime review, finite ID availability and earlier performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
 | Router authorization and state | Realm/role boundaries, RPC/pubsub/meta, pattern grants, dynamic authorization races, worker isolation | Pending; previous Meta fix is baseline only |
-| HTTP and MCP | Origins, redirects, HTTP auth grants, sessions/SSE, tool/resource access, request smuggling, file/proxy routes and SSRF | SA-009 response completion locally verified; paused producers, ambiguous framing and other boundary review pending |
+| HTTP and MCP | Origins, redirects, HTTP auth grants, sessions/SSE, tool/resource access, request smuggling, file/proxy routes and SSRF | SA-009 response completion and SA-010 ambiguous request framing are locally verified; SA-010 affected-path performance is cleared, while paused producers, deployment-specific proxy differentials and other boundaries remain pending |
 | Payload cryptography | Key/nonce lifetime, replay/context binding, authenticated metadata, E2EE parity and file integrity | SA-007 native provider restart key confusion reproduced and locally fixed for both ciphers; broader cryptography review pending |
 | Consumer application | Account/device trust, encrypted storage/backup, attachments, push, WebRTC, MCP consent, native/web boundaries | Pending |
 | Packaging and dependencies | All Dart/Rust lockfiles, advisories and reachability, native download verification, CLI/config secrets, workflows and publishing | SA-002: transport and benchmark scans now have zero published vulnerabilities; transport maintenance warnings and other coverage pending |
@@ -491,10 +491,62 @@ scope, including code excluded from the root workspace gates.
 - Response completion tests do not establish timely delivery while a long-lived
   producer is paused mid-response. Review that separate SSE/streaming boundary
   with a deterministic producer-stall test and sustained-throughput evidence.
-- Read-only HTTP framing lead: the native parser's exact `chunked` comparison
-  needs malformed/list/repeated Transfer-Encoding and CL+TE differential tests
-  against [RFC 9112 section 6.3](https://www.rfc-editor.org/rfc/rfc9112.html#section-6.3).
-  No request-smuggling exploit or parser fix is claimed without reproduction.
+- The HTTP framing lead is resolved as SA-010 below with malformed/list/repeated
+  Transfer-Encoding, CL+TE and real TCP/TLS fail-first evidence. This SA-009
+  checkpoint alone still makes no request-framing claim.
+
+## SA-010 HTTP/1 Request Framing (2026-09-11)
+
+- Confirmed that transfer-coding lists and repeated fields bypass the old exact
+  `chunked` check while `Content-Length` frames the request. A gzip, chunked body
+  containing an embedded request is dispatched as `/outer` and `/inside-body`
+  over parser, real TCP and generated TLS initial/keep-alive cases. The confirmed
+  before suite has six passes and 17 failures. This is a deployment-dependent
+  backend smuggling primitive, not a demonstrated named-proxy authorization
+  bypass or direct-client privilege escalation.
+- Request framing is now classified once. CL+TE, HTTP/1.0 transfer coding,
+  empty/unknown lists, non-final or repeated chunked and parameterized chunked
+  fail 400; valid final chunked fails 501 because request decoding remains
+  unsupported. No case falls back to CL or an empty body. Content-Length is
+  strict ASCII digits after SP/HTAB trimming, with overflow, signs, non-ASCII
+  whitespace and ambiguous duplicates rejected. Malformed keep-alive reads get
+  a generic mapped response and close.
+- The first after run exposed an accidental compile break from removing a shared
+  WebSocket helper and is retained as failure. Corrected confirmation passes 23
+  tests and the expanded suite passes 28. A review-added form-feed length case
+  then fails first because an httparse error is not mapped to a 400 response;
+  generic request-error mapping fixes it. The final focused suite passes all 29,
+  including ordinary gzip body handling and complete draining of an ignored
+  body larger than the 64 KiB inline threshold before a legitimate next TCP/TLS
+  request. Final production release build and fresh full `bin/verify` pass with
+  526 router passes (one skip), 11 remote-auth, 13 native-router integration and
+  browser gates. No retry, timeout, framing policy or performance threshold
+  changed.
+- The primary frozen ABBAAB comparison passes 24,288 measured requests and 1,248
+  warmups with no strict findings: serial +2.01%, streaming +0.51%, and a retained
+  short fresh-connection signal of -5.24%. A longer attempt preserves one 8,192-
+  request baseline and stops its candidate on OS ephemeral-port exhaustion; the
+  failed entry was not rerun. The host's 15-second MSL and 16,384-port range
+  explain that harness ceiling.
+- A distinct reverse-order campaign waits 35 seconds before every position and
+  completes all 49,152 measured fresh connections plus 768 warmups. Candidate
+  throughput is -0.25% with overlapping roughly 2.4-2.5% ranges; setup-inclusive
+  p50/p99 are slightly lower, mean operation time +0.30%, and median server RSS
+  slightly lower. No material affected-path regression is reproduced. This
+  clears SA-010 valid-path performance only; earlier negative comparisons and
+  audit-wide performance work remain open.
+- The measured candidate is `6ca3966f`; final candidate `1a6d317f` changes only
+  malformed httparse error classification and its regression. Two immutable
+  final-binary campaigns each retain 31 preflight snapshots and stop before any
+  warmup or measurement because unrelated inference remains above the unchanged
+  quiet-host threshold. Direct final-binary timing remains pending; no external
+  process or threshold was changed to manufacture a result.
+- Evidence is
+  `docs/security/2026-09-11-http1-request-framing-benchmarks.json` (SHA-256
+  `1f450bbec6c95e3f380d4bf1cc0ad514b60a5401bd52158d0cc865ea98f59e73`).
+  Keep the checkpoint local. Request chunked compatibility, paused SSE producer
+  delivery, direct final-binary timing, deployment-specific proxy differential
+  testing and every remaining component row still require review.
 
 ## Related Plans
 
@@ -503,6 +555,13 @@ The Meta-discovery and coverage-CI fixes remain merged baseline work, not eviden
 that this audit's other surfaces have been reviewed.
 
 ## Next Implementation Slice
+
+The immediate HTTP follow-up is deterministic paused-producer coverage: prove
+whether a long-lived HTTP/1 SSE/chunked response becomes readable before the
+producer completes, then preserve sustained-throughput evidence for any fix.
+Do not infer intermediate delivery from the SA-009 completion flush or SA-010
+request-boundary tests. Continue the remaining component matrix after that
+bounded slice rather than repeating already-cleared framing benchmarks.
 
 SA-003 authentication-only hardening is locally verified, not published. Six
 fail-first direct-service lifecycle regressions were reproduced on `1bc60ef1`.

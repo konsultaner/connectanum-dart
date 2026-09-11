@@ -342,6 +342,45 @@ framing with fail-first tests before making any further security claims.
 Earlier retry root causes are not retrospectively proven, and all previous
 performance questions stay open.
 
+SA-010 confirms and fixes ambiguous HTTP/1 request framing. Before the fix,
+non-exact or repeated `Transfer-Encoding` fields could coexist with
+`Content-Length`; a gzip, chunked body containing an embedded request was then
+dispatched as two requests over parser, real TCP and generated TLS initial and
+keep-alive cases. The confirmed before suite has six passes and 17 failures.
+The parser now combines transfer-coding fields, rejects CL+TE and invalid coding
+orders, rejects unsupported final chunked requests with 501 without boundary
+fallback, and accepts Content-Length only as strict ASCII digits. Malformed
+keep-alive requests receive a generic mapped response and connection close. The
+first after run failed to compile after accidentally removing a shared
+WebSocket helper and is retained as failure; corrected confirmation passes 23
+tests and an expanded suite passes 28. A final-review form-feed length case then
+fails first because its httparse rejection is not mapped to a 400 response;
+generic malformed-request mapping fixes it and the final focused suite passes
+all 29. Coverage includes ordinary gzip bodies and complete draining of an
+ignored body larger than the 64 KiB inline limit. The final production release
+build and fresh full `bin/verify` pass with 526 router passes and one skip, 11
+remote-auth, 13 native-router integration and browser gates. The primary
+24,288-request ABBAAB comparison reports serial +2.01%,
+streaming +0.51% and a retained short fresh-connection signal of -5.24%. A
+longer follow-up stops once on `EADDRNOTAVAIL` after an 8,192-request baseline;
+that failed candidate entry is retained and not rerun. A separate reverse-order
+campaign uses a 35-second two-MSL cooldown and completes 49,152 measured fresh
+connections plus 768 warmups with no errors or connection findings. Its median
+throughput delta is -0.25% inside overlapping roughly 2.4-2.5% ranges;
+setup-inclusive p50/p99 and median server RSS are slightly lower. No material
+SA-010 valid-path regression is reproduced. Those successful comparisons use
+candidate `6ca3966f`; final candidate `1a6d317f` changes only malformed httparse
+error classification. Two final-binary attempts retain 31 quiet-host snapshots
+each and stop before any timing because unrelated inference remains above the
+unchanged threshold. Direct final-binary timing therefore remains pending, and
+this scoped clearance does not resolve earlier performance findings or complete
+the audit. Evidence is
+`docs/security/2026-09-11-http1-request-framing-benchmarks.json` (SHA-256
+`1f450bbec6c95e3f380d4bf1cc0ad514b60a5401bd52158d0cc865ea98f59e73`).
+Keep this checkpoint local. Next inspect paused HTTP/1 SSE producer delivery;
+request chunked compatibility, direct final-binary timing, proxy-specific
+differential tests and every remaining component row stay open.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

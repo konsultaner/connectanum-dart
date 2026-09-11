@@ -1563,6 +1563,111 @@ and HTTP/1 transfer-coding framing separately: these completion tests do not
 prove timely intermediate SSE delivery or safe handling of ambiguous requests.
 Keep this checkpoint local; the full component audit is not release-cleared.
 
+### SA-010: Ambiguous HTTP/1 Request Framing Can Expose Body Bytes as a Request
+
+**Impact: deployment-dependent request-boundary confusion and smuggling
+primitive; locally fixed, regression-verified and performance-cleared for the
+affected valid HTTP/1 paths.**
+
+The old parser rejected only a `Transfer-Encoding` field whose complete value
+equaled `chunked`. A request containing a transfer-coding list or repeated
+field could therefore retain a `Content-Length`, be framed by that length, and
+leave encoded body bytes for the keep-alive parser to interpret as another
+request. A live regression uses a gzip, chunked body containing an embedded
+`GET /inside-body` request. Before the fix, parser controls and real TCP/TLS
+initial and keep-alive cases dispatch both `/outer` and `/inside-body`.
+
+This is a backend request-smuggling primitive when a frontend accepts and
+forwards conflicting framing unchanged and disagrees about the boundary. No
+specific intermediary, cross-user request, authorization bypass, credential
+disclosure or remote-code execution was demonstrated. A direct client can
+already send multiple requests, and normal per-request authorization still
+applies. Severity is therefore deployment-dependent medium rather than a claim
+of a proven end-to-end proxy exploit.
+
+The fix centralizes HTTP/1 request framing in `parse_http_request`. Repeated
+`Transfer-Encoding` fields form one ordered coding list. Requests with both
+`Transfer-Encoding` and `Content-Length`, HTTP/1.0 transfer coding, an empty or
+unknown coding list, non-final or repeated `chunked`, or parameterized
+`chunked` fail with 400 and close. A valid list ending in `chunked` fails with
+501 because request chunked decoding is not implemented; it never falls back
+to a length or empty body. `Content-Length` accepts only nonempty ASCII digits
+after ASCII SP/HTAB trimming, rejects signs, non-ASCII whitespace and overflow,
+and rejects conflicting or comma-joined duplicates. Equal separate duplicate
+fields remain accepted. These choices follow
+[RFC 9112 section 6.3](https://www.rfc-editor.org/rfc/rfc9112.html#section-6.3)
+and the reject-or-normalize allowance in
+[RFC 9110 section 8.6](https://www.rfc-editor.org/rfc/rfc9110.html#section-8.6).
+Safe 501 rejection is not a claim of complete HTTP/1 request-transfer decoding.
+
+Malformed keep-alive reads now receive a generic mapped 400, 413 or 501 and
+connection close. The failing parser does not return a trusted version for the
+later request, so that error uses the connection's initial HTTP version. This
+does not reflect attacker-controlled details and does not permit reuse after an
+ambiguous boundary. Ordinary `Content-Encoding: gzip` remains an opaque
+Content-Length body. A separate real TCP/TLS regression proves an ignored body
+larger than the 64 KiB inline threshold is fully drained before the legitimate
+next pipelined request is dispatched.
+
+**Fail-first and verification:** the confirmed before suite has six passes and
+17 assertion failures. An initial after run failed to compile because the
+shared WebSocket `header_equals` helper was accidentally removed; it was
+restored and that run is not counted as evidence. The first corrected suite
+passes 23 tests and the expanded suite passes 28. Final review added a
+form-feed `Content-Length` case which failed first because httparse's private
+error text was not classified for a 400 response. Mapping all httparse request
+rejections to one generic error class produces the intended fail-closed 400
+and the final focused suite passes all 29 parser and real TCP/TLS tests. These
+cover split/list/empty coding forms, duplicate lengths, gzip body control and
+streamed-body draining. An independent gzip probe expands 69 bytes to the exact
+46-byte fixture with the embedded request at offset 15. The final production
+release build and fresh full `bin/verify` pass; the latter includes 526 router
+passes and one explicit skip, 11 remote-auth and 13 native-router integration
+cases, plus six SCRAM and two WebSocket Chrome/Dart2Wasm tests. No timeout,
+retry, framing rule or performance threshold was relaxed.
+
+**Performance:** a frozen native-only ABBAAB comparison completes 24,288
+measured requests and 1,248 warmups with exact connection counts and no selected
+transport-counter findings. HTTP/1 serial changes from 0.006649 to 0.006783
+GBit/s (+2.01%); sustained 256 KiB request / 1 MiB response streaming changes
+from 9.107 to 9.154 GBit/s (+0.51%). The short fresh-connection lane reports an
+unfavorable -5.24% median and is retained rather than discarded.
+
+An eight-times-longer fresh-connection investigation first completes 8,192
+baseline requests, then stops the first candidate process with
+`EADDRNOTAVAIL`. The host exposes 16,384 ephemeral ports and a 15-second TCP
+MSL; the back-to-back phases each require 8,320 tuples before a two-MSL lifetime
+can expire. That failed entry is retained and was not rerun. A distinct
+reverse-order campaign waits 35 seconds before every position. All six
+positions then complete 49,152 measured fresh connections plus 768 warmups with
+zero errors or connection findings, including the candidate in the first
+position. Median lifecycle throughput is 0.025906 versus 0.025841 GBit/s
+(-0.25%), inside overlapping roughly 2.4-2.5% run ranges. Setup-inclusive
+operation p50 changes 5.188 to 5.177 ms and p99 7.659 to 7.575 ms; mean changes
+5.051 to 5.066 ms. Median server RSS is 105.73 versus 105.02 MiB. No material
+throughput, latency, memory or reliability regression is reproduced for the
+valid request paths in this fix.
+
+Those successful comparisons use candidate `6ca3966f`. The final candidate
+`1a6d317f` changes only the malformed httparse rejection branch and its test;
+the valid request paths timed above are unchanged. Two immutable attempts to
+time that exact final binary retained 31 quiet-host snapshots each and stopped
+before warmup or measurement because unrelated local-model inference remained
+between 141.2%-1944.2% and 155.9%-1567.7% CPU. No external process was stopped
+and the load threshold was not weakened. Direct final-binary timing remains
+pending, so this is scoped SA-010 valid-path clearance rather than proof of
+identical timing or clearance for earlier findings.
+
+Evidence: [HTTP/1 framing regressions and retained performance campaigns](2026-09-11-http1-request-framing-benchmarks.json)
+(SHA-256 `1f450bbec6c95e3f380d4bf1cc0ad514b60a5401bd52158d0cc865ea98f59e73`).
+The report retains the first negative comparison, port-saturation failure,
+controlled confirmation, both final-binary preflight stops, frozen binaries,
+source fingerprints, review attempts and shared-host CPU caveats. No version,
+release or remote branch changes at this checkpoint. Paused long-lived SSE
+producer delivery, request chunked compatibility, direct final-binary timing,
+deployment-specific proxy differential tests, earlier performance findings and
+all unreviewed component rows remain open.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and
