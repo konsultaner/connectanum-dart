@@ -2170,6 +2170,11 @@ void _validateCompleteMsgPackValue(Uint8List bytes) {
 }
 
 int? _skipMsgPackArray(Uint8List bytes, int offset, int length) {
+  if (length > bytes.length - offset) {
+    throw const FormatException(
+      'MessagePack collection length exceeds available bytes',
+    );
+  }
   var current = offset;
   for (var index = 0; index < length; index++) {
     final next = _skipMsgPackValue(bytes, current);
@@ -2182,6 +2187,11 @@ int? _skipMsgPackArray(Uint8List bytes, int offset, int length) {
 }
 
 int? _skipMsgPackMap(Uint8List bytes, int offset, int length) {
+  if (length > (bytes.length - offset) ~/ 2) {
+    throw const FormatException(
+      'MessagePack collection length exceeds available bytes',
+    );
+  }
   var current = offset;
   for (var index = 0; index < length; index++) {
     final nextKey = _skipMsgPackValue(bytes, current);
@@ -2206,6 +2216,11 @@ int? _skipDepthLimitedMsgPackArray(
   if (length == 0) {
     return offset;
   }
+  if (length > bytes.length - offset) {
+    throw const FormatException(
+      'MessagePack collection length exceeds available bytes',
+    );
+  }
   final depth = enterSerializerContainer(parentDepth);
   var current = offset;
   for (var index = 0; index < length; index++) {
@@ -2226,6 +2241,11 @@ int? _skipDepthLimitedMsgPackMap(
 ) {
   if (length == 0) {
     return offset;
+  }
+  if (length > (bytes.length - offset) ~/ 2) {
+    throw const FormatException(
+      'MessagePack collection length exceeds available bytes',
+    );
   }
   final depth = enterSerializerContainer(parentDepth);
   var current = offset;

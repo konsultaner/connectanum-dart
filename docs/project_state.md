@@ -437,6 +437,34 @@ six isolated runs and a fresh complete `bin/verify` exited zero. Continue
 decoded collection amplification, optional numeric strictness, short-array
 normalization, and all other component rows. Nothing is pushed or published.
 
+SA-013 reproduces decoded collection amplification in the MessagePack path. A
+9-byte WAMP `RESULT` declaring a nested array32 of 1,000,000 items falls through
+the frozen scanner into `msgpack_dart`, which allocates a fixed-length list
+before reading elements. The frozen AOT probe grows max RSS from 14,565,376 to
+22,593,536 bytes and raises `RangeError`. MessagePack ordinary and depth-limited
+array/map scans now reject declarations that cannot fit in the remaining frame;
+definite CBOR scans use the same lower bound even though the reviewed CBOR
+dependency grows collections incrementally. No arbitrary item cap is added, so
+valid wire compatibility remains governed by frame and depth limits. The
+candidate probe rejects before allocation with payload-free `FormatException`.
+
+Ten focused and all 193 serializer tests pass, core analysis is clean, and
+`git diff --check` passes. The first implementation caused a repeatable CBOR
+`array_1024` slowdown (-4.46% complete, -3.83% focused with non-overlapping
+ranges) and was not accepted. Outlining exception construction from the hot
+recursive scanner recovered the focused path. The final fresh ABBAAB campaign
+completes 313,030,914 measured deserializations plus 825,186 warmups across 16
+scenarios. Every slower range overlaps baseline, the largest negative median is
+-2.07%, and median max RSS is unchanged. MessagePack array/map medians are
++7.72%/+8.90%; treat them as host observations, not universal throughput
+claims. Evidence is
+`docs/security/2026-09-11-serializer-collection-allocation-benchmarks.json`.
+Final repository-wide `bin/verify` exits zero, including native, Dart,
+package-consumer, router/MCP, and Chrome Dart2Wasm coverage.
+Keep this checkpoint local and unpublished. Next inspect optional numeric
+strictness, malformed short-array normalization, and lazy-payload consistency;
+the complete component audit remains active.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

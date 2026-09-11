@@ -219,6 +219,82 @@ void main() {
       );
     });
 
+    test('reject impossible nested collection lengths before decoding', () {
+      for (final frame in <Uint8List>[
+        Uint8List.fromList(const [
+          0x94,
+          0x32,
+          0x01,
+          0x80,
+          0xdd,
+          0x00,
+          0x0f,
+          0x42,
+          0x40,
+        ]),
+        Uint8List.fromList(const [
+          0x94,
+          0x32,
+          0x01,
+          0x80,
+          0xdf,
+          0x00,
+          0x0f,
+          0x42,
+          0x40,
+        ]),
+      ]) {
+        expect(
+          () => msgpack_serializer.Serializer().deserialize(frame),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('collection length exceeds available bytes'),
+            ),
+          ),
+        );
+      }
+
+      for (final frame in <Uint8List>[
+        Uint8List.fromList(const [
+          0x84,
+          0x18,
+          0x32,
+          0x01,
+          0xa0,
+          0x9a,
+          0x00,
+          0x0f,
+          0x42,
+          0x40,
+        ]),
+        Uint8List.fromList(const [
+          0x84,
+          0x18,
+          0x32,
+          0x01,
+          0xa0,
+          0xba,
+          0x00,
+          0x0f,
+          0x42,
+          0x40,
+        ]),
+      ]) {
+        expect(
+          () => cbor_serializer.Serializer().deserialize(frame),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('collection length exceeds available bytes'),
+            ),
+          ),
+        );
+      }
+    });
+
     test('reject floating-point values in WAMP integer fields', () {
       expect(
         () => msgpack_serializer.Serializer().deserialize(

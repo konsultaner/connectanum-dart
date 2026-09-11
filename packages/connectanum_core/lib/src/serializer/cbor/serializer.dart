@@ -2384,6 +2384,13 @@ void _validateCompleteCborValue(Uint8List bytes) {
   }
 }
 
+@pragma('vm:never-inline')
+Never _throwCborCollectionLength() {
+  throw const FormatException(
+    'CBOR collection length exceeds available bytes',
+  );
+}
+
 int? _skipDefiniteCborArray(
   Uint8List bytes,
   int offset,
@@ -2392,6 +2399,9 @@ int? _skipDefiniteCborArray(
 ) {
   if (length == 0) {
     return offset;
+  }
+  if (length > bytes.length - offset) {
+    _throwCborCollectionLength();
   }
   final depth = enterSerializerContainer(parentDepth);
   var current = offset;
@@ -2413,6 +2423,9 @@ int? _skipDefiniteCborMap(
 ) {
   if (length == 0) {
     return offset;
+  }
+  if (length > (bytes.length - offset) ~/ 2) {
+    _throwCborCollectionLength();
   }
   final depth = enterSerializerContainer(parentDepth);
   var current = offset;

@@ -15,7 +15,7 @@ narrow fix does not complete this plan.
 
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
-| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening is locally regression/performance-verified; collection allocation, optional numeric strictness, short-array normalization and broader protocol review remain pending |
+| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening and SA-013 declared-collection allocation hardening are locally regression/performance-verified; optional numeric strictness, short-array normalization, lazy-payload consistency and broader protocol review remain pending |
 | Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation, SA-009 response completion, SA-010 HTTP/1 request framing and SA-011 paused-producer delivery are locally regression-verified; broader framing/lifetime review, finite ID availability and earlier performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
@@ -630,6 +630,42 @@ scope, including code excluded from the root workspace gates.
   normalization, and every remaining component row rather than closing the
   audit.
 
+## SA-013 Serializer Collection Allocation Boundaries (2026-09-11)
+
+- A fail-first 9-byte MessagePack WAMP `RESULT` declaring a nested array32 of
+  1,000,000 items reaches `msgpack_dart` and allocates its fixed-length list
+  before discovering that item bytes are absent. The frozen AOT probe grows
+  max RSS from 14,565,376 to 22,593,536 bytes and raises `RangeError`.
+  `cbor` 6.5.1 builds collections incrementally, but impossible CBOR
+  declarations are covered by the same early scanner invariant.
+- MessagePack ordinary and depth-limited array/map scanners now reject a
+  declared cardinality that cannot fit in the remaining frame: at least one
+  byte per array item and two bytes per map entry. Definite CBOR scanners apply
+  the same encoding lower bound. This introduces no arbitrary item cap, so
+  valid collections remain bounded only by transport size and existing depth
+  limits. Errors are payload-free `FormatException`s.
+- The candidate AOT probe rejects the same MessagePack frame in 14 microseconds
+  without increasing its 14,614,528-byte RSS. Ten focused tests, all 193
+  serializer tests, core analysis, artifact validation, and `git diff --check`
+  pass.
+- The first complete implementation put CBOR exception construction in the hot
+  recursive scanner. Its `array_1024` median was 4.46% lower with
+  non-overlapping ranges, and a focused ABBAAB rerun confirmed 3.83% lower, so
+  it was rejected. Outlining that cold path recovered the focused scenario to
+  +1.53% with overlapping ranges while preserving fail-closed behavior.
+- The final fresh ABBAAB campaign completes 313,030,914 measured
+  deserializations plus 825,186 warmups across 16 scenarios. Every slower range
+  overlaps baseline, the largest negative median is -2.07%, and median max RSS
+  is identical. MessagePack 1,024-item arrays and 512-entry maps measure +7.72%
+  and +8.90%; retain these as host observations rather than universal claims.
+  Evidence is
+  `docs/security/2026-09-11-serializer-collection-allocation-benchmarks.json`.
+  Final repository-wide `bin/verify` exits zero, including native, Dart,
+  package-consumer, router/MCP, and Chrome Dart2Wasm coverage.
+  Keep this checkpoint local and unpublished. Continue optional numeric
+  strictness, malformed short-array normalization, lazy-payload consistency,
+  and every remaining component row rather than closing the audit.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.
@@ -638,13 +674,13 @@ that this audit's other surfaces have been reviewed.
 
 ## Next Implementation Slice
 
-SA-011 completes the bounded paused-producer slice with deterministic TLS
-delivery tests and frozen affected-path performance evidence. Continue the
-remaining component matrix rather than repeating SA-009/010/011 HTTP/1 response
-benchmarks. The next bounded review should inspect the core protocol and
-serializer row for attacker-controlled nesting, collection size, integer and
-lazy-payload inconsistencies across JSON, MessagePack and CBOR, with fail-first
-resource-bound tests before any behavior change.
+SA-013 closes the confirmed declared-collection allocation amplification path
+without imposing a compatibility-breaking item cap and with final AOT
+performance evidence. Continue the remaining component matrix rather than
+repeating SA-012/013 serializer resource benchmarks. The next bounded core
+review should inspect optional numeric strictness, malformed short-array
+normalization, and lazy-payload consistency across JSON, MessagePack, and CBOR,
+with fail-first protocol tests before any behavior change.
 
 SA-003 authentication-only hardening is locally verified, not published. Six
 fail-first direct-service lifecycle regressions were reproduced on `1bc60ef1`.

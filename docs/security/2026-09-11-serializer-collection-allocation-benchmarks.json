@@ -1,0 +1,295 @@
+{
+  "date": "2026-09-11",
+  "finding": "SA-013",
+  "title": "Serializer declared-collection allocation amplification",
+  "audit_complete": false,
+  "published": false,
+  "baseline_source": "7f50453454e2ed7b539744f744faf288ae3781b8",
+  "threat_model": {
+    "attacker": "An unauthenticated or authenticated peer able to submit a binary WAMP frame accepted by a MessagePack or CBOR transport.",
+    "precondition": "The frame reaches Connectanum's binary serializer before higher-level authorization can reject its message semantics.",
+    "impact": "A tiny MessagePack frame can declare a very large nested array. Scanner fallback previously passed it to msgpack_dart, which allocates the declared fixed-length list before proving that item bytes exist. Repeated or larger declarations can amplify memory and garbage-collection pressure or terminate decoding with an implementation exception.",
+    "severity": "medium",
+    "scope": "MessagePack and CBOR definite array/map declarations in WAMP and PPT value scans. JSON has no declared collection length and is unaffected by this finding."
+  },
+  "dependency_review": {
+    "msgpack_dart_1_0_1": "Deserializer._readArray creates List<dynamic>.filled(length, null, growable: false) before reading elements. Array16 and array32 feed attacker-controlled lengths to this method.",
+    "cbor_6_5_1": "Array and map builders start with empty growable lists and append decoded values. The reviewed decoder does not reserve the declared cardinality up front, but Connectanum still rejects declarations that cannot fit in the supplied frame before fallback decoding.",
+    "wire_lower_bounds": {
+      "array": "Every encoded array item occupies at least one byte, so a declared item count greater than the remaining byte count is impossible.",
+      "map": "Every encoded map entry contains a key and value of at least one byte each, so a declared entry count greater than half the remaining byte count is impossible."
+    }
+  },
+  "fix": {
+    "messagepack": "Ordinary and depth-limited array/map scanners reject impossible declared cardinalities before returning control to msgpack_dart.",
+    "cbor": "Definite array/map scanners apply the same encoding lower bound. The exception path is outlined with vm:never-inline so valid recursive scanning retains its prior AOT hot-path layout.",
+    "compatibility": "No arbitrary collection-item cap is introduced. Any collection whose declaration can fit in the transport frame remains accepted and is still governed by transport frame limits and the existing nesting boundary.",
+    "error_contract": "Impossible declarations fail closed with FormatException and a serializer-specific, payload-free length message."
+  },
+  "correctness": {
+    "fail_first": {
+      "messagepack_array32": "A 9-byte WAMP RESULT declaring 1,000,000 nested array items reached msgpack_dart and raised RangeError after fixed-list allocation.",
+      "baseline_aot_probe": {
+        "elapsed_us": 1557,
+        "rss_before_bytes": 14565376,
+        "rss_after_bytes": 22593536,
+        "max_rss_bytes": 22593536,
+        "log_sha256": "a7fd3dbfbe2ab8a291b57b4e5f07757ec8e0c1bd2a523ac43c9e0ef062fae375"
+      }
+    },
+    "post_fix": {
+      "messagepack_array32": "The same 9-byte frame is rejected by the Connectanum scanner with FormatException before third-party allocation.",
+      "candidate_aot_probe": {
+        "elapsed_us": 14,
+        "rss_before_bytes": 14614528,
+        "rss_after_bytes": 14614528,
+        "max_rss_bytes": 14614528,
+        "log_sha256": "f0e25e3b8585c5a5ee22ee926fc6b8803ed7d4b396eae197eb13eb76f5288576"
+      },
+      "focused_tests": {
+        "tests_passed": 10,
+        "tests_failed": 0,
+        "coverage": [
+          "MessagePack array32 and map32 declarations of 1,000,000 items in tiny WAMP frames",
+          "CBOR four-byte array and map declarations of 1,000,000 items in tiny WAMP frames",
+          "Scanner-specific FormatException messages proving rejection before decoder fallback"
+        ]
+      },
+      "serializer_suite": {
+        "tests_passed": 193,
+        "tests_failed": 0,
+        "log_sha256": "4abd255e1148d2133a9831462103f4eeb8c111bdf074112d47e5a8b2f92db5b2"
+      },
+      "analysis": {
+        "result": "No issues found in packages/connectanum_core.",
+        "log_sha256": "7d731b450133e00767da19b5bc66f1c050b58b2426e7e6e7e06dbd754f9b7555"
+      },
+      "diff_check": "passed"
+    }
+  },
+  "performance": {
+    "methodology": {
+      "runtime": "AOT executable",
+      "order": [
+        "candidate",
+        "baseline",
+        "baseline",
+        "candidate",
+        "candidate",
+        "baseline"
+      ],
+      "processes_per_variant": 3,
+      "samples_per_process_and_scenario": 7,
+      "samples_per_variant_and_scenario": 21,
+      "scenarios_per_process": 16,
+      "measured_deserializations": 313030914,
+      "warmup_deserializations": 825186,
+      "primary_metric": "application payload GBit/s during deserialization",
+      "gbit_definition": "Encoded frame bytes multiplied by completed deserializations and eight, divided by measured loop time and 1e9; this is an in-memory parser rate, not network wire bandwidth.",
+      "material_regression_percent": -5.0,
+      "investigation_rule": "Investigate a candidate median below -5%, or any slower candidate range that does not overlap baseline.",
+      "correctness_rule": "Every sample must return a message for every iteration and each checksum must equal warmups plus seven measured rounds.",
+      "host": "Apple M3 Ultra, 32 cores, 512 GB memory, macOS 26.6.2 arm64, Dart 3.13.1. Timed baseline and candidate processes ran serially; unrelated shared-host work was not controlled."
+    },
+    "results": {
+      "cbor_array_1024": {
+        "frame_bytes": 2800,
+        "baseline_median_gbit_s": 1.2863805015736325,
+        "baseline_range_gbit_s": [1.256364178859981, 1.3004752033709341],
+        "candidate_median_gbit_s": 1.2984818251958488,
+        "candidate_range_gbit_s": [1.2777414761824577, 1.3144894251533952],
+        "delta_percent": 0.9407266051850716,
+        "ranges_overlap": true
+      },
+      "cbor_control": {
+        "frame_bytes": 5,
+        "baseline_median_gbit_s": 0.04655076302519444,
+        "baseline_range_gbit_s": [0.045832454877948174, 0.04714885009848215],
+        "candidate_median_gbit_s": 0.04669356994521677,
+        "candidate_range_gbit_s": [0.04573963854250642, 0.04716908820973263],
+        "delta_percent": 0.30677675454007236,
+        "ranges_overlap": true
+      },
+      "cbor_indefinite_control": {
+        "frame_bytes": 8,
+        "baseline_median_gbit_s": 0.06646981906707532,
+        "baseline_range_gbit_s": [0.06509509477947512, 0.06697482060689652],
+        "candidate_median_gbit_s": 0.06594260314608039,
+        "candidate_range_gbit_s": [0.065434922413608, 0.06641236266130941],
+        "delta_percent": -0.7931658734664393,
+        "ranges_overlap": true
+      },
+      "cbor_map_512": {
+        "frame_bytes": 5250,
+        "baseline_median_gbit_s": 3.9658057152987842,
+        "baseline_range_gbit_s": [3.901784043359213, 4.022876967921291],
+        "candidate_median_gbit_s": 3.950136302934652,
+        "candidate_range_gbit_s": [3.8835509789985947, 4.032220813969864],
+        "delta_percent": -0.39511296036728316,
+        "ranges_overlap": true
+      },
+      "cbor_nested_16": {
+        "frame_bytes": 23,
+        "baseline_median_gbit_s": 0.16692279639229035,
+        "baseline_range_gbit_s": [0.1649666435653595, 0.16875454559628594],
+        "candidate_median_gbit_s": 0.16868260717304454,
+        "candidate_range_gbit_s": [0.166515385026104, 0.1706120708040094],
+        "delta_percent": 1.0542662948315407,
+        "ranges_overlap": true
+      },
+      "cbor_structured_16k": {
+        "frame_bytes": 16399,
+        "baseline_median_gbit_s": 134.9344547910776,
+        "baseline_range_gbit_s": [122.31485151221734, 139.66453225806453],
+        "candidate_median_gbit_s": 137.3245842179307,
+        "candidate_range_gbit_s": [131.55365400637098, 141.16097074870174],
+        "delta_percent": 1.7713262565545618,
+        "ranges_overlap": true
+      },
+      "json_array_1024": {
+        "frame_bytes": 4023,
+        "baseline_median_gbit_s": 1.3700251296194577,
+        "baseline_range_gbit_s": [1.3534936575785728, 1.3912974803483236],
+        "candidate_median_gbit_s": 1.3702926363303973,
+        "candidate_range_gbit_s": [1.3488484889597394, 1.3916527175909996],
+        "delta_percent": 0.019525679139476004,
+        "ranges_overlap": true
+      },
+      "json_control": {
+        "frame_bytes": 9,
+        "baseline_median_gbit_s": 0.31144293240823245,
+        "baseline_range_gbit_s": [0.3006878233960184, 0.314026517794836],
+        "candidate_median_gbit_s": 0.3096734235687281,
+        "candidate_range_gbit_s": [0.28197034611859983, 0.3147430909520105],
+        "delta_percent": -0.5681647118531807,
+        "ranges_overlap": true
+      },
+      "json_map_512": {
+        "frame_bytes": 6961,
+        "baseline_median_gbit_s": 1.4181012542370866,
+        "baseline_range_gbit_s": [1.4042002644350546, 1.439692260040748],
+        "candidate_median_gbit_s": 1.3887077037091646,
+        "candidate_range_gbit_s": [1.3668424182863428, 1.4062683358556274],
+        "delta_percent": -2.072739900631082,
+        "ranges_overlap": true
+      },
+      "json_nested_16": {
+        "frame_bytes": 48,
+        "baseline_median_gbit_s": 0.35572617236785786,
+        "baseline_range_gbit_s": [0.3465769658089188, 0.3598025583461075],
+        "candidate_median_gbit_s": 0.3589123833184254,
+        "candidate_range_gbit_s": [0.3546141862297032, 0.3615836232750625],
+        "delta_percent": 0.8956920232657595,
+        "ranges_overlap": true
+      },
+      "json_structured_16k": {
+        "frame_bytes": 16407,
+        "baseline_median_gbit_s": 5.732145206839669,
+        "baseline_range_gbit_s": [5.679134213971201, 5.793335552671974],
+        "candidate_median_gbit_s": 5.73985170058936,
+        "candidate_range_gbit_s": [5.648838566614847, 5.810625675770743],
+        "delta_percent": 0.13444344955697574,
+        "ranges_overlap": true
+      },
+      "msgpack_array_1024": {
+        "frame_bytes": 2696,
+        "baseline_median_gbit_s": 5.67893244197393,
+        "baseline_range_gbit_s": [5.617050400847468, 5.715935342200313],
+        "candidate_median_gbit_s": 6.117208149127205,
+        "candidate_range_gbit_s": [6.015306941398252, 6.170377420402206],
+        "delta_percent": 7.717572125244998,
+        "ranges_overlap": false
+      },
+      "msgpack_control": {
+        "frame_bytes": 4,
+        "baseline_median_gbit_s": 0.15911294532978645,
+        "baseline_range_gbit_s": [0.15334703872491937, 0.16250996643153506],
+        "candidate_median_gbit_s": 0.1593554073771594,
+        "candidate_range_gbit_s": [0.15360614424576982, 0.1615084892899683],
+        "delta_percent": 0.15238360830440723,
+        "ranges_overlap": true
+      },
+      "msgpack_map_512": {
+        "frame_bytes": 5146,
+        "baseline_median_gbit_s": 12.12410871602624,
+        "baseline_range_gbit_s": [11.88752862765504, 12.352223363684994],
+        "candidate_median_gbit_s": 13.20262389258114,
+        "candidate_range_gbit_s": [12.833140412104987, 13.484156953854463],
+        "delta_percent": 8.895624427462167,
+        "ranges_overlap": false
+      },
+      "msgpack_nested_16": {
+        "frame_bytes": 22,
+        "baseline_median_gbit_s": 0.5396985047898243,
+        "baseline_range_gbit_s": [0.524793511643856, 0.5518608056540648],
+        "candidate_median_gbit_s": 0.5351984187319446,
+        "candidate_range_gbit_s": [0.5157146457098988, 0.5421022478762529],
+        "delta_percent": -0.8338148091835307,
+        "ranges_overlap": true
+      },
+      "msgpack_structured_16k": {
+        "frame_bytes": 16398,
+        "baseline_median_gbit_s": 447.671894934334,
+        "baseline_range_gbit_s": [430.61601764587925, 466.64104302477176],
+        "candidate_median_gbit_s": 452.9597300147648,
+        "candidate_range_gbit_s": [436.56883106322425, 462.12224661071656],
+        "delta_percent": 1.1811854039232017,
+        "ranges_overlap": true
+      }
+    },
+    "memory": {
+      "baseline_median_max_rss_bytes": 19087360,
+      "candidate_median_max_rss_bytes": 19087360,
+      "delta_percent": 0.0,
+      "baseline_max_rss_range_bytes": [19005440, 19152896],
+      "candidate_max_rss_range_bytes": [18825216, 19152896]
+    },
+    "investigation_history": [
+      "The first complete candidate kept exception construction inside the recursive CBOR array/map scanner. CBOR array_1024 was -4.46% with non-overlapping ranges, so that implementation was not accepted.",
+      "A focused ABBAAB rerun confirmed CBOR array_1024 at -3.83% with non-overlapping ranges.",
+      "Outlining the CBOR exception path with vm:never-inline preserved the same rejection invariant. A focused ABBAAB rerun recovered CBOR array_1024 to +1.53% with overlapping ranges.",
+      "The final complete campaign uses newly compiled baseline and final-candidate executables. Every slower candidate range overlaps baseline; the largest negative median is JSON map_512 at -2.07%."
+    ],
+    "interpretation": "The final implementation clears the fixed performance gate on this shared host. MessagePack array/map improvements are measured observations, not universal production throughput claims. The evidence supports no material valid-path regression, not identical timing across all platforms or workloads.",
+    "finding_performance_cleared": true
+  },
+  "inputs": {
+    "benchmark_driver_sha256": "f325340c33a1e7e463fe840e53e5a889061a86c08c779d97c04e475e836b38cb",
+    "baseline_executable_sha256": "6085510fe2284f28b69a36bde902493a4a4286656045d5671ee96303864bd3c1",
+    "candidate_executable_sha256": "cb43e854bdfa0d5b658f4dfb1bd1fd9639b9291e1fc8ae41222e13a98d85f2b5",
+    "probe_driver_sha256": "ec17084fdb545502b0a8468202eb9b824d2f9078da419508f5c36c5fc5a74264",
+    "raw_run_sha256": {
+      "candidate-1": "d8bed8b25d6de639a114300485b80e8f7d421fae8ae79793f24fb463633f3624",
+      "baseline-1": "f1c6cac9c1eab96cba4529c71c6e561d52edbf5d6dd5a60281f932b914f0cae1",
+      "baseline-2": "26bdd0d2c2d14fd0ebcc66c852632ec79275977f3286de7a1798038d5ecb31f8",
+      "candidate-2": "8022140f91448679ece3cf73ed3b07474f60a89ea68cdac97d5b80175a71fab6",
+      "candidate-3": "9fe15777320feb6c4e4fe5c73988bc78d67dd3d9922450aabcffc578fd9f0463",
+      "baseline-3": "06be158c19a61ecbd5f77adfced54fc50750e3cc49e2ba5520f069cf2e93dd40"
+    },
+    "source_sha256": {
+      "baseline_cbor": "f07c0bbf40b14c510f152605093297c33d867722b998d0b2f8931c8d708d806e",
+      "baseline_msgpack": "a703379cb7ce5f53d7fa57f97c42baeddfbaad56053869ea8bfd0545d93960ee",
+      "candidate_cbor": "e47901972039ca5b638d340b1a869bc7322e5209ee85f946f568d884598e54fe",
+      "candidate_msgpack": "1de232ca9fcdbc0ba219a6bbf871f3fd5698caccb8e9dbd426e1576592bbcc07",
+      "candidate_test": "0f7338afd1ddf7eacfefd81dcd17824fa64c67e0ad047cb2bc3f802b0f53443e"
+    }
+  },
+  "verification": {
+    "dart_analyze_connectanum_core": "passed",
+    "focused_security_tests": "10 passed",
+    "serializer_suite": "193 passed",
+    "benchmark_artifact_validation": "All six artifacts contain 16 scenarios, seven samples per scenario, and exact checksums.",
+    "git_diff_check": "passed",
+    "bin_test_fast_pre_change": "passed",
+    "bin_verify": "passed (exit 0; complete repository-wide native, Dart, package-consumer, router/MCP, and Chrome Dart2Wasm matrix)"
+  },
+  "local_companions": {
+    "status": "blocked by the managed sandbox",
+    "detail": "Local Ollama and GLM loopback endpoints were denied with Operation not permitted earlier in this audit environment. No sandbox bypass was attempted; source inspection, fail-first tests, static analysis, AOT probes, and alternating AOT benchmarks provide the retained evidence."
+  },
+  "remaining": [
+    "Optional numeric strictness and malformed short-array normalization in the core protocol/serializer row",
+    "Lazy-payload consistency beyond the already reviewed depth, framing, and allocation paths",
+    "All other incomplete component rows in the active security audit"
+  ]
+}
