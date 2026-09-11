@@ -46,6 +46,7 @@ where
 }
 
 pub fn clear_channels() {
+    // Resource owners can outlive a runtime; clearing must not recycle their IDs.
     map().clear();
     clear_messages();
     clear_e2ee_sessions();
@@ -101,7 +102,6 @@ pub fn remove_file(id: u32) -> Option<Arc<File>> {
 fn clear_files() {
     if let Some(store) = FILES.get() {
         store.files.clear();
-        store.next_id.store(1, Ordering::SeqCst);
     }
 }
 
@@ -229,7 +229,6 @@ pub fn remove_e2ee_keyring(id: u32) -> Option<Arc<StoredE2eeKeyring>> {
 fn clear_e2ee_keyrings() {
     if let Some(store) = E2EE_KEYRINGS.get() {
         store.keyrings.clear();
-        store.next_id.store(1, Ordering::SeqCst);
     }
 }
 
@@ -283,7 +282,6 @@ pub fn remove_e2ee_session(id: u32) -> Option<Arc<StoredE2eeSession>> {
 fn clear_e2ee_sessions() {
     if let Some(store) = E2EE_SESSIONS.get() {
         store.sessions.clear();
-        store.next_id.store(1, Ordering::SeqCst);
     }
 }
 
@@ -737,7 +735,6 @@ pub fn remove_http_connection_event(id: u32) -> Option<StoredHttpConnectionEvent
 fn clear_http_connection_events() {
     if let Some(store) = HTTP_CONNECTION_EVENTS.get() {
         store.events.clear();
-        store.next_id.store(1, Ordering::SeqCst);
     }
 }
 

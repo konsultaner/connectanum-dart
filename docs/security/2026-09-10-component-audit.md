@@ -1140,6 +1140,109 @@ Dart/FFI resource ownership under comparable workload histories, while continuin
 the other component reviews. No production transport code, versions or releases
 changed in this checkpoint.
 
+### SA-007: Restarted Native Resources Alias Stale Owners
+
+**Impact: E2EE key confusion, file/metadata disclosure, and replacement-resource
+destruction; moderate with the in-process lifecycle prerequisites below. Fixed
+locally; full verification and absolute budgets pass, performance provisional.**
+
+`ct_shutdown()` clears resource maps through `clear_channels()`. File, E2EE
+keyring/session, and HTTP connection-event stores also reset their allocation
+counters to one. Dart providers and other owners can outlive that explicit
+runtime shutdown. After another caller starts the runtime and allocates a new
+resource, the old integer handle can identify the replacement instead of being
+rejected. The Dart provider's released flag does not identify runtime generations.
+
+This requires a surviving owner or delayed in-process callback across explicit
+native shutdown/restart, followed by replacement allocation. It is not evidence
+that a remote peer can directly choose native handles or restart another process.
+Applications that dispose every owner before restarting avoid this particular
+trigger; the native boundary must nevertheless reject stale owners safely.
+
+Six Dart fail-first regressions exercise both AES-256-GCM and
+XSalsa20-Poly1305 through the native providers. For each cipher, the old provider
+can decrypt ciphertext made with a different replacement key, encrypt using that
+replacement key, and destroy the replacement on release. Positive controls
+verify the replacement's round trip and its rejection of the original key's
+ciphertext. The encryption reproduction explicitly decrypts the stale provider's
+output using the replacement, distinguishing key confusion from retaining the
+old key. The corrected implementation passes all six cases plus the seven
+existing native provider tests.
+
+Six additional native fail-first cases cover file lookup/release, keyring
+mutation/release, and connection-event lookup/release. Fresh file bytes and
+replacement event metadata remain usable after rejected stale operations. The
+first native test attempt failed to compile because it imported a private
+module; moving the tests into the runtime module fixes that fixture issue.
+The subsequent six assertion failures are the actual before-fix evidence.
+
+The production change removes the four counter resets while retaining resource
+clearing. It does not change encryption, serialization, packet processing,
+allocation on the traffic path, wire formats, or public ABI. Stale file/keyring
+lookups and operations now report unavailable handles; stale releases cannot
+delete replacements. Existing release contracts remain unchanged: Dart provider
+release returns void, and connection-event release is idempotently successful
+for unavailable positive handles. Replacement survival, not a newly invented
+release error, is the regression invariant.
+
+`bin/test-fast` passes before the production change. Full `bin/verify` passes
+after it, including 149 core, 127 default/135 test-hook FFI, 29 native artifact,
+77 driver, and the existing router, consumer/MCP, zero-copy and browser checks.
+Both client verification scripts now explicitly run the six-case restart suite;
+a script regression checks that inclusion. GLM review and bounded test planning
+completed; the initial planning request exhausted its output limit. Suggestions
+were checked against API contracts rather than accepted as findings.
+
+**Remaining boundary:** process-lifetime counter exhaustion and unsigned wrap
+are not fixed by removing shutdown resets. These stores still need bounded
+exhaustion/collision regressions and a compatible allocation strategy. Do not
+claim that resource IDs can never recycle under any condition. Broader HTTP
+body/stream ownership and other component rows also remain under review.
+
+Six native-only ABBAAB runs with identical AOT driver/router/client inputs
+complete 63,648 measured operations plus 5,160 warmups without errors or
+byte/count discrepancies. The 23-workload matrix covers all 16 canonical E2EE
+variations and seven native 64 MiB file paths, including TLS and both ciphers.
+Measured file traffic alone totals 42 GiB. Native E2EE uses 256 iterations per
+client, Dart XSalsa 128 and Dart AES 16, with four clients; file cases use eight
+iterations and two clients. Those budgets were fixed before either variant ran.
+Warmups precede measured workloads but use separate sessions.
+
+| Representative workload | Baseline GBit/s | Patched GBit/s | Median change |
+| --- | ---: | ---: | ---: |
+| RawSocket native AES RPC, 64 KiB | 0.982 | 0.996 | +1.4% |
+| RawSocket native XSalsa RPC, 64 KiB | 0.934 | 0.928 | -0.7% |
+| WebSocket Dart AES pub/sub, 64 KiB | 0.00540 | 0.00531 | -1.7% |
+| RawSocket MessagePack file, 64 MiB | 14.463 | 15.953 | +10.3% |
+| WebSocket TLS AES file, 64 MiB | 12.833 | 14.620 | +13.9% |
+| WebSocket TLS XSalsa file, 64 MiB | 3.751 | 3.866 | +3.1% |
+
+GBit/s counts application request plus response payload, except files count
+one-way file bytes; it is not wire bandwidth. The two throughput decreases have
+overlapping ranges. RawSocket Dart AES pub/sub p99 increases from 3,084.750 to
+3,686.510 ms (+19.5%), also with overlapping ranges and only 64 measured samples
+per run. Retain that unfavorable observation rather than claiming no tail cost.
+All seven file throughput medians improve, but source inspection does not
+establish that removing resets caused the improvement. Server RSS sampled after
+the last workload is 399.84 versus 396.48 MiB median; these are shared-process
+observations, not isolated peak-memory measurements or leak-freedom evidence.
+Per-workload client/server memory, lifecycle rates, full latency summaries,
+every run and hashes are retained in the machine-readable evidence.
+
+Own tests, builds and inference do not overlap timed runs. Unrelated inference
+causes bounded waits between processes and is still visible at two baseline
+completion snapshots; VM and other load also vary. These are not dedicated-host
+measurements or proof of equal performance. All 70 unchanged absolute workload
+gates pass over 2,040 samples: 16 E2EE, 24 large-frame, and 30 file-transfer
+workloads, including 24 GiB combined frame payload and 25.5 GiB file payload.
+Absolute budgets do not resolve relative latency or earlier audit regressions.
+
+Evidence: [restart comparisons and production gates](2026-09-11-resource-restart-benchmarks.json)
+(SHA-256 `3a5a6a2ea7807028367f0ba9aa7b3e50b52cf893f8750d436a5a164fd95d3b6c`).
+Keep this change local and performance provisional. Continue resource-counter
+boundary work and every pending component row; the complete audit and earlier
+performance questions remain open.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and

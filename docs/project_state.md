@@ -256,6 +256,25 @@ Evidence is linked from the audit report.
 Continue allocator/resource ownership and the remaining component reviews;
 performance remains uncleared and all audit work stays local and unpublished.
 
+SA-007 resource restart isolation is locally fixed. Twelve fail-first regressions
+confirm stale native handles alias replacement files, keyrings/sessions and HTTP
+connection-event metadata after explicit runtime shutdown/restart. For both E2EE
+ciphers, surviving Dart providers could use a replacement key and stale release
+could destroy the replacement. This requires in-process owners surviving the
+restart, not a demonstrated remote-only attack. Four counter resets are removed
+while all resource maps still clear; no crypto, traffic hotpath or ABI change.
+Six native and 13 focused Dart cases pass; both root scripts run the new suite.
+Full `bin/verify` passes with 149 core, 127/135 FFI and existing live/package/
+browser gates. Six native-only ABBAAB comparisons complete 63,648 measured
+operations plus 5,160 warmups without errors, including 42 GiB of files. File
+throughput medians improve, but two E2EE medians fall 0.7%/1.7% and one Dart AES
+pub/sub p99 rises 19.5%, with overlapping ranges and variable host load.
+All 70 unchanged absolute workload gates pass over 2,040 samples, including
+24 GiB combined frame payload and 25.5 GiB file payload. Full normalized evidence
+is linked from the audit report. Counter exhaustion/wrap remains separately
+open, along with other resource owners and the full component matrix. Keep this
+local and performance provisional; no earlier audit regression is cleared.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

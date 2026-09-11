@@ -56,6 +56,18 @@ VERIFY = REPO_ROOT / "bin" / "verify"
 
 
 class VerificationScriptsTest(unittest.TestCase):
+    def test_client_resource_restart_runs_in_both_gates(self) -> None:
+        command = (
+            "dart test packages/connectanum_client/test/transport/native/"
+            "resource_restart_test.dart --concurrency=1"
+        )
+        for script in [TEST_FAST, TEST_ALL]:
+            with self.subTest(script=script.name):
+                self.assertIn(
+                    command,
+                    [line.strip() for line in script.read_text().splitlines()],
+                )
+
     def test_client_message_abi_negotiation_runs_in_both_gates(self) -> None:
         command = (
             "dart test packages/connectanum_client/test/transport/native/"

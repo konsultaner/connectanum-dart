@@ -16,12 +16,12 @@ narrow fix does not complete this plan.
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
 | Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | Pending |
-| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles and SA-006 HTTP/3 admission are locally verified; broader review and performance confirmation pending |
+| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission and SA-007 resource restart isolation are locally verified; broader review and performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
 | Router authorization and state | Realm/role boundaries, RPC/pubsub/meta, pattern grants, dynamic authorization races, worker isolation | Pending; previous Meta fix is baseline only |
 | HTTP and MCP | Origins, redirects, HTTP auth grants, sessions/SSE, tool/resource access, request smuggling, file/proxy routes and SSRF | Pending |
-| Payload cryptography | Key/nonce lifetime, replay/context binding, authenticated metadata, E2EE parity and file integrity | Pending |
+| Payload cryptography | Key/nonce lifetime, replay/context binding, authenticated metadata, E2EE parity and file integrity | SA-007 native provider restart key confusion reproduced and locally fixed for both ciphers; broader cryptography review pending |
 | Consumer application | Account/device trust, encrypted storage/backup, attachments, push, WebRTC, MCP consent, native/web boundaries | Pending |
 | Packaging and dependencies | All Dart/Rust lockfiles, advisories and reachability, native download verification, CLI/config secrets, workflows and publishing | SA-002: transport and benchmark scans now have zero published vulnerabilities; transport maintenance warnings and other coverage pending |
 
@@ -384,6 +384,31 @@ scope, including code excluded from the root workspace gates.
   Keep performance and the broader audit open, continue allocator/resource-store
   ownership review and earlier comparisons, and do not tune security behavior
   based on RSS alone. No production code, versions, remotes or releases changed.
+
+## SA-007 Resource Restart Checkpoint (2026-09-11)
+
+- Six Dart and six native fail-first regressions confirm stale resource handles
+  alias new files, E2EE keyrings/sessions, and HTTP connection events after
+  explicit native runtime shutdown/restart. Both ciphers demonstrate replacement
+  key use, not merely old-key retention. This requires surviving in-process
+  owners and is not a demonstrated remote-only exploit.
+- Resource clearing remains; only the four counter resets are removed. All six
+  native cases and 13 focused Dart cases pass. Both root gates now include the
+  restart suite. Full `bin/verify` passes with 149 core, 127/135 FFI, 29 native
+  artifact, 77 driver and existing router/live/package/browser checks.
+- Six fixed-input native-only ABBAAB passes complete 63,648 measured operations
+  plus 5,160 warmups without errors, including 42 GiB file payload. All seven
+  file throughput medians improve; E2EE ranges overlap, with two throughput
+  medians down 0.7%/1.7% and RawSocket Dart AES pub/sub p99 up 19.5%. Unrelated
+  host contention and small Dart AES/file samples limit confidence; retain all
+  observations and do not claim identical performance or attributed speedups.
+- All 70 unchanged absolute workload gates pass over 2,040 samples, including
+  24 GiB combined large-frame payload and 25.5 GiB file payload. Evidence is
+  `docs/security/2026-09-11-resource-restart-benchmarks.json`. Earlier performance
+  questions remain open; nothing has been pushed, versioned, or released.
+- Next: bounded exhaustion/collision handling for the remaining resource stores,
+  then continue other HTTP/FFI owner and component rows. Removing restart resets
+  does not solve eventual unsigned wrap; do not describe it as unlimited IDs.
 
 ## Related Plans
 
