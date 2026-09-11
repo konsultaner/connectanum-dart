@@ -12,10 +12,11 @@ import 'package:connectanum_client/src/transport/native/runtime.dart' as client;
 import 'package:connectanum_client/src/transport/native/message_binding.dart'
     show materializeSessionMessage;
 import 'package:connectanum_client/native_message_bytes.dart';
+import 'package:connectanum_client/native_message_handles.dart';
 import 'package:connectanum_core/connectanum_core.dart' show Call, Result;
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_router/src/native/ffi_bindings.dart'
-    show CtMessageInfo, CtMessagePeekDart, CtMessagePeekNative;
+    show CtFfiBindings, CtMessageInfo;
 import 'package:connectanum_router/src/native/runtime.dart';
 import 'package:ffi/ffi.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
@@ -60,10 +61,7 @@ void main() {
       addTearDown(() => observer.free(token));
       final info = calloc<CtMessageInfo>();
       addTearDown(() => calloc.free(info));
-      final peek = library
-          .lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
-            'ct_message_peek',
-          );
+      final peek = CtFfiBindings(library).ctMessagePeek;
       expect(peek(handle, info), 0);
       final bytes = NativeMessageBytes(library);
       late Uint8List copy;
@@ -117,9 +115,7 @@ void main() {
     addTearDown(() => observer.free(token));
     final info = calloc<CtMessageInfo>();
     addTearDown(() => calloc.free(info));
-    final peek = library.lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
-      'ct_message_peek',
-    );
+    final peek = CtFfiBindings(library).ctMessagePeek;
     expect(peek(handle, info), 0);
     final bytes = NativeMessageBytes(library);
     var called = false;
@@ -373,10 +369,7 @@ void main() {
       final decoder = NativeMessageHandleDecoder(libraryPath: path);
       final library = ffi.DynamicLibrary.open(path!);
       final observer = _MessageObserver(library);
-      final peek = library
-          .lookupFunction<CtMessagePeekNative, CtMessagePeekDart>(
-            'ct_message_peek',
-          );
+      final peek = CtFfiBindings(library).ctMessagePeek;
       final info = calloc<CtMessageInfo>();
       addTearDown(() => calloc.free(info));
       for (final wrongType in [false, true]) {
@@ -618,11 +611,16 @@ Uint8List _encodeLifetimeWire(
 
 class _MessageObserver {
   _MessageObserver(ffi.DynamicLibrary library)
-    : watch = library
-          .lookupFunction<
-            ffi.Pointer<ffi.Void> Function(ffi.Int32),
-            ffi.Pointer<ffi.Void> Function(int)
-          >('ct_test_message_observer_new'),
+    : watch =
+          NativeMessageHandleAbi.detect(library) == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              ffi.Pointer<ffi.Void> Function(ffi.Int64),
+              ffi.Pointer<ffi.Void> Function(int)
+            >('ct_test_message_observer_new_wide')
+          : library.lookupFunction<
+              ffi.Pointer<ffi.Void> Function(ffi.Int32),
+              ffi.Pointer<ffi.Void> Function(int)
+            >('ct_test_message_observer_new'),
       alive = library
           .lookupFunction<
             ffi.Int32 Function(ffi.Pointer<ffi.Void>),

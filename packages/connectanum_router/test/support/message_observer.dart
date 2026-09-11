@@ -1,15 +1,21 @@
 import 'dart:ffi' as ffi;
 
 import 'package:ffi/ffi.dart';
+import 'package:connectanum_client/native_message_handles.dart';
 
 /// Test-only weak observer: never retains storage or reads released payloads.
 class MessageObserver {
   MessageObserver(ffi.DynamicLibrary library)
-    : watch = library
-          .lookupFunction<
-            ffi.Pointer<ffi.Void> Function(ffi.Int32),
-            ffi.Pointer<ffi.Void> Function(int)
-          >('ct_test_message_observer_new'),
+    : watch =
+          NativeMessageHandleAbi.detect(library) == NativeMessageHandleAbi.wide
+          ? library.lookupFunction<
+              ffi.Pointer<ffi.Void> Function(ffi.Int64),
+              ffi.Pointer<ffi.Void> Function(int)
+            >('ct_test_message_observer_new_wide')
+          : library.lookupFunction<
+              ffi.Pointer<ffi.Void> Function(ffi.Int32),
+              ffi.Pointer<ffi.Void> Function(int)
+            >('ct_test_message_observer_new'),
       _watchCall = library
           .lookupFunction<
             ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.UintPtr),

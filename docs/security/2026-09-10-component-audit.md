@@ -834,7 +834,7 @@ initially failing workload, lifecycle results are baseline 2.145, candidate
 in these two candidate passes; its cause is not established. Do not erase it,
 relax the policy, or infer a general no-regression claim from this bounded run.
 
-**Not complete:** both Dart bindings and the shared byte exporter still select
+**At this native-only checkpoint:** both Dart bindings and the shared byte exporter still select
 legacy producers. Migrate the entire family together, including optional crypto
 lookups and finalizer/release paths; verify partial-library fallback/rejection,
 old-library compatibility, high-handle client/router transfers and actual wide
@@ -842,6 +842,102 @@ application benchmarks. Legacy application compatibility measurements cannot
 prove wide-path application speed or resolve earlier audit regressions. Native
 HTTP body lifetime and other resource-store reset/wrap reviews remain pending.
 No audit change is published.
+
+### SA-005 Dart Wide-Handle Adoption
+
+On 2026-09-11, both Dart bindings and the shared byte exporter adopt the complete
+version-1 family together. Only routing-message handles become signed 64-bit;
+connection/crypto/hash handles, status codes, wire IDs and message layouts do not
+change. Capability negotiation runs before binding any message functions. An
+unknown version or any missing required symbol rejects initialization rather
+than mixing widths. An unadvertised older library keeps its legacy family.
+Every legacy handle-consuming callback rejects signed-32-bit overflow and
+underflow before FFI, including forwarding, crypto, hashing, release and export.
+Optional legacy consuming-decrypt support and owned-copy fallback remain intact.
+
+Six fail-first Dart regressions reproduced truncation in the not-yet-migrated
+bindings. All 25 capability tests now pass, including every missing family
+symbol. Compiled incomplete/unknown-version C fixtures prove rejection precedes
+unrelated lookups. A controlled live legacy allocation demonstrates that an
+unguarded `Int32` FFI call aliases `handle + 2^32`; every guarded consumer rejects
+that value and negative underflow without consuming the legitimate message.
+Actual high-ID tests cover client/router poll, wait, get/peek, retain/release,
+byte owners, sole-binary decode, SHA-256, both E2EE ciphers and consuming decrypt.
+The 36 focused live client/router tests pass, including forwarding across
+transports and serializers. Existing lifetime/subview/isolate cleanup tests pass
+on the wide ABI; older libraries pass 35 applicable owner-API cases and 32
+copy-fallback cases. Skips explicitly identify unsupported wide/owner features.
+
+The first complete `bin/verify` passes with 526 router tests, 121 default/129
+test-hook FFI tests, 124 Dart benchmark tests, and the existing live MCP,
+package-consumer, zero-copy and Chrome/Dart2Wasm gates. A subsequent runner
+inspection found the explicit client file lists omitted the new capability
+suite. A fail-first script regression catches both omissions; fast and full
+verification now include it, and all 25 script tests pass. Updated-runner handoff
+verification then fails two native HTTP/3 handshake cases with a 30-second Dart
+timeout and native error -16. The identical native-library hash is confirmed;
+all eight HTTP/3 cases pass in isolation, and the full 526-case router suite
+passes with existing native debug logging. Final ordinary full `bin/verify`
+then exits 0, including the updated 25-case capability gate, 526 router tests,
+and all live/package/zero-copy/Chrome checks. No timeout, retry, skip, or
+production code was changed to hide the failure; its cause remains unproven
+and its log is retained independently.
+Initial test-only analyzer errors, an observer-less legacy fixture, and JSON
+fixtures for binary-only hash/decrypt fast paths were corrected. Failed logs are
+retained separately, not represented as passing behavior evidence. Local model
+reviews were advisory: two bounded reviews completed without a confirmed finding;
+the full-diff timeout and router-review output limit are not complete review
+evidence. Native/Dart argument widths and fallback contracts were checked directly.
+
+The [Dart-wide benchmark evidence](2026-09-11-dart-wide-message-handle-benchmarks.json)
+contains all six ABBAAB passes, source/executable/library hashes, raw-result
+hashes, commands, scripts, verification outcomes, and unchanged gate policies.
+Both variants load the identical frozen native library with SHA-256
+`9d221311e95d882985ec022c8b27c5d56ed3d460a452369557a0c8507af417ce`.
+Baseline uses the previously built SA-004 payload-only service and metadata worker;
+tracked Dart sources are unchanged between `cbc0511e` and parent `592df650`.
+Candidate service and worker are freshly built AOT bundles. This isolates Dart
+wide-family adoption from the earlier native-library change. It completes
+188,640 measured operations plus 11,160 warmups without errors, including 384 GiB
+of measured large-frame request/response payload. Median application throughput:
+
+| Workload | Legacy Dart GBit/s | Wide Dart GBit/s | Change |
+| --- | ---: | ---: | ---: |
+| RawSocket JSON RPC, 1 KiB | 0.007189 | 0.007202 | +0.17% |
+| RawSocket MessagePack RPC, 64 KiB | 9.044 | 8.630 | -4.58% |
+| RawSocket CBOR RPC, 64 KiB | 9.700 | 9.409 | -2.99% |
+| WebSocket MessagePack RPC, 64 KiB | 7.786 | 9.642 | +23.84% |
+| WebSocket CBOR RPC, 64 KiB | 8.004 | 8.066 | +0.77% |
+| RawSocket CBOR pub/sub, 64 KiB | 0.762 | 0.701 | -7.96% |
+| WebSocket MessagePack pub/sub, 64 KiB | 2.158 | 2.142 | -0.73% |
+| Dart RawSocket CBOR RPC, 64 KiB | 9.616 | 8.499 | -11.61% |
+| RawSocket MessagePack RPC, 32 MiB | 41.590 | 40.397 | -2.87% |
+| RawSocket CBOR RPC, 64 MiB | 39.757 | 37.080 | -6.73% |
+
+**Performance is not cleared.** RawSocket pub/sub ranges do not overlap in these
+three observations per variant, and its median p99 rises from 51.482 to 56.034 ms.
+Large-frame results also decrease. Other workloads are mixed, with substantial
+within-variant spread. Median sampled server RSS for 64 MiB RPC decreases from
+327.9 to 301.4 MiB; this is neither peak-memory proof nor clearance of the earlier
+ownership memory findings. Inference is absent in the first five boundary pairs
+but reaches 92.1% at the last; VM activity is 142.5-271.5% and emulator activity
+21.7-120.6%. No own builds, tests or companion inference overlap measured runs.
+Do not assign a cause or dismiss the decreases as harmless noise without profiling.
+
+All 62 unchanged AOT large-frame/file workloads pass their absolute gates over
+73.5 GiB of application payload. The canonical `bin/wamp-profile-validate` runner
+also passes all nine scenarios / 102 workloads on the current-tree JIT paths,
+covering cleartext/TLS, controls, pub/sub fan-out, both E2EE ciphers, progressive
+invocations, timeouts and Meta APIs. These are absolute budgets, not relative
+performance clearance. The wide Dart migration is locally implemented; profiling
+the measured decreases, other native resource-store reset/wrap and HTTP-body
+lifetimes, earlier audit performance questions, and all pending component rows
+remain required work. Nothing is pushed or published.
+
+Separate source-review lead: `start_http3_listener` awaits a connecting peer
+inside its accept loop. Reproduce behavior with a bounded half-open client and
+an independent legitimate client before deciding on an admission/handshake fix.
+This lead is not established as the cause of the observed verification timeouts.
 
 ### Public Dart Dependency Advisory Coverage
 

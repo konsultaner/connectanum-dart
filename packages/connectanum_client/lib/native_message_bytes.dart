@@ -6,6 +6,8 @@ import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
+import 'native_message_handles.dart';
+
 /// Stable native slice selectors; these values are part of the FFI ABI.
 enum NativeMessageBytePart {
   /// The complete encoded frame, materialized only when requested.
@@ -38,6 +40,8 @@ typedef _ExportNative =
       ffi.Pointer<_MessageByteView>,
     );
 typedef _ExportDart = int Function(int, int, ffi.Pointer<_MessageByteView>);
+typedef _ExportWideNative =
+    ffi.Int32 Function(ffi.Int64, ffi.Uint32, ffi.Pointer<_MessageByteView>);
 
 /// Creates byte views that remain valid after a routing handle is released.
 ///
@@ -46,14 +50,21 @@ typedef _ExportDart = int Function(int, int, ffi.Pointer<_MessageByteView>);
 /// owned Dart copy, never an unowned view. No explicit disposal is required.
 final class NativeMessageBytes {
   /// Resolves the optional, paired ownership entry points in [library].
-  NativeMessageBytes(ffi.DynamicLibrary library) {
-    if (!library.providesSymbol('ct_message_buffer_export') ||
-        !library.providesSymbol('ct_message_buffer_free')) {
-      return;
+  NativeMessageBytes(ffi.DynamicLibrary library)
+    : messageHandleAbi = NativeMessageHandleAbi.detect(library) {
+    if (messageHandleAbi == NativeMessageHandleAbi.wide) {
+      _export = library.lookupFunction<_ExportWideNative, _ExportDart>(
+        'ct_message_buffer_export_wide',
+      );
+    } else {
+      if (!library.providesSymbol('ct_message_buffer_export') ||
+          !library.providesSymbol('ct_message_buffer_free')) {
+        return;
+      }
+      _export = library.lookupFunction<_ExportNative, _ExportDart>(
+        'ct_message_buffer_export',
+      );
     }
-    _export = library.lookupFunction<_ExportNative, _ExportDart>(
-      'ct_message_buffer_export',
-    );
     _finalizer = library.lookup<ffi.NativeFinalizerFunction>(
       'ct_message_buffer_free',
     );
@@ -61,6 +72,9 @@ final class NativeMessageBytes {
   }
 
   _ExportDart? _export;
+
+  /// The same complete ABI used by the client and router message bindings.
+  final NativeMessageHandleAbi messageHandleAbi;
   ffi.Pointer<ffi.NativeFinalizerFunction>? _finalizer;
   void Function(ffi.Pointer<ffi.Void>)? _free;
 
@@ -82,6 +96,9 @@ final class NativeMessageBytes {
     required int length,
     required T Function(Uint8List copy) consume,
   }) {
+    if (messageHandleAbi == NativeMessageHandleAbi.legacy) {
+      checkedLegacyMessageHandle(handle);
+    }
     if (handle <= 0 || length < 0 || (length > 0 && borrowed == ffi.nullptr)) {
       throw ArgumentError('Invalid native message byte view');
     }
@@ -123,6 +140,9 @@ final class NativeMessageBytes {
     required ffi.Pointer<ffi.Uint8> borrowed,
     required int length,
   }) {
+    if (messageHandleAbi == NativeMessageHandleAbi.legacy) {
+      checkedLegacyMessageHandle(handle);
+    }
     if (handle <= 0 || length < 0 || (length > 0 && borrowed == ffi.nullptr)) {
       throw ArgumentError('Invalid native message byte view');
     }

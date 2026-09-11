@@ -269,6 +269,39 @@ scope, including code excluded from the root workspace gates.
   the original failure and both comparisons. The report links exact artifacts;
   keep this implementation checkpoint local and continue the Dart migration.
 
+## SA-005 Dart Adoption Checkpoint (2026-09-11)
+
+- Both Dart bindings and the shared byte exporter now adopt the complete wide
+  family or retain the complete legacy family; unknown/partial advertisements
+  fail closed before lookups. Legacy consumers reject overflow/underflow before
+  narrowing, including crypto/hash/forward/release paths. Six fail-first Dart
+  cases, 25 capability cases, compiled partial-library fixtures, actual high-ID
+  transport/hash/E2EE cases and existing owner/isolate lifetime tests pass.
+- All 36 focused live transport/router cases pass. Legacy owner/copy libraries
+  pass 35/32 applicable cases. The first full `bin/verify` passes with 526 router
+  tests and all existing native/live/package/browser gates. A separate fail-first
+  gate test fixes both explicit client runners omitting the capability suite;
+  all 25 script tests pass. Updated-runner verification hits two HTTP/3 handshake
+  timeouts; eight isolated H3 cases and the complete 526-case router suite with
+  native debug logging pass on the same library. Final ordinary full
+  `bin/verify` passes, including the updated capability gate and all existing
+  live/package/zero-copy/Chrome checks. The original failure and unproven cause
+  remain explicit; no timeout or retry policy was changed.
+- Six same-native-library ABBAAB AOT passes complete 188,640 measured operations
+  and 11,160 warmups without errors, including 384 GiB measured large frames.
+  Median RawSocket pub/sub falls 8.0%, Dart CBOR RPC 11.6%, and 64 MiB RPC 6.7%.
+  Other results and CPU load vary; the full comparison is retained. All 62
+  unchanged large/file gates pass over 73.5 GiB, and all nine canonical WAMP
+  scenarios / 102 workload gates pass separately on the current-tree JIT paths.
+  Absolute budgets do not clear relative performance or earlier audit findings.
+- Next: profile the wide application decreases, particularly the non-overlapping
+  pub/sub observations, without weakening stale-handle or owner safety. Continue
+  other resource-store reset/wrap and native HTTP-body lifetime review, then the
+  remaining component rows. Also reproduce bounded half-open HTTP/3 admission:
+  source inspection shows a serial handshake accept loop, but this is not proven
+  to cause the observed verification timeouts. Do not add retries or relax tests
+  in lieu of diagnosing that failure. The audit remains active and unpublished.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.

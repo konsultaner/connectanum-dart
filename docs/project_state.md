@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-09-10
+Last updated: 2026-09-11
 Current branch: `codex/security-audit`
 Current milestone: deep component security audit with before/after performance
 evidence for hardening changes. The active plan is
@@ -182,6 +182,29 @@ samples and 102 GiB without errors; candidate lifecycle results are 2.169 and
 2.167 GBit/s. Both the failure and confirmation are retained, without claiming
 a proven cause or replacing unfavorable evidence. The security audit and earlier
 performance questions remain open; nothing is pushed or released.
+
+SA-005 Dart-wide adoption is locally implemented. Both bindings and the byte
+exporter negotiate the complete family before use, reject unknown/partial ABIs,
+and guard legacy consumers against signed-32-bit truncation. High-ID transfers,
+hashing, both E2EE ciphers, consuming decrypt and escaped byte owners pass.
+Older libraries pass 35 owner-API and 32 copy-fallback cases. The first full
+`bin/verify` passes with 526 router tests and existing live/package/browser gates;
+both client test runners now include the new 25-case capability suite after a
+fail-first gate regression. Updated-runner verification then hits two HTTP/3
+handshake timeouts. All eight H3 cases and the full 526-case diagnostic router
+run pass in isolation with the identical native library. Final ordinary full
+`bin/verify` also passes, including the updated capability gate and all
+live/package/zero-copy/Chrome checks. The earlier failure remains visible and
+its cause is unproven; no timeout or retry policy was changed.
+Six same-native-library AOT passes complete 188,640 measured operations plus
+11,160 warmups without errors, including 384 GiB large-frame payload. Performance
+is not cleared: RawSocket pub/sub falls 8.0%, Dart CBOR RPC 11.6%, and 64 MiB RPC
+6.7%, with variable host load. All 62 large/file gates pass over 73.5 GiB; all
+nine canonical WAMP scenarios also pass (102 workloads). Preserve every result,
+profile the decreases rather than assume noise, and continue the pending resource
+and component reviews, including bounded half-open HTTP/3 admission coverage.
+The report links complete normalized evidence. No push,
+version change or publication has occurred.
 
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage

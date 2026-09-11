@@ -4,12 +4,14 @@ library;
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/native_message_handles.dart';
 import 'package:connectanum_client/src/transport/native/message_binding.dart'
     show NativeSessionMessage, materializeSessionMessage;
 import 'package:connectanum_client/src/transport/native/message_protocol.dart'
@@ -406,6 +408,11 @@ void main() {
         );
         try {
           final runtime = NativeClientRuntime.instance();
+          final usesWide =
+              NativeMessageHandleAbi.detect(
+                ffi.DynamicLibrary.open(runtime.libraryPath),
+              ) ==
+              NativeMessageHandleAbi.wide;
           final connectionId = runtime.connectWebSocket(
             host: '127.0.0.1',
             port: server.port,
@@ -431,6 +438,7 @@ void main() {
               ),
             );
             expect(welcome.message, isA<NativeSessionMessage>());
+            expect(welcome.handle, greaterThan(usesWide ? 0xffffffff : 0));
             expect(welcome.bytes, isEmpty);
             final materializedWelcome =
                 materializeSessionMessage(welcome.message) as Welcome;
@@ -444,6 +452,7 @@ void main() {
               ),
             );
             expect(event.message, isA<NativeSessionMessage>());
+            expect(event.handle, greaterThan(usesWide ? 0xffffffff : 0));
             expect(event.bytes, isEmpty);
             expect(event.argumentsBytes, isNotNull);
             expect(event.argumentsKeywordsBytes, isNotNull);
