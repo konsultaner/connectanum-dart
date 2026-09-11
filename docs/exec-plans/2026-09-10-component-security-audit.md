@@ -16,7 +16,7 @@ narrow fix does not complete this plan.
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
 | Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | Pending |
-| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission and SA-007 resource restart isolation are locally verified; broader review and performance confirmation pending |
+| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation and SA-008 checked resource allocation are locally regression-verified; HTTP/1 response EOF, finite ID availability, broader review and performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
 | Router authorization and state | Realm/role boundaries, RPC/pubsub/meta, pattern grants, dynamic authorization races, worker isolation | Pending; previous Meta fix is baseline only |
@@ -409,6 +409,50 @@ scope, including code excluded from the root workspace gates.
 - Next: bounded exhaustion/collision handling for the remaining resource stores,
   then continue other HTTP/FFI owner and component rows. Removing restart resets
   does not solve eventual unsigned wrap; do not describe it as unlimited IDs.
+
+## SA-008 Resource Allocation Checkpoint (2026-09-11)
+
+- All twelve non-message FFI resource stores use checked monotonic positive
+  signed-C allocation, fail closed on exhaustion/collision, preserve occupied
+  entries and drop rejected resources. Existing -14 errors and public ABI are
+  preserved. Response writers are allocated before success headers and removed
+  when dispatch fails. This is not a final finite-capacity availability solution.
+- Eight assertions fail with the extracted original allocator/dispatch order;
+  five controls pass. All thirteen cases pass after the fix. Private seeded
+  counters reproduce boundaries without global mutation or billions of requests.
+  Initial full verification passes with an HTTP/3 test retry; fresh final
+  `bin/verify` passes without retry, including 149 core, 140/148 FFI and all
+  existing live/package/browser gates.
+- Three benchmark-client readiness regressions also fail first. Plain,
+  protected and JSON Hyper HTTP/1 sends now wait for readiness; all 80 driver
+  tests and 27 authentication smoke workloads / 126 requests pass. JSON callers
+  already time the whole login/refresh operation. Both native variants use one
+  frozen corrected driver; no performance or reconnect threshold is relaxed.
+- Three rejected old-library matrices are retained, the third with corrected
+  readiness. A separate 4,096-request diagnostic observes a first-iteration TLS
+  response-body EOF and recovery on an extra connection. Cause is not established
+  or fixed. Temporary diagnostic logging is removed; source matches final
+  verified driver exactly. Do not equate successful retries with clean transport.
+- Six ABBAAB passes complete 136,512 measured operations plus 8,904 warmups,
+  including 42 GiB file payload. Eight HTTP/1 streaming connection-count findings
+  (eleven extra connections) force comparison exit one; both variants are
+  affected. All logical requests finish with expected byte counts, but successful
+  retries and zero counters do not establish clean transport. Every run remains.
+- Performance is not cleared: TLS file throughput -8.4%, native XSalsa RPC -5.3%,
+  HTTP/2 streaming -4.5%; all ranges overlap, while several tails and final
+  sampled RSS also increase. Shared inference/VM/emulator contention limits
+  attribution. Unchanged absolute budgets pass 74 of 75 workloads / 2,680
+  samples. Buffered Dart/JSON WebSocket file transfer misses 2.000 GBit/s at
+  1.952 GBit/s; a full file-matrix repeat fails at 1.900 GBit/s and the same
+  matrix with the previous SA-007 library fails at 1.921 GBit/s. Each extra
+  matrix completes 408 samples and passes the other 29 file workloads. The
+  failure is not unique to SA-008, but is not cleared. All negative runs,
+  source/input hashes and reproduction scripts are linked from the audit report.
+- Next: HTTP/1 response/reclaim/connection-close tracing with a bounded native
+  regression; buffered JSON file profiling and controlled-load performance
+  confirmation; compatible wide resource-handle availability; separate core
+  listener/connection-ID boundaries; then all other pending component rows and
+  earlier performance questions. Do not push or release incomplete audit work.
 
 ## Related Plans
 

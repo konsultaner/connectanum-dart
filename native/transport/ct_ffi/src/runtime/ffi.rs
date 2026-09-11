@@ -46,8 +46,8 @@ use ct_core::{
     ConnectionId, ConnectionProtocol, Error as CoreError, FileSegmentMetricsSnapshot,
     HttpConnectionCloseReason, HttpMetricsBreakdownSnapshot, HttpMetricsSnapshot,
     HttpRequestBodyStreamMetricsSnapshot, HttpResponseBody, HttpResponseDispatch,
-    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, WampMessage,
-    RESPONSE_STREAM_BUFFER,
+    HttpResponseStreamMetricsSnapshot, ListenerId, RawSocketSerializer, ResponseStreamWriter,
+    WampMessage, RESPONSE_STREAM_BUFFER,
 };
 use ct_core::{http_metrics_snapshot_with_breakdown, http_response_stream_metrics_snapshot};
 #[cfg(feature = "ffi-test")]
@@ -85,6 +85,7 @@ use crate::callbacks::{
 };
 
 use super::constants::*;
+use super::resource_handles::ResourceHandleError;
 use super::state::{
     clear_channels, clone_message, get_e2ee_keyring, get_file, remove_e2ee_keyring,
     remove_e2ee_session, remove_file, remove_http2_handshake, remove_http3_connection,
@@ -2025,7 +2026,7 @@ pub extern "C" fn ct_external_byte_buffer_free(owner: *mut c_void) {
 
 #[no_mangle]
 pub extern "C" fn ct_e2ee_keyring_new() -> c_int {
-    store_e2ee_keyring() as c_int
+    resource_handle_result(store_e2ee_keyring())
 }
 
 #[no_mangle]
@@ -2092,7 +2093,7 @@ pub extern "C" fn ct_e2ee_session_new(
             return ERR_KEY_NOT_FOUND;
         }
     }
-    store_e2ee_session(keyring, default_key_id) as c_int
+    resource_handle_result(store_e2ee_session(keyring, default_key_id))
 }
 
 #[no_mangle]
@@ -2711,7 +2712,7 @@ pub extern "C" fn ct_connection_take_http_handshake(connection_id: c_int) -> c_i
     match connection_http_poll_request(connection_id) {
         Ok(Some((summary, response))) => {
             let metadata = HttpMetadata::from_summary(summary);
-            store_http_request_metadata(metadata, response) as c_int
+            resource_handle_result(store_http_request_metadata(metadata, response))
         }
         Ok(None) => 0,
         Err(err) => map_error(err),
@@ -2725,7 +2726,7 @@ pub extern "C" fn ct_connection_take_http2_handshake(connection_id: c_int) -> c_
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_take_http2_handshake(connection_id) {
-        Ok(handshake) => store_http2_handshake(handshake) as c_int,
+        Ok(handshake) => resource_handle_result(store_http2_handshake(handshake)),
         Err(err) => map_error(err),
     }
 }
@@ -2792,7 +2793,7 @@ pub extern "C" fn ct_connection_take_http3_handshake(connection_id: c_int) -> c_
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_take_http3_handshake(connection_id) {
-        Ok(handshake) => store_http3_handshake(handshake) as c_int,
+        Ok(handshake) => resource_handle_result(store_http3_handshake(handshake)),
         Err(err) => {
             #[cfg(feature = "ffi-test")]
             eprintln!(
@@ -2866,7 +2867,7 @@ pub extern "C" fn ct_connection_get_http3_connection(connection_id: c_int) -> c_
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_http3_connection(connection_id) {
-        Ok(connection) => store_http3_connection(connection) as c_int,
+        Ok(connection) => resource_handle_result(store_http3_connection(connection)),
         Err(err) => map_error(err),
     }
 }
@@ -2887,7 +2888,7 @@ pub extern "C" fn ct_http3_connection_poll_stream(connection_id: c_int) -> c_int
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_http3_poll_stream(connection_id) {
-        Ok(Some(stream)) => store_http3_stream(stream) as c_int,
+        Ok(Some(stream)) => resource_handle_result(store_http3_stream(stream)),
         Ok(None) => 0,
         Err(err) => map_error(err),
     }
@@ -2902,7 +2903,7 @@ pub extern "C" fn ct_http3_connection_poll_request(connection_id: c_int) -> c_in
     match connection_http3_poll_request(connection_id) {
         Ok(Some((summary, response_handle))) => {
             let metadata = HttpMetadata::from_summary(summary);
-            store_http_request_metadata(metadata, response_handle) as c_int
+            resource_handle_result(store_http_request_metadata(metadata, response_handle))
         }
         Ok(None) => 0,
         Err(err) => map_error(err),
@@ -2937,7 +2938,7 @@ pub extern "C" fn ct_http3_stream_release(handle: c_int) -> c_int {
 #[no_mangle]
 pub extern "C" fn ct_connection_poll_http_event() -> c_int {
     match connection_poll_http_event() {
-        Some(event) => store_http_connection_event(event) as c_int,
+        Some(event) => resource_handle_result(store_http_connection_event(event)),
         None => 0,
     }
 }
@@ -3324,17 +3325,43 @@ pub extern "C" fn ct_http_response_stream_open(
     let Some(payload) = stored.take_payload() else {
         return ERR_HANDSHAKE_CONSUMED;
     };
+    match payload {
+        StoredHttpHandshakePayload::Response(handle) => open_http_response_stream_with(
+            status,
+            header_vec,
+            |dispatch| handle.respond(dispatch),
+            store_http_response_stream,
+            |id| {
+                remove_http_response_stream(id);
+            },
+        ),
+    }
+}
+
+fn open_http_response_stream_with(
+    status: c_int,
+    headers: Vec<(String, String)>,
+    respond: impl FnOnce(HttpResponseDispatch) -> Result<(), CoreError>,
+    allocate: impl FnOnce(ResponseStreamWriter) -> Result<u32, ResourceHandleError>,
+    release: impl FnOnce(u32),
+) -> c_int {
     let (writer, reader) = response_stream_channel(RESPONSE_STREAM_BUFFER);
+    // Do not send success headers if the caller cannot receive a writer handle.
+    let stream_handle = match allocate(writer) {
+        Ok(handle) => handle,
+        Err(err) => return resource_handle_result(Err(err)),
+    };
     let dispatch = HttpResponseDispatch {
         status,
-        headers: header_vec,
+        headers,
         body: HttpResponseBody::Streaming(reader),
     };
-    match payload {
-        StoredHttpHandshakePayload::Response(handle) => match handle.respond(dispatch) {
-            Ok(()) => store_http_response_stream(writer) as c_int,
-            Err(err) => map_error(err),
-        },
+    match respond(dispatch) {
+        Ok(()) => stream_handle as c_int,
+        Err(err) => {
+            release(stream_handle);
+            map_error(err)
+        }
     }
 }
 
@@ -3384,7 +3411,7 @@ pub extern "C" fn ct_connection_take_websocket_handshake(connection_id: c_int) -
     }
     let connection_id = ConnectionId(connection_id as u32);
     match connection_take_websocket_handshake(connection_id) {
-        Ok(handshake) => store_websocket_handshake(handshake) as c_int,
+        Ok(handshake) => resource_handle_result(store_websocket_handshake(handshake)),
         Err(err) => map_error(err),
     }
 }
@@ -4385,6 +4412,13 @@ fn build_message_info(msg: &StoredMessage, include_frame: bool) -> CtMessageInfo
     info
 }
 
+fn resource_handle_result(result: Result<u32, ResourceHandleError>) -> c_int {
+    match result {
+        Ok(handle) => handle as c_int,
+        Err(ResourceHandleError::Exhausted) => ERR_HANDLE_UNAVAILABLE,
+    }
+}
+
 fn message_handle_result(result: Result<u32, MessageHandleError>) -> c_int {
     match result {
         Ok(handle) => handle as c_int,
@@ -5323,7 +5357,7 @@ pub extern "C" fn ct_file_open(
     match std::fs::File::open(path) {
         Ok(file) => match file.metadata() {
             Ok(metadata) if metadata.is_file() && metadata.len() == expected_len => {
-                store_file(file) as c_int
+                resource_handle_result(store_file(file))
             }
             Ok(_) => ERR_INVALID_ARGUMENT,
             Err(_) => ERR_IO,
@@ -6542,7 +6576,7 @@ pub extern "C" fn ct_http_handshake_body_retain(handle: c_int) -> c_int {
         return ERR_INVALID_ARGUMENT;
     }
     match with_http_handshake(handle as u32, |stored| stored.metadata.body.clone()) {
-        Some(body) => store_http_body(body) as c_int,
+        Some(body) => resource_handle_result(store_http_body(body)),
         None => ERR_HANDSHAKE_CONSUMED,
     }
 }
@@ -7164,6 +7198,84 @@ mod tests {
     use std::collections::BTreeMap;
     #[cfg(feature = "ffi-test")]
     use std::collections::HashMap;
+
+    #[test]
+    fn resource_handle_results_preserve_positive_ids_and_report_exhaustion() {
+        assert_eq!(resource_handle_result(Ok(1)), 1);
+        assert_eq!(resource_handle_result(Ok(i32::MAX as u32)), i32::MAX);
+        assert_eq!(
+            resource_handle_result(Err(ResourceHandleError::Exhausted)),
+            ERR_HANDLE_UNAVAILABLE
+        );
+        assert!(ERR_HANDLE_UNAVAILABLE < 0);
+    }
+
+    #[test]
+    fn resource_handle_response_failure_does_not_send_success_headers() {
+        let sent = std::cell::Cell::new(false);
+        let result = open_http_response_stream_with(
+            200,
+            vec![],
+            |_| {
+                sent.set(true);
+                Ok(())
+            },
+            |_| Err(ResourceHandleError::Exhausted),
+            |_| panic!("an unallocated stream must not be released"),
+        );
+        assert_eq!(result, ERR_HANDLE_UNAVAILABLE);
+        assert!(!sent.get(), "success headers preceded failed allocation");
+    }
+
+    #[test]
+    fn resource_handle_response_success_retains_its_writer() {
+        let next = AtomicU32::new(42);
+        let entries = DashMap::new();
+        let response = std::cell::RefCell::new(None);
+        let result = open_http_response_stream_with(
+            201,
+            vec![("content-type".into(), "application/octet-stream".into())],
+            |dispatch| {
+                *response.borrow_mut() = Some(dispatch);
+                Ok(())
+            },
+            |writer| super::super::resource_handles::insert_resource(&next, &entries, writer),
+            |_| panic!("a successfully dispatched stream must remain available"),
+        );
+        assert_eq!(result, 42);
+        assert_eq!(entries.len(), 1);
+        let response = response.into_inner().unwrap();
+        assert_eq!(response.status, 201);
+        assert_eq!(response.headers[0].0, "content-type");
+        assert!(matches!(response.body, HttpResponseBody::Streaming(_)));
+    }
+
+    #[test]
+    fn resource_handle_response_dispatch_failure_does_not_leak_writer() {
+        let next = AtomicU32::new(42);
+        let entries = DashMap::new();
+        let allocated = std::cell::Cell::new(0);
+        let released = std::cell::Cell::new(0);
+        let result = open_http_response_stream_with(
+            200,
+            vec![],
+            |_| Err(CoreError::Http3ResponseSend(ConnectionId(1))),
+            |writer| {
+                allocated.set(allocated.get() + 1);
+                super::super::resource_handles::insert_resource(&next, &entries, writer)
+            },
+            |id| {
+                assert!(entries.remove(&id).is_some());
+                released.set(released.get() + 1);
+            },
+        );
+        assert_eq!(
+            result,
+            map_error(CoreError::Http3ResponseSend(ConnectionId(1)))
+        );
+        assert!(entries.is_empty());
+        assert_eq!(allocated.get(), released.get());
+    }
 
     #[test]
     fn message_handle_results_preserve_positive_ids_and_report_exhaustion() {

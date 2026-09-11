@@ -16,6 +16,8 @@ use dashmap::{mapref::entry::Entry, DashMap};
 use quinn::Connection as QuinnConnection;
 use tokio::sync::mpsc::Receiver;
 
+use super::resource_handles::{insert_resource, ResourceHandleError};
+
 struct ReceiverEntry {
     receiver: Mutex<Receiver<ConnectionId>>,
 }
@@ -81,11 +83,9 @@ fn file_store() -> &'static FileStore {
     FILES.get_or_init(FileStore::default)
 }
 
-pub fn store_file(file: File) -> u32 {
+pub fn store_file(file: File) -> Result<u32, ResourceHandleError> {
     let store = file_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.files.insert(id, Arc::new(file));
-    id
+    insert_resource(&store.next_id, &store.files, Arc::new(file))
 }
 
 pub fn get_file(id: u32) -> Option<Arc<File>> {
@@ -193,13 +193,13 @@ fn e2ee_keyring_store() -> &'static E2eeKeyringStore {
     E2EE_KEYRINGS.get_or_init(E2eeKeyringStore::default)
 }
 
-pub fn store_e2ee_keyring() -> u32 {
+pub fn store_e2ee_keyring() -> Result<u32, ResourceHandleError> {
     let store = e2ee_keyring_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store
-        .keyrings
-        .insert(id, Arc::new(StoredE2eeKeyring::default()));
-    id
+    insert_resource(
+        &store.next_id,
+        &store.keyrings,
+        Arc::new(StoredE2eeKeyring::default()),
+    )
 }
 
 pub fn get_e2ee_keyring(id: u32) -> Option<Arc<StoredE2eeKeyring>> {
@@ -252,14 +252,16 @@ fn e2ee_session_store() -> &'static E2eeSessionStore {
     E2EE_SESSIONS.get_or_init(E2eeSessionStore::default)
 }
 
-pub fn store_e2ee_session(keyring: Arc<StoredE2eeKeyring>, default_key_id: Option<String>) -> u32 {
+pub fn store_e2ee_session(
+    keyring: Arc<StoredE2eeKeyring>,
+    default_key_id: Option<String>,
+) -> Result<u32, ResourceHandleError> {
     let store = e2ee_session_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.sessions.insert(
-        id,
+    insert_resource(
+        &store.next_id,
+        &store.sessions,
         Arc::new(StoredE2eeSession::new(keyring, default_key_id)),
-    );
-    id
+    )
 }
 
 pub fn with_e2ee_session<F, T>(id: u32, f: F) -> Option<T>
@@ -588,14 +590,16 @@ fn http_store() -> &'static HttpHandshakeStore {
     HTTP_HANDSHAKES.get_or_init(HttpHandshakeStore::default)
 }
 
-pub fn store_http_request_metadata(metadata: HttpMetadata, response: HttpResponseHandle) -> u32 {
+pub fn store_http_request_metadata(
+    metadata: HttpMetadata,
+    response: HttpResponseHandle,
+) -> Result<u32, ResourceHandleError> {
     let store = http_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.handshakes.insert(
-        id,
+    insert_resource(
+        &store.next_id,
+        &store.handshakes,
         Arc::new(StoredHttpHandshake::from_metadata(metadata, response)),
-    );
-    id
+    )
 }
 
 pub fn with_http_handshake<F, T>(id: u32, f: F) -> Option<T>
@@ -635,11 +639,9 @@ fn http_body_store() -> &'static HttpBodyStore {
     HTTP_BODIES.get_or_init(HttpBodyStore::default)
 }
 
-pub fn store_http_body(handle: HttpBodyHandle) -> u32 {
+pub fn store_http_body(handle: HttpBodyHandle) -> Result<u32, ResourceHandleError> {
     let store = http_body_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.bodies.insert(id, handle);
-    id
+    insert_resource(&store.next_id, &store.bodies, handle)
 }
 
 pub fn with_http_body<F, T>(id: u32, f: F) -> Option<T>
@@ -693,7 +695,7 @@ fn http_connection_event_store() -> &'static HttpConnectionEventStore {
     HTTP_CONNECTION_EVENTS.get_or_init(HttpConnectionEventStore::default)
 }
 
-pub fn store_http_connection_event(event: HttpConnectionEvent) -> u32 {
+pub fn store_http_connection_event(event: HttpConnectionEvent) -> Result<u32, ResourceHandleError> {
     let detail = event
         .detail
         .map(|detail| Arc::<[u8]>::from(detail.into_bytes()));
@@ -710,9 +712,7 @@ pub fn store_http_connection_event(event: HttpConnectionEvent) -> u32 {
         detail,
     };
     let store = http_connection_event_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.events.insert(id, stored);
-    id
+    insert_resource(&store.next_id, &store.events, stored)
 }
 
 pub fn with_http_connection_event<F, T>(id: u32, f: F) -> Option<T>
@@ -758,11 +758,11 @@ fn http_response_stream_store() -> &'static HttpResponseStreamStore {
     HTTP_RESPONSE_STREAMS.get_or_init(HttpResponseStreamStore::default)
 }
 
-pub fn store_http_response_stream(stream: ResponseStreamWriter) -> u32 {
+pub fn store_http_response_stream(
+    stream: ResponseStreamWriter,
+) -> Result<u32, ResourceHandleError> {
     let store = http_response_stream_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.streams.insert(id, stream);
-    id
+    insert_resource(&store.next_id, &store.streams, stream)
 }
 
 pub fn with_http_response_stream<F, T>(id: u32, f: F) -> Option<T>
@@ -802,13 +802,13 @@ fn http2_store() -> &'static Http2HandshakeStore {
     HTTP2_HANDSHAKES.get_or_init(Http2HandshakeStore::default)
 }
 
-pub fn store_http2_handshake(handshake: Http2Handshake) -> u32 {
+pub fn store_http2_handshake(handshake: Http2Handshake) -> Result<u32, ResourceHandleError> {
     let store = http2_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store
-        .handshakes
-        .insert(id, Arc::new(StoredHttp2Handshake::new(handshake)));
-    id
+    insert_resource(
+        &store.next_id,
+        &store.handshakes,
+        Arc::new(StoredHttp2Handshake::new(handshake)),
+    )
 }
 
 pub fn with_http2_handshake<F, T>(id: u32, f: F) -> Option<T>
@@ -854,11 +854,11 @@ fn http3_connection_store() -> &'static Http3ConnectionStore {
     HTTP3_CONNECTIONS.get_or_init(Http3ConnectionStore::default)
 }
 
-pub fn store_http3_connection(connection: Arc<QuinnConnection>) -> u32 {
+pub fn store_http3_connection(
+    connection: Arc<QuinnConnection>,
+) -> Result<u32, ResourceHandleError> {
     let store = http3_connection_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store.connections.insert(id, connection);
-    id
+    insert_resource(&store.next_id, &store.connections, connection)
 }
 
 pub fn remove_http3_connection(id: u32) -> Option<Arc<QuinnConnection>> {
@@ -905,13 +905,13 @@ fn http3_store() -> &'static Http3HandshakeStore {
     HTTP3_HANDSHAKES.get_or_init(Http3HandshakeStore::default)
 }
 
-pub fn store_http3_handshake(handshake: Http3Handshake) -> u32 {
+pub fn store_http3_handshake(handshake: Http3Handshake) -> Result<u32, ResourceHandleError> {
     let store = http3_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store
-        .handshakes
-        .insert(id, Arc::new(StoredHttp3Handshake::new(handshake)));
-    id
+    insert_resource(
+        &store.next_id,
+        &store.handshakes,
+        Arc::new(StoredHttp3Handshake::new(handshake)),
+    )
 }
 
 pub fn with_http3_handshake<F, T>(id: u32, f: F) -> Option<T>
@@ -976,13 +976,13 @@ impl StoredHttp3Stream {
     }
 }
 
-pub fn store_http3_stream(stream: Http3BidiStream) -> u32 {
+pub fn store_http3_stream(stream: Http3BidiStream) -> Result<u32, ResourceHandleError> {
     let store = http3_stream_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store
-        .streams
-        .insert(id, Arc::new(StoredHttp3Stream::new(stream)));
-    id
+    insert_resource(
+        &store.next_id,
+        &store.streams,
+        Arc::new(StoredHttp3Stream::new(stream)),
+    )
 }
 
 pub fn with_http3_stream<F, T>(id: u32, f: F) -> Option<T>
@@ -1028,13 +1028,15 @@ fn websocket_store() -> &'static WebSocketHandshakeStore {
     WEBSOCKET_HANDSHAKES.get_or_init(WebSocketHandshakeStore::default)
 }
 
-pub fn store_websocket_handshake(handshake: WebSocketHandshake) -> u32 {
+pub fn store_websocket_handshake(
+    handshake: WebSocketHandshake,
+) -> Result<u32, ResourceHandleError> {
     let store = websocket_store();
-    let id = store.next_id.fetch_add(1, Ordering::SeqCst);
-    store
-        .handshakes
-        .insert(id, Arc::new(StoredWebSocketHandshake::new(handshake)));
-    id
+    insert_resource(
+        &store.next_id,
+        &store.handshakes,
+        Arc::new(StoredWebSocketHandshake::new(handshake)),
+    )
 }
 
 pub fn with_websocket_handshake<F, T>(id: u32, f: F) -> Option<T>

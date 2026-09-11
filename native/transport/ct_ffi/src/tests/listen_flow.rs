@@ -2270,7 +2270,7 @@ fn http_body_streaming_can_be_read_via_ffi() {
     state.enqueue_vec(vec![4, 5, 6]);
     state.mark_finished();
     let handle = HttpBodyHandle::streaming(state.clone());
-    let body_id = store_http_body(handle);
+    let body_id = store_http_body(handle).unwrap();
 
     let mut view = CtHttpBodyView::default();
     assert_eq!(

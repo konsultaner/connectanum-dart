@@ -275,6 +275,39 @@ is linked from the audit report. Counter exhaustion/wrap remains separately
 open, along with other resource owners and the full component matrix. Keep this
 local and performance provisional; no earlier audit regression is cleared.
 
+SA-008 checked resource allocation is locally implemented. Eight fail-first
+assertions reproduce signed/sentinel IDs, unsigned wrap, occupied-entry
+replacement, rejected-owner retention, and response headers preceding failed
+writer allocation. Thirteen focused regressions pass. All twelve FFI resource
+stores now reject exhaustion/collisions with existing -14 errors, preserve live
+owners, and never wrap or recycle IDs; response streaming allocates its writer
+before dispatch and cleans up failed dispatch. Finite legacy allocation capacity
+is not solved, and core listener/connection IDs remain separate review work.
+Initial full `bin/verify` passes after an HTTP/3 test retry; fresh final
+verification passes on its first attempt. The native suites have 149 core and
+140/148 FFI tests. During benchmarking, three deterministic fail-first tests
+also expose missing Hyper HTTP/1 sender readiness in the benchmark client.
+Plain, protected and JSON helpers now wait; all 80 driver tests and the
+27-workload/126-request HTTP authentication smoke pass.
+Three old-library comparison attempts still expose HTTP/1 reconnects, including
+one with the readiness fix. An isolated 4,096-request diagnostic captures TLS
+response-body EOF followed by a successful retry. Root cause remains open; no
+product-stack fix or retry-free performance claim is made. Six native-only
+ABBAAB passes complete 136,512 measured operations and 8,904 warmups. The strict
+comparison exits one on eight HTTP/1 streaming connection-count findings
+(eleven extra connections). Both variants are affected. TLS file throughput
+falls 8.4%, native XSalsa RPC 5.3%, and HTTP/2 streaming 4.5%; all ranges overlap,
+but several tails and sampled RSS also increase under variable host load.
+Performance is not cleared. Unchanged absolute budgets pass 74 of 75 workloads
+over 2,680 samples; buffered Dart/JSON WebSocket file transfer misses its
+2.000 GBit/s lifecycle minimum at 1.952 GBit/s. Full file-matrix confirmation
+fails the same sole budget at 1.900 GBit/s; the previous SA-007 library also
+fails it at 1.921 GBit/s. Each extra matrix completes 408 samples and passes
+the other 29 file workloads. This is not unique to SA-008, but does not clear
+the budget or relative regressions. Full normalized evidence is linked from
+the audit report. Keep all comparisons and these changes local; the complete
+audit and earlier performance questions remain open. Do not publish.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

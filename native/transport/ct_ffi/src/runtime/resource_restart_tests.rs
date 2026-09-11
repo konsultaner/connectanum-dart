@@ -92,6 +92,7 @@ fn event(connection: u32) -> u32 {
         goaway_events: 0,
         detail: None,
     })
+    .unwrap()
 }
 
 #[test]

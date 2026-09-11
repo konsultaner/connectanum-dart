@@ -4786,6 +4786,9 @@ async fn send_h1_json_request(
         payload.len() as u64,
         bearer,
     )?;
+    std::future::poll_fn(|cx| sender.poll_ready(cx))
+        .await
+        .context("HTTP/1.1 JSON connection is unavailable")?;
     let response = sender
         .send_request(request)
         .await
@@ -5644,6 +5647,10 @@ async fn send_h1_request(
     let (body, body_writer) = build_h1_body(request_body, workload.request_chunk_bytes as usize);
     let request = build_http_request(endpoint, workload, body, workload.request_bytes, false)?;
     let start = Instant::now();
+    // A drained response can precede the connection driver's next ready poll.
+    std::future::poll_fn(|cx| sender.poll_ready(cx))
+        .await
+        .context("HTTP/1.1 connection is unavailable")?;
     let response = sender
         .send_request(request)
         .await
@@ -5678,6 +5685,9 @@ async fn send_h1_protected_request(
     let request =
         build_h1_protected_request(endpoint, workload, body, workload.request_bytes, bearer)?;
     let start = Instant::now();
+    std::future::poll_fn(|cx| sender.poll_ready(cx))
+        .await
+        .context("HTTP/1.1 protected connection is unavailable")?;
     let response = sender
         .send_request(request)
         .await
@@ -8643,6 +8653,93 @@ mod tests {
                 .get("http_fresh_connection_timing")
                 .is_none());
         }
+    }
+
+    #[tokio::test]
+    async fn h1_request_readiness_plain_waits_for_connection_driver() {
+        assert_h1_request_waits_for_ready("plain").await;
+    }
+
+    #[tokio::test]
+    async fn h1_request_readiness_protected_waits_for_connection_driver() {
+        assert_h1_request_waits_for_ready("protected").await;
+    }
+
+    #[tokio::test]
+    async fn h1_request_readiness_json_waits_for_connection_driver() {
+        assert_h1_request_waits_for_ready("json").await;
+    }
+
+    async fn assert_h1_request_waits_for_ready(mode: &str) {
+        use std::future::{poll_fn, Future as _};
+
+        let (endpoint, accepts, requests, _, server) = spawn_h1_test_server().await;
+        let socket = TcpStream::connect((endpoint.host.as_str(), endpoint.port))
+            .await
+            .unwrap();
+        let (mut sender, connection) = HyperConnBuilder::new()
+            .handshake::<_, Body>(socket)
+            .await
+            .unwrap();
+        // Occupy Hyper's single initial queue slot without polling its driver.
+        let first = sender.send_request(
+            Request::builder()
+                .uri("/bench/stream")
+                .header("host", "localhost")
+                .body(Body::empty())
+                .unwrap(),
+        );
+        let workload = sample_h1_workload(true);
+        let mut second = Box::pin(async {
+            match mode {
+                "plain" => send_h1_request(&mut sender, &endpoint, &workload, Bytes::new(), 0, 1)
+                    .await
+                    .map(|sample| sample.response_bytes),
+                "protected" => send_h1_protected_request(
+                    &mut sender,
+                    &endpoint,
+                    &workload,
+                    Bytes::new(),
+                    "test-token",
+                    0,
+                    1,
+                )
+                .await
+                .map(|sample| sample.response_bytes),
+                "json" => send_h1_json_request(
+                    &mut sender,
+                    &endpoint,
+                    &HyperMethod::POST,
+                    "/bench/stream",
+                    &json!({"test": true}),
+                    None,
+                )
+                .await
+                .map(|(response, _)| response.body.len() as u64),
+                _ => unreachable!(),
+            }
+        });
+        let polled = poll_fn(|cx| Poll::Ready(second.as_mut().poll(cx))).await;
+        assert!(
+            polled.is_pending(),
+            "{mode}: request did not wait: {polled:?}"
+        );
+
+        let driver = tokio::spawn(connection);
+        let first = tokio::time::timeout(Duration::from_secs(5), first)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(drain_hyper_response(first).await.unwrap(), 2);
+        let received = tokio::time::timeout(Duration::from_secs(5), second)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(received, 2);
+        assert_eq!(accepts.load(Ordering::SeqCst), 1);
+        assert_eq!(requests.load(Ordering::SeqCst), 2);
+        driver.abort();
+        server.abort();
     }
 
     #[tokio::test]

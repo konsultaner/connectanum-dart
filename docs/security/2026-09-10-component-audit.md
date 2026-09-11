@@ -1243,6 +1243,199 @@ Keep this change local and performance provisional. Continue resource-counter
 boundary work and every pending component row; the complete audit and earlier
 performance questions remain open.
 
+### SA-008: Native Resource Allocation Crosses Signed Limits And Replaces Owners
+
+**Impact: resource unavailability, stale-owner aliasing and live-owner
+replacement; moderate with the allocation-volume prerequisites below. Checked
+allocation is locally implemented; finite legacy capacity remains unresolved.**
+
+Twelve FFI resource stores allocate an unsigned 32-bit ID with unchecked
+`fetch_add`, insert into a `DashMap`, and return the ID through signed C `int`.
+Above `i32::MAX`, valid allocations appear as negative errors; zero is the
+no-item sentinel. At unsigned wrap the map insertion can replace a live owner,
+or a stale ID can identify a new resource. Removing runtime-restart resets in
+SA-007 did not prevent this independent process-lifetime wrap.
+
+Affected stores hold files, E2EE keyrings and sessions, HTTP metadata/response
+handles, request bodies, connection events, response-stream writers, HTTP/2
+handshakes, HTTP/3 connection references/handshakes/streams, and WebSocket
+handshakes. Each has its own allocation budget, unrelated to the number of
+simultaneously live objects. Previously hardened routing-message handles are
+unchanged by this checkpoint. Core listener/connection IDs are separate and
+still require their own boundary review.
+
+The trigger requires near 2^31/2^32 allocations in a store, or an already-invalid
+counter. Ordinary HTTP churn reaches some of these allocation paths, but this
+review does not demonstrate a remote exhaustion attack, its rate, or remote
+ability to select native handles. Bounded tests seed private counters and maps;
+they do not create billions of connections or mutate global production stores.
+
+**Reproduction:** first extract the repeated original `fetch_add` plus `insert`
+algorithm into a common helper without adding bounds checks. Seven allocator
+assertions fail while positive controls pass. Extracting the old response
+dispatch-before-store ordering adds an eighth failure: successful HTTP headers
+are sent even when no usable writer handle can be returned. The strengthened
+before run has five passes and eight assertion failures. This is a
+behavior-preserving testability refactor before the fix, not a claim that the
+new tests ran against an untouched old checkout. The before diff and complete
+unchecked helper are retained with the evidence.
+
+**Fix:** checked monotonic allocation accepts only `1..=i32::MAX`. The last
+positive ID is usable once; invalid/exhausted counters never wrap or rewind.
+An occupied-entry check preserves the original owner instead of replacing it,
+and rejection drops the incoming resource. All twelve store functions use
+their original counter/map and return a checked result through thirteen FFI
+creation paths. Failure uses existing `ERR_HANDLE_UNAVAILABLE` (`-14`), without
+new exported signatures. Sequentially consistent atomic ordering is retained.
+Response streaming allocates its writer before dispatching success headers,
+and removes that writer if dispatch fails. No cipher, serialization, payload
+copying, wire format, or package version is changed.
+
+All 13 focused regressions pass: positive IDs, zero, signed exhaustion,
+unsigned wrap, collision survival, rejected-owner destruction, concurrent
+final-slot allocation, clearing without reuse, FFI error mapping, and response
+success/failure cleanup. The concurrent test starts eight callers at the last
+valid slot and requires exactly one success. Existing file and HTTP-event
+fixtures now unwrap their successful setup results.
+
+Local summary, test planning and review completed; advisory claims were checked
+against source. The suspected partial-response leak is not supported:
+`HttpResponseHandle.respond` sends through a oneshot; a failed send drops the
+undispatched reader. Releasing the stored writer closes its channel. The
+suggestions to add an FFI panic or weaken atomic ordering were not adopted.
+
+`bin/test-fast` passes before the substantive guard change. Full `bin/verify`
+exits zero, including 149 core, 140 default FFI, 148 feature-enabled FFI,
+29 artifact, 77 benchmark-driver, 526 router (one explicit skip), and existing
+live MCP, consumer/package, zero-copy and Chrome/Dart2Wasm checks. This was not
+a clean first attempt: the feature-enabled native suite initially had 147
+passes and an HTTP/3 network handshake timeout; its existing retry passed all
+148. Root cause is not established. A missing `--all` on the initial virtual
+workspace formatting command was corrected separately, not a compile failure.
+
+**Remaining availability work:** exhaustion is now fail-closed, not removed.
+Clearing maps and restarting the runtime must not recycle IDs held by delayed
+owners. A compatible wider resource-handle strategy, its Dart consumers,
+legacy-adapter behavior, ownership review, and workload evidence are still
+required. Do not release this checkpoint as a complete availability solution
+or infer completion of the component audit from these local tests.
+
+**Benchmark-driver readiness defect found during validation:** two old-library
+baseline processes completed, but the strict comparison rejected unexpected
+HTTP/1 reconnects. The first sustained workload opened five connections for four
+workers; the second run's serial/sustained cases opened four/six instead of
+one/four. Both attempts and their failing validation exits are retained.
+The Hyper 0.14 client permits a temporarily non-ready sender to reject an
+immediate `send_request`; the driver's retry hid that from successful request
+samples while its connection count exposed the discrepancy.
+The original retry errors were not logged: the reproduction below establishes
+the readiness defect, not the cause of every observed reconnect.
+
+Three deterministic fail-first tests occupy Hyper's initial queue slot while
+leaving its connection driver unpolled. Plain, protected and JSON request
+helpers all return `connection was not ready` instead of waiting. After adding
+`poll_ready` waits, all three remain pending until the driver runs, then both
+requests succeed on exactly one connection. All 80 driver tests pass. Plain
+and protected request timing includes the wait; JSON login/refresh callers
+already time the enclosing operation. Connection-closure errors still propagate
+and the existing workload deadlines remain. This corrects the benchmark client,
+not a demonstrated product HTTP-stack defect. Both native-library variants
+must use the same corrected driver for the fresh comparison; neither reconnect
+assertions nor performance thresholds are relaxed.
+Fresh full `bin/verify` after this driver correction passes on its first
+attempt, including all 80 driver tests and the existing router, live/package
+and browser gates. The earlier HTTP/3 timeout remains recorded separately.
+
+**Separate HTTP/1 reliability lead:** a third old-library matrix attempt still
+opens five sustained-stream connections for four workers with the readiness
+fix in place. A bounded diagnostic driver temporarily logs the first retry
+error, without changing native or Dart code: worker 1, iteration 0 fails while
+reading a TLS response body with unexpected EOF / missing `close_notify`, then
+the retry succeeds. That isolated process completes 4,096 logical requests but
+uses five connections. The diagnostic logging is removed from the product diff;
+the retained ordinary driver source exactly matches the fully verified source.
+Root cause is not established, and readiness is not the sole reconnect issue.
+Do not interpret recovered request samples as error-free transport operation.
+
+For full-matrix collection, unexpected connection counts remain strict findings.
+The collector now preserves subsequent runs and all unaffected workloads before
+returning a nonzero exit if any finding occurs, rather than aborting after the
+first process. No expected connection count or performance threshold changes.
+Lifecycle goodput includes recovery time; retry-affected request-only latency
+omits failed-attempt time and cannot establish clean-request tail performance.
+The three earlier rejected matrices and isolated diagnostic remain separate.
+
+**Six-pass native comparison:** identical frozen AOT service/client inputs and
+the same readiness-corrected driver complete 136,512 measured logical operations
+plus 8,904 warmups in ABBAAB order. The matrix covers 16 E2EE variants, seven
+64 MiB file paths (42 GiB measured file payload), and serial, sustained and
+fresh-connection HTTP/1/2/3. Request/response byte-count and sample checks pass;
+this does not imply independently verified HTTP content hashes. Cryptographic
+algorithms, payloads and sample budgets are unchanged across the two libraries.
+
+The strict comparison **exits one**: eight HTTP/1 streaming findings cover five
+measured workloads and three warmups, with eleven extra opened connections.
+Both variants are affected; one baseline process is clean. All other workload
+connection checks pass. Final logical-request error fields and four transport
+error/timeout counters remain zero despite recovered HTTP/1 failures. Do not use
+those counters alone as a complete transport-error oracle.
+
+| Representative workload | Baseline GBit/s | Patched GBit/s | Median change |
+| --- | ---: | ---: | ---: |
+| RawSocket native AES pub/sub, 64 KiB | 0.634 | 0.610 | -3.9% |
+| RawSocket native XSalsa RPC, 64 KiB | 0.967 | 0.916 | -5.3% |
+| RawSocket TLS CBOR file, 64 MiB | 14.673 | 13.435 | -8.4% |
+| HTTP/1 fresh connections, 1 KiB each way | 0.03270 | 0.03045 | -6.9% |
+| HTTP/2 sustained, 256 KiB up / 1 MiB down | 25.265 | 24.129 | -4.5% |
+| HTTP/3 fresh connections, 1 KiB each way | 0.02176 | 0.02228 | +2.4% |
+
+GBit/s counts application goodput, not wire traffic; file payload is counted
+one way. WAMP uses data-window elapsed time and HTTP uses whole-workload elapsed
+time. Every throughput range overlaps, but that does not establish no overhead.
+All seven file medians decrease (0.15% to 8.43%). The TLS file case's sample p99
+rises from 74.948 to 82.626 ms; native AES RawSocket pub/sub p99 rises from 17.979
+to 19.956 ms. File and Dart AES sample budgets are small and limit tail precision.
+Fresh HTTP/1 setup-inclusive p99 is 5.482 versus 5.495 ms; HTTP/3 is 8.407 versus
+8.460 ms. Keep these separate from request-only timing and recovered-retry rows.
+
+Server RSS sampled after the last workload has medians 196.48 versus 213.19 MiB,
+with ranges 176.23-285.25 and 204.75-215.84 MiB. This is a shared-process
+post-workload observation, not an isolated allocation peak or leak proof.
+Client memory for the native HTTP driver is not sampled, not zero. Other
+per-workload memory and latency observations remain in the evidence.
+No own tests/builds/inference overlap timings. Preflight waits and process CPU
+snapshots are retained; unrelated inference exceeds 2,000% CPU at the end of
+one candidate process, and VM/emulator load varies. **Performance is not cleared**:
+investigate the decreases under controlled load, fix/reproduce the HTTP/1 EOF
+independently, retain all earlier audit comparisons, and do not publish this
+checkpoint as release-ready.
+
+**Unchanged absolute budgets:** the first production run completes 75 workloads
+and 2,680 samples. E2EE (16), large RawSocket frames (24), and HTTP/3 multiplexing
+(five) pass; the 30-workload file matrix has one failure. Buffered Dart/JSON
+WebSocket transfer of a 64 MiB file achieves lifecycle goodput of 1.952 GBit/s
+against the existing 2.000 GBit/s minimum. The strict gate exits one even though
+the finding is labelled warning. Other 74 workloads pass; this is not an
+all-green budget run.
+
+Repeating the entire file matrix with the candidate gives the same sole failure
+at 1.900 GBit/s. The identical matrix against the previous SA-007 native library
+also fails that budget, at 1.921 GBit/s. Both additional processes complete 408
+samples and pass the other 29 file workloads. Each uses the same frozen driver,
+service, client, scenario and unchanged policy. The baseline subprocess/gate
+exits (zero/one) are persisted; its outer tool-session exit was not retained.
+All runs and CPU snapshots remain in the evidence. This failure is not unique
+to the new guard, but these shared-host observations do not establish equal
+performance, justify a lower budget, or clear the separate relative decreases.
+Profile the buffered JSON file path and retest under controlled load before
+making a release-speed claim.
+
+Evidence: [resource-boundary comparisons, failures and production gates](2026-09-11-resource-boundary-benchmarks.json)
+(SHA-256 `9d01cb5b7a5a041a5c3a210d3bd26b8459d94e803a99d50a7b048c8fbce5f0af`).
+This local checkpoint records passing correctness verification alongside failed
+strict performance/reliability checks. The whole security audit remains active;
+no package version, release or remote branch is updated by this checkpoint.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and
