@@ -295,6 +295,177 @@ void main() {
       }
     });
 
+    test('materializes payloads with more than seven arguments', () {
+      final arguments = List<int>.generate(8, (index) => index);
+      final messages = <Result>[
+        msgpack_serializer.Serializer().deserialize(
+              msgpack.serialize([50, 1, <String, Object?>{}, arguments]),
+            )
+            as Result,
+        cbor_serializer.Serializer().deserialize(
+              Uint8List.fromList(
+                cbor.cbor.encode(
+                  cbor.CborValue([50, 1, <String, Object?>{}, arguments]),
+                ),
+              ),
+            )
+            as Result,
+        json_serializer.Serializer().deserialize(
+              Uint8List.fromList(
+                utf8.encode(
+                  jsonEncode([50, 1, <String, Object?>{}, arguments]),
+                ),
+              ),
+            )
+            as Result,
+      ];
+
+      for (final message in messages) {
+        expect(message.arguments, arguments);
+      }
+    });
+
+    test('redacts malformed lazy payload fragments', () {
+      const secret = 'secret-payload-value';
+      final redactedFormatException = isA<FormatException>().having(
+        (error) => error.toString(),
+        'message',
+        isNot(contains(secret)),
+      );
+
+      for (final readArguments in <Object? Function()>[
+        () =>
+            (msgpack_serializer.Serializer().deserialize(
+                      msgpack.serialize([50, 1, <String, Object?>{}, secret]),
+                    )
+                    as Result)
+                .arguments,
+        () =>
+            (cbor_serializer.Serializer().deserialize(
+                      Uint8List.fromList(
+                        cbor.cbor.encode(
+                          cbor.CborValue([
+                            50,
+                            1,
+                            <String, Object?>{},
+                            secret,
+                          ]),
+                        ),
+                      ),
+                    )
+                    as Result)
+                .arguments,
+        () =>
+            (json_serializer.Serializer().deserialize(
+                      Uint8List.fromList(
+                        utf8.encode(
+                          jsonEncode([
+                            50,
+                            1,
+                            <String, Object?>{},
+                            secret,
+                          ]),
+                        ),
+                      ),
+                    )
+                    as Result)
+                .arguments,
+      ]) {
+        expect(readArguments, throwsA(redactedFormatException));
+      }
+
+      for (final readArgumentsKeywords in <Object? Function()>[
+        () =>
+            (msgpack_serializer.Serializer().deserialize(
+                      msgpack.serialize([
+                        50,
+                        1,
+                        <String, Object?>{},
+                        <Object?>[],
+                        secret,
+                      ]),
+                    )
+                    as Result)
+                .argumentsKeywords,
+        () =>
+            (cbor_serializer.Serializer().deserialize(
+                      Uint8List.fromList(
+                        cbor.cbor.encode(
+                          cbor.CborValue([
+                            50,
+                            1,
+                            <String, Object?>{},
+                            <Object?>[],
+                            secret,
+                          ]),
+                        ),
+                      ),
+                    )
+                    as Result)
+                .argumentsKeywords,
+        () =>
+            (json_serializer.Serializer().deserialize(
+                      Uint8List.fromList(
+                        utf8.encode(
+                          jsonEncode([
+                            50,
+                            1,
+                            <String, Object?>{},
+                            <Object?>[],
+                            secret,
+                          ]),
+                        ),
+                      ),
+                    )
+                    as Result)
+                .argumentsKeywords,
+      ]) {
+        expect(readArgumentsKeywords, throwsA(redactedFormatException));
+      }
+    });
+
+    test('rejects non-string lazy keyword argument keys', () {
+      const secret = 'secret-payload-value';
+      final redactedFormatException = isA<FormatException>().having(
+        (error) => error.toString(),
+        'message',
+        isNot(contains(secret)),
+      );
+      final messages = <Result>[
+        msgpack_serializer.Serializer().deserialize(
+              msgpack.serialize([
+                50,
+                1,
+                <String, Object?>{},
+                <Object?>[],
+                <Object?, Object?>{1: secret},
+              ]),
+            )
+            as Result,
+        cbor_serializer.Serializer().deserialize(
+              Uint8List.fromList(
+                cbor.cbor.encode(
+                  cbor.CborValue([
+                    50,
+                    1,
+                    <String, Object?>{},
+                    <Object?>[],
+                    <Object?, Object?>{1: secret},
+                  ]),
+                ),
+              ),
+            )
+            as Result,
+      ];
+
+      for (final message in messages) {
+        expect(
+          () => message.argumentsKeywords,
+          throwsA(redactedFormatException),
+        );
+      }
+    });
+
     test('reject floating-point values in WAMP integer fields', () {
       expect(
         () => msgpack_serializer.Serializer().deserialize(

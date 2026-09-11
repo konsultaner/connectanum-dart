@@ -767,34 +767,40 @@ class Serializer extends AbstractSerializer {
   ) {
     validateWampMessageFieldCount(messageData.length);
     if (messageData.length == argumentsOffset + 1 &&
-        messageData[argumentsOffset] is String) {
-      if (_isBinaryJsonString(messageData[argumentsOffset] as String)) {
-        message.transparentBinaryPayload = _convertStringToUint8List(
-          messageData[argumentsOffset] as String,
+        messageData[argumentsOffset] is String &&
+        _isBinaryJsonString(messageData[argumentsOffset] as String)) {
+      message.transparentBinaryPayload = _convertStringToUint8List(
+        messageData[argumentsOffset] as String,
+      );
+      return message;
+    }
+    if (messageData.length >= argumentsOffset + 1) {
+      final arguments = messageData[argumentsOffset];
+      if (arguments is! List) {
+        throw const FormatException(
+          'JSON arguments must be a list or binary value',
         );
       }
-    } else {
-      if (messageData.length >= argumentsOffset + 1) {
-        message.arguments = messageData[argumentsOffset] as List<dynamic>?;
-      }
-      if (messageData.length >= argumentsOffset + 2) {
-        final rawKwargs = messageData[argumentsOffset + 1];
-        if (rawKwargs is Map) {
-          // Defensive copy to avoid downstream mutation surprises.
-          message.argumentsKeywords = Map<String, Object?>.from(
-            rawKwargs as Map<Object?, Object?>,
-          );
-        } else {
-          // Some routers may send kwargs as an unexpected type (e.g. a list).
-          // Skip them to keep deserialization resilient.
-          _logger.warning(
-            'Unexpected kwargs type (${rawKwargs.runtimeType}), dropping payload',
-          );
-          message.argumentsKeywords = null;
-        }
-      }
-      _convertMessagePayloadBinaryJsonStringToUint8List(message);
+      message.arguments = arguments;
     }
+    if (messageData.length >= argumentsOffset + 2) {
+      final argumentsKeywords = messageData[argumentsOffset + 1];
+      if (argumentsKeywords is! Map) {
+        throw const FormatException(
+          'JSON keyword arguments must be a string-keyed map',
+        );
+      }
+      try {
+        message.argumentsKeywords = Map<String, Object?>.from(
+          argumentsKeywords,
+        );
+      } on TypeError {
+        throw const FormatException(
+          'JSON keyword arguments must be a string-keyed map',
+        );
+      }
+    }
+    _convertMessagePayloadBinaryJsonStringToUint8List(message);
     return message;
   }
 

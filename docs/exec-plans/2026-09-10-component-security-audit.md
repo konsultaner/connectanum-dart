@@ -15,7 +15,7 @@ narrow fix does not complete this plan.
 
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
-| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening and SA-013 declared-collection allocation hardening are locally regression/performance-verified; optional numeric strictness, short-array normalization, lazy-payload consistency and broader protocol review remain pending |
+| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening, SA-013 declared-collection allocation hardening, and SA-014 lazy argument/keyword shape, key and diagnostic integrity are locally regression/performance-verified; optional numeric strictness, short-array normalization, consistency outside the reviewed lazy collection paths, and broader protocol review remain pending |
 | Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation, SA-009 response completion, SA-010 HTTP/1 request framing and SA-011 paused-producer delivery are locally regression-verified; broader framing/lifetime review, finite ID availability and earlier performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
@@ -666,6 +666,35 @@ scope, including code excluded from the root workspace gates.
   strictness, malformed short-array normalization, lazy-payload consistency,
   and every remaining component row rather than closing the audit.
 
+## SA-014 Serializer Lazy-Payload Integrity (2026-09-12)
+
+- The frozen `fbd29c37` probe confirms that valid eight-item MessagePack and
+  CBOR argument lists fail only during lazy access, malformed MessagePack
+  argument errors contain attacker-controlled text, and both binary serializers
+  silently stringify numeric keyword keys. JSON also silently discarded
+  malformed keyword maps.
+- MessagePack and CBOR now use payload-specific positional decoders rather than
+  the seven-field WAMP envelope parser, while preserving direct single-binary
+  views. JSON, MessagePack, and CBOR validate materialized positional/keyword
+  shapes, reject non-string keyword keys, and emit payload-free diagnostics.
+  Valid wire behavior, envelope arity, and argument ordering remain unchanged.
+- Thirteen focused tests, all 196 serializer tests, core analysis, and
+  `git diff --check` pass. Final repository-wide `bin/verify` exits zero across
+  native, Dart, package-consumer, router/MCP, live transport, and Chrome
+  Dart2Wasm coverage.
+- The first implementation's separated slower JSON argument/keyword ranges
+  were rejected. Removing an unnecessary list copy and redundant key scan
+  preserved strict validation and recovered both paths. The final ABBAAB AOT
+  campaign completes 658,056,000 measured deserialize-plus-materialize
+  operations and 7,200 warmups across 12 serializer/scenario pairs. No scenario
+  triggers the fixed -5%/separated-slower-range rule; the largest negative
+  median is -0.12% with overlapping ranges, and candidate median maximum RSS is
+  slightly lower. Evidence is
+  `docs/security/2026-09-12-serializer-lazy-payload-benchmarks.json`.
+- Keep this checkpoint local and unpublished. Continue optional numeric
+  strictness, malformed short-array normalization, consistency outside the
+  reviewed lazy collection paths, and every remaining component row.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.
@@ -674,13 +703,13 @@ that this audit's other surfaces have been reviewed.
 
 ## Next Implementation Slice
 
-SA-013 closes the confirmed declared-collection allocation amplification path
-without imposing a compatibility-breaking item cap and with final AOT
-performance evidence. Continue the remaining component matrix rather than
-repeating SA-012/013 serializer resource benchmarks. The next bounded core
-review should inspect optional numeric strictness, malformed short-array
-normalization, and lazy-payload consistency across JSON, MessagePack, and CBOR,
-with fail-first protocol tests before any behavior change.
+SA-014 closes the confirmed lazy positional/keyword shape, key, and diagnostic
+integrity defects without changing wire behavior and with final AOT performance
+evidence. Continue the remaining component matrix rather than repeating
+SA-012/013/014 serializer benchmarks. The next bounded core review should
+inspect optional numeric strictness and malformed short-array normalization
+across JSON, MessagePack, and CBOR, with fail-first protocol tests before any
+behavior change.
 
 SA-003 authentication-only hardening is locally verified, not published. Six
 fail-first direct-service lifecycle regressions were reproduced on `1bc60ef1`.

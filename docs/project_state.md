@@ -465,6 +465,30 @@ Keep this checkpoint local and unpublished. Next inspect optional numeric
 strictness, malformed short-array normalization, and lazy-payload consistency;
 the complete component audit remains active.
 
+SA-014 confirms cross-serializer lazy-payload integrity defects. The frozen
+`fbd29c37` probe shows valid eight-item MessagePack/CBOR argument lists failing
+only on lazy access, a malformed MessagePack argument error containing probe
+text, and numeric keyword keys being silently stringified by both binary
+serializers. JSON also silently discarded malformed keyword maps. Positional
+payloads now use payload-specific binary decoders, direct single-binary views
+remain intact, and all three serializers validate argument/keyword shapes,
+require string keyword keys, and return payload-free diagnostics.
+
+Thirteen focused and all 196 serializer tests pass, and core analysis is clean.
+The first implementation's separated slower JSON argument/keyword ranges were
+not accepted; removing an unnecessary list copy and redundant key scan recovered
+both paths without weakening validation. The final ABBAAB AOT campaign completes
+658,056,000 measured deserialize-plus-materialize operations plus 7,200 warmups
+across 12 serializer/scenario pairs. No scenario triggers the fixed
+-5%/separated-slower-range rule; the largest negative median is -0.12% with
+overlapping ranges, and candidate median maximum RSS is slightly lower. Evidence
+is `docs/security/2026-09-12-serializer-lazy-payload-benchmarks.json`.
+Final repository-wide `bin/verify` exits zero across native, Dart,
+package-consumer, router/MCP, live transport, and Chrome Dart2Wasm coverage.
+Keep the checkpoint local and unpublished; next inspect optional numeric
+strictness and malformed short-array normalization while the full component
+audit remains active.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

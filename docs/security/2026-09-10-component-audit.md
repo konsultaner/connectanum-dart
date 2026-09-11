@@ -1844,8 +1844,90 @@ and resource-policy questions; no arbitrary item cap or wire-shape rejection was
 introduced without evidence. Every other unreviewed component row and all prior
 unresolved performance comparisons remain open.
 
+### SA-013: Declared Collections Can Allocate Before Their Frame Is Feasible
+
+**Confirmed availability defect. Locally fixed, regression-verified, and
+affected-path performance-cleared. Not published.**
+
+A frozen 9-byte MessagePack `RESULT` declaring a nested array32 with 1,000,000
+items reached `msgpack_dart`, which allocated the declared fixed-length list
+before discovering that the item bytes were absent. The AOT probe increased
+maximum RSS from 14,565,376 to 22,593,536 bytes and ended with `RangeError`.
+The reviewed CBOR dependency grows collections incrementally, but impossible
+definite CBOR declarations shared the same scanner fallback boundary.
+
+MessagePack and CBOR scanners now reject declared arrays and maps that cannot
+fit in the remaining frame, using the format's one-byte-per-array-item and
+two-bytes-per-map-entry lower bounds. No arbitrary item cap was introduced;
+valid frames remain governed by transport size and nesting limits. Ten focused
+tests and all 193 serializer tests pass. The final AOT probe rejects before the
+third-party allocation without an RSS increase.
+
+The first implementation caused a repeatable CBOR `array_1024` decrease and was
+not accepted. Outlining the cold exception path recovered that hot path. A
+fresh ABBAAB campaign completed 313,030,914 deserializations and 825,186
+warmups across 16 scenarios. Every slower range overlaps baseline, the largest
+negative median is -2.07%, and median maximum RSS is unchanged. Complete
+evidence is in
+[the SA-013 benchmark record](2026-09-11-serializer-collection-allocation-benchmarks.json).
+
+### SA-014: Lazy Payloads Apply Envelope Limits And Coerce Keyword Keys
+
+**Confirmed availability, diagnostic-confidentiality, and semantic-integrity
+defects. Locally fixed, regression-verified, and affected-path
+performance-cleared. Not published.**
+
+The MessagePack and CBOR lazy positional decoders reused the WAMP envelope
+parser, so a valid message with eight arguments deserialized successfully but
+failed only when application code accessed `arguments`. A malformed
+MessagePack argument fragment raised an `ArgumentError` containing decoded
+attacker text. Both binary serializers accepted numeric keyword keys and
+stringified them, while JSON silently dropped malformed keyword maps. The
+frozen `fbd29c37` probe reproduces each behavior and records only booleans and
+error type names.
+
+The binary serializers now decode positional arguments with payload-specific
+array paths rather than the seven-field envelope path. MessagePack and CBOR
+retain their direct single-binary views, including definite and indefinite CBOR
+forms. All three serializers reject invalid positional/keyword shapes and
+non-string keyword keys with payload-free `FormatException` messages. JSON
+assigns its already-fresh positional list directly and performs one typed
+keyword-map copy. WAMP framing, serializer negotiation, message-envelope arity,
+and valid payload ordering are unchanged.
+
+Thirteen focused tests and all 196 serializer tests pass, and core analysis is
+clean. They prove eight-item positional payload compatibility across all three
+serializers, malformed-fragment redaction, non-string keyword-key rejection,
+and retention of the prior depth, framing, allocation, integer, and JSON
+diagnostic boundaries.
+
+The first full candidate benchmark showed separated slower JSON ranges for
+seven arguments (-4.36%) and 128 keywords (-2.91%), so that implementation was
+not accepted. Removing an unnecessary list copy and redundant key scan
+recovered both paths while keeping strict validation. The final ABBAAB AOT
+campaign completed 658,056,000 deserialize-plus-materialize operations and
+7,200 warmups across 12 serializer/scenario pairs. No scenario triggers the
+fixed -5%/separated-slower-range rule; the largest negative median is -0.12%
+with overlapping ranges. Baseline/candidate median maximum RSS is
+18,808,832/18,759,680 bytes. Positive separated ranges are host observations,
+not universal speedup claims. Complete methods, hashes, operations/second,
+GBit/s, ranges, and rejected-candidate history are in
+[the SA-014 benchmark record](2026-09-12-serializer-lazy-payload-benchmarks.json).
+Final repository-wide `bin/verify` exits zero, including native, Dart,
+package-consumer, router/MCP, live transport, and Chrome Dart2Wasm coverage.
+
+Residual core work includes optional numeric strictness, malformed short-array
+normalization, consistency outside the reviewed lazy collection paths, and the
+broader protocol review. Every other incomplete component row and all earlier
+uncleared audit-wide performance questions remain open.
+
 ## Verification Record
 
+- SA-014 final `bin/verify`: passed with 193 native transport/serializer tests,
+  140 default and 148 feature-enabled FFI tests, 429 core tests, 118 MCP tests,
+  526 router tests with one documented legacy skip, 11 remote-auth integration
+  tests, 13 focused zero-copy tests, 124 benchmark tests, package/CLI/live MCP
+  smokes, and eight Chrome/Dart2Wasm tests.
 - Baseline `bin/test-fast`: passed before production-code edits.
 - Auth service: 25 tests passed after the fix.
 - Remote auth RPC integration: 8 tests passed after the fix.

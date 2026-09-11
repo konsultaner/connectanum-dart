@@ -450,15 +450,23 @@ class Serializer extends AbstractSerializer {
       final arguments = messageData[argumentsOffset];
       if (arguments is Uint8List) {
         message.transparentBinaryPayload = arguments;
+      } else if (arguments is List) {
+        message.arguments = List<dynamic>.from(arguments);
       } else {
-        message.arguments = arguments as List<dynamic>?;
+        throw const FormatException(
+          'MessagePack arguments must be a list or binary value',
+        );
       }
     }
     if (messageData.length >= argumentsOffset + 2) {
-      message.argumentsKeywords =
-          Map.castFrom<dynamic, dynamic, String, Object>(
-            messageData[argumentsOffset + 1] as Map<dynamic, dynamic>,
-          );
+      final argumentsKeywords = messageData[argumentsOffset + 1];
+      if (argumentsKeywords is! Map ||
+          !argumentsKeywords.keys.every((key) => key is String)) {
+        throw const FormatException(
+          'MessagePack keyword arguments must be a string-keyed map',
+        );
+      }
+      message.argumentsKeywords = Map<String, Object?>.from(argumentsKeywords);
     }
     return message;
   }
@@ -833,9 +841,9 @@ class Serializer extends AbstractSerializer {
   }
 
   List<dynamic> _decodeMsgPackArguments(Uint8List bytes) {
-    final ranges = _parseMsgPackTopLevelRanges(bytes);
-    if (ranges?.length == 1) {
-      final binaryFragment = _sliceRange(bytes, ranges!.single);
+    final header = _readMsgPackArrayHeader(bytes, 0);
+    if (header?.length == 1) {
+      final binaryFragment = Uint8List.sublistView(bytes, header!.nextOffset);
       if (_isDirectMessagePackBinaryFragment(binaryFragment)) {
         final binary = _decodeMsgPackFragment(binaryFragment);
         if (binary is Uint8List) {
@@ -847,16 +855,16 @@ class Serializer extends AbstractSerializer {
     if (decoded is List) {
       return List<dynamic>.from(decoded);
     }
-    throw ArgumentError('Expected MessagePack arguments list but got $decoded');
+    throw const FormatException('MessagePack arguments must be a list');
   }
 
   Map<String, dynamic> _decodeMsgPackKeywordArguments(Uint8List bytes) {
     final decoded = _decodeMsgPackFragment(bytes);
-    if (decoded is Map) {
-      return decoded.map((key, value) => MapEntry(key.toString(), value));
+    if (decoded is Map && decoded.keys.every((key) => key is String)) {
+      return Map<String, dynamic>.from(decoded);
     }
-    throw ArgumentError(
-      'Expected MessagePack keyword arguments map but got $decoded',
+    throw const FormatException(
+      'MessagePack keyword arguments must be a string-keyed map',
     );
   }
 

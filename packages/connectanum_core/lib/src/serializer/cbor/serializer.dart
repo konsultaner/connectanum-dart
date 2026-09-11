@@ -491,22 +491,36 @@ class Serializer extends AbstractSerializer {
     argumentsOffset,
   ) {
     if (messageData.length >= argumentsOffset + 1) {
-      if (messageData[argumentsOffset] is CborBytes) {
-        message.transparentBinaryPayload = Uint8List.fromList(
-          (messageData[argumentsOffset] as CborBytes).bytes,
-        );
-      } else if (messageData[argumentsOffset] is CborList) {
-        message.arguments = _cborListToDart(
-          messageData[argumentsOffset] as CborList,
+      final arguments = messageData[argumentsOffset];
+      if (arguments is CborBytes) {
+        message.transparentBinaryPayload = Uint8List.fromList(arguments.bytes);
+      } else if (arguments is CborList) {
+        message.arguments = _cborListToDart(arguments);
+      } else {
+        throw const FormatException(
+          'CBOR arguments must be a list or binary value',
         );
       }
     }
     if (messageData.length >= argumentsOffset + 2) {
-      if (messageData[argumentsOffset + 1] is CborMap) {
-        message.argumentsKeywords = _cborMapToStringMap(
-          messageData[argumentsOffset + 1] as CborMap,
+      final argumentsKeywords = messageData[argumentsOffset + 1];
+      if (argumentsKeywords is! CborMap) {
+        throw const FormatException(
+          'CBOR keyword arguments must be a map',
         );
       }
+      var valid = true;
+      argumentsKeywords.forEach((key, _) {
+        if (_cborValueToDart(key) is! String) {
+          valid = false;
+        }
+      });
+      if (!valid) {
+        throw const FormatException(
+          'CBOR keyword arguments must use string keys',
+        );
+      }
+      message.argumentsKeywords = _cborMapToStringMap(argumentsKeywords);
     }
     return message;
   }
@@ -894,11 +908,18 @@ class Serializer extends AbstractSerializer {
   }
 
   List<dynamic> _decodeCborArgumentListFragment(Uint8List bytes) {
-    final ranges = _parseCborTopLevelRanges(bytes);
-    if (ranges?.length == 1) {
-      final binary = _definiteCborBinaryView(
-        _sliceRange(bytes, ranges!.single),
-      );
+    _ByteRange? singleItem;
+    final header = _readCborArrayHeader(bytes, 0);
+    if (header?.length == 1) {
+      singleItem = _ByteRange(header!.nextOffset, bytes.length);
+    } else if (bytes.isNotEmpty && bytes.first == 0x9f) {
+      final next = _skipCborValue(bytes, 1, 0);
+      if (next != null && next + 1 == bytes.length && bytes[next] == 0xff) {
+        singleItem = _ByteRange(1, next);
+      }
+    }
+    if (singleItem != null) {
+      final binary = _definiteCborBinaryView(_sliceRange(bytes, singleItem));
       if (binary != null) {
         return <dynamic>[binary];
       }
@@ -907,15 +928,30 @@ class Serializer extends AbstractSerializer {
     if (decoded is List) {
       return List<dynamic>.from(decoded);
     }
-    throw ArgumentError('Expected CBOR arguments list but got $decoded');
+    throw const FormatException('CBOR arguments must be a list');
   }
 
   Map<String, dynamic> _decodeCborKeywordMapFragment(Uint8List bytes) {
-    final decoded = _decodePayloadFragment(bytes);
-    if (decoded is Map) {
-      return decoded.map((key, value) => MapEntry(key.toString(), value));
+    final decoded = cbor.decode(bytes);
+    if (decoded is! CborMap) {
+      throw const FormatException('CBOR keyword arguments must be a map');
     }
-    throw ArgumentError('Expected CBOR keyword arguments map but got $decoded');
+    final result = <String, dynamic>{};
+    var valid = true;
+    decoded.forEach((key, value) {
+      final resolvedKey = _cborValueToDart(key);
+      if (resolvedKey is! String) {
+        valid = false;
+        return;
+      }
+      result[resolvedKey] = _cborValueToDart(value);
+    });
+    if (!valid) {
+      throw const FormatException(
+        'CBOR keyword arguments must use string keys',
+      );
+    }
+    return result;
   }
 
   @override
