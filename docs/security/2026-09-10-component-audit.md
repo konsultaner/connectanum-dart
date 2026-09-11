@@ -1436,6 +1436,133 @@ This local checkpoint records passing correctness verification alongside failed
 strict performance/reliability checks. The whole security audit remains active;
 no package version, release or remote branch is updated by this checkpoint.
 
+### SA-009: HTTP/1 Responses Can Finish Before TLS Ciphertext Is Flushed
+
+**Impact: incomplete responses and connection stalls under output backpressure;
+local correctness and full verification pass; speed comparison incomplete.**
+
+Before the fix, both `protocol::write_http_response_shared` and
+`write_http1_chunked_response` returned after `write_all` without flushing. The
+HTTP/1 connection loop then waits for the next request. Tokio-Rustls can accept
+plaintext while retaining ciphertext when the underlying socket cannot accept
+more bytes; subsequent reads do not flush it. A client waiting for the rest of
+that response therefore cannot send its next request, and an eventual connection
+close can truncate the response. This is a legitimate-traffic availability
+defect, not a demonstrated authentication bypass or remote code execution.
+It is a concrete cause candidate for the earlier HTTP/1 retry observations;
+those historical retries did not record the server's close reason.
+
+The behavior matches the pinned library's
+[documented flush contract](https://docs.rs/tokio-rustls/0.26.4/tokio_rustls/#why-do-i-need-to-call-poll_flush),
+verified against its local `poll_write`, `poll_flush` and `poll_fill_buf` source.
+This fix adds a completion flush without introducing per-chunk flushing.
+Flushing does not shut down a reusable connection or weaken TLS validation.
+
+**Fail-first reproduction:** a generated, trusted TLS 1.3 certificate and a
+64-byte in-memory duplex channel force backpressure without network timing or
+global native state. Four tests cover buffered 8 KiB and empty responses, plus
+chunked 1 MiB and empty responses. Each old helper returns while Rustls still
+reports pending ciphertext; the assertion closes the fixture and its client
+observes truncated TLS input. This artificial assertion-induced close is not a
+claim that the fixture reproduced the production idle timer. Two independent
+flush-error tests also fail because the old helpers incorrectly return success.
+A plain-byte positive control passes. The confirmed before result is six
+assertion failures and one pass, not a compilation or setup failure.
+
+The initial TLS fixture instead timed out during its handshake: post-handshake
+session tickets could fill its tiny channel before application reads started.
+The corrected fixture disables those tickets only in its test server; production
+TLS settings and tickets remain unchanged. All initial logs are retained.
+For testability, only the private chunked writer's parameter was generalized
+from `IoWriteHalf` to monomorphized `AsyncWrite + Unpin` before reproducing the
+failure; its original no-flush behavior was retained for the before tests.
+
+**Fix:** flush buffered HTTP/1 responses after their final bytes and streaming
+responses after the terminal chunk. Propagate flush errors; close the streaming
+reader on failure, matching existing write-error cleanup. No per-chunk flush,
+new cipher operation, ABI, serializer, framing or package-version change is
+introduced. All seven focused regressions pass, including exact wire bytes and
+a second response on the same TLS stream after the first is fully readable.
+`bin/test-fast` passes before edits. The first full `bin/verify` exits one:
+156 core, 140/148 FFI and 80 driver tests pass, but protected native HTTP/3 MCP
+times out after 30 seconds among 525 passing router tests and one explicit skip.
+A focused rerun with the correct `ffi-test` library passes without changing
+code or timeouts. The first isolated command incorrectly used the production
+library and skipped the test; its zero exit is not counted as a test pass.
+Cause of the full-suite timeout is unestablished, including any relation to
+previous intermittent HTTP/3 failures. Fresh full `bin/verify` passes with
+156 core, 140 default FFI, 148 test-hook FFI, 29 artifact and 80 HTTP-driver
+tests, 526 router passes and one explicit skip, 11 remote-auth and 13 zero-copy
+cases, the live MCP/package gates, and six SCRAM plus two WebSocket
+Chrome/Dart2Wasm tests. No test timeout or retry tolerance was relaxed.
+
+The first native-only comparison process exits one during baseline HTTP/1
+streaming warmup: the peer truncates the TLS body even after the existing driver
+reconnect. Only its warmup and measured serial workloads have complete JSONL
+rows (16 and 2,000 samples). That failed process is retained exactly once;
+partial attempts in its failed workload are unknown, not zero errors. The
+remaining five planned ABBAAB processes were then collected without rerunning
+that failed entry or changing driver retries, timeouts, sample budgets or
+scenario order. The second baseline also fails, during measured HTTP/1
+streaming after its warmup completed. The third baseline completes all workloads
+but opens five rather than four connections in both streaming warmup and
+measurement. Both collectors exit one, retaining four strict findings: two
+failed processes and two unexpected connection counts. Unknown partial failed
+attempts are not included in the completed-sample totals.
+
+All three patched processes finish all nine workloads and their warmups with
+expected connection counts, no reported request errors and no selected server
+error-counter increments. They contain 36,432 measured requests and 1,872
+warmups. Across both variants, complete JSONL rows contain 52,576 measured
+requests and 2,592 warmups, short of the planned 72,864 and 3,744 because of the
+baseline failures. The separate patched HTTP authentication smoke passes all
+27 ticket/WAMP-CRA/SCRAM login, refresh and protected-route workloads with 126
+samples and the exact expected connection counts across HTTP/1, HTTP/2 and
+HTTP/3. This is stronger local reliability evidence, not proof every historical
+EOF had this cause or that no other HTTP/1 failure can occur.
+
+**Observed application throughput (GBit/s):** serial workloads use 2,000 requests
+with one client; sustained streaming uses 256 requests per each of four clients,
+256 KiB uploads and 1 MiB responses; fresh-connection workloads use 128 requests
+per each of eight clients with 1 KiB each way. Values use total application
+request/response bytes divided by lifecycle elapsed, not wire bandwidth.
+
+| Workload | Complete baseline runs | Baseline median GBit/s | Patched median GBit/s (three runs) | Patched range GBit/s |
+| --- | --- | --- | --- | --- |
+| HTTP/1 serial | 3 | 0.006471 | 0.006476 | 0.006439-0.006502 |
+| HTTP/1 streaming | 1, with reconnect | 1.898 | 8.549 | 8.153-9.288 |
+| HTTP/1 fresh | 1 | 0.03948 | 0.03875 | 0.03804-0.03966 |
+| HTTP/2 serial | 1 | 0.005801 | 0.005718 | 0.005661-0.005763 |
+| HTTP/2 streaming | 1 | 25.999 | 25.384 | 24.798-26.644 |
+| HTTP/2 fresh | 1 | 0.04358 | 0.04184 | 0.04092-0.04237 |
+| HTTP/3 serial | 1 | 0.005704 | 0.005664 | 0.005641-0.005850 |
+| HTTP/3 streaming | 1 | 1.512 | 1.486 | 1.453-1.548 |
+| HTTP/3 fresh | 1 | 0.02126 | 0.02129 | 0.02113-0.02190 |
+
+Only HTTP/1 serial has three complete observations per variant. Its median
+throughput changes +0.079%, median request p99 rises from 3.060 to 3.088 ms,
+and median sampled server RSS is 39.16 versus 39.11 MiB. These are small
+observed differences, not proof of identical timing. All other rows are
+explicitly unbalanced; no three-versus-three performance delta is emitted.
+The surviving baseline streaming row includes recovery time, while its
+request-only latencies exclude failed attempts; do not call the apparent
+throughput increase a clean-request speedup. Lower candidate observations such
+as HTTP/2 fresh connections remain visible and need balanced confirmation.
+The artifact retains p50/p95/p99, setup-inclusive fresh p99, RSS/high-water RSS,
+preflight waits, CPU snapshots, commands, source and binary hashes for every
+process. No own inference, builds or tests overlapped timed runs; unrelated VM
+and emulator activity remained. Workload-end RSS is shared-process state, not
+isolated peak allocation; client memory is unavailable, not zero.
+
+Evidence: [HTTP/1 completion regressions, failed and successful runs](2026-09-11-http1-response-flush-benchmarks.json)
+(SHA-256 `f5ad1394f7cd78450095f0910d30b55c6f5b22ac0a5fd65d2c42f286f3edd8ee`).
+No WAMP/file/frame budget was changed or rerun by this HTTP/1-only fix. The
+earlier buffered JSON file budget failure, relative performance findings and
+finite-handle availability remain open. Review paused mid-response producers
+and HTTP/1 transfer-coding framing separately: these completion tests do not
+prove timely intermediate SSE delivery or safe handling of ambiguous requests.
+Keep this checkpoint local; the full component audit is not release-cleared.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and

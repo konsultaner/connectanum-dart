@@ -308,6 +308,40 @@ the budget or relative regressions. Full normalized evidence is linked from
 the audit report. Keep all comparisons and these changes local; the complete
 audit and earlier performance questions remain open. Do not publish.
 
+SA-009 reproduces missing HTTP/1 response-boundary flushes with six fail-first
+assertions and one plain-byte positive control. Buffered and chunked helpers
+could return while TLS ciphertext remained buffered under socket backpressure,
+then wait for a next request the client cannot send. Both now flush once at
+response completion, propagate errors and preserve keep-alive; all seven
+focused tests pass with real TLS and a bounded in-memory channel. Production
+TLS settings, payloads, ABI and versions are unchanged. The initial fixture's
+handshake timeout was corrected separately by disabling session tickets only
+in that tiny test channel. `bin/test-fast` passes; initial full verification
+fails one protected HTTP/3 MCP handshake timeout after 156 core, 140/148 FFI,
+80 driver and 525 router passes. Correct `ffi-test` isolated reproduction passes
+without code/timeout changes; an earlier wrong-library skip is not a pass.
+Fresh full `bin/verify` passes, including 526 router tests (one explicit skip),
+11 remote-auth, 13 zero-copy, live MCP/package and Chrome/Dart2Wasm gates. The
+initial HTTP comparison exits one on baseline streaming warmup: its TLS body
+is truncated even after the existing reconnect attempt. That failed process
+and its two completed serial workloads are retained, not rerun or counted as
+a complete comparison. The remaining five planned runs complete the ABBAAB
+campaign with another baseline streaming failure and two unexpected baseline
+connection counts. All three patched processes pass strict checks over 36,432
+measured requests and 1,872 warmups. Complete rows across both variants contain
+52,576 measured requests and 2,592 warmups; partial failed attempts are unknown.
+Both collectors exit one, retaining every failure. Only HTTP/1 serial has three
+complete runs per variant: median throughput +0.079%, p99 3.060 to 3.088 ms.
+Patched HTTP/1 streaming is 8.153-9.288 GBit/s without reconnects; the sole
+completed baseline has retries, so it is not a clean speedup comparison.
+The other rows need balanced performance evidence. All 27 HTTP authentication
+smoke workloads (126 samples) pass across HTTP/1/2/3. Full normalized evidence
+is linked from the audit report. Keep this checkpoint local, with versions
+unchanged. Next review paused HTTP/1 producers and ambiguous transfer-coding
+framing with fail-first tests before making any further security claims.
+Earlier retry root causes are not retrospectively proven, and all previous
+performance questions stay open.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

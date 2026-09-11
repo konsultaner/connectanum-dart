@@ -484,7 +484,9 @@ pub async fn write_http_response_shared<W>(
 where
     W: AsyncWrite + Unpin,
 {
-    write_http_response_inner(stream, version, status, headers, body).await
+    write_http_response_inner(stream, version, status, headers, body).await?;
+    // TLS may accept plaintext before its ciphertext reaches the socket.
+    stream.flush().await
 }
 
 async fn write_http_response_inner<W>(

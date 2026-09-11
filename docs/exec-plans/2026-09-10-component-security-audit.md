@@ -16,11 +16,11 @@ narrow fix does not complete this plan.
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
 | Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | Pending |
-| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation and SA-008 checked resource allocation are locally regression-verified; HTTP/1 response EOF, finite ID availability, broader review and performance confirmation pending |
+| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation and SA-009 response completion are locally regression-verified; broader framing/lifetime review, finite ID availability and performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
 | Router authorization and state | Realm/role boundaries, RPC/pubsub/meta, pattern grants, dynamic authorization races, worker isolation | Pending; previous Meta fix is baseline only |
-| HTTP and MCP | Origins, redirects, HTTP auth grants, sessions/SSE, tool/resource access, request smuggling, file/proxy routes and SSRF | Pending |
+| HTTP and MCP | Origins, redirects, HTTP auth grants, sessions/SSE, tool/resource access, request smuggling, file/proxy routes and SSRF | SA-009 response completion locally verified; paused producers, ambiguous framing and other boundary review pending |
 | Payload cryptography | Key/nonce lifetime, replay/context binding, authenticated metadata, E2EE parity and file integrity | SA-007 native provider restart key confusion reproduced and locally fixed for both ciphers; broader cryptography review pending |
 | Consumer application | Account/device trust, encrypted storage/backup, attachments, push, WebRTC, MCP consent, native/web boundaries | Pending |
 | Packaging and dependencies | All Dart/Rust lockfiles, advisories and reachability, native download verification, CLI/config secrets, workflows and publishing | SA-002: transport and benchmark scans now have zero published vulnerabilities; transport maintenance warnings and other coverage pending |
@@ -453,6 +453,48 @@ scope, including code excluded from the root workspace gates.
   confirmation; compatible wide resource-handle availability; separate core
   listener/connection-ID boundaries; then all other pending component rows and
   earlier performance questions. Do not push or release incomplete audit work.
+
+## SA-009 HTTP/1 Response Completion (2026-09-11)
+
+- Confirmed response-boundary flush omission in buffered and chunked HTTP/1
+  writers. Real TLS with forced in-memory backpressure returns with ciphertext
+  still pending; four cases fail. Two flush-error cases incorrectly succeed;
+  a plain-wire control passes. Initial fixture handshake timeouts were fixed
+  independently by disabling test-only TLS tickets; production TLS unchanged.
+- Both helpers now flush at completion, not per chunk, and propagate errors.
+  All seven focused cases pass, including exact first/second response bytes and
+  keep-alive. No version/ABI/crypto change. Baseline fast suite passes. Initial
+  full verification exits one on a protected HTTP/3 MCP handshake timeout,
+  with 156 core, 140/148 FFI, 80 driver and 525 router passes. Correct test-runtime
+  isolated rerun passes without code or timeout changes; a wrong-library skip
+  is not counted as a pass. Fresh full `bin/verify` passes with 526 router tests
+  (one explicit skip), 11 remote-auth, 13 zero-copy and the live/package/browser
+  gates. Initial baseline comparison exits one on streaming warmup with TLS
+  body truncation after the existing reconnect. Preserve that process and its
+  two completed serial rows. The remaining five planned runs retain another
+  failed baseline and a completed baseline with two extra connections. All
+  three patched processes pass strict checks (36,432 measured / 1,872 warmup
+  requests); both collectors still exit one because baseline failures remain.
+  Complete rows across both variants contain 52,576 measured / 2,592 warmup
+  requests; partial failed attempts are unknown. No failed entries were rerun
+  and no driver, scenario, timeout or retry gate changed. Only HTTP/1 serial
+  has three complete runs per variant: +0.079% median throughput, p99 3.060 to
+  3.088 ms. Patched streaming reaches 8.153-9.288 GBit/s without reconnects,
+  but the sole completed baseline has retries, not clean speedup evidence.
+  Other workload observations are unbalanced and performance remains open.
+  All 27 HTTP authentication workloads and 126 samples pass. Evidence is
+  `docs/security/2026-09-11-http1-response-flush-benchmarks.json` (SHA-256
+  `f5ad1394f7cd78450095f0910d30b55c6f5b22ac0a5fd65d2c42f286f3edd8ee`).
+- Do not infer full audit or speed clearance from this fix. Retain historical
+  HTTP/1 retries, the buffered JSON file budget failure, all older relative
+  comparisons, finite resource capacity and remaining component review rows.
+- Response completion tests do not establish timely delivery while a long-lived
+  producer is paused mid-response. Review that separate SSE/streaming boundary
+  with a deterministic producer-stall test and sustained-throughput evidence.
+- Read-only HTTP framing lead: the native parser's exact `chunked` comparison
+  needs malformed/list/repeated Transfer-Encoding and CL+TE differential tests
+  against [RFC 9112 section 6.3](https://www.rfc-editor.org/rfc/rfc9112.html#section-6.3).
+  No request-smuggling exploit or parser fix is claimed without reproduction.
 
 ## Related Plans
 

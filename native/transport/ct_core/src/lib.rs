@@ -5983,6 +5983,9 @@ fn has_bearer_header_bytes(headers: &[(Arc<[u8]>, Arc<[u8]>)]) -> bool {
 mod http2_security_tests;
 
 #[cfg(test)]
+mod http1_response_tests;
+
+#[cfg(test)]
 mod stats_tests {
     use super::*;
 
@@ -6395,8 +6398,8 @@ fn strip_content_length(headers: &mut Vec<(String, String)>) {
     headers.retain(|(name, _)| !name.eq_ignore_ascii_case("content-length"));
 }
 
-async fn write_http1_chunked_response(
-    writer: &mut IoWriteHalf,
+async fn write_http1_chunked_response<W: AsyncWrite + Unpin>(
+    writer: &mut W,
     version: u8,
     status: i32,
     headers: &[(String, String)],
@@ -6447,7 +6450,12 @@ async fn write_http1_chunked_response(
                     reader.close();
                     return Err(err);
                 }
-                return Ok(());
+                // Complete the TLS record before waiting for the next request.
+                let result = writer.flush().await;
+                if result.is_err() {
+                    reader.close();
+                }
+                return result;
             }
             Err(err) => {
                 reader.close();
