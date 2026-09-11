@@ -1,0 +1,107 @@
+name = "http3_connection_churn"
+description = "Diagnostic HTTP/3 connection churn: repeated fresh-client bursts with idle probes; not an RSS leak threshold or production performance gate."
+
+[[workloads]]
+name = "churn_warmup"
+protocol = "h3"
+iterations = 128
+concurrency = 4
+reuse_connections = false
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "settled_start"
+protocol = "h2"
+warmup_ms = 8000
+iterations = 1
+concurrency = 1
+request_bytes = 0
+response_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "churn_burst_1"
+protocol = "h3"
+iterations = 256
+concurrency = 16
+reuse_connections = false
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "settled_after_1"
+protocol = "h2"
+warmup_ms = 8000
+iterations = 1
+concurrency = 1
+request_bytes = 0
+response_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "churn_burst_2"
+protocol = "h3"
+iterations = 256
+concurrency = 16
+reuse_connections = false
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "settled_after_2"
+protocol = "h2"
+warmup_ms = 8000
+iterations = 1
+concurrency = 1
+request_bytes = 0
+response_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "churn_burst_3"
+protocol = "h3"
+iterations = 256
+concurrency = 16
+reuse_connections = false
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "settled_after_3"
+protocol = "h2"
+warmup_ms = 8000
+iterations = 1
+concurrency = 1
+request_bytes = 0
+response_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "churn_burst_4"
+protocol = "h3"
+iterations = 256
+concurrency = 16
+reuse_connections = false
+request_bytes = 1024
+response_bytes = 1024
+request_chunk_bytes = 1024
+response_chunk_bytes = 1024
+
+[[workloads]]
+name = "settled_after_4"
+protocol = "h2"
+warmup_ms = 15000
+iterations = 1
+concurrency = 1
+request_bytes = 0
+response_bytes = 1024
+response_chunk_bytes = 1024

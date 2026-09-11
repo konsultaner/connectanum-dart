@@ -194,6 +194,113 @@ fn http3_admission_ordinary_client_positive_control() {
 }
 
 #[test]
+fn http3_admission_connection_churn_releases_native_owners() {
+    let runtime = Runtime::new().unwrap();
+    let mut server = TestServer::new(&runtime, Duration::from_secs(30));
+    let initial_registry_owners = Arc::strong_count(&server.registry);
+    runtime.block_on(async {
+        let mut total_events = 0;
+        for burst in 0..4 {
+            let release = Arc::new(tokio::sync::Barrier::new(9));
+            let mut clients = JoinSet::new();
+            let mut connection_owners = Vec::new();
+            let mut stream_owners = Vec::new();
+            let mut ids = std::collections::HashSet::new();
+            time::timeout(TEST_DEADLINE, async {
+                for _ in 0..8 {
+                    let endpoint = server.client();
+                    let addr = server.addr;
+                    let release = Arc::clone(&release);
+                    clients.spawn(async move {
+                        let connection =
+                            endpoint.connect(addr, "localhost").unwrap().await.unwrap();
+                        let (mut driver, mut requests) = h3::client::builder()
+                            .build::<_, _, Bytes>(H3QuinnConnection::new(connection))
+                            .await
+                            .unwrap();
+                        let driver = tokio::spawn(async move {
+                            std::future::poll_fn(|cx| driver.poll_close(cx)).await;
+                        });
+                        if burst % 2 == 0 {
+                            let request = HttpRequest::builder()
+                                .uri(format!("https://localhost:{}/churn", addr.port()))
+                                .body(())
+                                .unwrap();
+                            let mut stream = requests.send_request(request).await.unwrap();
+                            stream.finish().await.unwrap();
+                            assert_eq!(
+                                stream.recv_response().await.unwrap().status(),
+                                StatusCode::NOT_FOUND
+                            );
+                            while stream.recv_data().await.unwrap().is_some() {}
+                        }
+                        // Keep completed and requestless connections alive until
+                        // the parent has captured their native weak owners.
+                        release.wait().await;
+                        endpoint.close(VarInt::from_u32(0), b"churn client done");
+                        driver.abort();
+                    });
+                }
+                for _ in 0..8 {
+                    let id = server.accepted.recv().await.unwrap();
+                    assert!(ids.insert(id));
+                    let connections = server.registry.connections.lock().unwrap();
+                    let entry = connections.get(&id).expect("live registered connection");
+                    let ConnectionRecord::Http3Pending {
+                        connection,
+                        streams,
+                        ..
+                    } = &entry.record
+                    else {
+                        panic!("expected HTTP/3 record");
+                    };
+                    connection_owners
+                        .push(Arc::downgrade(connection.lock().unwrap().as_ref().unwrap()));
+                    stream_owners.push(Arc::downgrade(streams));
+                }
+                release.wait().await;
+                while let Some(client) = clients.join_next().await {
+                    client.unwrap();
+                }
+            })
+            .await
+            .expect("all churn clients must complete without a shutdown");
+
+            time::timeout(DRAIN_DEADLINE, async {
+                server.endpoint.wait_idle().await;
+                loop {
+                    if server.registry.connections.lock().unwrap().is_empty()
+                        && connection_owners
+                            .iter()
+                            .all(|owner| owner.upgrade().is_none())
+                        && stream_owners.iter().all(|owner| owner.upgrade().is_none())
+                        && Arc::strong_count(&server.registry) == initial_registry_owners
+                    {
+                        break;
+                    }
+                    time::sleep(Duration::from_millis(1)).await;
+                }
+            })
+            .await
+            .expect("QUIC and native owners must drain with the listener still open");
+            assert_eq!(server.endpoint.open_connections(), 0);
+            assert!(!server.listener.is_finished());
+            assert!(server.accepted.try_recv().is_err());
+            let mut events = std::collections::HashSet::new();
+            while let Some(event) = server.registry.poll_http_connection_event() {
+                assert!(events.insert(event.connection_id));
+                assert_eq!(event.protocol, ConnectionProtocol::Http3);
+                assert_eq!(event.reason, HttpConnectionCloseReason::Graceful);
+                assert_eq!(event.request_count, if burst % 2 == 0 { 1 } else { 0 });
+            }
+            assert_eq!(events, ids);
+            total_events += events.len();
+        }
+        assert_eq!(total_events, 32);
+    });
+}
+
+#[test]
 fn http3_admission_incomplete_handshake_does_not_block_other_clients() {
     let runtime = Runtime::new().unwrap();
     let mut server = TestServer::new(&runtime, Duration::from_secs(30));

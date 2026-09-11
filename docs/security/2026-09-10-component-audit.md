@@ -1080,6 +1080,66 @@ Earlier audit performance questions and pending component reviews still apply.
 No transport tuning, production security behavior, versions, remotes or
 publications changed in this follow-up.
 
+#### Native Ownership And Post-Idle Memory (2026-09-11)
+
+The new `http3_admission_connection_churn_releases_native_owners` regression
+uses the production listener with four bursts of eight concurrent TLS/QUIC
+clients. Alternating bursts either complete and drain one GET or send no request.
+The test captures weak connection/stream-channel owners before releasing the
+clients, then checks endpoint and registry cleanup, destruction of those owners,
+return of the registry Arc count to its initial listener baseline, and exactly
+one graceful terminal event per accepted ID. The listener remains open throughout.
+All 32 clients pass without a production change. This is ownership coverage,
+not a reproduced new leak or proof about every Dart/FFI handle lifetime.
+
+The [churn comparison](2026-09-11-http3-connection-churn-benchmarks.json) retains
+six ABBAAB passes using the same frozen binaries as the setup-inclusive series.
+The diagnostic scenario runs four 4,096-connection bursts at concurrency 16 per
+process, separated by eight-second idle intervals and a final fifteen-second
+interval. A total of 98,304 measured connections, 3,072 warmup connections and
+30 small HTTP/2 probes pass exact byte/connection checks without errors or
+transport error/timeout counter increases. Idle intervals are outside the
+throughput window; the following values use the probes' pre-request RSS samples.
+
+| Post-Idle Point | Baseline Median RSS, MiB | Candidate Median RSS, MiB |
+| --- | ---: | ---: |
+| After warmup | 56.234 | 55.344 |
+| After burst 1 | 64.609 | 77.359 |
+| After burst 2 | 65.844 | 79.781 |
+| After burst 3 | 66.375 | 80.844 |
+| After burst 4 | 68.938 | 83.281 |
+
+Final RSS ranges do not overlap: 68.109-69.266 MiB baseline versus
+81.812-84.422 MiB candidate. Both variants still grow across later bursts;
+neither leak freedom nor a stable plateau is established. Do not replace the
+earlier mixed-workload RSS observations with these different workload histories.
+
+`vmmap -summary` snapshots taken only during the final idle interval show median
+default-malloc-zone resident memory of 28.6 versus 40.5 MiB, but allocated bytes
+of approximately 1.733 versus 1.940 MiB. Reported dirty/swap fragmentation is
+23.6 versus 29.0 MiB; physical footprint is 51.3 versus 59.4 MiB. These rounded
+macOS figures differ from process RSS and do not cover every allocation owner.
+They support allocator retention/fragmentation as a substantial contributor,
+not attribution of the whole difference or dismissal of possible leaks. The
+router's `active_connections` gauge counts worker-owned connections and is not
+used as proof of zero native QUIC connections.
+
+The initial zero-response probe configuration was rejected by strict byte
+validation: the existing benchmark handler returns `bench` for an empty echo
+request. That failed attempt is retained separately; only probe responses were
+changed to explicit 1 KiB synthetic bodies. A busy-inference preflight also
+refused to start; no load threshold or byte check was weakened. No own tests,
+builds or inference overlap the six valid runs; unrelated host activity remains
+recorded. The new native regression and initial full `bin/verify` pass.
+Final `bin/verify` after the probe correction also exits zero: 149 core,
+121/129 FFI, 29 benchmark-artifact and 77 driver tests, plus 526 router tests
+(one explicit skip), 124 Dart benchmark tests, consumer/MCP smoke, zero-copy,
+and the Chrome/Dart2Wasm SCRAM and WebSocket checks.
+Performance remains uncleared. Next separate allocator behavior from remaining
+Dart/FFI resource ownership under comparable workload histories, while continuing
+the other component reviews. No production transport code, versions or releases
+changed in this checkpoint.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and

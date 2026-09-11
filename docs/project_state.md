@@ -238,6 +238,24 @@ Performance remains uncleared alongside earlier audit questions and remaining
 component review. Both comparisons are linked from the audit report. No
 versions, remotes or publications changed.
 
+SA-006 memory follow-up adds a native owner-lifetime regression and a diagnostic
+connection-churn scenario without changing production code. The regression
+checks 32 real TLS/QUIC clients, including requestless connections, and confirms
+native connection/stream owners and registry entries drain while the listener
+remains open. Six ABBAAB frozen-binary runs pass 98,304 measured fresh connections,
+3,072 warmups and 30 idle probes without byte/count errors or transport errors.
+Final post-idle RSS remains higher: 68.938 versus 83.281 MiB baseline/candidate
+medians with non-overlapping ranges. Allocator snapshots show much smaller
+allocated-byte growth than resident-zone growth, supporting retention/fragmentation
+as a contributor but not establishing leak freedom or clearing Dart/FFI ownership.
+The initial empty-response probe failed strict validation and is retained;
+explicit 1 KiB probes correct only the new scenario. Initial full verification
+and final `bin/verify` exit zero, including 149 core, 121/129 FFI, 77 driver,
+526 router (one skip), 124 Dart benchmark, consumer/MCP and browser checks.
+Evidence is linked from the audit report.
+Continue allocator/resource ownership and the remaining component reviews;
+performance remains uncleared and all audit work stays local and unpublished.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

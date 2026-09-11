@@ -356,6 +356,35 @@ scope, including code excluded from the root workspace gates.
 - Normalized results, hashes, scripts and verification provenance are in
   `docs/security/2026-09-11-http3-operation-timing-benchmarks.json`.
 
+## SA-006 Connection-Churn Memory Checkpoint (2026-09-11)
+
+- A new native regression covers 32 TLS/QUIC clients in four eight-client
+  bursts, alternating a drained GET and no request. All connection/stream weak
+  owners, registry entries and endpoint connections drain between bursts;
+  registry ownership returns to the initial baseline and every accepted ID
+  receives one graceful terminal event while the listener stays open. This
+  passes without a production change and is not a new leak reproduction.
+- Six ABBAAB runs of the new diagnostic churn scenario pass 98,304 measured
+  fresh connections, 3,072 warmups and 30 idle probes with exact bytes/counts
+  and no errors. Frozen binaries are identical to the timing checkpoint.
+  Final post-idle RSS is 68.938 versus 83.281 MiB (baseline/candidate medians),
+  with non-overlapping ranges. Both variants still grow across later bursts.
+- Final-idle macOS allocator snapshots show 28.6 versus 40.5 MiB median resident
+  malloc-zone memory, but about 1.733 versus 1.940 MiB allocated. This supports
+  retention/fragmentation as a contributor, not complete attribution or proof
+  of leak freedom. Native ownership coverage does not clear Dart/FFI handles.
+  Preserve the different earlier mixed-workload RSS history as separate evidence.
+- The initial zero-response idle probe failed strict byte validation because
+  the handler's empty echo fallback returns five bytes. Preserve that attempt;
+  explicit 1 KiB probe responses fix the fixture without weakening validation.
+  No own tests/builds/inference overlap the valid runs. Initial and final full
+  `bin/verify` exit zero, including 149 core, 121/129 FFI, 29 artifact, 77 driver,
+  526 router (one skip), 124 Dart benchmark, consumer/MCP and browser checks.
+- Evidence: `docs/security/2026-09-11-http3-connection-churn-benchmarks.json`.
+  Keep performance and the broader audit open, continue allocator/resource-store
+  ownership review and earlier comparisons, and do not tune security behavior
+  based on RSS alone. No production code, versions, remotes or releases changed.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.
