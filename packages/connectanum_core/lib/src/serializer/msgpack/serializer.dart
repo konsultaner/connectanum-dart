@@ -35,6 +35,7 @@ import 'package:connectanum_core/src/message/yield.dart';
 
 import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
+import '../limits.dart';
 
 /// This is a seralizer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
@@ -120,6 +121,9 @@ class Serializer extends AbstractSerializer {
   AbstractMessage? deserialize(Uint8List? msgPack) {
     if (msgPack == null) {
       return null;
+    }
+    if (_readMsgPackArrayHeader(msgPack, 0) == null) {
+      _validateCompleteMsgPackValue(msgPack);
     }
     final fastPathMessage = _deserializeFastPathMessage(msgPack);
     if (fastPathMessage != null) {
@@ -429,7 +433,10 @@ class Serializer extends AbstractSerializer {
         );
       }
     }
-    _logger.shout('Could not deserialize the message: $msgPack');
+    _logger.shout(
+      'Could not deserialize MessagePack WAMP message '
+      '(${msgPack.length} bytes)',
+    );
     // TODO respond with an error
     return null;
   }
@@ -867,10 +874,10 @@ class Serializer extends AbstractSerializer {
 
   int _decodeMsgPackInt(Uint8List bytes) {
     final decoded = _decodeMsgPackFragment(bytes);
-    if (decoded is num) {
-      return decoded.toInt();
+    if (decoded is int) {
+      return decoded;
     }
-    throw ArgumentError('Expected MessagePack integer but got $decoded');
+    throw const FormatException('Expected MessagePack integer');
   }
 
   String _decodeMsgPackString(Uint8List bytes) {
@@ -1781,6 +1788,7 @@ class Serializer extends AbstractSerializer {
     List<dynamic>? arguments;
     Map<String, dynamic>? argumentsKeywords;
 
+    _validateCompleteMsgPackValue(binPayload);
     Object? decodedObject = msgpack_dart.deserialize(binPayload);
 
     if (decodedObject is Map) {
@@ -1800,7 +1808,10 @@ class Serializer extends AbstractSerializer {
       );
     }
 
-    _logger.shout('Could not deserialize the message: $binPayload');
+    _logger.shout(
+      'Could not deserialize MessagePack PPT payload '
+      '(${binPayload.length} bytes)',
+    );
     // TODO respond with an error
     return null;
   }
@@ -1880,16 +1891,32 @@ List<_ByteRange>? _parseMsgPackTopLevelRanges(Uint8List bytes) {
   if (header == null) {
     return null;
   }
+  validateWampMessageFieldCount(header.length);
   var offset = header.nextOffset;
   final ranges = <_ByteRange>[];
-  for (var index = 0; index < header.length; index++) {
-    final start = offset;
-    final next = _skipMsgPackValue(bytes, offset);
-    if (next == null) {
-      return null;
+  if (bytes.length <= serializerMaxPayloadNestingDepth) {
+    for (var index = 0; index < header.length; index++) {
+      final start = offset;
+      final next = _skipMsgPackValue(bytes, offset);
+      if (next == null) {
+        return null;
+      }
+      ranges.add(_ByteRange(start, next));
+      offset = next;
     }
-    ranges.add(_ByteRange(start, next));
-    offset = next;
+  } else {
+    for (var index = 0; index < header.length; index++) {
+      final start = offset;
+      final next = _skipDepthLimitedMsgPackValue(bytes, offset, 0);
+      if (next == null) {
+        return null;
+      }
+      ranges.add(_ByteRange(start, next));
+      offset = next;
+    }
+  }
+  if (offset != bytes.length) {
+    throw const FormatException('Trailing data after MessagePack WAMP message');
   }
   return ranges;
 }
@@ -2009,6 +2036,139 @@ int? _skipMsgPackValue(Uint8List bytes, int offset) {
   }
 }
 
+int? _skipDepthLimitedMsgPackValue(
+  Uint8List bytes,
+  int offset,
+  int parentDepth,
+) {
+  if (offset >= bytes.length) {
+    return null;
+  }
+  final lead = bytes[offset];
+  if (lead <= 0x7f || lead >= 0xe0) {
+    return offset + 1;
+  }
+  if ((lead & 0xe0) == 0xa0) {
+    final length = lead & 0x1f;
+    return _advanceMsgPackOffset(bytes, offset + 1, length);
+  }
+  if ((lead & 0xf0) == 0x90) {
+    return _skipDepthLimitedMsgPackArray(
+      bytes,
+      offset + 1,
+      lead & 0x0f,
+      parentDepth,
+    );
+  }
+  if ((lead & 0xf0) == 0x80) {
+    return _skipDepthLimitedMsgPackMap(
+      bytes,
+      offset + 1,
+      lead & 0x0f,
+      parentDepth,
+    );
+  }
+  switch (lead) {
+    case 0xc0:
+    case 0xc2:
+    case 0xc3:
+      return offset + 1;
+    case 0xcc:
+    case 0xd0:
+      return _advanceMsgPackOffset(bytes, offset + 1, 1);
+    case 0xcd:
+    case 0xd1:
+      return _advanceMsgPackOffset(bytes, offset + 1, 2);
+    case 0xce:
+    case 0xd2:
+    case 0xca:
+      return _advanceMsgPackOffset(bytes, offset + 1, 4);
+    case 0xcf:
+    case 0xd3:
+    case 0xcb:
+      return _advanceMsgPackOffset(bytes, offset + 1, 8);
+    case 0xd9:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 1);
+    case 0xda:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 2);
+    case 0xdb:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 4);
+    case 0xc4:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 1);
+    case 0xc5:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 2);
+    case 0xc6:
+      return _skipMsgPackLengthPrefixed(bytes, offset + 1, 4);
+    case 0xdc:
+      final length = _readMsgPackLength(bytes, offset + 1, 2);
+      return length == null
+          ? null
+          : _skipDepthLimitedMsgPackArray(
+              bytes,
+              offset + 3,
+              length,
+              parentDepth,
+            );
+    case 0xdd:
+      final length = _readMsgPackLength(bytes, offset + 1, 4);
+      return length == null
+          ? null
+          : _skipDepthLimitedMsgPackArray(
+              bytes,
+              offset + 5,
+              length,
+              parentDepth,
+            );
+    case 0xde:
+      final length = _readMsgPackLength(bytes, offset + 1, 2);
+      return length == null
+          ? null
+          : _skipDepthLimitedMsgPackMap(
+              bytes,
+              offset + 3,
+              length,
+              parentDepth,
+            );
+    case 0xdf:
+      final length = _readMsgPackLength(bytes, offset + 1, 4);
+      return length == null
+          ? null
+          : _skipDepthLimitedMsgPackMap(
+              bytes,
+              offset + 5,
+              length,
+              parentDepth,
+            );
+    case 0xd4:
+      return _advanceMsgPackOffset(bytes, offset + 2, 1);
+    case 0xd5:
+      return _advanceMsgPackOffset(bytes, offset + 2, 2);
+    case 0xd6:
+      return _advanceMsgPackOffset(bytes, offset + 2, 4);
+    case 0xd7:
+      return _advanceMsgPackOffset(bytes, offset + 2, 8);
+    case 0xd8:
+      return _advanceMsgPackOffset(bytes, offset + 2, 16);
+    case 0xc7:
+      return _skipMsgPackExt(bytes, offset + 1, 1);
+    case 0xc8:
+      return _skipMsgPackExt(bytes, offset + 1, 2);
+    case 0xc9:
+      return _skipMsgPackExt(bytes, offset + 1, 4);
+    default:
+      return null;
+  }
+}
+
+void _validateCompleteMsgPackValue(Uint8List bytes) {
+  final end = bytes.length <= serializerMaxPayloadNestingDepth
+      ? _skipMsgPackValue(bytes, 0)
+      : _skipDepthLimitedMsgPackValue(bytes, 0, -1);
+  if (end != bytes.length) {
+    throw const FormatException('Invalid MessagePack payload');
+  }
+}
+
 int? _skipMsgPackArray(Uint8List bytes, int offset, int length) {
   var current = offset;
   for (var index = 0; index < length; index++) {
@@ -2029,6 +2189,52 @@ int? _skipMsgPackMap(Uint8List bytes, int offset, int length) {
       return null;
     }
     final nextValue = _skipMsgPackValue(bytes, nextKey);
+    if (nextValue == null) {
+      return null;
+    }
+    current = nextValue;
+  }
+  return current;
+}
+
+int? _skipDepthLimitedMsgPackArray(
+  Uint8List bytes,
+  int offset,
+  int length,
+  int parentDepth,
+) {
+  if (length == 0) {
+    return offset;
+  }
+  final depth = enterSerializerContainer(parentDepth);
+  var current = offset;
+  for (var index = 0; index < length; index++) {
+    final next = _skipDepthLimitedMsgPackValue(bytes, current, depth);
+    if (next == null) {
+      return null;
+    }
+    current = next;
+  }
+  return current;
+}
+
+int? _skipDepthLimitedMsgPackMap(
+  Uint8List bytes,
+  int offset,
+  int length,
+  int parentDepth,
+) {
+  if (length == 0) {
+    return offset;
+  }
+  final depth = enterSerializerContainer(parentDepth);
+  var current = offset;
+  for (var index = 0; index < length; index++) {
+    final nextKey = _skipDepthLimitedMsgPackValue(bytes, current, depth);
+    if (nextKey == null) {
+      return null;
+    }
+    final nextValue = _skipDepthLimitedMsgPackValue(bytes, nextKey, depth);
     if (nextValue == null) {
       return null;
     }
@@ -2075,8 +2281,8 @@ int? _readMsgPackLength(Uint8List bytes, int offset, int lengthBytes) {
 }
 
 int? _coerceInt(Object? value) {
-  if (value is num) {
-    return value.toInt();
+  if (value is int) {
+    return value;
   }
   return null;
 }

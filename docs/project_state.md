@@ -410,6 +410,33 @@ local and unpublished. Next inspect attacker-controlled serializer nesting,
 collection sizes, integer boundaries and lazy-payload consistency across JSON,
 MessagePack and CBOR with fail-first resource-bound tests.
 
+SA-012 confirms serializer stack-exhaustion, framing, integer, and diagnostic
+defects. Frozen-source probes crash on 8,192-level MessagePack/CBOR and
+65,536-level JSON payloads; valid indefinite CBOR bypasses the first seven-field
+guard, binary fast paths accept trailing objects and truncate core integer
+fragments, and malformed JSON exceptions can contain source secrets. The final
+JSON, MessagePack, and CBOR paths enforce depth 64, complete binary value
+consumption, exact core integers, seven WAMP fields for recognized messages,
+and length-only diagnostics. RFC 8949 indefinite arrays remain compatible via a
+bounded direct range scan. Nine focused and all 192 serializer tests pass, as do
+extreme post-fix probes, core analysis, and `git diff --check`.
+
+The first long AOT candidate showed a 5.08% tiny-JSON median decrease, so it was
+not accepted. Diagnostics isolated the unconditional pre-dispatch arity check;
+moving validation into recognized fixed/payload paths restored the control while
+keeping the security invariant. The final ABBAAB campaign completes 296,062,200
+measured deserializations and 478,914 warmups with valid checksums. All ordinary
+ranges overlap and medians are -4.72% to -0.13%; indefinite CBOR is +21.39% and
+median max RSS differs by +0.43%. Earlier opposite MessagePack movement for
+unchanged code remains visible as shared-host variability. This clears measured
+SA-012 paths under the fixed -5%/range rule, not identical timing or the full
+audit. Evidence is
+`docs/security/2026-09-11-serializer-resource-benchmarks.json`. The first full
+verification run hit one HTTP/3 handshake timeout; the exact test then passed
+six isolated runs and a fresh complete `bin/verify` exited zero. Continue
+decoded collection amplification, optional numeric strictness, short-array
+normalization, and all other component rows. Nothing is pushed or published.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

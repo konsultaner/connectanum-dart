@@ -15,7 +15,7 @@ narrow fix does not complete this plan.
 
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
-| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | Pending |
+| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening is locally regression/performance-verified; collection allocation, optional numeric strictness, short-array normalization and broader protocol review remain pending |
 | Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation, SA-009 response completion, SA-010 HTTP/1 request framing and SA-011 paused-producer delivery are locally regression-verified; broader framing/lifetime review, finite ID availability and earlier performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
@@ -593,6 +593,42 @@ scope, including code excluded from the root workspace gates.
   comparisons, direct SA-010 final-binary timing, finite resource availability
   and every unreviewed component row remain open. Keep this checkpoint local
   and unpublished.
+
+## SA-012 Core Serializer Resource Boundaries (2026-09-11)
+
+- Frozen-source probes reproduce `StackOverflowError` for 8,192-level
+  MessagePack/CBOR and 65,536-level JSON WAMP payloads. Additional fail-first
+  cases reproduce trailing binary-object acceptance, floating-point truncation
+  in core binary integer fields, raw failure diagnostics, and an eight-field
+  WAMP `RESULT` hidden in a valid RFC 8949 indefinite CBOR array.
+- The retained serializers enforce depth 64 across recursive payload/PPT scans,
+  require complete MessagePack/CBOR value consumption, reject floats in core
+  binary WAMP integer fragments, bound recognized envelopes to seven fields,
+  and emit only type/length diagnostics. Indefinite CBOR remains supported and
+  uses a direct bounded top-level range scan rather than an incompatible ban.
+- Nine focused security tests and all 192 serializer tests pass. Final probes
+  turn each extreme nesting crash into `FormatException`, reject indefinite
+  arity overflow, and show no probe payload in JSON/CBOR/MessagePack errors.
+  Core analysis and `git diff --check` pass.
+- The first long AOT candidate retained a 5.08% tiny-JSON median decrease. A
+  no-redaction control did not recover it; removing only the unconditional
+  pre-dispatch arity check did. The final dispatch-aware implementation keeps
+  validation on every recognized fixed/payload path and restores the control.
+- The final ABBAAB campaign completes 296,062,200 measured deserializations plus
+  478,914 warmups, with 21 samples per variant/scenario and valid checksums. All
+  ordinary ranges overlap; medians are -4.72% to -0.13%, indefinite CBOR is
+  +21.39%, and median max RSS differs by +0.43%. Earlier opposite MessagePack
+  movement for unchanged code is retained as shared-host variability. This
+  clears measured SA-012 paths under the fixed -5%/range rule, not identical
+  speed or audit-wide performance.
+- Evidence is
+  `docs/security/2026-09-11-serializer-resource-benchmarks.json`. Keep this
+  checkpoint local and unpublished. The first full verification run hit one
+  HTTP/3 handshake timeout; the exact test passed six isolated runs and a fresh
+  complete `bin/verify` then exited zero. Continue collection/allocation
+  amplification, optional numeric strictness, malformed short-array
+  normalization, and every remaining component row rather than closing the
+  audit.
 
 ## Related Plans
 

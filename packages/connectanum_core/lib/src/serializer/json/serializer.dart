@@ -37,11 +37,23 @@ import 'dart:convert';
 
 import '../../message/ppt_payload.dart';
 import '../abstract_serializer.dart';
+import '../limits.dart';
 import 'binary_codec.dart';
 
 typedef CanonicalBase64ByteDecoder =
     Uint8List? Function(Uint8List input, int start, int end);
 typedef CanonicalBase64ByteEncoder = Uint8List? Function(Uint8List input);
+
+@pragma('vm:never-inline')
+Object? _decodeJsonMessage(String source) {
+  try {
+    return json.decode(source);
+  } on FormatException {
+    throw FormatException(
+      'Invalid JSON WAMP message (${source.length} chars)',
+    );
+  }
+}
 
 /// This is a serializer for JSON messages. It is used to initialize an [AbstractTransport]
 /// object.
@@ -305,10 +317,18 @@ class Serializer extends AbstractSerializer {
     if (singleBinaryPayload != null) {
       return singleBinaryPayload;
     }
-    Object? message = json.decode(jsonMessage);
+    final message = _decodeJsonMessage(jsonMessage);
     if (message is List) {
-      int messageId = message[0];
+      if (message.isEmpty) {
+        throw const FormatException('WAMP message type must be an integer');
+      }
+      final Object? rawMessageId = message[0];
+      if (rawMessageId is! int) {
+        throw const FormatException('WAMP message type must be an integer');
+      }
+      final messageId = rawMessageId;
       if (messageId == MessageTypes.codeHello) {
+        validateWampMessageFieldCount(message.length);
         return Hello(
           message[1] as String?,
           _decodeDetailsMap(
@@ -317,12 +337,14 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeChallenge) {
+        validateWampMessageFieldCount(message.length);
         final extraMap = message[2] is Map
             ? _normalizeJsonStringKeyMap(message[2] as Map<dynamic, dynamic>)
             : const <String, dynamic>{};
         return Challenge(message[1], Extra.fromMap(extraMap));
       }
       if (messageId == MessageTypes.codeAuthenticate) {
+        validateWampMessageFieldCount(message.length);
         return Authenticate(signature: message[1] as String?)
           ..extra = message[2] is Map
               ? Map<String, Object?>.from(
@@ -333,6 +355,7 @@ class Serializer extends AbstractSerializer {
               : <String, Object?>{};
       }
       if (messageId == MessageTypes.codeWelcome) {
+        validateWampMessageFieldCount(message.length);
         return Welcome(
           message[1],
           _decodeDetailsMap(
@@ -341,6 +364,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeRegister) {
+        validateWampMessageFieldCount(message.length);
         return Register(
           message[1],
           message[3],
@@ -354,6 +378,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeUnregister) {
+        validateWampMessageFieldCount(message.length);
         return Unregister(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeCall) {
@@ -407,9 +432,11 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeRegistered) {
+        validateWampMessageFieldCount(message.length);
         return registered_msg.Registered(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnregistered) {
+        validateWampMessageFieldCount(message.length);
         return unregistered_msg.Unregistered(message[1]);
       }
       if (messageId == MessageTypes.codeInvocation) {
@@ -444,6 +471,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeInterrupt) {
+        validateWampMessageFieldCount(message.length);
         final optionsMap = message.length > 2 && message[2] is Map
             ? message[2] as Map<dynamic, dynamic>
             : null;
@@ -459,6 +487,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeCancel) {
+        validateWampMessageFieldCount(message.length);
         final optionsMap = message.length > 2 && message[2] is Map
             ? message[2] as Map<dynamic, dynamic>
             : null;
@@ -497,9 +526,11 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codePublished) {
+        validateWampMessageFieldCount(message.length);
         return Published(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeSubscribe) {
+        validateWampMessageFieldCount(message.length);
         return Subscribe(
           message[1],
           message[3],
@@ -513,12 +544,15 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeSubscribed) {
+        validateWampMessageFieldCount(message.length);
         return Subscribed(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnsubscribe) {
+        validateWampMessageFieldCount(message.length);
         return Unsubscribe(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnsubscribed) {
+        validateWampMessageFieldCount(message.length);
         return Unsubscribed(
           message[1],
           message.length == 2
@@ -570,6 +604,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeAbort) {
+        validateWampMessageFieldCount(message.length);
         final details = message.length > 1 && message[1] != null
             ? _normalizeJsonStringKeyMap(message[1] as Map<dynamic, dynamic>)
             : <String, Object?>{};
@@ -594,6 +629,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeGoodbye) {
+        validateWampMessageFieldCount(message.length);
         return Goodbye(
           _decodeGoodbyeMessage(
             message.length > 1 && message[1] is Map
@@ -604,7 +640,9 @@ class Serializer extends AbstractSerializer {
         );
       }
     }
-    _logger.shout('Could not deserialize the message: $jsonMessage');
+    _logger.shout(
+      'Could not deserialize JSON WAMP message (${jsonMessage.length} chars)',
+    );
     // TODO respond with an error
     return null;
   }
@@ -727,6 +765,7 @@ class Serializer extends AbstractSerializer {
     List<dynamic> messageData,
     argumentsOffset,
   ) {
+    validateWampMessageFieldCount(messageData.length);
     if (messageData.length == argumentsOffset + 1 &&
         messageData[argumentsOffset] is String) {
       if (_isBinaryJsonString(messageData[argumentsOffset] as String)) {
@@ -773,13 +812,17 @@ class Serializer extends AbstractSerializer {
     }
   }
 
-  void _convertMapEntriesBinaryJsonStringToUint8List(Map payload) {
+  void _convertMapEntriesBinaryJsonStringToUint8List(
+    Map payload, [
+    int parentDepth = 0,
+  ]) {
+    final depth = enterSerializerContainer(parentDepth);
     for (var element in payload.entries) {
       if (element.value is Map) {
-        _convertMapEntriesBinaryJsonStringToUint8List(element.value);
+        _convertMapEntriesBinaryJsonStringToUint8List(element.value, depth);
       }
       if (element.value is List) {
-        _convertListEntriesBinaryJsonStringToUint8List(element.value);
+        _convertListEntriesBinaryJsonStringToUint8List(element.value, depth);
       }
       if (element.value is String &&
           _isBinaryJsonString(element.value as String)) {
@@ -790,13 +833,17 @@ class Serializer extends AbstractSerializer {
     }
   }
 
-  void _convertListEntriesBinaryJsonStringToUint8List(List payload) {
+  void _convertListEntriesBinaryJsonStringToUint8List(
+    List payload, [
+    int parentDepth = 0,
+  ]) {
+    final depth = enterSerializerContainer(parentDepth);
     for (var i = 0; i < payload.length; i++) {
       if (payload[i] is Map) {
-        _convertMapEntriesBinaryJsonStringToUint8List(payload[i]);
+        _convertMapEntriesBinaryJsonStringToUint8List(payload[i], depth);
       }
       if (payload[i] is List) {
-        _convertListEntriesBinaryJsonStringToUint8List(payload[i]);
+        _convertListEntriesBinaryJsonStringToUint8List(payload[i], depth);
       }
       if (payload[i] is String && _isBinaryJsonString(payload[i] as String)) {
         payload[i] = _convertStringToUint8List(payload[i] as String);
@@ -821,28 +868,38 @@ class Serializer extends AbstractSerializer {
   }
 
   Map<String, dynamic> _normalizeJsonStringKeyMap(
-    Map<dynamic, dynamic> source,
-  ) {
+    Map<dynamic, dynamic> source, [
+    int parentDepth = 0,
+  ]) {
+    final depth = enterSerializerContainer(parentDepth);
     return source.map<String, dynamic>(
       (key, value) => MapEntry(
         key is String ? key : key.toString(),
-        _normalizeJsonPayloadFragment(value),
+        _normalizeJsonPayloadFragment(value, depth),
       ),
     );
   }
 
-  Object? _normalizeJsonPayloadFragment(Object? value) {
+  Object? _normalizeJsonPayloadFragment(
+    Object? value, [
+    int parentDepth = 0,
+  ]) {
     if (value is String && _isBinaryJsonString(value)) {
       return _convertStringToUint8List(value);
     }
     if (value is List) {
+      final depth = enterSerializerContainer(parentDepth);
       return value
-          .map<Object?>((entry) => _normalizeJsonPayloadFragment(entry))
+          .map<Object?>((entry) => _normalizeJsonPayloadFragment(entry, depth))
           .toList(growable: false);
     }
     if (value is Map) {
+      final depth = enterSerializerContainer(parentDepth);
       return value.map<Object?, Object?>(
-        (key, entry) => MapEntry(key, _normalizeJsonPayloadFragment(entry)),
+        (key, entry) => MapEntry(
+          key,
+          _normalizeJsonPayloadFragment(entry, depth),
+        ),
       );
     }
     return value;
@@ -1715,7 +1772,9 @@ class Serializer extends AbstractSerializer {
       );
     }
 
-    _logger.shout('Could not deserialize the message: $messageStr');
+    _logger.shout(
+      'Could not deserialize JSON PPT payload (${binPayload.length} bytes)',
+    );
     // TODO respond with an error
     return null;
   }

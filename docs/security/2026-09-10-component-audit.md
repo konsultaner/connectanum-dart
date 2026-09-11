@@ -1758,6 +1758,92 @@ bundled WASM/JavaScript, and undisclosed vulnerabilities are not cleared by this
 result. Source inspection, key lifecycle review, and malformed-input tests
 remain required.
 
+### SA-012: Serializer Recursion, Framing, And Diagnostic Boundaries
+
+**Confirmed availability and diagnostic-confidentiality defects. Locally fixed,
+regression-verified, and affected-path performance-cleared. Not published.**
+
+The JSON, MessagePack, and CBOR deserializers recursively traversed
+attacker-controlled payloads without a depth bound. Frozen-source probes using
+8,192 nested binary arrays and 65,536 nested JSON arrays terminate with
+`StackOverflowError`, rather than a bounded protocol error. Network frame limits
+constrain the byte count but do not make recursive process-stack exhaustion safe.
+The binary fast paths also accepted trailing encoded values, truncated
+floating-point values in core WAMP integer fields, and logged raw failed payloads.
+Dart's malformed-JSON `FormatException` includes the source line, so a transport
+that logs the propagated exception could disclose secrets even after the
+serializer's own logger was redacted.
+
+The first arity guard covered definite CBOR array headers, but valid
+indefinite-length CBOR arrays bypassed it. The frozen candidate therefore
+accepted an eight-field `RESULT`. WAMP's CBOR serializer uses
+[RFC 8949](https://www.rfc-editor.org/rfc/rfc8949.html), where indefinite arrays
+are valid, so rejecting the encoding class would be an incompatible shortcut.
+The retained implementation scans indefinite top-level arrays directly, applies
+the same seven-field WAMP envelope limit, preserves lazy payload ranges, and
+rejects trailing values after the break marker.
+
+All three serializers now enforce a maximum payload nesting depth of 64 before
+their recursive conversion/decoder paths. MessagePack keeps its original scanner
+for frames at most 64 bytes because such a frame cannot physically contain more
+than 64 nested containers; larger frames use the bounded scanner. CBOR applies
+the guard across tags, definite/indefinite arrays and maps, and chunked strings.
+JSON applies it while normalizing recognized WAMP payloads and binary strings.
+MessagePack and CBOR WAMP/PPT roots must consume the complete supplied byte
+sequence. Core binary WAMP integer fragments accept integers only rather than
+calling `toInt()` on arbitrary numbers. Failure logging records serializer kind
+and input length, never the raw JSON or bytes; malformed JSON errors are wrapped
+as a generic length-only `FormatException`.
+
+The unconditional first JSON arity guard caused a retained 5.08% tiny-frame AOT
+median decrease. Removing exception redaction did not recover it, proving the
+redaction wrapper was not the source. Removing only the pre-dispatch guard did
+recover the baseline rate. The final implementation validates fixed messages
+after recognized dispatch and payload messages inside the existing payload path,
+preserving the seven-field invariant without charging every decoded list before
+its message type is known.
+
+Nine focused regressions and the complete 192-test serializer suite pass. They
+cover depth 64/65 boundaries, definite and indefinite CBOR, PPT/non-array roots,
+overlong envelopes, trailing binary values, float-to-integer rejection,
+JSON strings containing structural characters, and diagnostic redaction. Final
+extreme probes reject all three deep payloads with `FormatException`; the
+indefinite eight-field frame is rejected and malformed JSON/binary diagnostics
+contain no probe payload.
+
+The final AOT ABBAAB campaign completes 296,062,200 measured deserializations
+plus 478,914 warmups across ten serializer/frame shapes, with 21 samples per
+variant/scenario, valid checksums, and no overlapping audit workload. All
+ordinary throughput ranges overlap and every median remains above the fixed
+-5% investigation threshold. Deltas range from -4.72% to -0.13%; the new
+indefinite-CBOR scanner is +21.39% with separated ranges. Median maximum RSS is
+18,874,368 / 18,956,288 bytes, baseline/candidate. An earlier full campaign had
+MessagePack deltas of -0.75%, +0.78%, and +2.68% where the final campaign has
+-3.79%, -0.99%, and -4.72% for unchanged MessagePack code. Both directions are
+retained as shared-host variability rather than selecting the favorable result.
+
+The complete methodology, hashes, medians/ranges, diagnostics, discarded
+candidate history, and residual risks are in the
+[machine-readable evidence](2026-09-11-serializer-resource-benchmarks.json).
+This establishes no material regression on the measured affected paths, not
+identical timing, a network throughput rating, or full audit performance
+clearance.
+
+The first full verification run hit one HTTP/3 handshake timeout. The exact
+streaming test subsequently passed six isolated runs, each in under one second,
+and a fresh complete `bin/verify` exited zero. That final run included 190 native
+core tests, 148 feature-enabled FFI tests, 526 router tests (one explicit legacy
+skip), 11 remote-auth integration tests, 13 focused zero-copy tests, package and
+consumer smokes, and eight Chrome/Dart2Wasm tests. The timeout is retained as a
+transient observation rather than rewritten as a serializer failure or omitted.
+
+Residual serializer work includes decoded collection/allocation amplification,
+optional numeric detail/list strictness outside the hardened core fragments, and
+normalization of malformed short-array errors. These are separate compatibility
+and resource-policy questions; no arbitrary item cap or wire-shape rejection was
+introduced without evidence. Every other unreviewed component row and all prior
+unresolved performance comparisons remain open.
+
 ## Verification Record
 
 - Baseline `bin/test-fast`: passed before production-code edits.

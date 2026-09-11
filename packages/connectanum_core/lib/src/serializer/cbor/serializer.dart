@@ -5,6 +5,8 @@ import 'package:cbor/cbor.dart';
 import 'package:connectanum_core/connectanum_core.dart';
 import 'package:logging/logging.dart';
 
+import '../limits.dart';
+
 /// This is a serializer for msgpack messages.
 /// It is used to initialize an [AbstractTransport] object.
 class Serializer extends AbstractSerializer {
@@ -98,12 +100,19 @@ class Serializer extends AbstractSerializer {
     if (message == null) {
       return null;
     }
+    if (_readCborArrayHeader(message, 0) == null) {
+      _validateCompleteCborValue(message);
+    }
     final fastPathMessage = _deserializeFastPathMessage(message);
     if (fastPathMessage != null) {
       return fastPathMessage;
     }
     final decodedMessage = cbor.decode(message.toList());
     if (decodedMessage is CborList) {
+      validateWampMessageFieldCount(decodedMessage.length);
+      if (decodedMessage.isEmpty) {
+        throw const FormatException('WAMP message must not be empty');
+      }
       final cborMessageId = decodedMessage[0];
       if (cborMessageId is CborInt) {
         final messageId = cborMessageId.toInt();
@@ -469,7 +478,9 @@ class Serializer extends AbstractSerializer {
         }
       }
     }
-    _logger.shout('Could not deserialize the message: $message');
+    _logger.shout(
+      'Could not deserialize CBOR WAMP message (${message.length} bytes)',
+    );
     // TODO respond with an error
     return null;
   }
@@ -860,10 +871,10 @@ class Serializer extends AbstractSerializer {
 
   int _decodeCborIntFragment(Uint8List bytes) {
     final decoded = _decodePayloadFragment(bytes);
-    if (decoded is num) {
-      return decoded.toInt();
+    if (decoded is int) {
+      return decoded;
     }
-    throw ArgumentError('Expected CBOR integer but got $decoded');
+    throw const FormatException('Expected CBOR integer');
   }
 
   String _decodeCborStringFragment(Uint8List bytes) {
@@ -2012,6 +2023,7 @@ class Serializer extends AbstractSerializer {
     if (binaryPayload != null) {
       return binaryPayload;
     }
+    _validateCompleteCborValue(binPayload);
     List<dynamic>? arguments;
     Map<String, dynamic>? argumentsKeywords;
 
@@ -2178,20 +2190,52 @@ Uint8List? _definiteCborBinaryView(Uint8List bytes) {
 }
 
 List<_ByteRange>? _parseCborTopLevelRanges(Uint8List bytes) {
+  if (bytes.isNotEmpty && bytes[0] == 0x9f) {
+    var offset = 1;
+    final ranges = <_ByteRange>[];
+    while (true) {
+      if (offset >= bytes.length) {
+        return null;
+      }
+      if (bytes[offset] == 0xff) {
+        offset++;
+        break;
+      }
+      if (ranges.length == serializerMaxWampMessageFields) {
+        validateWampMessageFieldCount(ranges.length + 1);
+      }
+      final start = offset;
+      final next = _skipCborValue(bytes, offset, 0);
+      if (next == null) {
+        return null;
+      }
+      ranges.add(_ByteRange(start, next));
+      offset = next;
+    }
+    if (offset != bytes.length) {
+      throw const FormatException('Trailing data after CBOR WAMP message');
+    }
+    return ranges;
+  }
+
   final header = _readCborArrayHeader(bytes, 0);
   if (header == null) {
     return null;
   }
+  validateWampMessageFieldCount(header.length);
   var offset = header.nextOffset;
   final ranges = <_ByteRange>[];
   for (var index = 0; index < header.length; index++) {
     final start = offset;
-    final next = _skipCborValue(bytes, offset);
+    final next = _skipCborValue(bytes, offset, 0);
     if (next == null) {
       return null;
     }
     ranges.add(_ByteRange(start, next));
     offset = next;
+  }
+  if (offset != bytes.length) {
+    throw const FormatException('Trailing data after CBOR WAMP message');
   }
   return ranges;
 }
@@ -2268,7 +2312,7 @@ _CborLengthInfo? _readCborLength(
   }
 }
 
-int? _skipCborValue(Uint8List bytes, int offset) {
+int? _skipCborValue(Uint8List bytes, int offset, int parentDepth) {
   if (offset >= bytes.length) {
     return null;
   }
@@ -2286,28 +2330,46 @@ int? _skipCborValue(Uint8List bytes, int offset) {
     case 2:
     case 3:
       if (lengthInfo.length == null) {
-        return _skipIndefiniteCborStringsOrBytes(bytes, lengthInfo.nextOffset);
+        return _skipIndefiniteCborStringsOrBytes(
+          bytes,
+          lengthInfo.nextOffset,
+          parentDepth,
+        );
       }
       final next = lengthInfo.nextOffset + lengthInfo.length!;
       return next <= bytes.length ? next : null;
     case 4:
       return lengthInfo.length == null
-          ? _skipIndefiniteCborArray(bytes, lengthInfo.nextOffset)
+          ? _skipIndefiniteCborArray(
+              bytes,
+              lengthInfo.nextOffset,
+              parentDepth,
+            )
           : _skipDefiniteCborArray(
               bytes,
               lengthInfo.nextOffset,
               lengthInfo.length!,
+              parentDepth,
             );
     case 5:
       return lengthInfo.length == null
-          ? _skipIndefiniteCborMap(bytes, lengthInfo.nextOffset)
+          ? _skipIndefiniteCborMap(
+              bytes,
+              lengthInfo.nextOffset,
+              parentDepth,
+            )
           : _skipDefiniteCborMap(
               bytes,
               lengthInfo.nextOffset,
               lengthInfo.length!,
+              parentDepth,
             );
     case 6:
-      return _skipCborValue(bytes, lengthInfo.nextOffset);
+      return _skipCborValue(
+        bytes,
+        lengthInfo.nextOffset,
+        enterSerializerContainer(parentDepth),
+      );
     case 7:
       return lengthInfo.nextOffset;
     default:
@@ -2315,10 +2377,26 @@ int? _skipCborValue(Uint8List bytes, int offset) {
   }
 }
 
-int? _skipDefiniteCborArray(Uint8List bytes, int offset, int length) {
+void _validateCompleteCborValue(Uint8List bytes) {
+  final end = _skipCborValue(bytes, 0, -1);
+  if (end != bytes.length) {
+    throw const FormatException('Invalid CBOR payload');
+  }
+}
+
+int? _skipDefiniteCborArray(
+  Uint8List bytes,
+  int offset,
+  int length,
+  int parentDepth,
+) {
+  if (length == 0) {
+    return offset;
+  }
+  final depth = enterSerializerContainer(parentDepth);
   var current = offset;
   for (var index = 0; index < length; index++) {
-    final next = _skipCborValue(bytes, current);
+    final next = _skipCborValue(bytes, current, depth);
     if (next == null) {
       return null;
     }
@@ -2327,14 +2405,23 @@ int? _skipDefiniteCborArray(Uint8List bytes, int offset, int length) {
   return current;
 }
 
-int? _skipDefiniteCborMap(Uint8List bytes, int offset, int length) {
+int? _skipDefiniteCborMap(
+  Uint8List bytes,
+  int offset,
+  int length,
+  int parentDepth,
+) {
+  if (length == 0) {
+    return offset;
+  }
+  final depth = enterSerializerContainer(parentDepth);
   var current = offset;
   for (var index = 0; index < length; index++) {
-    final nextKey = _skipCborValue(bytes, current);
+    final nextKey = _skipCborValue(bytes, current, depth);
     if (nextKey == null) {
       return null;
     }
-    final nextValue = _skipCborValue(bytes, nextKey);
+    final nextValue = _skipCborValue(bytes, nextKey, depth);
     if (nextValue == null) {
       return null;
     }
@@ -2343,7 +2430,12 @@ int? _skipDefiniteCborMap(Uint8List bytes, int offset, int length) {
   return current;
 }
 
-int? _skipIndefiniteCborStringsOrBytes(Uint8List bytes, int offset) {
+int? _skipIndefiniteCborStringsOrBytes(
+  Uint8List bytes,
+  int offset,
+  int parentDepth,
+) {
+  final depth = enterSerializerContainer(parentDepth);
   var current = offset;
   while (true) {
     if (current >= bytes.length) {
@@ -2352,7 +2444,7 @@ int? _skipIndefiniteCborStringsOrBytes(Uint8List bytes, int offset) {
     if (bytes[current] == 0xff) {
       return current + 1;
     }
-    final next = _skipCborValue(bytes, current);
+    final next = _skipCborValue(bytes, current, depth);
     if (next == null) {
       return null;
     }
@@ -2360,7 +2452,12 @@ int? _skipIndefiniteCborStringsOrBytes(Uint8List bytes, int offset) {
   }
 }
 
-int? _skipIndefiniteCborArray(Uint8List bytes, int offset) {
+int? _skipIndefiniteCborArray(
+  Uint8List bytes,
+  int offset,
+  int parentDepth,
+) {
+  final depth = enterSerializerContainer(parentDepth);
   var current = offset;
   while (true) {
     if (current >= bytes.length) {
@@ -2369,7 +2466,7 @@ int? _skipIndefiniteCborArray(Uint8List bytes, int offset) {
     if (bytes[current] == 0xff) {
       return current + 1;
     }
-    final next = _skipCborValue(bytes, current);
+    final next = _skipCborValue(bytes, current, depth);
     if (next == null) {
       return null;
     }
@@ -2377,7 +2474,12 @@ int? _skipIndefiniteCborArray(Uint8List bytes, int offset) {
   }
 }
 
-int? _skipIndefiniteCborMap(Uint8List bytes, int offset) {
+int? _skipIndefiniteCborMap(
+  Uint8List bytes,
+  int offset,
+  int parentDepth,
+) {
+  final depth = enterSerializerContainer(parentDepth);
   var current = offset;
   while (true) {
     if (current >= bytes.length) {
@@ -2386,11 +2488,11 @@ int? _skipIndefiniteCborMap(Uint8List bytes, int offset) {
     if (bytes[current] == 0xff) {
       return current + 1;
     }
-    final nextKey = _skipCborValue(bytes, current);
+    final nextKey = _skipCborValue(bytes, current, depth);
     if (nextKey == null) {
       return null;
     }
-    final nextValue = _skipCborValue(bytes, nextKey);
+    final nextValue = _skipCborValue(bytes, nextKey, depth);
     if (nextValue == null) {
       return null;
     }
@@ -2399,8 +2501,8 @@ int? _skipIndefiniteCborMap(Uint8List bytes, int offset) {
 }
 
 int? _coerceNumToInt(Object? value) {
-  if (value is num) {
-    return value.toInt();
+  if (value is int) {
+    return value;
   }
   return null;
 }
