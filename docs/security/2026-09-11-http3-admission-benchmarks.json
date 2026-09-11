@@ -1,0 +1,4010 @@
+{
+  "date": "2026-09-11",
+  "finding": "SA-006 HTTP/3 admission head-of-line blocking and handshake deadline",
+  "audit_complete": false,
+  "audit_performance_cleared": false,
+  "published": false,
+  "comparison": {
+    "scope": "SA-006 native-library-only HTTP/3 admission comparison",
+    "baseline": "5dc11c9a; native library from identical production sources at 592df650",
+    "hashes": {
+      "driver": "54e69d2f9efc60fdc3febd8b1e49a166da237768e195593908b0f61fca27a60f",
+      "service": "171ce6f5e1091556fe30a2c6a55b97af83e600155754a3398aecfb52649c5b85",
+      "worker": "c79ed4e83c293e727a81b78bbcc2d4628311aeaeb3e1ba2d4e31b4213addd074",
+      "launcher": "d10c34cc06e5215ac22fcee634eac3a7686466ba5071e00cd54a86a264aac30c",
+      "scenario": "c8b1a5a66bde558a5e5866b971e1140ca613b4381c10a3c99f879bad1043d36b",
+      "baseline_native": "9d221311e95d882985ec022c8b27c5d56ed3d460a452369557a0c8507af417ce",
+      "patched_native": "69b4f43f39b160f931788f5ab0915a7e34919c3f2222860d0e4b47ccb238d9f5"
+    },
+    "candidate_sources": {
+      "native/transport/ct_core/src/lib.rs": "067e6354ea71c91d3f2404335fa86de7c3561e4ec571a6c0d273a7a4269975ec",
+      "native/transport/ct_core/src/http3_admission_tests.rs": "1a91f4f07e4768bae988ffd631fef3ff0704a895d1903ac81505703eb77124b4"
+    },
+    "run_order": [
+      "baseline",
+      "patched",
+      "patched",
+      "baseline",
+      "baseline",
+      "patched"
+    ],
+    "native_threads": 4,
+    "router_workers": 1,
+    "latency_scope": "Per-request latency excludes connection setup; whole-workload elapsed throughput includes fresh TLS/QUIC connections.",
+    "caveats": [
+      "Shared host; CPU boundary samples cannot prove absence of contention.",
+      "No own tests, builds, or companion inference overlap timing.",
+      "HTTP/2 is an unchanged-path control; no TLS bypass was added to production.",
+      "Frozen benchmark driver uses its existing local fixture certificate policy.",
+      "Do not replace failed or unfavorable runs."
+    ],
+    "runs": [
+      {
+        "name": "01-baseline",
+        "variant": "baseline",
+        "command": [
+          "/tmp/connectanum-sa002-patched-http_stream",
+          "--dart",
+          "/tmp/connectanum-security-aot-launch",
+          "--bench-main",
+          "/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service",
+          "--wamp-worker-executable",
+          "/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker",
+          "--native-lib",
+          "/tmp/connectanum-sa005-wide-libct_ffi.dylib",
+          "--scenario",
+          "native/bench/scenarios/http3_admission_security.toml",
+          "--router-worker-counts",
+          "1",
+          "--native-runtime-thread-counts",
+          "4",
+          "--results",
+          "/tmp/connectanum-sa006-http3-performance/01-baseline.jsonl",
+          "--artifact-dir",
+          "/tmp/connectanum-sa006-http3-performance/01-baseline"
+        ],
+        "exit_code": 0,
+        "host_cpu_before": {
+          "inference": 0.1,
+          "virtual_machine": 250.1,
+          "emulator": 26.0,
+          "other": 291.6
+        },
+        "host_cpu_after": {
+          "inference": 0.1,
+          "virtual_machine": 142.4,
+          "emulator": 16.4,
+          "other": 86.8
+        },
+        "log_sha256": "70df305377dd9b75c5efc037e1c7656b8400533c54f2034ccec2444256469f85",
+        "timing_sha256": "6a00e41d11aad05eb3c3180ff5f1cfcb7ef164f96041c70b33b25ffc2c903518",
+        "real_seconds": 50.77,
+        "cpu_seconds": 194.63,
+        "peak_rss_bytes": 148406272,
+        "results_sha256": "b3a71268cfd4e4ff46d2b851e61a2c0ff44fe47142fb8150c14a178ede66e539",
+        "workloads": [
+          {
+            "workload": "h2_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 0.209,
+            "requests_per_second": 2449.7607655502393,
+            "total_payload_gbit_per_second": 25.687603444976077,
+            "p50_ms": 5.781771,
+            "p95_ms": 10.523708,
+            "p99_ms": 13.157167000000001,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 2,
+              "backpressure_events": 325,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 4,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 92356608,
+              "max_rss_bytes": 92356608,
+              "pid": 24481
+            }
+          },
+          {
+            "workload": "h2_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.496,
+            "requests_per_second": 363.9010189228529,
+            "total_payload_gbit_per_second": 0.005962154294032023,
+            "p50_ms": 2.7408745,
+            "p95_ms": 3.107209,
+            "p99_ms": 3.259417,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 90816512,
+              "max_rss_bytes": 92454912,
+              "pid": 24481
+            }
+          },
+          {
+            "workload": "h2_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 1.58,
+            "requests_per_second": 2592.405063291139,
+            "total_payload_gbit_per_second": 27.183337316455695,
+            "p50_ms": 5.7564375000000005,
+            "p95_ms": 8.037833,
+            "p99_ms": 9.690875,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2637,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 106348544,
+              "max_rss_bytes": 108445696,
+              "pid": 24481
+            }
+          },
+          {
+            "workload": "h3_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 3.481,
+            "requests_per_second": 147.08417121516806,
+            "total_payload_gbit_per_second": 1.5422893191611606,
+            "p50_ms": 107.507729,
+            "p95_ms": 161.130417,
+            "p99_ms": 173.730584,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 2,
+              "backpressure_events": 279,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 126402560,
+              "max_rss_bytes": 126550016,
+              "pid": 24481
+            }
+          },
+          {
+            "workload": "h3_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.519,
+            "requests_per_second": 362.3844899438304,
+            "total_payload_gbit_per_second": 0.005937307483239717,
+            "p50_ms": 2.7555205000000003,
+            "p95_ms": 3.1180000000000003,
+            "p99_ms": 3.293416,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 126271488,
+              "max_rss_bytes": 126550016,
+              "pid": 24481
+            }
+          },
+          {
+            "workload": "h3_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 28.114,
+            "requests_per_second": 145.69253752578786,
+            "total_payload_gbit_per_second": 1.5276969822864053,
+            "p50_ms": 107.705146,
+            "p95_ms": 164.338583,
+            "p99_ms": 193.951333,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2144,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 145293312,
+              "max_rss_bytes": 145686528,
+              "pid": 24481
+            }
+          },
+          {
+            "workload": "h3_fresh_warmup",
+            "samples": 256,
+            "warmup": true,
+            "seconds": 0.232,
+            "requests_per_second": 1103.4482758620688,
+            "total_payload_gbit_per_second": 0.018078896551724136,
+            "p50_ms": 1.611146,
+            "p95_ms": 3.026875,
+            "p99_ms": 3.220084,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 256
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 256,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 256,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 146653184,
+              "max_rss_bytes": 147111936,
+              "pid": 24481
+            }
+          },
+          {
+            "workload": "h3_fresh_serial",
+            "samples": 1000,
+            "warmup": false,
+            "seconds": 2.567,
+            "requests_per_second": 389.5597974289053,
+            "total_payload_gbit_per_second": 0.0063825477210751845,
+            "p50_ms": 1.6788125,
+            "p95_ms": 1.830625,
+            "p99_ms": 2.14275,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 1000
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1000,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1000,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 147243008,
+              "max_rss_bytes": 147243008,
+              "pid": 24481
+            }
+          },
+          {
+            "workload": "h3_fresh_parallel",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 3.343,
+            "requests_per_second": 1225.2467843254562,
+            "total_payload_gbit_per_second": 0.020074443314388277,
+            "p50_ms": 1.6352290000000003,
+            "p95_ms": 2.920208,
+            "p99_ms": 3.154875,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 4096
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4096,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4096,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 148357120,
+              "max_rss_bytes": 148357120,
+              "pid": 24481
+            }
+          }
+        ]
+      },
+      {
+        "name": "02-patched",
+        "variant": "patched",
+        "command": [
+          "/tmp/connectanum-sa002-patched-http_stream",
+          "--dart",
+          "/tmp/connectanum-security-aot-launch",
+          "--bench-main",
+          "/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service",
+          "--wamp-worker-executable",
+          "/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker",
+          "--native-lib",
+          "/tmp/connectanum-sa006-http3-libct_ffi.dylib",
+          "--scenario",
+          "native/bench/scenarios/http3_admission_security.toml",
+          "--router-worker-counts",
+          "1",
+          "--native-runtime-thread-counts",
+          "4",
+          "--results",
+          "/tmp/connectanum-sa006-http3-performance/02-patched.jsonl",
+          "--artifact-dir",
+          "/tmp/connectanum-sa006-http3-performance/02-patched"
+        ],
+        "exit_code": 0,
+        "host_cpu_before": {
+          "inference": 0.0,
+          "virtual_machine": 136.9,
+          "emulator": 22.3,
+          "other": 154.0
+        },
+        "host_cpu_after": {
+          "inference": 0.1,
+          "virtual_machine": 173.8,
+          "emulator": 22.0,
+          "other": 307.9
+        },
+        "log_sha256": "eca2cba84ce680c73cbc673f17ffdd083d68e9c01de36bffecbf212c778becda",
+        "timing_sha256": "4882d81b5dc70b233e9c7914e2ba6dca219909a0fb4ceaac16dddb79ca338ceb",
+        "real_seconds": 51.74,
+        "cpu_seconds": 200.23999999999998,
+        "peak_rss_bytes": 161775616,
+        "results_sha256": "3a4493367130f50350e2a2cb4f0975cd3739ec93fedd55e4766923dce3ef4e86",
+        "workloads": [
+          {
+            "workload": "h2_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 0.214,
+            "requests_per_second": 2392.5233644859813,
+            "total_payload_gbit_per_second": 25.087425794392523,
+            "p50_ms": 5.983895500000001,
+            "p95_ms": 9.130916,
+            "p99_ms": 13.521875,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 3,
+              "backpressure_events": 315,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 4,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 100450304,
+              "max_rss_bytes": 100958208,
+              "pid": 24588
+            }
+          },
+          {
+            "workload": "h2_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.468,
+            "requests_per_second": 365.764447695684,
+            "total_payload_gbit_per_second": 0.0059926847110460865,
+            "p50_ms": 2.722625,
+            "p95_ms": 3.0946670000000003,
+            "p99_ms": 3.26275,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 100515840,
+              "max_rss_bytes": 100958208,
+              "pid": 24588
+            }
+          },
+          {
+            "workload": "h2_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 1.575,
+            "requests_per_second": 2600.6349206349205,
+            "total_payload_gbit_per_second": 27.26963362539683,
+            "p50_ms": 5.782479,
+            "p95_ms": 8.104040999999999,
+            "p99_ms": 9.356667000000002,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2602,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 104546304,
+              "max_rss_bytes": 106102784,
+              "pid": 24588
+            }
+          },
+          {
+            "workload": "h3_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 3.645,
+            "requests_per_second": 140.46639231824417,
+            "total_payload_gbit_per_second": 1.472896877914952,
+            "p50_ms": 111.5685,
+            "p95_ms": 175.896625,
+            "p99_ms": 191.631542,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 3,
+              "backpressure_events": 264,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 120061952,
+              "max_rss_bytes": 120684544,
+              "pid": 24588
+            }
+          },
+          {
+            "workload": "h3_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.468,
+            "requests_per_second": 365.764447695684,
+            "total_payload_gbit_per_second": 0.0059926847110460865,
+            "p50_ms": 2.7335835,
+            "p95_ms": 3.114917,
+            "p99_ms": 3.307834,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 120406016,
+              "max_rss_bytes": 120684544,
+              "pid": 24588
+            }
+          },
+          {
+            "workload": "h3_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 29.194,
+            "requests_per_second": 140.30280194560527,
+            "total_payload_gbit_per_second": 1.4711815085291498,
+            "p50_ms": 114.732979,
+            "p95_ms": 169.0355,
+            "p99_ms": 194.726209,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2197,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 150585344,
+              "max_rss_bytes": 151207936,
+              "pid": 24588
+            }
+          },
+          {
+            "workload": "h3_fresh_warmup",
+            "samples": 256,
+            "warmup": true,
+            "seconds": 0.247,
+            "requests_per_second": 1036.4372469635628,
+            "total_payload_gbit_per_second": 0.016980987854251013,
+            "p50_ms": 1.9098955,
+            "p95_ms": 3.860083,
+            "p99_ms": 4.131042,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 256
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 256,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 256,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 153288704,
+              "max_rss_bytes": 153288704,
+              "pid": 24588
+            }
+          },
+          {
+            "workload": "h3_fresh_serial",
+            "samples": 1000,
+            "warmup": false,
+            "seconds": 2.57,
+            "requests_per_second": 389.1050583657588,
+            "total_payload_gbit_per_second": 0.006375097276264592,
+            "p50_ms": 1.6907079999999999,
+            "p95_ms": 1.827375,
+            "p99_ms": 1.9231669999999998,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 1000
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1000,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1000,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 153944064,
+              "max_rss_bytes": 153944064,
+              "pid": 24588
+            }
+          },
+          {
+            "workload": "h3_fresh_parallel",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 2.808,
+            "requests_per_second": 1458.689458689459,
+            "total_payload_gbit_per_second": 0.023899168091168096,
+            "p50_ms": 5.9024375000000004,
+            "p95_ms": 9.211041999999999,
+            "p99_ms": 10.412667,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 4096
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4096,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4096,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 161726464,
+              "max_rss_bytes": 161726464,
+              "pid": 24588
+            }
+          }
+        ]
+      },
+      {
+        "name": "03-patched",
+        "variant": "patched",
+        "command": [
+          "/tmp/connectanum-sa002-patched-http_stream",
+          "--dart",
+          "/tmp/connectanum-security-aot-launch",
+          "--bench-main",
+          "/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service",
+          "--wamp-worker-executable",
+          "/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker",
+          "--native-lib",
+          "/tmp/connectanum-sa006-http3-libct_ffi.dylib",
+          "--scenario",
+          "native/bench/scenarios/http3_admission_security.toml",
+          "--router-worker-counts",
+          "1",
+          "--native-runtime-thread-counts",
+          "4",
+          "--results",
+          "/tmp/connectanum-sa006-http3-performance/03-patched.jsonl",
+          "--artifact-dir",
+          "/tmp/connectanum-sa006-http3-performance/03-patched"
+        ],
+        "exit_code": 0,
+        "host_cpu_before": {
+          "inference": 0.1,
+          "virtual_machine": 194.2,
+          "emulator": 22.3,
+          "other": 110.8
+        },
+        "host_cpu_after": {
+          "inference": 0.1,
+          "virtual_machine": 140.5,
+          "emulator": 27.3,
+          "other": 148.6
+        },
+        "log_sha256": "fcc6042a58dede22c9d0831cb77c798444831d7bd56a7ccac42a4dbac35edd47",
+        "timing_sha256": "d6069607509539904aa5e7d7c1712d63af142df4e075be7a0183496f33713dc0",
+        "real_seconds": 48.56,
+        "cpu_seconds": 192.68,
+        "peak_rss_bytes": 159465472,
+        "results_sha256": "1abc9228b37706334900cae6376ffa655b8cfce7fcb601aeff9b8a908806076b",
+        "workloads": [
+          {
+            "workload": "h2_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 0.218,
+            "requests_per_second": 2348.623853211009,
+            "total_payload_gbit_per_second": 24.62710605504587,
+            "p50_ms": 5.9785625,
+            "p95_ms": 9.484041,
+            "p99_ms": 13.094750000000001,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 2,
+              "backpressure_events": 292,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 4,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 99254272,
+              "max_rss_bytes": 100270080,
+              "pid": 24729
+            }
+          },
+          {
+            "workload": "h2_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 4.966,
+            "requests_per_second": 402.73862263391055,
+            "total_payload_gbit_per_second": 0.006598469593233991,
+            "p50_ms": 2.446333,
+            "p95_ms": 2.832417,
+            "p99_ms": 3.054459,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 98828288,
+              "max_rss_bytes": 100270080,
+              "pid": 24729
+            }
+          },
+          {
+            "workload": "h2_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 1.514,
+            "requests_per_second": 2705.4161162483488,
+            "total_payload_gbit_per_second": 28.368344095112285,
+            "p50_ms": 5.557,
+            "p95_ms": 7.628875,
+            "p99_ms": 9.477917000000001,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2606,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 108806144,
+              "max_rss_bytes": 109854720,
+              "pid": 24729
+            }
+          },
+          {
+            "workload": "h3_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 3.559,
+            "requests_per_second": 143.86063500983423,
+            "total_payload_gbit_per_second": 1.508488092160719,
+            "p50_ms": 111.748625,
+            "p95_ms": 162.952417,
+            "p99_ms": 182.718417,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 2,
+              "backpressure_events": 277,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 131186688,
+              "max_rss_bytes": 131186688,
+              "pid": 24729
+            }
+          },
+          {
+            "workload": "h3_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.037,
+            "requests_per_second": 397.06174310105223,
+            "total_payload_gbit_per_second": 0.00650545959896764,
+            "p50_ms": 2.4978125,
+            "p95_ms": 2.864,
+            "p99_ms": 3.016042,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 129466368,
+              "max_rss_bytes": 131284992,
+              "pid": 24729
+            }
+          },
+          {
+            "workload": "h3_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 27.874,
+            "requests_per_second": 146.94697567625744,
+            "total_payload_gbit_per_second": 1.5408507196670733,
+            "p50_ms": 107.55464599999999,
+            "p95_ms": 165.273167,
+            "p99_ms": 193.953625,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2163,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 148668416,
+              "max_rss_bytes": 149716992,
+              "pid": 24729
+            }
+          },
+          {
+            "workload": "h3_fresh_warmup",
+            "samples": 256,
+            "warmup": true,
+            "seconds": 0.241,
+            "requests_per_second": 1062.240663900415,
+            "total_payload_gbit_per_second": 0.0174037510373444,
+            "p50_ms": 2.2050835,
+            "p95_ms": 3.502167,
+            "p99_ms": 3.950416,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 256
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 256,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 256,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 151273472,
+              "max_rss_bytes": 151797760,
+              "pid": 24729
+            }
+          },
+          {
+            "workload": "h3_fresh_serial",
+            "samples": 1000,
+            "warmup": false,
+            "seconds": 2.336,
+            "requests_per_second": 428.082191780822,
+            "total_payload_gbit_per_second": 0.007013698630136987,
+            "p50_ms": 1.4677715,
+            "p95_ms": 1.571584,
+            "p99_ms": 1.6376249999999999,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 1000
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1000,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1000,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 151404544,
+              "max_rss_bytes": 151797760,
+              "pid": 24729
+            }
+          },
+          {
+            "workload": "h3_fresh_parallel",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 2.631,
+            "requests_per_second": 1556.8225009502091,
+            "total_payload_gbit_per_second": 0.025506979855568226,
+            "p50_ms": 5.4416455,
+            "p95_ms": 7.836790999999999,
+            "p99_ms": 8.887374999999999,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 4096
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4096,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4096,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 158941184,
+              "max_rss_bytes": 159465472,
+              "pid": 24729
+            }
+          }
+        ]
+      },
+      {
+        "name": "04-baseline",
+        "variant": "baseline",
+        "command": [
+          "/tmp/connectanum-sa002-patched-http_stream",
+          "--dart",
+          "/tmp/connectanum-security-aot-launch",
+          "--bench-main",
+          "/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service",
+          "--wamp-worker-executable",
+          "/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker",
+          "--native-lib",
+          "/tmp/connectanum-sa005-wide-libct_ffi.dylib",
+          "--scenario",
+          "native/bench/scenarios/http3_admission_security.toml",
+          "--router-worker-counts",
+          "1",
+          "--native-runtime-thread-counts",
+          "4",
+          "--results",
+          "/tmp/connectanum-sa006-http3-performance/04-baseline.jsonl",
+          "--artifact-dir",
+          "/tmp/connectanum-sa006-http3-performance/04-baseline"
+        ],
+        "exit_code": 0,
+        "host_cpu_before": {
+          "inference": 0.1,
+          "virtual_machine": 208.4,
+          "emulator": 28.9,
+          "other": 90.3
+        },
+        "host_cpu_after": {
+          "inference": 0.1,
+          "virtual_machine": 158.0,
+          "emulator": 17.7,
+          "other": 82.2
+        },
+        "log_sha256": "eed49fb9e0d9f14f7ba96ab52e792744d00ce40ac85a33b88595b8f5cf55408c",
+        "timing_sha256": "adc38d044647079d6cc00dc5071dfcb55bdcc206ec420dbbe1d7d430b676b098",
+        "real_seconds": 50.15,
+        "cpu_seconds": 196.71,
+        "peak_rss_bytes": 149602304,
+        "results_sha256": "9b7627afdb3389189952afcdd9f7edb354f7d826547beb30251c338e353b19cc",
+        "workloads": [
+          {
+            "workload": "h2_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 0.219,
+            "requests_per_second": 2337.8995433789955,
+            "total_payload_gbit_per_second": 24.514653515981735,
+            "p50_ms": 6.119146,
+            "p95_ms": 9.175374999999999,
+            "p99_ms": 11.645124999999998,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 3,
+              "backpressure_events": 316,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 4,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 102957056,
+              "max_rss_bytes": 103432192,
+              "pid": 24851
+            }
+          },
+          {
+            "workload": "h2_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.045,
+            "requests_per_second": 396.4321110009911,
+            "total_payload_gbit_per_second": 0.006495143706640238,
+            "p50_ms": 2.4851665,
+            "p95_ms": 2.857125,
+            "p99_ms": 3.068875,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 103088128,
+              "max_rss_bytes": 103432192,
+              "pid": 24851
+            }
+          },
+          {
+            "workload": "h2_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 1.545,
+            "requests_per_second": 2651.1326860841427,
+            "total_payload_gbit_per_second": 27.79914107443366,
+            "p50_ms": 5.7299165,
+            "p95_ms": 7.469917000000001,
+            "p99_ms": 9.546833,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2479,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 107233280,
+              "max_rss_bytes": 108773376,
+              "pid": 24851
+            }
+          },
+          {
+            "workload": "h3_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 3.801,
+            "requests_per_second": 134.70139436990266,
+            "total_payload_gbit_per_second": 1.4124464930281504,
+            "p50_ms": 119.05841699999999,
+            "p95_ms": 177.19954199999998,
+            "p99_ms": 192.952542,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 3,
+              "backpressure_events": 260,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 125829120,
+              "max_rss_bytes": 126763008,
+              "pid": 24851
+            }
+          },
+          {
+            "workload": "h3_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.026,
+            "requests_per_second": 397.93076004775173,
+            "total_payload_gbit_per_second": 0.006519697572622364,
+            "p50_ms": 2.492771,
+            "p95_ms": 2.8600000000000003,
+            "p99_ms": 3.01775,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 126255104,
+              "max_rss_bytes": 126763008,
+              "pid": 24851
+            }
+          },
+          {
+            "workload": "h3_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 28.439,
+            "requests_per_second": 144.02756777664476,
+            "total_payload_gbit_per_second": 1.5102385090896304,
+            "p50_ms": 111.235771,
+            "p95_ms": 164.48612500000002,
+            "p99_ms": 194.437666,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2204,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 145702912,
+              "max_rss_bytes": 147734528,
+              "pid": 24851
+            }
+          },
+          {
+            "workload": "h3_fresh_warmup",
+            "samples": 256,
+            "warmup": true,
+            "seconds": 0.237,
+            "requests_per_second": 1080.168776371308,
+            "total_payload_gbit_per_second": 0.01769748523206751,
+            "p50_ms": 1.5686665,
+            "p95_ms": 2.955958,
+            "p99_ms": 3.269,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 256
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 256,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 256,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 148439040,
+              "max_rss_bytes": 148439040,
+              "pid": 24851
+            }
+          },
+          {
+            "workload": "h3_fresh_serial",
+            "samples": 1000,
+            "warmup": false,
+            "seconds": 2.339,
+            "requests_per_second": 427.5331338178709,
+            "total_payload_gbit_per_second": 0.007004702864471997,
+            "p50_ms": 1.4770415000000001,
+            "p95_ms": 1.579959,
+            "p99_ms": 1.6290829999999998,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 1000
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1000,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1000,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 148586496,
+              "max_rss_bytes": 148586496,
+              "pid": 24851
+            }
+          },
+          {
+            "workload": "h3_fresh_parallel",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 3.332,
+            "requests_per_second": 1229.2917166866748,
+            "total_payload_gbit_per_second": 0.02014071548619448,
+            "p50_ms": 1.3957915,
+            "p95_ms": 2.740833,
+            "p99_ms": 2.9469589999999997,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 4096
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4096,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4096,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 149389312,
+              "max_rss_bytes": 149602304,
+              "pid": 24851
+            }
+          }
+        ]
+      },
+      {
+        "name": "05-baseline",
+        "variant": "baseline",
+        "command": [
+          "/tmp/connectanum-sa002-patched-http_stream",
+          "--dart",
+          "/tmp/connectanum-security-aot-launch",
+          "--bench-main",
+          "/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service",
+          "--wamp-worker-executable",
+          "/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker",
+          "--native-lib",
+          "/tmp/connectanum-sa005-wide-libct_ffi.dylib",
+          "--scenario",
+          "native/bench/scenarios/http3_admission_security.toml",
+          "--router-worker-counts",
+          "1",
+          "--native-runtime-thread-counts",
+          "4",
+          "--results",
+          "/tmp/connectanum-sa006-http3-performance/05-baseline.jsonl",
+          "--artifact-dir",
+          "/tmp/connectanum-sa006-http3-performance/05-baseline"
+        ],
+        "exit_code": 0,
+        "host_cpu_before": {
+          "inference": 0.1,
+          "virtual_machine": 192.0,
+          "emulator": 22.8,
+          "other": 196.9
+        },
+        "host_cpu_after": {
+          "inference": 0.1,
+          "virtual_machine": 174.6,
+          "emulator": 23.3,
+          "other": 177.3
+        },
+        "log_sha256": "10b23d5eea38991cee98032c2154a8c9cbbb2f2f7a03c1793b8eb7765190e488",
+        "timing_sha256": "977844ceeefaed1c3b6925f90a2e3f68b644392c1848efff4179baff209a0690",
+        "real_seconds": 49.5,
+        "cpu_seconds": 195.08,
+        "peak_rss_bytes": 142966784,
+        "results_sha256": "45ac654d02abc68f370afd6c781e14ece617cc190dca5a788e5525ff26ccd0e1",
+        "workloads": [
+          {
+            "workload": "h2_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 0.221,
+            "requests_per_second": 2316.7420814479638,
+            "total_payload_gbit_per_second": 24.292801447963804,
+            "p50_ms": 5.8762705,
+            "p95_ms": 10.390666999999999,
+            "p99_ms": 14.087875,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 3,
+              "backpressure_events": 339,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 4,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 94650368,
+              "max_rss_bytes": 96206848,
+              "pid": 24947
+            }
+          },
+          {
+            "workload": "h2_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.014,
+            "requests_per_second": 398.8831272437176,
+            "total_payload_gbit_per_second": 0.006535301156761069,
+            "p50_ms": 2.4857705,
+            "p95_ms": 2.834833,
+            "p99_ms": 2.955167,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 94732288,
+              "max_rss_bytes": 96206848,
+              "pid": 24947
+            }
+          },
+          {
+            "workload": "h2_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 1.495,
+            "requests_per_second": 2739.799331103679,
+            "total_payload_gbit_per_second": 28.728878234113708,
+            "p50_ms": 5.5870625,
+            "p95_ms": 7.427333,
+            "p99_ms": 8.989791,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2524,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 105299968,
+              "max_rss_bytes": 105807872,
+              "pid": 24947
+            }
+          },
+          {
+            "workload": "h3_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 3.517,
+            "requests_per_second": 145.57861814046063,
+            "total_payload_gbit_per_second": 1.5265024509525162,
+            "p50_ms": 105.53439599999999,
+            "p95_ms": 164.743833,
+            "p99_ms": 225.408334,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 3,
+              "backpressure_events": 275,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 122028032,
+              "max_rss_bytes": 122699776,
+              "pid": 24947
+            }
+          },
+          {
+            "workload": "h3_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.067,
+            "requests_per_second": 394.7108742845865,
+            "total_payload_gbit_per_second": 0.006466942964278665,
+            "p50_ms": 2.5134795,
+            "p95_ms": 2.881833,
+            "p99_ms": 3.0561249999999998,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 121339904,
+              "max_rss_bytes": 122699776,
+              "pid": 24947
+            }
+          },
+          {
+            "workload": "h3_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 28.119,
+            "requests_per_second": 145.6666311035243,
+            "total_payload_gbit_per_second": 1.5274253337600912,
+            "p50_ms": 109.48879199999999,
+            "p95_ms": 160.909834,
+            "p99_ms": 182.26049999999998,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2156,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 139870208,
+              "max_rss_bytes": 140509184,
+              "pid": 24947
+            }
+          },
+          {
+            "workload": "h3_fresh_warmup",
+            "samples": 256,
+            "warmup": true,
+            "seconds": 0.22,
+            "requests_per_second": 1163.6363636363637,
+            "total_payload_gbit_per_second": 0.019065018181818185,
+            "p50_ms": 1.572021,
+            "p95_ms": 2.742792,
+            "p99_ms": 3.204125,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 256
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 256,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 256,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 142016512,
+              "max_rss_bytes": 142016512,
+              "pid": 24947
+            }
+          },
+          {
+            "workload": "h3_fresh_serial",
+            "samples": 1000,
+            "warmup": false,
+            "seconds": 2.341,
+            "requests_per_second": 427.1678769756514,
+            "total_payload_gbit_per_second": 0.006998718496369072,
+            "p50_ms": 1.4718125,
+            "p95_ms": 1.576958,
+            "p99_ms": 1.627875,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 1000
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1000,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1000,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 142180352,
+              "max_rss_bytes": 142180352,
+              "pid": 24947
+            }
+          },
+          {
+            "workload": "h3_fresh_parallel",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 3.338,
+            "requests_per_second": 1227.0820850808868,
+            "total_payload_gbit_per_second": 0.02010451288196525,
+            "p50_ms": 1.4178335,
+            "p95_ms": 2.721041,
+            "p99_ms": 2.927,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 4096
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4096,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4096,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 142934016,
+              "max_rss_bytes": 142934016,
+              "pid": 24947
+            }
+          }
+        ]
+      },
+      {
+        "name": "06-patched",
+        "variant": "patched",
+        "command": [
+          "/tmp/connectanum-sa002-patched-http_stream",
+          "--dart",
+          "/tmp/connectanum-security-aot-launch",
+          "--bench-main",
+          "/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service",
+          "--wamp-worker-executable",
+          "/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker",
+          "--native-lib",
+          "/tmp/connectanum-sa006-http3-libct_ffi.dylib",
+          "--scenario",
+          "native/bench/scenarios/http3_admission_security.toml",
+          "--router-worker-counts",
+          "1",
+          "--native-runtime-thread-counts",
+          "4",
+          "--results",
+          "/tmp/connectanum-sa006-http3-performance/06-patched.jsonl",
+          "--artifact-dir",
+          "/tmp/connectanum-sa006-http3-performance/06-patched"
+        ],
+        "exit_code": 0,
+        "host_cpu_before": {
+          "inference": 0.1,
+          "virtual_machine": 165.9,
+          "emulator": 23.8,
+          "other": 199.3
+        },
+        "host_cpu_after": {
+          "inference": 0.1,
+          "virtual_machine": 162.8,
+          "emulator": 30.9,
+          "other": 90.1
+        },
+        "log_sha256": "d2810a9e02117af540e1728c56edead01636a6bb87122fd4371b3a9b00a0c4fc",
+        "timing_sha256": "cf9b4ab910dc2a2a7d7141637448e9724e4d18bdd963c4f993f90f64c44b2be1",
+        "real_seconds": 49.55,
+        "cpu_seconds": 195.54000000000002,
+        "peak_rss_bytes": 155549696,
+        "results_sha256": "8754d0f2a9443e74399812c6e6d75b408389aba86f2c0547d32946858f1c916e",
+        "workloads": [
+          {
+            "workload": "h2_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 0.203,
+            "requests_per_second": 2522.1674876847287,
+            "total_payload_gbit_per_second": 26.446842955665023,
+            "p50_ms": 5.7415210000000005,
+            "p95_ms": 8.5575,
+            "p99_ms": 13.34325,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 3,
+              "backpressure_events": 309,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 4,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 90783744,
+              "max_rss_bytes": 90783744,
+              "pid": 25039
+            }
+          },
+          {
+            "workload": "h2_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.016,
+            "requests_per_second": 398.72408293460927,
+            "total_payload_gbit_per_second": 0.006532695374800638,
+            "p50_ms": 2.482792,
+            "p95_ms": 2.829875,
+            "p99_ms": 2.964334,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 90374144,
+              "max_rss_bytes": 90947584,
+              "pid": 25039
+            }
+          },
+          {
+            "workload": "h2_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 1.532,
+            "requests_per_second": 2673.6292428198435,
+            "total_payload_gbit_per_second": 28.0350345691906,
+            "p50_ms": 5.695145500000001,
+            "p95_ms": 7.338500000000001,
+            "p99_ms": 9.020417,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2440,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 105070592,
+              "max_rss_bytes": 106086400,
+              "pid": 25039
+            }
+          },
+          {
+            "workload": "h3_warmup",
+            "samples": 512,
+            "warmup": true,
+            "seconds": 3.598,
+            "requests_per_second": 142.30127848804892,
+            "total_payload_gbit_per_second": 1.4921370539188437,
+            "p50_ms": 109.34008349999999,
+            "p95_ms": 162.214583,
+            "p99_ms": 199.4615,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 3,
+              "backpressure_events": 276,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 121094144,
+              "max_rss_bytes": 121126912,
+              "pid": 25039
+            }
+          },
+          {
+            "workload": "h3_serial",
+            "samples": 2000,
+            "warmup": false,
+            "seconds": 5.032,
+            "requests_per_second": 397.456279809221,
+            "total_payload_gbit_per_second": 0.006511923688394277,
+            "p50_ms": 2.4972914999999998,
+            "p95_ms": 2.866416,
+            "p99_ms": 3.016042,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 1,
+              "connections_opened": 1
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 120946688,
+              "max_rss_bytes": 121176064,
+              "pid": 25039
+            }
+          },
+          {
+            "workload": "h3_multiplex",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 28.787,
+            "requests_per_second": 142.28644874422483,
+            "total_payload_gbit_per_second": 1.4919815527842428,
+            "p50_ms": 111.23164549999998,
+            "p95_ms": 168.6545,
+            "p99_ms": 196.043083,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": true,
+              "streams_per_connection": 4,
+              "connections_opened": 4
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 4,
+              "backpressure_events": 2219,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 148586496,
+              "max_rss_bytes": 148783104,
+              "pid": 25039
+            }
+          },
+          {
+            "workload": "h3_fresh_warmup",
+            "samples": 256,
+            "warmup": true,
+            "seconds": 0.243,
+            "requests_per_second": 1053.4979423868313,
+            "total_payload_gbit_per_second": 0.017260510288065842,
+            "p50_ms": 1.9760625,
+            "p95_ms": 3.511875,
+            "p99_ms": 3.833875,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 256
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 256,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 256,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 151633920,
+              "max_rss_bytes": 152158208,
+              "pid": 25039
+            }
+          },
+          {
+            "workload": "h3_fresh_serial",
+            "samples": 1000,
+            "warmup": false,
+            "seconds": 2.348,
+            "requests_per_second": 425.8943781942079,
+            "total_payload_gbit_per_second": 0.006977853492333902,
+            "p50_ms": 1.4629790000000003,
+            "p95_ms": 1.572,
+            "p99_ms": 1.626417,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 1000
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 1000,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 1000,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 151683072,
+              "max_rss_bytes": 152158208,
+              "pid": 25039
+            }
+          },
+          {
+            "workload": "h3_fresh_parallel",
+            "samples": 4096,
+            "warmup": false,
+            "seconds": 2.614,
+            "requests_per_second": 1566.9472073450652,
+            "total_payload_gbit_per_second": 0.025672863045141547,
+            "p50_ms": 5.379770499999999,
+            "p95_ms": 7.554875,
+            "p99_ms": 8.535291,
+            "errors": 0,
+            "connection_usage": {
+              "reuse_connections": false,
+              "streams_per_connection": 1,
+              "connections_opened": 4096
+            },
+            "transport_counter_deltas": {
+              "active_throttles": 0,
+              "backpressure_alerts": 0,
+              "backpressure_events": 0,
+              "body_timeout_alerts": 0,
+              "body_timeout_events": 0,
+              "buffered_file_segment_bytes_total": 0,
+              "buffered_file_segment_calls_total": 0,
+              "goaway_alerts": 0,
+              "goaway_events": 0,
+              "graceful_events": 4096,
+              "idle_timeout_alerts": 0,
+              "idle_timeout_events": 0,
+              "internal_error_alerts": 0,
+              "internal_error_events": 0,
+              "max_backpressure_depth": 0,
+              "protocol_error_alerts": 0,
+              "protocol_error_events": 0,
+              "rawsocket_zero_copy_bytes_total": 0,
+              "rawsocket_zero_copy_calls_total": 0,
+              "total_events": 4096,
+              "transport_alerts": 0
+            },
+            "process_metrics": {
+              "current_rss_bytes": 155025408,
+              "max_rss_bytes": 155549696,
+              "pid": 25039
+            }
+          }
+        ]
+      }
+    ],
+    "comparison": {
+      "h2_serial": {
+        "baseline": {
+          "requests_per_second": {
+            "median": 396.4321110009911,
+            "minimum": 363.9010189228529,
+            "maximum": 398.8831272437176
+          },
+          "total_payload_gbit_per_second": {
+            "median": 0.006495143706640238,
+            "minimum": 0.005962154294032023,
+            "maximum": 0.006535301156761069
+          },
+          "p50_ms": {
+            "median": 2.4857705,
+            "minimum": 2.4851665,
+            "maximum": 2.7408745
+          },
+          "p95_ms": {
+            "median": 2.857125,
+            "minimum": 2.834833,
+            "maximum": 3.107209
+          },
+          "p99_ms": {
+            "median": 3.068875,
+            "minimum": 2.955167,
+            "maximum": 3.259417
+          }
+        },
+        "patched": {
+          "requests_per_second": {
+            "median": 398.72408293460927,
+            "minimum": 365.764447695684,
+            "maximum": 402.73862263391055
+          },
+          "total_payload_gbit_per_second": {
+            "median": 0.006532695374800638,
+            "minimum": 0.0059926847110460865,
+            "maximum": 0.006598469593233991
+          },
+          "p50_ms": {
+            "median": 2.482792,
+            "minimum": 2.446333,
+            "maximum": 2.722625
+          },
+          "p95_ms": {
+            "median": 2.832417,
+            "minimum": 2.829875,
+            "maximum": 3.0946670000000003
+          },
+          "p99_ms": {
+            "median": 3.054459,
+            "minimum": 2.964334,
+            "maximum": 3.26275
+          }
+        },
+        "throughput_delta_percent": 0.5781499202551776
+      },
+      "h2_multiplex": {
+        "baseline": {
+          "requests_per_second": {
+            "median": 2651.1326860841427,
+            "minimum": 2592.405063291139,
+            "maximum": 2739.799331103679
+          },
+          "total_payload_gbit_per_second": {
+            "median": 27.79914107443366,
+            "minimum": 27.183337316455695,
+            "maximum": 28.728878234113708
+          },
+          "p50_ms": {
+            "median": 5.7299165,
+            "minimum": 5.5870625,
+            "maximum": 5.7564375000000005
+          },
+          "p95_ms": {
+            "median": 7.469917000000001,
+            "minimum": 7.427333,
+            "maximum": 8.037833
+          },
+          "p99_ms": {
+            "median": 9.546833,
+            "minimum": 8.989791,
+            "maximum": 9.690875
+          }
+        },
+        "patched": {
+          "requests_per_second": {
+            "median": 2673.6292428198435,
+            "minimum": 2600.6349206349205,
+            "maximum": 2705.4161162483488
+          },
+          "total_payload_gbit_per_second": {
+            "median": 28.0350345691906,
+            "minimum": 27.26963362539683,
+            "maximum": 28.368344095112285
+          },
+          "p50_ms": {
+            "median": 5.695145500000001,
+            "minimum": 5.557,
+            "maximum": 5.782479
+          },
+          "p95_ms": {
+            "median": 7.628875,
+            "minimum": 7.338500000000001,
+            "maximum": 8.104040999999999
+          },
+          "p99_ms": {
+            "median": 9.356667000000002,
+            "minimum": 9.020417,
+            "maximum": 9.477917000000001
+          }
+        },
+        "throughput_delta_percent": 0.8485639686683921
+      },
+      "h3_serial": {
+        "baseline": {
+          "requests_per_second": {
+            "median": 394.7108742845865,
+            "minimum": 362.3844899438304,
+            "maximum": 397.93076004775173
+          },
+          "total_payload_gbit_per_second": {
+            "median": 0.006466942964278665,
+            "minimum": 0.005937307483239717,
+            "maximum": 0.006519697572622364
+          },
+          "p50_ms": {
+            "median": 2.5134795,
+            "minimum": 2.492771,
+            "maximum": 2.7555205000000003
+          },
+          "p95_ms": {
+            "median": 2.881833,
+            "minimum": 2.8600000000000003,
+            "maximum": 3.1180000000000003
+          },
+          "p99_ms": {
+            "median": 3.0561249999999998,
+            "minimum": 3.01775,
+            "maximum": 3.293416
+          }
+        },
+        "patched": {
+          "requests_per_second": {
+            "median": 397.06174310105223,
+            "minimum": 365.764447695684,
+            "maximum": 397.456279809221
+          },
+          "total_payload_gbit_per_second": {
+            "median": 0.00650545959896764,
+            "minimum": 0.0059926847110460865,
+            "maximum": 0.006511923688394277
+          },
+          "p50_ms": {
+            "median": 2.4978125,
+            "minimum": 2.4972914999999998,
+            "maximum": 2.7335835
+          },
+          "p95_ms": {
+            "median": 2.866416,
+            "minimum": 2.864,
+            "maximum": 3.114917
+          },
+          "p99_ms": {
+            "median": 3.016042,
+            "minimum": 3.016042,
+            "maximum": 3.307834
+          }
+        },
+        "throughput_delta_percent": 0.5955926146515855
+      },
+      "h3_multiplex": {
+        "baseline": {
+          "requests_per_second": {
+            "median": 145.6666311035243,
+            "minimum": 144.02756777664476,
+            "maximum": 145.69253752578786
+          },
+          "total_payload_gbit_per_second": {
+            "median": 1.5274253337600912,
+            "minimum": 1.5102385090896304,
+            "maximum": 1.5276969822864053
+          },
+          "p50_ms": {
+            "median": 109.48879199999999,
+            "minimum": 107.705146,
+            "maximum": 111.235771
+          },
+          "p95_ms": {
+            "median": 164.338583,
+            "minimum": 160.909834,
+            "maximum": 164.48612500000002
+          },
+          "p99_ms": {
+            "median": 193.951333,
+            "minimum": 182.26049999999998,
+            "maximum": 194.437666
+          }
+        },
+        "patched": {
+          "requests_per_second": {
+            "median": 142.28644874422483,
+            "minimum": 140.30280194560527,
+            "maximum": 146.94697567625744
+          },
+          "total_payload_gbit_per_second": {
+            "median": 1.4919815527842428,
+            "minimum": 1.4711815085291498,
+            "maximum": 1.5408507196670733
+          },
+          "p50_ms": {
+            "median": 111.23164549999998,
+            "minimum": 107.55464599999999,
+            "maximum": 114.732979
+          },
+          "p95_ms": {
+            "median": 168.6545,
+            "minimum": 165.273167,
+            "maximum": 169.0355
+          },
+          "p99_ms": {
+            "median": 194.726209,
+            "minimum": 193.953625,
+            "maximum": 196.043083
+          }
+        },
+        "throughput_delta_percent": -2.3204918886997605
+      },
+      "h3_fresh_serial": {
+        "baseline": {
+          "requests_per_second": {
+            "median": 427.1678769756514,
+            "minimum": 389.5597974289053,
+            "maximum": 427.5331338178709
+          },
+          "total_payload_gbit_per_second": {
+            "median": 0.006998718496369072,
+            "minimum": 0.0063825477210751845,
+            "maximum": 0.007004702864471997
+          },
+          "p50_ms": {
+            "median": 1.4770415000000001,
+            "minimum": 1.4718125,
+            "maximum": 1.6788125
+          },
+          "p95_ms": {
+            "median": 1.579959,
+            "minimum": 1.576958,
+            "maximum": 1.830625
+          },
+          "p99_ms": {
+            "median": 1.6290829999999998,
+            "minimum": 1.627875,
+            "maximum": 2.14275
+          }
+        },
+        "patched": {
+          "requests_per_second": {
+            "median": 425.8943781942079,
+            "minimum": 389.1050583657588,
+            "maximum": 428.082191780822
+          },
+          "total_payload_gbit_per_second": {
+            "median": 0.006977853492333902,
+            "minimum": 0.006375097276264592,
+            "maximum": 0.007013698630136987
+          },
+          "p50_ms": {
+            "median": 1.4677715,
+            "minimum": 1.4629790000000003,
+            "maximum": 1.6907079999999999
+          },
+          "p95_ms": {
+            "median": 1.572,
+            "minimum": 1.571584,
+            "maximum": 1.827375
+          },
+          "p99_ms": {
+            "median": 1.6376249999999999,
+            "minimum": 1.626417,
+            "maximum": 1.9231669999999998
+          }
+        },
+        "throughput_delta_percent": -0.2981260647359263
+      },
+      "h3_fresh_parallel": {
+        "baseline": {
+          "requests_per_second": {
+            "median": 1227.0820850808868,
+            "minimum": 1225.2467843254562,
+            "maximum": 1229.2917166866748
+          },
+          "total_payload_gbit_per_second": {
+            "median": 0.02010451288196525,
+            "minimum": 0.020074443314388277,
+            "maximum": 0.02014071548619448
+          },
+          "p50_ms": {
+            "median": 1.4178335,
+            "minimum": 1.3957915,
+            "maximum": 1.6352290000000003
+          },
+          "p95_ms": {
+            "median": 2.740833,
+            "minimum": 2.721041,
+            "maximum": 2.920208
+          },
+          "p99_ms": {
+            "median": 2.9469589999999997,
+            "minimum": 2.927,
+            "maximum": 3.154875
+          }
+        },
+        "patched": {
+          "requests_per_second": {
+            "median": 1556.8225009502091,
+            "minimum": 1458.689458689459,
+            "maximum": 1566.9472073450652
+          },
+          "total_payload_gbit_per_second": {
+            "median": 0.025506979855568226,
+            "minimum": 0.023899168091168096,
+            "maximum": 0.025672863045141547
+          },
+          "p50_ms": {
+            "median": 5.4416455,
+            "minimum": 5.379770499999999,
+            "maximum": 5.9024375000000004
+          },
+          "p95_ms": {
+            "median": 7.836790999999999,
+            "minimum": 7.554875,
+            "maximum": 9.211041999999999
+          },
+          "p99_ms": {
+            "median": 8.887374999999999,
+            "minimum": 8.535291,
+            "maximum": 10.412667
+          }
+        },
+        "throughput_delta_percent": 26.871911820600538
+      }
+    },
+    "measured_operations": 103728,
+    "warmup_operations": 7680
+  },
+  "pressure_gates": {
+    "candidate_inputs": {
+      "service": {
+        "path": "/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service",
+        "sha256": "171ce6f5e1091556fe30a2c6a55b97af83e600155754a3398aecfb52649c5b85"
+      },
+      "worker": {
+        "path": "/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker",
+        "sha256": "c79ed4e83c293e727a81b78bbcc2d4628311aeaeb3e1ba2d4e31b4213addd074"
+      },
+      "native": {
+        "path": "/tmp/connectanum-sa006-http3-libct_ffi.dylib",
+        "sha256": "69b4f43f39b160f931788f5ab0915a7e34919c3f2222860d0e4b47ccb238d9f5"
+      },
+      "driver": {
+        "path": "/tmp/connectanum-sa002-patched-http_stream",
+        "sha256": "54e69d2f9efc60fdc3febd8b1e49a166da237768e195593908b0f61fca27a60f"
+      },
+      "checker": {
+        "path": "native/bench/target/release/check_artifact_gate",
+        "sha256": "0a54606a2316b5361e2453f07e108b9cddd6e0dabd4a4bfcf1d48b8fbacf3342"
+      }
+    },
+    "gates": [
+      {
+        "lane": "h3_multiplex_scaling",
+        "command": [
+          "/tmp/connectanum-sa002-patched-http_stream",
+          "--dart",
+          "/tmp/connectanum-security-aot-launch",
+          "--bench-main",
+          "/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service",
+          "--wamp-worker-executable",
+          "/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker",
+          "--native-lib",
+          "/tmp/connectanum-sa006-http3-libct_ffi.dylib",
+          "--scenario",
+          "native/bench/scenarios/h3_multiplex_scaling.toml",
+          "--router-worker-counts",
+          "1",
+          "--native-runtime-thread-counts",
+          "4",
+          "--results",
+          "/tmp/connectanum-sa006-http3-production-gates/h3_multiplex_scaling/bench_results.jsonl",
+          "--artifact-dir",
+          "/tmp/connectanum-sa006-http3-production-gates/h3_multiplex_scaling"
+        ],
+        "started_at": 1789106978.5634592,
+        "finished_at": 1789106986.385237,
+        "gate_command": [
+          "native/bench/target/release/check_artifact_gate",
+          "--summary",
+          "/tmp/connectanum-sa006-http3-production-gates/h3_multiplex_scaling/bench_results.summary.json",
+          "--policy",
+          "native/bench/artifact_gate/h3_multiplex_scaling.json"
+        ],
+        "scenario": "native/bench/scenarios/h3_multiplex_scaling.toml",
+        "scenario_sha256": "a560f3d549e856e86bd59974bb6fca6e0efd151f4087bd6ebd91819e329bc28a",
+        "policy": {
+          "thresholds": [
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s2",
+              "protocol": "h3",
+              "kind": "backpressure_events",
+              "threshold": 32
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s2",
+              "protocol": "h3",
+              "kind": "backpressure_alerts",
+              "threshold": 5
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s4",
+              "protocol": "h3",
+              "kind": "backpressure_events",
+              "threshold": 80
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s4",
+              "protocol": "h3",
+              "kind": "backpressure_alerts",
+              "threshold": 5
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s8",
+              "protocol": "h3",
+              "kind": "backpressure_events",
+              "threshold": 112
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s8",
+              "protocol": "h3",
+              "kind": "backpressure_alerts",
+              "threshold": 5
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s16",
+              "protocol": "h3",
+              "kind": "backpressure_events",
+              "threshold": 136
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s16",
+              "protocol": "h3",
+              "kind": "backpressure_alerts",
+              "threshold": 5
+            }
+          ]
+        },
+        "results_sha256": "9838b413613e41bf6f085f25469a230b629628af331a90669416cd7dc9a4d856",
+        "summary": {
+          "generated_at_ms": 1789106986332,
+          "source_results": "/tmp/connectanum-sa006-http3-production-gates/h3_multiplex_scaling/bench_results.jsonl",
+          "workloads": [
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s1",
+              "protocol": "h3",
+              "client_impl": "n/a",
+              "router_workers": 1,
+              "native_runtime_threads": 4,
+              "iterations": 32,
+              "concurrency": 4,
+              "request_chunk_bytes": 65536,
+              "response_chunk_bytes": 131072,
+              "started_at_ms": 1789106979123,
+              "completed_at_ms": 1789106980141,
+              "elapsed_ms": 1018.0,
+              "sample_count": 128,
+              "latency_avg_ms": 31.166652023437504,
+              "latency_min_ms": 14.53275,
+              "latency_max_ms": 43.745833999999995,
+              "latency_p95_ms": 35.67275,
+              "request_bytes_total": 33554432,
+              "response_bytes_total": 134217728,
+              "throughput_mbps": 1054.7562121807464,
+              "lifecycle_throughput_mbps": 1054.7562121807464,
+              "router_invocations_delta": 129,
+              "router_publications_delta": 0,
+              "scenario_router_invocations_delta": 130,
+              "scenario_router_publications_delta": 0,
+              "transport": {
+                "rawsocket_zero_copy_calls": 0,
+                "rawsocket_zero_copy_bytes": 0,
+                "buffered_file_segment_calls": 0,
+                "buffered_file_segment_bytes": 0,
+                "http_events": 4,
+                "goaway_events": 0,
+                "idle_timeout_events": 0,
+                "body_timeout_events": 0,
+                "protocol_error_events": 0,
+                "internal_error_events": 0,
+                "backpressure_events": 0,
+                "backpressure_alerts": 0,
+                "transport_alerts": 0,
+                "goaway_alerts": 0,
+                "idle_timeout_alerts": 0,
+                "body_timeout_alerts": 0,
+                "protocol_error_alerts": 0,
+                "internal_error_alerts": 0,
+                "max_backpressure_depth_after": 0,
+                "active_throttles_after": 0
+              },
+              "http_connection_usage": {
+                "reuse_connections": true,
+                "streams_per_connection": 1,
+                "connections_opened": 4,
+                "samples_per_connection_avg": 32.0
+              },
+              "http_server_emission_timing": {
+                "requests_total": 128,
+                "synthetic_responses_total": 128,
+                "native_forwarded_responses_total": 0,
+                "buffered_responses_total": 0,
+                "request_body_drain_avg_ms": 1.31715625,
+                "request_body_drain_first_chunk_wait_avg_ms": 0.0411171875,
+                "request_body_drain_tail_read_avg_ms": 1.2760390625,
+                "request_body_drain_second_chunk_wait_avg_ms": 0.0012734375,
+                "request_body_drain_remaining_tail_read_avg_ms": 1.274765625,
+                "request_body_drain_chunk_count_avg": 215.1796875,
+                "native_request_body_reader_total_avg_ms": 0.0,
+                "native_request_body_reader_first_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_second_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_read_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_event_index_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_data_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_chunk_count_avg": 0.0,
+                "stream_open_avg_ms": 1.8818359375,
+                "first_chunk_queued_avg_ms": 1.393921875,
+                "first_body_write_avg_ms": 1.88221875,
+                "first_body_write_completed_avg_ms": 1.8964921875,
+                "headers_to_first_body_write_avg_ms": 0.0003828125,
+                "headers_to_first_body_write_completed_avg_ms": 0.01465625,
+                "queue_to_first_body_write_avg_ms": 0.488296875,
+                "queue_to_first_body_write_completed_avg_ms": 0.5025703125,
+                "first_body_write_call_avg_ms": 0.0142734375,
+                "direct_stream_open_round_trip_avg_ms": 0.4838046875,
+                "direct_stream_request_queue_delay_avg_ms": 0.29090625,
+                "direct_stream_descriptor_open_call_avg_ms": 0.0071328125,
+                "direct_stream_reply_delivery_delay_avg_ms": 0.184109375,
+                "handler_avg_ms": 1.399890625
+              },
+              "http_native_response_stream_timing": {
+                "streaming_responses_total": 128,
+                "stream_open_to_headers_send_avg_ms": 0.0459921875,
+                "headers_send_call_avg_ms": 0.0075546875,
+                "headers_to_first_connection_write_avg_ms": 0.0,
+                "first_chunk_channel_wait_avg_ms": 0.1133984375,
+                "headers_to_first_chunk_dequeue_avg_ms": 0.2696171875,
+                "first_chunk_send_call_avg_ms": 0.008,
+                "headers_to_first_chunk_send_call_avg_ms": 0.27809375,
+                "tail_chunk_channel_wait_avg_ms": 0.8913839285714286,
+                "tail_chunk_send_call_avg_ms": 0.13706026785714287,
+                "first_to_last_chunk_send_avg_ms": 1.145265625
+              },
+              "http_native_response_stream_slow_path": {
+                "streaming_responses_total": 128,
+                "headers_to_first_connection_write_ge_1ms_total": 0,
+                "headers_to_first_connection_write_ge_5ms_total": 0,
+                "headers_to_first_connection_write_ge_10ms_total": 0,
+                "first_chunk_channel_wait_ge_1ms_total": 2,
+                "first_chunk_channel_wait_ge_5ms_total": 0,
+                "first_chunk_channel_wait_ge_10ms_total": 0,
+                "headers_to_first_chunk_dequeue_ge_1ms_total": 10,
+                "headers_to_first_chunk_dequeue_ge_5ms_total": 0,
+                "headers_to_first_chunk_dequeue_ge_10ms_total": 0,
+                "first_chunk_send_call_ge_1ms_total": 0,
+                "first_chunk_send_call_ge_5ms_total": 0,
+                "first_chunk_send_call_ge_10ms_total": 0,
+                "tail_chunk_channel_wait_ge_1ms_total": 288,
+                "tail_chunk_channel_wait_ge_5ms_total": 3,
+                "tail_chunk_channel_wait_ge_10ms_total": 2,
+                "tail_chunk_send_call_ge_1ms_total": 48,
+                "tail_chunk_send_call_ge_5ms_total": 1,
+                "tail_chunk_send_call_ge_10ms_total": 0,
+                "first_to_last_chunk_send_ge_1ms_total": 54,
+                "first_to_last_chunk_send_ge_5ms_total": 1,
+                "first_to_last_chunk_send_ge_10ms_total": 1
+              }
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s2",
+              "protocol": "h3",
+              "client_impl": "n/a",
+              "router_workers": 1,
+              "native_runtime_threads": 4,
+              "iterations": 32,
+              "concurrency": 4,
+              "request_chunk_bytes": 65536,
+              "response_chunk_bytes": 131072,
+              "started_at_ms": 1789106980653,
+              "completed_at_ms": 1789106981584,
+              "elapsed_ms": 931.0,
+              "sample_count": 128,
+              "latency_avg_ms": 55.09500676562502,
+              "latency_min_ms": 10.104708,
+              "latency_max_ms": 84.653959,
+              "latency_p95_ms": 82.16362500000001,
+              "request_bytes_total": 33554432,
+              "response_bytes_total": 134217728,
+              "throughput_mbps": 1153.3209709989258,
+              "lifecycle_throughput_mbps": 1153.3209709989258,
+              "router_invocations_delta": 129,
+              "router_publications_delta": 0,
+              "scenario_router_invocations_delta": 260,
+              "scenario_router_publications_delta": 0,
+              "transport": {
+                "rawsocket_zero_copy_calls": 0,
+                "rawsocket_zero_copy_bytes": 0,
+                "buffered_file_segment_calls": 0,
+                "buffered_file_segment_bytes": 0,
+                "http_events": 4,
+                "goaway_events": 0,
+                "idle_timeout_events": 0,
+                "body_timeout_events": 0,
+                "protocol_error_events": 0,
+                "internal_error_events": 0,
+                "backpressure_events": 21,
+                "backpressure_alerts": 4,
+                "transport_alerts": 0,
+                "goaway_alerts": 0,
+                "idle_timeout_alerts": 0,
+                "body_timeout_alerts": 0,
+                "protocol_error_alerts": 0,
+                "internal_error_alerts": 0,
+                "max_backpressure_depth_after": 2,
+                "active_throttles_after": 0
+              },
+              "http_connection_usage": {
+                "reuse_connections": true,
+                "streams_per_connection": 2,
+                "connections_opened": 4,
+                "samples_per_connection_avg": 32.0
+              },
+              "http_server_emission_timing": {
+                "requests_total": 128,
+                "synthetic_responses_total": 128,
+                "native_forwarded_responses_total": 0,
+                "buffered_responses_total": 0,
+                "request_body_drain_avg_ms": 2.6197421875,
+                "request_body_drain_first_chunk_wait_avg_ms": 0.0262421875,
+                "request_body_drain_tail_read_avg_ms": 2.5935,
+                "request_body_drain_second_chunk_wait_avg_ms": 0.0012578125,
+                "request_body_drain_remaining_tail_read_avg_ms": 2.5922421875,
+                "request_body_drain_chunk_count_avg": 226.2578125,
+                "native_request_body_reader_total_avg_ms": 0.0,
+                "native_request_body_reader_first_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_second_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_read_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_event_index_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_data_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_chunk_count_avg": 0.0,
+                "stream_open_avg_ms": 5.17259375,
+                "first_chunk_queued_avg_ms": 2.6962109375,
+                "first_body_write_avg_ms": 5.1730703125,
+                "first_body_write_completed_avg_ms": 5.1861875,
+                "headers_to_first_body_write_avg_ms": 0.0004765625,
+                "headers_to_first_body_write_completed_avg_ms": 0.01359375,
+                "queue_to_first_body_write_avg_ms": 2.476859375,
+                "queue_to_first_body_write_completed_avg_ms": 2.4899765625,
+                "first_body_write_call_avg_ms": 0.0131171875,
+                "direct_stream_open_round_trip_avg_ms": 2.4737421875,
+                "direct_stream_request_queue_delay_avg_ms": 1.255953125,
+                "direct_stream_descriptor_open_call_avg_ms": 0.0060546875,
+                "direct_stream_reply_delivery_delay_avg_ms": 1.2092890625,
+                "handler_avg_ms": 2.7017578125
+              },
+              "http_native_response_stream_timing": {
+                "streaming_responses_total": 128,
+                "stream_open_to_headers_send_avg_ms": 0.72603125,
+                "headers_send_call_avg_ms": 0.2988515625,
+                "headers_to_first_connection_write_avg_ms": 0.0,
+                "first_chunk_channel_wait_avg_ms": 0.592890625,
+                "headers_to_first_chunk_dequeue_avg_ms": 1.092984375,
+                "first_chunk_send_call_avg_ms": 0.38578125,
+                "headers_to_first_chunk_send_call_avg_ms": 1.479203125,
+                "tail_chunk_channel_wait_avg_ms": 1.6104296875,
+                "tail_chunk_send_call_avg_ms": 0.1691339285714286,
+                "first_to_last_chunk_send_avg_ms": 1.313234375
+              },
+              "http_native_response_stream_slow_path": {
+                "streaming_responses_total": 128,
+                "headers_to_first_connection_write_ge_1ms_total": 0,
+                "headers_to_first_connection_write_ge_5ms_total": 0,
+                "headers_to_first_connection_write_ge_10ms_total": 0,
+                "first_chunk_channel_wait_ge_1ms_total": 13,
+                "first_chunk_channel_wait_ge_5ms_total": 3,
+                "first_chunk_channel_wait_ge_10ms_total": 3,
+                "headers_to_first_chunk_dequeue_ge_1ms_total": 34,
+                "headers_to_first_chunk_dequeue_ge_5ms_total": 5,
+                "headers_to_first_chunk_dequeue_ge_10ms_total": 5,
+                "first_chunk_send_call_ge_1ms_total": 6,
+                "first_chunk_send_call_ge_5ms_total": 3,
+                "first_chunk_send_call_ge_10ms_total": 3,
+                "tail_chunk_channel_wait_ge_1ms_total": 294,
+                "tail_chunk_channel_wait_ge_5ms_total": 56,
+                "tail_chunk_channel_wait_ge_10ms_total": 54,
+                "tail_chunk_send_call_ge_1ms_total": 33,
+                "tail_chunk_send_call_ge_5ms_total": 5,
+                "tail_chunk_send_call_ge_10ms_total": 3,
+                "first_to_last_chunk_send_ge_1ms_total": 36,
+                "first_to_last_chunk_send_ge_5ms_total": 5,
+                "first_to_last_chunk_send_ge_10ms_total": 4
+              }
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s4",
+              "protocol": "h3",
+              "client_impl": "n/a",
+              "router_workers": 1,
+              "native_runtime_threads": 4,
+              "iterations": 32,
+              "concurrency": 4,
+              "request_chunk_bytes": 65536,
+              "response_chunk_bytes": 131072,
+              "started_at_ms": 1789106982098,
+              "completed_at_ms": 1789106983062,
+              "elapsed_ms": 964.0,
+              "sample_count": 128,
+              "latency_avg_ms": 112.14509960156249,
+              "latency_min_ms": 15.552708,
+              "latency_max_ms": 168.235625,
+              "latency_p95_ms": 156.116333,
+              "request_bytes_total": 33554432,
+              "response_bytes_total": 134217728,
+              "throughput_mbps": 1113.8400663900416,
+              "lifecycle_throughput_mbps": 1113.8400663900416,
+              "router_invocations_delta": 129,
+              "router_publications_delta": 0,
+              "scenario_router_invocations_delta": 390,
+              "scenario_router_publications_delta": 0,
+              "transport": {
+                "rawsocket_zero_copy_calls": 0,
+                "rawsocket_zero_copy_bytes": 0,
+                "buffered_file_segment_calls": 0,
+                "buffered_file_segment_bytes": 0,
+                "http_events": 4,
+                "goaway_events": 0,
+                "idle_timeout_events": 0,
+                "body_timeout_events": 0,
+                "protocol_error_events": 0,
+                "internal_error_events": 0,
+                "backpressure_events": 69,
+                "backpressure_alerts": 4,
+                "transport_alerts": 0,
+                "goaway_alerts": 0,
+                "idle_timeout_alerts": 0,
+                "body_timeout_alerts": 0,
+                "protocol_error_alerts": 0,
+                "internal_error_alerts": 0,
+                "max_backpressure_depth_after": 4,
+                "active_throttles_after": 0
+              },
+              "http_connection_usage": {
+                "reuse_connections": true,
+                "streams_per_connection": 4,
+                "connections_opened": 4,
+                "samples_per_connection_avg": 32.0
+              },
+              "http_server_emission_timing": {
+                "requests_total": 128,
+                "synthetic_responses_total": 128,
+                "native_forwarded_responses_total": 0,
+                "buffered_responses_total": 0,
+                "request_body_drain_avg_ms": 4.0734375,
+                "request_body_drain_first_chunk_wait_avg_ms": 0.2341640625,
+                "request_body_drain_tail_read_avg_ms": 3.8392734375,
+                "request_body_drain_second_chunk_wait_avg_ms": 0.0014296875,
+                "request_body_drain_remaining_tail_read_avg_ms": 3.83784375,
+                "request_body_drain_chunk_count_avg": 223.4296875,
+                "native_request_body_reader_total_avg_ms": 0.0,
+                "native_request_body_reader_first_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_second_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_read_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_event_index_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_data_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_chunk_count_avg": 0.0,
+                "stream_open_avg_ms": 11.43740625,
+                "first_chunk_queued_avg_ms": 4.14784375,
+                "first_body_write_avg_ms": 11.4377421875,
+                "first_body_write_completed_avg_ms": 11.452890625,
+                "headers_to_first_body_write_avg_ms": 0.0003359375,
+                "headers_to_first_body_write_completed_avg_ms": 0.015484375,
+                "queue_to_first_body_write_avg_ms": 7.2898984375,
+                "queue_to_first_body_write_completed_avg_ms": 7.305046875,
+                "first_body_write_call_avg_ms": 0.0151484375,
+                "direct_stream_open_round_trip_avg_ms": 7.2867421875,
+                "direct_stream_request_queue_delay_avg_ms": 3.1834140625,
+                "direct_stream_descriptor_open_call_avg_ms": 0.00546875,
+                "direct_stream_reply_delivery_delay_avg_ms": 4.093125,
+                "handler_avg_ms": 4.1536484375
+              },
+              "http_native_response_stream_timing": {
+                "streaming_responses_total": 128,
+                "stream_open_to_headers_send_avg_ms": 1.297,
+                "headers_send_call_avg_ms": 1.004140625,
+                "headers_to_first_connection_write_avg_ms": 0.0,
+                "first_chunk_channel_wait_avg_ms": 1.0633828125,
+                "headers_to_first_chunk_dequeue_avg_ms": 3.8795,
+                "first_chunk_send_call_avg_ms": 0.65690625,
+                "headers_to_first_chunk_send_call_avg_ms": 4.53690625,
+                "tail_chunk_channel_wait_avg_ms": 2.2665223214285715,
+                "tail_chunk_send_call_avg_ms": 0.15400669642857143,
+                "first_to_last_chunk_send_avg_ms": 1.1913828125
+              },
+              "http_native_response_stream_slow_path": {
+                "streaming_responses_total": 128,
+                "headers_to_first_connection_write_ge_1ms_total": 0,
+                "headers_to_first_connection_write_ge_5ms_total": 0,
+                "headers_to_first_connection_write_ge_10ms_total": 0,
+                "first_chunk_channel_wait_ge_1ms_total": 15,
+                "first_chunk_channel_wait_ge_5ms_total": 5,
+                "first_chunk_channel_wait_ge_10ms_total": 4,
+                "headers_to_first_chunk_dequeue_ge_1ms_total": 59,
+                "headers_to_first_chunk_dequeue_ge_5ms_total": 35,
+                "headers_to_first_chunk_dequeue_ge_10ms_total": 10,
+                "first_chunk_send_call_ge_1ms_total": 11,
+                "first_chunk_send_call_ge_5ms_total": 2,
+                "first_chunk_send_call_ge_10ms_total": 2,
+                "tail_chunk_channel_wait_ge_1ms_total": 276,
+                "tail_chunk_channel_wait_ge_5ms_total": 73,
+                "tail_chunk_channel_wait_ge_10ms_total": 50,
+                "tail_chunk_send_call_ge_1ms_total": 20,
+                "tail_chunk_send_call_ge_5ms_total": 5,
+                "tail_chunk_send_call_ge_10ms_total": 3,
+                "first_to_last_chunk_send_ge_1ms_total": 22,
+                "first_to_last_chunk_send_ge_5ms_total": 6,
+                "first_to_last_chunk_send_ge_10ms_total": 3
+              }
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s8",
+              "protocol": "h3",
+              "client_impl": "n/a",
+              "router_workers": 1,
+              "native_runtime_threads": 4,
+              "iterations": 32,
+              "concurrency": 4,
+              "request_chunk_bytes": 65536,
+              "response_chunk_bytes": 131072,
+              "started_at_ms": 1789106983572,
+              "completed_at_ms": 1789106984507,
+              "elapsed_ms": 935.0,
+              "sample_count": 128,
+              "latency_avg_ms": 223.28250359375,
+              "latency_min_ms": 97.48258299999999,
+              "latency_max_ms": 328.86262500000004,
+              "latency_p95_ms": 305.744584,
+              "request_bytes_total": 33554432,
+              "response_bytes_total": 134217728,
+              "throughput_mbps": 1148.3869775401067,
+              "lifecycle_throughput_mbps": 1148.3869775401067,
+              "router_invocations_delta": 129,
+              "router_publications_delta": 0,
+              "scenario_router_invocations_delta": 520,
+              "scenario_router_publications_delta": 0,
+              "transport": {
+                "rawsocket_zero_copy_calls": 0,
+                "rawsocket_zero_copy_bytes": 0,
+                "buffered_file_segment_calls": 0,
+                "buffered_file_segment_bytes": 0,
+                "http_events": 4,
+                "goaway_events": 0,
+                "idle_timeout_events": 0,
+                "body_timeout_events": 0,
+                "protocol_error_events": 0,
+                "internal_error_events": 0,
+                "backpressure_events": 106,
+                "backpressure_alerts": 2,
+                "transport_alerts": 0,
+                "goaway_alerts": 0,
+                "idle_timeout_alerts": 0,
+                "body_timeout_alerts": 0,
+                "protocol_error_alerts": 0,
+                "internal_error_alerts": 0,
+                "max_backpressure_depth_after": 8,
+                "active_throttles_after": 0
+              },
+              "http_connection_usage": {
+                "reuse_connections": true,
+                "streams_per_connection": 8,
+                "connections_opened": 4,
+                "samples_per_connection_avg": 32.0
+              },
+              "http_server_emission_timing": {
+                "requests_total": 128,
+                "synthetic_responses_total": 128,
+                "native_forwarded_responses_total": 0,
+                "buffered_responses_total": 0,
+                "request_body_drain_avg_ms": 3.9221953125,
+                "request_body_drain_first_chunk_wait_avg_ms": 0.0021328125,
+                "request_body_drain_tail_read_avg_ms": 3.9200625,
+                "request_body_drain_second_chunk_wait_avg_ms": 0.0010703125,
+                "request_body_drain_remaining_tail_read_avg_ms": 3.9189921875,
+                "request_body_drain_chunk_count_avg": 225.6796875,
+                "native_request_body_reader_total_avg_ms": 0.0,
+                "native_request_body_reader_first_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_second_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_read_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_event_index_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_data_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_chunk_count_avg": 0.0,
+                "stream_open_avg_ms": 12.9226875,
+                "first_chunk_queued_avg_ms": 3.9948671875,
+                "first_body_write_avg_ms": 12.923015625,
+                "first_body_write_completed_avg_ms": 12.939484375,
+                "headers_to_first_body_write_avg_ms": 0.000328125,
+                "headers_to_first_body_write_completed_avg_ms": 0.016796875,
+                "queue_to_first_body_write_avg_ms": 8.9281484375,
+                "queue_to_first_body_write_completed_avg_ms": 8.9446171875,
+                "first_body_write_call_avg_ms": 0.01646875,
+                "direct_stream_open_round_trip_avg_ms": 8.925703125,
+                "direct_stream_request_queue_delay_avg_ms": 4.8845546875,
+                "direct_stream_descriptor_open_call_avg_ms": 0.00325,
+                "direct_stream_reply_delivery_delay_avg_ms": 4.0329765625,
+                "handler_avg_ms": 3.99834375
+              },
+              "http_native_response_stream_timing": {
+                "streaming_responses_total": 128,
+                "stream_open_to_headers_send_avg_ms": 0.81590625,
+                "headers_send_call_avg_ms": 0.47590625,
+                "headers_to_first_connection_write_avg_ms": 0.0,
+                "first_chunk_channel_wait_avg_ms": 0.6716171875,
+                "headers_to_first_chunk_dequeue_avg_ms": 3.9085546875,
+                "first_chunk_send_call_avg_ms": 1.12184375,
+                "headers_to_first_chunk_send_call_avg_ms": 5.0308984375,
+                "tail_chunk_channel_wait_avg_ms": 2.542739955357143,
+                "tail_chunk_send_call_avg_ms": 0.25230580357142857,
+                "first_to_last_chunk_send_avg_ms": 1.8649765625
+              },
+              "http_native_response_stream_slow_path": {
+                "streaming_responses_total": 128,
+                "headers_to_first_connection_write_ge_1ms_total": 0,
+                "headers_to_first_connection_write_ge_5ms_total": 0,
+                "headers_to_first_connection_write_ge_10ms_total": 0,
+                "first_chunk_channel_wait_ge_1ms_total": 6,
+                "first_chunk_channel_wait_ge_5ms_total": 1,
+                "first_chunk_channel_wait_ge_10ms_total": 1,
+                "headers_to_first_chunk_dequeue_ge_1ms_total": 91,
+                "headers_to_first_chunk_dequeue_ge_5ms_total": 32,
+                "headers_to_first_chunk_dequeue_ge_10ms_total": 3,
+                "first_chunk_send_call_ge_1ms_total": 17,
+                "first_chunk_send_call_ge_5ms_total": 7,
+                "first_chunk_send_call_ge_10ms_total": 6,
+                "tail_chunk_channel_wait_ge_1ms_total": 230,
+                "tail_chunk_channel_wait_ge_5ms_total": 71,
+                "tail_chunk_channel_wait_ge_10ms_total": 70,
+                "tail_chunk_send_call_ge_1ms_total": 16,
+                "tail_chunk_send_call_ge_5ms_total": 9,
+                "tail_chunk_send_call_ge_10ms_total": 9,
+                "first_to_last_chunk_send_ge_1ms_total": 19,
+                "first_to_last_chunk_send_ge_5ms_total": 8,
+                "first_to_last_chunk_send_ge_10ms_total": 8
+              }
+            },
+            {
+              "scenario": "h3_multiplex_scaling",
+              "workload": "h3_multiplexed_streams_s16",
+              "protocol": "h3",
+              "client_impl": "n/a",
+              "router_workers": 1,
+              "native_runtime_threads": 4,
+              "iterations": 32,
+              "concurrency": 4,
+              "request_chunk_bytes": 65536,
+              "response_chunk_bytes": 131072,
+              "started_at_ms": 1789106985021,
+              "completed_at_ms": 1789106986075,
+              "elapsed_ms": 1054.0,
+              "sample_count": 128,
+              "latency_avg_ms": 479.04191860937505,
+              "latency_min_ms": 147.207375,
+              "latency_max_ms": 584.477583,
+              "latency_p95_ms": 583.5932499999999,
+              "request_bytes_total": 33554432,
+              "response_bytes_total": 134217728,
+              "throughput_mbps": 1018.7303833017077,
+              "lifecycle_throughput_mbps": 1018.7303833017077,
+              "router_invocations_delta": 129,
+              "router_publications_delta": 0,
+              "scenario_router_invocations_delta": 650,
+              "scenario_router_publications_delta": 0,
+              "transport": {
+                "rawsocket_zero_copy_calls": 0,
+                "rawsocket_zero_copy_bytes": 0,
+                "buffered_file_segment_calls": 0,
+                "buffered_file_segment_bytes": 0,
+                "http_events": 4,
+                "goaway_events": 0,
+                "idle_timeout_events": 0,
+                "body_timeout_events": 0,
+                "protocol_error_events": 0,
+                "internal_error_events": 0,
+                "backpressure_events": 117,
+                "backpressure_alerts": 4,
+                "transport_alerts": 0,
+                "goaway_alerts": 0,
+                "idle_timeout_alerts": 0,
+                "body_timeout_alerts": 0,
+                "protocol_error_alerts": 0,
+                "internal_error_alerts": 0,
+                "max_backpressure_depth_after": 16,
+                "active_throttles_after": 0
+              },
+              "http_connection_usage": {
+                "reuse_connections": true,
+                "streams_per_connection": 16,
+                "connections_opened": 4,
+                "samples_per_connection_avg": 32.0
+              },
+              "http_server_emission_timing": {
+                "requests_total": 128,
+                "synthetic_responses_total": 128,
+                "native_forwarded_responses_total": 0,
+                "buffered_responses_total": 0,
+                "request_body_drain_avg_ms": 1.9101015625,
+                "request_body_drain_first_chunk_wait_avg_ms": 0.0023359375,
+                "request_body_drain_tail_read_avg_ms": 1.907765625,
+                "request_body_drain_second_chunk_wait_avg_ms": 0.004625,
+                "request_body_drain_remaining_tail_read_avg_ms": 1.903140625,
+                "request_body_drain_chunk_count_avg": 229.203125,
+                "native_request_body_reader_total_avg_ms": 0.0,
+                "native_request_body_reader_first_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_second_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_read_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_avg_ms": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_event_index_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_bytes_after_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_eof_ratio": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_before_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_data_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_available_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_remaining_tail_data_wait_max_used_capacity_after_release_avg": 0.0,
+                "native_request_body_reader_data_chunk_wait_avg_ms": 0.0,
+                "native_request_body_reader_chunk_count_avg": 0.0,
+                "stream_open_avg_ms": 20.62828125,
+                "first_chunk_queued_avg_ms": 1.97834375,
+                "first_body_write_avg_ms": 20.628625,
+                "first_body_write_completed_avg_ms": 20.6449296875,
+                "headers_to_first_body_write_avg_ms": 0.00034375,
+                "headers_to_first_body_write_completed_avg_ms": 0.0166484375,
+                "queue_to_first_body_write_avg_ms": 18.65028125,
+                "queue_to_first_body_write_completed_avg_ms": 18.6665859375,
+                "first_body_write_call_avg_ms": 0.0163046875,
+                "direct_stream_open_round_trip_avg_ms": 18.6479296875,
+                "direct_stream_request_queue_delay_avg_ms": 10.4796015625,
+                "direct_stream_descriptor_open_call_avg_ms": 0.0033359375,
+                "direct_stream_reply_delivery_delay_avg_ms": 8.156359375,
+                "handler_avg_ms": 1.98175
+              },
+              "http_native_response_stream_timing": {
+                "streaming_responses_total": 128,
+                "stream_open_to_headers_send_avg_ms": 0.2381640625,
+                "headers_send_call_avg_ms": 0.029765625,
+                "headers_to_first_connection_write_avg_ms": 0.0,
+                "first_chunk_channel_wait_avg_ms": 0.1873828125,
+                "headers_to_first_chunk_dequeue_avg_ms": 8.1270703125,
+                "first_chunk_send_call_avg_ms": 0.1363515625,
+                "headers_to_first_chunk_send_call_avg_ms": 8.2638984375,
+                "tail_chunk_channel_wait_avg_ms": 1.1432477678571429,
+                "tail_chunk_send_call_avg_ms": 0.29085044642857144,
+                "first_to_last_chunk_send_avg_ms": 2.0931484375
+              },
+              "http_native_response_stream_slow_path": {
+                "streaming_responses_total": 128,
+                "headers_to_first_connection_write_ge_1ms_total": 0,
+                "headers_to_first_connection_write_ge_5ms_total": 0,
+                "headers_to_first_connection_write_ge_10ms_total": 0,
+                "first_chunk_channel_wait_ge_1ms_total": 0,
+                "first_chunk_channel_wait_ge_5ms_total": 0,
+                "first_chunk_channel_wait_ge_10ms_total": 0,
+                "headers_to_first_chunk_dequeue_ge_1ms_total": 118,
+                "headers_to_first_chunk_dequeue_ge_5ms_total": 87,
+                "headers_to_first_chunk_dequeue_ge_10ms_total": 46,
+                "first_chunk_send_call_ge_1ms_total": 5,
+                "first_chunk_send_call_ge_5ms_total": 0,
+                "first_chunk_send_call_ge_10ms_total": 0,
+                "tail_chunk_channel_wait_ge_1ms_total": 69,
+                "tail_chunk_channel_wait_ge_5ms_total": 3,
+                "tail_chunk_channel_wait_ge_10ms_total": 3,
+                "tail_chunk_send_call_ge_1ms_total": 5,
+                "tail_chunk_send_call_ge_5ms_total": 1,
+                "tail_chunk_send_call_ge_10ms_total": 1,
+                "first_to_last_chunk_send_ge_1ms_total": 6,
+                "first_to_last_chunk_send_ge_5ms_total": 1,
+                "first_to_last_chunk_send_ge_10ms_total": 1
+              }
+            }
+          ]
+        },
+        "gate": {
+          "generated_at_ms": 1789106986377,
+          "source_summary": "/tmp/connectanum-sa006-http3-production-gates/h3_multiplex_scaling/bench_results.summary.json",
+          "source_results": "/tmp/connectanum-sa006-http3-production-gates/h3_multiplex_scaling/bench_results.jsonl",
+          "workload_count": 5,
+          "findings": [],
+          "metric_findings": []
+        },
+        "gate_policy_sha256": "3df2de827fc25b5d1388c3ea7d94b1d56629a5d7f09e8930bcecd52bc494014e"
+      }
+    ],
+    "relative_performance_cleared": false,
+    "limitation": "Absolute production budgets, not before/after performance clearance. Shared macOS arm64 host; no own builds, tests, or companion inference overlap."
+  },
+  "verification": {
+    "test-fast": {
+      "exit_code": 0,
+      "path": "/tmp/connectanum-sa006-http3-test-fast.log",
+      "sha256": "4e58d945ed2da10a07705708183c86517d5e9e3cecec407d70fa5f7d32dd7308"
+    },
+    "fail-first": {
+      "exit_code": 101,
+      "path": "/tmp/connectanum-sa006-http3-fail-first.log",
+      "sha256": "73b6cbcd34bf618d2ee2904aef95e9ab57c2dbc245beffd2e22d81fd62d6599a"
+    },
+    "fail-first-confirmation": {
+      "exit_code": 101,
+      "path": "/tmp/connectanum-sa006-http3-fail-first-confirmation.log",
+      "sha256": "03c292751747789c7a3e38216289b1bc0d1ffc038c4b1a35cf6f1c26bd2118fa"
+    },
+    "confirmation": {
+      "exit_code": 101,
+      "path": "/tmp/connectanum-sa006-http3-confirmation.log",
+      "sha256": "c35931388e780abfcf2e86f9f33caebc2e2f1819e167bc2b2aadcd2a6a7f91c4"
+    },
+    "confirmation-final": {
+      "exit_code": 0,
+      "path": "/tmp/connectanum-sa006-http3-confirmation-final.log",
+      "sha256": "39f0b71650818f03978f93af888e37048da307a458fd9e0389346988e7a20b4e"
+    },
+    "verify": {
+      "exit_code": 0,
+      "path": "/tmp/connectanum-sa006-http3-verify.log",
+      "sha256": "af5c853d42a4cb107554a87ca101c5de091aaf5b98630f06b7832ed8fb038976"
+    },
+    "test-ideas": {
+      "exit_code": 1,
+      "path": "/tmp/connectanum-sa006-http3-test-ideas.log",
+      "sha256": "edc8d1aba975bf1e599c93820b378fcf34e508b81590e794cb82a6b7fb22d317"
+    },
+    "test-ideas-bounded": {
+      "exit_code": 0,
+      "path": "/tmp/connectanum-sa006-http3-test-ideas-bounded.log",
+      "sha256": "8989fb04968874227292a134065fdcaf71c41386899c573b5968b6b98f1e4323"
+    },
+    "review": {
+      "exit_code": 0,
+      "path": "/tmp/connectanum-sa006-http3-review.log",
+      "sha256": "be8c3db6a9b1da9b807b152f05f06a9709a132ffa6c215a10453615e0bd52c8f"
+    },
+    "compare": {
+      "exit_code": 0,
+      "path": "/tmp/connectanum-sa006-http3-compare.log",
+      "sha256": "6f85b85f83d8e0ff6de559937e497c1ae5f288f49cf419edcbef6a0794871419"
+    },
+    "gates": {
+      "exit_code": 0,
+      "path": "/tmp/connectanum-sa006-http3-gates.log",
+      "sha256": "b1b16518fc882ada07706ced29b7bc027b0232647a24eadca4e2a9487c8dcb05"
+    }
+  },
+  "test_evidence": [
+    "Two fail-first real-QUIC loopback regressions: incomplete handshake blocks a separate client request for the full three-second deadline; configured 150ms handshake deadline does not drain within six seconds.",
+    "Ordinary request and shutdown positive controls pass on unchanged production code after correcting the new shutdown test to allow the protocol closing interval.",
+    "Original three-second drain assertion was too short for Quinn three-PTO closing retention. The six-second cleanup deadline does not change production timeouts or the independent-client three-second gate.",
+    "Candidate first passes five cases; a new capacity test initially asserted the wrong peer error enum. Correct ConnectionClosed(CONNECTION_REFUSED) matches Quinn and the final six cases pass.",
+    "Final bin/verify exits 0: 148 core, 121 default FFI, 129 test-hook FFI, 526 router, 124 Dart benchmark, live MCP/package consumers, 13 zero-copy, six Chrome SCRAM and two Chrome WebSocket tests.",
+    "The prior intermittent HTTP/3 verification timeouts are not proven to have this cause."
+  ],
+  "review_evidence": "Qwen test brainstorming hit its output limit; bounded GLM brainstorming and a GLM review completed. Suggestions were advisory. Manual checks reject proposed cancellation defects: endpoint close terminates serving paths; registration/spawn has no await before notification; timeout bounds TLS handshake, not later application lifetime. The incomplete-handshake and receiver-shutdown cases pass. This is not a complete HTTP/3 or component audit.",
+  "protocol_sources": [
+    "https://docs.rs/quinn/0.11.9/quinn/struct.Incoming.html",
+    "https://www.rfc-editor.org/rfc/rfc9000.html#section-10.1"
+  ],
+  "limits": "Backlog bounds simultaneous admission tasks, including blocked notifications; it is not an active-connection quota or protection against all floods. Excess Incoming is refused before starting TLS; timed-out futures and listener-owned tasks are cancelled. No 0-RTT adoption, certificate-policy change, window/buffer change, or ABI change.",
+  "performance_scope": "Six alternating native-only comparisons include fresh TLS/QUIC setup in whole-workload elapsed throughput. Individual request latencies exclude setup. Existing five-workload H3 pressure gates are not absolute throughput guarantees. Shared-host results and earlier audit performance questions remain explicit.",
+  "runner_sources": {
+    "connectanum-sa006-http3-compare.py": {
+      "sha256": "8853a0fa7b4eafd92b4b2bb661c691180290868ef5dcec536627d4ab49a552e9",
+      "source": "import hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport re\nimport statistics\nimport subprocess\nimport time\nimport tomllib\n\nROOT = Path('.')\nOUT = Path('/tmp/connectanum-sa006-http3-performance')\nSCENARIO = ROOT / 'native/bench/scenarios/http3_admission_security.toml'\nDRIVER = Path('/tmp/connectanum-sa002-patched-http_stream')\nSERVICE = Path('/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service')\nWORKER = Path('/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker')\nLAUNCHER = Path('/tmp/connectanum-security-aot-launch')\nLIBS = {\n    'baseline': Path('/tmp/connectanum-sa005-wide-libct_ffi.dylib'),\n    'patched': Path('/tmp/connectanum-sa006-http3-libct_ffi.dylib'),\n}\n\n\ndef digest(path):\n    with path.open('rb') as stream:\n        return hashlib.file_digest(stream, 'sha256').hexdigest()\n\n\ndef host_cpu():\n    result = dict(inference=0.0, virtual_machine=0.0, emulator=0.0, other=0.0)\n    for line in subprocess.check_output(['ps', '-axo', '%cpu,comm'], text=True).splitlines()[1:]:\n        percent, command = line.strip().split(maxsplit=1)\n        kind = ('inference' if 'llama-server' in command or 'ollama' in command else\n                'virtual_machine' if 'Virtualization.framework' in command else\n                'emulator' if 'qemu-system' in command else 'other')\n        result[kind] += float(percent)\n    return {key: round(value, 1) for key, value in result.items()}\n\n\ndef summarize(path, workloads):\n    results = []\n    for line in path.read_text().splitlines():\n        row = json.loads(line)\n        workload = workloads[row['workload']]\n        samples = row['samples']\n        assert len(samples) == workload['iterations'] * workload['concurrency']\n        assert not any(sample.get('error') for sample in samples)\n        expected = workload['request_bytes'] + workload['response_bytes']\n        assert all(sample['request_bytes'] + sample['response_bytes'] == expected for sample in samples)\n        usage = row['http_connection_usage']\n        reuse = workload.get('reuse_connections', True)\n        assert usage['reuse_connections'] == reuse\n        assert usage['connections_opened'] == (workload['concurrency'] if reuse else len(samples)), usage\n        before = row['metrics_before']['metrics']['transport']\n        after = row['metrics_after']['metrics']['transport']\n        counters = {k: v - before.get(k, 0) for k, v in after.items() if isinstance(v, (int, float))}\n        for key in ['protocol_error_events', 'internal_error_events', 'body_timeout_events', 'idle_timeout_events']:\n            assert counters.get(key, 0) == 0, (row['workload'], key, counters.get(key))\n        seconds = (row['completed_at_ms'] - row['started_at_ms']) / 1000\n        latency = sorted(sample['latency_ms'] for sample in samples)\n        results.append(dict(\n            workload=row['workload'], samples=len(samples), warmup=row['workload'].endswith('warmup'),\n            seconds=seconds, requests_per_second=len(samples) / seconds,\n            total_payload_gbit_per_second=expected * len(samples) * 8 / seconds / 1e9,\n            p50_ms=statistics.median(latency), p95_ms=latency[int((len(latency) - 1) * .95)],\n            p99_ms=latency[int((len(latency) - 1) * .99)], errors=0,\n            connection_usage=usage, transport_counter_deltas=counters,\n            process_metrics=row['metrics_after']['metrics']['process'],\n        ))\n    assert [item['workload'] for item in results] == list(workloads)\n    return results\n\n\ndef main():\n    OUT.mkdir(exist_ok=True)\n    paths = dict(driver=DRIVER, service=SERVICE, worker=WORKER, launcher=LAUNCHER,\n                 scenario=SCENARIO, **{name + '_native': value for name, value in LIBS.items()})\n    hashes = {name: digest(path) for name, path in paths.items()}\n    source_paths = ['native/transport/ct_core/src/lib.rs',\n                    'native/transport/ct_core/src/http3_admission_tests.rs']\n    sources = {path: digest(ROOT / path) for path in source_paths}\n    assert hashes['baseline_native'] == '9d221311e95d882985ec022c8b27c5d56ed3d460a452369557a0c8507af417ce'\n    workloads = {row['name']: row for row in tomllib.loads(SCENARIO.read_text())['workloads']}\n    evidence = dict(scope='SA-006 native-library-only HTTP/3 admission comparison',\n                    baseline='5dc11c9a; native library from identical production sources at 592df650',\n                    hashes=hashes, candidate_sources=sources, run_order=['baseline', 'patched', 'patched', 'baseline', 'baseline', 'patched'],\n                    native_threads=4, router_workers=1,\n                    latency_scope='Per-request latency excludes connection setup; whole-workload elapsed throughput includes fresh TLS/QUIC connections.',\n                    caveats=['Shared host; CPU boundary samples cannot prove absence of contention.',\n                             'No own tests, builds, or companion inference overlap timing.',\n                             'HTTP/2 is an unchanged-path control; no TLS bypass was added to production.',\n                             'Frozen benchmark driver uses its existing local fixture certificate policy.',\n                             'Do not replace failed or unfavorable runs.'],\n                    runs=[])\n    for index, variant in enumerate(evidence['run_order'], 1):\n        name = f'{index:02}-{variant}'\n        result = OUT / f'{name}.jsonl'\n        assert not result.exists(), 'Never overwrite prior evidence; inspect and resume deliberately'\n        for attempt in range(20):\n            cpu = host_cpu()\n            if cpu['inference'] < 50 and cpu['virtual_machine'] < 600 and cpu['other'] < 800:\n                break\n            print(json.dumps(dict(waiting_for_lower_load=cpu, attempt=attempt)), flush=True)\n            time.sleep(15)\n        else:\n            raise RuntimeError('shared host remains busy; preserve completed evidence')\n        assert hashes == {key: digest(path) for key, path in paths.items()}\n        assert sources == {path: digest(ROOT / path) for path in source_paths}\n        command = [str(DRIVER), '--dart', str(LAUNCHER), '--bench-main', str(SERVICE),\n                   '--wamp-worker-executable', str(WORKER), '--native-lib', str(LIBS[variant]),\n                   '--scenario', str(SCENARIO), '--router-worker-counts', '1', '--native-runtime-thread-counts', '4',\n                   '--results', str(result), '--artifact-dir', str(OUT / name)]\n        print(f'Starting {name}', flush=True)\n        timing = OUT / f'{name}.time'\n        with (OUT / f'{name}.log').open('w') as log:\n            run = subprocess.run(['/usr/bin/time', '-l', '-o', str(timing), *command], cwd=ROOT,\n                                 stdout=log, stderr=subprocess.STDOUT, timeout=900)\n        entry = dict(name=name, variant=variant, command=command, exit_code=run.returncode,\n                     host_cpu_before=cpu, host_cpu_after=host_cpu(),\n                     log_sha256=digest(OUT / f'{name}.log'), timing_sha256=digest(timing))\n        evidence['runs'].append(entry)\n        (OUT / 'comparison-in-progress.json').write_text(json.dumps(evidence, indent=2) + '\\n')\n        assert run.returncode == 0, entry\n        elapsed = timing.read_text()\n        match = re.search(r'([\\d.]+) real\\s+([\\d.]+) user\\s+([\\d.]+) sys', elapsed)\n        peak = re.search(r'(\\d+)\\s+maximum resident set size', elapsed)\n        entry.update(real_seconds=float(match[1]), cpu_seconds=float(match[2]) + float(match[3]),\n                     peak_rss_bytes=int(peak[1]), results_sha256=digest(result), workloads=summarize(result, workloads))\n        (OUT / 'comparison-in-progress.json').write_text(json.dumps(evidence, indent=2) + '\\n')\n        print(json.dumps(dict(name=name, workloads=[{key: row[key] for key in ['workload', 'requests_per_second', 'p99_ms']} for row in entry['workloads']])), flush=True)\n        time.sleep(3)\n    evidence['comparison'] = {}\n    for name in workloads:\n        if name.endswith('warmup'):\n            continue\n        item = {}\n        for variant in LIBS:\n            rows = [row for run in evidence['runs'] if run['variant'] == variant for row in run['workloads'] if row['workload'] == name]\n            item[variant] = {key: dict(median=statistics.median(row[key] for row in rows),\n                                      minimum=min(row[key] for row in rows), maximum=max(row[key] for row in rows))\n                             for key in ['requests_per_second', 'total_payload_gbit_per_second', 'p50_ms', 'p95_ms', 'p99_ms']}\n        item['throughput_delta_percent'] = 100 * (item['patched']['requests_per_second']['median'] / item['baseline']['requests_per_second']['median'] - 1)\n        evidence['comparison'][name] = item\n    evidence['measured_operations'] = sum(row['samples'] for run in evidence['runs'] for row in run['workloads'] if not row['warmup'])\n    evidence['warmup_operations'] = sum(row['samples'] for run in evidence['runs'] for row in run['workloads'] if row['warmup'])\n    assert evidence['measured_operations'] == 103728\n    assert evidence['warmup_operations'] == 7680\n    (OUT / 'comparison.json').write_text(json.dumps(evidence, indent=2) + '\\n')\n    print(json.dumps(evidence['comparison'], indent=2), flush=True)\n\n\nif __name__ == '__main__':\n    main()\n"
+    },
+    "connectanum-sa006-http3-gates.py": {
+      "sha256": "d4603070385a64fedb43b316beae5ea2592d4eba2bfa5a4347d1bab623459206",
+      "source": "import importlib.util\nfrom pathlib import Path\n\nspec = importlib.util.spec_from_file_location('gates', '/tmp/connectanum-sa004-arc-gates.py')\ngates = importlib.util.module_from_spec(spec)\nspec.loader.exec_module(gates)\ngates.OUT = Path('/tmp/connectanum-sa006-http3-production-gates')\ngates.SERVICE = Path('/tmp/connectanum-sa005-dart-wide-service/bundle/bin/bench_router_service')\ngates.WORKER = Path('/tmp/connectanum-sa005-dart-wide-worker/bundle/bin/wamp_client_worker')\ngates.LIBRARY = Path('/tmp/connectanum-sa006-http3-libct_ffi.dylib')\ngates.LANES = ['h3_multiplex_scaling']\ngates.main()\n"
+    },
+    "connectanum-sa004-arc-gates.py": {
+      "sha256": "8d74b33507f1b8b7ae4f98c919f17c1dc272ce9aab0775de6beee5697e080ae2",
+      "source": "import hashlib\nimport json\nfrom pathlib import Path\nimport subprocess\nimport time\n\nROOT = Path('.')\nOUT = Path('/tmp/connectanum-sa004-arc-production-gates')\nDRIVER = Path('/tmp/connectanum-sa002-patched-http_stream')\nCHECKER = ROOT / 'native/bench/target/release/check_artifact_gate'\nSERVICE = Path('/tmp/connectanum-sa004-metadata-service/bundle/bin/bench_router_service')\nWORKER = Path('/tmp/connectanum-sa004-metadata-worker/bundle/bin/wamp_client_worker')\nLIBRARY = Path('/tmp/connectanum-sa004-arc-libct_ffi.dylib')\nLANES = ['wamp_large_transport_frames_heavy', 'wamp_file_transfer_heavy',\n         'wamp_file_transfer_throughput']\n\n\ndef digest(path):\n    with path.open('rb') as stream:\n        return hashlib.file_digest(stream, 'sha256').hexdigest()\n\n\ndef main():\n    OUT.mkdir(exist_ok=False)\n    records = []\n    for lane in LANES:\n        directory = OUT / lane\n        directory.mkdir()\n        results = directory / 'bench_results.jsonl'\n        summary = directory / 'bench_results.summary.json'\n        scenario = ROOT / f'native/bench/scenarios/{lane}.toml'\n        policy = ROOT / f'native/bench/artifact_gate/{lane}.json'\n        command = [str(DRIVER), '--dart', '/tmp/connectanum-security-aot-launch',\n                   '--bench-main', str(SERVICE), '--wamp-worker-executable', str(WORKER),\n                   '--native-lib', str(LIBRARY), '--scenario', str(scenario),\n                   '--router-worker-counts', '1', '--native-runtime-thread-counts', '4',\n                   '--results', str(results), '--artifact-dir', str(directory)]\n        record = dict(lane=lane, command=command, started_at=time.time())\n        print(f'Starting {lane}', flush=True)\n        with (directory / 'driver.log').open('x') as log:\n            subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,\n                           timeout=1200, check=True)\n        gate_command = [str(CHECKER), '--summary', str(summary), '--policy', str(policy)]\n        with (directory / 'gate.log').open('x') as log:\n            subprocess.run(gate_command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,\n                           timeout=60, check=True)\n        record.update(finished_at=time.time(), gate_command=gate_command,\n                      scenario=scenario.relative_to(ROOT).as_posix(),\n                      scenario_sha256=digest(scenario), policy=json.loads(policy.read_text()),\n                      results_sha256=digest(results), summary=json.loads(summary.read_text()),\n                      gate=json.loads((directory / 'bench_results.gate.json').read_text()))\n        records.append(record)\n        print(f'Passed {lane}', flush=True)\n    evidence = dict(\n        candidate_inputs={name: dict(path=str(path), sha256=digest(path)) for name, path in\n                          [('service', SERVICE), ('worker', WORKER), ('native', LIBRARY),\n                           ('driver', DRIVER), ('checker', CHECKER)]},\n        gates=records, relative_performance_cleared=False,\n        limitation='Absolute production budgets, not before/after performance clearance. Shared macOS arm64 host; no own builds, tests, or companion inference overlap.')\n    with (OUT / 'evidence.json').open('x') as stream:\n        json.dump(evidence, stream, indent=2)\n        stream.write('\\n')\n\n\nif __name__ == '__main__':\n    main()\n"
+    },
+    "connectanum-sa006-http3-evidence.py": {
+      "sha256": "14a01c8ee031fd1bb24fac575fbd28d3c1f23b8d2578adfe6c465f5af993060b",
+      "source": "import hashlib\nimport json\nfrom pathlib import Path\n\nROOT = Path('.')\nPERF = Path('/tmp/connectanum-sa006-http3-performance')\nGATES = Path('/tmp/connectanum-sa006-http3-production-gates')\n\n\ndef digest(path):\n    with path.open('rb') as stream:\n        return hashlib.file_digest(stream, 'sha256').hexdigest()\n\n\ndef normalize(value):\n    if isinstance(value, str):\n        return value.replace(str(ROOT) + '/', '').replace(str(ROOT), '.')\n    if isinstance(value, list):\n        return [normalize(item) for item in value]\n    if isinstance(value, dict):\n        return {key: normalize(item) for key, item in value.items()}\n    return value\n\n\ncomparison = json.loads((PERF / 'comparison.json').read_text())\nassert comparison['measured_operations'] == 103728\nassert comparison['warmup_operations'] == 7680\nfor source, sha in comparison['candidate_sources'].items():\n    assert digest(ROOT / source) == sha\nfor run in comparison['runs']:\n    assert run['exit_code'] == 0\n    path = PERF / (run['name'] + '.jsonl')\n    assert digest(path) == run['results_sha256']\n    assert digest(PERF / (run['name'] + '.log')) == run['log_sha256']\n    rows = [json.loads(line) for line in path.read_text().splitlines()]\n    assert len(rows) == 9\n    for row in rows:\n        assert len(row['samples']) == row['iterations'] * row['concurrency']\n        assert not any(sample.get('error') for sample in row['samples'])\n\ngates = json.loads((GATES / 'evidence.json').read_text())\nfor value in gates['candidate_inputs'].values():\n    assert digest(Path(value['path'])) == value['sha256']\nfor run in gates['gates']:\n    directory = GATES / run['lane']\n    assert digest(directory / 'bench_results.jsonl') == run['results_sha256']\n    assert digest(ROOT / run['scenario']) == run['scenario_sha256']\n    assert run['gate']['workload_count'] == 5\n    assert not run['gate']['findings']\n    assert not run['gate']['metric_findings']\n    run['gate_policy_sha256'] = digest(ROOT / 'native/bench/artifact_gate' / (run['lane'] + '.json'))\n    rows = [json.loads(line) for line in (directory / 'bench_results.jsonl').read_text().splitlines()]\n    assert len(rows) == 5\n    assert sum(len(row['samples']) for row in rows) == 640\n    assert not any(sample.get('error') for row in rows for sample in row['samples'])\n\nlogs = {'test-fast': 0, 'fail-first': 101, 'fail-first-confirmation': 101,\n        'confirmation': 101, 'confirmation-final': 0, 'verify': 0,\n        'test-ideas': 1, 'test-ideas-bounded': 0, 'review': 0, 'compare': 0, 'gates': 0}\nscripts = ['connectanum-sa006-http3-compare.py', 'connectanum-sa006-http3-gates.py',\n           'connectanum-sa004-arc-gates.py', 'connectanum-sa006-http3-evidence.py']\nevidence = dict(\n    date='2026-09-11', finding='SA-006 HTTP/3 admission head-of-line blocking and handshake deadline',\n    audit_complete=False, audit_performance_cleared=False, published=False,\n    comparison=comparison, pressure_gates=gates,\n    verification={name: dict(exit_code=code, path=f'/tmp/connectanum-sa006-http3-{name}.log',\n                             sha256=digest(Path(f'/tmp/connectanum-sa006-http3-{name}.log')))\n                  for name, code in logs.items()},\n    test_evidence=[\n        'Two fail-first real-QUIC loopback regressions: incomplete handshake blocks a separate client request for the full three-second deadline; configured 150ms handshake deadline does not drain within six seconds.',\n        'Ordinary request and shutdown positive controls pass on unchanged production code after correcting the new shutdown test to allow the protocol closing interval.',\n        'Original three-second drain assertion was too short for Quinn three-PTO closing retention. The six-second cleanup deadline does not change production timeouts or the independent-client three-second gate.',\n        'Candidate first passes five cases; a new capacity test initially asserted the wrong peer error enum. Correct ConnectionClosed(CONNECTION_REFUSED) matches Quinn and the final six cases pass.',\n        'Final bin/verify exits 0: 148 core, 121 default FFI, 129 test-hook FFI, 526 router, 124 Dart benchmark, live MCP/package consumers, 13 zero-copy, six Chrome SCRAM and two Chrome WebSocket tests.',\n        'The prior intermittent HTTP/3 verification timeouts are not proven to have this cause.',\n    ],\n    review_evidence='Qwen test brainstorming hit its output limit; bounded GLM brainstorming and a GLM review completed. Suggestions were advisory. Manual checks reject proposed cancellation defects: endpoint close terminates serving paths; registration/spawn has no await before notification; timeout bounds TLS handshake, not later application lifetime. The incomplete-handshake and receiver-shutdown cases pass. This is not a complete HTTP/3 or component audit.',\n    protocol_sources=[\n        'https://docs.rs/quinn/0.11.9/quinn/struct.Incoming.html',\n        'https://www.rfc-editor.org/rfc/rfc9000.html#section-10.1',\n    ],\n    limits='Backlog bounds simultaneous admission tasks, including blocked notifications; it is not an active-connection quota or protection against all floods. Excess Incoming is refused before starting TLS; timed-out futures and listener-owned tasks are cancelled. No 0-RTT adoption, certificate-policy change, window/buffer change, or ABI change.',\n    performance_scope='Six alternating native-only comparisons include fresh TLS/QUIC setup in whole-workload elapsed throughput. Individual request latencies exclude setup. Existing five-workload H3 pressure gates are not absolute throughput guarantees. Shared-host results and earlier audit performance questions remain explicit.',\n    runner_sources={name: dict(sha256=digest(Path('/tmp') / name), source=(Path('/tmp') / name).read_text())\n                    for name in scripts},\n)\ntarget = ROOT / 'docs/security/2026-09-11-http3-admission-benchmarks.json'\ntarget.write_text(json.dumps(normalize(evidence), indent=2) + '\\n')\nprint(json.dumps(dict(path=str(target.relative_to(ROOT)), sha256=digest(target))))\n"
+    }
+  }
+}

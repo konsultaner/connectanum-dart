@@ -938,6 +938,100 @@ Separate source-review lead: `start_http3_listener` awaits a connecting peer
 inside its accept loop. Reproduce behavior with a bounded half-open client and
 an independent legitimate client before deciding on an admission/handshake fix.
 This lead is not established as the cause of the observed verification timeouts.
+The subsequent bounded reproduction and mitigation are recorded in SA-006 below.
+
+### SA-006: HTTP/3 Handshake Admission Blocks Independent Clients
+
+**Impact: unauthenticated denial of service against an enabled, reachable HTTP/3
+listener. Fixed and verified locally; performance clearance remains open.**
+
+`start_http3_listener` awaited each QUIC handshake directly inside its accept
+loop. One peer that sent a valid Initial but did not finish the handshake
+prevented unrelated peers from being admitted. The endpoint's configured
+`handshake_timeout_ms` was also not applied to this path. This affects HTTP/3
+routes, including MCP when served there; it is not evidence of a TLS/auth bypass
+or of blocking the separate TCP RawSocket/WebSocket/HTTP listeners. An attacker
+needs network access to the optional QUIC listener, not application credentials.
+
+Two loopback-only fail-first regressions reproduce the defect against unchanged
+production sources from `5dc11c9a`. A UDP relay forwards real client Initial
+packets and withholds server replies. Observing the first server reply proves
+handshake admission before an independent client is tested, without sleep-based
+ordering. The independent HTTP/3 GET misses its entire three-second deadline;
+a configured 150 ms handshake deadline does not drain the stalled connection
+within six seconds. An ordinary request control succeeds on the same listener.
+
+The listener now owns a `JoinSet` of concurrent admission tasks, bounded by the
+existing positive listen backlog. Each handshake has the configured timeout;
+excess arrivals are refused before starting TLS. Completed tasks are reaped,
+listener cancellation drops pending tasks, and a closed notification receiver
+stops and closes the QUIC endpoint. The admission limit also covers tasks waiting
+to notify the application. It is not an active-connection quota or immunity to
+all floods. Request processing, TLS verification, 0-RTT policy, stream/window
+sizes and the public ABI are unchanged. Unauthenticated handshake failures no
+longer emit an unbounded stream of ordinary logs; opt-in `ffi-test` diagnostics
+remain available.
+
+This uses the existing [Quinn Incoming acceptance/refusal contract](https://docs.rs/quinn/0.11.9/quinn/struct.Incoming.html).
+Quinn retains closed connections for three PTOs, consistent with
+[QUIC closing-period requirements](https://www.rfc-editor.org/rfc/rfc9000.html#section-10.1).
+The first new shutdown assertion incorrectly allowed only three seconds for
+that interval; a six-second cleanup allowance makes the unchanged shutdown
+control pass while both actual defect regressions still fail. The independent
+client gate remains three seconds, and no production or existing CI timeout
+was relaxed. A later new capacity assertion initially used the wrong peer error
+enum; the corrected test verifies `ConnectionClosed(CONNECTION_REFUSED)`.
+All failed logs remain separately identified in the evidence.
+
+All six admission tests pass after the fix: ordinary client, incomplete peer
+isolation, configured expiry, shutdown, backlog rejection/recovery, and closed
+receiver cancellation. `bin/test-fast` and final `bin/verify` pass, including
+148 core, 121 default/129 test-hook FFI, 526 router and 124 Dart benchmark tests,
+live MCP/package consumers, 13 zero-copy cases, and Chrome/Dart2Wasm tests.
+The earlier intermittent HTTP/3 verification failures are not proven to have
+this cause. The local model review was advisory; source inspection did not
+confirm its proposed cancellation defects. Production listener shutdown closes
+the endpoint, serving paths remove closed connections, and synchronous
+registration/spawn contains no intervening await before notification.
+
+The [complete comparison and pressure-gate evidence](2026-09-11-http3-admission-benchmarks.json)
+records source/library/executable/raw-result hashes, commands, scripts, logs,
+CPU boundaries, latency and memory. Six ABBAAB AOT runs hold the Dart service,
+worker and patched benchmark driver constant while swapping only the native
+library. The baseline library is from identical production-native sources at
+`592df650`; no transport source changed between that commit and `5dc11c9a`.
+Candidate library SHA-256 is
+`69b4f43f39b160f931788f5ab0915a7e34919c3f2222860d0e4b47ccb238d9f5`.
+All 103,728 measured requests and 7,680 warmups succeed, with the expected exact
+connection counts, no hidden reconnects, and no error/timeout counter changes.
+
+| Workload | Baseline Requests/s | Candidate Requests/s | Change | Baseline / Candidate Request p99 ms |
+| --- | ---: | ---: | ---: | ---: |
+| HTTP/2 reused, serial | 396.4 | 398.7 | +0.58% | 3.069 / 3.054 |
+| HTTP/2 reused, multiplexed | 2,651.1 | 2,673.6 | +0.85% | 9.547 / 9.357 |
+| HTTP/3 reused, serial | 394.7 | 397.1 | +0.60% | 3.056 / 3.016 |
+| HTTP/3 reused, multiplexed | 145.7 | 142.3 | -2.32% | 193.951 / 194.726 |
+| HTTP/3 fresh, serial | 427.2 | 425.9 | -0.30% | 1.629 / 1.638 |
+| HTTP/3 fresh, 16 concurrent clients | 1,227.1 | 1,556.8 | +26.87% | 2.947 / 8.887 |
+
+**Performance is not cleared.** Parallel fresh-connection throughput improves,
+but all three candidate request-p99 observations exceed the baseline range
+(8.535-10.413 versus 2.927-3.155 ms). Median sampled server RSS after that workload
+rises from 141.5 to 151.6 MiB. Reused multiplexed HTTP/3 throughput falls from
+1.527 to 1.492 GBit/s, with overlapping per-variant ranges. No own tests, builds,
+or model inference overlap timing; boundary inference is at most 0.1%, while
+other shared-host activity remains. Do not erase the decreases or infer that
+they are harmless noise.
+
+Whole-workload elapsed throughput includes fresh TLS/QUIC setup, but existing
+per-request latency starts after connection setup. Measure handshake-inclusive
+operation latency separately and profile queueing/memory before deciding whether
+the increased request tail is an end-to-end regression or a shift in where work
+waits. Do not reintroduce listener-wide serialization to improve that isolated
+metric. All five unchanged `h3_multiplex_scaling` pressure-gate workloads pass
+(640 requests); those gates do not guarantee unchanged throughput or latency.
+Earlier audit performance questions and every pending component row remain
+required work. Nothing is pushed or published.
 
 ### Public Dart Dependency Advisory Coverage
 

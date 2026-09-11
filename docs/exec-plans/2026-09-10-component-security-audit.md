@@ -16,7 +16,7 @@ narrow fix does not complete this plan.
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
 | Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | Pending |
-| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 native dependency mitigation and bounded H2/QUIC regressions pass; broader review and performance confirmation pending |
+| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles and SA-006 HTTP/3 admission are locally verified; broader review and performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
 | Router authorization and state | Realm/role boundaries, RPC/pubsub/meta, pattern grants, dynamic authorization races, worker isolation | Pending; previous Meta fix is baseline only |
@@ -301,6 +301,31 @@ scope, including code excluded from the root workspace gates.
   source inspection shows a serial handshake accept loop, but this is not proven
   to cause the observed verification timeouts. Do not add retries or relax tests
   in lieu of diagnosing that failure. The audit remains active and unpublished.
+
+## SA-006 HTTP/3 Admission Checkpoint (2026-09-11)
+
+- Two fail-first real-QUIC tests reproduce listener-wide blocking by an
+  incomplete handshake and failure to enforce the configured handshake timeout.
+  Ordinary-client and shutdown controls pass on unchanged production code after
+  allowing Quinn's protocol closing interval in the new cleanup assertion.
+- Listener-owned concurrent tasks now use the existing positive backlog as an
+  admission bound, enforce handshake expiry, refuse excess arrivals, and cancel
+  when the listener or receiver closes. All six focused tests pass. Final
+  `bin/verify` passes with 148 core, 121/129 FFI, 526 router, live/package,
+  zero-copy and browser checks. Prior intermittent HTTP/3 failures remain
+  independently recorded, without an established causal link.
+- Six ABBAAB native-only AOT runs complete 103,728 measured requests and 7,680
+  warmups without errors or unexpected reconnects. Fresh parallel throughput
+  improves 26.9%, but request-p99 increases 2.95 to 8.89 ms with non-overlapping
+  ranges and sampled server RSS increases 141.5 to 151.6 MiB. Multiplexed reused
+  H3 falls 2.3%, with overlapping ranges. Five existing H3 pressure gates pass
+  (640 requests); no policy was relaxed. Preserve all results.
+- Performance remains open. Next measure handshake-inclusive operation latency
+  and profile the increased request tails/memory before claiming no regression;
+  current per-request timing excludes connection setup. Preserve independent
+  handshake progress rather than restore serialization for a better isolated
+  latency metric. Continue SA-005/earlier performance work, resource-store/body
+  ownership review, and every remaining component row. Keep changes unpublished.
 
 ## Related Plans
 

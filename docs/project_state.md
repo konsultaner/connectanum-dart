@@ -206,6 +206,26 @@ and component reviews, including bounded half-open HTTP/3 admission coverage.
 The report links complete normalized evidence. No push,
 version change or publication has occurred.
 
+SA-006 HTTP/3 admission is locally hardened. Two fail-first loopback regressions
+confirm that an incomplete QUIC handshake blocks unrelated clients and ignores
+the configured handshake deadline. Concurrent listener-owned admission tasks
+are now bounded by the existing backlog, time out, refuse excess peers, and
+cancel on listener/receiver shutdown. Six focused tests and `bin/test-fast` /
+full `bin/verify` pass, including 148 core, 121/129 FFI and 526 router tests plus
+the existing live/package/zero-copy/browser checks. The original new shutdown
+fixture needed to allow QUIC's three-PTO closing interval; the corrected baseline
+control passes while both real defect cases still fail. Earlier intermittent
+HTTP/3 failures are not proven to have this cause.
+Six native-only ABBAAB AOT passes complete 103,728 measured requests plus 7,680
+warmups without errors or unexpected reconnects. Fresh parallel connection
+throughput improves 26.9%, but request p99 rises from 2.95 to 8.89 ms and sampled
+RSS from 141.5 to 151.6 MiB. Reused multiplexed H3 throughput falls 2.3% with
+overlapping ranges. All five existing H3 pressure gates pass (640 requests).
+Performance is not cleared: measure handshake-inclusive operation latency and
+profile the tails/memory without weakening handshake isolation, alongside the
+earlier audit performance questions and remaining component review. The report
+links normalized evidence. No versions, remotes or publications changed.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

@@ -54,6 +54,8 @@ use crate::io_stream::{IoReadHalf, IoStream, IoWriteHalf};
 
 mod config;
 mod http1_stream;
+#[cfg(test)]
+mod http3_admission_tests;
 mod http_body;
 mod http_stream;
 mod io_stream;
@@ -2806,6 +2808,7 @@ fn start_http3_listener(
     registry: Arc<ListenerRegistry>,
     sender: mpsc::Sender<ConnectionId>,
     handle: tokio::runtime::Handle,
+    max_pending_handshakes: usize,
 ) -> Result<(QuinnEndpoint, JoinHandle<()>, SocketAddr), Error> {
     let runtime_config = config_state.endpoint_config();
     let server_config = build_http3_server_config(&runtime_config)?;
@@ -2819,10 +2822,37 @@ fn start_http3_listener(
     let sender_for_task = sender.clone();
     let endpoint_for_task = endpoint.clone();
     let listener = handle.spawn(async move {
+        // A stalled unauthenticated peer must not serialize the whole listener.
+        // Own the bounded tasks here so listener cancellation aborts them too.
+        let mut handshakes = JoinSet::new();
         loop {
-            match endpoint_for_task.accept().await {
-                Some(connecting) => match connecting.await {
-                    Ok(connection) => {
+            while handshakes.try_join_next().is_some() {}
+            tokio::select! {
+                _ = sender_for_task.closed() => break,
+                Some(_) = handshakes.join_next(), if !handshakes.is_empty() => {},
+                incoming = endpoint_for_task.accept() => {
+                    let Some(incoming) = incoming else { break };
+                    if handshakes.len() >= max_pending_handshakes {
+                        incoming.refuse();
+                        continue;
+                    }
+                    let registry_for_task = Arc::clone(&registry_for_task);
+                    let config_for_task = Arc::clone(&config_for_task);
+                    let sender_for_task = sender_for_task.clone();
+                    let deadline = config_for_task.endpoint_config().handshake_timeout;
+                    handshakes.spawn(async move {
+                        let connection = match time::timeout(deadline, async { incoming.await }).await {
+                            Ok(Ok(connection)) => connection,
+                            failure => {
+                                // Failed unauthenticated handshakes must not amplify logs.
+                                #[cfg(feature = "ffi-test")]
+                                if ffi_test_debug_logs_enabled() {
+                                    eprintln!("http3 handshake failed for listener {:?}: {:?}", listener_id, failure);
+                                }
+                                let _ = failure;
+                                return;
+                            }
+                        };
                         let peer_addr = connection.remote_address();
                         let runtime_for_task = config_for_task.endpoint_config();
                         let handshake = Http3Handshake::from_endpoint(&runtime_for_task);
@@ -2864,20 +2894,12 @@ fn start_http3_listener(
                             )
                             .await;
                         });
-                        if sender_for_task.send(connection_id).await.is_err() {
-                            break;
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!(
-                            "http3 connection failed for listener {:?}: {}",
-                            listener_id, err
-                        );
-                    }
-                },
-                None => break,
+                        let _ = sender_for_task.send(connection_id).await;
+                    });
+                }
             }
         }
+        endpoint_for_task.close(VarInt::from_u32(0), b"listener stopped");
     });
 
     Ok((endpoint, listener, local_addr))
@@ -5266,6 +5288,7 @@ pub fn listen(addr: &str, port: u16, backlog: i32) -> Result<ListenerId, Error> 
                     Arc::clone(&view.registry),
                     sender.clone(),
                     view.handle.clone(),
+                    backlog as usize,
                 ) {
                     Ok((endpoint, task, bound_addr)) => {
                         http3_addr = Some(bound_addr);
