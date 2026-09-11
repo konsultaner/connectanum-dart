@@ -9,7 +9,20 @@ pub struct WorkloadSample {
     pub request_bytes: u64,
     pub response_bytes: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_fresh_connection_timing: Option<HttpFreshConnectionTiming>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub http_phase_timing: Option<HttpPhaseTimingSample>,
+}
+
+/// Additional timings for successful plain HTTP requests with connection reuse
+/// disabled. Absent for reused connections, auth flows, and legacy reports.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct HttpFreshConnectionTiming {
+    /// Endpoint, DNS, transport/crypto handshake, and protocol sender setup.
+    pub connection_setup_ms: f64,
+    /// Before setup through response drain, excluding connection close and
+    /// per-worker payload preparation. Does not redefine `latency_ms`.
+    pub operation_total_ms: f64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

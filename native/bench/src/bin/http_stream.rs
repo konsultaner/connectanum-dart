@@ -54,7 +54,7 @@ use connectanum_bench_orchestrator::artifacts::summarize_report;
 use connectanum_bench_orchestrator::artifacts::{write_artifact_bundle, WorkloadArtifactSummary};
 use connectanum_bench_orchestrator::report::{
     router_counter_delta, ClientProcessMetrics, FileSegmentMetricsDelta, HttpConnectionUsage,
-    HttpPhaseTimingSample, WorkloadReport, WorkloadSample,
+    HttpFreshConnectionTiming, HttpPhaseTimingSample, WorkloadReport, WorkloadSample,
 };
 
 type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
@@ -3414,6 +3414,7 @@ async fn run_rawsocket_auth_frame_iteration(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 });
             }
@@ -3429,6 +3430,7 @@ async fn run_rawsocket_auth_frame_iteration(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 });
             }
@@ -3447,6 +3449,7 @@ async fn run_rawsocket_auth_frame_iteration(
             latency_ms: start.elapsed().as_secs_f64() * 1000.0,
             request_bytes,
             response_bytes,
+            http_fresh_connection_timing: None,
             http_phase_timing: None,
         });
     }
@@ -3474,6 +3477,7 @@ async fn run_rawsocket_auth_frame_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes,
         response_bytes,
+        http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
 }
@@ -4130,6 +4134,7 @@ async fn run_h1_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 }
             }
@@ -4204,6 +4209,7 @@ async fn run_h2_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 }
             }
@@ -4286,6 +4292,7 @@ async fn run_h3_auth_worker(
                     latency_ms: start.elapsed().as_secs_f64() * 1000.0,
                     request_bytes,
                     response_bytes,
+                    http_fresh_connection_timing: None,
                     http_phase_timing: None,
                 }
             }
@@ -5001,6 +5008,7 @@ async fn h1_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
 }
@@ -5043,6 +5051,7 @@ async fn h2_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
 }
@@ -5085,6 +5094,7 @@ async fn h3_login_iteration(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: request1 + request2,
         response_bytes: challenge_bytes + success_bytes,
+        http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
 }
@@ -5650,6 +5660,7 @@ async fn send_h1_request(
         latency_ms,
         request_bytes: sent,
         response_bytes: received,
+        http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
 }
@@ -5689,6 +5700,7 @@ async fn send_h1_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: sent,
         response_bytes: response.body.len() as u64,
+        http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
 }
@@ -5700,8 +5712,10 @@ async fn run_h1_iteration(
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
+    let operation_start = Instant::now();
     let mut sender = connect_h1_sender(endpoint).await?;
-    send_h1_request(
+    let connection_setup_ms = operation_start.elapsed().as_secs_f64() * 1000.0;
+    let mut sample = send_h1_request(
         &mut sender,
         endpoint,
         workload,
@@ -5709,7 +5723,12 @@ async fn run_h1_iteration(
         worker_id,
         iteration,
     )
-    .await
+    .await?;
+    sample.http_fresh_connection_timing = Some(HttpFreshConnectionTiming {
+        connection_setup_ms,
+        operation_total_ms: operation_start.elapsed().as_secs_f64() * 1000.0,
+    });
+    Ok(sample)
 }
 
 async fn send_h2_request(
@@ -5769,6 +5788,7 @@ async fn send_h2_request(
         latency_ms,
         request_bytes: workload.request_bytes,
         response_bytes: response_body.received_bytes,
+        http_fresh_connection_timing: None,
         http_phase_timing: Some(HttpPhaseTimingSample {
             stream_acquire_wait_ms,
             request_enqueue_ms,
@@ -5871,6 +5891,7 @@ async fn send_h2_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: workload.request_bytes,
         response_bytes: response.body.len() as u64,
+        http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
 }
@@ -5882,8 +5903,10 @@ async fn run_h2_iteration(
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
+    let operation_start = Instant::now();
     let sender = connect_h2_sender(endpoint).await?;
-    send_h2_request(
+    let connection_setup_ms = operation_start.elapsed().as_secs_f64() * 1000.0;
+    let mut sample = send_h2_request(
         sender,
         endpoint,
         workload,
@@ -5891,7 +5914,12 @@ async fn run_h2_iteration(
         worker_id,
         iteration,
     )
-    .await
+    .await?;
+    sample.http_fresh_connection_timing = Some(HttpFreshConnectionTiming {
+        connection_setup_ms,
+        operation_total_ms: operation_start.elapsed().as_secs_f64() * 1000.0,
+    });
+    Ok(sample)
 }
 
 async fn connect_h3_sender(endpoint: &HttpEndpoint) -> Result<(QuinnEndpoint, H3RequestSender)> {
@@ -6057,6 +6085,7 @@ async fn send_h3_request(
         latency_ms,
         request_bytes: sent,
         response_bytes: received,
+        http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
 }
@@ -6168,6 +6197,7 @@ async fn send_h3_protected_request(
         latency_ms: start.elapsed().as_secs_f64() * 1000.0,
         request_bytes: sent,
         response_bytes: received.len() as u64,
+        http_fresh_connection_timing: None,
         http_phase_timing: None,
     })
 }
@@ -6179,7 +6209,9 @@ async fn run_h3_iteration(
     worker_id: u32,
     iteration: u32,
 ) -> Result<WorkloadSample> {
+    let operation_start = Instant::now();
     let (quinn_endpoint, send_request) = connect_h3_sender(endpoint).await?;
+    let connection_setup_ms = operation_start.elapsed().as_secs_f64() * 1000.0;
     let sample = send_h3_request(
         send_request.clone(),
         endpoint,
@@ -6188,7 +6220,14 @@ async fn run_h3_iteration(
         worker_id,
         iteration,
     )
-    .await;
+    .await
+    .map(|mut sample| {
+        sample.http_fresh_connection_timing = Some(HttpFreshConnectionTiming {
+            connection_setup_ms,
+            operation_total_ms: operation_start.elapsed().as_secs_f64() * 1000.0,
+        });
+        sample
+    });
     quinn_endpoint.close(0u32.into(), b"done");
     sample
 }
@@ -6247,6 +6286,7 @@ mod tests {
             latency_ms: 0.0,
             request_bytes: 0,
             response_bytes: 0,
+            http_fresh_connection_timing: None,
             http_phase_timing: None,
         }
     }
@@ -8175,6 +8215,18 @@ mod tests {
         Arc<AtomicUsize>,
         tokio::task::JoinHandle<()>,
     ) {
+        spawn_h3_test_server_with_handshake_delay(Duration::ZERO).await
+    }
+
+    async fn spawn_h3_test_server_with_handshake_delay(
+        handshake_delay: Duration,
+    ) -> (
+        HttpEndpoint,
+        Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
+        Arc<AtomicUsize>,
+        tokio::task::JoinHandle<()>,
+    ) {
         let certified = generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
         let mut server_crypto = RustlsServerConfig::builder()
             .with_no_client_auth()
@@ -8216,6 +8268,9 @@ mod tests {
                 let current_for_conn = Arc::clone(&current_in_flight_for_task);
                 let max_for_conn = Arc::clone(&max_in_flight_for_task);
                 tokio::spawn(async move {
+                    if !handshake_delay.is_zero() {
+                        tokio::time::sleep(handshake_delay).await;
+                    }
                     let connection = match connecting.await {
                         Ok(connection) => connection,
                         Err(_) => return,
@@ -8495,6 +8550,98 @@ mod tests {
             auth_secret: "bench-ticket".to_string(),
             auth_bearer_token: None,
             frame_case: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn fresh_connection_timing_covers_h1_and_h2_without_changing_reuse_samples() {
+        for reuse in [false, true] {
+            let (endpoint, _, _, _, server) = spawn_h1_test_server().await;
+            let execution = run_h1_worker(endpoint, sample_h1_workload(reuse), 7)
+                .await
+                .unwrap();
+            server.abort();
+            assert_fresh_connection_timing(&execution.samples, reuse, 7, Duration::ZERO);
+
+            let (endpoint, _, _, _, server) = spawn_h2_test_server().await;
+            let execution = run_h2_worker(endpoint, sample_h2_workload(reuse, 1), 8)
+                .await
+                .unwrap();
+            server.abort();
+            assert_fresh_connection_timing(&execution.samples, reuse, 8, Duration::ZERO);
+        }
+    }
+
+    #[tokio::test]
+    async fn fresh_connection_timing_includes_delayed_quic_handshake() {
+        let _ = ring::default_provider().install_default();
+        let delay = Duration::from_millis(50);
+        let (endpoint, _, _, _, server) = spawn_h3_test_server_with_handshake_delay(delay).await;
+        let mut workers = JoinSet::new();
+        for worker in [9, 10] {
+            workers.spawn(run_h3_worker(
+                endpoint.clone(),
+                sample_h3_workload(false, 1),
+                worker,
+            ));
+        }
+        while let Some(result) = workers.join_next().await {
+            let execution = result.unwrap().unwrap();
+            assert_eq!(execution.connections_opened, 3);
+            let worker = execution.samples[0].worker;
+            assert!([9, 10].contains(&worker));
+            assert_fresh_connection_timing(&execution.samples, false, worker, delay);
+        }
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn fresh_connection_timing_is_absent_for_reused_h3() {
+        let _ = ring::default_provider().install_default();
+        let (endpoint, _, _, _, server) = spawn_h3_overlap_test_server().await;
+        let execution = run_h3_worker(endpoint, sample_h3_workload(true, 3), 11)
+            .await
+            .unwrap();
+        server.abort();
+        assert_fresh_connection_timing(&execution.samples, true, 11, Duration::ZERO);
+    }
+
+    fn assert_fresh_connection_timing(
+        samples: &[WorkloadSample],
+        reuse: bool,
+        worker: u32,
+        setup_delay: Duration,
+    ) {
+        assert_eq!(samples.len(), 3);
+        let mut iterations: Vec<_> = samples.iter().map(|sample| sample.iteration).collect();
+        iterations.sort_unstable();
+        assert_eq!(iterations, vec![0, 1, 2]);
+        for sample in samples {
+            assert_eq!(sample.worker, worker);
+            let mut json = serde_json::to_value(sample).unwrap();
+            if reuse {
+                assert!(json.get("http_fresh_connection_timing").is_none());
+            } else {
+                let timing = json
+                    .get("http_fresh_connection_timing")
+                    .expect("fresh requests must include setup-inclusive timing");
+                let setup = timing["connection_setup_ms"].as_f64().unwrap();
+                let total = timing["operation_total_ms"].as_f64().unwrap();
+                assert!(setup.is_finite() && setup > 0.0);
+                assert!(setup >= setup_delay.as_secs_f64() * 1000.0);
+                assert!(total.is_finite() && total + 1e-6 >= setup + sample.latency_ms);
+            }
+            let decoded: WorkloadSample = serde_json::from_value(json.clone()).unwrap();
+            assert_eq!(decoded, *sample);
+            json.as_object_mut()
+                .unwrap()
+                .remove("http_fresh_connection_timing");
+            let legacy: WorkloadSample = serde_json::from_value(json).unwrap();
+            assert_eq!(legacy.latency_ms, sample.latency_ms);
+            assert!(serde_json::to_value(legacy)
+                .unwrap()
+                .get("http_fresh_connection_timing")
+                .is_none());
         }
     }
 

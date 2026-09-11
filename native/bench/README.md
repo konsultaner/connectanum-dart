@@ -51,6 +51,19 @@ extra router workers only helped the lowest-multiplex point, while the deeper
 - router metrics deltas and OpenMetrics snapshots
 - scaling sweeps across router workers and native runtime threads
 
+Raw JSONL samples for plain HTTP/1.1, HTTP/2, and HTTP/3 workloads with
+`reuse_connections = false` also contain `http_fresh_connection_timing`:
+`connection_setup_ms` measures from before connection setup until the protocol
+sender is returned, including DNS and the applicable TCP/TLS/QUIC handshake.
+`operation_total_ms` runs from the same start through response-body drain,
+including any later stream-readiness wait, but excluding connection close and
+per-worker payload preparation. Sender creation is not a promise that every
+background protocol exchange has completed. Existing `latency_ms`, aggregate
+latency summaries, and gate policies are unchanged. Reused connections, auth
+flows, and legacy reports omit this optional timing rather than invent zero
+setup costs. Compare percentiles of the per-sample totals, not sums of phase
+percentiles; whole-workload throughput additionally includes workload overhead.
+
 ## Typical Usage
 
 ```bash

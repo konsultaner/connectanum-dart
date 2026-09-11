@@ -221,10 +221,22 @@ warmups without errors or unexpected reconnects. Fresh parallel connection
 throughput improves 26.9%, but request p99 rises from 2.95 to 8.89 ms and sampled
 RSS from 141.5 to 151.6 MiB. Reused multiplexed H3 throughput falls 2.3% with
 overlapping ranges. All five existing H3 pressure gates pass (640 requests).
-Performance is not cleared: measure handshake-inclusive operation latency and
-profile the tails/memory without weakening handshake isolation, alongside the
-earlier audit performance questions and remaining component review. The report
-links normalized evidence. No versions, remotes or publications changed.
+The setup-inclusive follow-up now adds optional fresh-connection H1/H2/H3
+sample timing without redefining request latency or gate policies. Three new
+tests pass, including delayed QUIC setup, concurrent clients and legacy JSON;
+full `bin/verify` exits zero with 77 benchmark-driver and 526 router tests.
+Six further ABBAAB runs complete 103,728 measured requests plus 7,680 warmups
+without errors or unexpected reconnects. Fresh parallel throughput improves
+20.8% and setup-inclusive p99 falls 15.791 to 13.860 ms (-12.2%), despite the
+request-only p99 rising 3.184 to 10.423 ms. This resolves that measurement
+ambiguity for the observed workload, not every latency or performance question.
+Sampled server RSS still increases 140.0 to 150.5 MiB; profile live/closing
+connections, retained tasks, allocations and post-drain memory next, without
+weakening handshake isolation. Reused multiplexed H3 is -0.39% in the follow-up
+(overlapping ranges); the earlier -2.32% observation remains preserved.
+Performance remains uncleared alongside earlier audit questions and remaining
+component review. Both comparisons are linked from the audit report. No
+versions, remotes or publications changed.
 
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage

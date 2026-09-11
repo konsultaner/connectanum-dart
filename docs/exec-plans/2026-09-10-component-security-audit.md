@@ -327,6 +327,35 @@ scope, including code excluded from the root workspace gates.
   latency metric. Continue SA-005/earlier performance work, resource-store/body
   ownership review, and every remaining component row. Keep changes unpublished.
 
+## SA-006 Setup-Inclusive Timing Checkpoint (2026-09-11)
+
+- Added optional raw-sample setup and operation-total timing to plain fresh
+  H1/H2/H3 requests, preserving existing request latency, aggregate gates, auth,
+  reuse and legacy JSON behavior. Two fail-first cases and a reused-H3 control
+  reproduce the missing measurement. All three tests pass after instrumentation,
+  including a delayed QUIC handshake and concurrent clients. Local GLM review
+  is checked against source; no confirmed regression remains in this diff.
+- Full `bin/verify` exits zero: 77 benchmark-driver, 526 router (one explicit
+  skip), 124 Dart benchmark, native, consumer, zero-copy and browser checks.
+  The initial `bin/test-fast` process reached its final passing test group;
+  its numeric exit handle was lost during context compaction, recorded as
+  unavailable rather than invented in the evidence.
+- Six further ABBAAB native-only passes use one identical instrumented driver
+  and unchanged native/Dart AOT inputs. All 103,728 measured requests plus 7,680
+  warmups succeed without reconnect surprises or error/timeout counter deltas.
+  Fresh parallel throughput improves 20.8%, setup-inclusive p99 falls from
+  15.791 to 13.860 ms (-12.2%, non-overlapping ranges), while request-only p99
+  rises 3.184 to 10.423 ms. The complete measured operation is faster, not the
+  threefold slowdown that request-only timing could suggest.
+- Performance remains open: sampled server RSS still rises 140.0 to 150.5 MiB.
+  Next profile connection/task retention, closing lifetimes, allocation and
+  post-drain memory; do not infer a leak from RSS alone or restore handshake
+  serialization. Reused H3 multiplex is -0.39% in this follow-up with overlapping
+  ranges; preserve the earlier -2.32% result. Continue SA-005/earlier performance
+  work and the remaining component matrix. Changes remain unpublished.
+- Normalized results, hashes, scripts and verification provenance are in
+  `docs/security/2026-09-11-http3-operation-timing-benchmarks.json`.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.

@@ -1033,6 +1033,53 @@ metric. All five unchanged `h3_multiplex_scaling` pressure-gate workloads pass
 Earlier audit performance questions and every pending component row remain
 required work. Nothing is pushed or published.
 
+#### Setup-Inclusive Timing Follow-Up (2026-09-11)
+
+The benchmark now records optional per-sample `http_fresh_connection_timing`
+for plain non-reused H1/H2/H3 requests. Setup ends at protocol sender return;
+total operation time includes setup and response-body drain, but not close or
+per-worker payload preparation. Existing request latency and aggregate gates
+retain their semantics. Reused, auth and old reports omit the new field.
+Two fail-first cases detect its absence, with the reused-H3 control passing.
+All three tests then pass, including concurrent workers, an injected 50 ms QUIC
+handshake delay, positive finite timing bounds, and legacy JSON decoding.
+Full `bin/verify` exits zero, including 77 benchmark-driver tests, 526 router
+tests (one explicit skip), 124 Dart benchmark tests and Chrome coverage.
+
+[Setup-inclusive comparison evidence](2026-09-11-http3-operation-timing-benchmarks.json)
+preserves the earlier results and records six more ABBAAB passes. Both native
+libraries and Dart AOT binaries are unchanged from the admission checkpoint;
+one identical newly instrumented benchmark driver is used for both variants.
+All 103,728 measured requests plus 7,680 warmups succeed, with exact connection
+counts and no transport error/timeout counter increases.
+
+These are medians of three per-run observations, not pooled percentiles:
+
+| Fresh HTTP/3 Workload | Baseline / Candidate Requests/s | Request p99 ms | Setup p99 ms | Setup-Inclusive Operation p99 ms |
+| --- | ---: | ---: | ---: | ---: |
+| Serial | 389.4 / 389.0 | 2.297 / 2.259 | 1.873 / 1.234 | 3.212 / 3.131 |
+| 16 concurrent clients | 1,227.1 / 1,482.4 | 3.184 / 10.423 | 13.085 / 8.978 | 15.791 / 13.860 |
+
+For fresh parallel clients, throughput improves 20.8% and setup-inclusive p99
+falls 12.2%. The latter ranges do not overlap: baseline 15.702-15.978 ms versus
+candidate 13.847-14.094 ms. Thus the request-only tail increase is not an
+end-to-end regression in this measured workload: time shifts from setup to the
+post-setup interval while the complete operation gets faster. This does not
+identify the specific post-setup queue or establish latency under every load.
+Never sum phase percentiles to reconstruct an operation percentile.
+
+**Overall performance remains uncleared.** Median sampled server RSS after
+fresh parallel traffic still rises from 140.0 to 150.5 MiB. That is not by itself
+proof of a leak or its cause; profile live/closing connections, retained tasks,
+allocation and post-drain memory next. Reused H3 multiplex throughput is 1.538
+versus 1.532 GBit/s (-0.39%, overlapping ranges), without erasing the earlier
+-2.32% result. Other throughput deltas are H2 serial +0.46%, H2 multiplex +1.35%,
+reused H3 serial +0.05%, and fresh H3 serial -0.12%. No own test, build or model
+inference overlaps timing; unrelated shared-host activity remains recorded.
+Earlier audit performance questions and pending component reviews still apply.
+No transport tuning, production security behavior, versions, remotes or
+publications changed in this follow-up.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and
