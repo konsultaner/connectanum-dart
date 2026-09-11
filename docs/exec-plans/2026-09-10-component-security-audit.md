@@ -16,11 +16,11 @@ narrow fix does not complete this plan.
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
 | Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | Pending |
-| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation, SA-009 response completion and SA-010 HTTP/1 request framing are locally regression-verified; broader framing/lifetime review, finite ID availability and earlier performance confirmation pending |
+| Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation, SA-009 response completion, SA-010 HTTP/1 request framing and SA-011 paused-producer delivery are locally regression-verified; broader framing/lifetime review, finite ID availability and earlier performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
 | Router authorization and state | Realm/role boundaries, RPC/pubsub/meta, pattern grants, dynamic authorization races, worker isolation | Pending; previous Meta fix is baseline only |
-| HTTP and MCP | Origins, redirects, HTTP auth grants, sessions/SSE, tool/resource access, request smuggling, file/proxy routes and SSRF | SA-009 response completion and SA-010 ambiguous request framing are locally verified; SA-010 affected-path performance is cleared, while paused producers, deployment-specific proxy differentials and other boundaries remain pending |
+| HTTP and MCP | Origins, redirects, HTTP auth grants, sessions/SSE, tool/resource access, request smuggling, file/proxy routes and SSRF | SA-009 response completion, SA-010 ambiguous request framing and SA-011 paused-producer delivery are locally verified; SA-010/011 affected-path performance is cleared, while deployment-specific proxy differentials and other boundaries remain pending |
 | Payload cryptography | Key/nonce lifetime, replay/context binding, authenticated metadata, E2EE parity and file integrity | SA-007 native provider restart key confusion reproduced and locally fixed for both ciphers; broader cryptography review pending |
 | Consumer application | Account/device trust, encrypted storage/backup, attachments, push, WebRTC, MCP consent, native/web boundaries | Pending |
 | Packaging and dependencies | All Dart/Rust lockfiles, advisories and reachability, native download verification, CLI/config secrets, workflows and publishing | SA-002: transport and benchmark scans now have zero published vulnerabilities; transport maintenance warnings and other coverage pending |
@@ -548,6 +548,52 @@ scope, including code excluded from the root workspace gates.
   delivery, direct final-binary timing, deployment-specific proxy differential
   testing and every remaining component row still require review.
 
+## SA-011 HTTP/1 Paused-Producer Delivery (2026-09-11)
+
+- Confirmed that the chunked HTTP/1 writer could block on the next producer
+  frame while response headers or a complete SSE chunk remained buffered below
+  it. Two deterministic real-TLS regressions time out before the fix: headers
+  are not readable while the producer has not emitted its first chunk, and a
+  complete chunk is not readable while the producer remains open. This is a
+  deployment-dependent availability and state-retention issue, not a
+  demonstrated confidentiality, integrity or authorization bypass.
+- The writer now flushes headers before waiting for the producer. After each
+  chunk it drains immediately ready frames in order, flushes before awaiting a
+  paused producer, and bounds a continuously ready batch to 64 chunks or 16 KiB.
+  Terminal framing remains flushed. All write/flush failures close the response
+  reader and propagate. Exact chunked wire bytes, TLS settings, ABI and versions
+  are unchanged.
+- A direct per-chunk implementation first passes ten focused cases. A new
+  fail-first batching case then observes five flushes for three prequeued chunks
+  instead of the expected header plus completed-body flush. The retained bounded
+  coalescing implementation passes all 12 focused cases, including the two TLS
+  stall regressions, midstream failure closure, exact wire bytes, completed-batch
+  coalescing and the 64-chunk/16-KiB bound. All 190 `ct_core` unit tests and three
+  serializer integrations pass outside the socket-restricted sandbox; the
+  sandbox-only run retains 66 `PermissionDenied` socket failures rather than
+  treating them as code evidence. `bin/test-fast`, a release build and fresh
+  full `bin/verify` pass; full verification includes 526 router tests with one
+  explicit skip, 11 remote-auth, 13 native-router integration and browser gates.
+- The first immutable benchmark campaign stops before warmup because all 31
+  unchanged quiet-host preflight snapshots contain high unrelated inference,
+  VM, emulator or other CPU load. It is retained and not rerun in place. A
+  distinct frozen ABBAAB campaign completes 24,288 measured requests and 864
+  warmups with exact byte/sample/connection accounting, zero sample errors,
+  zero selected transport-counter deltas and no strict findings.
+- Median lifecycle throughput changes +1.00% for one 1-KiB response chunk,
+  +0.56% for a 1-MiB response in eight 128-KiB chunks, and +37.49% for a 64-KiB
+  response in 256-byte chunks. The first two ranges overlap; the small-chunk
+  candidate is faster in all three runs. Median p99 and RSS do not regress
+  materially. The small-chunk result is consistent with avoiding one awaited
+  receive per immediately queued chunk, but does not prove a sole cause.
+- Evidence is
+  `docs/security/2026-09-11-http1-stream-delivery-benchmarks.json` (SHA-256
+  `64c7368e63d697e4765e1520fb3e08a89bdc8f31866cd211e6b4b4b3efd9c267`).
+  This clears SA-011 affected-path performance only. Earlier negative
+  comparisons, direct SA-010 final-binary timing, finite resource availability
+  and every unreviewed component row remain open. Keep this checkpoint local
+  and unpublished.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.
@@ -556,12 +602,13 @@ that this audit's other surfaces have been reviewed.
 
 ## Next Implementation Slice
 
-The immediate HTTP follow-up is deterministic paused-producer coverage: prove
-whether a long-lived HTTP/1 SSE/chunked response becomes readable before the
-producer completes, then preserve sustained-throughput evidence for any fix.
-Do not infer intermediate delivery from the SA-009 completion flush or SA-010
-request-boundary tests. Continue the remaining component matrix after that
-bounded slice rather than repeating already-cleared framing benchmarks.
+SA-011 completes the bounded paused-producer slice with deterministic TLS
+delivery tests and frozen affected-path performance evidence. Continue the
+remaining component matrix rather than repeating SA-009/010/011 HTTP/1 response
+benchmarks. The next bounded review should inspect the core protocol and
+serializer row for attacker-controlled nesting, collection size, integer and
+lazy-payload inconsistencies across JSON, MessagePack and CBOR, with fail-first
+resource-bound tests before any behavior change.
 
 SA-003 authentication-only hardening is locally verified, not published. Six
 fail-first direct-service lifecycle regressions were reproduced on `1bc60ef1`.

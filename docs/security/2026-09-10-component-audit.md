@@ -1668,6 +1668,79 @@ producer delivery, request chunked compatibility, direct final-binary timing,
 deployment-specific proxy differential tests, earlier performance findings and
 all unreviewed component rows remain open.
 
+### SA-011: Paused HTTP/1 Stream Producers Can Leave Bytes Buffered
+
+**Impact: deployment-dependent availability and state retention; locally fixed,
+regression-verified and performance-cleared for the affected HTTP/1 stream
+shapes.**
+
+The chunked HTTP/1 writer previously wrote headers and each producer chunk, then
+immediately awaited the next frame. With TLS or another buffered asynchronous
+writer, those bytes could remain below the application while a long-lived
+producer paused. A client waiting for SSE headers or an emitted event could
+therefore wait until another chunk or terminal frame arrived, retaining the
+connection and related application state. No cross-user disclosure,
+authentication bypass, message corruption or remote-code execution was
+demonstrated.
+
+Two real-TLS regressions reproduce the boundary with a 64-byte in-memory
+backpressure channel. Before the fix, response headers are not readable within
+250 ms while the producer has not emitted a first chunk, and a complete
+`data: ready\n\n` frame is not readable while its producer remains open. Both
+tests time out deterministically. This extends SA-009: flushing only the final
+response boundary cannot make an unfinished response usable.
+
+The writer now flushes response headers before waiting for the first producer
+frame. After a chunk, it drains frames already available in the bounded channel,
+preserving their order and exact HTTP/1 chunk framing. It flushes before
+awaiting a paused producer and caps a continuously ready body batch at 64 chunks
+or 16 KiB of payload. Completion still writes and flushes the terminal zero
+chunk. Every header, body, terminal or flush error closes the response reader
+and propagates to the connection loop.
+
+The initial direct fix flushed every chunk and passed ten focused tests. A
+follow-up fail-first test records five flushes for three prequeued chunks instead
+of one header and one completed-body flush. The retained bounded coalescing
+implementation passes all 12 cases: pre-header and midstream TLS visibility,
+completion, exact plain-wire bytes, propagated failures, reader closure,
+completed-response coalescing and the continuous-producer batch bound. The full
+`ct_core` suite passes 190 unit tests and one integration each for CBOR, JSON and
+MessagePack outside the managed socket-restricted sandbox. `bin/test-fast`, the
+production release build and fresh full `bin/verify` also pass. Full verification
+includes 526 router tests with one explicit skip, 11 remote-auth, 13
+native-router integration and the SCRAM/WebSocket browser gates. The
+sandbox-only full-core run retains 124 passes and 66 `PermissionDenied`
+loopback failures; the identical command passes outside that restriction.
+
+**Performance:** the first frozen comparison stops before any warmup or timed
+variant because 31 unchanged quiet-host snapshots observe unrelated inference
+at 303.1%-1331.6% CPU together with VM, emulator and other load. The failed
+preflight is retained and not rerun in place. A distinct ABBAAB campaign uses
+the final candidate and completes 24,288 measured HTTP/1 requests plus 864
+warmups. Every run has exact sample, byte and reused-connection counts, zero
+errors, zero selected protocol/internal/body/idle-timeout counter deltas and no
+strict or performance finding.
+
+| TLS HTTP/1 response shape | Baseline median GBit/s | Candidate median GBit/s | Delta |
+| --- | ---: | ---: | ---: |
+| 1 KiB, one chunk | 0.006388 | 0.006452 | +1.00% |
+| 1 MiB, eight 128 KiB chunks | 8.508 | 8.556 | +0.56% |
+| 64 KiB, 256-byte chunks | 0.1294 | 0.1779 | +37.49% |
+
+The one- and eight-chunk throughput ranges overlap. The 256-chunk candidate is
+faster in all three observations, with p99 changing from 29.002 to 21.442 ms;
+median sampled RSS remains about 52 MiB. This is consistent with draining
+immediately queued frames without an awaited channel receive for every chunk,
+but the campaign does not prove a sole causal mechanism. GBit/s counts
+application request plus response bytes over lifecycle time, not wire bandwidth.
+
+Evidence: [HTTP/1 paused-producer regressions and frozen performance campaign](2026-09-11-http1-stream-delivery-benchmarks.json)
+(SHA-256 `64c7368e63d697e4765e1520fb3e08a89bdc8f31866cd211e6b4b4b3efd9c267`).
+This clears SA-011 affected-path performance only. It does not establish
+identical timing on all hosts, clear earlier audit performance findings, add
+request chunked decoding or finish the component audit. No version, release or
+remote branch changed at this checkpoint.
+
 ### Public Dart Dependency Advisory Coverage
 
 On 2026-09-10, `dart pub deps --json` was collected for the root workspace and

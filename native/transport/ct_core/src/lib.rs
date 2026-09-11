@@ -6420,6 +6420,9 @@ async fn write_http1_chunked_response<W: AsyncWrite + Unpin>(
     headers: &[(String, String)],
     reader: &mut ResponseStreamReader,
 ) -> io::Result<()> {
+    const MAX_BATCH_CHUNKS: usize = 64;
+    const MAX_BATCH_BYTES: usize = 16 * 1024;
+
     let clamped = status.clamp(100, 599) as u16;
     let status_code = StatusCode::from_u16(clamped).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     let reason = status_code.canonical_reason().unwrap_or("");
@@ -6439,11 +6442,19 @@ async fn write_http1_chunked_response<W: AsyncWrite + Unpin>(
         reader.close();
         return Err(err);
     }
+    if let Err(err) = writer.flush().await {
+        reader.close();
+        return Err(err);
+    }
 
+    let mut batched_chunks = 0usize;
+    let mut batched_bytes = 0usize;
+    let mut next = reader.next().await;
     loop {
-        match reader.next().await {
+        match next {
             Ok(ResponseStreamFrame::Chunk { bytes, .. }) => {
                 if bytes.is_empty() {
+                    next = reader.next().await;
                     continue;
                 }
                 let header = format!("{:X}\r\n", bytes.len());
@@ -6458,6 +6469,33 @@ async fn write_http1_chunked_response<W: AsyncWrite + Unpin>(
                 if let Err(err) = writer.write_all(b"\r\n").await {
                     reader.close();
                     return Err(err);
+                }
+
+                batched_chunks += 1;
+                batched_bytes = batched_bytes.saturating_add(bytes.len());
+                if batched_chunks >= MAX_BATCH_CHUNKS || batched_bytes >= MAX_BATCH_BYTES {
+                    if let Err(err) = writer.flush().await {
+                        reader.close();
+                        return Err(err);
+                    }
+                    batched_chunks = 0;
+                    batched_bytes = 0;
+                    next = reader.next().await;
+                    continue;
+                }
+
+                match reader.try_next() {
+                    Ok(Some(frame)) => next = Ok(frame),
+                    Ok(None) => {
+                        if let Err(err) = writer.flush().await {
+                            reader.close();
+                            return Err(err);
+                        }
+                        batched_chunks = 0;
+                        batched_bytes = 0;
+                        next = reader.next().await;
+                    }
+                    Err(err) => next = Err(err),
                 }
             }
             Ok(ResponseStreamFrame::Finished { .. }) => {

@@ -381,6 +381,35 @@ Keep this checkpoint local. Next inspect paused HTTP/1 SSE producer delivery;
 request chunked compatibility, direct final-binary timing, proxy-specific
 differential tests and every remaining component row stay open.
 
+SA-011 confirms and fixes paused-producer HTTP/1 stream delivery. Before the
+fix, deterministic real-TLS tests time out because neither response headers nor
+a complete SSE chunk become readable while the producer is paused. The writer
+now flushes headers before its first producer wait, drains immediately queued
+frames in exact order, flushes before awaiting a paused producer, and bounds a
+continuously ready batch to 64 chunks or 16 KiB. Terminal framing and all errors
+remain flushed or fail closed. A direct per-chunk version passes ten tests but
+fails a new coalescing assertion with five flushes instead of two; the retained
+bounded implementation passes all 12 focused cases. All 190 `ct_core` unit and
+three serializer integration tests, `bin/test-fast`, a release build and fresh
+full `bin/verify` pass. Full verification includes 526 router tests with one
+explicit skip, 11 remote-auth, 13 native-router integration and browser gates.
+The sandbox-only core run retains 66 socket `PermissionDenied` failures; the
+identical command passes outside that restriction. The first frozen benchmark
+campaign stops before timing on 31 busy-host snapshots and is retained. A new
+ABBAAB campaign completes 24,288 measured requests and 864 warmups with exact
+byte/sample/connection accounting, zero errors or selected counter deltas, and
+no strict findings. Median TLS HTTP/1 lifecycle throughput changes +1.00% for
+one response chunk, +0.56% for eight large chunks and +37.49% for 256 small
+chunks; p99 and RSS show no material regression. Evidence is
+`docs/security/2026-09-11-http1-stream-delivery-benchmarks.json` (SHA-256
+`64c7368e63d697e4765e1520fb3e08a89bdc8f31866cd211e6b4b4b3efd9c267`).
+This clears SA-011 affected-path performance only; the full audit, earlier
+performance questions, direct SA-010 final-binary timing, finite resource
+availability and all unreviewed component rows remain open. Keep the checkpoint
+local and unpublished. Next inspect attacker-controlled serializer nesting,
+collection sizes, integer boundaries and lazy-payload consistency across JSON,
+MessagePack and CBOR with fail-first resource-bound tests.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is
