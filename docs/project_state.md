@@ -50,6 +50,13 @@ packages and three Rust crates are being advanced together. Publication must
 still proceed through protected `master`, a green hosted deployment chain, the
 `v3.0.0-beta.6` native prerelease, and sequential package tags. Hosted example
 pins remain on beta.5 until the complete beta.6 graph is indexed and smoke-tested.
+Release PR #91 initially passed hosted package dry-runs, Fast Checks, and
+consumer smoke but failed the Codecov patch gate at 80.61% against an 83.50%
+target. Focused authentication-failure, trusted-abort, and signed-handle ABI
+coverage now exercises all 14 targeted changed production lines. The canonical
+local report rises from 83.4778% to 83.5278% overall and projects 83.51% patch
+coverage; protected-master publication remains blocked until hosted CI confirms
+that evidence.
 
 SA-003 authentication lifecycle hardening is locally implemented. Six
 fail-first regressions reproduced late post-abort results, challenge overwrites,

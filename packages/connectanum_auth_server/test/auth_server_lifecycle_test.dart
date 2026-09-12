@@ -221,6 +221,42 @@ void main() {
     );
   });
 
+  test('authentication failure finalizes the pending attempt', () async {
+    const failure = AuthFailure(
+      reason: 'wamp.error.not_authorized',
+      message: 'denied',
+    );
+    factory.authenticator.authenticate = Future.value(
+      AuthResult.failure(failure),
+    );
+    expect(
+      (await server.onHello(hello('rejected'))).status,
+      RemoteHelloStatus.challenge,
+    );
+
+    final result = await server.onAuthenticate(authenticate('rejected'));
+
+    expect(result.status, RemoteAuthenticateStatus.failure);
+    expect(result.failure?.reason, failure.reason);
+    expect(result.failure?.message, failure.message);
+    await _drain();
+    expect(server.pendingAuthenticationCounts, isEmpty);
+    expect(factory.authenticator.abortCalls, 1);
+  });
+
+  test('trusted abort helper releases a pending challenge', () async {
+    expect(
+      (await server.onHello(hello('trusted-abort'))).status,
+      RemoteHelloStatus.challenge,
+    );
+
+    server.abort('trusted-abort');
+
+    await _drain();
+    expect(server.pendingAuthenticationCounts, isEmpty);
+    expect(factory.authenticator.abortCalls, 1);
+  });
+
   test(
     'wrong identity or transport cannot consume or abort a challenge',
     () async {

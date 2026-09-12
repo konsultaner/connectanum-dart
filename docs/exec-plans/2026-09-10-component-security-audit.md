@@ -860,6 +860,12 @@ scope, including code excluded from the root workspace gates.
 - Hosted example dependency pins remain on beta.5 until beta.6 is indexed. They
   may advance only after the complete hosted graph and matching native assets
   are available and independently smoke-tested.
+- Release PR #91's initial hosted run passed package dry-runs, Fast Checks, and
+  consumer smoke, but Codecov reported 80.61% patch coverage against the 83.50%
+  target. Focused auth lifecycle and native signed-handle ABI coverage now
+  exercises all 14 targeted changed production lines; canonical local project
+  coverage rises from 83.4778% to 83.5278% and projects 83.51% patch coverage.
+  Keep publication blocked until hosted CI confirms the repaired gate.
 
 ## Related Plans
 

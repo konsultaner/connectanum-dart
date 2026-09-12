@@ -52,6 +52,10 @@ run_package_coverage \
   test/transport/native/native_library_loader_test.dart
 run_package_coverage \
   connectanum_client \
+  connectanum_client_message_handle_abi \
+  test/transport/native/message_handle_abi_test.dart
+run_package_coverage \
+  connectanum_client \
   connectanum_client_socket \
   test/transport/socket/socket_transport_test.dart
 run_package_coverage \
