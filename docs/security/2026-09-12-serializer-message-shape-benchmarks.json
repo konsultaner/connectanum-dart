@@ -1,0 +1,738 @@
+{
+  "title": "Serializer message-shape and PUBLISH recipient-filter integrity",
+  "date": "2026-09-12",
+  "finding": "SA-015",
+  "threat_model": [
+    "A peer can send a recognized WAMP message with fewer required fields and trigger serializer-specific indexing or cast failures before the router can normalize the protocol error.",
+    "A publisher can supply scalar, mixed, fractional, zero, negative, or out-of-range recipient filters; permissive coercion can silently broaden or change the recipient set.",
+    "Attacker-controlled filter values must not appear in diagnostics."
+  ],
+  "fix": {
+    "message_shape": "JSON, MessagePack, and CBOR reject every recognized supported message family below its WAMP minimum field count with the constant FormatException message 'WAMP message contains too few fields'. Empty or non-integer message type slots are rejected without payload disclosure.",
+    "numeric_filters": "PUBLISH.Options.exclude and eligible now require lists of integral WAMP IDs in the inclusive range [1, 2^53]. BigInt is accepted only after the same bounds check. A value-integrality check closes dart2js numeric type erasure for fractional values.",
+    "identity_filters": "PUBLISH.Options exclude_authid, exclude_authrole, eligible_authid, and eligible_authrole now require lists containing only strings; values are no longer stringified.",
+    "hot_paths": "JSON and MessagePack test empty PUBLISH option maps before normalization/copying. JSON returns the exact two-field UNSUBSCRIBED form directly, and MessagePack performs minimum checks inside already-matched branches. Non-empty PUBLISH option construction is outlined from the empty hot path.",
+    "compatibility": "WAMP message codes, serializer wire formats, the inclusive WAMP ID upper bound, supported optional fields, and valid PUBLISH filter values are unchanged."
+  },
+  "baseline_source": {
+    "commit": "6b579bc0df24c8c340715d88f972db95abfa51f7",
+    "worktree": "detached frozen baseline",
+    "candidate": "same commit plus the source hashes recorded below"
+  },
+  "inputs": {
+    "benchmark_driver_sha256": "7c788b83c5031f43be71eb43dafd013989968363c65642466fbf896f71faff07",
+    "baseline_executable_sha256": "88cdc1bfab36e4e1768f8f785366770ca476b8cdb04bf2a328c402a2bda7b51b",
+    "candidate_executable_sha256": "e01087b20bac49e35016bddc1722f67e4319679297656d2e8254a6d820ced6e6",
+    "aggregate_sha256": "e8a01310da94a5e5b0622ccd1b7fadb14bbd48c1e2c655b92a7e567f19f4e8db",
+    "raw_run_sha256": [
+      {
+        "order": 1,
+        "variant": "baseline",
+        "sha256": "84c487ecb1384300c5f9391e927f30dd9bfd88f5f84cf67e9d702099d2380b62"
+      },
+      {
+        "order": 2,
+        "variant": "candidate",
+        "sha256": "fb9c4bac46d3db0c60668de2cf9382d0595cc6a7a08f1cc76074181748cfd5e6"
+      },
+      {
+        "order": 3,
+        "variant": "candidate",
+        "sha256": "28aecc1ee7a7bd35901941e18f7a80025311c9d894aff3277569bc9337725272"
+      },
+      {
+        "order": 4,
+        "variant": "baseline",
+        "sha256": "b130e9efc68ceb76025556f7f261d929e4118ec3abf46a0715d4b8d83408e435"
+      },
+      {
+        "order": 5,
+        "variant": "baseline",
+        "sha256": "d56eebdddfc5442baadaea95814531350ff416b6ad3b7ba68983a9de63585668"
+      },
+      {
+        "order": 6,
+        "variant": "candidate",
+        "sha256": "ed3030273cb942eda89ea25485d04f1655494ba081e849dfb9325a3865303c46"
+      }
+    ],
+    "source_sha256": {
+      "limits": "67ab32e19e94ea459919823f4da5c07522256e7af5754ecb5c89eaf094d82af8",
+      "json": "1364037a0540462acbe1b11db6732d65a0635014813dbe70f317f622df7d9740",
+      "messagepack": "100d0656931f42895f1747bc27ac886a4ec0b0ec0982e11d2eb4c7ecc9e65b37",
+      "cbor": "a01462ec44a2ede7f0c3cea8bc0bd9343ceefb6d988cb19ead0985acba3dbaa2",
+      "security_test": "ffa8c7275888ae39d4e907ae814e442e2b9f86ddcdb342994f5931fb0c53a473"
+    }
+  },
+  "performance": {
+    "methodology": {
+      "runtime": "Dart 3.13.1 stable AOT executable on macOS arm64",
+      "host": "Apple M3 Ultra shared host, Darwin 25.6.0 arm64; timed subprocesses ran serially and unrelated shared-host work was not controlled.",
+      "order": [
+        "baseline",
+        "candidate",
+        "candidate",
+        "baseline",
+        "baseline",
+        "candidate"
+      ],
+      "processes_per_variant": 3,
+      "samples_per_process_and_scenario": 7,
+      "samples_per_variant_and_scenario": 21,
+      "serializers": [
+        "json",
+        "msgpack",
+        "cbor"
+      ],
+      "scenarios": [
+        "unsubscribed_control",
+        "result_control",
+        "error_control",
+        "publish_empty",
+        "publish_id_filters",
+        "publish_auth_filters"
+      ],
+      "serializer_scenario_count": 18,
+      "record_count": 108,
+      "sample_count": 756,
+      "measured_deserializations": 1442700000,
+      "warmup_deserializations": 216000,
+      "primary_metric": "deserialize-and-consume operations per second",
+      "gbit_definition": "Encoded frame bytes multiplied by completed deserialize-and-consume operations and eight, divided by measured loop time and 1e9; this is an in-memory parser rate, not network bandwidth.",
+      "material_regression_percent": -5,
+      "investigation_rule": "Investigate a candidate median below -5%, or any slower candidate whose observed range does not overlap baseline.",
+      "correctness_rule": "Frame size, iteration count, warmup count, and checksum must match between baseline and candidate for every serializer/scenario."
+    },
+    "results": [
+      {
+        "serializer": "cbor",
+        "scenario": "error_control",
+        "frame_bytes": [
+          18
+        ],
+        "iterations_per_round": [
+          1000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          700200000
+        ],
+        "baseline": {
+          "median_ops_per_second": 727013.117497679,
+          "min_ops_per_second": 714626.182617004,
+          "max_ops_per_second": 734793.8095091135
+        },
+        "candidate": {
+          "median_ops_per_second": 723194.9596204095,
+          "min_ops_per_second": 712892.0104053718,
+          "max_ops_per_second": 729412.6914890669
+        },
+        "baseline_median_gbit_per_second": 0.10468988891966577,
+        "candidate_median_gbit_per_second": 0.10414007418533897,
+        "delta_percent": -0.525184179676319,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "publish_auth_filters",
+        "frame_bytes": [
+          175
+        ],
+        "iterations_per_round": [
+          150000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          127292000
+        ],
+        "baseline": {
+          "median_ops_per_second": 95795.96226405454,
+          "min_ops_per_second": 94605.70863459996,
+          "max_ops_per_second": 96861.24368545409
+        },
+        "candidate": {
+          "median_ops_per_second": 106878.1048089447,
+          "min_ops_per_second": 105620.41431367854,
+          "max_ops_per_second": 108035.30593798052
+        },
+        "baseline_median_gbit_per_second": 0.13411434716967635,
+        "candidate_median_gbit_per_second": 0.14962934673252257,
+        "delta_percent": 11.568486064520167,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "publish_empty",
+        "frame_bytes": [
+          23
+        ],
+        "iterations_per_round": [
+          500000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          206618000
+        ],
+        "baseline": {
+          "median_ops_per_second": 717709.1871082205,
+          "min_ops_per_second": 706677.8227538952,
+          "max_ops_per_second": 726499.2037568727
+        },
+        "candidate": {
+          "median_ops_per_second": 717825.6200577706,
+          "min_ops_per_second": 705981.356444339,
+          "max_ops_per_second": 724246.1683756462
+        },
+        "baseline_median_gbit_per_second": 0.13205849042791257,
+        "candidate_median_gbit_per_second": 0.1320799140906298,
+        "delta_percent": 0.016222859013304003,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "publish_id_filters",
+        "frame_bytes": [
+          70
+        ],
+        "iterations_per_round": [
+          200000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          -2666130979306596000
+        ],
+        "baseline": {
+          "median_ops_per_second": 201358.76897303,
+          "min_ops_per_second": 196457.09278864946,
+          "max_ops_per_second": 203369.21783181975
+        },
+        "candidate": {
+          "median_ops_per_second": 212898.45276049458,
+          "min_ops_per_second": 207415.08944775732,
+          "max_ops_per_second": 214493.08313430162
+        },
+        "baseline_median_gbit_per_second": 0.11276091062489679,
+        "candidate_median_gbit_per_second": 0.11922313354587695,
+        "delta_percent": 5.7309070006333895,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "result_control",
+        "frame_bytes": [
+          6
+        ],
+        "iterations_per_round": [
+          1000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          294084000
+        ],
+        "baseline": {
+          "median_ops_per_second": 1139827.1566099715,
+          "min_ops_per_second": 1114481.799397734,
+          "max_ops_per_second": 1156641.6677847535
+        },
+        "candidate": {
+          "median_ops_per_second": 1147786.7228623047,
+          "min_ops_per_second": 1115191.4727999223,
+          "max_ops_per_second": 1165560.937856953
+        },
+        "baseline_median_gbit_per_second": 0.05471170351727864,
+        "candidate_median_gbit_per_second": 0.05509376269739062,
+        "delta_percent": 0.6983134421894466,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "unsubscribed_control",
+        "frame_bytes": [
+          5
+        ],
+        "iterations_per_round": [
+          1000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          294084000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2417800.816733116,
+          "min_ops_per_second": 2353240.1763988836,
+          "max_ops_per_second": 2461235.540241201
+        },
+        "candidate": {
+          "median_ops_per_second": 2414234.325583641,
+          "min_ops_per_second": 2312438.142279694,
+          "max_ops_per_second": 2443368.819193151
+        },
+        "baseline_median_gbit_per_second": 0.09671203266932464,
+        "candidate_median_gbit_per_second": 0.09656937302334563,
+        "delta_percent": -0.14750971729317053,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "error_control",
+        "frame_bytes": [
+          25
+        ],
+        "iterations_per_round": [
+          4000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          2800200000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3937589.211005562,
+          "min_ops_per_second": 3820472.191260479,
+          "max_ops_per_second": 4009783.872649264
+        },
+        "candidate": {
+          "median_ops_per_second": 3887027.4346396336,
+          "min_ops_per_second": 3850800.725875937,
+          "max_ops_per_second": 3958354.1559255077
+        },
+        "baseline_median_gbit_per_second": 0.7875178422011124,
+        "candidate_median_gbit_per_second": 0.7774054869279268,
+        "delta_percent": -1.2840795130332094,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "publish_auth_filters",
+        "frame_bytes": [
+          217
+        ],
+        "iterations_per_round": [
+          500000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          423742000
+        ],
+        "baseline": {
+          "median_ops_per_second": 401866.2669436865,
+          "min_ops_per_second": 398554.6813037202,
+          "max_ops_per_second": 407053.42169106274
+        },
+        "candidate": {
+          "median_ops_per_second": 467839.32152070233,
+          "min_ops_per_second": 459641.62661655963,
+          "max_ops_per_second": 474032.94908222486
+        },
+        "baseline_median_gbit_per_second": 0.6976398394142398,
+        "candidate_median_gbit_per_second": 0.8121690621599393,
+        "delta_percent": 16.416668927890044,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "publish_empty",
+        "frame_bytes": [
+          30
+        ],
+        "iterations_per_round": [
+          2000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          826118000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3932363.350373574,
+          "min_ops_per_second": 3841101.3205706337,
+          "max_ops_per_second": 4008538.1863368973
+        },
+        "candidate": {
+          "median_ops_per_second": 4163024.020648599,
+          "min_ops_per_second": 4117073.090398574,
+          "max_ops_per_second": 4225756.833048799
+        },
+        "baseline_median_gbit_per_second": 0.9437672040896578,
+        "candidate_median_gbit_per_second": 0.9991257649556639,
+        "delta_percent": 5.86570084509388,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "publish_id_filters",
+        "frame_bytes": [
+          106
+        ],
+        "iterations_per_round": [
+          750000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          -5908722710747702000
+        ],
+        "baseline": {
+          "median_ops_per_second": 647063.2387844528,
+          "min_ops_per_second": 634920.6349206349,
+          "max_ops_per_second": 651599.3723794846
+        },
+        "candidate": {
+          "median_ops_per_second": 788357.5359096858,
+          "min_ops_per_second": 764353.8000103952,
+          "max_ops_per_second": 792959.3666474947
+        },
+        "baseline_median_gbit_per_second": 0.548709626489216,
+        "candidate_median_gbit_per_second": 0.6685271904514135,
+        "delta_percent": 21.836242372640857,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "result_control",
+        "frame_bytes": [
+          10
+        ],
+        "iterations_per_round": [
+          4000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          1176084000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4247686.86901939,
+          "min_ops_per_second": 4080820.653033325,
+          "max_ops_per_second": 4314901.51237298
+        },
+        "candidate": {
+          "median_ops_per_second": 4214243.722357195,
+          "min_ops_per_second": 4152987.763221556,
+          "max_ops_per_second": 4262401.991394211
+        },
+        "baseline_median_gbit_per_second": 0.33981494952155117,
+        "candidate_median_gbit_per_second": 0.33713949778857566,
+        "delta_percent": -0.787326083429396,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "unsubscribed_control",
+        "frame_bytes": [
+          7
+        ],
+        "iterations_per_round": [
+          4000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          1176084000
+        ],
+        "baseline": {
+          "median_ops_per_second": 9341887.38821848,
+          "min_ops_per_second": 9080384.10024744,
+          "max_ops_per_second": 9520182.787509521
+        },
+        "candidate": {
+          "median_ops_per_second": 9684456.205678482,
+          "min_ops_per_second": 9321315.051127413,
+          "max_ops_per_second": 9772185.91583705
+        },
+        "baseline_median_gbit_per_second": 0.5231456937402349,
+        "candidate_median_gbit_per_second": 0.542329547517995,
+        "delta_percent": 3.6670193422801534,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "error_control",
+        "frame_bytes": [
+          16
+        ],
+        "iterations_per_round": [
+          4000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          2800200000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3553432.971593857,
+          "min_ops_per_second": 3507701.1578921527,
+          "max_ops_per_second": 3611721.843242243
+        },
+        "candidate": {
+          "median_ops_per_second": 3536549.3534303643,
+          "min_ops_per_second": 3479186.6357482946,
+          "max_ops_per_second": 3566381.504745516
+        },
+        "baseline_median_gbit_per_second": 0.45483942036401365,
+        "candidate_median_gbit_per_second": 0.45267831723908664,
+        "delta_percent": -0.47513540563337564,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "publish_auth_filters",
+        "frame_bytes": [
+          175
+        ],
+        "iterations_per_round": [
+          500000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          371212000
+        ],
+        "baseline": {
+          "median_ops_per_second": 585323.1393455385,
+          "min_ops_per_second": 569783.6873209454,
+          "max_ops_per_second": 588594.6831065086
+        },
+        "candidate": {
+          "median_ops_per_second": 691546.6717933327,
+          "min_ops_per_second": 676135.2649165582,
+          "max_ops_per_second": 695067.1087293478
+        },
+        "baseline_median_gbit_per_second": 0.8194523950837538,
+        "candidate_median_gbit_per_second": 0.9681653405106656,
+        "delta_percent": 18.147844379869362,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "publish_empty",
+        "frame_bytes": [
+          22
+        ],
+        "iterations_per_round": [
+          2000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          826118000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4610738.409756322,
+          "min_ops_per_second": 4429198.160111085,
+          "max_ops_per_second": 4665865.693056026
+        },
+        "candidate": {
+          "median_ops_per_second": 4974703.632031121,
+          "min_ops_per_second": 4806952.776495924,
+          "max_ops_per_second": 5036628.883555658
+        },
+        "baseline_median_gbit_per_second": 0.8114899601171127,
+        "candidate_median_gbit_per_second": 0.8755478392374775,
+        "delta_percent": 7.893859723306984,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "publish_id_filters",
+        "frame_bytes": [
+          69
+        ],
+        "iterations_per_round": [
+          750000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          -5908722710747702000
+        ],
+        "baseline": {
+          "median_ops_per_second": 930538.4095237505,
+          "min_ops_per_second": 909172.4591054227,
+          "max_ops_per_second": 956160.6706893409
+        },
+        "candidate": {
+          "median_ops_per_second": 1199775.4020447372,
+          "min_ops_per_second": 1166937.396142572,
+          "max_ops_per_second": 1208517.632272255
+        },
+        "baseline_median_gbit_per_second": 0.5136572020571103,
+        "candidate_median_gbit_per_second": 0.662276021928695,
+        "delta_percent": 28.933463655603653,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "result_control",
+        "frame_bytes": [
+          4
+        ],
+        "iterations_per_round": [
+          4000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          1176084000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4777197.480983768,
+          "min_ops_per_second": 4702264.375409978,
+          "max_ops_per_second": 4843330.37082959
+        },
+        "candidate": {
+          "median_ops_per_second": 4818185.7603338035,
+          "min_ops_per_second": 4757792.669668834,
+          "max_ops_per_second": 4914711.328286744
+        },
+        "baseline_median_gbit_per_second": 0.15287031939148057,
+        "candidate_median_gbit_per_second": 0.15418194433068172,
+        "delta_percent": 0.857998429271456,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "unsubscribed_control",
+        "frame_bytes": [
+          3
+        ],
+        "iterations_per_round": [
+          4000000
+        ],
+        "warmups": [
+          2000
+        ],
+        "checksums": [
+          1176084000
+        ],
+        "baseline": {
+          "median_ops_per_second": 10323886.117212242,
+          "min_ops_per_second": 9953145.567242207,
+          "max_ops_per_second": 10527036.060362026
+        },
+        "candidate": {
+          "median_ops_per_second": 10078917.927371318,
+          "min_ops_per_second": 9789764.800900659,
+          "max_ops_per_second": 10347735.656744912
+        },
+        "baseline_median_gbit_per_second": 0.24777326681309378,
+        "candidate_median_gbit_per_second": 0.2418940302569116,
+        "delta_percent": -2.3728292530514006,
+        "ranges_overlap": true
+      }
+    ],
+    "memory": {
+      "baseline": {
+        "current_rss_median_bytes": 18743296,
+        "current_rss_range_bytes": [
+          18661376,
+          18743296
+        ],
+        "max_rss_median_bytes": 18759680,
+        "max_rss_range_bytes": [
+          18694144,
+          18874368
+        ]
+      },
+      "candidate": {
+        "current_rss_median_bytes": 18825216,
+        "current_rss_range_bytes": [
+          18776064,
+          18923520
+        ],
+        "max_rss_median_bytes": 18890752,
+        "max_rss_range_bytes": [
+          18825216,
+          19202048
+        ]
+      }
+    },
+    "investigation_history": [
+      "The first full implementation produced a separated MessagePack publish_empty slowdown near 9%; global and per-branch arity-check variants that retained the loss were rejected.",
+      "Moving the empty MessagePack option check ahead of map normalization changed the focused result to a separated improvement and removed that gate failure.",
+      "A later full matrix exposed a separated JSON publish_empty slowdown. The equivalent early-empty-map optimization changed the focused result to a separated improvement.",
+      "Chrome testing then exposed dart2js fractional-number acceptance. The final integral-value guard passed VM and Chrome tests and was included in all later benchmark executables.",
+      "A broad JSON per-branch validator rewrite improved UNSUBSCRIBED but caused separated ERROR and RESULT control regressions; it was rejected.",
+      "The accepted JSON design preserves the global validator and adds only an exact two-field UNSUBSCRIBED fast return. The final exact-source v8 matrix has no separated slowdown."
+    ],
+    "separated_slowdown_count": 0,
+    "invariant_failure_count": 0,
+    "largest_negative_delta_percent": -2.3728292530514006,
+    "largest_positive_delta_percent": 28.933463655603653,
+    "interpretation": "The exact-source final implementation clears the fixed affected-path performance gate on this shared host. Overlapping negative medians are treated as timing variation, not identical speed. Separated positive ranges are observations, not universal speedup claims.",
+    "finding_performance_cleared": true
+  },
+  "correctness": {
+    "fail_first": {
+      "failing_test_groups": 9,
+      "summary": "Before the fix, recognized short frames produced serializer-specific failures and PUBLISH filter parsing silently dropped, truncated, or stringified malformed values."
+    },
+    "post_fix": {
+      "focused_vm": {
+        "tests_passed": 14,
+        "tests_failed": 0
+      },
+      "focused_chrome_dart2js": {
+        "tests_passed": 14,
+        "tests_failed": 0
+      },
+      "serializer_and_conformance": {
+        "tests_passed": 311,
+        "tests_failed": 0
+      },
+      "analysis": "No issues found in packages/connectanum_core.",
+      "coverage": [
+        "All supported WAMP message families at their minimum field count",
+        "Every shorter prefix for every supported WAMP message family",
+        "Valid inclusive WAMP ID boundaries on the VM and representation-safe browser boundaries",
+        "Scalar, mixed, fractional, zero, negative, and native out-of-range numeric filters",
+        "Valid and malformed authid/authrole recipient filters",
+        "Constant redacted FormatException diagnostics",
+        "JSON, MessagePack, and CBOR serializer paths on the VM; the focused suite also passes Chrome/dart2js"
+      ],
+      "web_representation_note": "JavaScript cannot represent 2^53 + 1 distinctly from 2^53, and msgpack_dart's dart2js serializer does not support Uint64 accessors. The Chrome test therefore uses the largest Uint32 value for MessagePack and omits the unrepresentable above-maximum case; native coverage proves the exact inclusive 2^53 boundary and rejects 2^53 + 1."
+    }
+  },
+  "verification": {
+    "bin_test_fast_pre_change": "passed",
+    "focused_vm_security_tests": "14 passed",
+    "focused_chrome_security_tests": "14 passed outside the managed sandbox because the browser runner requires a loopback listener",
+    "serializer_and_conformance_suite": "311 passed",
+    "dart_analyze_connectanum_core": "passed",
+    "benchmark_artifact_validation": "All 108 records contain seven samples; every frame size, iteration count, warmup count, and checksum matches between baseline and candidate.",
+    "git_diff_check": "passed after the final documentation update",
+    "bin_verify": "passed with exit code 0 across native transport/serializer, default and feature-enabled FFI, Dart workspace, package-consumer, router/MCP, live transport, benchmark, and Chrome Dart2Wasm coverage"
+  },
+  "local_companions": "Ollama and GLM review attempts were blocked by managed-sandbox loopback restrictions (Operation not permitted); manual source review and executable tests were used instead.",
+  "remaining": [
+    "Web MessagePack Uint64 encode/decode support remains constrained by msgpack_dart on dart2js and should be reviewed separately as a compatibility boundary.",
+    "Every other incomplete component row in the active audit plan remains in scope.",
+    "Audit-wide performance clearance remains incomplete outside completed finding-specific evidence."
+  ],
+  "published": false,
+  "audit_complete": false
+}

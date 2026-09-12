@@ -1921,8 +1921,67 @@ normalization, consistency outside the reviewed lazy collection paths, and the
 broader protocol review. Every other incomplete component row and all earlier
 uncleared audit-wide performance questions remain open.
 
+### SA-015: Short Messages And PUBLISH Filters Were Permissive
+
+**Confirmed availability and semantic-integrity defects. Locally fixed,
+regression-verified, and affected-path performance-cleared. Not published.**
+
+The frozen `6b579bc0` baseline handled recognized WAMP messages below their
+required arity with serializer-specific indexing and cast failures rather than
+one bounded protocol error. PUBLISH `exclude` and `eligible` filters silently
+dropped scalar and mixed values, truncated fractional numbers, and accepted
+invalid WAMP ID ranges. The authid/authrole filters stringified non-string
+values. Nine fail-first groups reproduced these behaviors without retaining
+attacker payloads in the evidence.
+
+JSON, MessagePack, and CBOR now reject every recognized supported short message
+with the constant `WAMP message contains too few fields` `FormatException`.
+PUBLISH `exclude` and `eligible` require lists of integral IDs in the inclusive
+WAMP range `[1, 2^53]`, including range-checked `BigInt` values. Identity and
+role filters require actual string lists. The final value-integrality check is
+required under dart2js, where fractional JavaScript numbers can satisfy Dart's
+runtime `int` check. Diagnostics disclose option names and required types, but
+never attacker-controlled values. Valid message codes, optional fields,
+serializer encodings, and recipient filters retain their wire behavior.
+
+Fourteen focused VM tests and the same 14 tests in Chrome/dart2js pass. All 311
+serializer and conformance tests pass, and core analysis is clean. The focused
+matrix covers every supported WAMP message family at minimum arity and every
+shorter prefix, both numeric recipient filters, all four auth identity/role
+filters, valid boundaries, malformed values, and constant diagnostics across
+JSON, MessagePack, and CBOR. JavaScript cannot represent `2^53 + 1` distinctly
+from `2^53`, and `msgpack_dart` does not support Uint64 accessors under dart2js;
+native tests therefore prove the exact inclusive upper bound and rejection
+above it, while browser tests use representation-safe values.
+
+Initial candidates exposed separated MessagePack and JSON empty-PUBLISH
+slowdowns and a broad JSON rewrite regressed ERROR and RESULT controls, so none
+was accepted. Early empty-option checks, outlined non-empty filter decoding,
+and one exact-minimum JSON UNSUBSCRIBED fast path retained strict validation and
+recovered the controls. The final exact-source ABBAAB AOT campaign completed
+1,442,700,000 measured deserialize-and-consume operations plus 216,000 warmups
+across 18 serializer/scenario pairs, 108 records, and 756 samples. No scenario
+has a separated slowdown or invariant failure. The largest negative median is
+-2.37% with overlapping ranges; the largest positive median is +28.93% with a
+separated range and is only a host observation. Baseline/candidate median
+maximum RSS is 18,759,680/18,890,752 bytes, about a 0.7% change with overlapping
+ranges. Complete source/executable/raw hashes, GBit/s, rejected-candidate
+history, and browser limitations are in
+[the SA-015 benchmark record](2026-09-12-serializer-message-shape-benchmarks.json).
+
+Residual core work includes field-type and optional numeric validation outside
+PUBLISH recipient filters, option-container shapes, browser MessagePack Uint64
+compatibility, consistency outside the reviewed paths, and the broader protocol
+review. Every other incomplete component row and audit-wide performance question
+remains open.
+
 ## Verification Record
 
+- SA-015 focused verification: 14 VM and 14 Chrome/dart2js security tests, all
+  311 serializer/conformance tests, and core analysis pass. Final full-workspace
+  `bin/verify` exits zero across native transport/serializer, default and
+  feature-enabled FFI, Dart workspace, package-consumer, router/MCP, live
+  transport, benchmark, and Chrome Dart2Wasm coverage.
 - SA-014 final `bin/verify`: passed with 193 native transport/serializer tests,
   140 default and 148 feature-enabled FFI tests, 429 core tests, 118 MCP tests,
   526 router tests with one documented legacy skip, 11 remote-auth integration

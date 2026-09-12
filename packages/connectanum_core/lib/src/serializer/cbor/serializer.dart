@@ -116,6 +116,13 @@ class Serializer extends AbstractSerializer {
       final cborMessageId = decodedMessage[0];
       if (cborMessageId is CborInt) {
         final messageId = cborMessageId.toInt();
+        if (messageId != MessageTypes.codePublish ||
+            decodedMessage.length < 4) {
+          validateWampMessageMinimumFieldCount(
+            messageId,
+            decodedMessage.length,
+          );
+        }
         if (messageId == MessageTypes.codeAbort && decodedMessage.length == 3) {
           return Abort(
             (decodedMessage[2] as CborString).toString(),
@@ -767,19 +774,36 @@ class Serializer extends AbstractSerializer {
     );
   }
 
+  @pragma('vm:prefer-inline')
   PublishOptions? _decodePublishOptions(Map<String, dynamic>? optionsMap) {
     if (optionsMap == null || optionsMap.isEmpty) {
       return null;
     }
+    return _decodeNonEmptyPublishOptions(optionsMap);
+  }
+
+  @pragma('vm:never-inline')
+  PublishOptions _decodeNonEmptyPublishOptions(
+    Map<String, dynamic> optionsMap,
+  ) {
     final custom = _copyWithoutKeys(optionsMap, _publishOptionKeys);
     return PublishOptions(
       acknowledge: optionsMap['acknowledge'] as bool?,
-      exclude: _asIntList(optionsMap['exclude']),
-      excludeAuthId: _asStringList(optionsMap['exclude_authid']),
-      excludeAuthRole: _asStringList(optionsMap['exclude_authrole']),
-      eligible: _asIntList(optionsMap['eligible']),
-      eligibleAuthId: _asStringList(optionsMap['eligible_authid']),
-      eligibleAuthRole: _asStringList(optionsMap['eligible_authrole']),
+      exclude: decodeOptionalWampIdList(optionsMap, 'exclude'),
+      excludeAuthId: decodeOptionalWampStringList(optionsMap, 'exclude_authid'),
+      excludeAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'exclude_authrole',
+      ),
+      eligible: decodeOptionalWampIdList(optionsMap, 'eligible'),
+      eligibleAuthId: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authid',
+      ),
+      eligibleAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authrole',
+      ),
       excludeMe: optionsMap['exclude_me'] as bool?,
       discloseMe: optionsMap['disclose_me'] as bool?,
       retain: optionsMap['retain'] as bool?,
@@ -811,20 +835,6 @@ class Serializer extends AbstractSerializer {
     final custom = Map<String, dynamic>.from(map);
     custom.removeWhere((key, _) => keys.contains(key));
     return custom;
-  }
-
-  List<int>? _asIntList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.whereType<num>().map((entry) => entry.toInt()).toList();
-  }
-
-  List<String>? _asStringList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.map((entry) => entry.toString()).toList();
   }
 
   Details _decodeWelcomeDetailMap(Map<String, dynamic> detailsMap) {

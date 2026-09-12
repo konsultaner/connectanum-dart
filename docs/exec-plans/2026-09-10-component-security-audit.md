@@ -15,7 +15,7 @@ narrow fix does not complete this plan.
 
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
-| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening, SA-013 declared-collection allocation hardening, and SA-014 lazy argument/keyword shape, key and diagnostic integrity are locally regression/performance-verified; optional numeric strictness, short-array normalization, consistency outside the reviewed lazy collection paths, and broader protocol review remain pending |
+| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening, SA-013 declared-collection allocation hardening, SA-014 lazy argument/keyword shape, key and diagnostic integrity, and SA-015 short-array normalization plus PUBLISH recipient-filter strictness are locally regression/performance-verified; field-type and optional numeric strictness outside the reviewed PUBLISH filters, MessagePack browser Uint64 compatibility, consistency outside the reviewed paths, and broader protocol review remain pending |
 | Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation, SA-009 response completion, SA-010 HTTP/1 request framing and SA-011 paused-producer delivery are locally regression-verified; broader framing/lifetime review, finite ID availability and earlier performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
@@ -695,6 +695,39 @@ scope, including code excluded from the root workspace gates.
   strictness, malformed short-array normalization, consistency outside the
   reviewed lazy collection paths, and every remaining component row.
 
+## SA-015 Serializer Message Shapes And PUBLISH Filters (2026-09-12)
+
+- The frozen `6b579bc0` baseline produced serializer-specific indexing and cast
+  failures for recognized WAMP messages below their required arity. PUBLISH
+  recipient filters also silently dropped scalar or mixed values, truncated
+  fractional IDs, accepted invalid ranges, and stringified non-string auth
+  identities.
+- JSON, MessagePack, and CBOR now reject every recognized supported short WAMP
+  message with one payload-free `FormatException`. PUBLISH `exclude` and
+  `eligible` accept only lists of integral WAMP IDs in inclusive `[1, 2^53]`,
+  while authid/authrole filters accept only lists of strings. The final
+  integrality guard also closes dart2js numeric type erasure for fractions.
+- Fourteen focused VM tests, the same 14 tests in Chrome/dart2js, all 311
+  serializer/conformance tests, core analysis, `git diff --check`, and final
+  full-workspace `bin/verify` pass. The full verification exits zero across
+  native transport/serializer, default and feature-enabled FFI, Dart workspace,
+  package-consumer, router/MCP, live transport, benchmark, and Chrome
+  Dart2Wasm coverage.
+  JavaScript cannot represent `2^53 + 1` distinctly and `msgpack_dart` cannot
+  encode Uint64 values under dart2js, so native tests prove that exact boundary
+  while browser tests use representation-safe values.
+- Several candidates with separated valid-path regressions were rejected. The
+  accepted exact-source ABBAAB AOT campaign completes 1,442,700,000 measured
+  deserialize-and-consume operations and 216,000 warmups across 18
+  serializer/scenario pairs. There are no separated slowdowns or invariant
+  failures; the largest negative median is -2.37% with overlapping ranges and
+  median maximum RSS changes by about 0.7%. Evidence is
+  `docs/security/2026-09-12-serializer-message-shape-benchmarks.json`.
+- Keep this checkpoint local and unpublished. Continue message field-type and
+  optional numeric validation outside PUBLISH recipient filters, browser
+  MessagePack compatibility, broader protocol review, and every remaining
+  component row.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.
@@ -703,13 +736,14 @@ that this audit's other surfaces have been reviewed.
 
 ## Next Implementation Slice
 
-SA-014 closes the confirmed lazy positional/keyword shape, key, and diagnostic
-integrity defects without changing wire behavior and with final AOT performance
-evidence. Continue the remaining component matrix rather than repeating
-SA-012/013/014 serializer benchmarks. The next bounded core review should
-inspect optional numeric strictness and malformed short-array normalization
-across JSON, MessagePack, and CBOR, with fail-first protocol tests before any
-behavior change.
+SA-015 closes recognized short-array normalization and PUBLISH recipient-filter
+type/range integrity without changing valid wire behavior and with final AOT
+performance evidence. Continue the remaining component matrix rather than
+repeating SA-012/013/014/015 serializer benchmarks. The next bounded core review
+should inspect message field types, option-container shapes, and optional
+numeric fields outside PUBLISH recipient filters across JSON, MessagePack, and
+CBOR, with fail-first protocol tests before any behavior change. Browser
+MessagePack Uint64 handling remains a separate compatibility boundary.
 
 SA-003 authentication-only hardening is locally verified, not published. Six
 fail-first direct-service lifecycle regressions were reproduced on `1bc60ef1`.

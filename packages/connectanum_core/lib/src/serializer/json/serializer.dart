@@ -327,6 +327,12 @@ class Serializer extends AbstractSerializer {
         throw const FormatException('WAMP message type must be an integer');
       }
       final messageId = rawMessageId;
+      if (messageId == MessageTypes.codeUnsubscribed && message.length == 2) {
+        return Unsubscribed(message[1], null);
+      }
+      if (messageId != MessageTypes.codePublish || message.length < 4) {
+        validateWampMessageMinimumFieldCount(messageId, message.length);
+      }
       if (messageId == MessageTypes.codeHello) {
         validateWampMessageFieldCount(message.length);
         return Hello(
@@ -419,13 +425,7 @@ class Serializer extends AbstractSerializer {
           Publish(
             message[1],
             message[3],
-            options: _decodePublishOptions(
-              message[2] is Map
-                  ? _normalizeJsonStringKeyMap(
-                      message[2] as Map<dynamic, dynamic>,
-                    )
-                  : null,
-            ),
+            options: _decodePublishOptions(message[2]),
           ),
           message,
           4,
@@ -555,12 +555,10 @@ class Serializer extends AbstractSerializer {
         validateWampMessageFieldCount(message.length);
         return Unsubscribed(
           message[1],
-          message.length == 2
-              ? null
-              : UnsubscribedDetails(
-                  message[2]['subscription'],
-                  message[2]['reason'],
-                ),
+          UnsubscribedDetails(
+            message[2]['subscription'],
+            message[2]['reason'],
+          ),
         );
       }
       if (messageId == MessageTypes.codeEvent) {
@@ -700,19 +698,38 @@ class Serializer extends AbstractSerializer {
     );
   }
 
-  PublishOptions? _decodePublishOptions(Map<String, dynamic>? optionsMap) {
-    if (optionsMap == null || optionsMap.isEmpty) {
+  @pragma('vm:prefer-inline')
+  PublishOptions? _decodePublishOptions(Object? rawOptions) {
+    if (rawOptions is! Map || rawOptions.isEmpty) {
       return null;
     }
+    return _decodeNonEmptyPublishOptions(
+      _normalizeJsonStringKeyMap(rawOptions),
+    );
+  }
+
+  @pragma('vm:never-inline')
+  PublishOptions _decodeNonEmptyPublishOptions(
+    Map<String, dynamic> optionsMap,
+  ) {
     final custom = _copyWithoutKeys(optionsMap, _publishOptionKeys);
     return PublishOptions(
       acknowledge: optionsMap['acknowledge'] as bool?,
-      exclude: _asIntList(optionsMap['exclude']),
-      excludeAuthId: _asStringList(optionsMap['exclude_authid']),
-      excludeAuthRole: _asStringList(optionsMap['exclude_authrole']),
-      eligible: _asIntList(optionsMap['eligible']),
-      eligibleAuthId: _asStringList(optionsMap['eligible_authid']),
-      eligibleAuthRole: _asStringList(optionsMap['eligible_authrole']),
+      exclude: decodeOptionalWampIdList(optionsMap, 'exclude'),
+      excludeAuthId: decodeOptionalWampStringList(optionsMap, 'exclude_authid'),
+      excludeAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'exclude_authrole',
+      ),
+      eligible: decodeOptionalWampIdList(optionsMap, 'eligible'),
+      eligibleAuthId: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authid',
+      ),
+      eligibleAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authrole',
+      ),
       excludeMe: optionsMap['exclude_me'] as bool?,
       discloseMe: optionsMap['disclose_me'] as bool?,
       retain: optionsMap['retain'] as bool?,
@@ -744,20 +761,6 @@ class Serializer extends AbstractSerializer {
     final custom = Map<String, dynamic>.from(map);
     custom.removeWhere((key, _) => keys.contains(key));
     return custom;
-  }
-
-  List<int>? _asIntList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.whereType<num>().map((entry) => entry.toInt()).toList();
-  }
-
-  List<String>? _asStringList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.map((entry) => entry.toString()).toList();
   }
 
   AbstractMessageWithPayload _addPayload(

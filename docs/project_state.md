@@ -489,6 +489,31 @@ Keep the checkpoint local and unpublished; next inspect optional numeric
 strictness and malformed short-array normalization while the full component
 audit remains active.
 
+SA-015 confirms cross-serializer message-shape and PUBLISH recipient-filter
+integrity defects. The frozen `6b579bc0` baseline produced serializer-specific
+indexing/cast failures for recognized short WAMP arrays, silently dropped or
+truncated malformed numeric recipient filters, accepted invalid WAMP ID ranges,
+and stringified non-string identity/role filters. JSON, MessagePack, and CBOR now
+normalize every recognized supported short message to one payload-free
+`FormatException`; numeric recipient filters require integral IDs in inclusive
+`[1, 2^53]`, and identity/role filters require actual strings. The dart2js path
+also checks numeric integrality explicitly.
+
+Fourteen focused VM tests, the same 14 Chrome/dart2js tests, all 311
+serializer/conformance tests, and core analysis pass. The exact-source ABBAAB
+AOT campaign completes 1,442,700,000 measured deserialize-and-consume operations
+plus 216,000 warmups across 18 serializer/scenario pairs with no separated
+slowdown or invariant failure. The largest negative median is -2.37% with
+overlapping ranges; median maximum RSS changes by about 0.7%. Evidence is
+`docs/security/2026-09-12-serializer-message-shape-benchmarks.json`. Final
+full-workspace `bin/verify` exits zero across native transport/serializer,
+default and feature-enabled FFI, Dart workspace, package-consumer, router/MCP,
+live transport, benchmark, and Chrome Dart2Wasm coverage. Keep this checkpoint
+local and unpublished. Field-type and optional numeric validation outside
+PUBLISH recipient filters, option-container shapes, browser MessagePack Uint64
+compatibility, the broader protocol review, and every other component row
+remain open.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

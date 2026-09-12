@@ -131,8 +131,16 @@ class Serializer extends AbstractSerializer {
     }
     Object? message = msgpack_dart.deserialize(msgPack);
     if (message is List) {
-      int messageId = message[0];
+      if (message.isEmpty) {
+        throw const FormatException('WAMP message type must be an integer');
+      }
+      final rawMessageId = message[0];
+      if (rawMessageId is! int) {
+        throw const FormatException('WAMP message type must be an integer');
+      }
+      final messageId = rawMessageId;
       if (messageId == MessageTypes.codeHello) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Hello(
           message[1] as String?,
           _decodeDetailsMap(
@@ -141,6 +149,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeChallenge) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Challenge(
           message[1],
           _decodeChallengeExtraMap(
@@ -149,6 +158,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeAuthenticate) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Authenticate(signature: message[1] as String?)
           ..extra = message[2] is Map
               ? Map<String, Object?>.from(
@@ -161,6 +171,7 @@ class Serializer extends AbstractSerializer {
               : <String, Object?>{};
       }
       if (messageId == MessageTypes.codeWelcome) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Welcome(
           message[1],
           _decodeWelcomeDetailsMap(
@@ -169,6 +180,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeRegister) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         return Register(
           message[1],
           message[3],
@@ -184,9 +196,11 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeUnregister) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Unregister(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeCall) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         return _addPayload(
           Call(
             message[1],
@@ -206,6 +220,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeYield) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return _addPayload(
           Yield(
             message[1],
@@ -224,31 +239,27 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codePublish) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         return _addPayload(
           Publish(
             message[1],
             message[3],
-            options: _decodePublishOptions(
-              message[2] is Map
-                  ? _normalizeDynamicMap(
-                      Map<dynamic, dynamic>.from(
-                        message[2] as Map<dynamic, dynamic>,
-                      ),
-                    )
-                  : null,
-            ),
+            options: _decodePublishOptions(message[2]),
           ),
           message,
           4,
         );
       }
       if (messageId == MessageTypes.codeRegistered) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Registered(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnregistered) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 2);
         return Unregistered(message[1]);
       }
       if (messageId == MessageTypes.codeInvocation) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         final detailsMap = message[3] as Map<dynamic, dynamic>;
         final caller = detailsMap['caller'];
         final procedure = detailsMap['procedure'];
@@ -280,6 +291,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeInterrupt) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         final optionsMap = message.length > 2 && message[2] is Map
             ? Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>)
             : null;
@@ -295,6 +307,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeCancel) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         final optionsMap = message.length > 2 && message[2] is Map
             ? Map<dynamic, dynamic>.from(message[2] as Map<dynamic, dynamic>)
             : null;
@@ -310,6 +323,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeResult) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         final detailsMap = message[2] as Map<dynamic, dynamic>;
         final progress = detailsMap['progress'];
         final pptScheme = detailsMap['ppt_scheme'];
@@ -333,9 +347,11 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codePublished) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Published(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeSubscribe) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         return Subscribe(
           message[1],
           message[3],
@@ -351,12 +367,15 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeSubscribed) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Subscribed(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnsubscribe) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Unsubscribe(message[1], message[2]);
       }
       if (messageId == MessageTypes.codeUnsubscribed) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 2);
         return Unsubscribed(
           message[1],
           message.length == 2
@@ -369,6 +388,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeEvent) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 4);
         final detailsMap = message[3] as Map<dynamic, dynamic>;
         final publisher = detailsMap['publisher'];
         final trustlevel = detailsMap['trustlevel'];
@@ -397,6 +417,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeError) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 5);
         return _addPayload(
           Error(
             message[1],
@@ -409,6 +430,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeAbort) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Abort(
           message[2],
           message: _decodeAbortMessageMap(
@@ -421,6 +443,7 @@ class Serializer extends AbstractSerializer {
         );
       }
       if (messageId == MessageTypes.codeGoodbye) {
+        validateKnownWampMessageMinimumFieldCount(message.length, 3);
         return Goodbye(
           _decodeGoodbyeMessageMap(
             message[1] is Map
@@ -744,19 +767,38 @@ class Serializer extends AbstractSerializer {
     );
   }
 
-  PublishOptions? _decodePublishOptions(Map<String, dynamic>? optionsMap) {
-    if (optionsMap == null || optionsMap.isEmpty) {
+  @pragma('vm:prefer-inline')
+  PublishOptions? _decodePublishOptions(Object? rawOptions) {
+    if (rawOptions is! Map || rawOptions.isEmpty) {
       return null;
     }
+    return _decodeNonEmptyPublishOptions(
+      _normalizeDynamicMap(Map<dynamic, dynamic>.from(rawOptions)),
+    );
+  }
+
+  @pragma('vm:never-inline')
+  PublishOptions _decodeNonEmptyPublishOptions(
+    Map<String, dynamic> optionsMap,
+  ) {
     final custom = _copyWithoutKeys(optionsMap, _publishOptionKeys);
     return PublishOptions(
       acknowledge: optionsMap['acknowledge'] as bool?,
-      exclude: _asIntList(optionsMap['exclude']),
-      excludeAuthId: _asStringList(optionsMap['exclude_authid']),
-      excludeAuthRole: _asStringList(optionsMap['exclude_authrole']),
-      eligible: _asIntList(optionsMap['eligible']),
-      eligibleAuthId: _asStringList(optionsMap['eligible_authid']),
-      eligibleAuthRole: _asStringList(optionsMap['eligible_authrole']),
+      exclude: decodeOptionalWampIdList(optionsMap, 'exclude'),
+      excludeAuthId: decodeOptionalWampStringList(optionsMap, 'exclude_authid'),
+      excludeAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'exclude_authrole',
+      ),
+      eligible: decodeOptionalWampIdList(optionsMap, 'eligible'),
+      eligibleAuthId: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authid',
+      ),
+      eligibleAuthRole: decodeOptionalWampStringList(
+        optionsMap,
+        'eligible_authrole',
+      ),
       excludeMe: optionsMap['exclude_me'] as bool?,
       discloseMe: optionsMap['disclose_me'] as bool?,
       retain: optionsMap['retain'] as bool?,
@@ -788,20 +830,6 @@ class Serializer extends AbstractSerializer {
     final custom = Map<String, dynamic>.from(map);
     custom.removeWhere((key, _) => keys.contains(key));
     return custom;
-  }
-
-  List<int>? _asIntList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.whereType<num>().map((entry) => entry.toInt()).toList();
-  }
-
-  List<String>? _asStringList(Object? value) {
-    if (value is! List) {
-      return null;
-    }
-    return value.map((entry) => entry.toString()).toList();
   }
 
   void _setLazyMsgPackPayload(
