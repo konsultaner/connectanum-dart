@@ -267,8 +267,17 @@ class Serializer extends AbstractSerializer {
         if (messageId == MessageTypes.codeInvocation &&
             decodedMessage.length > 3) {
           final detailsMap = _cborMapToStringMap(decodedMessage[3] as CborMap);
-          final callerValue = detailsMap.remove('caller');
-          final int? caller = callerValue is num ? callerValue.toInt() : null;
+          final caller = decodeOptionalWampId(
+            detailsMap,
+            'caller',
+            'INVOCATION.Details.caller',
+          );
+          detailsMap.remove('caller');
+          decodeOptionalWampNonNegativeInteger(
+            detailsMap,
+            'trustlevel',
+            'INVOCATION.Details.trustlevel',
+          );
           final procedureValue = detailsMap.remove('procedure');
           final String? procedure = procedureValue as String?;
           final progressValue = detailsMap.remove('progress');
@@ -277,10 +286,12 @@ class Serializer extends AbstractSerializer {
           final bool? receiveProgress = receiveProgressValue is bool
               ? receiveProgressValue
               : null;
-          final timeoutValue = detailsMap.remove('timeout');
-          final int? timeout = timeoutValue is num
-              ? timeoutValue.toInt()
-              : null;
+          final timeout = decodeOptionalWampNonNegativeInteger(
+            detailsMap,
+            'timeout',
+            'INVOCATION.Details.timeout',
+          );
+          detailsMap.remove('timeout');
           final pptSchemeValue = detailsMap.remove('ppt_scheme');
           final String? pptScheme = pptSchemeValue as String?;
           final pptSerializerValue = detailsMap.remove('ppt_serializer');
@@ -396,14 +407,18 @@ class Serializer extends AbstractSerializer {
         }
         if (messageId == MessageTypes.codeEvent && decodedMessage.length > 3) {
           final detailsMap = _cborMapToStringMap(decodedMessage[3] as CborMap);
-          final publisherValue = detailsMap.remove('publisher');
-          final int? publisher = publisherValue is num
-              ? publisherValue.toInt()
-              : null;
-          final trustLevelValue = detailsMap.remove('trustlevel');
-          final int? trustLevel = trustLevelValue is num
-              ? trustLevelValue.toInt()
-              : null;
+          final publisher = decodeOptionalWampId(
+            detailsMap,
+            'publisher',
+            'EVENT.Details.publisher',
+          );
+          detailsMap.remove('publisher');
+          final trustLevel = decodeOptionalWampNonNegativeInteger(
+            detailsMap,
+            'trustlevel',
+            'EVENT.Details.trustlevel',
+          );
+          detailsMap.remove('trustlevel');
           final topicValue = detailsMap.remove('topic');
           final String? topic = topicValue as String?;
           final pptSchemeValue = detailsMap.remove('ppt_scheme');
@@ -572,11 +587,20 @@ class Serializer extends AbstractSerializer {
         return null;
       }
       final detailsMap = _decodeCborDetailMap(_sliceRange(message, ranges[3]));
+      decodeOptionalWampNonNegativeInteger(
+        detailsMap,
+        'trustlevel',
+        'INVOCATION.Details.trustlevel',
+      );
       final invocation = Invocation(
         _decodeCborIntFragment(_sliceRange(message, ranges[1])),
         _decodeCborIntFragment(_sliceRange(message, ranges[2])),
         InvocationDetails(
-            _coerceNumToInt(detailsMap['caller']),
+            decodeOptionalWampId(
+              detailsMap,
+              'caller',
+              'INVOCATION.Details.caller',
+            ),
             detailsMap['procedure'] as String?,
             detailsMap['receive_progress'] as bool?,
             detailsMap['ppt_scheme'] as String?,
@@ -586,7 +610,11 @@ class Serializer extends AbstractSerializer {
             _extractCustomCborDetails(detailsMap, _invocationDetailKeys),
           )
           ..progress = detailsMap['progress'] as bool?
-          ..timeout = _coerceNumToInt(detailsMap['timeout']),
+          ..timeout = decodeOptionalWampNonNegativeInteger(
+            detailsMap,
+            'timeout',
+            'INVOCATION.Details.timeout',
+          ),
       );
       _setLazyCborPayload(invocation, message, ranges, 4);
       return invocation;
@@ -619,8 +647,16 @@ class Serializer extends AbstractSerializer {
         _decodeCborIntFragment(_sliceRange(message, ranges[1])),
         _decodeCborIntFragment(_sliceRange(message, ranges[2])),
         EventDetails(
-          publisher: _coerceNumToInt(detailsMap['publisher']),
-          trustlevel: _coerceNumToInt(detailsMap['trustlevel']),
+          publisher: decodeOptionalWampId(
+            detailsMap,
+            'publisher',
+            'EVENT.Details.publisher',
+          ),
+          trustlevel: decodeOptionalWampNonNegativeInteger(
+            detailsMap,
+            'trustlevel',
+            'EVENT.Details.trustlevel',
+          ),
           topic: detailsMap['topic'] as String?,
           pptScheme: detailsMap['ppt_scheme'] as String?,
           pptSerializer: detailsMap['ppt_serializer'] as String?,
@@ -728,7 +764,11 @@ class Serializer extends AbstractSerializer {
     return CallOptions(
       progress: optionsMap['progress'] as bool?,
       receiveProgress: optionsMap['receive_progress'] as bool?,
-      timeout: _coerceNumToInt(optionsMap['timeout']),
+      timeout: decodeOptionalWampNonNegativeInteger(
+        optionsMap,
+        'timeout',
+        'CALL.Options.timeout',
+      ),
       discloseMe: optionsMap['disclose_me'] as bool?,
       pptScheme: optionsMap['ppt_scheme'] as String?,
       pptSerializer: optionsMap['ppt_serializer'] as String?,

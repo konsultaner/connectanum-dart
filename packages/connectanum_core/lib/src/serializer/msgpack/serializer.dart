@@ -44,28 +44,8 @@ class Serializer extends AbstractSerializer {
   static final Uint8List _pptArgsKeyBytes = msgpack_dart.serialize('args');
   static final Uint8List _pptKwargsKeyBytes = msgpack_dart.serialize('kwargs');
   static final Uint8List _nilBytes = msgpack_dart.serialize(null);
-  static const Set<String> _invocationDetailKeys = {
-    'caller',
-    'procedure',
-    'progress',
-    'receive_progress',
-    'timeout',
-    'ppt_scheme',
-    'ppt_serializer',
-    'ppt_cipher',
-    'ppt_keyid',
-  };
   static const Set<String> _resultDetailKeys = {
     'progress',
-    'ppt_scheme',
-    'ppt_serializer',
-    'ppt_cipher',
-    'ppt_keyid',
-  };
-  static const Set<String> _eventDetailKeys = {
-    'publisher',
-    'trustlevel',
-    'topic',
     'ppt_scheme',
     'ppt_serializer',
     'ppt_cipher',
@@ -245,30 +225,11 @@ class Serializer extends AbstractSerializer {
       if (messageId == MessageTypes.codeInvocation) {
         validateKnownWampMessageMinimumFieldCount(message.length, 4);
         final detailsMap = message[3] as Map<dynamic, dynamic>;
-        final caller = detailsMap['caller'];
-        final procedure = detailsMap['procedure'];
-        final progress = detailsMap['progress'];
-        final receiveProgress = detailsMap['receive_progress'];
-        final pptScheme = detailsMap['ppt_scheme'];
-        final pptSerializer = detailsMap['ppt_serializer'];
-        final pptCipher = detailsMap['ppt_cipher'];
-        final pptKeyId = detailsMap['ppt_keyid'];
         return _addPayload(
           Invocation(
             message[1],
             message[2],
-            InvocationDetails(
-                caller,
-                procedure,
-                receiveProgress,
-                pptScheme,
-                pptSerializer,
-                pptCipher,
-                pptKeyId,
-                _extractCustomDetails(detailsMap, _invocationDetailKeys),
-              )
-              ..progress = progress
-              ..timeout = _coerceInt(detailsMap['timeout']),
+            _decodeInvocationDetails(detailsMap),
           ),
           message,
           4,
@@ -363,27 +324,11 @@ class Serializer extends AbstractSerializer {
       if (messageId == MessageTypes.codeEvent) {
         validateKnownWampMessageMinimumFieldCount(message.length, 4);
         final detailsMap = message[3] as Map<dynamic, dynamic>;
-        final publisher = detailsMap['publisher'];
-        final trustlevel = detailsMap['trustlevel'];
-        final topic = detailsMap['topic'];
-        final pptScheme = detailsMap['ppt_scheme'];
-        final pptSerializer = detailsMap['ppt_serializer'];
-        final pptCipher = detailsMap['ppt_cipher'];
-        final pptKeyId = detailsMap['ppt_keyid'];
         return _addPayload(
           Event(
             message[1],
             message[2],
-            EventDetails(
-              publisher: publisher,
-              trustlevel: trustlevel,
-              topic: topic,
-              pptScheme: pptScheme,
-              pptSerializer: pptSerializer,
-              pptCipher: pptCipher,
-              pptKeyid: pptKeyId,
-              custom: _extractCustomDetails(detailsMap, _eventDetailKeys),
-            ),
+            _decodeEventDetails(detailsMap),
           ),
           message,
           4,
@@ -521,18 +466,7 @@ class Serializer extends AbstractSerializer {
       final invocation = Invocation(
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[1])),
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[2])),
-        InvocationDetails(
-            _coerceInt(detailsMap['caller']),
-            detailsMap['procedure'] as String?,
-            detailsMap['receive_progress'] as bool?,
-            detailsMap['ppt_scheme'] as String?,
-            detailsMap['ppt_serializer'] as String?,
-            detailsMap['ppt_cipher'] as String?,
-            detailsMap['ppt_keyid'] as String?,
-            _extractCustomDetails(detailsMap, _invocationDetailKeys),
-          )
-          ..progress = detailsMap['progress'] as bool?
-          ..timeout = _coerceInt(detailsMap['timeout']),
+        _decodeInvocationDetails(detailsMap),
       );
       _setLazyMsgPackPayload(invocation, msgPack, ranges, 4);
       return invocation;
@@ -564,16 +498,7 @@ class Serializer extends AbstractSerializer {
       final event = Event(
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[1])),
         _decodeMsgPackInt(_sliceRange(msgPack, ranges[2])),
-        EventDetails(
-          publisher: _coerceInt(detailsMap['publisher']),
-          trustlevel: _coerceInt(detailsMap['trustlevel']),
-          topic: detailsMap['topic'] as String?,
-          pptScheme: detailsMap['ppt_scheme'] as String?,
-          pptSerializer: detailsMap['ppt_serializer'] as String?,
-          pptCipher: detailsMap['ppt_cipher'] as String?,
-          pptKeyid: detailsMap['ppt_keyid'] as String?,
-          custom: _extractCustomDetails(detailsMap, _eventDetailKeys),
-        ),
+        _decodeEventDetails(detailsMap),
       );
       _setLazyMsgPackPayload(event, msgPack, ranges, 4);
       return event;
@@ -751,7 +676,11 @@ class Serializer extends AbstractSerializer {
     return CallOptions(
       progress: optionsMap['progress'] as bool?,
       receiveProgress: optionsMap['receive_progress'] as bool?,
-      timeout: _coerceInt(optionsMap['timeout']),
+      timeout: decodeOptionalWampNonNegativeInteger(
+        optionsMap,
+        'timeout',
+        'CALL.Options.timeout',
+      ),
       discloseMe: optionsMap['disclose_me'] as bool?,
       pptScheme: optionsMap['ppt_scheme'] as String?,
       pptSerializer: optionsMap['ppt_serializer'] as String?,
@@ -1807,6 +1736,136 @@ class Serializer extends AbstractSerializer {
       );
     }
     return value;
+  }
+
+  EventDetails _decodeEventDetails(Map<dynamic, dynamic> source) {
+    int? publisher;
+    int? trustlevel;
+    String? topic;
+    String? pptScheme;
+    String? pptSerializer;
+    String? pptCipher;
+    String? pptKeyId;
+    Map<String, dynamic>? custom;
+
+    source.forEach((key, value) {
+      final keyString = key is String ? key : key.toString();
+      switch (keyString) {
+        case 'publisher':
+          publisher = decodeWampIdValue(value, 'EVENT.Details.publisher');
+          break;
+        case 'trustlevel':
+          trustlevel = decodeWampNonNegativeIntegerValue(
+            value,
+            'EVENT.Details.trustlevel',
+          );
+          break;
+        case 'topic':
+          topic = value as String?;
+          break;
+        case 'ppt_scheme':
+          pptScheme = value as String?;
+          break;
+        case 'ppt_serializer':
+          pptSerializer = value as String?;
+          break;
+        case 'ppt_cipher':
+          pptCipher = value as String?;
+          break;
+        case 'ppt_keyid':
+          pptKeyId = value as String?;
+          break;
+        default:
+          custom ??= <String, dynamic>{};
+          custom![keyString] = value;
+      }
+    });
+
+    return EventDetails(
+      publisher: publisher,
+      trustlevel: trustlevel,
+      topic: topic,
+      pptScheme: pptScheme,
+      pptSerializer: pptSerializer,
+      pptCipher: pptCipher,
+      pptKeyid: pptKeyId,
+      custom: custom ?? <String, dynamic>{},
+    );
+  }
+
+  InvocationDetails _decodeInvocationDetails(
+    Map<dynamic, dynamic> source,
+  ) {
+    int? caller;
+    String? procedure;
+    bool? progress;
+    bool? receiveProgress;
+    int? timeout;
+    String? pptScheme;
+    String? pptSerializer;
+    String? pptCipher;
+    String? pptKeyId;
+    Map<String, dynamic>? custom;
+
+    source.forEach((key, value) {
+      final keyString = key is String ? key : key.toString();
+      switch (keyString) {
+        case 'caller':
+          caller = decodeWampIdValue(value, 'INVOCATION.Details.caller');
+          break;
+        case 'procedure':
+          procedure = value as String?;
+          break;
+        case 'progress':
+          progress = value as bool?;
+          break;
+        case 'receive_progress':
+          receiveProgress = value as bool?;
+          break;
+        case 'timeout':
+          timeout = decodeWampNonNegativeIntegerValue(
+            value,
+            'INVOCATION.Details.timeout',
+          );
+          break;
+        case 'ppt_scheme':
+          pptScheme = value as String?;
+          break;
+        case 'ppt_serializer':
+          pptSerializer = value as String?;
+          break;
+        case 'ppt_cipher':
+          pptCipher = value as String?;
+          break;
+        case 'ppt_keyid':
+          pptKeyId = value as String?;
+          break;
+        case 'trustlevel':
+          decodeWampNonNegativeIntegerValue(
+            value,
+            'INVOCATION.Details.trustlevel',
+          );
+          custom ??= <String, dynamic>{};
+          custom![keyString] = value;
+          break;
+        default:
+          custom ??= <String, dynamic>{};
+          custom![keyString] = value;
+      }
+    });
+
+    return InvocationDetails(
+        caller,
+        procedure,
+        receiveProgress,
+        pptScheme,
+        pptSerializer,
+        pptCipher,
+        pptKeyId,
+        custom ?? <String, dynamic>{},
+      )
+      ..progress = progress
+      ..timeout = timeout;
   }
 
   Map<String, dynamic> _extractCustomDetails(

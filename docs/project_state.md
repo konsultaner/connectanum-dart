@@ -539,6 +539,30 @@ field-type and optional numeric strictness, browser MessagePack Uint64
 compatibility, broader protocol review, and every other component row remain
 open.
 
+SA-017 confirms cross-serializer standardized optional numeric integrity
+defects. The frozen `34592c0a` baseline accepted or silently discarded malformed
+caller, publisher, timeout, and trustlevel values, while CBOR could truncate
+numbers and lose the maximum valid `2^53` WAMP ID. JSON, MessagePack, and CBOR
+now distinguish absence from explicit null, enforce WAMP-ID or non-negative
+integer semantics, preserve valid CBOR `BigInt` boundaries, and emit stable
+payload-free field-scoped `FormatException`s. JSON and MessagePack decode EVENT
+and INVOCATION typed/custom details in one pass; Invocation trustlevel remains
+in `details.custom` for public API compatibility.
+
+Thirty-six focused VM tests, the same 36 Chrome/dart2js tests, all 282
+serializer tests, and core analysis pass. The exact-source ABBAAB AOT campaign
+completes 283,500,000 measured deserializations plus 810,000 warmups across 27
+serializer/scenario pairs with no correctness-invariant or performance-gate
+failures. The worst median is -2.27% with overlapping ranges, median scenario
+delta is +4.14%, and the best improves 24.08%. Evidence is
+`docs/security/2026-09-12-serializer-optional-numeric-benchmarks.json`. Final
+repository-wide `bin/verify` exits zero across native transport and serializers,
+default and feature-enabled FFI, Dart packages, package-consumer smokes,
+router/MCP integration, live transport and benchmark suites, and Chrome
+Dart2Wasm coverage. Keep this checkpoint local and unpublished. Browser
+MessagePack Uint64 compatibility, broader field-type/protocol review, and every
+other component row remain open.
+
 Previous milestone: the WAMP Meta discovery authorization fix is implemented
 and merged into both master remotes, together with the post-merge coverage
 bootstrap repair. Final master CI and strict deployment audits pass. Its completed plan is

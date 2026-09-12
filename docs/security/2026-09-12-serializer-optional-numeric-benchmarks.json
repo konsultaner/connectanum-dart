@@ -1,0 +1,965 @@
+{
+  "title": "Serializer optional numeric field integrity",
+  "date": "2026-09-12",
+  "finding": "SA-017",
+  "specification": {
+    "reference": "https://wamp-proto.org/wamp_latest_ietf.html",
+    "requirements": [
+      "WAMP IDs are integers in the inclusive range 1 through 2^53.",
+      "CALL.Options.timeout and INVOCATION.Details.timeout are non-negative integers, where zero disables the timeout.",
+      "INVOCATION.Details.caller and EVENT.Details.publisher are session IDs.",
+      "INVOCATION.Details.trustlevel and EVENT.Details.trustlevel are non-negative integers."
+    ]
+  },
+  "threat_model": [
+    "A peer can send null, boolean, fractional, negative, string, list, or dictionary values in standardized optional numeric fields.",
+    "Permissive decoders previously dropped malformed binary values, exposed malformed JSON values, or truncated CBOR numbers.",
+    "Malformed values and attacker-controlled text must not be reflected in diagnostics."
+  ],
+  "fix": {
+    "scalar_validation": "JSON, MessagePack, and CBOR now distinguish absent fields from explicit null and enforce WAMP-ID or non-negative-integer semantics.",
+    "cbor_boundary": "CBOR accepts a decoded BigInt only for a WAMP ID within 1 through 2^53, preserving the maximum valid ID without truncation.",
+    "detail_decoding": "JSON and MessagePack decode EVENT and INVOCATION details in one pass, combining typed extraction, numeric validation, and custom-field preservation.",
+    "compatibility": "INVOCATION trustlevel remains available through details.custom; valid optional fields, absent fields, UTF-8 JSON normalization, and lazy payload behavior are unchanged.",
+    "diagnostics": "Invalid values produce stable payload-free FormatException messages scoped to the standardized field path."
+  },
+  "baseline_source": {
+    "commit": "34592c0a59082adce24e8de530a0ba15ec9fe954",
+    "candidate": "same commit plus the source hashes recorded below"
+  },
+  "inputs": {
+    "benchmark_driver_sha256": "90de6b8c3fb0e26547b02df515bbb79653811f681e6c1a97065e723af75fcf39",
+    "analyzer_sha256": "966505a42bf8ce8a449d64ed71b962f5a1a7cbc17eba797ba4527af0cdce7349",
+    "baseline_executable_sha256": "3a05324894272bc331691864baf0940fa551987b8b5ade82793ff85911ffe6bd",
+    "candidate_executable_sha256": "234b47dd6a126b2c0587a136db9439421e86b68b6950a3dfa927a1dabbef733e",
+    "raw_run_sha256": [
+      {
+        "order": 1,
+        "variant": "baseline",
+        "sha256": "eee6859af734cd41b112d98cd8864753b04e2d591539d761947a8d0c00d37a4b"
+      },
+      {
+        "order": 2,
+        "variant": "candidate",
+        "sha256": "dad8da456b12aa3671cf0102b659d42e868396995ada32d3a5da00d8d6ff4d60"
+      },
+      {
+        "order": 3,
+        "variant": "candidate",
+        "sha256": "761bd1eca95fd820f94d22d44a1bbd403a9b3d337905ed711505d321d59a3732"
+      },
+      {
+        "order": 4,
+        "variant": "baseline",
+        "sha256": "718e7e34c5c87785454d88aab32d0a164c916b77517f0827eca11b921e994704"
+      },
+      {
+        "order": 5,
+        "variant": "baseline",
+        "sha256": "24a073dfdfb168ebe253dea9f01f812fc23d161e31a4ff41fffdba5cc94a0eea"
+      },
+      {
+        "order": 6,
+        "variant": "candidate",
+        "sha256": "97d6313b4feea8b9ec0709162c53d928f904e54840ef543879e74e9eb8d3276f"
+      }
+    ],
+    "source_sha256": {
+      "limits": "fdfb283becae65a98a8c059b65c52f96958a2537c843eafd3d46323073c68cfb",
+      "json": "da4c55b57f967e5f2008edc8abdce526d0beaa79b97f349e149513adc4634234",
+      "messagepack": "c62a2b3239ebd05b18a042d318f01349a380cfe0018a7d761ad69ed9252e4444",
+      "cbor": "4d82cd979e7130f3a701934f7fd21f7f6d2ba10626ffc513a042c4f120110b1b",
+      "security_test": "8dde3e8fe4f7f35f3b9e80e3d125d564fb79a1f5bcf8d4153cb1064ca0af1de5"
+    }
+  },
+  "performance": {
+    "methodology": {
+      "runtime": "Dart 3.13.1 stable AOT executable on macOS arm64",
+      "host": "Apple M3 Ultra shared host, Darwin 25.6.0 arm64; timed subprocesses ran serially and unrelated shared-host work was not controlled.",
+      "order": [
+        "baseline",
+        "candidate",
+        "candidate",
+        "baseline",
+        "baseline",
+        "candidate"
+      ],
+      "processes_per_variant": 3,
+      "samples_per_process_and_scenario": 7,
+      "samples_per_variant_and_scenario": 21,
+      "iterations_per_sample": 250000,
+      "warmups_per_process_and_scenario": 5000,
+      "serializers": [
+        "json",
+        "msgpack",
+        "cbor"
+      ],
+      "scenarios": [
+        "call_absent",
+        "call_timeout",
+        "event_absent",
+        "event_publisher",
+        "event_trustlevel",
+        "invocation_absent",
+        "invocation_caller",
+        "invocation_timeout",
+        "invocation_trustlevel"
+      ],
+      "serializer_scenario_count": 27,
+      "record_count": 1134,
+      "measured_deserializations": 283500000,
+      "warmup_deserializations": 810000,
+      "primary_metric": "deserialize operations per second",
+      "gbit_definition": "Encoded frame bytes multiplied by completed deserialize operations and eight, divided by measured loop time and 1e9; this is an in-memory parser rate, not network bandwidth.",
+      "material_regression_percent": -5,
+      "investigation_rule": "Investigate a candidate median below -5%, or any slower candidate whose observed range does not overlap baseline.",
+      "correctness_rule": "Frame size, iteration count, warmup count, sample index, and checksum must match between baseline and candidate for every serializer/scenario."
+    },
+    "results": [
+      {
+        "serializer": "cbor",
+        "scenario": "call_absent",
+        "frame_bytes": [
+          22
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 720336.5412320637,
+          "min_ops_per_second": 699543.3381088824,
+          "max_ops_per_second": 729699.0429267354,
+          "median_gbit_per_second": 0.1267792312568432
+        },
+        "candidate": {
+          "median_ops_per_second": 709405.0078318313,
+          "min_ops_per_second": 695818.6863499857,
+          "max_ops_per_second": 717673.1314662349,
+          "median_gbit_per_second": 0.12485528137840232
+        },
+        "delta_percent": -1.5175591927538479,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "call_timeout",
+        "frame_bytes": [
+          33
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 414691.35351940256,
+          "min_ops_per_second": 406107.20255490165,
+          "max_ops_per_second": 419517.28662931285,
+          "median_gbit_per_second": 0.10947851732912227
+        },
+        "candidate": {
+          "median_ops_per_second": 411159.8655342776,
+          "min_ops_per_second": 401558.0452154359,
+          "max_ops_per_second": 415507.4010178269,
+          "median_gbit_per_second": 0.10854620450104928
+        },
+        "delta_percent": -0.8515943134945969,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "event_absent",
+        "frame_bytes": [
+          6
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 946704.3328763908,
+          "min_ops_per_second": 923395.1392479871,
+          "max_ops_per_second": 956751.0265938515,
+          "median_gbit_per_second": 0.04544180797806676
+        },
+        "candidate": {
+          "median_ops_per_second": 938522.9900591645,
+          "min_ops_per_second": 908423.6306422192,
+          "max_ops_per_second": 954315.0308434619,
+          "median_gbit_per_second": 0.045049103522839896
+        },
+        "delta_percent": -0.8641919692464861,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "event_publisher",
+        "frame_bytes": [
+          17
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 514719.96145776927,
+          "min_ops_per_second": 503672.78192580293,
+          "max_ops_per_second": 522015.48089110135,
+          "median_gbit_per_second": 0.07000191475825661
+        },
+        "candidate": {
+          "median_ops_per_second": 519093.2893695923,
+          "min_ops_per_second": 512336.0268546052,
+          "max_ops_per_second": 522116.8706403241,
+          "median_gbit_per_second": 0.07059668735426455
+        },
+        "delta_percent": 0.8496518960401378,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "event_trustlevel",
+        "frame_bytes": [
+          18
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 510779.4903646557,
+          "min_ops_per_second": 498597.9425854497,
+          "max_ops_per_second": 521245.9864059047,
+          "median_gbit_per_second": 0.07355224661251042
+        },
+        "candidate": {
+          "median_ops_per_second": 514734.7983372007,
+          "min_ops_per_second": 506079.0212026867,
+          "max_ops_per_second": 519106.2236683368,
+          "median_gbit_per_second": 0.07412181096055691
+        },
+        "delta_percent": 0.7743670306184836,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "invocation_absent",
+        "frame_bytes": [
+          6
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 942571.032152983,
+          "min_ops_per_second": 926509.2836230219,
+          "max_ops_per_second": 954581.0343840088,
+          "median_gbit_per_second": 0.04524340954334319
+        },
+        "candidate": {
+          "median_ops_per_second": 921159.7770056411,
+          "min_ops_per_second": 907092.0081565713,
+          "max_ops_per_second": 934568.9581051428,
+          "median_gbit_per_second": 0.04421566929627077
+        },
+        "delta_percent": -2.2715800100959083,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "invocation_caller",
+        "frame_bytes": [
+          14
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 533972.3914914703,
+          "min_ops_per_second": 520134.40272966534,
+          "max_ops_per_second": 541375.1361558468,
+          "median_gbit_per_second": 0.05980490784704467
+        },
+        "candidate": {
+          "median_ops_per_second": 533203.6582036582,
+          "min_ops_per_second": 522553.40495798667,
+          "max_ops_per_second": 537101.926906873,
+          "median_gbit_per_second": 0.05971880971880972
+        },
+        "delta_percent": -0.143964987714984,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "invocation_timeout",
+        "frame_bytes": [
+          17
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 512075.77082765783,
+          "min_ops_per_second": 496775.92425160704,
+          "max_ops_per_second": 516819.36956306023,
+          "median_gbit_per_second": 0.06964230483256147
+        },
+        "candidate": {
+          "median_ops_per_second": 513976.03638127976,
+          "min_ops_per_second": 506770.4532554934,
+          "max_ops_per_second": 517883.5549184437,
+          "median_gbit_per_second": 0.06990074094785405
+        },
+        "delta_percent": 0.3710906982672846,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "cbor",
+        "scenario": "invocation_trustlevel",
+        "frame_bytes": [
+          18
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 495197.5739280458,
+          "min_ops_per_second": 486490.168033704,
+          "max_ops_per_second": 501920.34724857303,
+          "median_gbit_per_second": 0.0713084506456386
+        },
+        "candidate": {
+          "median_ops_per_second": 497861.18833491317,
+          "min_ops_per_second": 485703.79451232427,
+          "max_ops_per_second": 501675.5964922842,
+          "median_gbit_per_second": 0.0716920111202275
+        },
+        "delta_percent": 0.5378892278770309,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "call_absent",
+        "frame_bytes": [
+          28
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 4265410.929688966,
+          "min_ops_per_second": 3642244.2051894693,
+          "max_ops_per_second": 4339223.105495192,
+          "median_gbit_per_second": 0.9554520482503283
+        },
+        "candidate": {
+          "median_ops_per_second": 4329304.194229904,
+          "min_ops_per_second": 3733237.762446615,
+          "max_ops_per_second": 4443180.60640529,
+          "median_gbit_per_second": 0.9697641395074984
+        },
+        "delta_percent": 1.4979392512035616,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "call_timeout",
+        "frame_bytes": [
+          42
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2047703.295983225,
+          "min_ops_per_second": 2010034.0901781693,
+          "max_ops_per_second": 2083559.0522306585,
+          "median_gbit_per_second": 0.6880283074503636
+        },
+        "candidate": {
+          "median_ops_per_second": 2036261.749230293,
+          "min_ops_per_second": 2011586.7396202125,
+          "max_ops_per_second": 2063029.6828710772,
+          "median_gbit_per_second": 0.6841839477413785
+        },
+        "delta_percent": -0.5587502239887909,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "json",
+        "scenario": "event_absent",
+        "frame_bytes": [
+          11
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3792705.868074519,
+          "min_ops_per_second": 3539321.8659304874,
+          "max_ops_per_second": 3856596.3223497467,
+          "median_gbit_per_second": 0.3337581163905577
+        },
+        "candidate": {
+          "median_ops_per_second": 4540253.890997585,
+          "min_ops_per_second": 4467636.441616927,
+          "max_ops_per_second": 4593224.0758433165,
+          "median_gbit_per_second": 0.39954234240778747
+        },
+        "delta_percent": 19.710150191598718,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "event_publisher",
+        "frame_bytes": [
+          24
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2893886.9532000604,
+          "min_ops_per_second": 2766557.8487246167,
+          "max_ops_per_second": 2950757.7545913793,
+          "median_gbit_per_second": 0.5556262950144115
+        },
+        "candidate": {
+          "median_ops_per_second": 3429637.555903092,
+          "min_ops_per_second": 3389141.191622043,
+          "max_ops_per_second": 3483301.054743559,
+          "median_gbit_per_second": 0.6584904107333936
+        },
+        "delta_percent": 18.513183526764877,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "event_trustlevel",
+        "frame_bytes": [
+          25
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2901915.264074289,
+          "min_ops_per_second": 2807789.9323884184,
+          "max_ops_per_second": 2972156.8347718576,
+          "median_gbit_per_second": 0.5803830528148577
+        },
+        "candidate": {
+          "median_ops_per_second": 3394525.309580708,
+          "min_ops_per_second": 3348872.099876762,
+          "max_ops_per_second": 3420159.789865383,
+          "median_gbit_per_second": 0.6789050619161416
+        },
+        "delta_percent": 16.975342168151197,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "invocation_absent",
+        "frame_bytes": [
+          11
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3534368.1963412217,
+          "min_ops_per_second": 3470486.9787328555,
+          "max_ops_per_second": 3607763.907929865,
+          "median_gbit_per_second": 0.31102440127802755
+        },
+        "candidate": {
+          "median_ops_per_second": 4385272.500833202,
+          "min_ops_per_second": 4198293.813394236,
+          "max_ops_per_second": 4480527.626933347,
+          "median_gbit_per_second": 0.38590398007332183
+        },
+        "delta_percent": 24.075146029574302,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "invocation_caller",
+        "frame_bytes": [
+          21
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2808894.0822219476,
+          "min_ops_per_second": 2590566.1941473926,
+          "max_ops_per_second": 2864574.381538391,
+          "median_gbit_per_second": 0.47189420581328717
+        },
+        "candidate": {
+          "median_ops_per_second": 3409803.868081508,
+          "min_ops_per_second": 3274737.366063242,
+          "max_ops_per_second": 3484757.6699516317,
+          "median_gbit_per_second": 0.5728470498376933
+        },
+        "delta_percent": 21.393109468343386,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "invocation_timeout",
+        "frame_bytes": [
+          25
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2703374.8932166914,
+          "min_ops_per_second": 2635740.643120717,
+          "max_ops_per_second": 2759808.3589075576,
+          "median_gbit_per_second": 0.5406749786433384
+        },
+        "candidate": {
+          "median_ops_per_second": 3227388.913273605,
+          "min_ops_per_second": 3163796.049051494,
+          "max_ops_per_second": 3303513.61708313,
+          "median_gbit_per_second": 0.645477782654721
+        },
+        "delta_percent": 19.38369781312128,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "json",
+        "scenario": "invocation_trustlevel",
+        "frame_bytes": [
+          25
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2397391.637897967,
+          "min_ops_per_second": 2323484.8555257116,
+          "max_ops_per_second": 2430488.0419988334,
+          "median_gbit_per_second": 0.47947832757959336
+        },
+        "candidate": {
+          "median_ops_per_second": 2618788.234308221,
+          "min_ops_per_second": 2582858.0874452433,
+          "max_ops_per_second": 2653223.666755107,
+          "median_gbit_per_second": 0.5237576468616442
+        },
+        "delta_percent": 9.234894829464512,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "call_absent",
+        "frame_bytes": [
+          21
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 5162942.464169179,
+          "min_ops_per_second": 4909565.798000825,
+          "max_ops_per_second": 5289326.139849783,
+          "median_gbit_per_second": 0.8673743339804222
+        },
+        "candidate": {
+          "median_ops_per_second": 5248021.495896047,
+          "min_ops_per_second": 5136740.019314143,
+          "max_ops_per_second": 5342793.639938451,
+          "median_gbit_per_second": 0.881667611310536
+        },
+        "delta_percent": 1.6478787497113512,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "call_timeout",
+        "frame_bytes": [
+          32
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2213564.724632548,
+          "min_ops_per_second": 2119308.596763392,
+          "max_ops_per_second": 2248221.6566695743,
+          "median_gbit_per_second": 0.5666725695059324
+        },
+        "candidate": {
+          "median_ops_per_second": 2222617.3541963017,
+          "min_ops_per_second": 2192367.0548617933,
+          "max_ops_per_second": 2251826.2310734005,
+          "median_gbit_per_second": 0.5689900426742532
+        },
+        "delta_percent": 0.4089615931721191,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "event_absent",
+        "frame_bytes": [
+          5
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3955007.830915505,
+          "min_ops_per_second": 3931126.660901014,
+          "max_ops_per_second": 4021555.5376819754,
+          "median_gbit_per_second": 0.15820031323662018
+        },
+        "candidate": {
+          "median_ops_per_second": 4422352.337655446,
+          "min_ops_per_second": 3802512.7003924195,
+          "max_ops_per_second": 4488733.279468534,
+          "median_gbit_per_second": 0.17689409350621785
+        },
+        "delta_percent": 11.816525446215342,
+        "ranges_overlap": true
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "event_publisher",
+        "frame_bytes": [
+          16
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2909615.6979586137,
+          "min_ops_per_second": 2779260.04980434,
+          "max_ops_per_second": 2978175.9268083484,
+          "median_gbit_per_second": 0.37243080933870254
+        },
+        "candidate": {
+          "median_ops_per_second": 3317982.13598418,
+          "min_ops_per_second": 3013827.4402960786,
+          "max_ops_per_second": 3364511.136531862,
+          "median_gbit_per_second": 0.42470171340597507
+        },
+        "delta_percent": 14.035064435213073,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "event_trustlevel",
+        "frame_bytes": [
+          17
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2939170.9186672624,
+          "min_ops_per_second": 2862180.2944611087,
+          "max_ops_per_second": 2980057.4555077422,
+          "median_gbit_per_second": 0.39972724493874773
+        },
+        "candidate": {
+          "median_ops_per_second": 3280022.041748121,
+          "min_ops_per_second": 3161675.4350465396,
+          "max_ops_per_second": 3311784.6545146247,
+          "median_gbit_per_second": 0.44608299767774445
+        },
+        "delta_percent": 11.596845930804655,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "invocation_absent",
+        "frame_bytes": [
+          5
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 3858739.272704822,
+          "min_ops_per_second": 3739044.5993239805,
+          "max_ops_per_second": 3948573.775152415,
+          "median_gbit_per_second": 0.15434957090819287
+        },
+        "candidate": {
+          "median_ops_per_second": 4340202.427041197,
+          "min_ops_per_second": 4103001.756084752,
+          "max_ops_per_second": 4454263.621138154,
+          "median_gbit_per_second": 0.17360809708164787
+        },
+        "delta_percent": 12.477213937258025,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "invocation_caller",
+        "frame_bytes": [
+          13
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2934961.2585113873,
+          "min_ops_per_second": 2894992.820417805,
+          "max_ops_per_second": 2958369.8198944456,
+          "median_gbit_per_second": 0.3052359708851843
+        },
+        "candidate": {
+          "median_ops_per_second": 3340638.1955208723,
+          "min_ops_per_second": 3084972.48204546,
+          "max_ops_per_second": 3420768.167699739,
+          "median_gbit_per_second": 0.3474263723341707
+        },
+        "delta_percent": 13.82222459778717,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "invocation_timeout",
+        "frame_bytes": [
+          16
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2892112.6304342793,
+          "min_ops_per_second": 2701067.4618609273,
+          "max_ops_per_second": 2925721.775562031,
+          "median_gbit_per_second": 0.3701904166955878
+        },
+        "candidate": {
+          "median_ops_per_second": 3199467.6085899305,
+          "min_ops_per_second": 3097317.7228520103,
+          "max_ops_per_second": 3224225.541025046,
+          "median_gbit_per_second": 0.4095318538995111
+        },
+        "delta_percent": 10.627351608692326,
+        "ranges_overlap": false
+      },
+      {
+        "serializer": "msgpack",
+        "scenario": "invocation_trustlevel",
+        "frame_bytes": [
+          17
+        ],
+        "iterations_per_sample": [
+          250000
+        ],
+        "warmups_per_process_and_scenario": [
+          5000
+        ],
+        "checksums": [
+          246552,
+          5000
+        ],
+        "baseline": {
+          "median_ops_per_second": 2584700.6399718784,
+          "min_ops_per_second": 2543053.9025705187,
+          "max_ops_per_second": 2627789.398446451,
+          "median_gbit_per_second": 0.35151928703617547
+        },
+        "candidate": {
+          "median_ops_per_second": 2691587.175125428,
+          "min_ops_per_second": 2614761.899781406,
+          "max_ops_per_second": 2745442.565341533,
+          "median_gbit_per_second": 0.3660558558170582
+        },
+        "delta_percent": 4.135354535862712,
+        "ranges_overlap": true
+      }
+    ],
+    "summary": {
+      "invariant_failures": 0,
+      "gate_failures": [],
+      "worst_delta_percent": -2.2715800100959083,
+      "median_scenario_delta_percent": 4.135354535862712,
+      "best_delta_percent": 24.075146029574302
+    }
+  }
+}

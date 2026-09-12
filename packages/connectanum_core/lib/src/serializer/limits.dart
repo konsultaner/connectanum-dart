@@ -85,6 +85,73 @@ Never throwInvalidWampOptionsKey(String messageName) {
 
 @pragma('vm:prefer-inline')
 @pragma('dart2js:tryInline')
+int? decodeOptionalWampId(
+  Map<dynamic, dynamic> fields,
+  String fieldName,
+  String diagnosticPath,
+) {
+  final value = fields[fieldName];
+  if (value == null && !fields.containsKey(fieldName)) {
+    return null;
+  }
+  return decodeWampIdValue(value, diagnosticPath);
+}
+
+@pragma('vm:prefer-inline')
+@pragma('dart2js:tryInline')
+int decodeWampIdValue(Object? value, String diagnosticPath) {
+  if (value is int && value >= 1 && value <= serializerMaxWampId) {
+    return value;
+  }
+  return _decodeOptionalWampIdSlow(value, diagnosticPath);
+}
+
+@pragma('vm:prefer-inline')
+@pragma('dart2js:tryInline')
+int decodeWampNonNegativeIntegerValue(
+  Object? value,
+  String diagnosticPath,
+) {
+  if (value is int && value >= 0) {
+    return value;
+  }
+  _throwInvalidWampNonNegativeInteger(diagnosticPath);
+}
+
+@pragma('vm:prefer-inline')
+@pragma('dart2js:tryInline')
+int? decodeOptionalWampNonNegativeInteger(
+  Map<dynamic, dynamic> fields,
+  String fieldName,
+  String diagnosticPath,
+) {
+  final value = fields[fieldName];
+  if (value == null && !fields.containsKey(fieldName)) {
+    return null;
+  }
+  return decodeWampNonNegativeIntegerValue(value, diagnosticPath);
+}
+
+@pragma('vm:never-inline')
+int _decodeOptionalWampIdSlow(Object? value, String diagnosticPath) {
+  if (value is BigInt &&
+      value >= BigInt.one &&
+      value <= BigInt.from(serializerMaxWampId)) {
+    return value.toInt();
+  }
+  _throwInvalidWampId(diagnosticPath);
+}
+
+@pragma('vm:never-inline')
+Never _throwInvalidWampId(String diagnosticPath) {
+  throw FormatException('$diagnosticPath must be a WAMP ID');
+}
+
+@pragma('vm:never-inline')
+Never _throwInvalidWampNonNegativeInteger(String diagnosticPath) {
+  throw FormatException('$diagnosticPath must be a non-negative integer');
+}
+
 List<int>? decodeOptionalWampIdList(
   Map<String, dynamic> options,
   String optionName,

@@ -15,7 +15,7 @@ narrow fix does not complete this plan.
 
 | Component | Review and attack cases | Evidence status |
 | --- | --- | --- |
-| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening, SA-013 declared-collection allocation hardening, SA-014 lazy argument/keyword shape, key and diagnostic integrity, SA-015 short-array normalization plus PUBLISH recipient-filter strictness, and SA-016 option-dictionary integrity are locally regression/performance-verified; field-type and optional numeric strictness outside the reviewed PUBLISH filters, MessagePack browser Uint64 compatibility, consistency outside the reviewed paths, and broader protocol review remain pending |
+| Core protocol and serializers | Malformed JSON/MessagePack/CBOR, lengths, IDs, nesting, lazy payload consistency | SA-012 nesting, complete-value framing, core integer, seven-field arity and diagnostic hardening, SA-013 declared-collection allocation hardening, SA-014 lazy argument/keyword shape, key and diagnostic integrity, SA-015 short-array normalization plus PUBLISH recipient-filter strictness, SA-016 option-dictionary integrity, and SA-017 standardized optional numeric integrity are locally regression/performance-verified; MessagePack browser Uint64 compatibility, field-type consistency outside the reviewed paths, and broader protocol review remain pending |
 | Native transport and FFI | RawSocket/WebSocket/HTTP1/2/3, TLS, framing, resource bounds, handle ownership, unsafe code, zero-copy lifetimes | SA-002 dependencies, SA-004/005 message ownership/handles, SA-006 HTTP/3 admission, SA-007 restart isolation, SA-008 checked resource allocation, SA-009 response completion, SA-010 HTTP/1 request framing and SA-011 paused-producer delivery are locally regression-verified; broader framing/lifetime review, finite ID availability and earlier performance confirmation pending |
 | Client sessions | Authentication lifecycle, reconnect races, unsolicited replies, cancellation, file transfer, browser/native parity | Pending |
 | Authentication and auth service | Ticket/CRA/SCRAM/cryptosign, remote delegation, credential rotation, KDF limits, identity binding, pending transactions | SA-001 admission and SA-003 transaction fixes reproduced and locally verified; SA-003 performance provisional, broader review pending |
@@ -766,6 +766,47 @@ scope, including code excluded from the root workspace gates.
   optional numeric validation, browser MessagePack Uint64 compatibility,
   broader protocol review, and every remaining component row.
 
+## SA-017 Serializer Optional Numeric Integrity (2026-09-12)
+
+- The frozen `34592c0a` baseline accepted or silently discarded malformed
+  values in `INVOCATION.Details.caller`, `EVENT.Details.publisher`,
+  `CALL.Options.timeout`, `INVOCATION.Details.timeout`, and both standardized
+  `trustlevel` fields. CBOR also truncated numeric values and lost the maximum
+  valid `2^53` caller/publisher ID. Eighteen fail-first serializer/field cases
+  reproduce the cross-format defects while valid boundaries and absence remain
+  explicit controls.
+- The [official WAMP draft](https://wamp-proto.org/wamp_latest_ietf.html)
+  defines WAMP IDs as integers from 1 through `2^53`, caller/publisher as
+  session IDs, timeout as a non-negative integer where zero disables it, and
+  trustlevel as a non-negative integer. Shared scalar validators now reject
+  explicit null, booleans, fractions, negatives, strings, lists, and maps with
+  stable payload-free field-scoped `FormatException`s. CBOR accepts `BigInt`
+  only for an in-range WAMP ID, preserving the maximum valid boundary.
+- JSON and MessagePack combine typed EVENT/INVOCATION extraction, numeric
+  validation, and custom-detail preservation in one pass. Invocation
+  `trustlevel` remains in `details.custom` to avoid a public API change; valid
+  UTF-8/custom details, optional absence, and lazy payload behavior remain
+  compatible.
+- Thirty-six focused VM tests, the same 36 Chrome/dart2js tests, all 282
+  serializer tests, and core analysis pass. The local model test companion was
+  unavailable because the managed sandbox blocked both Ollama and GLM loopback
+  endpoints; manual fail-first design covered malformed scalar and structured
+  values, boundaries, absence, diagnostics, and serializer parity.
+- Multiple slower candidates were rejected before acceptance. The final
+  exact-source ABBAAB AOT campaign completes 283,500,000 measured
+  deserializations plus 810,000 warmups across 27 serializer/scenario pairs.
+  There are zero correctness-invariant or performance-gate failures. The worst
+  median is -2.27% with overlapping ranges, the median scenario improves 4.14%,
+  and the best improves 24.08%. Evidence is
+  `docs/security/2026-09-12-serializer-optional-numeric-benchmarks.json`.
+- Final repository-wide `bin/verify` exits zero across native transport and
+  serializers, default and feature-enabled FFI, Dart packages,
+  package-consumer smokes, router/MCP integration, live transport and benchmark
+  suites, and Chrome Dart2Wasm coverage.
+- Keep this checkpoint local and unpublished. Continue browser MessagePack
+  Uint64 compatibility, field-type consistency outside reviewed paths, broader
+  protocol review, and every remaining component row.
+
 ## Related Plans
 
 The broader WampApp feature plan is paused while this security goal is active.
@@ -774,14 +815,13 @@ that this audit's other surfaces have been reviewed.
 
 ## Next Implementation Slice
 
-SA-016 closes required Options container and key-shape integrity without
+SA-017 closes the reviewed standardized optional numeric fields without
 changing valid wire behavior and with final AOT performance evidence. Continue
-the remaining component matrix rather than repeating SA-012/013/014/015/016
-serializer benchmarks. The next bounded core review should inspect message
-field types and optional numeric fields outside PUBLISH recipient filters
-across JSON, MessagePack, and CBOR, with fail-first protocol tests before any
-behavior change. Browser MessagePack Uint64 handling remains a separate
-compatibility boundary.
+the remaining component matrix rather than repeating SA-012 through SA-017
+serializer benchmarks. The next bounded core review should reproduce and fix
+browser MessagePack Uint64 compatibility at WAMP-ID boundaries, with
+fail-first browser/native parity tests before any behavior change. Broader
+field-type consistency and protocol review remain open after that boundary.
 
 SA-003 authentication-only hardening is locally verified, not published. Six
 fail-first direct-service lifecycle regressions were reproduced on `1bc60ef1`.
