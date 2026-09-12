@@ -864,8 +864,11 @@ scope, including code excluded from the root workspace gates.
   consumer smoke, but Codecov reported 80.61% patch coverage against the 83.50%
   target. Focused auth lifecycle and native signed-handle ABI coverage now
   exercises all 14 targeted changed production lines; canonical local project
-  coverage rises from 83.4778% to 83.5278% and projects 83.51% patch coverage.
-  Keep publication blocked until hosted CI confirms the repaired gate.
+  coverage rises from 83.4778% to 83.5278%. The next hosted run passed project
+  coverage at 83.51%, while patch coverage reached 83.29% and remained one
+  executable line below target. A live router-to-auth-server regression now also
+  exercises fail-closed rejection of an unknown requested realm. Keep
+  publication blocked until hosted CI confirms the completed repair.
 
 ## Related Plans
 

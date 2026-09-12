@@ -54,9 +54,11 @@ Release PR #91 initially passed hosted package dry-runs, Fast Checks, and
 consumer smoke but failed the Codecov patch gate at 80.61% against an 83.50%
 target. Focused authentication-failure, trusted-abort, and signed-handle ABI
 coverage now exercises all 14 targeted changed production lines. The canonical
-local report rises from 83.4778% to 83.5278% overall and projects 83.51% patch
-coverage; protected-master publication remains blocked until hosted CI confirms
-that evidence.
+local report rises from 83.4778% to 83.5278% overall. Hosted project coverage
+then passed at 83.51%, while patch coverage reached 83.29% and remained one
+executable line below the target. A live router-to-auth-server regression now
+also covers fail-closed rejection of an unknown requested realm; protected-master
+publication remains blocked until hosted CI confirms the completed repair.
 
 SA-003 authentication lifecycle hardening is locally implemented. Six
 fail-first regressions reproduced late post-abort results, challenge overwrites,

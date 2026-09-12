@@ -259,14 +259,41 @@ void main() {
     test('malformed admitted RPCs do not consume pending challenges', () async {
       final harness = await _RemoteAuthHarness.start(nativeLib: nativeLib!);
       addTearDown(harness.dispose);
-      await harness.bindAuthServer(
-        AuthServer(
-          settings: _buildAuthServerSettings(),
-          authTokens: const ['shared-token'],
-        ),
+      final authServer = AuthServer(
+        settings: _buildAuthServerSettings(),
+        authTokens: const ['shared-token'],
       );
+      await harness.bindAuthServer(authServer);
       final caller = await harness.connectAuthService();
       addTearDown(caller.close);
+      await expectLater(
+        caller
+            .call(
+              'authenticate.hello',
+              argumentsKeywords: const {
+                'transactionId': 'unknown-realm',
+                'auth_token': 'shared-token',
+                'hello': {
+                  'realm': 'unknown.realm',
+                  'sessionId': 42,
+                  'transport': {'connectionId': 42},
+                  'details': {
+                    'authid': 'ticket-user',
+                    'authmethods': ['ticket'],
+                  },
+                },
+              },
+            )
+            .first,
+        throwsA(
+          isA<wamp_core.Error>().having(
+            (error) => error.error,
+            'error',
+            wamp_core.Error.invalidArgument,
+          ),
+        ),
+      );
+      expect(authServer.pendingAuthenticationCounts, isEmpty);
       final malformed = <(String, Map<String, Object?>)>[
         ('authenticate', {}),
         ('authenticate', {'authenticate': {}}),
